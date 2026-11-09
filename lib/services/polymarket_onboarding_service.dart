@@ -355,12 +355,21 @@ class PolymarketOnboardingService {
   /// first starts at once, the next joins after [polygonRpcStagger] without
   /// an answer, and the first answer wins. Signed transactions never go
   /// here: they are submitted through the backend relay.
+  ///
+  /// Five independent providers, in the order they answered from here on
+  /// 2026-11-09 (publicnode first as the project's Polygon endpoint; it
+  /// and Tenderly were within 10 ms of each other). The others on the
+  /// public lists were checked the same day and left out: polygon-rpc.com
+  /// (key disabled), llamarpc and meowrpc (no answer), Ankr, BlockPI and
+  /// OnFinality (key or rate limit), Blast (shut down), Omnia (521), and
+  /// polygon-bor.publicnode.com is the same provider as the first entry.
   @visibleForTesting
   static const polygonReadRpcs = [
     PolymarketConstants.polygonRpc,
+    'https://polygon.gateway.tenderly.co',
+    'https://rpc-mainnet.matic.quiknode.pro',
     'https://polygon.drpc.org',
     'https://1rpc.io/matic',
-    'https://polygon.gateway.tenderly.co',
   ];
 
   /// Endpoints known to serve Polygon: the `eth_chainId` check is skipped
@@ -368,9 +377,10 @@ class PolymarketOnboardingService {
   /// endpoint (a test's, a future config) is still checked.
   static const Set<String> knownPolygonRpcs = {
     PolymarketConstants.polygonRpc,
+    'https://polygon.gateway.tenderly.co',
+    'https://rpc-mainnet.matic.quiknode.pro',
     'https://polygon.drpc.org',
     'https://1rpc.io/matic',
-    'https://polygon.gateway.tenderly.co',
   };
 
   /// Test seam: the read list to use instead of [polygonReadRpcs].
@@ -384,9 +394,19 @@ class PolymarketOnboardingService {
   static Duration polygonRpcTimeout = const Duration(seconds: 5);
 
   /// How long the first endpoint has the read to itself before the next
-  /// one is started beside it.
+  /// one is started beside it. Short: a healthy endpoint answers in well
+  /// under this, and a slow one must not hold the others back (on
+  /// 2026-11-08 every endpoint took 5 to 8 s from one phone, one after the
+  /// other, and the read failed closed).
   @visibleForTesting
-  static Duration polygonRpcStagger = const Duration(seconds: 1);
+  static Duration polygonRpcStagger = const Duration(milliseconds: 400);
+
+  /// The most one read takes in all, however many endpoints it tries.
+  /// Without it a read lasted the stagger per endpoint plus one timeout
+  /// (and a chain check first for an unlisted endpoint); past this the
+  /// read fails closed and a late answer is kept only as endpoint health.
+  @visibleForTesting
+  static Duration polygonRpcTotalTimeout = const Duration(seconds: 8);
 
   /// How long an endpoint that just failed is tried after the others, so a
   /// hanging RPC costs one timeout rather than one per read.
@@ -423,7 +443,8 @@ class PolymarketOnboardingService {
     _healthyRpcsLoading = null;
     debugReadRpcs = null;
     polygonRpcTimeout = const Duration(seconds: 5);
-    polygonRpcStagger = const Duration(seconds: 1);
+    polygonRpcStagger = const Duration(milliseconds: 400);
+    polygonRpcTotalTimeout = const Duration(seconds: 8);
     loadHealthyRpcs = _PolygonRpcMemory.read;
     persistHealthyRpcs = _PolygonRpcMemory.write;
   }
@@ -539,14 +560,30 @@ class PolymarketOnboardingService {
   /// next one is started every [polygonRpcStagger], and the first String
   /// result wins. An endpoint that times out, errors or is not on Polygon
   /// is skipped; one that answers is remembered first for later reads.
-  /// Throws [PolymarketReadException] only when none answers, so strict
-  /// callers still fail closed.
+  /// Throws [PolymarketReadException] only when none answers, or when
+  /// none has within [polygonRpcTotalTimeout], so strict callers still
+  /// fail closed, and within a bounded time.
   Future<String> _rpcFirstAnswer(String method, List<Object> params) async {
     await _ensureHealthyRpcsLoaded();
     final order = _polygonReadOrder();
+    if (order.isEmpty) {
+      _trackReadFailedClosed(method, 0);
+      throw PolymarketReadException('$method: no Polygon RPC answered');
+    }
     final winner = Completer<String>();
     var pending = 0;
     var started = 0;
+
+    void failClosed() {
+      if (winner.isCompleted) return;
+      _trackReadFailedClosed(method, order.length);
+      winner.completeError(
+          PolymarketReadException('$method: no Polygon RPC answered'));
+    }
+
+    // The whole read is bounded: whatever is still in flight past this
+    // only feeds the endpoint health for the next read.
+    final deadline = Timer(polygonRpcTotalTimeout, failClosed);
 
     Future<void> attempt(String rpc) async {
       pending++;
@@ -561,11 +598,7 @@ class PolymarketOnboardingService {
         _rpcFailed(rpc);
       } finally {
         pending--;
-        if (!winner.isCompleted && pending == 0 && started == order.length) {
-          _trackReadFailedClosed(method, order.length);
-          winner.completeError(
-              PolymarketReadException('$method: no Polygon RPC answered'));
-        }
+        if (pending == 0 && started == order.length) failClosed();
       }
     }
 
@@ -583,11 +616,11 @@ class PolymarketOnboardingService {
       ]);
       if (!winner.isCompleted && pending == 0) continue;
     }
-    if (order.isEmpty) {
-      _trackReadFailedClosed(method, 0);
-      throw PolymarketReadException('$method: no Polygon RPC answered');
+    try {
+      return await winner.future;
+    } finally {
+      deadline.cancel();
     }
-    return winner.future;
   }
 
   /// Every Polygon read endpoint failed one read. Setup, live balances and

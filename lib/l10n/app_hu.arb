@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "A legutóbbi előrejelzésed leadása még folyamatban van. Egy kicsit később ellenőrizd az állapotát.",
   "betApprovingSpend": "Jóváhagyás…",
   "betBuyPartialMarket": "{total} egységből {bought} megvéve {price} áron. A te áradon nem volt több eladó, így a többit nem vettük meg.",
+  "betSellPartialMarket": "{total} egységből {sold} eladva {price} áron. A te áradon nem volt több vevő, így a többi nem kelt el.",
   "betBuyPartialLimit": "{total} egységből {bought} megvéve {price} áron. A többi a te áradon vár a Nyitott megbízások között.",
   "betBuyNotMatched": "A te áradon nem maradt eladó, így semmit sem vettünk. A pénzed nem lett elköltve.",
   "betBuyFailedOnChain": "Az előrejelzés párosítva lett, de a hálózaton nem ment át. A pénzed nem lett elköltve.",

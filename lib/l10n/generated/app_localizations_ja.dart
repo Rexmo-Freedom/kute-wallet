@@ -6679,6 +6679,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return '$totalシェア中$soldシェアを$priceで売却しました。指定価格の買い手がいなかったため、残りは売却されませんでした。';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return '$totalシェア中$boughtシェアを$priceで購入しました。残りは指定価格で未約定注文に残っています。';
   }

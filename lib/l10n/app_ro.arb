@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Ultima ta predicție încă este plasată. Verifică-i starea în câteva momente.",
   "betApprovingSpend": "Se aprobă…",
   "betBuyPartialMarket": "Cumpărate {bought} din {total} unități la {price}. Nu mai erau vânzători la prețul tău, așa că restul nu a fost cumpărat.",
+  "betSellPartialMarket": "Vândute {sold} din {total} unități la {price}. Nu mai erau cumpărători la prețul tău, așa că restul nu a fost vândut.",
   "betBuyPartialLimit": "Cumpărate {bought} din {total} unități la {price}. Restul așteaptă la prețul tău în Ordine deschise.",
   "betBuyNotMatched": "Nu au mai rămas vânzători la prețul tău, așa că nu s-a cumpărat nimic. Banii tăi nu au fost cheltuiți.",
   "betBuyFailedOnChain": "Predicția a fost potrivită, dar nu a trecut în rețea. Banii tăi nu au fost cheltuiți.",

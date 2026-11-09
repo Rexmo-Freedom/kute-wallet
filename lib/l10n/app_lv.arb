@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Tava pēdējā prognoze vēl tiek iesniegta. Pēc brīža pārbaudi tās statusu.",
   "betApprovingSpend": "Piešķir atļauju…",
   "betBuyPartialMarket": "Nopirktas {bought} no {total} daļām par {price}. Par tavu cenu vairs nebija pārdevēju, tāpēc pārējais netika nopirkts.",
+  "betSellPartialMarket": "Pārdotas {sold} no {total} daļām par {price}. Par tavu cenu vairs nebija pircēju, tāpēc pārējais netika pārdots.",
   "betBuyPartialLimit": "Nopirktas {bought} no {total} daļām par {price}. Pārējais gaida par tavu cenu sadaļā Atvērtie rīkojumi.",
   "betBuyNotMatched": "Par tavu cenu vairs nebija pārdevēju, tāpēc nekas netika nopirkts. Tava nauda netika iztērēta.",
   "betBuyFailedOnChain": "Prognoze tika sapārota, bet tīklā netika izpildīta. Tava nauda netika iztērēta.",

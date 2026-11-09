@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "La tua ultima previsione è ancora in fase di invio. Controlla il suo stato tra un momento.",
   "betApprovingSpend": "Approvazione…",
   "betBuyPartialMarket": "Acquistate {bought} quote su {total} a {price}. Non c'erano altri venditori al tuo prezzo, quindi il resto non è stato acquistato.",
+  "betSellPartialMarket": "Vendute {sold} quote su {total} a {price}. Non c'erano altri acquirenti al tuo prezzo, quindi il resto non è stato venduto.",
   "betBuyPartialLimit": "Acquistate {bought} quote su {total} a {price}. Il resto attende al tuo prezzo in Ordini aperti.",
   "betBuyNotMatched": "Non c'erano più venditori al tuo prezzo, quindi non è stato acquistato nulla. Il tuo denaro non è stato speso.",
   "betBuyFailedOnChain": "La previsione è stata abbinata ma non è andata a buon fine sulla rete. Il tuo denaro non è stato speso.",

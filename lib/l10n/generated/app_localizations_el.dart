@@ -7004,6 +7004,11 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Πουλήθηκαν $sold από $total μερίδια στα $price. Δεν υπήρχαν άλλοι αγοραστές στην τιμή σου, οπότε το υπόλοιπο δεν πουλήθηκε.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Αγοράστηκαν $bought από $total μερίδια στα $price. Το υπόλοιπο περιμένει στην τιμή σου στις Ανοιχτές εντολές.';
   }

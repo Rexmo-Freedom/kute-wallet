@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Tvá poslední predikce se ještě zadává. Za chvíli zkontroluj její stav.",
   "betApprovingSpend": "Schvaluje se…",
   "betBuyPartialMarket": "Koupeno {bought} z {total} podílů za {price}. Za tvou cenu už nebyli další prodávající, takže zbytek se nekoupil.",
+  "betSellPartialMarket": "Prodáno {sold} z {total} podílů za {price}. Za tvou cenu už nebyli další kupující, takže zbytek se neprodal.",
   "betBuyPartialLimit": "Koupeno {bought} z {total} podílů za {price}. Zbytek čeká za tvou cenu v Otevřených pokynech.",
   "betBuyNotMatched": "Za tvou cenu nezůstali žádní prodávající, takže se nic nekoupilo. Tvé peníze nebyly utraceny.",
   "betBuyFailedOnChain": "Predikce se spárovala, ale v síti neprošla. Tvé peníze nebyly utraceny.",

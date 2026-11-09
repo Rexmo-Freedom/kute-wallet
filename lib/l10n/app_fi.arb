@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Viimeisintä ennustettasi tehdään vielä. Tarkista sen tila hetken päästä.",
   "betApprovingSpend": "Hyväksytään…",
   "betBuyPartialMarket": "Ostettu {bought}/{total} osuutta hintaan {price}. Hinnallasi ei ollut enempää myyjiä, joten loppua ei ostettu.",
+  "betSellPartialMarket": "Myyty {sold}/{total} osuutta hintaan {price}. Hinnallasi ei ollut enempää ostajia, joten loppua ei myyty.",
   "betBuyPartialLimit": "Ostettu {bought}/{total} osuutta hintaan {price}. Loput odottavat hinnallasi avoimissa toimeksiannoissa.",
   "betBuyNotMatched": "Hinnallasi ei ollut enää myyjiä, joten mitään ei ostettu. Rahojasi ei käytetty.",
   "betBuyFailedOnChain": "Ennuste täsmättiin, mutta se ei mennyt läpi verkossa. Rahojasi ei käytetty.",

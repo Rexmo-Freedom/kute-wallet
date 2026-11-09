@@ -8,12 +8,8 @@ import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/sell_settlement.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
-    show
-        PolymarketSellPriceMoved,
-        polymarketCentsLabel,
-        polymarketEstimatedTick,
-        polymarketSellFloor,
-        polymarketSellSendPrice;
+    show PolymarketSellPriceMoved, polymarketCentsLabel, polymarketEstimatedTick;
+import 'package:kute/services/polymarket/sell_ladder.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
 import 'package:kute/helpers/user_error_copy.dart';
@@ -652,13 +648,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         ? tick
         : polymarketEstimatedTick(bestBid);
 
-    // One rung at the slippage the user chose. The ladder used to add a
-    // hidden 30% rung, so the approval bound a floor far below what the
-    // sheet showed; like the buy path, what is approved is what was picked.
-    final slippageLadder = <double>[_slippagePct];
+    // The worst price approved: the floor at the slippage the person
+    // chose (what the sheet shows), or the venue's lowest price for a
+    // position already trading under 2¢ so dust can leave at whatever
+    // bid is left (sell_ladder.dart). The rungs sent run from the floor
+    // at the bid read when the order is signed down to this, never under.
     final sellShares = _sharesToSell;
-    final approvedFloor = _sellRungPrice(bestBid,
-        slippageLadder.reduce((a, b) => a > b ? a : b), sellTick);
+    final approvedFloor = polymarketSellApprovalFloor(
+        bid: bestBid, slippagePct: _slippagePct, tick: sellTick);
     // The bid is read again while the approval is on screen (kept at most
     // a second old), so the sale is priced from the book as it is when it
     // is signed.
@@ -678,7 +675,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       tokenId: tokenId,
       shares: sellShares,
       worstPrice: approvedFloor,
-      orderType: OrderType.fok,
+      orderType: OrderType.fak,
     );
     if (approval == null) {
       sendBook.cancel();
@@ -702,17 +699,16 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // "Sold · confirming" once it matched, then the receipt (or the
     // reason, here on the ticket).
     try {
-      // Lower clamp = 0.001 (0.1¢) instead of 0.01 (1¢) so users can
-      // exit sub-cent positions at the actual market bid. With a 1¢
-      // floor a YES position trading around 0.3¢ would have its
-      // sell order priced at 1¢ — far above any real bid — and the
-      // FOK would zero-fill, effectively trapping the user out of
-      // their shares. We're not in the business of blocking exits.
-      // The ladder itself is built above, before the approval.
+      // Fill-and-kill: each rung sells what the book has at or above its
+      // price and the rest stays with the person, sellable again at once.
+      // The lower clamp is 0.001 (0.1¢), the venue's lowest price, so a
+      // position trading around 0.3¢ can leave at the real bid instead of
+      // being priced at 1¢ above every buyer. We're not in the business
+      // of blocking exits.
 
       // The bid now: under the approved floor nothing is signed and the
-      // retry names the new floor; otherwise the floor at this bid, never
-      // under the approved one.
+      // retry names the new floor; otherwise the rungs run from the floor
+      // at this bid down to the approved one, never under it.
       OrderBook? freshBook;
       try {
         freshBook = await sendBook.take().timeout(const Duration(seconds: 3));
@@ -720,9 +716,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       final freshTick = double.tryParse(freshBook?.minTickSize ?? '');
       final sendTick =
           freshTick != null && freshTick > 0 && freshTick < 1 ? freshTick : sellTick;
+      final rungs = polymarketSellLadder(
+        approvedFloor: approvedFloor,
+        freshBid: freshBook?.bestBid,
+        slippagePct: _slippagePct,
+        tick: sendTick,
+      );
 
       Map<String, dynamic>? response;
-      double orderPrice = 0;
       Object? lastErr;
       double readResponseAmount(dynamic raw) {
         if (raw == null) return 0;
@@ -731,19 +732,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         return 0;
       }
 
-      for (final slip in slippageLadder) {
-        // Lower clamp = 0.001 (0.1¢) instead of 0.01 (1¢) so users can
-        // exit sub-cent positions at the actual market bid.
-        orderPrice = polymarketSellSendPrice(
-                approvedFloor: approvedFloor,
-                freshBid: freshBook?.bestBid,
-                slippagePct: slip,
-                tick: sendTick)
-            .clamp(0.001, 0.99)
-            .toDouble();
+      for (final orderPrice in rungs) {
         if (kDebugMode) {
           debugPrint('[sell] placeOrder request: tokenId=$tokenId '
-              'shares=$_sharesToSell limit=$orderPrice slippage=$slip%');
+              'shares=$_sharesToSell limit=$orderPrice '
+              'rung=${rungs.indexOf(orderPrice) + 1}/${rungs.length}');
         }
         try {
           final attempt = await notifier.placeOrder(
@@ -752,14 +745,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             size: sellShares,
             price: orderPrice,
             negRisk: _negRiskFor(tokenId),
-            orderType: OrderType.fok,
+            orderType: OrderType.fak,
             grant: ladder.rung(
               walletId: walletId,
               tokenId: tokenId,
               isBuy: false,
               size: sellShares,
               price: orderPrice,
-              orderType: OrderType.fok.name,
+              orderType: OrderType.fak.name,
             ),
           );
           if (kDebugMode) debugPrint('[sell] placeOrder response: $attempt');
@@ -819,9 +812,29 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       }
 
       if (response == null) {
-        throw lastErr ??
-            Exception('No bids matched at this price. The book may be thin. '
-                'Try selling a smaller amount or wait for liquidity.');
+        // Every rung was killed. The book, read once more, says what to
+        // tell the person: no bids at all (the honest dust copy), a bid
+        // now under the approved floor (retry at the new floor), or a
+        // book thinner than it read (the last kill itself).
+        OrderBook? afterKill;
+        try {
+          final model = PolymarketModel();
+          try {
+            afterKill = await model
+                .getOrderBook(tokenId)
+                .timeout(const Duration(seconds: 3));
+          } finally {
+            model.dispose();
+          }
+        } catch (_) {}
+        throw polymarketSellLadderOutcome(
+          lastError: lastErr,
+          bookRead: afterKill != null,
+          bestBid: afterKill?.bestBid,
+          approvedFloor: approvedFloor,
+          slippagePct: _slippagePct,
+          tick: sendTick,
+        );
       }
 
       // Accepted. What became of it is read from the venue (the order,
@@ -1031,7 +1044,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final sold = s.soldShares;
     final proceeds = s.proceeds;
     final avgPrice = s.averagePrice;
-    final partialLimit = s.result == PmSellResult.partial;
+    final partial = s.result == PmSellResult.partial;
 
     // Optimistically inject this sell into the home Activity feed so
     // the user sees a "Sold No · 9.96 shares · $1.39" row immediately,
@@ -1134,11 +1147,13 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // swap). The card drops (full sale) or shrinks (partial) now that the
     // trade is on chain, and the account is read again right away and
     // while the Data API catches up, instead of on the next slow tick.
-    final sellingAll = sold >= pos.size - 0.000001;
+    final sellingAll =
+        polymarketSaleEmptiesPosition(sold: sold, held: pos.size);
     // Mark the token sold so a re-tap on a stale tile can't fire a
-    // second order against the now-zero balance (see `_handleSell`). A
-    // limit sell that is still partly for sale keeps its shares held.
-    if (!partialLimit) notifier.markTokenSold(tokenId);
+    // second order against the now-zero balance (see `_handleSell`), only
+    // when the whole position went: shares still held after a partial
+    // fill, or a sale of part of the position, are sellable at once.
+    if (sellingAll) notifier.markTokenSold(tokenId);
     notifier.markSoldOptimistically(
         tokenId: tokenId,
         sharesSold: sold,
@@ -1193,9 +1208,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!rootNavigator.mounted) return;
-      if (partialLimit) {
-        // Some of a limit sell filled; the rest is still for sale at the
-        // person's price and stays under Open orders.
+      if (partial) {
+        // Some of the shares sold. The rest of a limit sell is still for
+        // sale at the person's price under Open orders; the rest of a
+        // market sell was killed for want of buyers and stays held.
         final at = avgPrice ?? limitPrice ?? 0;
         pushKuteSuccessOverlay(
           navigator: rootNavigator,
@@ -1207,14 +1223,19 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                     sold.toStringAsFixed(2), _formatPriceCompact(at)),
             contextLine: '$outcome · $question',
             rows: {l10n.betShares: sold.toStringAsFixed(2)},
-            // How much sold, and that the rest is still for sale at the
-            // person's price.
-            detail: l10n.betLimitSellPartial(
-              sold.toStringAsFixed(2),
-              s.offeredShares.toStringAsFixed(2),
-              _formatPriceCompact(at),
-              s.remainingShares.toStringAsFixed(2),
-            ),
+            // How much sold, and what became of the rest.
+            detail: limit
+                ? l10n.betLimitSellPartial(
+                    sold.toStringAsFixed(2),
+                    s.offeredShares.toStringAsFixed(2),
+                    _formatPriceCompact(at),
+                    s.remainingShares.toStringAsFixed(2),
+                  )
+                : l10n.betSellPartialMarket(
+                    sold.toStringAsFixed(2),
+                    s.offeredShares.toStringAsFixed(2),
+                    _formatPriceCompact(at),
+                  ),
             onDone: rootNavigator.pop,
           ),
         );
@@ -1373,15 +1394,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     );
   }
 
-  /// The limit price of one sell ladder rung. The lower clamp is 0.001
-  /// (0.1¢) so sub-cent positions can exit at the real bid.
-  /// The lowest price the sell accepts: the slippage rounded up to the
-  /// tick, with one tick of room at least (polymarketSellFloor).
-  static double _sellRungPrice(double bestBid, double slip, double tick) =>
-      polymarketSellFloor(bid: bestBid, slippagePct: slip, tick: tick)
-          .clamp(0.001, 0.99)
-          .toDouble();
-
   /// Phase 1b.4. Prompts for selling [shares] of [tokenId] at no less than
   /// [worstPrice]. Null when declined or there is no signing wallet.
   Future<AuthGrant?> _approveSell({
@@ -1451,11 +1463,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// be sold, and the position becomes clearable once the market
   /// resolves.
   String _sellFailureMessage(Object e) {
-    final s = e.toString().toLowerCase();
-    final noLiquidity = s.contains('fok') ||
-        s.contains('fully filled') ||
-        s.contains('no bids matched');
-    final noBuyers = _liquidityBid == null || _liquidityBid! <= 0.01;
+    final noLiquidity = polymarketSellKilledForWantOfBids(e);
+    // No buyers: the book read after the last kill had no bid at all, or
+    // the bid this sheet has been watching is gone or under a cent.
+    final noBuyers = e is PolymarketSellNoBids ||
+        _liquidityBid == null ||
+        _liquidityBid! <= 0.01;
     final dustPrice = pos.currentPrice <= 0.02;
     if (noLiquidity && (noBuyers || dustPrice)) {
       return context.l10n.predictDustSellError;

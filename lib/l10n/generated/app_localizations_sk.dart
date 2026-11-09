@@ -6955,6 +6955,11 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Predaných $sold z $total podielov za $price. Za tvoju cenu už neboli ďalší kupujúci, takže zvyšok sa nepredal.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Kúpených $bought z $total podielov za $price. Zvyšok čaká za tvoju cenu v Otvorených príkazoch.';
   }

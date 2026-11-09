@@ -169,6 +169,33 @@ void main() {
     expect(partial.averagePrice, closeTo(0.61, 1e-9));
   });
 
+  test('a market (fill-and-kill) sell that sold part of its shares is '
+      'partial: the rest was killed and stays held', () async {
+    var reads = 0;
+    final s = await watcher(
+      order: (_) async => null,
+      trade: (_) async => tradeAs(++reads < 2 ? 'MATCHED' : 'MINED'),
+    ).watch(
+      response: {
+        'success': true,
+        'orderID': orderId,
+        'status': 'matched',
+        'makingAmount': '20',
+        'takingAmount': '0.24',
+        'tradeIDs': ['t1'],
+      },
+      tokenId: token,
+      offeredShares: 43.48,
+      resting: false,
+    );
+    expect(s.result, PmSellResult.partial);
+    expect(s.soldShares, 20);
+    expect(s.remainingShares, closeTo(23.48, 1e-9));
+    expect(s.proceeds, closeTo(0.24, 1e-9));
+    expect(s.confirmedBy, 'mined');
+    expect(s.analyticsParams()['fill_outcome'], 'partial');
+  });
+
   test('an order the venue never answers for is unknown, not sold', () async {
     final s = await watcher(order: (_) async => throw StateError('down'))
         .watch(

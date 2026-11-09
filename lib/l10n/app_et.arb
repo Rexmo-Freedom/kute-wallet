@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Sinu viimast ennustust alles esitatakse. Kontrolli hetke pärast selle olekut.",
   "betApprovingSpend": "Loa andmine…",
   "betBuyPartialMarket": "Ostetud {bought} osakut {total}-st hinnaga {price}. Sinu hinnaga rohkem müüjaid polnud, seega ülejäänut ei ostetud.",
+  "betSellPartialMarket": "Müüdud {sold} osakut {total}-st hinnaga {price}. Sinu hinnaga rohkem ostjaid polnud, seega ülejäänut ei müüdud.",
   "betBuyPartialLimit": "Ostetud {bought} osakut {total}-st hinnaga {price}. Ülejäänu ootab sinu hinnaga avatud tellimustes.",
   "betBuyNotMatched": "Sinu hinnaga ei jäänud müüjaid, seega midagi ei ostetud. Sinu raha ei kulutatud.",
   "betBuyFailedOnChain": "Ennustus sobitati, kuid see ei läinud võrgus läbi. Sinu raha ei kulutatud.",

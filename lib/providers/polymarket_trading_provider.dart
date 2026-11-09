@@ -84,6 +84,7 @@ import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:kute/services/polymarket/usdce_wrap_gate.dart';
 import 'package:kute/services/polymarket/venue_collateral.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
+import 'package:kute/services/polymarket/remembered_setup.dart';
 import 'package:kute/services/polymarket/deposit_timings_reporter.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/providers/transactions_provider.dart'
@@ -294,6 +295,11 @@ class PolymarketTradingState {
 const _kPmCredsPrefix = 'pm_api_credentials_';
 const _kPmProxyPrefix = 'pm_proxy_wallet_';
 
+/// Per spending wallet: the deposit wallet's last on-chain setup
+/// verification (remembered_setup.dart), beside its address and
+/// credentials.
+const _kPmSetupVerifiedPrefix = 'pm_setup_verified_';
+
 String _credsKey(String walletId) => '$_kPmCredsPrefix$walletId';
 
 /// The wallet whose Polymarket CLOB credentials the hot trading notifier
@@ -306,13 +312,19 @@ String? polymarketCredentialsWalletId(
 }) =>
     pinnedWalletId ?? pickSpendingWallet(settings)?.id;
 String _proxyKey(String walletId) => '$_kPmProxyPrefix$walletId';
+String _setupVerifiedKey(String walletId) =>
+    '$_kPmSetupVerifiedPrefix$walletId';
 
 /// Drops [walletId]'s cached Polymarket deposit wallet address and CLOB
 /// credentials. Used when a recovered wallet's EVM account changes
 /// (`RecoveryEvmFormat.retryPending`): both were set up for the old
 /// account and must be resolved again for the new one.
 Future<void> forgetPolymarketAccountCache(String walletId) async {
-  for (final key in [_proxyKey(walletId), _credsKey(walletId)]) {
+  for (final key in [
+    _proxyKey(walletId),
+    _credsKey(walletId),
+    _setupVerifiedKey(walletId),
+  ]) {
     try {
       await secureStorage.delete(key: key);
     } catch (_) {}
@@ -715,11 +727,14 @@ class PolymarketTradingNotifier
     ));
   }
 
-  /// Tokens sold in the last 30s. Guards against a SECOND sell firing on a
-  /// stale open-position tile: an instant fill empties the on-chain
-  /// balance, but the Data API can lag and re-surface the position, so a
-  /// re-tap would otherwise submit another order against balance 0 and get
-  /// "not enough balance / allowance".
+  /// Tokens whose WHOLE position sold in the last 30s. Guards against a
+  /// SECOND sell firing on a stale open-position tile: an instant fill
+  /// empties the on-chain balance, but the Data API can lag and
+  /// re-surface the position, so a re-tap would otherwise submit another
+  /// order against balance 0 and get "not enough balance / allowance". A
+  /// sale that left shares held (a fill-and-kill that filled in part, a
+  /// sale of part of the position) is never marked: those shares are
+  /// sellable at once.
   final Map<String, DateTime> _recentlySoldTokens = {};
 
   void markTokenSold(String tokenId) {
@@ -6362,6 +6377,7 @@ class PolymarketTradingNotifier
         walletId: walletId,
         isCurrent: isCurrent,
         onProgress: onProgress,
+        repair: force,
       ),
     );
     // Setup just completed: what is sitting in the deposit wallet (or on
@@ -6379,20 +6395,35 @@ class PolymarketTradingNotifier
   /// text-free reason (`polymarket_setup_failed`), so a fleet of setups
   /// that cannot finish says why (a Polygon read that failed closed, a
   /// relayer refusal, a locked wallet) instead of only that it did not.
+  /// One that finished reports `polymarket_account_ready` with how the
+  /// wallet was verified: `chain` (read now) or `remembered` (the chain
+  /// could not be read and a verification within 14 days stood in; see
+  /// remembered_setup.dart). [repair] (a forced re-run after the order
+  /// book refused an order) never leans on the memory.
   Future<void> _enableTradingAccount({
     required String eoa,
     required String walletId,
     required bool Function() isCurrent,
     void Function(String status)? onProgress,
+    bool repair = false,
   }) async {
     final clock = Stopwatch()..start();
     try {
-      await _runEnableTradingAccount(
+      final verified = await _runEnableTradingAccount(
         eoa: eoa,
         walletId: walletId,
         isCurrent: isCurrent,
         onProgress: onProgress,
+        repair: repair,
       );
+      TrackingService.track('polymarket_account_ready', params: {
+        'boot': 'setup',
+        'verified': verified,
+        'repair': repair,
+        'duration_ms': clock.elapsedMilliseconds,
+        'duration_bucket':
+            TrackingService.latencyBucket(clock.elapsedMilliseconds),
+      });
     } catch (e) {
       TrackingService.track('polymarket_setup_failed', params: {
         'error_category': TrackingService.errorCategory(e),
@@ -6406,11 +6437,14 @@ class PolymarketTradingNotifier
     }
   }
 
-  Future<void> _runEnableTradingAccount({
+  /// Runs the setup; the verification source for the ready event
+  /// (`chain` or `remembered`).
+  Future<String> _runEnableTradingAccount({
     required String eoa,
     required String walletId,
     required bool Function() isCurrent,
     void Function(String status)? onProgress,
+    bool repair = false,
   }) async {
     void checkAccount() {
       if (!isCurrent()) throw StateError('Predictions account changed');
@@ -6450,12 +6484,45 @@ class PolymarketTradingNotifier
     // Step 1: Deploy Safe + set token approvals via relayer (gasless)
     // onProgress receives: "deploying" → "approvals" from onboarding service
     final onboarding = PolymarketOnboardingService();
-    final proxyWallet = await onboarding.enableTrading(
-      eoaAddress: eoa,
-      privateKey: wallet.privateKey,
-      onProgress: onProgress,
-      ensureCurrent: checkAccount,
-    );
+    var verified = 'chain';
+    String proxyWallet;
+    try {
+      proxyWallet = await onboarding.enableTrading(
+        eoaAddress: eoa,
+        privateKey: wallet.privateKey,
+        onProgress: onProgress,
+        ensureCurrent: checkAccount,
+      );
+      checkAccount();
+      // Verified on chain now: deployed, every approval present.
+      await _rememberSetupVerified(walletId, proxyWallet);
+    } catch (e) {
+      // The chain could not be read (or the phone is offline) and this
+      // wallet was verified lately: the order goes to the book on that,
+      // and the book's own refusal, if any, runs the repair. Never for a
+      // repair, a changed account, a format still moving, or a refusal.
+      final memory = repair ||
+              e is StateError ||
+              e is PolymarketEvmFormatPendingException
+          ? null
+          : await _rememberedSetup(walletId);
+      if (memory == null ||
+          !polySetupRemembered(e,
+              offline: _isOfflineError(e),
+              memory: memory,
+              knownDepositWallet: state.valueOrNull?.proxyWalletAddress,
+              now: DateTime.now())) {
+        rethrow;
+      }
+      checkAccount();
+      proxyWallet = memory.depositWallet;
+      verified = 'remembered';
+      PolymarketPlacementDiagnostics.note('setup_remembered', {
+        'reason': TrackingService.errorReason(e),
+        'verified_days_ago':
+            DateTime.now().difference(memory.verifiedAt).inDays,
+      });
+    }
     checkAccount();
 
     // Persist proxy wallet so it survives app restarts
@@ -6565,6 +6632,32 @@ class PolymarketTradingNotifier
         // The existing portfolio poll retries; setup itself already succeeded.
       }
     }());
+    return verified;
+  }
+
+  /// Records that [walletId]'s deposit wallet [proxyWallet] was verified
+  /// on chain just now (remembered_setup.dart). Best effort: a store that
+  /// fails leaves the next failed read to fail closed as before.
+  Future<void> _rememberSetupVerified(
+      String walletId, String proxyWallet) async {
+    try {
+      await _storage.write(
+        key: _setupVerifiedKey(walletId),
+        value: PolySetupMemory(
+                depositWallet: proxyWallet, verifiedAt: DateTime.now())
+            .encode(),
+      );
+    } catch (_) {}
+  }
+
+  /// The last on-chain verification stored for [walletId], if any.
+  Future<PolySetupMemory?> _rememberedSetup(String walletId) async {
+    try {
+      return PolySetupMemory.decode(
+          await _storage.read(key: _setupVerifiedKey(walletId)));
+    } catch (_) {
+      return null;
+    }
   }
 }
 

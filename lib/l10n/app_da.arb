@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Din seneste forudsigelse er stadig ved at blive afgivet. Tjek dens status om lidt.",
   "betApprovingSpend": "Godkender…",
   "betBuyPartialMarket": "Købt {bought} af {total} andele til {price}. Der var ikke flere sælgere til din pris, så resten blev ikke købt.",
+  "betSellPartialMarket": "Solgt {sold} af {total} andele til {price}. Der var ikke flere købere til din pris, så resten blev ikke solgt.",
   "betBuyPartialLimit": "Købt {bought} af {total} andele til {price}. Resten venter til din pris i Åbne ordrer.",
   "betBuyNotMatched": "Der var ingen sælgere tilbage til din pris, så intet blev købt. Dine penge blev ikke brugt.",
   "betBuyFailedOnChain": "Forudsigelsen blev matchet, men gik ikke igennem på netværket. Dine penge blev ikke brugt.",

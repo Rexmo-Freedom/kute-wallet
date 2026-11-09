@@ -6966,6 +6966,11 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Prodano $sold od $total udjela po $price. Po tvojoj cijeni nije bilo više kupaca pa ostatak nije prodan.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Kupljeno $bought od $total udjela po $price. Ostatak čeka po tvojoj cijeni u Otvorenim nalozima.';
   }

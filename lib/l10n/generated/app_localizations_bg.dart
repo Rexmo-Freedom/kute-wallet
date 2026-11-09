@@ -6960,6 +6960,11 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Продадени $sold от $total дяла по $price. Нямаше повече купувачи на твоята цена, затова останалото не е продадено.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Купени $bought от $total дяла по $price. Останалото чака на твоята цена в Отворени поръчки.';
   }

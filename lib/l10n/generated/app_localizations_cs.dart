@@ -6947,6 +6947,11 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Prodáno $sold z $total podílů za $price. Za tvou cenu už nebyli další kupující, takže zbytek se neprodal.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Koupeno $bought z $total podílů za $price. Zbytek čeká za tvou cenu v Otevřených pokynech.';
   }

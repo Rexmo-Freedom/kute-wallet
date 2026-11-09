@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "前回の予測はまだ送信中です。しばらくしてから状況を確認してください。",
   "betApprovingSpend": "承認中…",
   "betBuyPartialMarket": "{total}シェア中{bought}シェアを{price}で購入しました。指定価格の売り手がいなかったため、残りは購入されませんでした。",
+  "betSellPartialMarket": "{total}シェア中{sold}シェアを{price}で売却しました。指定価格の買い手がいなかったため、残りは売却されませんでした。",
   "betBuyPartialLimit": "{total}シェア中{bought}シェアを{price}で購入しました。残りは指定価格で未約定注文に残っています。",
   "betBuyNotMatched": "指定価格の売り手がいなくなったため、何も購入されませんでした。資金は使われていません。",
   "betBuyFailedOnChain": "予測はマッチしましたが、ネットワーク上で完了しませんでした。資金は使われていません。",

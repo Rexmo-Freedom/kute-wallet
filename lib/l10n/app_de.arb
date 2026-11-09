@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Deine letzte Prognose wird noch platziert. Prüfe ihren Status gleich.",
   "betApprovingSpend": "Wird freigegeben…",
   "betBuyPartialMarket": "{bought} von {total} Anteilen zu {price} gekauft. Zu deinem Preis gab es keine weiteren Verkäufer, daher wurde der Rest nicht gekauft.",
+  "betSellPartialMarket": "{sold} von {total} Anteilen zu {price} verkauft. Zu deinem Preis gab es keine weiteren Käufer, daher wurde der Rest nicht verkauft.",
   "betBuyPartialLimit": "{bought} von {total} Anteilen zu {price} gekauft. Der Rest wartet zu deinem Preis in Offene Aufträge.",
   "betBuyNotMatched": "Zu deinem Preis gab es keine Verkäufer mehr, daher wurde nichts gekauft. Dein Geld wurde nicht ausgegeben.",
   "betBuyFailedOnChain": "Die Prognose wurde zugeordnet, ging aber im Netzwerk nicht durch. Dein Geld wurde nicht ausgegeben.",

@@ -12118,6 +12118,12 @@ abstract class AppLocalizations {
   /// **'Bought {bought} of {total} shares at {price}. No more sellers were at your price, so the rest was not bought.'**
   String betBuyPartialMarket(String bought, String total, String price);
 
+  /// Line on the Position sold receipt when a market (fill-and-kill) sell filled in part: the rest was killed, not resting, and stays held.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold {sold} of {total} shares at {price}. No more buyers were at your price, so the rest was not sold.'**
+  String betSellPartialMarket(String sold, String total, String price);
+
   /// Confirmation when a limit prediction filled in part on arrival; the rest rests on the book under Open orders.
   ///
   /// In en, this message translates to:

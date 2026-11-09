@@ -6966,6 +6966,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return '$total egységből $sold eladva $price áron. A te áradon nem volt több vevő, így a többi nem kelt el.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return '$total egységből $bought megvéve $price áron. A többi a te áradon vár a Nyitott megbízások között.';
   }

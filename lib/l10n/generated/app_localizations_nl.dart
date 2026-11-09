@@ -6973,6 +6973,11 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return '$sold van $total aandelen verkocht tegen $price. Er waren geen kopers meer tegen jouw prijs, dus de rest is niet verkocht.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return '$bought van $total aandelen gekocht tegen $price. De rest wacht tegen jouw prijs in Open orders.';
   }

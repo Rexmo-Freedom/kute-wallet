@@ -24,7 +24,9 @@
 //     buy; then the order is signed and posted.
 // A book that cannot be read, or still does not count the buy, leaves
 // placement pending. It never authorizes a post; a funded order waits
-// under its existing approval and checks again, bounded. Nothing here
+// under its existing approval and checks again, bounded. A wallet that
+// cannot be read on chain is counted by the book alone, after a re-read
+// the book accepted (its node read the chain), or left pending. Nothing here
 // moves money into Predictions: the only conversion is the wallet's own
 // USDC.e, so a retry can never fund twice.
 
@@ -245,18 +247,48 @@ Future<PolyVenueReadiness> polyReadyVenueCollateral({
     ops.ensureCurrent?.call();
   }
 
+  // The wallet could not be read on chain (every Polygon RPC failed, or
+  // the phone is offline) while the book answers: on 2026-11-08 that kept
+  // a person from betting all evening although the book counted their
+  // money. The book's count after a re-read it accepted is its own node
+  // reading the chain, so a count that then covers the buy is a counted
+  // buy. A re-read the book did not accept leaves its count a cached
+  // figure, and nothing is posted on one. Never `short`: a funded order is
+  // resized only on a wallet that was read.
+  if (pusd == null) {
+    return await _countedByVenueAlone(costMicros, spenders, ops)
+        ? PolyVenueReadiness.refreshed
+        : PolyVenueReadiness.unread;
+  }
+
   // The wallet does not hold the buy in pUSD: no cached venue count can
   // certify it. Report the short/unread result without posting an order.
-  final holds = pusd != null && pusd >= costMicros;
+  final holds = pusd >= costMicros;
   final counted = await polyAwaitVenueCount(
     costMicros: costMicros,
     spenders: spenders,
     ops: ops,
     wait: holds ? PolymarketPlacementWaits.venueCount : Duration.zero,
   );
-  if (counted == null || pusd == null) return PolyVenueReadiness.unread;
+  if (counted == null) return PolyVenueReadiness.unread;
   if (counted && holds) return PolyVenueReadiness.refreshed;
   return holds ? PolyVenueReadiness.notCounted : PolyVenueReadiness.short;
+}
+
+/// Whether the book, asked to re-read the wallet and having accepted the
+/// request, counts a buy costing [costMicros] against [spenders]. False
+/// when the request was refused or the count could not be read.
+Future<bool> _countedByVenueAlone(BigInt costMicros, List<String> spenders,
+    PolyVenueCollateralOps ops) async {
+  try {
+    await ops.refreshVenue();
+  } catch (_) {
+    return false;
+  }
+  ops.ensureCurrent?.call();
+  final count = await _safe(ops.readVenue);
+  ops.ensureCurrent?.call();
+  return count != null && count.covers(costMicros, spenders);
 }
 
 /// A pending read never authorizes signing. Kept separate from the

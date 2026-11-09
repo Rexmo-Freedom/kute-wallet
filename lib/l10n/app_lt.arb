@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Jūsų paskutinė prognozė dar teikiama. Po akimirkos patikrinkite jos būseną.",
   "betApprovingSpend": "Suteikiamas leidimas…",
   "betBuyPartialMarket": "Nupirkta {bought} iš {total} vnt. po {price}. Jūsų kaina daugiau pardavėjų nebuvo, todėl likusi dalis nenupirkta.",
+  "betSellPartialMarket": "Parduota {sold} iš {total} vnt. po {price}. Jūsų kaina daugiau pirkėjų nebuvo, todėl likusi dalis neparduota.",
   "betBuyPartialLimit": "Nupirkta {bought} iš {total} vnt. po {price}. Likusi dalis laukia jūsų kaina Atviruose pavedimuose.",
   "betBuyNotMatched": "Jūsų kaina neliko pardavėjų, todėl nieko nenupirkta. Jūsų pinigai neišleisti.",
   "betBuyFailedOnChain": "Prognozė suderinta, bet tinkle neįvyko. Jūsų pinigai neišleisti.",

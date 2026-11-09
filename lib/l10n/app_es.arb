@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Tu última predicción aún se está colocando. Comprueba su estado en un momento.",
   "betApprovingSpend": "Aprobando…",
   "betBuyPartialMarket": "Compradas {bought} de {total} participaciones a {price}. No había más vendedores a tu precio, así que el resto no se compró.",
+  "betSellPartialMarket": "Vendidas {sold} de {total} participaciones a {price}. No había más compradores a tu precio, así que el resto no se vendió.",
   "betBuyPartialLimit": "Compradas {bought} de {total} participaciones a {price}. El resto espera a tu precio en Órdenes abiertas.",
   "betBuyNotMatched": "No quedaban vendedores a tu precio, así que no se compró nada. No se ha gastado tu dinero.",
   "betBuyFailedOnChain": "La predicción se emparejó, pero no se completó en la red. No se ha gastado tu dinero.",

@@ -47,7 +47,8 @@ enum PmSellResult {
   /// Every share offered was sold.
   filled,
 
-  /// Some shares sold; the rest of a limit sell still rests on the book.
+  /// Some shares sold. The rest of a limit sell still rests on the book;
+  /// the rest of a market (fill-and-kill) sell was killed and stays held.
   partial,
 
   /// Nothing sold yet; the whole limit sell rests on the book.
@@ -382,7 +383,7 @@ class PmSellSettlementWatcher {
           ? PmSellResult.failed
           : (sold >= offeredShares - 0.01
               ? PmSellResult.filled
-              : (resting ? PmSellResult.partial : PmSellResult.filled)),
+              : PmSellResult.partial),
       offeredShares: offeredShares,
       soldShares: sold,
       proceeds: failed ? null : proceeds,

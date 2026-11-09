@@ -6952,6 +6952,11 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Solgt $sold af $total andele til $price. Der var ikke flere købere til din pris, så resten blev ikke solgt.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Købt $bought af $total andele til $price. Resten venter til din pris i Åbne ordrer.';
   }

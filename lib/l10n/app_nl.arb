@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Je laatste voorspelling wordt nog geplaatst. Controleer zo de status.",
   "betApprovingSpend": "Goedkeuren…",
   "betBuyPartialMarket": "{bought} van {total} aandelen gekocht tegen {price}. Er waren geen verkopers meer tegen jouw prijs, dus de rest is niet gekocht.",
+  "betSellPartialMarket": "{sold} van {total} aandelen verkocht tegen {price}. Er waren geen kopers meer tegen jouw prijs, dus de rest is niet verkocht.",
   "betBuyPartialLimit": "{bought} van {total} aandelen gekocht tegen {price}. De rest wacht tegen jouw prijs in Open orders.",
   "betBuyNotMatched": "Er waren geen verkopers meer tegen jouw prijs, dus er is niets gekocht. Je geld is niet uitgegeven.",
   "betBuyFailedOnChain": "De voorspelling is gematcht, maar ging niet door op het netwerk. Je geld is niet uitgegeven.",

@@ -7000,6 +7000,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return '$sold parts sur $total vendues à $price. Il n\'y avait plus d\'acheteurs à votre prix, le reste n\'a donc pas été vendu.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return '$bought parts sur $total achetées à $price. Le reste attend à votre prix dans Ordres ouverts.';
   }

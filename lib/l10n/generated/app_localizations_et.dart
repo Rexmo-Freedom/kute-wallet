@@ -6931,6 +6931,11 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Müüdud $sold osakut $total-st hinnaga $price. Sinu hinnaga rohkem ostjaid polnud, seega ülejäänut ei müüdud.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Ostetud $bought osakut $total-st hinnaga $price. Ülejäänu ootab sinu hinnaga avatud tellimustes.';
   }

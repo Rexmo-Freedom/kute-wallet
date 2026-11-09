@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Twoja ostatnia prognoza jest jeszcze składana. Sprawdź jej status za chwilę.",
   "betApprovingSpend": "Zatwierdzanie…",
   "betBuyPartialMarket": "Kupiono {bought} z {total} udziałów po {price}. Po Twojej cenie nie było więcej sprzedających, więc reszty nie kupiono.",
+  "betSellPartialMarket": "Sprzedano {sold} z {total} udziałów po {price}. Po Twojej cenie nie było więcej kupujących, więc reszty nie sprzedano.",
   "betBuyPartialLimit": "Kupiono {bought} z {total} udziałów po {price}. Reszta czeka po Twojej cenie w Otwartych zleceniach.",
   "betBuyNotMatched": "Po Twojej cenie nie było już sprzedających, więc nic nie kupiono. Twoje pieniądze nie zostały wydane.",
   "betBuyFailedOnChain": "Prognoza została dopasowana, ale nie przeszła w sieci. Twoje pieniądze nie zostały wydane.",

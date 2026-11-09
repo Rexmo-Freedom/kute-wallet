@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Din senaste prognos håller fortfarande på att läggas. Kolla dess status om en stund.",
   "betApprovingSpend": "Godkänner…",
   "betBuyPartialMarket": "Köpte {bought} av {total} andelar för {price}. Det fanns inga fler säljare till ditt pris, så resten köptes inte.",
+  "betSellPartialMarket": "Sålde {sold} av {total} andelar för {price}. Det fanns inga fler köpare till ditt pris, så resten såldes inte.",
   "betBuyPartialLimit": "Köpte {bought} av {total} andelar för {price}. Resten väntar till ditt pris i Öppna ordrar.",
   "betBuyNotMatched": "Det fanns inga säljare kvar till ditt pris, så inget köptes. Dina pengar användes inte.",
   "betBuyFailedOnChain": "Prognosen matchades men gick inte igenom i nätverket. Dina pengar användes inte.",

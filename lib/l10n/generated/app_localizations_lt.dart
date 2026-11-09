@@ -6985,6 +6985,11 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Parduota $sold iš $total vnt. po $price. Jūsų kaina daugiau pirkėjų nebuvo, todėl likusi dalis neparduota.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Nupirkta $bought iš $total vnt. po $price. Likusi dalis laukia jūsų kaina Atviruose pavedimuose.';
   }

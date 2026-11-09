@@ -3979,6 +3979,21 @@
       }
     }
   },
+  "betSellPartialMarket": "Sold {sold} of {total} shares at {price}. No more buyers were at your price, so the rest was not sold.",
+  "@betSellPartialMarket": {
+    "description": "Line on the Position sold receipt when a market (fill-and-kill) sell filled in part: the rest was killed, not resting, and stays held.",
+    "placeholders": {
+      "sold": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "betBuyPartialLimit": "Bought {bought} of {total} shares at {price}. The rest is waiting at your price in Open orders.",
   "@betBuyPartialLimit": {
     "description": "Confirmation when a limit prediction filled in part on arrival; the rest rests on the book under Open orders.",

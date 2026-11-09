@@ -6987,6 +6987,11 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Vândute $sold din $total unități la $price. Nu mai erau cumpărători la prețul tău, așa că restul nu a fost vândut.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Cumpărate $bought din $total unități la $price. Restul așteaptă la prețul tău în Ordine deschise.';
   }

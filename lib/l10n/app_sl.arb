@@ -2003,6 +2003,7 @@
   "betPreviousStillPlacing": "Vaša zadnja napoved se še oddaja. Čez trenutek preverite njeno stanje.",
   "betApprovingSpend": "Odobravanje…",
   "betBuyPartialMarket": "Kupljenih {bought} od {total} deležev po {price}. Po vaši ceni ni bilo več prodajalcev, zato preostanek ni bil kupljen.",
+  "betSellPartialMarket": "Prodanih {sold} od {total} deležev po {price}. Po vaši ceni ni bilo več kupcev, zato preostanek ni bil prodan.",
   "betBuyPartialLimit": "Kupljenih {bought} od {total} deležev po {price}. Preostanek čaka po vaši ceni v Odprtih naročilih.",
   "betBuyNotMatched": "Po vaši ceni ni ostalo prodajalcev, zato ni bilo nič kupljeno. Vaš denar ni bil porabljen.",
   "betBuyFailedOnChain": "Napoved je bila usklajena, a v omrežju ni uspela. Vaš denar ni bil porabljen.",

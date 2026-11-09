@@ -11,6 +11,8 @@ import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
 import 'package:kute/services/polymarket/venue_collateral.dart';
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolymarketReadException;
 
 const _v2Yes =
     '834369838335332281222091626449713794621251551518727511203689528701902389248';
@@ -250,6 +252,67 @@ void main() {
           ops: a.ops);
       expect(readiness, PolyVenueReadiness.unread);
       expect(a.sleeps, 0);
+    });
+
+    test('a wallet that cannot be read on chain is counted by the book '
+        'alone, after a re-read the book accepted', () async {
+      var refreshes = 0, venueReads = 0;
+      final readiness = await polyReadyVenueCollateral(
+          costMicros: _usd(3),
+          spenders: [_exchange],
+          ops: PolyVenueCollateralOps(
+            readVenue: () async {
+              venueReads++;
+              return PolyVenueCount(balance: _usd(5));
+            },
+            // Every Polygon RPC failed the read (2026-11-08).
+            readSplit: ({required fresh}) async =>
+                throw const PolymarketReadException(
+                    'eth_call: no Polygon RPC answered'),
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async => refreshes++,
+            approveSpender: (_) async => false,
+            sleep: (_) async {},
+          ));
+      expect(readiness, PolyVenueReadiness.refreshed);
+      expect(refreshes, 1);
+      expect(venueReads, 2);
+    });
+
+    test('an unread wallet with a re-read the book refused stays pending, '
+        'whatever its cached count says', () async {
+      final readiness = await polyReadyVenueCollateral(
+          costMicros: _usd(3),
+          spenders: [_exchange],
+          ops: PolyVenueCollateralOps(
+            readVenue: () async => PolyVenueCount(balance: _usd(5)),
+            readSplit: ({required fresh}) async =>
+                throw const PolymarketReadException(
+                    'eth_call: no Polygon RPC answered'),
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async => throw Exception('404 not indexed'),
+            approveSpender: (_) async => false,
+            sleep: (_) async {},
+          ));
+      expect(readiness, PolyVenueReadiness.unread);
+      expect(() => polyRequireConfirmedCollateral(readiness),
+          throwsA(isA<PolymarketCollateralPending>()));
+    });
+
+    test('an unread wallet the book counts short is pending, never short: '
+        'nothing is resized on a wallet that was not read', () async {
+      final readiness = await polyReadyVenueCollateral(
+          costMicros: _usd(3),
+          spenders: [_exchange],
+          ops: PolyVenueCollateralOps(
+            readVenue: () async => PolyVenueCount(balance: _usd(1)),
+            readSplit: ({required fresh}) async => null,
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async {},
+            approveSpender: (_) async => false,
+            sleep: (_) async {},
+          ));
+      expect(readiness, PolyVenueReadiness.unread);
     });
 
     test('a wallet short of the buy is not waited on either', () async {

@@ -12,7 +12,10 @@ String polymarketErrorCopy(BuildContext context, Object error,
   if (error is GeoBlockException) return l10n.tradingNotAvailableInRegion;
   final text = error.toString().toLowerCase();
   if (text.contains('fok') ||
+      text.contains('fak') ||
       text.contains('fully filled') ||
+      text.contains('partially filled') ||
+      text.contains('no orders found to match') ||
       text.contains('no bids matched')) {
     return positionPrice != null && positionPrice <= 0.02
         ? l10n.betSaleNoBuyers

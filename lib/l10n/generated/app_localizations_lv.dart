@@ -6933,6 +6933,11 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Pārdotas $sold no $total daļām par $price. Par tavu cenu vairs nebija pircēju, tāpēc pārējais netika pārdots.';
+  }
+
+  @override
   String betBuyPartialLimit(String bought, String total, String price) {
     return 'Nopirktas $bought no $total daļām par $price. Pārējais gaida par tavu cenu sadaļā Atvērtie rīkojumi.';
   }
