@@ -2807,6 +2807,10 @@ class PolyFeedNotifier
       multi: {'slug': slugs},
       limit: slugs.length,
     );
+    // Markets that are over leave the list, so its count stays true.
+    try {
+      ref.read(polyWatchlistProvider.notifier).forgetOver(slugs, page.events);
+    } catch (_) {}
     final bySlug = {
       for (final e in page.events) e.slug: e,
     };
