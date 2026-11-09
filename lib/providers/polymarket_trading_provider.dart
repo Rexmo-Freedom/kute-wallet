@@ -3388,15 +3388,30 @@ class PolymarketTradingNotifier
     // met a busy relayer or a moved nonce (another action on the wallet
     // still confirming) is "not ready yet": the queued bet waits for it
     // and sends again under its approval, never a final failure.
+    //
+    // A SELL does not wait on it: the position it sells was bought through
+    // this deposit wallet, so the wallet and its approvals exist, and the
+    // re-check is chain reads that fail closed when no Polygon RPC answers
+    // (which is what ended a person's sells on 2026-11-08, before a single
+    // request reached the order book). The order goes to the venue; a
+    // refusal that names an approval still runs the setup repair below.
     try {
       await enableTrading();
+      PolymarketPlacementTimeline.trace('account_ready');
     } catch (e) {
-      if (polySetupFailureIsTransient(e)) {
+      if (side == OrderSide.sell &&
+          e is! PolymarketEvmFormatPendingException &&
+          polySellProceedsWithoutSetup(e,
+              depositWallet: state.valueOrNull?.proxyWalletAddress)) {
+        PolymarketPlacementTimeline.trace('setup_skipped');
+        PolymarketPlacementDiagnostics.note('setup_skipped',
+            {'reason': TrackingService.errorReason(e)});
+      } else if (polySetupFailureIsTransient(e)) {
         throw PolymarketSetupIncomplete(cause: e);
+      } else {
+        rethrow;
       }
-      rethrow;
     }
-    PolymarketPlacementTimeline.trace('account_ready');
     checkAccount();
     PmGrants.checkRetry(grant, executedOrder());
     final current = state.valueOrNull;

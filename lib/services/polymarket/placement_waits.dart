@@ -25,6 +25,29 @@ class PolymarketSetupIncomplete implements Exception {
       : 'Predictions account setup did not finish: $cause';
 }
 
+/// Whether a SELL goes to the venue although the account's setup re-check
+/// did not finish ([error] is what it threw).
+///
+/// Every order first re-verifies the deposit wallet on chain: that it has
+/// code and that its exchange approvals are set. The reads run on public
+/// Polygon RPCs and fail closed when none answers, and on 2026-11-08 that
+/// is what ended a person's sells: the whole evening every RPC read on
+/// their phone timed out, and each sell died in the re-check without a
+/// single request reaching the order book (the setup failure and the sell
+/// failure were recorded in the same millisecond). A position the account
+/// holds was bought through that wallet, so the wallet exists and its
+/// approvals were set when it was created; the re-check adds nothing a
+/// sell needs. The order book is the arbiter: a refusal that names a
+/// missing approval still runs the setup repair the self-heal has.
+///
+/// A sell needs the [depositWallet] it signs for, so an account whose
+/// address is not known yet still waits for setup, and a [StateError]
+/// (the account changed under the order, no spending wallet) still ends
+/// it: those are not about reaching the chain.
+bool polySellProceedsWithoutSetup(Object error,
+        {required String? depositWallet}) =>
+    depositWallet != null && depositWallet.isNotEmpty && error is! StateError;
+
 /// The deposit waiting in the wallet as USDC.e was still being converted
 /// to pUSD when the order was ready to sign. No order was signed or sent.
 class PolymarketFundsConverting implements Exception {

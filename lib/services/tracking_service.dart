@@ -658,13 +658,22 @@ class TrackingService {
     if (has(['quote'])) return 'quote_rejected';
     if (has(['fee'])) return 'fee_unavailable';
     if (has(['timeout', 'timed out', 'deadline'])) return 'timeout';
+    // "no Polygon RPC answered": every chain read endpoint failed one read
+    // (PolymarketReadException). The chain was unreachable from the phone,
+    // which is a network failure, not an unknown one.
     if (has(['socket', 'network', 'connection', 'host lookup',
-        'unreachable', 'offline'])) {
+        'unreachable', 'offline', 'no polygon rpc answered'])) {
       return 'network';
     }
     if (has(['ledger', 'hardware', 'device'])) return 'hardware_wallet';
     if (has(['rate limit', '429'])) return 'rate_limited';
-    if (has(['route', 'no path', 'liquidity'])) return 'no_route';
+    // The order book's kill of a fill-or-kill or fill-and-kill order, and
+    // the sell ladder's own "no bids matched": nothing was on the book at
+    // that price. No liquidity, not an unknown failure.
+    if (has(['route', 'no path', 'liquidity', 'fully filled or killed',
+        'partially filled or killed', 'no bids matched'])) {
+      return 'no_route';
+    }
     if (has(['settle', 'refund'])) return 'settlement';
     return 'unknown';
   }
