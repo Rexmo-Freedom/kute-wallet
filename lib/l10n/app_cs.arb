@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Zadávané pokyny",
   "orderNoticeProgressChannelDescription": "Průběh predikce nebo pokynu, když je Kute na pozadí.",
   "orderNoticeResultChannel": "Výsledky pokynů",
-  "orderNoticeResultChannelDescription": "Zda predikce nebo pokyn zadané, když byl Kute na pozadí, prošly."
+  "orderNoticeResultChannelDescription": "Zda predikce nebo pokyn zadané, když byl Kute na pozadí, prošly.",
+  "predictionsInstant": "Okamžité",
+  "categoryInstantLengths": "5 min · 15 min · 1 hodina · 4 hodiny",
+  "predictRoundNow": "Teď · {time}",
+  "predictRoundNoPricesYet": "Zatím bez cen",
+  "predictUpOrDownLength": "{asset} nahoru, nebo dolů · {length}",
+  "standingPlacingPrediction": "Zadáváme vaši předpověď",
+  "standingPlacingOrder": "Zadáváme váš příkaz",
+  "standingPredictionPlaced": "Předpověď zadána",
+  "standingOrderPlaced": "Příkaz zadán",
+  "standingPredictionFailed": "Vaše předpověď nebyla zadána. Peníze jsou v Předpovědích, k dispozici.",
+  "standingOrderFailed": "Váš příkaz nebyl zadán. Peníze jsou v Investování, k dispozici.",
+  "standingPredictionCancelled": "Zrušeno. Peníze zůstávají v Předpovědích, k dispozici.",
+  "standingOrderCancelled": "Zrušeno. Peníze zůstávají v Investování, k dispozici.",
+  "standingPriceMoved": "Cena se změnila na {price}. Klepnutím zadáte za novou cenu.",
+  "standingLeaveNote": "Můžete odejít. Příkaz pokračuje a je vidět v Aktivitě."
 }

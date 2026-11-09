@@ -14419,4 +14419,60 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Дали прогноза или поръчка, пуснати, докато Kute беше на заден план, са минали.';
+
+  @override
+  String get predictionsInstant => 'Моментални';
+
+  @override
+  String get categoryInstantLengths => '5 мин · 15 мин · 1 час · 4 часа';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Сега · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Още няма цени';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset нагоре или надолу · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Поставяме прогнозата ти';
+
+  @override
+  String get standingPlacingOrder => 'Поставяме поръчката ти';
+
+  @override
+  String get standingPredictionPlaced => 'Прогнозата е поставена';
+
+  @override
+  String get standingOrderPlaced => 'Поръчката е поставена';
+
+  @override
+  String get standingPredictionFailed =>
+      'Прогнозата ти не беше поставена. Парите са в Прогнози, налични.';
+
+  @override
+  String get standingOrderFailed =>
+      'Поръчката ти не беше поставена. Парите са в Инвестиране, налични.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Отменено. Парите остават в Прогнози, налични.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Отменено. Парите остават в Инвестиране, налични.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Цената стана $price. Докосни, за да поставиш на новата цена.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Можеш да излезеш. Поръчката продължава и се вижда в Активност.';
 }

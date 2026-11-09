@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Folyamatban lévő megbízások",
   "orderNoticeProgressChannelDescription": "Egy előrejelzés vagy megbízás állása, amíg a Kute a háttérben van.",
   "orderNoticeResultChannel": "Megbízások eredménye",
-  "orderNoticeResultChannelDescription": "Hogy a Kute háttérben léte alatt leadott előrejelzés vagy megbízás sikerült-e."
+  "orderNoticeResultChannelDescription": "Hogy a Kute háttérben léte alatt leadott előrejelzés vagy megbízás sikerült-e.",
+  "predictionsInstant": "Azonnali",
+  "categoryInstantLengths": "5 perc · 15 perc · 1 óra · 4 óra",
+  "predictRoundNow": "Most · {time}",
+  "predictRoundNoPricesYet": "Még nincs ár",
+  "predictUpOrDownLength": "{asset} fel vagy le · {length}",
+  "standingPlacingPrediction": "Előrejelzésed leadása folyamatban",
+  "standingPlacingOrder": "Megbízásod leadása folyamatban",
+  "standingPredictionPlaced": "Előrejelzés leadva",
+  "standingOrderPlaced": "Megbízás leadva",
+  "standingPredictionFailed": "Az előrejelzésed nem lett leadva. A pénz az Előrejelzésekben van, elérhető.",
+  "standingOrderFailed": "A megbízásod nem lett leadva. A pénz a Befektetésben van, elérhető.",
+  "standingPredictionCancelled": "Megszakítva. A pénz az Előrejelzésekben marad, elérhető.",
+  "standingOrderCancelled": "Megszakítva. A pénz a Befektetésben marad, elérhető.",
+  "standingPriceMoved": "Az ár {price} lett. Koppints, hogy az új áron add le.",
+  "standingLeaveNote": "Elmehetsz. A megbízás folytatódik, és megjelenik a Tevékenységben."
 }

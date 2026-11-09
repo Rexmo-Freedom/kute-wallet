@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Nalozi u tijeku",
   "orderNoticeProgressChannelDescription": "Napredak predviđanja ili naloga dok je Kute u pozadini.",
   "orderNoticeResultChannel": "Rezultati naloga",
-  "orderNoticeResultChannelDescription": "Je li predviđanje ili nalog postavljen dok je Kute bio u pozadini prošao."
+  "orderNoticeResultChannelDescription": "Je li predviđanje ili nalog postavljen dok je Kute bio u pozadini prošao.",
+  "predictionsInstant": "Trenutačne",
+  "categoryInstantLengths": "5 min · 15 min · 1 sat · 4 sata",
+  "predictRoundNow": "Sada · {time}",
+  "predictRoundNoPricesYet": "Još nema cijena",
+  "predictUpOrDownLength": "{asset} gore ili dolje · {length}",
+  "standingPlacingPrediction": "Postavljamo tvoju prognozu",
+  "standingPlacingOrder": "Postavljamo tvoj nalog",
+  "standingPredictionPlaced": "Prognoza postavljena",
+  "standingOrderPlaced": "Nalog postavljen",
+  "standingPredictionFailed": "Tvoja prognoza nije postavljena. Novac je u Prognozama, dostupan.",
+  "standingOrderFailed": "Tvoj nalog nije postavljen. Novac je u Ulaganju, dostupan.",
+  "standingPredictionCancelled": "Otkazano. Novac ostaje u Prognozama, dostupan.",
+  "standingOrderCancelled": "Otkazano. Novac ostaje u Ulaganju, dostupan.",
+  "standingPriceMoved": "Cijena je prešla na {price}. Dodirni za postavljanje po novoj cijeni.",
+  "standingLeaveNote": "Možeš otići. Nalog se nastavlja i vidi se u Aktivnosti."
 }

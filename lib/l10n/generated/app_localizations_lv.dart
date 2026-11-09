@@ -14369,4 +14369,60 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Vai prognoze vai rīkojums, kas veikts, kamēr Kute bija fonā, izdevās.';
+
+  @override
+  String get predictionsInstant => 'Tūlītējās';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 stunda · 4 stundas';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Tagad · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Cenu vēl nav';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset augšup vai lejup · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Iesniedzam tavu prognozi';
+
+  @override
+  String get standingPlacingOrder => 'Iesniedzam tavu rīkojumu';
+
+  @override
+  String get standingPredictionPlaced => 'Prognoze iesniegta';
+
+  @override
+  String get standingOrderPlaced => 'Rīkojums iesniegts';
+
+  @override
+  String get standingPredictionFailed =>
+      'Tava prognoze netika iesniegta. Nauda ir Prognozēs, pieejama.';
+
+  @override
+  String get standingOrderFailed =>
+      'Tavs rīkojums netika iesniegts. Nauda ir Investēšanā, pieejama.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Atcelts. Nauda paliek Prognozēs, pieejama.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Atcelts. Nauda paliek Investēšanā, pieejama.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Cena mainījās uz $price. Pieskaries, lai iesniegtu par jauno cenu.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Vari iet. Rīkojums turpinās un redzams Aktivitātē.';
 }

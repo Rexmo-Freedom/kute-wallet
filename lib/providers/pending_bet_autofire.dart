@@ -113,6 +113,10 @@ import 'package:kute/services/polymarket/sell_settlement.dart';
 import 'package:kute/services/polymarket/placement_timeline.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart'
     show isPolymarketFastRound;
+import 'package:kute/services/standing_orders/polymarket_signed_order.dart'
+    show StandingSignedOrder;
+import 'package:kute/services/standing_orders/standing_orders_provider.dart'
+    show StandingOrderFailure, standingOrdersProvider;
 import 'package:kute/services/polymarket_backend_service.dart'
     show PolymarketOrderNotAcceptedException, isPolymarketBalanceRefusal;
 import 'package:kute/services/tracking_service.dart';
@@ -952,15 +956,20 @@ class PendingBetAutoFire {
   /// priced from a fresh book under the same approval.
   Future<bool> _waitAfterNotReady(
       Object e, PendingBetIntent intent, AuthGrant? approval, int attempt,
-      {required DateTime since, BigInt? requiredCostMicros}) async {
+      {required DateTime since,
+      BigInt? requiredCostMicros,
+      bool standing = false}) async {
     if (!autofireNotReadyYet(e) || attempt >= kAutofireNotReadyRetries) {
       return false;
     }
-    bool lapsed() =>
-        approval == null ||
-        approval.revoked ||
-        approval.isExpiredAt(AuthGrants.clock()) ||
-        intent.isStale();
+    // A standing order's approval is the signed order itself: it lapses
+    // with the queued bet's age, not with a grant.
+    bool lapsed() => standing
+        ? intent.isStale()
+        : approval == null ||
+            approval.revoked ||
+            approval.isExpiredAt(AuthGrants.clock()) ||
+            intent.isStale();
     final until = since.add(fundsTimeout);
     final gapPolls = min(1 << min(attempt, 16), _kNotReadyMaxGapPolls);
     if (gapPolls > 1) {
@@ -1024,7 +1033,386 @@ class PendingBetAutoFire {
           'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
         ...polyRoundWindowParams(intent.eventSlug,
             window: intent.roundWindow, at: DateTime.now()),
+        // A standing order: how long from the accept to this outcome, how
+        // many orders were signed for it, and the price the slip quoted
+        // (the outcome event turns it into `price_moved_bps` against the
+        // fill). Exact figures, nothing identifying.
+        ..._standingAnalytics(intent),
       };
+
+  Map<String, Object> _standingAnalytics(PendingBetIntent intent) {
+    final id = intent.standingOrderId;
+    final queuedAt = intent.queuedAt;
+    if (id == null || queuedAt == null) return const {};
+    final record = ref.read(standingOrdersProvider.notifier).byId(id);
+    return {
+      'standing_order': true,
+      'wait_ms': DateTime.now().difference(queuedAt).inMilliseconds,
+      'attempts': record?.attempts ?? 1,
+      if (intent.expectedPrice > 0) 'first_quote_price': intent.expectedPrice,
+    };
+  }
+
+  /// A standing order's bet: the order signed at the accept is posted as
+  /// is once the venue counts the money (standing_orders/). No fresh book
+  /// prices it (the signed limit is the approval, never worse); a refusal
+  /// for its price (proven not accepted) is met by a re-price INSIDE the
+  /// approved worst price, signed anew under the approval still held this
+  /// session, at most [kStandingReprices] times within
+  /// [kStandingRepriceWindow]; a book past the worst price stops it with
+  /// the money on the venue and asks the person again (needsApproval). A
+  /// pick for the next 5-minute round waits here for it to open. Every
+  /// post goes through `placeOrder`'s guard, so a restart or a resend can
+  /// never place twice.
+  Future<void> _placeStandingOrder(PendingBetIntent intent, String standingId,
+      {required PolymarketCostBasisNotifier costBasis}) async {
+    final pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
+    final placingNotifier = ref.read(placingPolymarketBetProvider.notifier);
+    final tradingNotifier = ref.read(polymarketTradingProvider.notifier);
+    final standing = ref.read(standingOrdersProvider.notifier);
+    final journey = OrderFundingJourney.instance;
+    final ledger = PredictionFundingLedger.instance;
+    final funded = intent.funded;
+    final fundingKey = intent.fundQuoteRef;
+    final l10n = l10nForLanguage(ref.read(settingsProvider).language);
+
+    void stop(String code, String message, {String? placementId}) {
+      _trackFailed(intent, code);
+      if (funded) {
+        journey.failed(
+            OneBalanceVenue.predictions, OrderFundingStage.order, code);
+      }
+      ledger.release(fundingKey, reason: 'failed');
+      pendingNotifier.updateStatus(PendingBetStatus.failed,
+          errorMessage: message, failureCode: code);
+      if (placementId != null) placingNotifier.markFailed(placementId, message);
+    }
+
+    final stored = await standing.signedOrderFor(standingId);
+    if (!_sameAttempt(intent)) return;
+    if (stored == null) {
+      stop(StandingOrderFailure.approvalMissing, l10n.standingPredictionFailed);
+      return;
+    }
+    // The order posted now; a re-price replaces it (never a second live one).
+    var signed = stored;
+    // The next round's pick: funded ahead, posted once the round opens.
+    while (!standing.mayPost(standingId)) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!_sameAttempt(intent)) return;
+      if (intent.isStale()) {
+        stop(StandingOrderFailure.expired, l10n.standingPredictionFailed);
+        return;
+      }
+    }
+    if (autofireRoundClosed(intent)) {
+      _failRoundClosed(intent);
+      return;
+    }
+    final isLimit = signed.orderType == OrderType.gtc;
+    String? placementId;
+    if (!isLimit) {
+      final preShares = ref
+          .read(polymarketActivePositionsProvider)
+          .where((p) => p.tokenId == intent.tokenId)
+          .fold<double>(0, (sum, p) => sum + p.size);
+      placementId = placingNotifier.markPlacing(
+        tokenId: intent.tokenId,
+        marketQuestion: intent.marketQuestion,
+        eventSlug: intent.eventSlug,
+        marketImage: intent.marketImage,
+        outcomeName: intent.outcomeName,
+        amount: intent.amount,
+        shares: 0,
+        avgPrice: intent.expectedPrice,
+        preExistingShares: preShares,
+        step: 2,
+        totalSteps: 3,
+        stepLabel: l10n.betContactingPolymarket,
+      );
+    }
+    var sentShares = 0.0;
+    var venueTook = false;
+    var attempt = 0;
+    Map<String, dynamic>? takenAnswer;
+    double? takenPaid;
+    try {
+      final fees = intent.feeTerms ?? PolymarketFeeTerms.worstCase;
+      await tradingNotifier
+          .readyCollateralForBuy(fees.allInCost(signed.spendUsd, signed.price));
+      if (!_sameAttempt(intent)) return;
+      final firstPost = DateTime.now();
+      DateTime? notReadySince;
+      var notReady = 0;
+      Map<String, dynamic>? response;
+      while (true) {
+        sentShares = signed.shares;
+        if (placementId != null) {
+          placingNotifier.advanceStep(placementId,
+              step: 3, label: l10n.betPlacingOrder);
+        }
+        ledger.reserve(fundingKey);
+        try {
+          response = await tradingNotifier.postStandingOrder(
+            standing: signed,
+            marketTitle: intent.marketQuestion,
+            marketImage: intent.marketImage,
+            marketOutcome: intent.outcomeName,
+            marketCategory: intent.marketCategory,
+            source: funded ? 'usdc_pool' : 'btc_pool',
+            entrySource: 'autofire',
+            analytics: {
+              ..._analytics(intent),
+              'retried': attempt > 0,
+              'quoted_price': intent.expectedPrice,
+            },
+            onStep: (step) => _placementStep(intent, step),
+          );
+          break;
+        } catch (e) {
+          if (!_sameAttempt(intent)) return;
+          // Refused for its price: the venue proved this order was not
+          // accepted. A fresh book inside the approved worst price gives
+          // a new order; past it, the person is asked again.
+          if (!isLimit &&
+              e is PolymarketOrderNotAcceptedException &&
+              isPolymarketPriceRefusal(e.reason)) {
+            final next =
+                await _repriceStanding(intent, standingId, since: firstPost);
+            if (!_sameAttempt(intent)) return;
+            final resigned = next.signed;
+            if (resigned != null) {
+              signed = resigned;
+              attempt++;
+              continue;
+            }
+            _stopNeedsApproval(intent, standingId,
+                priceNow: next.priceNow, error: e, placementId: placementId);
+            return;
+          }
+          if (await _waitAfterNotReady(e, intent, null, notReady++,
+              since: notReadySince ??= DateTime.now(),
+              requiredCostMicros: BigInt.from(
+                  (fees.allInCost(signed.spendUsd, signed.price) * 1e6).ceil()),
+              standing: true)) {
+            continue;
+          }
+          rethrow;
+        }
+      }
+      final Map<String, dynamic> placed = response;
+      venueTook = true;
+      takenAnswer = placed;
+      if (isLimit) {
+        // Resting on the book: the order holds its own cash from now.
+        unawaited(tradingNotifier.refresh().catchError((_) {}));
+        ref.invalidate(polymarketOpenOrdersProvider);
+        if (funded && _sameAttempt(intent)) {
+          journey.completed(OneBalanceVenue.predictions,
+              resized: false, amountUsd: signed.spendUsd);
+        }
+        ledger.release(fundingKey, reason: 'placed');
+        if (!_sameAttempt(intent)) return;
+        pendingNotifier.updateStatus(PendingBetStatus.done);
+        Future.delayed(const Duration(milliseconds: 600), () {
+          try {
+            if (_sameAttempt(intent)) pendingNotifier.clear();
+          } catch (_) {}
+        });
+        return;
+      }
+      final makingRaw = placed['makingAmount'] ?? placed['making_amount'];
+      final paidUsdc = makingRaw is num
+          ? makingRaw.toDouble()
+          : double.tryParse('$makingRaw');
+      final gotShares = double.tryParse(
+          '${placed['takingAmount'] ?? placed['taking_amount']}');
+      final verifiedFill =
+          placed['status']?.toString().toLowerCase() == 'matched' &&
+              paidUsdc != null &&
+              paidUsdc.isFinite &&
+              paidUsdc > 0 &&
+              gotShares != null &&
+              gotShares.isFinite &&
+              gotShares > 0;
+      if (verifiedFill) {
+        takenPaid = paidUsdc;
+        unawaited(
+            costBasis.addCost(intent.tokenId, paidUsdc).catchError((_) {}));
+      }
+      unawaited(tradingNotifier.refresh().catchError((_) {}));
+      if (!_sameAttempt(intent)) {
+        ledger.release(fundingKey, reason: 'placed');
+        if (!_disposed) ref.invalidate(polymarketOpenOrdersProvider);
+        return;
+      }
+      pendingNotifier.recordFill(placed);
+      if (!verifiedFill &&
+          (placed['status']?.toString().toLowerCase() == 'delayed' ||
+              placed['recovered'] == true) &&
+          await _followHeldOrder(intent, placed,
+              orderedShares: sentShares,
+              placementId: placementId!,
+              retried: attempt > 0,
+              resized: false,
+              costBasis: costBasis)) {
+        return;
+      }
+      if (!_sameAttempt(intent)) return;
+      if (funded) {
+        journey.completed(OneBalanceVenue.predictions,
+            resized: false, amountUsd: verifiedFill ? paidUsdc : null);
+      }
+      ledger.release(fundingKey, reason: 'placed');
+      if (!verifiedFill) {
+        ref.invalidate(polymarketOpenOrdersProvider);
+        pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        placingNotifier.clear(placementId!);
+        return;
+      }
+      pendingNotifier.updateStatus(PendingBetStatus.done);
+      placingNotifier.markSucceeded(placementId!,
+          holdUntilPositionArrives: true);
+      Future.delayed(const Duration(milliseconds: 600), () {
+        try {
+          if (_sameAttempt(intent)) pendingNotifier.clear();
+        } catch (_) {}
+      });
+    } catch (e, st) {
+      if (!_sameAttempt(intent)) return;
+      if (kDebugMode) debugPrint('[pm-standing] failed: $e\n$st');
+      if (venueTook && e is! PendingPolymarketOrder) {
+        _endTaken(intent,
+            answer: takenAnswer,
+            paidUsdc: takenPaid,
+            resized: false,
+            placementId: placementId);
+        return;
+      }
+      if (e is PolymarketOrderOutcomeUnknown &&
+          e.orderId != null &&
+          !e.lookedUp &&
+          sentShares > 0 &&
+          placementId != null) {
+        placingNotifier.markConfirming(placementId);
+        pendingNotifier.setStage(PendingBetStage.reconciling);
+        var ended = false;
+        try {
+          ended = await _followHeldOrder(
+              intent, {'orderID': e.orderId, 'status': ''},
+              orderedShares: sentShares,
+              placementId: placementId,
+              retried: attempt > 0,
+              resized: false,
+              costBasis: costBasis);
+        } catch (_) {}
+        if (ended) {
+          unawaited(tradingNotifier
+              .checkPendingOrder(tokenId: intent.tokenId)
+              .catchError((_) {}));
+          return;
+        }
+        if (!_sameAttempt(intent)) return;
+      }
+      if (e is PendingPolymarketOrder) {
+        if (funded) {
+          journey.completed(OneBalanceVenue.predictions, resized: false);
+        }
+        ledger.release(fundingKey, reason: 'placed');
+        pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        if (placementId != null) placingNotifier.clear(placementId);
+        return;
+      }
+      if (e is _ApprovalLapsed) {
+        stop(StandingOrderFailure.expired, l10n.standingPredictionFailed,
+            placementId: placementId);
+        return;
+      }
+      if (autofireRoundClosed(intent)) {
+        _failRoundClosed(intent, placementId: placementId);
+        return;
+      }
+      _trackFailed(intent, _failureCode(e),
+          stackTrace: st, retried: attempt > 0, error: e);
+      if (funded) {
+        journey.failed(OneBalanceVenue.predictions, _failureStage(e),
+            _failureCode(e));
+      }
+      ledger.release(fundingKey, reason: 'failed');
+      final msg = _friendlyError(e);
+      pendingNotifier.updateStatus(PendingBetStatus.failed,
+          errorMessage: msg, failureCode: _stopCode(e));
+      if (placementId != null) placingNotifier.markFailed(placementId, msg);
+    }
+  }
+
+  /// A fresh book for a standing order whose posted order the venue
+  /// refused for its price: a new order at today's executable price, under
+  /// the approved worst price, signed anew (`StandingOrdersNotifier.
+  /// reprice`); or none, with the price now when the book moved past the
+  /// approval.
+  Future<({StandingSignedOrder? signed, double? priceNow})> _repriceStanding(
+      PendingBetIntent intent, String standingId,
+      {required DateTime since}) async {
+    final book = await _freshBook(intent.tokenId);
+    if (book == null) return (signed: null, priceNow: null);
+    final fees = intent.feeTerms ?? PolymarketFeeTerms.worstCase;
+    final slippage = autofireSlippagePct(intent.expectedPrice, intent.slippagePct);
+    final PolymarketFillPrice fill;
+    try {
+      fill = polymarketFillPrice(book,
+          tokenId: intent.tokenId,
+          amount: intent.amount,
+          slippagePct: slippage,
+          approvedMaxPrice: polymarketFundedWorstPrice(intent),
+          fees: fees);
+    } on PolymarketThinBook catch (e) {
+      return (signed: null, priceNow: e.price);
+    } catch (_) {
+      return (signed: null, priceNow: null);
+    }
+    final shares = PolymarketOrderPlan.sharesFor(intent.amount, fill.orderPrice);
+    if (shares <= 0) return (signed: null, priceNow: fill.bestAsk);
+    final signed = await ref.read(standingOrdersProvider.notifier).reprice(
+          standingId,
+          intent: intent,
+          price: fill.orderPrice,
+          shares: shares,
+          spendUsd: intent.amount,
+          since: since,
+        );
+    return (signed: signed, priceNow: signed == null ? fill.bestAsk : null);
+  }
+
+  /// The book moved past the approved worst price (or nothing may be
+  /// signed any more): nothing is bought at a price never approved. The
+  /// money stays on the venue, the standing order waits for the person
+  /// (needsApproval: one tap and Face ID at the new price, or cancel).
+  void _stopNeedsApproval(PendingBetIntent intent, String standingId,
+      {double? priceNow, required Object error, String? placementId}) {
+    final pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
+    final placingNotifier = ref.read(placingPolymarketBetProvider.notifier);
+    _trackFailed(intent, 'price_moved', retried: true, error: error);
+    if (intent.funded) {
+      OrderFundingJourney.instance.failed(
+          OneBalanceVenue.predictions, OrderFundingStage.order, 'price_moved');
+    }
+    PredictionFundingLedger.instance
+        .release(intent.fundQuoteRef, reason: 'failed');
+    unawaited(ref
+        .read(standingOrdersProvider.notifier)
+        .needsApproval(standingId, priceNow: priceNow));
+    final l10n = l10nForLanguage(ref.read(settingsProvider).language);
+    final msg = priceNow != null
+        ? l10n.slipFundingRoundPriceMoved(formatPolyChance(priceNow))
+        : l10n.betBuyLiquidityUnavailable;
+    pendingNotifier.updateStatus(PendingBetStatus.failed,
+        errorMessage: msg,
+        retryMaxPrice: priceNow,
+        movedToPrice: priceNow,
+        failureCode: 'price_moved');
+    if (placementId != null) placingNotifier.markFailed(placementId, msg);
+  }
 
   /// [intent]'s round closed before its money arrived (or before it could
   /// be placed): nothing is signed, on this round or any other, and the
@@ -1129,7 +1517,11 @@ class PendingBetAutoFire {
     final tradingNotifier = ref.read(polymarketTradingProvider.notifier);
 
     // D-10: never fire without the confirm-time grant (a restart drops it).
-    if (!AuthGrantRegistry.instance.hasAutofireGrant(kPendingBetAutofireId)) {
+    // A standing order (standing_orders/) carries its approval as the order
+    // signed at the accept, kept in secure storage: no grant is needed.
+    final standingId = intent.standingOrderId;
+    if (standingId == null &&
+        !AuthGrantRegistry.instance.hasAutofireGrant(kPendingBetAutofireId)) {
       _trackFailed(intent, 'approval_expired');
       _cancelForReconfirm();
       return;
@@ -1140,6 +1532,10 @@ class PendingBetAutoFire {
     final costBasis = ref.read(polymarketCostBasisProvider.notifier);
 
     pendingNotifier.updateStatus(PendingBetStatus.placing);
+    if (standingId != null) {
+      await _placeStandingOrder(intent, standingId, costBasis: costBasis);
+      return;
+    }
     final journey = OrderFundingJourney.instance;
     final funded = intent.funded;
     // The funding leg's cap and venue ride on the order intent too, so the

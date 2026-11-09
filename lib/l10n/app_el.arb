@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Εντολές σε εξέλιξη",
   "orderNoticeProgressChannelDescription": "Η πρόοδος μιας πρόβλεψης ή εντολής όσο το Kute είναι στο παρασκήνιο.",
   "orderNoticeResultChannel": "Αποτελέσματα εντολών",
-  "orderNoticeResultChannelDescription": "Αν μια πρόβλεψη ή εντολή που καταχωρίστηκε όσο το Kute ήταν στο παρασκήνιο πέρασε."
+  "orderNoticeResultChannelDescription": "Αν μια πρόβλεψη ή εντολή που καταχωρίστηκε όσο το Kute ήταν στο παρασκήνιο πέρασε.",
+  "predictionsInstant": "Άμεσες",
+  "categoryInstantLengths": "5 λεπτά · 15 λεπτά · 1 ώρα · 4 ώρες",
+  "predictRoundNow": "Τώρα · {time}",
+  "predictRoundNoPricesYet": "Χωρίς τιμές ακόμα",
+  "predictUpOrDownLength": "{asset} Πάνω ή Κάτω · {length}",
+  "standingPlacingPrediction": "Τοποθετούμε την πρόβλεψή σου",
+  "standingPlacingOrder": "Τοποθετούμε την εντολή σου",
+  "standingPredictionPlaced": "Η πρόβλεψη τοποθετήθηκε",
+  "standingOrderPlaced": "Η εντολή τοποθετήθηκε",
+  "standingPredictionFailed": "Η πρόβλεψή σου δεν τοποθετήθηκε. Τα χρήματα είναι στις Προβλέψεις, διαθέσιμα.",
+  "standingOrderFailed": "Η εντολή σου δεν τοποθετήθηκε. Τα χρήματα είναι στις Επενδύσεις, διαθέσιμα.",
+  "standingPredictionCancelled": "Ακυρώθηκε. Τα χρήματα μένουν στις Προβλέψεις, διαθέσιμα.",
+  "standingOrderCancelled": "Ακυρώθηκε. Τα χρήματα μένουν στις Επενδύσεις, διαθέσιμα.",
+  "standingPriceMoved": "Η τιμή πήγε στο {price}. Πάτησε για να τοποθετήσεις στη νέα τιμή.",
+  "standingLeaveNote": "Μπορείς να φύγεις. Η εντολή συνεχίζει και φαίνεται στη Δραστηριότητα."
 }

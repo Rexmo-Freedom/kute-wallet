@@ -14499,4 +14499,60 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Αν μια πρόβλεψη ή εντολή που καταχωρίστηκε όσο το Kute ήταν στο παρασκήνιο πέρασε.';
+
+  @override
+  String get predictionsInstant => 'Άμεσες';
+
+  @override
+  String get categoryInstantLengths => '5 λεπτά · 15 λεπτά · 1 ώρα · 4 ώρες';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Τώρα · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Χωρίς τιμές ακόμα';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Πάνω ή Κάτω · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Τοποθετούμε την πρόβλεψή σου';
+
+  @override
+  String get standingPlacingOrder => 'Τοποθετούμε την εντολή σου';
+
+  @override
+  String get standingPredictionPlaced => 'Η πρόβλεψη τοποθετήθηκε';
+
+  @override
+  String get standingOrderPlaced => 'Η εντολή τοποθετήθηκε';
+
+  @override
+  String get standingPredictionFailed =>
+      'Η πρόβλεψή σου δεν τοποθετήθηκε. Τα χρήματα είναι στις Προβλέψεις, διαθέσιμα.';
+
+  @override
+  String get standingOrderFailed =>
+      'Η εντολή σου δεν τοποθετήθηκε. Τα χρήματα είναι στις Επενδύσεις, διαθέσιμα.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Ακυρώθηκε. Τα χρήματα μένουν στις Προβλέψεις, διαθέσιμα.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Ακυρώθηκε. Τα χρήματα μένουν στις Επενδύσεις, διαθέσιμα.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Η τιμή πήγε στο $price. Πάτησε για να τοποθετήσεις στη νέα τιμή.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Μπορείς να φύγεις. Η εντολή συνεχίζει και φαίνεται στη Δραστηριότητα.';
 }

@@ -14466,4 +14466,60 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Se una previsione o un ordine inviato mentre Kute era in background è andato a buon fine.';
+
+  @override
+  String get predictionsInstant => 'Istantanee';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 ora · 4 ore';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Ora · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Ancora senza prezzi';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Sale o Scende · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Stiamo piazzando la tua previsione';
+
+  @override
+  String get standingPlacingOrder => 'Stiamo piazzando il tuo ordine';
+
+  @override
+  String get standingPredictionPlaced => 'Previsione piazzata';
+
+  @override
+  String get standingOrderPlaced => 'Ordine piazzato';
+
+  @override
+  String get standingPredictionFailed =>
+      'La tua previsione non è stata piazzata. I soldi sono in Previsioni, disponibili.';
+
+  @override
+  String get standingOrderFailed =>
+      'Il tuo ordine non è stato piazzato. I soldi sono in Investimenti, disponibili.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Annullato. I soldi restano in Previsioni, disponibili.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Annullato. I soldi restano in Investimenti, disponibili.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Il prezzo è passato a $price. Tocca per piazzare al nuovo prezzo.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Puoi uscire. L\'ordine continua e compare in Attività.';
 }

@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Поръчки в процес",
   "orderNoticeProgressChannelDescription": "Напредъкът на прогноза или поръчка, докато Kute е на заден план.",
   "orderNoticeResultChannel": "Резултати от поръчки",
-  "orderNoticeResultChannelDescription": "Дали прогноза или поръчка, пуснати, докато Kute беше на заден план, са минали."
+  "orderNoticeResultChannelDescription": "Дали прогноза или поръчка, пуснати, докато Kute беше на заден план, са минали.",
+  "predictionsInstant": "Моментални",
+  "categoryInstantLengths": "5 мин · 15 мин · 1 час · 4 часа",
+  "predictRoundNow": "Сега · {time}",
+  "predictRoundNoPricesYet": "Още няма цени",
+  "predictUpOrDownLength": "{asset} нагоре или надолу · {length}",
+  "standingPlacingPrediction": "Поставяме прогнозата ти",
+  "standingPlacingOrder": "Поставяме поръчката ти",
+  "standingPredictionPlaced": "Прогнозата е поставена",
+  "standingOrderPlaced": "Поръчката е поставена",
+  "standingPredictionFailed": "Прогнозата ти не беше поставена. Парите са в Прогнози, налични.",
+  "standingOrderFailed": "Поръчката ти не беше поставена. Парите са в Инвестиране, налични.",
+  "standingPredictionCancelled": "Отменено. Парите остават в Прогнози, налични.",
+  "standingOrderCancelled": "Отменено. Парите остават в Инвестиране, налични.",
+  "standingPriceMoved": "Цената стана {price}. Докосни, за да поставиш на новата цена.",
+  "standingLeaveNote": "Можеш да излезеш. Поръчката продължава и се вижда в Активност."
 }

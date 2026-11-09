@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Izpildē esoši rīkojumi",
   "orderNoticeProgressChannelDescription": "Prognozes vai rīkojuma gaita, kamēr Kute ir fonā.",
   "orderNoticeResultChannel": "Rīkojumu rezultāti",
-  "orderNoticeResultChannelDescription": "Vai prognoze vai rīkojums, kas veikts, kamēr Kute bija fonā, izdevās."
+  "orderNoticeResultChannelDescription": "Vai prognoze vai rīkojums, kas veikts, kamēr Kute bija fonā, izdevās.",
+  "predictionsInstant": "Tūlītējās",
+  "categoryInstantLengths": "5 min · 15 min · 1 stunda · 4 stundas",
+  "predictRoundNow": "Tagad · {time}",
+  "predictRoundNoPricesYet": "Cenu vēl nav",
+  "predictUpOrDownLength": "{asset} augšup vai lejup · {length}",
+  "standingPlacingPrediction": "Iesniedzam tavu prognozi",
+  "standingPlacingOrder": "Iesniedzam tavu rīkojumu",
+  "standingPredictionPlaced": "Prognoze iesniegta",
+  "standingOrderPlaced": "Rīkojums iesniegts",
+  "standingPredictionFailed": "Tava prognoze netika iesniegta. Nauda ir Prognozēs, pieejama.",
+  "standingOrderFailed": "Tavs rīkojums netika iesniegts. Nauda ir Investēšanā, pieejama.",
+  "standingPredictionCancelled": "Atcelts. Nauda paliek Prognozēs, pieejama.",
+  "standingOrderCancelled": "Atcelts. Nauda paliek Investēšanā, pieejama.",
+  "standingPriceMoved": "Cena mainījās uz {price}. Pieskaries, lai iesniegtu par jauno cenu.",
+  "standingLeaveNote": "Vari iet. Rīkojums turpinās un redzams Aktivitātē."
 }

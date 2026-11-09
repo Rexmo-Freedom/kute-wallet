@@ -78,7 +78,11 @@ import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:kute/screens/shared/multi_source_move_activity.dart'
     show MultiSourceMoveTransaction;
+import 'package:kute/screens/shared/standing_orders_section.dart'
+    show StandingOrdersSection;
 import 'package:kute/screens/shared/transactions_builder.dart';
+import 'package:kute/services/standing_orders/standing_orders_provider.dart'
+    show standingOrdersProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show multiSourceMovesProvider;
 import 'package:kute/services/one_balance/venue_funder.dart'
@@ -397,7 +401,14 @@ class AllActivityPreview extends ConsumerWidget {
         ? activity.entries.take(limit).toList(growable: false)
         : homeActivityEntries(activity.curated,
             limit: limit, classify: classify);
+    // A standing order in flight (a prediction or an Investing order whose
+    // money is on its way) leads the Investments' activity: a row that
+    // can be cancelled, opening its journey.
+    final standing = scope != ActivityScope.bitcoin &&
+        ref.watch(standingOrdersProvider
+            .select((all) => all.any((o) => o.isOpen)));
     if (shown.isEmpty) {
+      if (standing) return const StandingOrdersSection();
       return emptyState ?? buildNoTransactionsFound(context);
     }
     final l10n = context.l10n;
@@ -414,6 +425,7 @@ class AllActivityPreview extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (standing) const StandingOrdersSection(),
         _HomeActivityHeading(l10n.activityLatest),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -592,6 +604,7 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
     final sections =
         allActivityDaySections(context, ref, shown, curated: activity.curated);
     final children = <Widget>[
+      if (widget.scope != ActivityScope.bitcoin) const StandingOrdersSection(),
       if (activity.failed)
         TextButton.icon(
             onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),

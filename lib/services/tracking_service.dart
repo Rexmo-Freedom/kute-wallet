@@ -2927,7 +2927,7 @@ class TrackingService {
     }
     _bumpAffiliateActivity(); // count toward affiliate activity (all tx types)
     markMoneyAction('bet', venue: 'polymarket');
-    track('polymarket_bet_placed', params: {
+    final placedParams = <String, Object>{
       ...polymarketOrderConnectionParams(),
       ...VenueAnalytics.staged('pm', marketId),
       ..._roundWindowParams(marketId, marketSlug),
@@ -2962,7 +2962,9 @@ class TrackingService {
       // Database join key: the real CLOB order id only, never the
       // synthetic fallback below (the database cannot hold it).
       ...orderJoinParams(providerOrderId),
-    });
+    };
+    track('polymarket_bet_placed',
+        params: priceMovedBps(placedParams, fillPrice: price));
     // First-bet referee-conversion signal — gates once per device so
     // we don't double-count attribution after the first qualifying bet.
     affiliateRefereeConverted(provider: 'polymarket', amountUsd: amount);
@@ -3011,7 +3013,7 @@ class TrackingService {
       ...VenueAnalytics.staged('pm', marketId),
       ..._roundWindowParams(marketId, marketSlug),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug]),
-      ...?extra,
+      ...priceMovedBps(extra ?? const {}),
       if (entrySource != null) 'entry_source': entrySource,
       'market_id': marketId,
       'venue': 'polymarket',
@@ -6840,6 +6842,27 @@ class TrackingService {
 
   /// True the first time [key] is seen for [event] this session (one
   /// outcome per real action; the key is hashed and never sent).
+  /// A standing order's outcome against the price its slip first quoted
+  /// (`first_quote_price`, put on the order's analytics by the autofire):
+  /// `price_moved_bps`, the fill's price over the quote in basis points
+  /// (positive: paid more). The helper key itself never goes out. Without
+  /// a fill ([fillPrice] null) only the key is dropped.
+  static Map<String, Object> priceMovedBps(Map<String, Object> params,
+      {double? fillPrice}) {
+    final first = params['first_quote_price'];
+    if (first == null) return params;
+    final out = Map<String, Object>.of(params)..remove('first_quote_price');
+    if (first is num &&
+        first > 0 &&
+        fillPrice != null &&
+        fillPrice.isFinite &&
+        fillPrice > 0) {
+      out['price_moved_bps'] =
+          ((fillPrice - first) / first * 10000).round();
+    }
+    return out;
+  }
+
   static bool claimOutcome(String event, String key) =>
       _mfOutcomeSeen.add('$event|${orderRef(key)}');
 

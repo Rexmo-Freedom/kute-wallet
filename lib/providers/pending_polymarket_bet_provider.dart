@@ -195,6 +195,12 @@ class PendingBetIntent {
   final bool convertSeen;
   final bool approveSeen;
 
+  /// The standing order this queued bet is (standing_orders/): its order
+  /// was signed at the accept and is posted as is once the money is
+  /// counted, with no approval held in memory. Null for a bet the
+  /// autofire signs when it fires, as before.
+  final String? standingOrderId;
+
   /// Longest a queued bet may wait before it is dropped unplaced: the
   /// approval's own life (the 30 min autofire grant).
   static const Duration maxQueuedAge = Duration(minutes: 30);
@@ -239,6 +245,7 @@ class PendingBetIntent {
     this.readiness,
     this.convertSeen = false,
     this.approveSeen = false,
+    this.standingOrderId,
   });
 
   /// Whether this bet is (or was) funded from Dollars for the order.
@@ -287,6 +294,7 @@ class PendingBetIntent {
     PredictionsReadiness? readiness,
     bool? convertSeen,
     bool? approveSeen,
+    String? standingOrderId,
   }) {
     return PendingBetIntent(
       marketQuote: marketQuote ?? this.marketQuote,
@@ -332,6 +340,7 @@ class PendingBetIntent {
       readiness: readiness ?? this.readiness,
       convertSeen: convertSeen ?? this.convertSeen,
       approveSeen: approveSeen ?? this.approveSeen,
+      standingOrderId: standingOrderId ?? this.standingOrderId,
     );
   }
 }
@@ -473,6 +482,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       readiness: current.readiness,
       convertSeen: current.convertSeen,
       approveSeen: current.approveSeen,
+      standingOrderId: current.standingOrderId,
     );
   }
 

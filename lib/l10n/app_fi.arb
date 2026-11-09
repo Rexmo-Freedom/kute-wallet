@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Käsiteltävät toimeksiannot",
   "orderNoticeProgressChannelDescription": "Ennusteen tai toimeksiannon eteneminen, kun Kute on taustalla.",
   "orderNoticeResultChannel": "Toimeksiantojen tulokset",
-  "orderNoticeResultChannelDescription": "Menikö Kuten ollessa taustalla tehty ennuste tai toimeksianto läpi."
+  "orderNoticeResultChannelDescription": "Menikö Kuten ollessa taustalla tehty ennuste tai toimeksianto läpi.",
+  "predictionsInstant": "Pikaiset",
+  "categoryInstantLengths": "5 min · 15 min · 1 tunti · 4 tuntia",
+  "predictRoundNow": "Nyt · {time}",
+  "predictRoundNoPricesYet": "Ei vielä hintoja",
+  "predictUpOrDownLength": "{asset} ylös vai alas · {length}",
+  "standingPlacingPrediction": "Ennustettasi asetetaan",
+  "standingPlacingOrder": "Toimeksiantoasi asetetaan",
+  "standingPredictionPlaced": "Ennuste asetettu",
+  "standingOrderPlaced": "Toimeksianto asetettu",
+  "standingPredictionFailed": "Ennustettasi ei asetettu. Rahat ovat Ennusteissa, käytettävissä.",
+  "standingOrderFailed": "Toimeksiantoasi ei asetettu. Rahat ovat Sijoittamisessa, käytettävissä.",
+  "standingPredictionCancelled": "Peruttu. Rahat pysyvät Ennusteissa, käytettävissä.",
+  "standingOrderCancelled": "Peruttu. Rahat pysyvät Sijoittamisessa, käytettävissä.",
+  "standingPriceMoved": "Hinta muuttui: {price}. Napauta asettaaksesi uuteen hintaan.",
+  "standingLeaveNote": "Voit poistua. Toimeksianto jatkuu ja näkyy Tapahtumissa."
 }

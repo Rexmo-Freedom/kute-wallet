@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Ordrar som läggs",
   "orderNoticeProgressChannelDescription": "Hur en prognos eller order går medan Kute är i bakgrunden.",
   "orderNoticeResultChannel": "Orderresultat",
-  "orderNoticeResultChannelDescription": "Om en prognos eller order som lades medan Kute var i bakgrunden gick igenom."
+  "orderNoticeResultChannelDescription": "Om en prognos eller order som lades medan Kute var i bakgrunden gick igenom.",
+  "predictionsInstant": "Direkt",
+  "categoryInstantLengths": "5 min · 15 min · 1 timme · 4 timmar",
+  "predictRoundNow": "Nu · {time}",
+  "predictRoundNoPricesYet": "Inga priser än",
+  "predictUpOrDownLength": "{asset} upp eller ner · {length}",
+  "standingPlacingPrediction": "Lägger din förutsägelse",
+  "standingPlacingOrder": "Lägger din order",
+  "standingPredictionPlaced": "Förutsägelse lagd",
+  "standingOrderPlaced": "Order lagd",
+  "standingPredictionFailed": "Din förutsägelse lades inte. Pengarna finns i Förutsägelser, tillgängliga.",
+  "standingOrderFailed": "Din order lades inte. Pengarna finns i Investera, tillgängliga.",
+  "standingPredictionCancelled": "Avbrutet. Pengarna stannar i Förutsägelser, tillgängliga.",
+  "standingOrderCancelled": "Avbrutet. Pengarna stannar i Investera, tillgängliga.",
+  "standingPriceMoved": "Priset gick till {price}. Tryck för att lägga till det nya priset.",
+  "standingLeaveNote": "Du kan lämna. Ordern fortsätter och visas i Aktivitet."
 }

@@ -683,6 +683,9 @@ spark_sdk_teardown
 spark_sync_latency
 spark_wallet_id_unresolved
 standing_deposit_status
+standing_order_cancelled
+standing_order_created
+standing_order_resumed
 step_up_auth
 step_up_auth_denied
 step_up_pin_fallback

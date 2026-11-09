@@ -1,4 +1,8 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/standing_order_journey.dart'
+    show StandingOrderJourneySheet;
+import 'package:kute/services/standing_orders/standing_order.dart'
+    show StandingOrderVenue;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
 import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
@@ -2394,6 +2398,27 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// that cannot cover the move turn the button into "Add $X to
   /// Investments". A credit timeout keeps the cash at the venue for the
   /// sweeper and says so with the existing copy.
+  /// The accept is done and the order's money is on its way, headless (a
+  /// standing order, standing_orders/): the ticket closes at once and the
+  /// money's journey takes its place (the same steps, the walking Sal),
+  /// which the person may leave at any time while the order goes on
+  /// (founder, 9 November 2026). Deferred a frame, so the state set just
+  /// before it has rendered. Closes once.
+  void _closeForStandingOrder() {
+    if (!mounted || _closedForStanding) return;
+    _closedForStanding = true;
+    final nav = Navigator.of(context, rootNavigator: true);
+    final coin = market.coin;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      unawaited(StandingOrderJourneySheet.show(nav.context,
+          venue: StandingOrderVenue.investing, marketKey: coin));
+    });
+  }
+
+  bool _closedForStanding = false;
+
   Future<void> _confirmFunded({
     required String walletId,
     required String cloid,
@@ -2762,6 +2787,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     switch (outcome) {
       case OrderFundingFunded(:final move):
         _submitted = true;
+        _closeForStandingOrder();
         // The order's own funding move is the last leg of its
         // multi-source move: one Activity row.
         MultiSourceMoveStore.attachFinal(
@@ -2778,6 +2804,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       case OrderFundingNotNeeded():
         // The venue covered it after all: the watcher places it now.
         _submitted = true;
+        _closeForStandingOrder();
         _trackFundingStep(OrderFundingStage.credit);
       case OrderFundingUnconfirmed():
         // The rail could not say whether the money left: the order stays
@@ -2853,6 +2880,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _errorCause = null;
       _fundingStage = OrderFundingStage.fund;
     });
+    _closeForStandingOrder();
     _moveId ??= MultiSourceMoveStore.newId();
     _moveUsd = fundUsd;
     final run = container.read(venueCashFundedOrderRunnerProvider).start(
@@ -3150,6 +3178,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _errorCause = null;
           _fundingStage = OrderFundingStage.bitcoin;
         });
+        _closeForStandingOrder();
         return BitcoinFundedOrderRequest(
           venue: OneBalanceVenue.investing,
           otherVenueUsed: rest.otherUsd > 0,

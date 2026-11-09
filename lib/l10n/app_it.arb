@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Ordini in corso",
   "orderNoticeProgressChannelDescription": "L'avanzamento di una previsione o di un ordine mentre Kute è in background.",
   "orderNoticeResultChannel": "Risultati degli ordini",
-  "orderNoticeResultChannelDescription": "Se una previsione o un ordine inviato mentre Kute era in background è andato a buon fine."
+  "orderNoticeResultChannelDescription": "Se una previsione o un ordine inviato mentre Kute era in background è andato a buon fine.",
+  "predictionsInstant": "Istantanee",
+  "categoryInstantLengths": "5 min · 15 min · 1 ora · 4 ore",
+  "predictRoundNow": "Ora · {time}",
+  "predictRoundNoPricesYet": "Ancora senza prezzi",
+  "predictUpOrDownLength": "{asset} Sale o Scende · {length}",
+  "standingPlacingPrediction": "Stiamo piazzando la tua previsione",
+  "standingPlacingOrder": "Stiamo piazzando il tuo ordine",
+  "standingPredictionPlaced": "Previsione piazzata",
+  "standingOrderPlaced": "Ordine piazzato",
+  "standingPredictionFailed": "La tua previsione non è stata piazzata. I soldi sono in Previsioni, disponibili.",
+  "standingOrderFailed": "Il tuo ordine non è stato piazzato. I soldi sono in Investimenti, disponibili.",
+  "standingPredictionCancelled": "Annullato. I soldi restano in Previsioni, disponibili.",
+  "standingOrderCancelled": "Annullato. I soldi restano in Investimenti, disponibili.",
+  "standingPriceMoved": "Il prezzo è passato a {price}. Tocca per piazzare al nuovo prezzo.",
+  "standingLeaveNote": "Puoi uscire. L'ordine continua e compare in Attività."
 }

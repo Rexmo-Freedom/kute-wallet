@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Ordres en cours",
   "orderNoticeProgressChannelDescription": "L'avancement d'une prédiction ou d'un ordre pendant que Kute est en arrière-plan.",
   "orderNoticeResultChannel": "Résultats des ordres",
-  "orderNoticeResultChannelDescription": "Si une prédiction ou un ordre passé pendant que Kute était en arrière-plan a abouti."
+  "orderNoticeResultChannelDescription": "Si une prédiction ou un ordre passé pendant que Kute était en arrière-plan a abouti.",
+  "predictionsInstant": "Instantanées",
+  "categoryInstantLengths": "5 min · 15 min · 1 heure · 4 heures",
+  "predictRoundNow": "Maintenant · {time}",
+  "predictRoundNoPricesYet": "Pas encore de prix",
+  "predictUpOrDownLength": "{asset} Hausse ou Baisse · {length}",
+  "standingPlacingPrediction": "Placement de votre prédiction",
+  "standingPlacingOrder": "Placement de votre ordre",
+  "standingPredictionPlaced": "Prédiction placée",
+  "standingOrderPlaced": "Ordre placé",
+  "standingPredictionFailed": "Votre prédiction n'a pas été placée. L'argent est dans Prédictions, disponible.",
+  "standingOrderFailed": "Votre ordre n'a pas été placé. L'argent est dans Investir, disponible.",
+  "standingPredictionCancelled": "Annulé. L'argent reste dans Prédictions, disponible.",
+  "standingOrderCancelled": "Annulé. L'argent reste dans Investir, disponible.",
+  "standingPriceMoved": "Le prix est passé à {price}. Touchez pour placer au nouveau prix.",
+  "standingLeaveNote": "Vous pouvez quitter. L'ordre continue et apparaît dans Activité."
 }

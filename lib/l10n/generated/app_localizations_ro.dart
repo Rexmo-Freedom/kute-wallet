@@ -14473,4 +14473,60 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Dacă o predicție sau un ordin plasat cât timp Kute era în fundal a reușit.';
+
+  @override
+  String get predictionsInstant => 'Instant';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 oră · 4 ore';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Acum · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Încă fără prețuri';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Sus sau Jos · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Îți plasăm predicția';
+
+  @override
+  String get standingPlacingOrder => 'Îți plasăm ordinul';
+
+  @override
+  String get standingPredictionPlaced => 'Predicție plasată';
+
+  @override
+  String get standingOrderPlaced => 'Ordin plasat';
+
+  @override
+  String get standingPredictionFailed =>
+      'Predicția ta nu a fost plasată. Banii sunt în Predicții, disponibili.';
+
+  @override
+  String get standingOrderFailed =>
+      'Ordinul tău nu a fost plasat. Banii sunt în Investiții, disponibili.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Anulat. Banii rămân în Predicții, disponibili.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Anulat. Banii rămân în Investiții, disponibili.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Prețul a ajuns la $price. Atinge pentru a plasa la noul preț.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Poți pleca. Ordinul continuă și apare în Activitate.';
 }

@@ -87,6 +87,8 @@ import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
+import 'package:kute/services/standing_orders/standing_orders_provider.dart'
+    show StandingHlApproval, standingOrdersProvider;
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -261,6 +263,11 @@ class PendingHlOrderIntent {
   /// the auto-fire checked it.
   final HlReadiness? readiness;
 
+  /// The standing order this queued order is (standing_orders/): its
+  /// approval is kept durably, so a restart places it once the money is
+  /// counted. Null for an order held in memory only, as before.
+  final String? standingOrderId;
+
   PendingHlOrderIntent({
     required this.coin,
     required this.kind,
@@ -298,6 +305,7 @@ class PendingHlOrderIntent {
     this.bitcoinSentAt,
     this.bitcoinLandedAt,
     this.readiness,
+    this.standingOrderId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// Whether the auto-fire may shrink this order to what arrived.
@@ -318,6 +326,7 @@ class PendingHlOrderIntent {
     DateTime? bitcoinSentAt,
     DateTime? bitcoinLandedAt,
     HlReadiness? readiness,
+    String? standingOrderId,
   }) {
     return PendingHlOrderIntent(
       coin: coin,
@@ -356,6 +365,7 @@ class PendingHlOrderIntent {
       bitcoinSentAt: bitcoinSentAt ?? this.bitcoinSentAt,
       bitcoinLandedAt: bitcoinLandedAt ?? this.bitcoinLandedAt,
       readiness: readiness ?? this.readiness,
+      standingOrderId: standingOrderId ?? this.standingOrderId,
     );
   }
 }
@@ -875,13 +885,48 @@ class PendingHlOrderAutoFire {
   /// live grant or drift (cancelled, the user confirms again).
   ({AuthGrant parent, AuthGrant grant})? _autofireGrant(
       SensitiveIntent approved, SensitiveIntent placed,
-      {String? placementId}) {
+      {String? placementId, StandingHlApproval? standing}) {
     try {
       final parent = AuthGrantRegistry.instance.consumeAutofire(
         kPendingHlOrderAutofireId,
         approved,
         session: ref.read(stepUpSessionStateProvider),
       );
+      return (parent: parent, grant: GrantGuard.chain(parent, placed));
+    } on GrantMissing {
+      if (standing == null) {
+        _cancelForReconfirm(placementId: placementId);
+        return null;
+      }
+      // A standing order after a restart (standing_orders/): the approval
+      // the person gave is kept durably. The order placed now must be
+      // exactly what was approved (no drift at all); the grant is rebuilt
+      // from it with the method of the original step-up, and the stored
+      // approval is spent (one order per approval).
+      if (!ref.read(sessionUnlockedProvider)) {
+        if (placementId != null) {
+          ref.read(placingHyperliquidOrderProvider.notifier).clear(placementId);
+        }
+        ref
+            .read(pendingHyperliquidOrderProvider.notifier)
+            .updateStatus(PendingHlOrderStatus.awaitingBalance);
+        _startAwaitPolling();
+        return null;
+      }
+      final drift = AuthGrants.driftError(standing.intent, approved);
+      if (drift != null) {
+        trackGrantFailure(drift, action: SensitiveAction.hlOrder);
+        _cancelForReconfirm(placementId: placementId, drift: true);
+        return null;
+      }
+      final parent = AuthGrants.issue(
+          approved.copyWith(ttl: AuthGrants.defaultTtl),
+          method: standing.method);
+      AuthGrants.consume(parent, approved);
+      final id = ref.read(pendingHyperliquidOrderProvider)?.standingOrderId;
+      if (id != null) {
+        unawaited(ref.read(standingOrdersProvider.notifier).approvalUsed(id));
+      }
       return (parent: parent, grant: GrantGuard.chain(parent, placed));
     } on GrantSessionLocked {
       if (placementId != null) {
@@ -891,9 +936,6 @@ class PendingHlOrderAutoFire {
           .read(pendingHyperliquidOrderProvider.notifier)
           .updateStatus(PendingHlOrderStatus.awaitingBalance);
       _startAwaitPolling();
-      return null;
-    } on GrantMissing {
-      _cancelForReconfirm(placementId: placementId);
       return null;
     } on AuthGrantException catch (e) {
       trackGrantFailure(e, action: SensitiveAction.hlOrder);
@@ -1006,8 +1048,15 @@ class PendingHlOrderAutoFire {
     final pending = ref.read(pendingHyperliquidOrderProvider.notifier);
     final placing = ref.read(placingHyperliquidOrderProvider.notifier);
     // D-10: never fire without the confirm-time grant (a restart drops it).
+    // A standing order keeps its approval durably (standing_orders/): it
+    // stands in for the grant after a restart.
+    final standingId = intent.standingOrderId;
+    final standingApproval = standingId == null
+        ? null
+        : await ref.read(standingOrdersProvider.notifier).approvalFor(standingId);
     if (!AuthGrantRegistry.instance
-        .hasAutofireGrant(kPendingHlOrderAutofireId)) {
+            .hasAutofireGrant(kPendingHlOrderAutofireId) &&
+        standingApproval == null) {
       _cancelForReconfirm();
       return;
     }
@@ -1067,8 +1116,8 @@ class PendingHlOrderAutoFire {
         final AuthGrant grant;
         final parent = approval;
         if (parent == null) {
-          final granted =
-              _autofireGrant(approved, placed, placementId: placementId);
+          final granted = _autofireGrant(approved, placed,
+              placementId: placementId, standing: standingApproval);
           if (granted == null) return;
           approval = granted.parent;
           grant = granted.grant;
@@ -1078,6 +1127,7 @@ class PendingHlOrderAutoFire {
             'funding_source': intent.fundingSource ??
                 (intent.fundUsd > 0 ? 'dollars' : 'venue_balance'),
             'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
+            ..._standingAnalytics(intent),
           });
         } else {
           // Sent again: inside the same approval (no larger margin, the
@@ -1199,6 +1249,7 @@ class PendingHlOrderAutoFire {
           'origin': intent.source ?? 'unknown',
           'entry_source': 'autofire',
           ...hlFailureParams(e),
+          ..._standingAnalytics(intent),
         },
       );
       final message = hlTradeErrorMessage(
@@ -1303,6 +1354,19 @@ class PendingHlOrderAutoFire {
         return margin;
       }
     }
+  }
+
+  /// A standing order's figures on its outcome: how long from the accept,
+  /// how many orders were sent for it. Exact, nothing identifying.
+  Map<String, Object> _standingAnalytics(PendingHlOrderIntent intent) {
+    final id = intent.standingOrderId;
+    if (id == null) return const {};
+    final record = ref.read(standingOrdersProvider.notifier).byId(id);
+    return {
+      'standing_order': true,
+      'wait_ms': DateTime.now().difference(intent.createdAt).inMilliseconds,
+      'attempts': record?.attempts ?? 1,
+    };
   }
 
   /// A confirmed pending order that did not fire. No amounts or ids.

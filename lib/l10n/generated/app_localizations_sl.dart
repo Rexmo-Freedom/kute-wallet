@@ -14446,4 +14446,60 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Ali je napoved ali naročilo, oddano, medtem ko je bil Kute v ozadju, uspelo.';
+
+  @override
+  String get predictionsInstant => 'Takojšnje';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 ura · 4 ure';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Zdaj · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Še ni cen';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset gor ali dol · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Oddajamo tvojo napoved';
+
+  @override
+  String get standingPlacingOrder => 'Oddajamo tvoje naročilo';
+
+  @override
+  String get standingPredictionPlaced => 'Napoved oddana';
+
+  @override
+  String get standingOrderPlaced => 'Naročilo oddano';
+
+  @override
+  String get standingPredictionFailed =>
+      'Tvoja napoved ni bila oddana. Denar je v Napovedih, na voljo.';
+
+  @override
+  String get standingOrderFailed =>
+      'Tvoje naročilo ni bilo oddano. Denar je v Vlaganju, na voljo.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Preklicano. Denar ostane v Napovedih, na voljo.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Preklicano. Denar ostane v Vlaganju, na voljo.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Cena se je premaknila na $price. Tapni za oddajo po novi ceni.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Lahko greš. Naročilo se nadaljuje in je vidno v Dejavnosti.';
 }

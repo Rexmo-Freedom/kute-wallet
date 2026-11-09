@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Zlecenia w toku",
   "orderNoticeProgressChannelDescription": "Postęp prognozy lub zlecenia, gdy Kute działa w tle.",
   "orderNoticeResultChannel": "Wyniki zleceń",
-  "orderNoticeResultChannelDescription": "Czy prognoza lub zlecenie złożone, gdy Kute działało w tle, przeszły."
+  "orderNoticeResultChannelDescription": "Czy prognoza lub zlecenie złożone, gdy Kute działało w tle, przeszły.",
+  "predictionsInstant": "Błyskawiczne",
+  "categoryInstantLengths": "5 min · 15 min · 1 godzina · 4 godziny",
+  "predictRoundNow": "Teraz · {time}",
+  "predictRoundNoPricesYet": "Brak cen",
+  "predictUpOrDownLength": "{asset} w górę czy w dół · {length}",
+  "standingPlacingPrediction": "Składamy Twoją prognozę",
+  "standingPlacingOrder": "Składamy Twoje zlecenie",
+  "standingPredictionPlaced": "Prognoza złożona",
+  "standingOrderPlaced": "Zlecenie złożone",
+  "standingPredictionFailed": "Twoja prognoza nie została złożona. Pieniądze są w Prognozach, dostępne.",
+  "standingOrderFailed": "Twoje zlecenie nie zostało złożone. Pieniądze są w Inwestowaniu, dostępne.",
+  "standingPredictionCancelled": "Anulowano. Pieniądze zostają w Prognozach, dostępne.",
+  "standingOrderCancelled": "Anulowano. Pieniądze zostają w Inwestowaniu, dostępne.",
+  "standingPriceMoved": "Cena zmieniła się na {price}. Dotknij, aby złożyć po nowej cenie.",
+  "standingLeaveNote": "Możesz wyjść. Zlecenie trwa i widać je w Aktywności."
 }

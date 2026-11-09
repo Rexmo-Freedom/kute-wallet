@@ -14445,4 +14445,60 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Czy prognoza lub zlecenie złożone, gdy Kute działało w tle, przeszły.';
+
+  @override
+  String get predictionsInstant => 'Błyskawiczne';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 godzina · 4 godziny';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Teraz · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Brak cen';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset w górę czy w dół · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Składamy Twoją prognozę';
+
+  @override
+  String get standingPlacingOrder => 'Składamy Twoje zlecenie';
+
+  @override
+  String get standingPredictionPlaced => 'Prognoza złożona';
+
+  @override
+  String get standingOrderPlaced => 'Zlecenie złożone';
+
+  @override
+  String get standingPredictionFailed =>
+      'Twoja prognoza nie została złożona. Pieniądze są w Prognozach, dostępne.';
+
+  @override
+  String get standingOrderFailed =>
+      'Twoje zlecenie nie zostało złożone. Pieniądze są w Inwestowaniu, dostępne.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Anulowano. Pieniądze zostają w Prognozach, dostępne.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Anulowano. Pieniądze zostają w Inwestowaniu, dostępne.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Cena zmieniła się na $price. Dotknij, aby złożyć po nowej cenie.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Możesz wyjść. Zlecenie trwa i widać je w Aktywności.';
 }

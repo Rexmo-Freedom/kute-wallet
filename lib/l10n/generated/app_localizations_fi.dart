@@ -14427,4 +14427,60 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Menikö Kuten ollessa taustalla tehty ennuste tai toimeksianto läpi.';
+
+  @override
+  String get predictionsInstant => 'Pikaiset';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 tunti · 4 tuntia';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Nyt · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Ei vielä hintoja';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset ylös vai alas · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Ennustettasi asetetaan';
+
+  @override
+  String get standingPlacingOrder => 'Toimeksiantoasi asetetaan';
+
+  @override
+  String get standingPredictionPlaced => 'Ennuste asetettu';
+
+  @override
+  String get standingOrderPlaced => 'Toimeksianto asetettu';
+
+  @override
+  String get standingPredictionFailed =>
+      'Ennustettasi ei asetettu. Rahat ovat Ennusteissa, käytettävissä.';
+
+  @override
+  String get standingOrderFailed =>
+      'Toimeksiantoasi ei asetettu. Rahat ovat Sijoittamisessa, käytettävissä.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Peruttu. Rahat pysyvät Ennusteissa, käytettävissä.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Peruttu. Rahat pysyvät Sijoittamisessa, käytettävissä.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Hinta muuttui: $price. Napauta asettaaksesi uuteen hintaan.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Voit poistua. Toimeksianto jatkuu ja näkyy Tapahtumissa.';
 }

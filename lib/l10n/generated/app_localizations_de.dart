@@ -14501,4 +14501,61 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Ob eine Prognose oder ein Auftrag, der platziert wurde, während Kute im Hintergrund war, durchgegangen ist.';
+
+  @override
+  String get predictionsInstant => 'Sofort';
+
+  @override
+  String get categoryInstantLengths =>
+      '5 Min. · 15 Min. · 1 Stunde · 4 Stunden';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Jetzt · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Noch keine Kurse';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset hoch oder runter · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Deine Prognose wird platziert';
+
+  @override
+  String get standingPlacingOrder => 'Deine Order wird platziert';
+
+  @override
+  String get standingPredictionPlaced => 'Prognose platziert';
+
+  @override
+  String get standingOrderPlaced => 'Order platziert';
+
+  @override
+  String get standingPredictionFailed =>
+      'Deine Prognose wurde nicht platziert. Das Geld liegt in Prognosen, verfügbar.';
+
+  @override
+  String get standingOrderFailed =>
+      'Deine Order wurde nicht platziert. Das Geld liegt in Investieren, verfügbar.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Abgebrochen. Das Geld bleibt in Prognosen, verfügbar.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Abgebrochen. Das Geld bleibt in Investieren, verfügbar.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Der Preis ist auf $price gegangen. Tippe, um zum neuen Preis zu platzieren.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Du kannst gehen. Die Order läuft weiter und erscheint in Aktivität.';
 }

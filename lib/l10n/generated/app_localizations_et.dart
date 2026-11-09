@@ -14388,4 +14388,60 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Kas ennustus või tellimus, mis esitati ajal, kui Kute oli taustal, läks läbi.';
+
+  @override
+  String get predictionsInstant => 'Kiired';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 tund · 4 tundi';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Praegu · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Hindu veel pole';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset üles või alla · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Paneme su ennustust';
+
+  @override
+  String get standingPlacingOrder => 'Paneme su korraldust';
+
+  @override
+  String get standingPredictionPlaced => 'Ennustus pandud';
+
+  @override
+  String get standingOrderPlaced => 'Korraldus pandud';
+
+  @override
+  String get standingPredictionFailed =>
+      'Su ennustust ei pandud. Raha on Ennustustes, saadaval.';
+
+  @override
+  String get standingOrderFailed =>
+      'Su korraldust ei pandud. Raha on Investeerimises, saadaval.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Tühistatud. Raha jääb Ennustustesse, saadaval.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Tühistatud. Raha jääb Investeerimisse, saadaval.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Hind liikus $price peale. Puuduta, et panna uue hinnaga.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Võid lahkuda. Korraldus jätkub ja on näha Tegevuses.';
 }

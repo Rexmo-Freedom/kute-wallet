@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Ordine în curs",
   "orderNoticeProgressChannelDescription": "Evoluția unei predicții sau a unui ordin cât timp Kute este în fundal.",
   "orderNoticeResultChannel": "Rezultatele ordinelor",
-  "orderNoticeResultChannelDescription": "Dacă o predicție sau un ordin plasat cât timp Kute era în fundal a reușit."
+  "orderNoticeResultChannelDescription": "Dacă o predicție sau un ordin plasat cât timp Kute era în fundal a reușit.",
+  "predictionsInstant": "Instant",
+  "categoryInstantLengths": "5 min · 15 min · 1 oră · 4 ore",
+  "predictRoundNow": "Acum · {time}",
+  "predictRoundNoPricesYet": "Încă fără prețuri",
+  "predictUpOrDownLength": "{asset} Sus sau Jos · {length}",
+  "standingPlacingPrediction": "Îți plasăm predicția",
+  "standingPlacingOrder": "Îți plasăm ordinul",
+  "standingPredictionPlaced": "Predicție plasată",
+  "standingOrderPlaced": "Ordin plasat",
+  "standingPredictionFailed": "Predicția ta nu a fost plasată. Banii sunt în Predicții, disponibili.",
+  "standingOrderFailed": "Ordinul tău nu a fost plasat. Banii sunt în Investiții, disponibili.",
+  "standingPredictionCancelled": "Anulat. Banii rămân în Predicții, disponibili.",
+  "standingOrderCancelled": "Anulat. Banii rămân în Investiții, disponibili.",
+  "standingPriceMoved": "Prețul a ajuns la {price}. Atinge pentru a plasa la noul preț.",
+  "standingLeaveNote": "Poți pleca. Ordinul continuă și apare în Activitate."
 }

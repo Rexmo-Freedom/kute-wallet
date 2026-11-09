@@ -14449,4 +14449,60 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Of een voorspelling of order die is geplaatst terwijl Kute op de achtergrond was, is gelukt.';
+
+  @override
+  String get predictionsInstant => 'Direct';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 uur · 4 uur';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Nu · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Nog geen prijzen';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset omhoog of omlaag · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Je voorspelling wordt geplaatst';
+
+  @override
+  String get standingPlacingOrder => 'Je order wordt geplaatst';
+
+  @override
+  String get standingPredictionPlaced => 'Voorspelling geplaatst';
+
+  @override
+  String get standingOrderPlaced => 'Order geplaatst';
+
+  @override
+  String get standingPredictionFailed =>
+      'Je voorspelling is niet geplaatst. Het geld staat in Voorspellingen, beschikbaar.';
+
+  @override
+  String get standingOrderFailed =>
+      'Je order is niet geplaatst. Het geld staat in Beleggen, beschikbaar.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Geannuleerd. Het geld blijft in Voorspellingen, beschikbaar.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Geannuleerd. Het geld blijft in Beleggen, beschikbaar.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'De prijs ging naar $price. Tik om tegen de nieuwe prijs te plaatsen.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Je kunt weg. De order loopt door en staat in Activiteit.';
 }

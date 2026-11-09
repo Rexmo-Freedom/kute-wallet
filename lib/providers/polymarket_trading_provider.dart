@@ -93,6 +93,7 @@ import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/providers/transactions_provider.dart'
     show transactionNotifierProvider;
 import 'package:kute/services/polymarket_order_v2.dart';
+import 'package:kute/services/standing_orders/polymarket_signed_order.dart';
 import 'package:kute/services/polymarket_bet_funding_service.dart';
 import 'package:kute/services/polymarket_suppression_service.dart';
 import 'package:kute/services/polymarket_usdc_cache_service.dart';
@@ -3351,6 +3352,52 @@ class PolymarketTradingNotifier
         ));
   }
 
+  /// Posts a standing order (standing_orders/): the order signed at the
+  /// accept ([standing], kept in secure storage), now that the venue
+  /// counts its money. Nothing is signed here; every self-heal re-posts
+  /// the SAME signed order (same hash) through the order guard, so the
+  /// venue can match it at most once and the price is never worse than
+  /// the one approved. Everything after the venue's answer (receipt,
+  /// activity, analytics) is [placeOrder]'s own.
+  Future<Map<String, dynamic>> postStandingOrder({
+    required StandingSignedOrder standing,
+    String? marketTitle,
+    String? marketImage,
+    String? marketOutcome,
+    String? marketCategory,
+    String? source,
+    String? entrySource,
+    Map<String, Object>? analytics,
+    void Function(String step)? onStep,
+  }) {
+    PolymarketOrderAttempts.last = 0;
+    final isMarket = standing.orderType == OrderType.fok ||
+        standing.orderType == OrderType.fak;
+    return OrderPollGate.during(() => _placeOrder(
+          tokenId: standing.tokenId,
+          side: standing.isBuy ? OrderSide.buy : OrderSide.sell,
+          size: standing.shares,
+          price: standing.price,
+          negRisk: standing.negRisk,
+          marketQuote: null,
+          orderType: standing.orderType,
+          spendUsd: isMarket ? standing.spendUsd : null,
+          marketTitle: marketTitle,
+          marketImage: marketImage,
+          marketOutcome: marketOutcome,
+          conditionId: null,
+          eventSlug: null,
+          endDate: null,
+          marketCategory: marketCategory,
+          source: source,
+          entrySource: entrySource,
+          analytics: analytics,
+          grant: null,
+          onStep: onStep,
+          standing: standing,
+        ));
+  }
+
   Future<Map<String, dynamic>> _placeOrder({
     required String tokenId,
     required OrderSide side,
@@ -3370,8 +3417,9 @@ class PolymarketTradingNotifier
     required String? source,
     required String? entrySource,
     required Map<String, Object>? analytics,
-    required AuthGrant grant,
+    required AuthGrant? grant,
     required void Function(String step)? onStep,
+    StandingSignedOrder? standing,
   }) async {
     // Any order attempt is Predictions activity: its cash stays there,
     // available, for the next day at least (VenueActivity).
@@ -3434,26 +3482,49 @@ class PolymarketTradingNotifier
             (orderType == OrderType.fok || orderType == OrderType.fak)
         ? spendUsd
         : null;
-    SensitiveIntent executedOrder() => PmGrants.executedOrder(
-          grant,
-          walletId: _credentialsWalletId() ?? '',
-          tokenId: tokenId,
-          isBuy: grantIsBuy,
-          size: size,
-          price: price,
-          orderType: orderType.name,
-          spendUsd: marketSpend,
-        );
-    PmGrants.consumeOrder(
-      grant,
-      walletId: _credentialsWalletId() ?? '',
-      tokenId: tokenId,
-      isBuy: grantIsBuy,
-      size: size,
-      price: price,
-      orderType: orderType.name,
-      spendUsd: marketSpend,
-    );
+    // A standing order was approved, consumed and signed at the accept:
+    // its grant is gone by design and the signed order is the bound.
+    SensitiveIntent executedOrder() => grant == null
+        ? PmIntents.order(
+            walletId: _credentialsWalletId() ?? '',
+            tokenId: tokenId,
+            isBuy: grantIsBuy,
+            amountMax: PmGrants.orderAmount(
+                isBuy: grantIsBuy,
+                size: size,
+                price: price,
+                spendUsd: marketSpend),
+            limitPrice: price,
+            orderType: orderType.name)
+        : PmGrants.executedOrder(
+            grant,
+            walletId: _credentialsWalletId() ?? '',
+            tokenId: tokenId,
+            isBuy: grantIsBuy,
+            size: size,
+            price: price,
+            orderType: orderType.name,
+            spendUsd: marketSpend,
+          );
+    void checkGrantRetry() {
+      if (grant != null) PmGrants.checkRetry(grant, executedOrder());
+    }
+
+    if (standing == null) {
+      PmGrants.consumeOrder(
+        grant!,
+        walletId: _credentialsWalletId() ?? '',
+        tokenId: tokenId,
+        isBuy: grantIsBuy,
+        size: size,
+        price: price,
+        orderType: orderType.name,
+        spendUsd: marketSpend,
+      );
+    } else if (standing.tokenId != tokenId) {
+      // The stored order is for another market: nothing is posted.
+      throw StateError('The standing order does not match this market.');
+    }
 
     // The derived deposit address alone does not mean the contract or its
     // approvals exist. Share the same setup already started by account boot
@@ -3486,7 +3557,7 @@ class PolymarketTradingNotifier
       }
     }
     checkAccount();
-    PmGrants.checkRetry(grant, executedOrder());
+    checkGrantRetry();
     final current = state.valueOrNull;
     if (current == null || _client == null) {
       throw Exception('Not authenticated');
@@ -3544,7 +3615,12 @@ class PolymarketTradingNotifier
           orderAccount.toLowerCase()) {
         throw StateError('The selected Predictions account changed.');
       }
-      PmGrants.checkRetry(grant, executedOrder());
+      checkGrantRetry();
+      // A standing order posts only from the account that signed it.
+      if (standing != null &&
+          standing.order.maker.toLowerCase() != orderAccount.toLowerCase()) {
+        throw StateError('The standing order was signed by another account.');
+      }
     }
 
     ensureCurrent();
@@ -3636,13 +3712,15 @@ class PolymarketTradingNotifier
           // approval took.
           final savedNegRisk =
               PolymarketMarketTermsStore.read(tokenId)?.negRisk;
-          bool detectedNegRisk = terms?.negRisk ?? savedNegRisk ?? negRisk;
+          // A standing order was signed for its exchange already.
+          bool detectedNegRisk =
+              standing?.negRisk ?? terms?.negRisk ?? savedNegRisk ?? negRisk;
           PolymarketPlacementTimeline.trace(terms != null
               ? 'terms_fresh'
               : savedNegRisk != null
                   ? 'terms_saved'
                   : 'terms_stale_refetch');
-          if (terms == null && savedNegRisk == null) {
+          if (standing == null && terms == null && savedNegRisk == null) {
             try {
               detectedNegRisk = await _client!.clob.markets
                   .getNegRisk(tokenId)
@@ -3661,6 +3739,9 @@ class PolymarketTradingNotifier
           // retry rebuilt the order with the stale empty proxy and got
           // the same "maker address not allowed" 400.
           Future<SignedOrderV2> buildOrder() {
+            // The standing order as signed at the accept: the same bytes
+            // (and hash) on every attempt, never a new signature.
+            if (standing != null) return Future.value(standing.signed);
             final live = state.valueOrNull ?? current;
             return _buildSignedOrder(
               privateKey: orderPrivateKey,
@@ -3701,7 +3782,7 @@ class PolymarketTradingNotifier
               // Phase 1b.4: every self-heal retry (credential refresh, the forced
               // enableTrading) stays inside this order's grant:
               // the same bounds, not revoked and not expired.
-              if (attempt > 0) PmGrants.checkRetry(grant, executedOrder());
+              if (attempt > 0) checkGrantRetry();
               try {
                 ensureCurrent();
                 PolymarketPlacementTimeline.mark('auth');
@@ -3713,9 +3794,10 @@ class PolymarketTradingNotifier
                 final backend = _backendService!;
                 submitted = await submit(
                   order: signed,
-                  exchange: PolyOrderVenue.forToken(signed.order.tokenId,
-                          negRisk: detectedNegRisk)
-                      .exchange,
+                  exchange: standing?.exchange ??
+                      PolyOrderVenue.forToken(signed.order.tokenId,
+                              negRisk: detectedNegRisk)
+                          .exchange,
                   ensureCurrent: ensureCurrent,
                   send: (beforePost) => backend.submitOrder(
                     signedOrder: signed,
@@ -4143,7 +4225,10 @@ class PolymarketTradingNotifier
                   'market_protocol': PolyMarketProtocol.wireForToken(tokenId),
                   // biometric | fast_window | allowance: how this order
                   // was approved (FastBetWindow.approvalParam).
-                  'approval': FastBetWindow.approvalParam(grant.method),
+                  // A standing order's approval was the accept's own
+                  // step-up (biometric), consumed when it was signed.
+                  'approval': FastBetWindow.approvalParam(
+                      grant?.method ?? AuthGrantMethod.biometric),
                 },
               );
             }
@@ -4295,6 +4380,84 @@ class PolymarketTradingNotifier
           return backend.l2Headers(method: method, path: path, body: body);
         },
       ),
+    );
+  }
+
+  /// Signs a standing order at the accept (standing_orders/): consumes
+  /// [grant] against exactly this order (`PmGrants.consumeOrder`, as
+  /// `placeOrder` does) and signs it for the hot deposit wallet, posting
+  /// nothing. The signed order is kept in secure storage by the caller and
+  /// posted as is once the venue counts the money ([placeOrder] with
+  /// `standing:`): bounded by its own limit price, never signed again.
+  /// Null when the account cannot sign yet (no deposit wallet, no key): the
+  /// caller then falls back to the queued bet as before.
+  Future<StandingSignedOrder?> signStandingOrder({
+    required String tokenId,
+    required double size,
+    required double price,
+    required double spendUsd,
+    required bool negRisk,
+    required OrderType orderType,
+    required AuthGrant grant,
+    PolymarketMarketBuyQuote? marketQuote,
+  }) async {
+    final current = state.valueOrNull;
+    final privateKey = _privateKey;
+    final eoa = current?.walletAddress;
+    final proxy = current?.proxyWalletAddress;
+    if (current == null ||
+        privateKey == null ||
+        eoa == null ||
+        proxy == null ||
+        proxy.isEmpty ||
+        !ref.read(sessionUnlockedProvider)) {
+      return null;
+    }
+    final isMarket = orderType == OrderType.fok || orderType == OrderType.fak;
+    PmGrants.consumeOrder(
+      grant,
+      walletId: _credentialsWalletId() ?? '',
+      tokenId: tokenId,
+      isBuy: true,
+      size: size,
+      price: price,
+      orderType: orderType.name,
+      spendUsd: isMarket ? spendUsd : null,
+    );
+    final terms = marketQuote != null &&
+            marketQuote.tokenId == tokenId &&
+            marketQuote.hasFreshTerms
+        ? marketQuote
+        : null;
+    final resolvedNegRisk = terms?.negRisk ??
+        PolymarketMarketTermsStore.read(tokenId)?.negRisk ??
+        negRisk;
+    final signed = await _buildSignedOrder(
+      privateKey: privateKey,
+      ensureCurrent: () {
+        if (!ref.read(sessionUnlockedProvider)) {
+          throw StateError('The session locked.');
+        }
+      },
+      tokenId: tokenId,
+      side: OrderSide.buy,
+      size: size,
+      price: price,
+      negRisk: resolvedNegRisk,
+      proxyWallet: proxy,
+      eoaAddress: eoa,
+      orderType: orderType,
+      preparedTerms: terms,
+      spendUsd: isMarket ? spendUsd : null,
+    );
+    final exchange =
+        PolyOrderVenue.forToken(tokenId, negRisk: resolvedNegRisk).exchange;
+    return StandingSignedOrder(
+      signed: signed,
+      exchange: exchange,
+      orderType: orderType,
+      negRisk: resolvedNegRisk,
+      orderHash: polymarketOrderHash(signed.order, exchange),
     );
   }
 

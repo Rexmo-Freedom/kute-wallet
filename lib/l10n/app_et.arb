@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Esitatavad tellimused",
   "orderNoticeProgressChannelDescription": "Ennustuse või tellimuse edenemine, kui Kute on taustal.",
   "orderNoticeResultChannel": "Tellimuste tulemused",
-  "orderNoticeResultChannelDescription": "Kas ennustus või tellimus, mis esitati ajal, kui Kute oli taustal, läks läbi."
+  "orderNoticeResultChannelDescription": "Kas ennustus või tellimus, mis esitati ajal, kui Kute oli taustal, läks läbi.",
+  "predictionsInstant": "Kiired",
+  "categoryInstantLengths": "5 min · 15 min · 1 tund · 4 tundi",
+  "predictRoundNow": "Praegu · {time}",
+  "predictRoundNoPricesYet": "Hindu veel pole",
+  "predictUpOrDownLength": "{asset} üles või alla · {length}",
+  "standingPlacingPrediction": "Paneme su ennustust",
+  "standingPlacingOrder": "Paneme su korraldust",
+  "standingPredictionPlaced": "Ennustus pandud",
+  "standingOrderPlaced": "Korraldus pandud",
+  "standingPredictionFailed": "Su ennustust ei pandud. Raha on Ennustustes, saadaval.",
+  "standingOrderFailed": "Su korraldust ei pandud. Raha on Investeerimises, saadaval.",
+  "standingPredictionCancelled": "Tühistatud. Raha jääb Ennustustesse, saadaval.",
+  "standingOrderCancelled": "Tühistatud. Raha jääb Investeerimisse, saadaval.",
+  "standingPriceMoved": "Hind liikus {price} peale. Puuduta, et panna uue hinnaga.",
+  "standingLeaveNote": "Võid lahkuda. Korraldus jätkub ja on näha Tegevuses."
 }

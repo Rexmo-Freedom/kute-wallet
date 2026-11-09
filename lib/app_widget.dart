@@ -21,6 +21,7 @@ import 'package:kute/screens/app_shell.dart'
     show applyShellTabLivePolicy, pauseShellLiveSockets, resumeShellLiveSockets;
 import 'package:kute/screens/polymarket/components/floating_stream_player.dart';
 import 'package:kute/screens/shared/lock_overlay.dart';
+import 'package:kute/screens/shared/standing_orders_shell.dart';
 import 'package:kute/screens/home/components/wallet_cards.dart'
     show WalletCardType, persistSelectedWalletCard, selectedWalletCardProvider;
 import 'package:kute/services/background_sync_service.dart';
@@ -639,6 +640,10 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                           // The context-aware Sal bar over every pushed
                           // page and sheet (kute_shell_bar.dart).
                           const KuteShellBar(),
+                          // Standing orders: resumed on start and unlock,
+                          // their results said by Sal
+                          // (standing_orders_shell.dart). Draws nothing.
+                          const StandingOrdersShell(),
                           // In-place app lock: covers the live navigation
                           // stack when the background gap exceeded the
                           // auto-lock grace; unlocking dismisses it in

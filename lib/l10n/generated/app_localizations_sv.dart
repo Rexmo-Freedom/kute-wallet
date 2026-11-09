@@ -14395,4 +14395,60 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Om en prognos eller order som lades medan Kute var i bakgrunden gick igenom.';
+
+  @override
+  String get predictionsInstant => 'Direkt';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 timme · 4 timmar';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Nu · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Inga priser än';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset upp eller ner · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Lägger din förutsägelse';
+
+  @override
+  String get standingPlacingOrder => 'Lägger din order';
+
+  @override
+  String get standingPredictionPlaced => 'Förutsägelse lagd';
+
+  @override
+  String get standingOrderPlaced => 'Order lagd';
+
+  @override
+  String get standingPredictionFailed =>
+      'Din förutsägelse lades inte. Pengarna finns i Förutsägelser, tillgängliga.';
+
+  @override
+  String get standingOrderFailed =>
+      'Din order lades inte. Pengarna finns i Investera, tillgängliga.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Avbrutet. Pengarna stannar i Förutsägelser, tillgängliga.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Avbrutet. Pengarna stannar i Investera, tillgängliga.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Priset gick till $price. Tryck för att lägga till det nya priset.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Du kan lämna. Ordern fortsätter och visas i Aktivitet.';
 }

@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/screens/shared/standing_order_journey.dart'
+    show StandingOrderJourneySheet;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -302,8 +304,10 @@ Future<void> _frames(WidgetTester tester, [int n = 10]) async {
 }
 
 
+// The app's container: after the accept the slip closes at once
+// (standing orders), so it is read from the app, not the slip.
 ProviderContainer _container(WidgetTester tester) =>
-    ProviderScope.containerOf(tester.element(find.byType(HlOrderSlipSheet)));
+    ProviderScope.containerOf(tester.element(find.byType(Navigator).first));
 
 void main() {
   late FakeHyperliquidMoveRail rail;
@@ -444,10 +448,9 @@ void main() {
     expect(pending.marginUsd, greaterThan(0));
     expect(pending.fundingSource, 'bitcoin');
 
-    // The steps, on the ticket, under one busy button.
-    expect(find.byKey(const ValueKey('order-slip-funded-progress')),
-        findsOneWidget);
-    expect(barPrimaryBusy(tester), isTrue);
+    // The ticket closed at the accept (standing orders): the steps run on
+    // the money journey in its place.
+    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
 
     // The venue credits it and the autofire places it: never a second
     // prompt.

@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "処理中の注文",
   "orderNoticeProgressChannelDescription": "Kuteがバックグラウンドにある間の予測や注文の進行状況。",
   "orderNoticeResultChannel": "注文の結果",
-  "orderNoticeResultChannelDescription": "Kuteがバックグラウンドにある間に出した予測や注文が通ったかどうか。"
+  "orderNoticeResultChannelDescription": "Kuteがバックグラウンドにある間に出した予測や注文が通ったかどうか。",
+  "predictionsInstant": "インスタント",
+  "categoryInstantLengths": "5分 · 15分 · 1時間 · 4時間",
+  "predictRoundNow": "今 · {time}",
+  "predictRoundNoPricesYet": "まだ価格なし",
+  "predictUpOrDownLength": "{asset} 上昇か下落か · {length}",
+  "standingPlacingPrediction": "予測を発注しています",
+  "standingPlacingOrder": "注文を発注しています",
+  "standingPredictionPlaced": "予測を発注しました",
+  "standingOrderPlaced": "注文を発注しました",
+  "standingPredictionFailed": "予測は発注されませんでした。資金は予測に残っており、利用できます。",
+  "standingOrderFailed": "注文は発注されませんでした。資金は投資に残っており、利用できます。",
+  "standingPredictionCancelled": "キャンセルしました。資金は予測に残り、利用できます。",
+  "standingOrderCancelled": "キャンセルしました。資金は投資に残り、利用できます。",
+  "standingPriceMoved": "価格が{price}に変わりました。タップすると新しい価格で発注します。",
+  "standingLeaveNote": "ここを離れても大丈夫です。注文は続き、アクティビティに表示されます。"
 }

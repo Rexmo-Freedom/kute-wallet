@@ -14,6 +14,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/screens/shared/standing_order_journey.dart'
+    show StandingOrderJourneySheet;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -344,8 +346,10 @@ Future<void> _tapCta(WidgetTester tester) async {
   await tapBarPrimary(tester, settle: false);
 }
 
+// The app's container: after the accept the slip closes at once
+// (standing orders), so it is read from the app, not the slip.
 ProviderContainer _container(WidgetTester tester) =>
-    ProviderScope.containerOf(tester.element(find.byType(BetSlipSheet)));
+    ProviderScope.containerOf(tester.element(find.byType(Navigator).first));
 
 void main() {
   late RuntimeCapabilitiesService policy;
@@ -518,15 +522,15 @@ void main() {
         ['leg:investing', 'leg:dollars']);
     expect(findMoneyStepContaining('from Investing'), findsOneWidget);
     expect(findMoneyStepContaining('from Dollars'), findsOneWidget);
-    // The step list names the active step once; the bar (the slip's busy
-    // button) reads it too.
+    // The step list names the active step once. After the accept the slip
+    // has closed (standing orders): the steps run on the money journey,
+    // which the person may leave at any time.
     expect(
         find.descendant(
             of: find.byType(SlipFundingSteps),
             matching: find.text('Getting your prediction ready')),
         findsOneWidget);
-    expect(barPrimaryBusy(tester), isTrue);
-    expect(barPrimaryLabel(tester), 'Getting your prediction ready');
+    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
     expect(find.text('Placing \$10.00 on Yes'), findsOneWidget);
     final pending = _container(tester).read(pendingPolymarketBetProvider)!;
     expect(pending.status, PendingBetStatus.awaitingBalance);
@@ -645,8 +649,8 @@ void main() {
       expect(_funder.sent, hasLength(1));
       final pending = _container(tester).read(pendingPolymarketBetProvider)!;
       expect(pending.amount, 1.0);
-      // The figure on top reads the minimum while it is placed.
-      expect(find.text(r'$1.00'), findsOneWidget);
+      // The slip closed at the accept; the journey says the minimum.
+      expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
       expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
       final tapped =
           events.where((e) => e.$1 == 'prediction_place_cta_tapped').toList();

@@ -14459,4 +14459,60 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Ar prognozė arba pavedimas, pateikti Kute veikiant fone, pavyko.';
+
+  @override
+  String get predictionsInstant => 'Greitosios';
+
+  @override
+  String get categoryInstantLengths => '5 min. · 15 min. · 1 val. · 4 val.';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Dabar · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Kainų dar nėra';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset kils ar kris · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Teikiame tavo prognozę';
+
+  @override
+  String get standingPlacingOrder => 'Teikiame tavo pavedimą';
+
+  @override
+  String get standingPredictionPlaced => 'Prognozė pateikta';
+
+  @override
+  String get standingOrderPlaced => 'Pavedimas pateiktas';
+
+  @override
+  String get standingPredictionFailed =>
+      'Tavo prognozė nepateikta. Pinigai yra Prognozėse, prieinami.';
+
+  @override
+  String get standingOrderFailed =>
+      'Tavo pavedimas nepateiktas. Pinigai yra Investavime, prieinami.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Atšaukta. Pinigai lieka Prognozėse, prieinami.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Atšaukta. Pinigai lieka Investavime, prieinami.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Kaina pasikeitė į $price. Palieskite, kad pateiktumėte nauja kaina.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Galite išeiti. Pavedimas tęsiasi ir matomas Veikloje.';
 }

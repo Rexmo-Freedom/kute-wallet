@@ -24260,6 +24260,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Whether a prediction or order placed while Kute was in the background went through.'**
   String get orderNoticeResultChannelDescription;
+
+  /// Predictions › Instant: the crypto rounds (BTC up or down every 5 minutes and so on), a Predictions category on the Dollars home. The category's name as the pill reads it ('Predictions · Instant') and on the half-width card of the Predictions sheet and the Sal grid's tile: one short word or two.
+  ///
+  /// In en, this message translates to:
+  /// **'Instant'**
+  String get predictionsInstant;
+
+  /// Predictions sheet, the Instant card's one line under its name: the round lengths it runs, separated by middle dots. Shrinks to fit a half-width card at 320 px; keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'5 min · 15 min · 1 hour · 4 hours'**
+  String get categoryInstantLengths;
+
+  /// On the Instant card's strip of rounds, the round in play with its time left, e.g. 'Now · 1:49'.
+  ///
+  /// In en, this message translates to:
+  /// **'Now · {time}'**
+  String predictRoundNow(String time);
+
+  /// On the Instant card's strip of rounds, after a round ahead that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'No prices yet'**
+  String get predictRoundNoPricesYet;
+
+  /// Title of the Instant card (Predictions › Instant on the Dollars home), e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
+  ///
+  /// In en, this message translates to:
+  /// **'{asset} up or down · {length}'**
+  String predictUpOrDownLength(String asset, String length);
+
+  /// Standing orders: the state after the accept while the money moves and the prediction is posted (the slip has closed).
+  ///
+  /// In en, this message translates to:
+  /// **'Placing your prediction'**
+  String get standingPlacingPrediction;
+
+  /// No description provided for @standingPlacingOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Placing your order'**
+  String get standingPlacingOrder;
+
+  /// No description provided for @standingPredictionPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Prediction placed'**
+  String get standingPredictionPlaced;
+
+  /// No description provided for @standingOrderPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Order placed'**
+  String get standingOrderPlaced;
+
+  /// Standing orders: honest failure copy; the money moved to the venue and stays there, available.
+  ///
+  /// In en, this message translates to:
+  /// **'Your prediction wasn\'t placed. The money is in Predictions, available.'**
+  String get standingPredictionFailed;
+
+  /// No description provided for @standingOrderFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your order wasn\'t placed. The money is in Investing, available.'**
+  String get standingOrderFailed;
+
+  /// No description provided for @standingPredictionCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled. The money stays in Predictions, available.'**
+  String get standingPredictionCancelled;
+
+  /// No description provided for @standingOrderCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled. The money stays in Investing, available.'**
+  String get standingOrderCancelled;
+
+  /// Standing order (a prediction whose money moved while the book moved past the approved worst price): Sal's notice with the price now, e.g. 81%; a tap opens the slip at it.
+  ///
+  /// In en, this message translates to:
+  /// **'Price moved to {price}. Tap to place at the new price.'**
+  String standingPriceMoved(String price);
+
+  /// No description provided for @standingLeaveNote.
+  ///
+  /// In en, this message translates to:
+  /// **'You can leave. The order continues and shows in Activity.'**
+  String get standingLeaveNote;
 }
 
 class _AppLocalizationsDelegate

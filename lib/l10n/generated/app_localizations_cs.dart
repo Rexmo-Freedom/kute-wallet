@@ -14393,4 +14393,60 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Zda predikce nebo pokyn zadané, když byl Kute na pozadí, prošly.';
+
+  @override
+  String get predictionsInstant => 'Okamžité';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 hodina · 4 hodiny';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Teď · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Zatím bez cen';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset nahoru, nebo dolů · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Zadáváme vaši předpověď';
+
+  @override
+  String get standingPlacingOrder => 'Zadáváme váš příkaz';
+
+  @override
+  String get standingPredictionPlaced => 'Předpověď zadána';
+
+  @override
+  String get standingOrderPlaced => 'Příkaz zadán';
+
+  @override
+  String get standingPredictionFailed =>
+      'Vaše předpověď nebyla zadána. Peníze jsou v Předpovědích, k dispozici.';
+
+  @override
+  String get standingOrderFailed =>
+      'Váš příkaz nebyl zadán. Peníze jsou v Investování, k dispozici.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Zrušeno. Peníze zůstávají v Předpovědích, k dispozici.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Zrušeno. Peníze zůstávají v Investování, k dispozici.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Cena se změnila na $price. Klepnutím zadáte za novou cenu.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Můžete odejít. Příkaz pokračuje a je vidět v Aktivitě.';
 }

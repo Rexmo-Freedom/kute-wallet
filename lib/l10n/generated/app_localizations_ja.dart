@@ -13947,4 +13947,55 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Kuteがバックグラウンドにある間に出した予測や注文が通ったかどうか。';
+
+  @override
+  String get predictionsInstant => 'インスタント';
+
+  @override
+  String get categoryInstantLengths => '5分 · 15分 · 1時間 · 4時間';
+
+  @override
+  String predictRoundNow(String time) {
+    return '今 · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'まだ価格なし';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset 上昇か下落か · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => '予測を発注しています';
+
+  @override
+  String get standingPlacingOrder => '注文を発注しています';
+
+  @override
+  String get standingPredictionPlaced => '予測を発注しました';
+
+  @override
+  String get standingOrderPlaced => '注文を発注しました';
+
+  @override
+  String get standingPredictionFailed => '予測は発注されませんでした。資金は予測に残っており、利用できます。';
+
+  @override
+  String get standingOrderFailed => '注文は発注されませんでした。資金は投資に残っており、利用できます。';
+
+  @override
+  String get standingPredictionCancelled => 'キャンセルしました。資金は予測に残り、利用できます。';
+
+  @override
+  String get standingOrderCancelled => 'キャンセルしました。資金は投資に残り、利用できます。';
+
+  @override
+  String standingPriceMoved(String price) {
+    return '価格が$priceに変わりました。タップすると新しい価格で発注します。';
+  }
+
+  @override
+  String get standingLeaveNote => 'ここを離れても大丈夫です。注文は続き、アクティビティに表示されます。';
 }

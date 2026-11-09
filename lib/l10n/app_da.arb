@@ -4066,5 +4066,20 @@
   "orderNoticeProgressChannel": "Ordrer, der afgives",
   "orderNoticeProgressChannelDescription": "Fremgangen for en forudsigelse eller ordre, mens Kute er i baggrunden.",
   "orderNoticeResultChannel": "Ordreresultater",
-  "orderNoticeResultChannelDescription": "Om en forudsigelse eller ordre afgivet, mens Kute var i baggrunden, gik igennem."
+  "orderNoticeResultChannelDescription": "Om en forudsigelse eller ordre afgivet, mens Kute var i baggrunden, gik igennem.",
+  "predictionsInstant": "Lynhurtige",
+  "categoryInstantLengths": "5 min · 15 min · 1 time · 4 timer",
+  "predictRoundNow": "Nu · {time}",
+  "predictRoundNoPricesYet": "Ingen priser endnu",
+  "predictUpOrDownLength": "{asset} op eller ned · {length}",
+  "standingPlacingPrediction": "Placerer din forudsigelse",
+  "standingPlacingOrder": "Placerer din ordre",
+  "standingPredictionPlaced": "Forudsigelse placeret",
+  "standingOrderPlaced": "Ordre placeret",
+  "standingPredictionFailed": "Din forudsigelse blev ikke placeret. Pengene er i Forudsigelser, tilgængelige.",
+  "standingOrderFailed": "Din ordre blev ikke placeret. Pengene er i Investering, tilgængelige.",
+  "standingPredictionCancelled": "Annulleret. Pengene bliver i Forudsigelser, tilgængelige.",
+  "standingOrderCancelled": "Annulleret. Pengene bliver i Investering, tilgængelige.",
+  "standingPriceMoved": "Prisen gik til {price}. Tryk for at placere til den nye pris.",
+  "standingLeaveNote": "Du kan gå. Ordren fortsætter og vises i Aktivitet."
 }

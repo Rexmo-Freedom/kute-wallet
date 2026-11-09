@@ -1,5 +1,9 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/shared/standing_order_journey.dart'
+    show StandingOrderJourneySheet;
+import 'package:kute/services/standing_orders/standing_order.dart'
+    show StandingOrderVenue;
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show polyOutcomeFill;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
@@ -1326,6 +1330,25 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     );
   }
 
+  /// The accept is done and the bet's money is on its way, headless (a
+  /// standing order, standing_orders/): the slip closes at once and the
+  /// money's journey takes its place (the same steps, the walking Sal),
+  /// which the person may leave at any time while the bet goes on
+  /// (founder, 9 November 2026). Deferred a frame, so the state set just
+  /// before it has rendered.
+  void _closeForStandingOrder() {
+    if (!mounted) return;
+    final nav = Navigator.of(context, rootNavigator: true);
+    final tokenId = _selectedTokenId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      if (tokenId == null) return;
+      unawaited(StandingOrderJourneySheet.show(nav.context,
+          venue: StandingOrderVenue.predictions, marketKey: tokenId));
+    });
+  }
+
   /// The one prompt of a pre-funded bet: the slip's bet prepared, then
   /// the funded bet's approval (bet + funding cap, the autofire grant).
   /// The prepared bet stays in the pending provider, armed: waiting
@@ -1523,6 +1546,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _isPlacing = true;
           _placedSuccess = false;
         });
+        _closeForStandingOrder();
         return true;
       case PrefundDeclined():
         PolymarketPlacementTimeline.finish('declined',
@@ -3654,6 +3678,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           fundArrivingUsd: move.arrivingUsdEstimate,
           queuedAt: DateTime.now(),
         ));
+        // The Dollars have left: the slip closes, the journey goes on.
+        _closeForStandingOrder();
       case OrderFundingNotNeeded():
         // The venue covers it after all (or with the pre-funded money on
         // its way): the queued bet fires on the balance tick that shows it
@@ -3668,6 +3694,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           queuedAt: DateTime.now(),
         ));
         runner.followFunded(fundedId);
+        _closeForStandingOrder();
       case OrderFundingRefused(:final reason, :final error):
         // Nothing left Dollars: the queued bet goes, the slip is back.
         grant.revoke();
@@ -3757,6 +3784,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _isPlacing = true;
       _placedSuccess = false;
     });
+    _closeForStandingOrder();
     // Held, never fired, until the chain queues it (awaitingBalance).
     ref
         .read(pendingPolymarketBetProvider.notifier)
@@ -3974,6 +4002,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _isPlacing = true;
           _placedSuccess = false;
         });
+        _closeForStandingOrder();
         // Held, never fired, while the bitcoin leg runs (converting holds
         // the venue's cash from the sweeper and a second bet out).
         final heldAttempt = pending.copyWith(

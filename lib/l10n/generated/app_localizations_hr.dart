@@ -14427,4 +14427,60 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Je li predviđanje ili nalog postavljen dok je Kute bio u pozadini prošao.';
+
+  @override
+  String get predictionsInstant => 'Trenutačne';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 sat · 4 sata';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Sada · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Još nema cijena';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset gore ili dolje · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Postavljamo tvoju prognozu';
+
+  @override
+  String get standingPlacingOrder => 'Postavljamo tvoj nalog';
+
+  @override
+  String get standingPredictionPlaced => 'Prognoza postavljena';
+
+  @override
+  String get standingOrderPlaced => 'Nalog postavljen';
+
+  @override
+  String get standingPredictionFailed =>
+      'Tvoja prognoza nije postavljena. Novac je u Prognozama, dostupan.';
+
+  @override
+  String get standingOrderFailed =>
+      'Tvoj nalog nije postavljen. Novac je u Ulaganju, dostupan.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Otkazano. Novac ostaje u Prognozama, dostupan.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Otkazano. Novac ostaje u Ulaganju, dostupan.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Cijena je prešla na $price. Dodirni za postavljanje po novoj cijeni.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Možeš otići. Nalog se nastavlja i vidi se u Aktivnosti.';
 }

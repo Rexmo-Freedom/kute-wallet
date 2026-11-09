@@ -14435,4 +14435,60 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get orderNoticeResultChannelDescription =>
       'Hogy a Kute háttérben léte alatt leadott előrejelzés vagy megbízás sikerült-e.';
+
+  @override
+  String get predictionsInstant => 'Azonnali';
+
+  @override
+  String get categoryInstantLengths => '5 perc · 15 perc · 1 óra · 4 óra';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Most · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Még nincs ár';
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset fel vagy le · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Előrejelzésed leadása folyamatban';
+
+  @override
+  String get standingPlacingOrder => 'Megbízásod leadása folyamatban';
+
+  @override
+  String get standingPredictionPlaced => 'Előrejelzés leadva';
+
+  @override
+  String get standingOrderPlaced => 'Megbízás leadva';
+
+  @override
+  String get standingPredictionFailed =>
+      'Az előrejelzésed nem lett leadva. A pénz az Előrejelzésekben van, elérhető.';
+
+  @override
+  String get standingOrderFailed =>
+      'A megbízásod nem lett leadva. A pénz a Befektetésben van, elérhető.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Megszakítva. A pénz az Előrejelzésekben marad, elérhető.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Megszakítva. A pénz a Befektetésben marad, elérhető.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Az ár $price lett. Koppints, hogy az új áron add le.';
+  }
+
+  @override
+  String get standingLeaveNote =>
+      'Elmehetsz. A megbízás folytatódik, és megjelenik a Tevékenységben.';
 }
