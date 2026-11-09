@@ -1097,11 +1097,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final siblings = siblingsByGameId(open);
       // The list's first Yes/No markets as big cards in a side-scrolling
       // strip, on the default view only (founder, 1 November 2026). The list
-      // under it is polymarket.com's Trending exactly, the strip's markets
-      // in their places too (founder, 9 November 2026), as the site's own
-      // carousel repeats its list.
-      final top = defaultView ? polyTopMarkets(open) : const <PolymarketEvent>[];
-      final listed = events;
+      // under it is polymarket.com's Trending in the site's order, without
+      // the strip's markets (founder, 9 November 2026: no repeats).
+      final split = polyTrendingSplit(
+          defaultView ? polyTopMarkets(open) : const <PolymarketEvent>[],
+          events);
+      final top = split.top;
+      final listed = split.listed;
       // Plain Yes/No markets share one grouped card like Home's
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).

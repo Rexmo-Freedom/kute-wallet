@@ -89,6 +89,33 @@ Finder _rolled(String text) => find.byWidgetPredicate(
     description: 'rolling figure "$text"');
 
 void main() {
+  group('polyTrendingSplit', () {
+    final events = [
+      for (final id in ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
+        _event(id, id.toUpperCase(), volume: 1),
+    ];
+
+    test('a market on the strip is not repeated, the rest keep their order',
+        () {
+      final split = polyTrendingSplit(events.take(2).toList(), events);
+      expect(split.top.map((e) => e.id), ['a', 'b']);
+      expect(split.listed.map((e) => e.id), ['c', 'd', 'e', 'f', 'g']);
+    });
+
+    test('the strip never empties the list', () {
+      final few = events.take(4).toList();
+      final split = polyTrendingSplit(few.take(2).toList(), few);
+      expect(split.top, isEmpty);
+      expect(split.listed.map((e) => e.id), ['a', 'b', 'c', 'd']);
+    });
+
+    test('with no strip the list is untouched', () {
+      final split = polyTrendingSplit(const [], events);
+      expect(split.top, isEmpty);
+      expect(split.listed, events);
+    });
+  });
+
   group('polyTopMarkets', () {
     test('the first open Yes/No markets in the feed\'s own order, never by '
         'volume, five at most', () {

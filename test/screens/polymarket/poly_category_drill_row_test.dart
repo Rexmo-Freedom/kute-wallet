@@ -170,12 +170,15 @@ void main() {
       } else {
         // Plain markets share Home Activity's grouped card; the event with
         // many outcomes keeps its own card and breaks the group:
-        // group (the two busy, Fed, BTC) → card (Trump) → group (Rain).
+        // group (Fed, BTC) → card (Trump) → group (Rain).
         final cards = _inBrowser(find.byType(MarketCard));
-        expect(cards, findsNWidgets(6));
-        // The list's first five Yes/No markets are the strip's big cards
-        // too; the list stays polymarket.com's, whole.
+        expect(cards, findsNWidgets(4));
+        // The strip's five busy markets are big cards, not rows: no repeats
+        // (founder, 1 and 9 November 2026).
         expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNWidgets(5));
+        for (final card in tester.widgetList<MarketCard>(cards)) {
+          expect(card.title, isNot(startsWith('Busy market')));
+        }
         final groups = _inBrowser(find.byType(DecoratedSliver));
         expect(groups, findsNWidgets(2));
         final context = tester.element(cards.first);
@@ -184,9 +187,9 @@ void main() {
         }
         Finder inGroup(int g, Finder f) =>
             find.descendant(of: groups.at(g), matching: f);
-        expect(inGroup(0, find.byType(MarketCard)), findsNWidgets(4));
+        expect(inGroup(0, find.byType(MarketCard)), findsNWidgets(2));
         expect(inGroup(1, find.byType(MarketCard)), findsOneWidget);
-        expect(inGroup(0, find.byType(Divider)), findsNWidgets(3));
+        expect(inGroup(0, find.byType(Divider)), findsOneWidget);
         expect(inGroup(1, find.byType(Divider)), findsNothing);
         expect(
             tester
@@ -228,7 +231,7 @@ void main() {
   });
 
   testWidgets(
-      'Trending: the strip, then every market in the feed\'s order; a '
+      'Trending: the strip, then the other markets in the feed\'s order; a '
       'picked category has no strip and lists every market', (tester) async {
     await pumpInvestments(tester,
         browsePredictions: true,
@@ -245,12 +248,9 @@ void main() {
           in tester.widgetList<MarketCard>(_inBrowser(find.byType(MarketCard))))
         card.title,
     ];
-    // In the feed's own order, the strip's markets in their places.
-    expect(titles.take(7), [
-      for (var i = 1; i <= 5; i++) 'Busy market $i?',
-      'Plain market 1?',
-      'Plain market 2?',
-    ]);
+    // The feed's own order, without the strip's markets.
+    expect(titles.take(2), ['Plain market 1?', 'Plain market 2?']);
+    expect(titles.where((t) => t.startsWith('Busy market')), isEmpty);
     await tester.scrollUntilVisible(find.text('Plain market 20?'), 400,
         scrollable: _inBrowser(find.byType(Scrollable)).first);
     expect(find.text('Plain market 20?'), findsOneWidget);
@@ -275,11 +275,11 @@ void main() {
   });
 }
 
-/// Two busy Yes/No markets, then two plain Yes/No markets, an event with
-/// many outcomes, another plain one: in every list. On Trending the strip
-/// takes the five Yes/No markets and the list is polymarket.com's whole
-/// (founder, 9 November 2026), those five in their places; any other list
-/// has no strip and lists all six.
+/// Five busy Yes/No markets the strip takes, then two plain Yes/No
+/// markets, an event with many outcomes, another plain one: in every
+/// list. On Trending the strip's five never repeat in the list (founder,
+/// 1 and 9 November 2026), so the list under it is the four; any other list
+/// has no strip and lists all nine.
 class _ThreeMarkets extends PolyFeedNotifier {
   @override
   PolyFeedState build(PolyFeedQuery arg) {
@@ -298,7 +298,7 @@ class _ThreeMarkets extends PolyFeedNotifier {
           ],
         );
     return PolyFeedState(done: true, events: [
-      for (var i = 1; i <= 2; i++)
+      for (var i = 1; i <= 5; i++)
         yesNo('top$i', 'Busy market $i?', volume: 9e6 - i),
       yesNo('fed', 'Fed cuts in December?'),
       yesNo('btc', 'Bitcoin above 150k?'),

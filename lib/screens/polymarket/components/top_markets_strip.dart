@@ -50,6 +50,29 @@ const double kPolyTopMarketCardImage = 36;
 double polyTopMarketCardWidth() =>
     (1.sw - 32.w - kPolyTopMarketCardGap.w) / 2 - kPolyTopMarketCardPeek.w;
 
+/// The least the list keeps under the strip: with fewer left, no strip.
+const int kPolyTopMarketsListKeeps = 3;
+
+/// The strip's markets and the list under it. A market on the strip is not
+/// repeated in the list (founder, 1 November 2026, again 9 November 2026),
+/// so the list is polymarket.com's Trending in the site's order without
+/// them; and the strip never empties the list.
+({List<PolymarketEvent> top, List<PolymarketEvent> listed}) polyTrendingSplit(
+  List<PolymarketEvent> top,
+  List<PolymarketEvent> events,
+) {
+  if (top.isEmpty) return (top: top, listed: events);
+  final ids = {for (final e in top) e.id};
+  final listed = [
+    for (final e in events)
+      if (!ids.contains(e.id)) e,
+  ];
+  if (listed.length < kPolyTopMarketsListKeeps) {
+    return (top: const <PolymarketEvent>[], listed: events);
+  }
+  return (top: top, listed: listed);
+}
+
 /// The markets the strip features, in the feed's own order (Trending's is
 /// polymarket.com's; founder, 9 November 2026: "the trending must be what we
 /// have on polymarket exactly"): the first plain Yes/No markets of [events]
