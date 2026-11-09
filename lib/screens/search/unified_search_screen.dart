@@ -1648,7 +1648,7 @@ class _CategoryHitRow extends ConsumerWidget {
           border: Border.all(color: c.borderSubtle, width: 0.5),
         ),
         child: hit.chip != null
-            ? PolySportIcon(sub: hit.chip!, size: 20)
+            ? polySubIcon(pill, hit.chip!, 20)
             : SvgPicture.asset(
                 'lib/assets/polymarket_tags/${pill.key}.svg',
                 width: 20,

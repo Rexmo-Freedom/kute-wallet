@@ -18,7 +18,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
@@ -136,29 +135,16 @@ String polyRoundWindowLabel(AppLocalizations l10n, Duration window) =>
       final m => '${m}m',
     };
 
-/// The logo a chip shows before its name, at the text's height: on Sports
-/// the row's own icon ([PolySportIcon]), a game's own (Gamma `/sports`) on
-/// Esports, a coin's on Crypto. Null for every other chip (and for an
-/// Esports or Crypto chip with no logo), which stays text only.
-/// PolyCrestImage draws rasters and SVGs alike; on Esports and Crypto a logo
-/// that fails to load leaves the chip as text.
+/// The icon a chip shows before its name, at the text's height: the row's
+/// own ([polySubIcon]: Polymarket's glyph for it, else its hosted image),
+/// on every topic with rows. Sports' rows always draw one (the trophy at
+/// worst); on the other topics a chip with no icon of its own stays text
+/// only, and one whose image fails draws its topic's glyph.
 Widget? polySubLogo(PolyPill pill, PolySub sub) {
-  if (pill != PolyPill.sports &&
-      pill != PolyPill.esports &&
-      pill != PolyPill.crypto) {
-    return null;
-  }
   final size = 14.sp;
   if (pill == PolyPill.sports) return PolySportIcon(sub: sub, size: size);
-  final url = sub.imageUrl;
-  if (url == null || url.isEmpty) return null;
-  return PolyCrestImage(
-    url: url,
-    size: size,
-    radius: 3.r,
-    fit: BoxFit.contain,
-    fallback: SizedBox(width: size, height: size),
-  );
+  if (!polySubHasOwnIcon(pill, sub)) return null;
+  return polySubIcon(pill, sub, size);
 }
 
 /// A sideways row that keeps its selected child in view: on first layout

@@ -76,3 +76,68 @@ NBA, MLB, College Football and the Nations League do not (the logoman, the
 NCAA disc; the config's SVGs are a generic ball and helmet, the Nations League
 has only a PNG), so those rows, like every other league, draw their Gamma
 `image`.
+
+## Esports (`esports/`)
+
+One per game of the Esports screen, drawn as they are, through the same
+resolver (`poly_sport_icon.dart`). Read on 9 November 2026 from the esports
+entries of the league config in chunk `15qc9kr-52q-9.js` (`icon`,
+`iconClassName`): either a file the site serves under
+`polymarket.com/images/sports/leagues/`, as served, or a component of that
+chunk (module number below), whose `currentColor` takes the entry's colour.
+No game has a `dark:` colour on the site, so none has a dark file.
+
+| File | Polymarket source | Colour |
+| --- | --- | --- |
+| cs2.svg | module 115893 | #C89B3B |
+| dota-2.svg | images/sports/leagues/dota2.svg | its own fills |
+| league-of-legends.svg | images/sports/leagues/league-of-legends.svg | its own fills |
+| call-of-duty.svg | module 465666 | `currentColor` (`text-grey` on the site): the text colour |
+| rainbow-six-siege.svg | module 771781 | #C89B3B |
+| valorant.svg | images/sports/leagues/valorant.svg | its own fills |
+| starcraft-2.svg | images/sports/leagues/starcraft.svg | its own fills |
+| mobile-legends-bang-bang.svg | module 690610 | #F25D23 |
+| honor-of-kings.svg | module 156188 | #C89B3B |
+| overwatch.svg | images/sports/leagues/overwatch.svg | its own fills |
+| rocket-league.svg | module 75107 | #C89B3B |
+
+StarCraft: Brood War has no file here: the site's
+`starcraft-brood-war.svg` is a 176 x 24 wordmark in #414141, unreadable at
+20 pt and invisible on the dark plate. The row draws its card image from
+polymarket.com/esports (`starcraftbroodwar-77405089c8.jpg`) instead; Gamma's
+`league-icons/sc.png` for the game is the StarCraft II logo.
+
+## Side-list glyphs (`rows/`)
+
+Monochrome, `currentColor`, drawn in the text colour: the icons
+polymarket.com's own side lists draw in `text-pk-content-primary` for the
+Crypto, Finance and Weather rows, as served in the pages' HTML on 9
+November 2026 (`class` attributes dropped), and four marks of the site's
+set for topic rows.
+
+| File | Polymarket row |
+| --- | --- |
+| 5m, 15m, 1h, 4h, daily, weekly, monthly | /crypto/5M … /crypto/monthly (Finance's Daily, Weekly and Monthly are the same icons) |
+| calendar | /earnings (the calendar with a dot), for Crypto's Yearly: the site draws Daily's calendar for Yearly too |
+| targets, pre-market, institutions, industry, protocol-metrics | /crypto/… |
+| privates, acquisitions, ipo, fed-rates, prediction-markets, treasuries, kpis | /finance/… |
+| temperature, precipitation, drought, global, tornadoes, hurricanes, earthquakes, volcanoes, pandemics | /weather/… |
+| apple | chunk module 353467, the site's Apple mark (Tech › Apple) |
+| tiktok | the site footer's TikTok mark (Tech › TikTok) |
+| x | the site footer's X mark (Culture › Tweet Markets) |
+| taxes | the site's 18 px coin-in-hand icon (Economy › Taxes) |
+
+Economy's Fed Rates and Treasuries, Tech's Prediction Markets and Economy's
+Macro Indicators (`kpis`) draw the Finance side list's glyph of the same
+subject.
+
+## Hosted images (no file here)
+
+The resolver's other rows draw Polymarket's hosted images: a league's, a
+game's or a coin's own; Finance's Stocks, Earnings, Indices, Commodities and
+Forex as the Finance side list draws them; and for the Politics,
+Geopolitics, Tech, Culture and Economy rows, which the site draws without an
+icon, the image of one of that row's top markets on
+`/internal/view/category/<slug>`, picked on 9 November 2026 for showing the
+row's subject (`kPolyTopicRowImages`). A row the site adds later, or an
+image that fails, draws its topic's glyph.

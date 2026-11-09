@@ -26,7 +26,7 @@ class PolyCategoryHit {
   final String? sub;
   final String label;
 
-  /// A sport's or a league's chip, for the row's icon.
+  /// A sport's, a league's or a game's chip, for the row's icon.
   final PolySub? chip;
 
   const PolyCategoryHit(this.pill, {this.sub, required this.label, this.chip});
@@ -78,7 +78,10 @@ PolyCategoryHit? polySearchCategoryHit(
   if (pills.contains(PolyPill.esports)) {
     for (final g in kPolyEsportsGames) {
       if (hit([g.label, g.slug, g.sport])) {
-        return PolyCategoryHit(PolyPill.esports, sub: g.slug, label: g.label);
+        return PolyCategoryHit(PolyPill.esports,
+            sub: g.slug,
+            label: g.label,
+            chip: PolySub(g.slug, label: g.label));
       }
     }
   }

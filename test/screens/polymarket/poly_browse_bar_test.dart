@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart';
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -94,7 +93,9 @@ void main() {
         ]));
   });
 
-  testWidgets('Finance chips are text; the misspelt slug reads "Indices"',
+  testWidgets(
+      'Finance chips carry the site\'s icons; the misspelt slug reads '
+      '"Indices"',
       (tester) async {
     PolySub? picked;
     await _pump(
@@ -110,7 +111,15 @@ void main() {
       'All', 'Daily', 'Weekly', 'Monthly', 'Stocks', 'Earnings', 'Indices',
       'Commodities', //
     ]);
-    expect(find.byType(PolyCrestImage), findsNothing);
+    // Every chip but All wears its row's icon, at the text's height:
+    // polymarket.com/finance's own glyph, or the image it draws there.
+    for (final p in tester.widgetList<KutePill>(find.byType(KutePill))) {
+      if (p.label == 'All') {
+        expect(p.leading, isNull);
+      } else {
+        expect(p.leading, isA<PolySubIcon>(), reason: p.label);
+      }
+    }
     await tester.tap(find.text('Weekly'));
     expect(picked?.key, 'weekly');
   });
@@ -205,8 +214,8 @@ void main() {
     expect(back, 1);
   });
 
-  testWidgets('a logo shows only on Sports, Esports and the Crypto coins',
-      (tester) async {
+  testWidgets('every topic with rows shows its rows\' own icons; a chip with '
+      'none of its own stays text', (tester) async {
     const league = PolySub('series:1',
         label: 'NFL', imageUrl: 'https://example.com/nfl.png');
     late BuildContext context;
@@ -215,25 +224,30 @@ void main() {
       return const SizedBox();
     }));
     expect(context, isNotNull);
-    expect(polySubLogo(PolyPill.sports, league), isNotNull);
-    expect(polySubLogo(PolyPill.esports, league), isNotNull);
+    expect(polySubLogo(PolyPill.sports, league), isA<PolySportIcon>());
+    expect(polySubLogo(PolyPill.esports, league), isA<PolySubIcon>());
+    // Live has no rows: no icon, whatever the chip carries.
     expect(polySubLogo(PolyPill.live, league), isNull);
-    expect(polySubLogo(PolyPill.politics, league), isNull);
+    expect(polySubLogo(PolyPill.politics, league), isA<PolySubIcon>());
     expect(polySubLogo(PolyPill.sports, const PolySub('soccer')), isNotNull);
+    // A chip no topic knows, with no image: text only.
     expect(polySubLogo(PolyPill.esports, const PolySub('soccer')), isNull);
-    // Crypto: the coins carry the site's logos, the other chips none.
+    expect(
+        polySubLogo(PolyPill.politics,
+            const PolySub('tag:9', route: 'not-a-row', label: 'X')),
+        isNull);
+    // Crypto: every chip but All carries its icon, the coins their logos.
     final crypto = {
       for (final s in polyCryptoSubsFromCounts(null))
         s.key: polySubLogo(PolyPill.crypto, s)
     };
-    for (final coin in const [
-      'bitcoin', 'ethereum', 'solana', 'xrp', 'dogecoin', 'bnb',
-      'microstrategy', //
-    ]) {
-      expect(crypto[coin], isA<PolyCrestImage>(), reason: coin);
-    }
-    for (final other in const ['all', '5m', 'weekly', 'targets']) {
-      expect(crypto[other], isNull, reason: other);
+    for (final s in polyCryptoSubsFromCounts(null)) {
+      if (s.key == 'all') {
+        expect(crypto['all'], isNull);
+      } else {
+        expect(crypto[s.key], isA<PolySubIcon>(), reason: s.key);
+        expect((crypto[s.key]! as PolySubIcon).size, 14.sp, reason: s.key);
+      }
     }
   });
 }

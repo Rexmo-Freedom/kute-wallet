@@ -351,6 +351,28 @@ List<HlMarket> hlTileMovers(List<HlMarket> markets, Set<String> shown,
   return out;
 }
 
+/// The stack of a category's All tile above its rows: the top mover of
+/// each row in turn, so a row of three markets never wears the same stack
+/// as its All (founder, 9 November 2026: "check on all sub categories").
+/// With no rows, [hlTileMovers].
+List<HlMarket> hlAllTileMovers(
+    List<HlMarket> all, List<List<HlMarket>> rows, Set<String> shown,
+    {int take = _kLogos}) {
+  if (rows.isEmpty) return hlTileMovers(all, shown, take: take);
+  final out = <HlMarket>[];
+  final taken = <String>{};
+  for (var round = 0; out.length < take && round < take; round++) {
+    for (final row in rows) {
+      if (out.length == take) break;
+      final pick = hlTileMovers(row, {...shown, ...taken}, take: 1);
+      if (pick.isEmpty || !taken.add(pick.first.coin.toUpperCase())) continue;
+      out.add(pick.first);
+    }
+  }
+  shown.addAll(taken);
+  return out;
+}
+
 /// The browse capability [tab]'s categories answer to, or null for the
 /// Portfolio sections (the person's own positions, never withheld).
 String? investmentsBrowseCapability(InvestmentsTab tab) => switch (tab) {
@@ -999,7 +1021,8 @@ class _InvestmentsCategorySheetState
         tint: tint,
         name: l10n.categoryAllOf(t.localizedLabel(l10n)),
         stat: _StatLine(count: allStat.count, move: allStat.move),
-        logos: _hlLogos(hlTileMovers(all, shown)),
+        logos: _hlLogos(hlAllTileMovers(
+            all, [for (final s in _hlSubs(t)) _hlList(t, s)], shown)),
         picked: _picked(t, HlBrowseSub.all,
             sel.tab == t && sel.sub == HlBrowseSub.all),
         onTap: () => _pickHl(t, HlBrowseSub.all),
@@ -1162,10 +1185,8 @@ class _InvestmentsCategorySheetState
           if (s.key != p.defaultSub)
             _Tile(
               key: ValueKey('category-tile-${s.key}'),
-              asset: p == PolyPill.sports ? null : _polyIconAsset(p),
-              plateIcon: p == PolyPill.sports
-                  ? PolySportIcon(sub: s, size: _kPlateIcon)
-                  : null,
+              // The row's own icon (poly_sport_icon.dart), every topic.
+              plateIcon: polySubIcon(p, s, _kPlateIcon),
               tint: tint,
               name: polySubLabel(l10n, s),
               stat: _polyStat(p, sub: s.key),
@@ -1886,8 +1907,8 @@ class _Tile extends StatelessWidget {
   /// always; Trending's row until its images land).
   final String? asset;
 
-  /// Coloured art on the same square, in [asset]'s place: a Sports row's
-  /// own icon ([PolySportIcon]).
+  /// Art on the same square, in [asset]'s place: a topic row's own icon
+  /// ([PolySubIcon]).
   final Widget? plateIcon;
   final bool picked;
   final _TileShape shape;
@@ -1922,8 +1943,8 @@ class _Tile extends StatelessWidget {
       art = _LogoStack(logos: logos);
     } else if (plateIcon != null || asset != null) {
       // The topic's own glyph, monochrome, on the app's surface-1 square
-      // (KuteListRow's icon tile, a size down): no tint, no circle. A Sports
-      // row's coloured icon sits on the same square.
+      // (KuteListRow's icon tile, a size down): no tint, no circle. A topic
+      // row's own icon sits on the same square.
       final svg = asset;
       art = Container(
         width: _kGlyphArt,

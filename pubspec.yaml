@@ -249,6 +249,8 @@ flutter:
     - lib/assets/markets/hl_descriptions_en.json
     - lib/assets/polymarket_tags/
     - lib/assets/polymarket_tags/sports/
+    - lib/assets/polymarket_tags/esports/
+    - lib/assets/polymarket_tags/rows/
     - lib/assets/bitcoin-icon.svg
     - lib/assets/sats-icon.svg
     - lib/assets/eur-icon.svg
