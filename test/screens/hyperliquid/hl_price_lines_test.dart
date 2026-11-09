@@ -285,7 +285,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('BTC reached \$65,000'), findsOneWidget);
 
-      await tester.pump(const Duration(seconds: 5));
+      // The Sal toast flies in, waits its 3 s, then flies out: frame by
+      // frame, as on a phone. After that a second "reached" could only be a
+      // second notice.
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 400));
+      }
       notifier.applyLiveTicks({'BTC': 64000}, (c) => c);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
