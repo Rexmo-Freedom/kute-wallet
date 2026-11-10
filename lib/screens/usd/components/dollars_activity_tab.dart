@@ -52,6 +52,19 @@
 // so nothing jumps; failed or cancelled, it goes (Sal says so,
 // standing_order_toasts.dart).
 //
+// A FILLED CARD HANDS OVER ONCE (founder, 10 November 2026: sold, the
+// Overview still showed "Prediction placed", "it is still on open, it is
+// not updating"). The card used to show whenever its position was not
+// listed for five minutes after the fill, so a position sold (or closed)
+// inside those minutes brought the card back, and nothing rebuilt the tab
+// when they ended. Now: the card waits for its position at most
+// [kDollarsFilledCardHold]; the moment the position lists, or its token
+// is being sold or was sold, the order is handed over
+// ([dollarsHandedOverProvider], for the app's session, so leaving the
+// Overview and coming back changes nothing) and its card never returns;
+// and the tab rebuilds itself when the next hold ends
+// ([dollarsNextHoldEnd]), so nothing outlives its hold.
+//
 // Nothing else (founder, 8 November 2026: "on the overview we just show the
 // open positions and the P&L graph, up to 4 open positions"). The market map
 // that stood under them for a day is off the app (hl_market_map.dart is
@@ -76,6 +89,7 @@
 // Analytics: nothing new. A square's tap sends the Portfolio row's own
 // `open_investments_position_tapped`.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -92,6 +106,8 @@ import 'package:kute/providers/open_pnl_history_provider.dart'
         openPnlHistoryProvider,
         openPnlShownRangeProvider,
         openPnlWindowProvider;
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
@@ -136,9 +152,24 @@ const double kDollarsPnlPlotHeight = 64;
 List<String> dollarsActivitySquareIds(List<String> ranked) =>
     ranked.take(kDollarsActivitySquares).toList(growable: false);
 
-/// How long a filled standing order holds its slot on the Overview: its
-/// card until the position lists, then the position in that slot.
+/// How long a filled standing order's position holds the card's slot on
+/// the Overview, from the fill ([dollarsPinnedRanked]).
 const Duration kDollarsFilledHold = Duration(minutes: 5);
+
+/// How long a filled standing order's card waits for its position to list,
+/// from the fill; it hands over sooner the moment the position lists or is
+/// sold (see the file header).
+const Duration kDollarsFilledCardHold = Duration(seconds: 90);
+
+/// The filled standing orders whose card has handed over to its position
+/// (the position listed, or its token was being sold or sold): their card
+/// never comes back, for the app's session. Filled by the Overview as it
+/// builds ([dollarsHandingOver]); a plain set, read and never watched.
+final dollarsHandedOverProvider = Provider<Set<String>>((ref) => <String>{});
+
+/// The Overview's clock (a test's own).
+final dollarsOverviewClockProvider =
+    Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// The ids a standing order's position lists under (open_investments_
 /// screen.dart's row keys): the prediction's token, the perp or the spot
@@ -150,12 +181,13 @@ List<String> dollarsStandingPositionIds(StandingOrder order) =>
 
 /// The Overview's standing orders (see the file header), newest first:
 /// every open one on a venue shown, and one filled within
-/// [kDollarsFilledHold] whose position is not [listed] yet. Pure for the
-/// tests.
+/// [kDollarsFilledCardHold] whose position is not [listed] yet and that
+/// has not [handedOver]. Pure for the tests.
 List<StandingOrder> dollarsStandingShown(
   List<StandingOrder> all, {
   required Set<String> listed,
   required DateTime now,
+  Set<String> handedOver = const {},
   bool predictions = true,
   bool investing = true,
 }) =>
@@ -166,10 +198,50 @@ List<StandingOrder> dollarsStandingShown(
                 : investing) &&
             (o.isOpen ||
                 (o.state == StandingOrderState.filled &&
-                    now.difference(o.updatedAt) < kDollarsFilledHold &&
+                    now.difference(o.updatedAt) < kDollarsFilledCardHold &&
+                    !handedOver.contains(o.id) &&
                     !dollarsStandingPositionIds(o).any(listed.contains))))
           o,
     ];
+
+/// The ids of the filled orders of [all] whose card hands over now: their
+/// position is [listed], is being sold ([selling], position ids), or was
+/// sold after the order was accepted ([soldAt], position id to the latest
+/// sale). Pure for the tests.
+List<String> dollarsHandingOver(
+  List<StandingOrder> all, {
+  required Set<String> listed,
+  Set<String> selling = const {},
+  Map<String, DateTime> soldAt = const {},
+}) =>
+    [
+      for (final o in all)
+        if (o.state == StandingOrderState.filled &&
+            dollarsStandingPositionIds(o).any((id) =>
+                listed.contains(id) ||
+                selling.contains(id) ||
+                (soldAt[id]?.isAfter(o.createdAt) ?? false)))
+          o.id,
+    ];
+
+/// When the Overview next changes on its own: the earliest end, after
+/// [now], of a filled order's card hold ([kDollarsFilledCardHold]) or slot
+/// hold ([kDollarsFilledHold]); null when none is running. Pure for the
+/// tests.
+DateTime? dollarsNextHoldEnd(List<StandingOrder> all,
+    {required DateTime now}) {
+  DateTime? next;
+  for (final o in all) {
+    if (o.state != StandingOrderState.filled) continue;
+    for (final hold in const [kDollarsFilledCardHold, kDollarsFilledHold]) {
+      final end = o.updatedAt.add(hold);
+      if (end.isAfter(now) && (next == null || end.isBefore(next))) {
+        next = end;
+      }
+    }
+  }
+  return next;
+}
 
 /// The ranked ids with the positions of standing orders filled within
 /// [kDollarsFilledHold] first (newest first), in the slot their card had;
@@ -207,11 +279,40 @@ List<Widget> dollarsActivitySquareRows(
 /// The Overview pill's page (see the file header). One scroll, the nested
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
-class DollarsActivityTab extends ConsumerWidget {
+class DollarsActivityTab extends ConsumerStatefulWidget {
   const DollarsActivityTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DollarsActivityTab> createState() =>
+      _DollarsActivityTabState();
+}
+
+class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
+  /// Rebuilds the tab when the next hold ends ([dollarsNextHoldEnd]).
+  Timer? _holdTimer;
+  DateTime? _holdTimerAt;
+
+  void _rebuildAt(DateTime? at, DateTime now) {
+    if (at == _holdTimerAt) return;
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    _holdTimerAt = at;
+    if (at == null) return;
+    _holdTimer = Timer(at.difference(now), () {
+      _holdTimerAt = null;
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _holdTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
     final ranked =
@@ -221,15 +322,39 @@ class DollarsActivityTab extends ConsumerWidget {
         : const <BalancesCategory, BalancesVenueList>{};
     // In progress first (see the file header).
     final all = ref.watch(standingOrdersProvider);
-    final now = DateTime.now();
+    final now = ref.watch(dollarsOverviewClockProvider)();
+    final listed = {
+      for (final list in lists.values)
+        for (final row in list.rows)
+          if (row.key case ValueKey<String>(:final value)) value,
+    };
+    // A filled card hands over once: its position listed, or is being
+    // sold or was sold (see the file header).
+    final handedOver = ref.read(dollarsHandedOverProvider);
+    if (all.any((o) => o.state == StandingOrderState.filled)) {
+      final (selling, sales) = venues.predictions
+          ? ref.watch(polymarketTradingProvider.select((s) => (
+                s.valueOrNull?.pendingSaleTokens,
+                s.valueOrNull?.confirmedSales,
+              )))
+          : (null, null);
+      final soldAt = <String, DateTime>{};
+      for (final sale in sales ?? const []) {
+        final id = 'poly-${sale.tokenId}';
+        final at = soldAt[id];
+        if (at == null || sale.at.isAfter(at)) soldAt[id] = sale.at;
+      }
+      handedOver.addAll(dollarsHandingOver(all,
+          listed: listed,
+          selling: {for (final t in selling ?? const <String>{}) 'poly-$t'},
+          soldAt: soldAt));
+    }
+    _rebuildAt(dollarsNextHoldEnd(all, now: now), now);
     final standing = venues.any
         ? dollarsStandingShown(all,
-            listed: {
-              for (final list in lists.values)
-                for (final row in list.rows)
-                  if (row.key case ValueKey<String>(:final value)) value,
-            },
+            listed: listed,
             now: now,
+            handedOver: handedOver,
             predictions: venues.predictions,
             investing: venues.trading)
         : const <StandingOrder>[];

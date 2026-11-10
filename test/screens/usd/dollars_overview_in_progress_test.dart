@@ -6,15 +6,23 @@
 // its money journey; it counts toward the four; filled, it holds its slot
 // until the position lists and the position takes that slot; failed or
 // cancelled, it goes. Predictions and Investing alike.
+//
+// A filled card hands over once (founder, 10 November 2026: sold, the
+// Overview still showed "Prediction placed"): the position listing, or its
+// sale, hands it over for good; the card waits for its position at most
+// kDollarsFilledCardHold and leaves on time without another rebuild.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolymarketPosition, polymarketActivePositionsProvider;
+import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show HlPositionRow, PlacingBetRow;
+    show HlPositionRow, PlacingBetRow, PolyPositionRow;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/standing_order_journey.dart';
@@ -89,6 +97,35 @@ StandingOrder _investing(
       marketKind: 'perp',
     );
 
+/// The Predictions positions the account lists, changed by the test (the
+/// fill landing, the sale).
+final _positions = StateProvider<List<PolymarketPosition>>((_) => const []);
+
+PolymarketPosition _poly(String token) => PolymarketPosition(
+    marketId: token,
+    marketQuestion: 'Will it rain tomorrow?',
+    outcome: 'Yes',
+    size: 19.23,
+    avgPrice: 0.52,
+    currentPrice: 0.52,
+    pnl: 0,
+    pnlPercent: 0,
+    isResolved: false,
+    tokenId: token);
+
+class _Prices extends LivePriceNotifier {
+  @override
+  LivePriceState build() => const LivePriceState(live: false, prices: {});
+  @override
+  void acquire() {}
+  @override
+  void release() {}
+  @override
+  void pause() {}
+  @override
+  void resume() {}
+}
+
 ProviderContainer _container(WidgetTester tester) => ProviderScope.containerOf(
     tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
 
@@ -155,6 +192,75 @@ void main() {
           ], now: now),
           ['hl-BTC', 'hl-SOL'],
           reason: 'after the hold the ranking is back');
+    });
+
+    test('a filled card waits for its position at most the card hold, and '
+        'once handed over never comes back', () {
+      final filled = at(_prediction(id: 'f'), StandingOrderState.filled,
+          const Duration(seconds: 30));
+      expect(dollarsStandingShown([filled], listed: {}, now: now), [filled]);
+      expect(
+          dollarsStandingShown([filled],
+              listed: {}, now: now, handedOver: {'f'}),
+          isEmpty,
+          reason: 'the position listed once, then was sold');
+      expect(
+          dollarsStandingShown([
+            at(_prediction(id: 'f'), StandingOrderState.filled,
+                kDollarsFilledCardHold)
+          ], listed: {}, now: now),
+          isEmpty,
+          reason: 'past the card hold');
+    });
+
+    test('the card hands over when its position lists, is being sold or '
+        'was sold after the accept', () {
+      final filled = at(_prediction(id: 'f'), StandingOrderState.filled,
+          const Duration(seconds: 30));
+      final open = at(_prediction(id: 'o'), StandingOrderState.posting,
+          Duration.zero);
+      expect(dollarsHandingOver([filled, open], listed: {}), isEmpty);
+      expect(
+          dollarsHandingOver([filled, open],
+              listed: {'poly-tok-f', 'poly-tok-o'}),
+          ['f'],
+          reason: 'an open order is never handed over');
+      expect(dollarsHandingOver([filled], listed: {}, selling: {'poly-tok-f'}),
+          ['f']);
+      expect(
+          dollarsHandingOver([filled],
+              listed: {},
+              soldAt: {
+                'poly-tok-f': filled.createdAt.add(const Duration(seconds: 10))
+              }),
+          ['f']);
+      expect(
+          dollarsHandingOver([filled], listed: {}, soldAt: {
+            'poly-tok-f': filled.createdAt.subtract(const Duration(days: 1))
+          }),
+          isEmpty,
+          reason: 'a sale of an earlier position of the token');
+    });
+
+    test('the next hold end: the card hold, then the slot hold, then none',
+        () {
+      final filled = at(_prediction(id: 'f'), StandingOrderState.filled,
+          const Duration(seconds: 30));
+      expect(dollarsNextHoldEnd([filled], now: now),
+          filled.updatedAt.add(kDollarsFilledCardHold));
+      expect(
+          dollarsNextHoldEnd([filled],
+              now: filled.updatedAt.add(kDollarsFilledCardHold)),
+          filled.updatedAt.add(kDollarsFilledHold));
+      expect(
+          dollarsNextHoldEnd([filled],
+              now: filled.updatedAt.add(kDollarsFilledHold)),
+          isNull);
+      expect(
+          dollarsNextHoldEnd(
+              [at(_prediction(), StandingOrderState.posting, Duration.zero)],
+              now: now),
+          isNull);
     });
   });
 
@@ -297,6 +403,82 @@ void main() {
     expect(
         tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))).topLeft,
         slot.topLeft);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'Predictions: the filled card hands over to the position row under '
+      'the same key; the position sold, the card never comes back',
+      (tester) async {
+    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+      polymarketActivePositionsProvider
+          .overrideWith((ref) => ref.watch(_positions)),
+      livePriceProvider.overrideWith(_Prices.new),
+    ]);
+    final container = _container(tester);
+    final notifier = container.read(standingOrdersProvider.notifier);
+    final card = inSquares(find.byKey(const ValueKey('standing-so_p')));
+
+    // Filled, the position not read yet: the card, placed.
+    notifier.debugReplace([_prediction(state: StandingOrderState.filled)]);
+    await tester.pump();
+    expect(card, findsOneWidget);
+    expect(
+        find.descendant(
+            of: card, matching: find.textContaining('Prediction placed')),
+        findsOneWidget);
+
+    // The position lists under the key the order names: the row takes
+    // over at once.
+    container.read(_positions.notifier).state = [_poly('tok-so_p')];
+    await tester.pump();
+    await tester.pump();
+    expect(card, findsNothing);
+    expect(inSquares(find.byKey(const ValueKey('poly-tok-so_p'))),
+        findsOneWidget);
+    expect(inSquares(find.byType(PolyPositionRow)), findsOneWidget);
+
+    // Sold: the position goes, and the card does not come back, here or
+    // after leaving the Overview and coming back.
+    container.read(_positions.notifier).state = const [];
+    await tester.pump();
+    await tester.pump();
+    expect(card, findsNothing);
+    notifier.debugReplace([
+      _prediction(state: StandingOrderState.filled)
+          .copyWith(updatedAt: DateTime.now())
+    ]);
+    await tester.pump();
+    expect(card, findsNothing);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'a filled card whose position never lists leaves when its hold ends, '
+      'with nothing else rebuilding the tab', (tester) async {
+    var clock = DateTime.now();
+    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+      dollarsOverviewClockProvider.overrideWithValue(() => clock),
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          HyperliquidTradingState(
+              isInitialized: true, positions: [_perp('BTC', 500)]))),
+    ]);
+    _container(tester).read(standingOrdersProvider.notifier).debugReplace(
+        [_prediction(state: StandingOrderState.filled, at: clock)]);
+    await tester.pump();
+    expect(order(tester), ['standing-so_p', 'hl-BTC']);
+
+    clock = clock.add(kDollarsFilledCardHold - const Duration(seconds: 1));
+    await tester.pump(kDollarsFilledCardHold - const Duration(seconds: 1));
+    expect(order(tester), ['standing-so_p', 'hl-BTC'],
+        reason: 'still inside the hold');
+
+    clock = clock.add(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(order(tester), ['hl-BTC'], reason: 'the hold ended on time');
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

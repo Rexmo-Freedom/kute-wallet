@@ -16,6 +16,7 @@ import 'package:kute/services/polymarket/send_time_read.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/sal_notices.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders;
@@ -76,6 +77,12 @@ import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 
 // Polymarket brand colors
 const Color _kPolyRed = AppColors.marketDown;
+
+/// The longest a matched sale waits before its receipt, wall clock: only
+/// a match whose figures the venue did not echo waits at all, for its
+/// trade's prices (sell_settlement.dart). Founder, 10 November 2026: "what
+/// is it confirming? why does it stay confirming on sold?"
+const Duration kSellReceiptWait = Duration(seconds: 4);
 
 class SellSheet extends ConsumerStatefulWidget {
   final PolymarketPosition position;
@@ -164,7 +171,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   bool _isSelling = false;
 
   /// The CTA's label while a sale is in flight once it has moved past
-  /// "Selling…" ("Sold · confirming"); null for the plain busy label.
+  /// "Selling…" ("Position sold" once matched, before its receipt); null
+  /// for the plain busy label.
   String? _progressLabel;
 
   /// The sale's rubber band on the CTA: how far along it is (approval,
@@ -700,8 +708,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
 
     // The progress stays on this ticket's CTA until the venue answers:
     // "Selling…", the live game's wait when the venue holds the order,
-    // "Sold · confirming" once it matched, then the receipt (or the
-    // reason, here on the ticket).
+    // then the receipt on the match (or the reason, here on the ticket).
+    // A match without the venue's figures echoed reads "Position sold"
+    // for the few seconds the trade's prices take ([kSellReceiptWait]).
     try {
       // Fill-and-kill: each rung sells what the book has at or above its
       // price and the rest stays with the person, sellable again at once.
@@ -947,6 +956,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       positionMoved: positionMoved,
       // Long enough for the live game's delay, then a margin.
       matchTimeout: Duration(seconds: math.max(12, _liveDelaySeconds + 10)),
+      // A matched sell is sold: the receipt as soon as the venue said for
+      // how much, the chain followed after it (sell_settlement.dart).
+      receiptOnMatch: true,
+      confirmTimeout: kSellReceiptWait,
     ).watch(
       response: response,
       tokenId: tokenId,
@@ -969,7 +982,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               _bandProgress = next;
             }
           }
-          _progressLabel = _matched ? l10n.betSoldConfirming : null;
+          // Matched is sold: never an unexplained "confirming".
+          _progressLabel = _matched ? l10n.betPositionSold : null;
         });
       },
     );
@@ -1189,6 +1203,33 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           .catchError((_) {}));
     }
 
+    // The chain, followed after the receipt: it speaks only if the trade
+    // then failed on chain (rare; the shares are still held).
+    final chain = s.chain;
+    if (chain != null && mounted) {
+      unawaited(_speakIfChainFails(chain,
+          tokenId: tokenId,
+          response: response,
+          costBeforeSale: costBeforeSale,
+          failedParams: {
+            ..._kindParams(),
+            ..._sellInputs(),
+            'market_id': pos.tokenId ?? pos.marketId,
+            'reason': 'failed_onchain',
+            'error_category': 'failed_onchain',
+            'order_type': limit ? 'limit' : 'market',
+            'wallet_kind': 'hot',
+            'amount_bucket': TrackingService.usdBucket(_amountUsdc),
+            ..._settlementParams(s),
+            'fill_outcome': 'failed_onchain',
+            'confirmed_by': 'none',
+            ...polymarketOrderConnectionParams(),
+          }
+            ..remove('time_to_confirm_ms')
+            ..remove('proceeds_usd'),
+          l10n: l10n));
+    }
+
     if (!mounted) return;
     SoundService.playSuccess();
     // The success haptic fires once, in the receipt overlay's entrance
@@ -1264,6 +1305,53 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         note: s.confirmedBy == 'timeout' ? l10n.betSaleSettlingNote : null,
       );
     });
+  }
+
+  /// After a receipt on the venue's match: when the chain then says the
+  /// trade FAILED, Sal says so (betSaleFailedOnChain), the sale's
+  /// optimistic marks are undone so the shares list again, and the failure
+  /// is tracked as the sheet's own on-chain failure. Silent otherwise.
+  /// Reads nothing from the sheet once it closed: everything is taken now.
+  Future<void> _speakIfChainFails(
+    Future<PmSellResult?> chain, {
+    required String tokenId,
+    required Map<String, dynamic> response,
+    required double? costBeforeSale,
+    required Map<String, Object> failedParams,
+    required AppLocalizations l10n,
+  }) async {
+    final notifier = ref.read(polymarketTradingProvider.notifier);
+    final costBasis = ref.read(polymarketCostBasisProvider.notifier);
+    final transactions = ref.read(transactionNotifierProvider.notifier);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final detail = '${pos.outcome} · ${pos.marketQuestion}';
+    final PmSellResult? result;
+    try {
+      result = await chain;
+    } catch (_) {
+      return;
+    }
+    if (result != PmSellResult.failed) return;
+    TrackingService.track('polymarket_sell_failed', params: failedParams);
+    notifier.saleFailedOnChain(tokenId);
+    try {
+      final key =
+          PolymarketOptimisticActivityService.optimisticTradeKey(response);
+      if (key != null) {
+        PolymarketOptimisticActivityService.clear(key);
+        transactions.refreshOptimisticPolymarketActivity();
+      }
+    } catch (_) {}
+    if (costBeforeSale != null && costBeforeSale > 0) {
+      unawaited(costBasis
+          .reset(tokenId)
+          .then((_) => costBasis.addCost(tokenId, costBeforeSale))
+          .catchError((_) {}));
+    }
+    if (rootNavigator.mounted) {
+      SalNotices.failed(rootNavigator.context,
+          message: l10n.betSaleFailedOnChain, detail: detail);
+    }
   }
 
   /// The resting limit sell's confirmation, as it always was.
@@ -1866,7 +1954,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                       enabled:
                           canSell && !_isSelling && _advancedBlock == null,
                       onTap: _sellFailed ? _retrySell : _handleSell,
-                      // "Selling…" → "Sold · confirming" once it matched.
+                      // "Selling…" → "Position sold" once it matched.
                       busyLabel:
                           _progressLabel ?? context.l10n.betSellingEllipsis,
                       label: _sellFailed

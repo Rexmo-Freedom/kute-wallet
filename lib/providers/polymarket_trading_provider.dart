@@ -931,6 +931,17 @@ class PolymarketTradingNotifier
     } catch (_) {}
   }
 
+  /// A sale the sell sheet showed sold on the venue's match whose trade
+  /// then FAILED on chain: the shares are still held. Its record and its
+  /// sold mark go, so the next reads list the position again and it can be
+  /// sold again, and the account is read now.
+  void saleFailedOnChain(String tokenId) {
+    if (tokenId.isEmpty) return;
+    _recentlySoldTokens.remove(tokenId);
+    _forgetSaleOf(tokenId);
+    refreshAfterSale();
+  }
+
   bool wasRecentlySold(String tokenId) {
     final t = _recentlySoldTokens[tokenId];
     if (t == null) return false;

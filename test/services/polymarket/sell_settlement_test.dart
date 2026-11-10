@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -16,11 +17,16 @@ void main() {
     required Future<Map<String, dynamic>?> Function(String) order,
     Future<Map<String, dynamic>?> Function(String)? trade,
     Future<bool> Function()? moved,
+    bool receiptOnMatch = false,
   }) =>
       PmSellSettlementWatcher(
         readOrder: order,
         readTrade: trade,
         positionMoved: moved,
+        receiptOnMatch: receiptOnMatch,
+        confirmTimeout: receiptOnMatch
+            ? const Duration(seconds: 4)
+            : const Duration(seconds: 12),
         now: () => clock,
         sleep: (d) async => clock = clock.add(d),
       );
@@ -297,6 +303,180 @@ void main() {
     expect(s.soldShares, 2.1);
     expect(s.proceeds, closeTo(2.1 * 0.61, 1e-9));
     expect(s.delayed, isTrue);
+  });
+
+  group('one wall-clock deadline per stage', () {
+    // The real clock: a read that never answers must not hold the stage.
+    test('after the match, a trade read that hangs is cut at the deadline',
+        () async {
+      final hang = Completer<Map<String, dynamic>?>();
+      final watch = Stopwatch()..start();
+      final s = await PmSellSettlementWatcher(
+        readOrder: (_) => hang.future,
+        readTrade: (_) => hang.future,
+        positionMoved: () => Completer<bool>().future,
+        pollEvery: const Duration(milliseconds: 50),
+        confirmTimeout: const Duration(milliseconds: 300),
+      ).watch(
+        response: {
+          'orderID': orderId,
+          'status': 'matched',
+          'makingAmount': '1',
+          'takingAmount': '0.5',
+          'tradeIDs': ['t1', 't2'],
+        },
+        tokenId: token,
+        offeredShares: 1,
+        resting: false,
+      );
+      watch.stop();
+      expect(s.result, PmSellResult.filled);
+      expect(s.confirmedBy, 'timeout');
+      expect(s.proceeds, 0.5);
+      expect(watch.elapsed, lessThan(const Duration(milliseconds: 900)),
+          reason: 'the whole stage, not each read, is bounded');
+    });
+
+    test('before the match, an order read that hangs is cut at the deadline',
+        () async {
+      final watch = Stopwatch()..start();
+      final s = await PmSellSettlementWatcher(
+        readOrder: (_) => Completer<Map<String, dynamic>?>().future,
+        pollEvery: const Duration(milliseconds: 50),
+        matchTimeout: const Duration(milliseconds: 300),
+      ).watch(
+        response: {'success': true, 'orderID': orderId, 'status': 'delayed'},
+        tokenId: token,
+        offeredShares: 1,
+        resting: false,
+      );
+      watch.stop();
+      expect(s.result, PmSellResult.unknown, reason: 'never a fabricated fill');
+      expect(watch.elapsed, lessThan(const Duration(milliseconds: 900)));
+    });
+  });
+
+  group('the receipt on the match', () {
+    final echoed = {
+      'success': true,
+      'orderID': orderId,
+      'status': 'matched',
+      'makingAmount': '4.5',
+      'takingAmount': '2.745',
+      'tradeIDs': ['t1'],
+    };
+
+    test('a match the venue echoed is sold at once, the chain followed after '
+        'it', () async {
+      var reads = 0;
+      final s = await watcher(
+        order: (_) async => null,
+        trade: (_) async => tradeAs(++reads < 3 ? 'MATCHED' : 'MINED'),
+        receiptOnMatch: true,
+      ).watch(
+        response: echoed,
+        tokenId: token,
+        offeredShares: 4.5,
+        resting: false,
+      );
+      expect(s.result, PmSellResult.filled);
+      expect(s.proceeds, 2.745);
+      expect(s.confirmedBy, 'matched');
+      expect(s.timeToConfirm, Duration.zero);
+      expect(s.analyticsParams()['confirmed_by'], 'matched');
+      expect(s.analyticsParams()['time_to_confirm_ms'], 0);
+      expect(await s.chain, PmSellResult.filled);
+    });
+
+    test('a trade that then fails on chain is said by the chain only',
+        () async {
+      final s = await watcher(
+        order: (_) async => null,
+        trade: (_) async => tradeAs('FAILED'),
+        receiptOnMatch: true,
+      ).watch(
+        response: echoed,
+        tokenId: token,
+        offeredShares: 4.5,
+        resting: false,
+      );
+      expect(s.result, PmSellResult.filled);
+      expect(s.confirmedBy, 'matched');
+      expect(await s.chain, PmSellResult.failed);
+    });
+
+    test('the chain silent until its own deadline says nothing', () async {
+      final s = await watcher(
+        order: (_) async => null,
+        trade: (_) async => tradeAs('MATCHED'),
+        receiptOnMatch: true,
+      ).watch(
+        response: echoed,
+        tokenId: token,
+        offeredShares: 4.5,
+        resting: false,
+      );
+      expect(await s.chain, isNull);
+    });
+
+    test('a match without the figures waits only for the trade\'s prices',
+        () async {
+      final s = await watcher(
+        order: (_) async => {
+          'status': 'MATCHED',
+          'size_matched': '4',
+          'associate_trades': ['t1'],
+        },
+        trade: (_) async => tradeAs('MATCHED', makers: [
+          {'asset_id': token, 'matched_amount': '4', 'price': '0.6'},
+        ]),
+        receiptOnMatch: true,
+      ).watch(
+        response: {'success': true, 'orderID': orderId, 'status': 'delayed'},
+        tokenId: token,
+        offeredShares: 4,
+        resting: false,
+      );
+      expect(s.result, PmSellResult.filled);
+      expect(s.proceeds, closeTo(2.4, 1e-9));
+      expect(s.confirmedBy, 'matched');
+      expect(s.timeToConfirm, Duration.zero,
+          reason: 'one read, no wait for the chain');
+      expect(s.chain, isNotNull);
+    });
+
+    test('a match whose prices never come ends at the short deadline',
+        () async {
+      final s = await watcher(
+        order: (_) async => {'status': 'MATCHED', 'size_matched': '4'},
+        trade: (_) async => null,
+        receiptOnMatch: true,
+      ).watch(
+        response: {'success': true, 'orderID': orderId, 'status': 'delayed'},
+        tokenId: token,
+        offeredShares: 4,
+        resting: false,
+      );
+      expect(s.result, PmSellResult.filled);
+      expect(s.proceeds, isNull);
+      expect(s.confirmedBy, 'timeout');
+      expect(s.timeToConfirm, const Duration(seconds: 4));
+    });
+
+    test('without the receipt on the match nothing follows the chain',
+        () async {
+      final s = await watcher(
+        order: (_) async => null,
+        trade: (_) async => tradeAs('MATCHED'),
+      ).watch(
+        response: echoed,
+        tokenId: token,
+        offeredShares: 4.5,
+        resting: false,
+      );
+      expect(s.confirmedBy, 'timeout');
+      expect(s.chain, isNull);
+    });
   });
 
   group('pmLiveOrderDelaySeconds', () {
