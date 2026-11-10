@@ -20,8 +20,6 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showBitcoinQrReceiveSheet, showBitcoinReceiveSheet;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/money_movement_sheet.dart'
-    show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/receive_arrow_glyph.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
@@ -176,63 +174,24 @@ KuteDockAction bitcoinPurchaseDockAction(
   );
 }
 
-/// The Bitcoin home's Swap as the Swap sheet's `entry_source`
-/// (`move_sheet_opened`), the Dollars home's `kUsdHomeSwapSource` on this
-/// side.
-const String kBitcoinHomeSwapSource = 'bitcoin_home_swap';
-
-/// The spending wallet's Swap (founder, 8 November 2026: Swap replaces Scan
-/// on the Bitcoin home, so both homes read the same way): the Dollars home's
-/// button and the same Swap screen (showOwnMoneyMove), Bitcoin and Dollars
-/// only, opened on Bitcoin → Dollars since Bitcoin is what is on screen.
-/// The tap counts as `quick_action_tapped` `swap`, the sheet opens under
-/// [kBitcoinHomeSwapSource].
-///
-/// Nothing is gated here, as on the Dollars home: the button is always live
-/// and what may move is the backend policy's alone, so under a block the
-/// screen opens and says why, in place of the fee, with its own way out
-/// (the swap circle turns it to Dollars → Bitcoin, an exit).
-KuteDockAction bitcoinSwapDockAction(
-    BuildContext context, WidgetRef ref, WalletConfig wallet) {
-  return KuteDockAction(
-    // The two-way arrows the app's swap controls wear.
-    icon: Icons.swap_horiz_rounded,
-    label: context.l10n.swap,
-    trackingId: 'swap',
-    onTap: () {
-      if (!_pinBitcoinWallet(context, ref, wallet)) return;
-      // Starts by bringing Dollars here (founder, 8 November 2026: "swap
-      // here should default dollars to bitcoin"); its circle reverses it.
-      unawaited(showOwnMoneyMove(context,
-          from: MoneyMovementAccount.dollars,
-          entrySource: kBitcoinHomeSwapSource));
-    },
-  );
-}
-
-/// The Bitcoin home's one row under the balance, in the Dollars home's
-/// columns (UsdAccountActionBar.moneyActions), so switching Bitcoin |
-/// Dollars moves no button: Purchase · Swap · Receive · Send.
-///
-/// Swap is the spending wallet's alone ([WalletConfig.isSparkWallet]):
-/// Orchestra routes from Spark, so a hardware, watch-only, tracked or other
-/// non-Spark wallet Home is showing has nothing to swap from, and keeps
-/// Scan in that column, since scanning to send still works there.
+/// The Bitcoin home's one row under the balance: Purchase · Scan · Receive
+/// · Send, for the spending wallet as for a cold wallet Home is showing
+/// (founder, 10 November 2026: "on the bitcoin screen instead of the swap,
+/// let's bring back the scanner camera. The swap we can only have it in
+/// the dollars"). Swap lives on the Dollars home alone
+/// (UsdAccountActionBar.moneyActions), in the same column Scan takes here.
 List<KuteDockAction> bitcoinHomeDockActions(
     BuildContext context, WidgetRef ref, WalletConfig wallet,
     {required String source}) {
   return [
     bitcoinPurchaseDockAction(context, ref, wallet, source: source),
-    wallet.isSparkWallet
-        ? bitcoinSwapDockAction(context, ref, wallet)
-        : bitcoinScanDockAction(context, ref, wallet),
+    bitcoinScanDockAction(context, ref, wallet),
     ...bitcoinWalletDockActions(context, ref, wallet),
   ];
 }
 
-/// The scanner as one action of the compact row, on a wallet with no Swap
-/// ([bitcoinHomeDockActions]): the camera, as a sheet over the screen, the
-/// same as the square beside Purchase opens.
+/// The scanner as one action of the compact row: the camera, as a sheet
+/// over the screen, the same as the square beside Purchase opens.
 KuteDockAction bitcoinScanDockAction(
     BuildContext context, WidgetRef ref, WalletConfig wallet) {
   return KuteDockAction(
@@ -248,8 +207,8 @@ KuteDockAction bitcoinScanDockAction(
 }
 
 /// The purchase and camera controls of a wallet shown in the shell's first
-/// tab or on the Ledger's Bitcoin tab (`WalletBitcoinBody`): never the
-/// spending wallet on Home, whose row is [bitcoinHomeDockActions].
+/// tab or on the Ledger's Bitcoin tab (`WalletBitcoinBody`); Home's row is
+/// [bitcoinHomeDockActions].
 class BitcoinWalletPrimaryActions extends ConsumerWidget {
   const BitcoinWalletPrimaryActions(
       {super.key,

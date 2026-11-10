@@ -5,8 +5,9 @@
 // it with the squares"; renamed "Swap" the same day): the real sheet
 // (showOwnMoneyMove) in both directions, From and To as two squares with
 // the swap circle on their shared edge, the hero centred, the chips as
-// wide as the keypad; and both homes' action rows with their Swap, the
-// Bitcoin home's also on a cold wallet, which keeps Scan.
+// wide as the keypad; and the Dollars home's action row with its Swap,
+// beside the Bitcoin home's, which has Scan in that column for the
+// spending wallet as for a cold wallet (founder, 10 November 2026).
 // And Buy bitcoin beside it, which is not Swap: From reads Cash App with no
 // chevron and no Dollars, though Dollars and venue cash are on hand.
 // Light and dark, at 320, 375 and 430 pt, at the default text size and a
@@ -484,9 +485,9 @@ void main() {
     }
   }
 
-  // The Bitcoin home's row, in the same columns: the spending wallet's Swap
-  // in English and in the languages whose Swap is the longest, and a cold
-  // wallet's Scan.
+  // The Bitcoin home's row, in the same columns, Scan where the Dollars
+  // home has Swap: the spending wallet in English, Spanish and Greek, and a
+  // cold wallet.
   final spendingWallet = WalletConfig(id: 'spending', name: 'Spending');
   final coldWallet = WalletConfig(id: 'cold', name: 'Cold', isHardware: true);
   for (final (width, dark, lang, wallet) in [
@@ -528,42 +529,6 @@ void main() {
           locale: Locale(lang));
       tester.view.physicalSize = Size(width, 160);
       await _frames(tester, 4);
-      await _capture(tester, name);
-      await _close(tester, c);
-    });
-  }
-
-  // And its Swap, tapped for real: the Swap screen, on Dollars → Bitcoin.
-  for (final dark in [false, true]) {
-    final name = 'bitcoin_home_swap_opened_375_${dark ? 'dark' : 'light'}';
-    testWidgets(name, (tester) async {
-      final c = await _pump(
-          tester,
-          Consumer(
-            builder: (context, ref, _) => Scaffold(
-              body: SafeArea(
-                child: KuteCompactActions(
-                    source: 'home',
-                    actions: bitcoinHomeDockActions(
-                        context, ref, spendingWallet,
-                        source: 'home')),
-              ),
-            ),
-          ),
-          width: 375,
-          dark: dark);
-      await tester.tap(find.byIcon(Icons.swap_horiz_rounded));
-      await _frames(tester, 16);
-      expect(
-          find.descendant(
-              of: find.byKey(const ValueKey('money-movement-from')),
-              matching: find.text('Dollars')),
-          findsOneWidget);
-      expect(
-          find.descendant(
-              of: find.byKey(const ValueKey('money-movement-to')),
-              matching: find.text('Bitcoin')),
-          findsOneWidget);
       await _capture(tester, name);
       await _close(tester, c);
     });

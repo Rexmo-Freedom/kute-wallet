@@ -147,7 +147,7 @@ class _Settings extends SettingsModel {
         ));
 }
 
-/// Opens Swap on Dollars → Bitcoin, as both homes' button does, over the
+/// Opens Swap on Dollars → Bitcoin, the Swap screen's other direction, over the
 /// screen it was opened from, with [_balanceSats] in spending Bitcoin; or
 /// [door] in its place (the buy doors). The spending SDK never answers, so
 /// a move that is started parks in flight with the sheet's own processing

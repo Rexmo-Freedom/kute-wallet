@@ -1260,9 +1260,9 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// Dollars; its swap circle turns it the other way. What may move is
   /// the backend policy's alone: the sheet says why where it refuses a
   /// direction. The tap counts as `quick_action_tapped` `swap`, the sheet
-  /// opens under [kUsdHomeSwapSource]. The Bitcoin home wears the same
-  /// button, opening the same screen (founder, 8 November 2026;
-  /// bitcoinSwapDockAction).
+  /// opens under [kUsdHomeSwapSource]. Only here: the Bitcoin home has no
+  /// Swap, it has Scan (founder, 10 November 2026: "The swap we can only
+  /// have it in the dollars").
   static void swap(BuildContext context) => unawaited(showOwnMoneyMove(
       context,
       from: MoneyMovementAccount.bitcoin,
@@ -1359,10 +1359,11 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// dollars" in place of Manage with AI, "Send and Receive, not Add and
   /// Send"; 4 November 2026: Portfolio is no longer needed on the top
   /// buttons, the Overview pill's bar opens it; 7 November 2026: Swap,
-  /// [swap]). Four squares in the Bitcoin home's columns (Purchase · Swap
-  /// · Receive · Send; founder, 8 November 2026): the solid buy first, Swap
-  /// second, Receive and Send last, so switching Bitcoin | Dollars moves no
-  /// button. Buy dollars sends
+  /// [swap]). Four squares in the Bitcoin home's columns (Purchase · Scan
+  /// · Receive · Send; founder, 10 November 2026: Scan back on the Bitcoin
+  /// home, Swap only here): the solid buy first, the surface's own verb
+  /// second (Scan there, Swap here), Receive and Send last, so switching
+  /// Bitcoin | Dollars moves no button but the second. Buy dollars sends
   /// `buy_dollars` and, until there is a real buy, opens the Unavailable
   /// sheet ([buyDollars]). Swap sends `swap`. Receive and Send keep the
   /// keys `receive` and `send`, so the events read as before: Receive is

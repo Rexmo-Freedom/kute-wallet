@@ -7,11 +7,11 @@
 //   * Neither Receive has an own-money door any more (founder, 7 November
 //     2026: "On bitcoin receive we get rid of from your dollars. On
 //     dollars receive we get rid of from your bitcoin."): moving between
-//     your own accounts is the two homes' Swap, and the Sends' own-account
-//     moves below.
-//   * The Bitcoin home's row: Swap is always live and opens the Swap screen
-//     as the Dollars home's does, which says why under a block (money_
-//     movement_sheet_test.dart); Purchase, Receive and Send stay open.
+//     your own accounts is the Dollars home's Swap, and the Sends'
+//     own-account moves below.
+//   * The Bitcoin home's row: Purchase · Scan · Receive · Send, every
+//     button live under any block (founder, 10 November 2026: Scan back on
+//     the Bitcoin home, Swap only on the Dollars home).
 //   * Dollars Receive: "Dollars" (the dollar coins) and "Another
 //     crypto" (the others) are cross-chain receives: a REGION block keeps
 //     them (the coin's tap names the regions,
@@ -79,7 +79,7 @@ import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
     show KuteCompactActions, KuteDockAction;
 import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
-    show bitcoinHomeDockActions, kBitcoinHomeSwapSource;
+    show bitcoinHomeDockActions;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
@@ -472,22 +472,20 @@ void main() {
         ('${how.label} on the swap master', how, const {kSwapMaster}),
     ]) {
       testWidgets(
-          '$label: every button live; Swap opens the Swap screen pinned to '
-          'Bitcoin → Dollars, no sheet in front of it (the screen says why, '
-          'money_movement_sheet_test.dart); Receive opens', (tester) async {
+          '$label: Purchase · Scan · Receive · Send, every button live, no '
+          'Swap (the Dollars home\'s alone); Receive opens', (tester) async {
         await install(tester, how, targets: targets);
         final moves = recordMoves();
         final actions = await pumpRow(tester);
         expect(actions.map((a) => a.trackingId),
-            ['purchase', 'swap', 'receive', 'send']);
+            ['purchase', 'scan', 'receive', 'send']);
         for (final action in actions) {
           expect(action.onTap, isNotNull, reason: action.trackingId);
           expect(action.soon, isFalse, reason: action.trackingId);
         }
-        await tester.tap(find.text(_l10n.swap));
-        await tester.pump();
-        expectPinned(moves, dollarsToBitcoin);
-        expect(moves.single.entrySource, kBitcoinHomeSwapSource);
+        expect(find.text(_l10n.swap), findsNothing);
+        expect(find.text(_l10n.scan), findsOneWidget);
+        expect(moves, isEmpty);
         expect(find.byType(CapabilityUnavailableSheet), findsNothing);
 
         // Plain bitcoin is never gated.

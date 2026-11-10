@@ -269,7 +269,7 @@ class KuteActionRow extends StatelessWidget {
 }
 
 /// Every action of a surface in ONE compact row under its balance: a squared
-/// button with its label under it (Purchase · Swap · Receive · Send on the
+/// button with its label under it (Purchase · Scan · Receive · Send on the
 /// Bitcoin tab, Add · Send on Investments), so the actions take one row,
 /// not two or three (founder, 31 October 2026). A [KuteDockAction.solid]
 /// action wears the primary fill (Purchase); the rest the neutral chrome.

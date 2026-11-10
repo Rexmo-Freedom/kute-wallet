@@ -1,7 +1,8 @@
-// A cold wallet's scan button (beside "Purchase Bitcoin", or Scan in the
-// row under its balance on Home; the spending wallet has Swap there since
-// 8 November 2026) opens the scanner as a bottom sheet over the screen,
-// not a full-screen route. Closing it (X or a swipe) comes back and
+// The scan button (beside "Purchase Bitcoin", or Scan in the row under
+// the balance on the Bitcoin home, for the spending wallet as for a cold
+// wallet; founder, 10 November 2026: Scan back on the Bitcoin home, Swap
+// only on the Dollars home) opens the scanner as a bottom sheet over the
+// screen, not a full-screen route. Closing it (X or a swipe) comes back and
 // releases the camera; a payment code closes it and opens Send with what
 // was read, as the full-screen scanner did.
 
@@ -173,21 +174,26 @@ void main() {
     expect(find.byIcon(Icons.flash_on_rounded), findsOneWidget);
   });
 
-  testWidgets(
-      'a cold wallet on Home keeps Scan in its row (no Swap to offer), and it '
-      'opens this scanner', (tester) async {
-    final (cameras, _) = await _pump(tester,
-        body: Consumer(
-            builder: (context, ref, _) => KuteCompactActions(
-                source: 'home',
-                actions: bitcoinHomeDockActions(context, ref, _savings,
-                    source: 'home'))));
-    expect(find.text(_l10n.swap), findsNothing);
-    await tester.tap(find.text(_l10n.scan));
-    await tester.pumpAndSettle();
-    expect(find.byType(ScannerSheet), findsOneWidget);
-    expect(cameras.opened, hasLength(1));
-  });
+  for (final (kind, wallet) in [
+    ('the spending wallet', WalletConfig(id: 'spending', name: 'Spending')),
+    ('a cold wallet', _savings),
+  ]) {
+    testWidgets(
+        '$kind on the Bitcoin home: Scan in its row (no Swap there), and it '
+        'opens this scanner', (tester) async {
+      final (cameras, _) = await _pump(tester,
+          body: Consumer(
+              builder: (context, ref, _) => KuteCompactActions(
+                  source: 'home',
+                  actions: bitcoinHomeDockActions(context, ref, wallet,
+                      source: 'home'))));
+      expect(find.text(_l10n.swap), findsNothing);
+      await tester.tap(find.text(_l10n.scan));
+      await tester.pumpAndSettle();
+      expect(find.byType(ScannerSheet), findsOneWidget);
+      expect(cameras.opened, hasLength(1));
+    });
+  }
 
   testWidgets('the X closes it back to Home and releases the camera',
       (tester) async {

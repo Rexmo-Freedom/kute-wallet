@@ -27,9 +27,10 @@ import 'package:kute/screens/home/home.dart' show HomeDock;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
+import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
-    show bitcoinHomeDockActions, bitcoinWalletDockActions, kBitcoinHomeSwapSource;
+    show bitcoinHomeDockActions, bitcoinWalletDockActions;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show CapabilityUnavailableSheet;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
@@ -464,8 +465,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  group('the Bitcoin home\'s row (founder, 8 November 2026: Swap replaces Scan)',
-      () {
+  group(
+      'the Bitcoin home\'s row (founder, 10 November 2026: Scan back on the '
+      'Bitcoin home, Swap only on the Dollars home)', () {
     Widget bitcoinRow(WalletConfig wallet, void Function(List<KuteDockAction>) seen) =>
         Consumer(builder: (context, ref, _) {
           final actions =
@@ -475,69 +477,42 @@ void main() {
         });
 
     testWidgets(
-        'spending wallet: Purchase · Swap · Receive · Send, left to right, '
-        'its Swap the Dollars home\'s button, no Scan', (tester) async {
+        'spending wallet: Purchase · Scan · Receive · Send, left to right, '
+        'the scanner\'s camera button, no Swap', (tester) async {
       late List<KuteDockAction> actions;
       await _pump(tester,
           bitcoinRow(_settings().wallets.single, (a) => actions = a));
       expect(actions.map((a) => a.trackingId),
-          ['purchase', 'swap', 'receive', 'send']);
+          ['purchase', 'scan', 'receive', 'send']);
       final lefts = [
-        for (final label in ['Purchase', 'Swap', 'Receive', 'Send'])
+        for (final label in ['Purchase', 'Scan', 'Receive', 'Send'])
           tester.getCenter(find.text(label)).dx,
       ];
       expect(lefts, [...lefts]..sort());
-      expect(find.text('Scan'), findsNothing);
-      expect(find.byIcon(Icons.qr_code_scanner_rounded), findsNothing);
-      expect(find.byIcon(Icons.swap_horiz_rounded), findsOneWidget);
+      expect(find.text('Swap'), findsNothing);
+      expect(find.byIcon(Icons.swap_horiz_rounded), findsNothing);
+      expect(find.byIcon(Icons.qr_code_scanner_rounded), findsOneWidget);
+      expect(actions[1].solid, isFalse);
+      expect(actions[1].onTap, isNotNull);
 
-      // The same column, the same button, on both homes.
+      // Swap stays on the Dollars home alone, in the column Scan takes here.
       final dollars = UsdAccountActionBar.moneyActions(
           tester.element(find.byType(KuteCompactActions)))[1];
-      expect(actions[1].icon, dollars.icon);
-      expect(actions[1].label, dollars.label);
-      expect(actions[1].trackingId, dollars.trackingId);
-      expect(actions[1].solid, dollars.solid);
+      expect(dollars.trackingId, 'swap');
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'Swap opens the Swap screen on Bitcoin → Dollars, pinned to the two '
-        'accounts, under its own entry source', (tester) async {
-      final events = <(String, Map<String, Object>?)>[];
-      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-      addTearDown(() => TrackingService.debugTrackObserver = null);
-      final opened = <MoneyMovementRequest>[];
-      debugMoneyMovementSheetOpener = (_, request) => opened.add(request);
-      addTearDown(() => debugMoneyMovementSheetOpener = null);
-      await _pump(tester, bitcoinRow(_settings().wallets.single, (_) {}));
-      await tester.tap(find.text('Swap'));
-      await tester.pump();
-      final request = opened.single;
-      expect(
-          request.route,
-          const MoneyMovementRoute(
-              MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin));
-      expect(request.pinned, isTrue);
-      expect(request.entrySource, kBitcoinHomeSwapSource);
-      expect(request.entrySource, 'bitcoin_home_swap');
-      expect(request.initialTargetUsd, isNull);
-      expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
-          {'action': 'swap', 'source': 'home'});
-      expect(TrackingService.takeEntrySource('move'), 'bitcoin_home_swap');
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets(
-        'Swap on a wallet that is no longer the active one opens nothing, as '
+        'Scan on a wallet that is no longer the active one opens nothing, as '
         'its row\'s other buttons', (tester) async {
       final opened = <MoneyMovementRequest>[];
       debugMoneyMovementSheetOpener = (_, request) => opened.add(request);
       addTearDown(() => debugMoneyMovementSheetOpener = null);
       final gone = WalletConfig(id: 'gone', name: 'Gone');
       await _pump(tester, bitcoinRow(gone, (_) {}));
-      await tester.tap(find.text('Swap'));
+      await tester.tap(find.text('Scan'));
       await tester.pump();
+      expect(find.byType(ScannerSheet), findsNothing);
       expect(opened, isEmpty);
       await tester.pump(const Duration(seconds: 5));
     });
@@ -566,8 +541,8 @@ void main() {
       ),
     ]) {
       testWidgets(
-          '$kind wallet: Purchase · Scan · Receive · Send, no Swap (Orchestra '
-          'routes from Spark)', (tester) async {
+          '$kind wallet: Purchase · Scan · Receive · Send, as the spending '
+          'wallet\'s, no Swap', (tester) async {
         late List<KuteDockAction> actions;
         await _pump(tester, bitcoinRow(cold, (a) => actions = a),
             settings: _settings(extra: [cold]));
