@@ -1,4 +1,3 @@
-import 'package:kute/screens/shared/money_steps_view.dart' show moneyStepLine;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -88,13 +87,14 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     whatever the Settings currency (founder, 8 November 2026: "dollars
 ///     balance do not convert to currency"), the two adding
 ///     up to the total ([oneBalanceSplit]; Invested: positions, reserved
-///     order cash and pending fills; Available: the rest, Dollars and the
-///     venues' cash). While anything is on a rail the in-flight lines
-///     follow under it, and Available leaves their money out, in order:
-///     the order money
-///     on a rail is for ("Placing $5 on Yes · Lakers"), incoming from
-///     outside, unavailable until balancing completes (venue cash the
-///     sweeper still owes back). Money on a rail between the person's
+///     order cash, pending fills and money on its way into an order;
+///     Available: the rest, Dollars and the venues' cash). Never a line
+///     for an order on its way (founder, 10 November 2026: "under the
+///     main balance what is happening. Do not have this"; the Overview's
+///     card says Placing). The other in-flight lines follow under it, and
+///     Available leaves their money out: incoming from outside,
+///     unavailable until balancing completes (venue cash the sweeper
+///     still owes back). Money on a rail between the person's
 ///     own accounts for no order (a sweep home) stays in the total with
 ///     no line: it is plumbing. Venue dust
 ///     below every route minimum is no line at all: it is part of the
@@ -224,14 +224,11 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   /// The in-flight lines, in order, for [state]. Public so a test can pin
   /// the order and the wording without a widget tree.
   ///
-  /// The lines name what the person is doing, never the plumbing
-  /// (founder decision 14 October 2026):
-  ///   * money on a rail for an order (its Bitcoin leg or its move into
-  ///     the venue): the order itself, once ("Placing $5 on Yes · Lakers",
-  ///     "Opening $5 NVDA order", "Adding $5 margin to BTC"), then each of
-  ///     its sources in its own state, from the order's step graph
-  ///     ("Moving $8.00 from Bitcoin", "Moved $5.00 from Dollars"), so the
-  ///     person sees every source land with the slip closed;
+  /// Never an order on its way (founder, 10 November 2026, on 2.2.0 (98):
+  /// "we also have in the dollars under the main balance what is
+  /// happening. Do not have this"): money on a rail for an order counts in
+  /// Invested at once ([oneBalanceSplitFigures]) and the order's one card
+  /// on the Overview says Placing. What is left:
   ///   * dollars arriving from outside: "Incoming $X";
   ///   * venue cash the sweeper still owes back: "unavailable until
   ///     balancing completes".
@@ -241,25 +238,9 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   static List<String> inFlightLines(BuildContext context, OneBalanceState state,
       String Function(double) amount) {
     final l10n = context.l10n;
-    final named = <String>{};
     return [
       for (final move in state.inFlight)
-        if (move.order case final order? when named.add(order.id)) ...[
-          switch (order.venue) {
-            OneBalanceVenue.predictions => order.transfer
-                ? l10n.slipStepPreparingPrediction
-                : l10n.oneBalancePlacingBet(
-                    amount(order.orderUsd), order.side, order.market),
-            OneBalanceVenue.investing => order.margin
-                ? l10n.hlMarginStepAdding(amount(order.orderUsd), order.market)
-                : l10n.oneBalanceOpeningOrder(
-                    amount(order.orderUsd), order.market),
-          },
-          for (final leg in order.legs) moneyStepLine(l10n, leg, amount),
-        ],
-      for (final move in state.inFlight)
-        if (move.order == null && move.kind == InFlightKind.incomingDollars)
-          l10n.oneBalanceIncoming(amount(move.usd)),
+        if (move.hasLine) l10n.oneBalanceIncoming(amount(move.usd)),
       for (final usd in state.waiting.values)
         if (usd > 0) l10n.oneBalanceWaitingToWithdraw(amount(usd)),
     ];
@@ -290,16 +271,19 @@ class InvestmentBalanceHeader extends ConsumerWidget {
 
   /// The hero's "Invested · Available" under its total, as printed: the
   /// split of the total the hero prints ([oneBalanceSplit]: they add up to
-  /// it, less the money the in-flight lines name, to the cent), from the
+  /// it, less the money the in-flight lines name, to the cent; money on
+  /// its way into an order is Invested already), from the
   /// same snapshot as the figure (a saved one, dimmed, while a venue is
   /// still on its way). In dollars, whatever the Settings currency.
   static ({double investedUsd, double availableUsd, bool stale})
       oneBalanceSplitFigures(WidgetRef ref) {
     final display = _oneBalanceDisplay(ref);
+    final state = ref.watch(oneBalanceProvider);
     final split = oneBalanceSplit(
       totalUsd: display.total,
       investedUsd: display.invested,
-      onLinesUsd: ref.watch(oneBalanceProvider).onLinesUsd,
+      forOrdersUsd: state.forOrdersUsd,
+      onLinesUsd: state.onLinesUsd,
     );
     return (
       investedUsd: split.investedUsd,

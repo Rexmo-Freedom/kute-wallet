@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Diese Runde ist zu Ende gegangen, während dein Geld unterwegs war. Deine {amount} sind in Prognosen.",
   "slipFundingInPredictions": "Deine {amount} sind in Prognosen. Tippe, um es erneut zu versuchen.",
   "slipFundingInInvesting": "Deine {amount} sind in Investieren. Tippe, um es erneut zu versuchen.",
-  "oneBalancePlacingBet": "{amount} auf {side} werden platziert · {market}",
-  "oneBalanceOpeningOrder": "{amount}-Order für {market} wird eröffnet",
   "hlMarginStepAdding": "{amount} Margin kommen zu {coin}",
   "hlMarginFundingReady": "Deine {amount} sind in Investments. Tippe, um Margin hinzuzufügen.",
   "positionProtectIt": "Absichern",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Abgebrochen. Das Geld bleibt in Prognosen, verfügbar.",
   "standingOrderCancelled": "Abgebrochen. Das Geld bleibt in Investieren, verfügbar.",
   "standingPriceMoved": "Der Preis ist auf {price} gegangen. Tippe, um zum neuen Preis zu platzieren.",
-  "standingStageMoving": "Geld wird bewegt",
   "standingStagePlacing": "Wird platziert",
   "standingStageApproval": "Braucht deine Zustimmung"
 }

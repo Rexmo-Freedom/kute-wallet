@@ -16,6 +16,8 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart'
     show PlacingBet, PlacingBetStatus;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show hlFriendlyName;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PlacingBetRow, PortfolioPositionRow, kPortfolioRowImage;
 import 'package:kute/screens/shared/standing_order_journey.dart';
@@ -37,15 +39,14 @@ String standingOrderRowStatus(AppLocalizations l10n, StandingOrder order) {
   };
 }
 
-/// What the Dollars Overview's card says of a standing order's stage, in
-/// the compact words (dollars_activity_tab.dart): the money moving, the
-/// order being placed, waiting for the person; placed once it filled
-/// (the card stays until the position lists).
+/// What the Dollars Overview's one card says of a standing order, in the
+/// compact words (dollars_activity_tab.dart; founder, 10 November 2026:
+/// "show the actual one, with placing and when it's placed, we just show
+/// placed"): Placing from the accept until it fills (the money moving
+/// included), waiting for the person when the price moved; placed the
+/// moment it filled, until the card is simply the listed position.
 String standingOrderStageLine(AppLocalizations l10n, StandingOrder order) =>
     switch (order.state) {
-      StandingOrderState.funding ||
-      StandingOrderState.funded =>
-        l10n.standingStageMoving,
       StandingOrderState.needsApproval => l10n.standingStageApproval,
       StandingOrderState.filled =>
         order.venue == StandingOrderVenue.predictions
@@ -85,7 +86,10 @@ class StandingOrdersSection extends ConsumerWidget {
 }
 
 /// One standing order as the venue's own row (in whatever shape the
-/// layout above asks: Activity's line, the Overview's square or card).
+/// layout above asks: Activity's line, the Overview's square or card),
+/// the very row its position will list as: the market, the side, and the
+/// money in it (the stake, then the fill's own figures once filled,
+/// [StandingOrder.placedUsd]).
 class StandingOrderRow extends StatelessWidget {
   const StandingOrderRow(
       {super.key, required this.order, required this.status, this.onTap});
@@ -108,8 +112,8 @@ class StandingOrderRow extends StatelessWidget {
             eventSlug: order.eventSlug,
             marketImage: order.marketImage,
             outcomeName: order.sideLabel,
-            amount: order.amountUsd,
-            shares: order.size,
+            amount: order.placedUsd,
+            shares: order.filledSize ?? order.size,
             avgPrice: order.approvedPrice,
             status: order.state == StandingOrderState.failed
                 ? PlacingBetStatus.failed
@@ -121,14 +125,21 @@ class StandingOrderRow extends StatelessWidget {
         );
       case StandingOrderVenue.investing:
         final l10n = context.l10n;
+        // The side as the listed row says it (HlPositionRow, HlSpotRow).
+        final side = order.marketKind == 'spot'
+            ? l10n.investingSpot
+            : order.isBuy
+                ? l10n.longLabel
+                : l10n.shortLabel;
         return PortfolioPositionRow(
           leading: ClipOval(
             child: HlCoinIcon(coin: order.marketKey, size: kPortfolioRowImage.w),
           ),
-          title: order.marketTitle,
-          subtitle:
-              '${order.isBuy ? l10n.longLabel : l10n.shortLabel} · $status',
-          value: formatDollars(order.amountUsd),
+          // The listed row's name for the coin where it has one.
+          title: hlFriendlyName(order.marketKey) ?? order.marketTitle,
+          subtitle: '$side · $status',
+          chip: side,
+          value: formatDollars(order.placedUsd),
           onTap: onTap,
         );
     }

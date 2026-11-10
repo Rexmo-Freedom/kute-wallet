@@ -18942,19 +18942,7 @@ abstract class AppLocalizations {
   /// **'Your {amount} is in Investing. Tap to try again.'**
   String slipFundingInInvesting(String amount);
 
-  /// In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.
-  ///
-  /// In en, this message translates to:
-  /// **'Placing {amount} on {side} · {market}'**
-  String oneBalancePlacingBet(String amount, String side, String market);
-
-  /// In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).
-  ///
-  /// In en, this message translates to:
-  /// **'Opening {amount} {market} order'**
-  String oneBalanceOpeningOrder(String amount, String market);
-
-  /// The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).
+  /// The margin sheet's last funding step, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).
   ///
   /// In en, this message translates to:
   /// **'Adding {amount} margin to {coin}'**
@@ -24333,13 +24321,7 @@ abstract class AppLocalizations {
   /// **'Price moved to {price}. Tap to place at the new price.'**
   String standingPriceMoved(String price);
 
-  /// Overview card line for a prediction or order whose money is still moving to the venue. Short.
-  ///
-  /// In en, this message translates to:
-  /// **'Moving money'**
-  String get standingStageMoving;
-
-  /// Overview card line for a prediction or order being sent to the venue. Short.
+  /// Overview card line for a prediction or order on its way to the venue, from the accept (its money still moving included) until it fills. Short.
   ///
   /// In en, this message translates to:
   /// **'Placing'**

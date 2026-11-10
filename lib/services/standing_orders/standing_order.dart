@@ -142,6 +142,8 @@ class StandingOrder {
     this.entrySource,
     this.attempts = 1,
     this.movedToPrice,
+    this.filledSize,
+    this.filledUsd,
   });
 
   /// Local id (never tracked).
@@ -216,6 +218,26 @@ class StandingOrder {
   /// (0..1), past the approved worst price.
   final double? movedToPrice;
 
+  /// [StandingOrderState.filled]: what the venue filled, as its answer
+  /// said: the shares (Predictions) or the coin's size (Investing), and
+  /// what they cost in dollars (Investing: the notional, size times the
+  /// average fill price). Null when the answer carried none (a fill found
+  /// on a restart): the approved figures stand in.
+  final double? filledSize;
+  final double? filledUsd;
+
+  /// What the position holds in dollars once filled, from the fill's own
+  /// figures: the cost of the shares (Predictions), the margin at the
+  /// fill (Investing: the notional over the leverage); [amountUsd] while
+  /// the fill carried none.
+  double get placedUsd {
+    final usd = filledUsd;
+    if (usd == null || !usd.isFinite || usd <= 0) return amountUsd;
+    return venue == StandingOrderVenue.investing && leverage > 1
+        ? usd / leverage
+        : usd;
+  }
+
   bool get isOpen => !state.isTerminal;
 
   /// Cancellable only before the order left for the venue (or while it
@@ -284,6 +306,8 @@ class StandingOrder {
     double? movedToPrice,
     double? approvedPrice,
     double? size,
+    double? filledSize,
+    double? filledUsd,
   }) =>
       StandingOrder(
         id: id,
@@ -321,6 +345,8 @@ class StandingOrder {
         entrySource: entrySource,
         attempts: attempts ?? this.attempts,
         movedToPrice: movedToPrice ?? this.movedToPrice,
+        filledSize: filledSize ?? this.filledSize,
+        filledUsd: filledUsd ?? this.filledUsd,
       );
 
   Map<String, Object?> toJson() => {
@@ -358,6 +384,8 @@ class StandingOrder {
         'entrySource': entrySource,
         'attempts': attempts,
         'movedToPrice': movedToPrice,
+        'filledSize': filledSize,
+        'filledUsd': filledUsd,
       };
 
   /// Null for a record this version cannot read (never a throw: a stale
@@ -409,6 +437,12 @@ class StandingOrder {
         attempts: json['attempts'] is int ? json['attempts'] as int : 1,
         movedToPrice: json['movedToPrice'] is num
             ? (json['movedToPrice'] as num).toDouble()
+            : null,
+        filledSize: json['filledSize'] is num
+            ? (json['filledSize'] as num).toDouble()
+            : null,
+        filledUsd: json['filledUsd'] is num
+            ? (json['filledUsd'] as num).toDouble()
             : null,
       );
     } catch (_) {

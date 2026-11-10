@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "資金の移動中にこのラウンドが終了しました。{amount}は予測にあります。",
   "slipFundingInPredictions": "{amount}は予測にあります。タップしてもう一度お試しください。",
   "slipFundingInInvesting": "{amount}は投資にあります。タップしてもう一度お試しください。",
-  "oneBalancePlacingBet": "{side}に{amount}を予測中 · {market}",
-  "oneBalanceOpeningOrder": "{amount}の{market}注文を発注中",
   "hlMarginStepAdding": "{coin}に証拠金{amount}を追加中",
   "hlMarginFundingReady": "{amount}はInvestmentsにあります。タップして証拠金を追加してください。",
   "positionProtectIt": "保護する",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "キャンセルしました。資金は予測に残り、利用できます。",
   "standingOrderCancelled": "キャンセルしました。資金は投資に残り、利用できます。",
   "standingPriceMoved": "価格が{price}に変わりました。タップすると新しい価格で発注します。",
-  "standingStageMoving": "資金を移動中",
   "standingStagePlacing": "発注中",
   "standingStageApproval": "承認が必要です"
 }

@@ -11290,16 +11290,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Τοποθέτηση $amount στο $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Άνοιγμα εντολής $amount $market';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Προσθήκη περιθωρίου $amount στο $coin';
   }
@@ -14545,9 +14535,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String standingPriceMoved(String price) {
     return 'Η τιμή πήγε στο $price. Πάτησε για να τοποθετήσεις στη νέα τιμή.';
   }
-
-  @override
-  String get standingStageMoving => 'Μεταφέρουμε τα χρήματα';
 
   @override
   String get standingStagePlacing => 'Τοποθετείται';

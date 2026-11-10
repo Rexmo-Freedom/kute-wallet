@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Deze ronde eindigde terwijl je geld onderweg was. Je {amount} staat in Voorspellingen.",
   "slipFundingInPredictions": "Je {amount} staat in Voorspellingen. Tik om het opnieuw te proberen.",
   "slipFundingInInvesting": "Je {amount} staat in Beleggen. Tik om het opnieuw te proberen.",
-  "oneBalancePlacingBet": "{amount} inzetten op {side} · {market}",
-  "oneBalanceOpeningOrder": "Order van {amount} op {market} openen",
   "hlMarginStepAdding": "{amount} marge toevoegen aan {coin}",
   "hlMarginFundingReady": "Je {amount} staat in Investments. Tik om marge toe te voegen.",
   "positionProtectIt": "Beschermen",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Geannuleerd. Het geld blijft in Voorspellingen, beschikbaar.",
   "standingOrderCancelled": "Geannuleerd. Het geld blijft in Beleggen, beschikbaar.",
   "standingPriceMoved": "De prijs ging naar {price}. Tik om tegen de nieuwe prijs te plaatsen.",
-  "standingStageMoving": "Geld wordt verplaatst",
   "standingStagePlacing": "Wordt geplaatst",
   "standingStageApproval": "Wacht op je goedkeuring"
 }

@@ -1,14 +1,7 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
-import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/side_tint_palette.dart';
-import 'package:kute/screens/shared/standing_order_toasts.dart'
-    show StandingOrderToasts;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart'
-    show
-        StandingOrder,
-        StandingOrderState,
-        StandingOrderVenue,
-        standingOrdersProvider;
+    show StandingOrder, StandingOrderVenue, standingOrdersProvider;
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show polyOutcomeFill;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
@@ -1428,36 +1421,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   /// The slip is going (didPop): once it had a standing order, its
-  /// haptics stop now, and while that order still runs Sal's placing
-  /// toast takes over (with Cancel and its X), as it did when the slip
-  /// closed at the accept. While the slip is up it never shows too.
+  /// haptics stop now. Nothing takes its place on screen (founder, 10
+  /// November 2026, on 2.2.0 (98): no "thinking" placing indicator once
+  /// the slip is gone): the order's one card on the Dollars Overview says
+  /// Placing, its journey (from that card) still has Cancel, and Sal's
+  /// result toast says how it ended.
   void _onLeave() {
     if (!_standingAccepted || _left) return;
     _updateState(() => _left = true);
-    final token = _standingTokenId;
-    if (_cancelledHere || _placedSuccess || token == null) return;
-    final container = ProviderScope.containerOf(context, listen: false);
-    final order = StandingOrderToasts.openOn(
-        container, StandingOrderVenue.predictions, token);
-    // Only a bet still on its way gets the toast: not one that ended on
-    // the slip, nor one waiting on a new price (Sal asks about that).
-    final status = ref.read(pendingPolymarketBetProvider)?.status;
-    if (status == PendingBetStatus.failed ||
-        status == PendingBetStatus.done ||
-        order?.state == StandingOrderState.needsApproval ||
-        (order == null && status == null)) {
-      return;
-    }
-    // The root overlay (root_navigator.dart); this slip's own context
-    // only where the app has no root key.
-    StandingOrderToasts.placing(
-        kuteRootContext(context),
-        container,
-        context.l10n,
-        venue: StandingOrderVenue.predictions,
-        marketKey: token,
-        marketTitle: widget.marketQuestion,
-        order: order);
   }
 
   /// The one prompt of a pre-funded bet: the slip's bet prepared, then

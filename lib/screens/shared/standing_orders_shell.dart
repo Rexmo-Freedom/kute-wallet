@@ -5,13 +5,14 @@
 //
 //  * RESUME on start and on every unlock: the wallet's standing orders
 //    are loaded and carried on (standing_orders_provider.dart).
-//  * PLACING: while the order's placing toast is up (the slip put it there
-//    when the person left it), it follows the order: "Cancel" goes once the order
-//    has left for the venue (standing_order_toasts.dart).
+//  * NOTHING WHILE IT PLACES (founder, 10 November 2026, on 2.2.0 (98): no
+//    "thinking" placing indicator once the slip is gone): the order's one
+//    card on the Dollars Overview says Placing, and its journey keeps
+//    Cancel (standing_order_journey.dart).
 //  * RESULT: an order filled plays the money-success haptic and Sal says
 //    "Prediction placed" / "Order placed"; one that failed plays the
 //    failure tap and Sal says where the money is; one the person
-//    cancelled, Sal says so. In place of the placing toast when it is up.
+//    cancelled, Sal says so (standing_order_toasts.dart).
 //  * PRICE MOVED past the approval: Sal says the new price with one tap
 //    that opens the slip at it (its own Face ID places it, from the money
 //    already on the venue), or the order is cancelled from the toast or
@@ -77,7 +78,6 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
   void _onOrders(List<StandingOrder>? prev, List<StandingOrder> next) {
     if (!mounted) return;
     final before = {for (final o in prev ?? const <StandingOrder>[]) o.id: o};
-    final container = ProviderScope.containerOf(context, listen: false);
     final l10n = context.l10n;
     for (final o in next) {
       final was = before[o.id];
@@ -89,16 +89,6 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
       if (was == null || was.state == o.state) continue;
       if (o.state == StandingOrderState.cancelled) {
         StandingOrderToasts.cancelled(context, l10n, o);
-      } else if (o.isOpen &&
-          o.state != StandingOrderState.needsApproval &&
-          SalToast.isShowing(StandingOrderToasts.tagOf(o))) {
-        // The placing toast follows the order while it is up; closed, it
-        // stays closed.
-        StandingOrderToasts.placing(context, container, l10n,
-            venue: o.venue,
-            marketKey: o.marketKey,
-            marketTitle: o.marketTitle,
-            order: o);
       }
     }
   }

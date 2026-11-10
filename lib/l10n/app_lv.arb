@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Šī kārta beidzās, kamēr tava nauda pārvietojās. Tavi {amount} ir kontā Prognozes.",
   "slipFundingInPredictions": "Tavi {amount} ir kontā Prognozes. Pieskaries, lai mēģinātu vēlreiz.",
   "slipFundingInInvesting": "Tavi {amount} ir kontā Investēšana. Pieskaries, lai mēģinātu vēlreiz.",
-  "oneBalancePlacingBet": "Liek {amount} uz {side} · {market}",
-  "oneBalanceOpeningOrder": "Atver {amount} {market} rīkojumu",
   "hlMarginStepAdding": "Pievieno {amount} maržu pozīcijai {coin}",
   "hlMarginFundingReady": "Tavi {amount} ir kontā Investments. Pieskaries, lai pievienotu maržu.",
   "positionProtectIt": "Aizsargā to",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Atcelts. Nauda paliek Prognozēs, pieejama.",
   "standingOrderCancelled": "Atcelts. Nauda paliek Investēšanā, pieejama.",
   "standingPriceMoved": "Cena mainījās uz {price}. Pieskaries, lai iesniegtu par jauno cenu.",
-  "standingStageMoving": "Pārvietojam naudu",
   "standingStagePlacing": "Iesniedzam",
   "standingStageApproval": "Vajag tavu apstiprinājumu"
 }

@@ -16,7 +16,7 @@
 // (all_activity.dart) and the Portfolio's (position_rows.dart), nothing new:
 //
 //   * OPEN POSITIONS: the biggest open positions at both venues together,
-//     biggest first ([dollarsActivitySquareIds], the Portfolio's own
+//     biggest first ([dollarsOverviewSlots], the Portfolio's own
 //     ranking, portfolioOpenRanked), at most [kDollarsActivitySquares], as
 //     the Portfolio's squares (PortfolioRowLayout.square: the logo, the P&L
 //     % in colour, the name and the value large), two by two in the home's
@@ -41,30 +41,42 @@
 // show exactly there what bets or investments are in progress of being
 // implemented, as soon as they touch"): a standing order (a prediction or
 // an Investing order accepted, its money on its way) leads the squares
-// the moment it is accepted, as the venue's own placing row
-// (StandingOrderRow: the market, the side, the stake as the number, the
-// pending look of a bet on its way) with its stage in the compact words
-// (standingOrderStageLine: "Moving money", "Placing", "Needs your
-// approval"); a tap opens its money journey. It counts toward the four,
-// in-progress first, newest first ([dollarsStandingShown]). Filled, it
-// keeps its slot, saying placed, until the position lists, and the
-// position then takes that same slot for a while ([kDollarsFilledHold]),
-// so nothing jumps; failed or cancelled, it goes (Sal says so,
-// standing_order_toasts.dart).
+// the moment it is accepted. It counts toward the four, in-progress
+// first, newest first ([dollarsOverviewSlots]); a tap opens its money
+// journey, where it can still be cancelled.
 //
-// A FILLED CARD HANDS OVER ONCE (founder, 10 November 2026: sold, the
-// Overview still showed "Prediction placed", "it is still on open, it is
-// not updating"). The card used to show whenever its position was not
-// listed for five minutes after the fill, so a position sold (or closed)
-// inside those minutes brought the card back, and nothing rebuilt the tab
-// when they ended. Now: the card waits for its position at most
-// [kDollarsFilledCardHold]; the moment the position lists, or its token
-// is being sold or was sold, the order is handed over
+// ONE CARD, FROM THE ACCEPT TO THE POSITION (founder, 10 November 2026, on
+// 2.2.0 (98): "After the investment is placed, the old one stays there for
+// a bit, until it eventually leaves. This can't be, show the actual one,
+// with placing and when it's placed, we just show placed"). The order
+// holds ONE slot, keyed by the position it places into
+// ([dollarsStandingSlotId]: the row key the venue lists it under), and
+// that slot is always drawn by the position's own row widget
+// (PortfolioPositionRow):
+//
+//   * on its way: "Placing" ("Needs your approval" when the price moved),
+//     in the position row's look built from the order's figures
+//     (StandingOrderRow: the market, the side, the stake), or, where the
+//     position is already listed (an order adding to it, or the venue
+//     listing it before the order's answer is in), the listed row itself
+//     saying Placing (PortfolioRowStatusScope). Never a second card;
+//   * filled: the same slot says placed at once ("Prediction placed",
+//     "Order placed"), from the fill's own figures
+//     (StandingOrder.placedUsd), never a placing card after the fill;
+//   * listed: the slot is the listed position, in place (the same key, the
+//     same slot, nothing jumps), saying placed until
+//     [kDollarsFilledCardHold] from the fill, then its own line.
+//
+// A FILLED ORDER HANDS OVER ONCE (founder, 10 November 2026: sold, the
+// Overview still showed "Prediction placed"). The moment its position
+// lists, or its token is being sold or was sold, the order is handed over
 // ([dollarsHandedOverProvider], for the app's session, so leaving the
-// Overview and coming back changes nothing) and its card never returns;
+// Overview and coming back changes nothing): its own card never returns,
+// a sold or closed position brings nothing back ([dollarsEndedOrders]),
 // and the tab rebuilds itself when the next hold ends
-// ([dollarsNextHoldEnd]), so nothing outlives its hold.
-//
+// ([dollarsNextHoldEnd]), so nothing outlives its hold. Failed or
+// cancelled, the order goes (Sal says so, standing_order_toasts.dart).
+
 // Nothing else (founder, 8 November 2026: "on the overview we just show the
 // open positions and the P&L graph, up to 4 open positions"). The market map
 // that stood under them for a day is off the app (hl_market_map.dart is
@@ -90,7 +102,6 @@
 // `open_investments_position_tapped`.
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -116,7 +127,10 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PortfolioPositionSquares, PortfolioSquaresSkeleton;
+    show
+        PortfolioPositionSquares,
+        PortfolioRowStatusScope,
+        PortfolioSquaresSkeleton;
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -146,12 +160,6 @@ const int kDollarsActivitySquares = 4;
 /// The compact P&L line's height, design units.
 const double kDollarsPnlPlotHeight = 64;
 
-/// The ids of the open positions drawn as squares: the biggest first (the
-/// order of [ranked], portfolioOpenRanked), at most
-/// [kDollarsActivitySquares]. Pure for the tests.
-List<String> dollarsActivitySquareIds(List<String> ranked) =>
-    ranked.take(kDollarsActivitySquares).toList(growable: false);
-
 /// How long a filled standing order's position holds the card's slot on
 /// the Overview, from the fill ([dollarsPinnedRanked]).
 const Duration kDollarsFilledHold = Duration(minutes: 5);
@@ -179,29 +187,80 @@ List<String> dollarsStandingPositionIds(StandingOrder order) =>
         ? ['poly-${order.marketKey}']
         : ['hl-${order.marketKey}', 'hl-spot-${order.marketKey}'];
 
-/// The Overview's standing orders (see the file header), newest first:
-/// every open one on a venue shown, and one filled within
-/// [kDollarsFilledCardHold] whose position is not [listed] yet and that
-/// has not [handedOver]. Pure for the tests.
-List<StandingOrder> dollarsStandingShown(
+/// The slot a standing order holds on the Overview: the row key its
+/// position lists under ([dollarsStandingPositionIds]), the listed one
+/// where one is ([listed]), else the one it will list under (a spot
+/// holding for a spot order, the perp otherwise). Pure for the tests.
+String dollarsStandingSlotId(StandingOrder order, Set<String> listed) {
+  final ids = dollarsStandingPositionIds(order);
+  for (final id in ids) {
+    if (listed.contains(id)) return id;
+  }
+  return order.venue == StandingOrderVenue.investing &&
+          order.marketKind == 'spot'
+      ? ids.last
+      : ids.first;
+}
+
+/// One square of the Overview: the position row key it shows, and the
+/// standing order placing into it, if any (see the file header).
+typedef DollarsOverviewSlot = ({String id, StandingOrder? order});
+
+/// The Overview's slots in order (see the file header): first the
+/// standing orders, newest first, one slot per position: every open one
+/// on a venue shown, and one filled within [kDollarsFilledCardHold] that
+/// has not [ended] and whose position is [listed] or, not listed yet,
+/// that has not [handedOver]; then the positions of [ranked] in
+/// [dollarsPinnedRanked]'s order, each once. Not cut to the four: a slot
+/// whose row is not there is skipped by the tab. Pure for the tests.
+List<DollarsOverviewSlot> dollarsOverviewSlots(
+  List<String> ranked,
   List<StandingOrder> all, {
   required Set<String> listed,
   required DateTime now,
   Set<String> handedOver = const {},
+  Set<String> ended = const {},
   bool predictions = true,
   bool investing = true,
+}) {
+  final slots = <DollarsOverviewSlot>[];
+  final taken = <String>{};
+  for (final o in all.reversed) {
+    if (!(o.venue == StandingOrderVenue.predictions ? predictions : investing)) {
+      continue;
+    }
+    final id = dollarsStandingSlotId(o, listed);
+    if (taken.contains(id)) continue;
+    final placed = o.state == StandingOrderState.filled &&
+        now.difference(o.updatedAt) < kDollarsFilledCardHold &&
+        !ended.contains(o.id) &&
+        (listed.contains(id) || !handedOver.contains(o.id));
+    if (!o.isOpen && !placed) continue;
+    taken.add(id);
+    slots.add((id: id, order: o));
+  }
+  for (final id in dollarsPinnedRanked(ranked, all, now: now)) {
+    if (taken.add(id)) slots.add((id: id, order: null));
+  }
+  return slots;
+}
+
+/// The ids of the filled orders of [all] whose position is being sold
+/// ([selling], position ids) or was sold after the order was accepted
+/// ([soldAt], position id to the latest sale): they never say placed
+/// again, listed or not. Pure for the tests.
+List<String> dollarsEndedOrders(
+  List<StandingOrder> all, {
+  Set<String> selling = const {},
+  Map<String, DateTime> soldAt = const {},
 }) =>
     [
-      for (final o in all.reversed)
-        if ((o.venue == StandingOrderVenue.predictions
-                ? predictions
-                : investing) &&
-            (o.isOpen ||
-                (o.state == StandingOrderState.filled &&
-                    now.difference(o.updatedAt) < kDollarsFilledCardHold &&
-                    !handedOver.contains(o.id) &&
-                    !dollarsStandingPositionIds(o).any(listed.contains))))
-          o,
+      for (final o in all)
+        if (o.state == StandingOrderState.filled &&
+            dollarsStandingPositionIds(o).any((id) =>
+                selling.contains(id) ||
+                (soldAt[id]?.isAfter(o.createdAt) ?? false)))
+          o.id,
     ];
 
 /// The ids of the filled orders of [all] whose card hands over now: their
@@ -261,21 +320,6 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
   return [...pinned, for (final id in ranked) if (!pinned.contains(id)) id];
 }
 
-/// The rows of [lists] whose keys are [ids], in [ids]' order; an id with
-/// no row (a read still catching up) is skipped, never a hole.
-List<Widget> dollarsActivitySquareRows(
-    List<String> ids, Iterable<BalancesVenueList> lists) {
-  final byKey = <Key, Widget>{
-    for (final list in lists)
-      for (final row in list.rows)
-        if (row.key case final k?) k: row,
-  };
-  return [
-    for (final id in ids)
-      if (byKey[ValueKey(id)] case final row?) row,
-  ];
-}
-
 /// The Overview pill's page (see the file header). One scroll, the nested
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
@@ -323,14 +367,16 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     // In progress first (see the file header).
     final all = ref.watch(standingOrdersProvider);
     final now = ref.watch(dollarsOverviewClockProvider)();
-    final listed = {
+    final rows = <String, Widget>{
       for (final list in lists.values)
         for (final row in list.rows)
-          if (row.key case ValueKey<String>(:final value)) value,
+          if (row.key case ValueKey<String>(:final value)) value: row,
     };
-    // A filled card hands over once: its position listed, or is being
+    final listed = rows.keys.toSet();
+    // A filled order hands over once: its position listed, or is being
     // sold or was sold (see the file header).
     final handedOver = ref.read(dollarsHandedOverProvider);
+    var ended = const <String>{};
     if (all.any((o) => o.state == StandingOrderState.filled)) {
       final (selling, sales) = venues.predictions
           ? ref.watch(polymarketTradingProvider.select((s) => (
@@ -344,34 +390,51 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         final at = soldAt[id];
         if (at == null || sale.at.isAfter(at)) soldAt[id] = sale.at;
       }
+      final sellingIds = {
+        for (final t in selling ?? const <String>{}) 'poly-$t'
+      };
       handedOver.addAll(dollarsHandingOver(all,
-          listed: listed,
-          selling: {for (final t in selling ?? const <String>{}) 'poly-$t'},
-          soldAt: soldAt));
+          listed: listed, selling: sellingIds, soldAt: soldAt));
+      ended = dollarsEndedOrders(all, selling: sellingIds, soldAt: soldAt)
+          .toSet();
     }
     _rebuildAt(dollarsNextHoldEnd(all, now: now), now);
-    final standing = venues.any
-        ? dollarsStandingShown(all,
+    final slots = venues.any
+        ? dollarsOverviewSlots(ranked, all,
             listed: listed,
             now: now,
             handedOver: handedOver,
+            ended: ended,
             predictions: venues.predictions,
             investing: venues.trading)
-        : const <StandingOrder>[];
-    final squares = [
-      for (final o in standing.take(kDollarsActivitySquares))
-        StandingOrderRow(
-          key: ValueKey('standing-${o.id}'),
-          order: o,
-          status: standingOrderStageLine(l10n, o),
-          onTap: () => StandingOrderToasts.openJourney(context, id: o.id),
-        ),
-      ...dollarsActivitySquareRows(
-          dollarsActivitySquareIds(dollarsPinnedRanked(ranked, all, now: now))
-              .take(math.max(0, kDollarsActivitySquares - standing.length))
-              .toList(),
-          lists.values),
-    ];
+        : const <DollarsOverviewSlot>[];
+    // One card per slot (see the file header): the listed row, saying
+    // the order's word while one places into it; else the order in the
+    // position row's look, under the position's own key.
+    final squares = <Widget>[];
+    for (final slot in slots) {
+      if (squares.length == kDollarsActivitySquares) break;
+      final order = slot.order;
+      final row = rows[slot.id];
+      if (order == null) {
+        if (row != null) squares.add(row);
+        continue;
+      }
+      void journey() => StandingOrderToasts.openJourney(context, id: order.id);
+      final status = standingOrderStageLine(l10n, order);
+      squares.add(row != null
+          ? PortfolioRowStatusScope(
+              status: status,
+              // On its way, a tap opens its journey (Cancel); placed, the
+              // position's own.
+              onTap: order.isOpen ? journey : null,
+              child: row)
+          : StandingOrderRow(
+              key: ValueKey(slot.id),
+              order: order,
+              status: status,
+              onTap: journey));
+    }
     final loading =
         squares.isEmpty && lists.values.any((list) => list.loading);
     final held = squares.isNotEmpty || loading;

@@ -11233,16 +11233,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Залагане на $amount за $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Отваряне на поръчка за $amount $market';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Добавяне на $amount маржин към $coin';
   }
@@ -14465,9 +14455,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String standingPriceMoved(String price) {
     return 'Цената стана $price. Докосни, за да поставиш на новата цена.';
   }
-
-  @override
-  String get standingStageMoving => 'Местим парите';
 
   @override
   String get standingStagePlacing => 'Поставяме';

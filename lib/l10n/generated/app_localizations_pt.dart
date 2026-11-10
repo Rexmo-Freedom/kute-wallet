@@ -11255,16 +11255,6 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'A colocar $amount em $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'A abrir ordem de $amount em $market';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'A adicionar $amount de margem a $coin';
   }
@@ -14504,9 +14494,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String standingPriceMoved(String price) {
     return 'O preço passou para $price. Toque para colocar ao novo preço.';
   }
-
-  @override
-  String get standingStageMoving => 'A mover o dinheiro';
 
   @override
   String get standingStagePlacing => 'A colocar';

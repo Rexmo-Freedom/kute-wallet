@@ -7811,36 +7811,9 @@
       }
     }
   },
-  "oneBalancePlacingBet": "Placing {amount} on {side} · {market}",
-  "@oneBalancePlacingBet": {
-    "description": "In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.",
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      },
-      "side": {
-        "type": "String"
-      },
-      "market": {
-        "type": "String"
-      }
-    }
-  },
-  "oneBalanceOpeningOrder": "Opening {amount} {market} order",
-  "@oneBalanceOpeningOrder": {
-    "description": "In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).",
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      },
-      "market": {
-        "type": "String"
-      }
-    }
-  },
   "hlMarginStepAdding": "Adding {amount} margin to {coin}",
   "@hlMarginStepAdding": {
-    "description": "The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).",
+    "description": "The margin sheet's last funding step, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).",
     "placeholders": {
       "amount": {
         "type": "String"
@@ -12628,13 +12601,9 @@
       }
     }
   },
-  "standingStageMoving": "Moving money",
-  "@standingStageMoving": {
-    "description": "Overview card line for a prediction or order whose money is still moving to the venue. Short."
-  },
   "standingStagePlacing": "Placing",
   "@standingStagePlacing": {
-    "description": "Overview card line for a prediction or order being sent to the venue. Short."
+    "description": "Overview card line for a prediction or order on its way to the venue, from the accept (its money still moving included) until it fills. Short."
   },
   "standingStageApproval": "Needs your approval",
   "@standingStageApproval": {

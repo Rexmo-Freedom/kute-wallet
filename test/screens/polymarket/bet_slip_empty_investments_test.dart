@@ -612,7 +612,8 @@ void main() {
 
     testWidgets(
         'leaving never cancels: the haptics stop at once, the order goes on, '
-        'and Sal\'s placing toast takes over', (tester) async {
+        'and nothing takes the slip\'s place: no placing toast, no spinner',
+        (tester) async {
       final c = await accept(tester, 'standing_slip_leave');
       final before = c.read(pendingPolymarketBetProvider)!;
       // Leave it: a tap above the sheet, as when it is idle (its X and
@@ -644,10 +645,13 @@ void main() {
       expect(after, isNotNull);
       expect(after!.status, before.status);
       expect(events, isNot(contains('standing_order_cancelled')));
-      // Sal's placing toast, with Cancel and its X.
-      expect(find.text('Placing your prediction'), findsOneWidget);
-      expect(find.byKey(const ValueKey('sal-toast-action')), findsOneWidget);
-      expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
+      // Nothing in its place (founder, 10 November 2026, on 2.2.0 (98)):
+      // no placing toast, no thinking indicator; the Overview's card says
+      // Placing and Sal's result toast says how it ended.
+      await _frames(tester, 10);
+      expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+      expect(find.text('Placing your prediction'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       SalToast.debugReset();
       await release(tester);
     });

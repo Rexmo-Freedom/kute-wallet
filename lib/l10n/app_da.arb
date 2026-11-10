@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Denne runde sluttede, mens dine penge var på vej. Dine {amount} er i Forudsigelser.",
   "slipFundingInPredictions": "Dine {amount} er i Forudsigelser. Tryk for at prøve igen.",
   "slipFundingInInvesting": "Dine {amount} er i Investering. Tryk for at prøve igen.",
-  "oneBalancePlacingBet": "Placerer {amount} på {side} · {market}",
-  "oneBalanceOpeningOrder": "Åbner {amount} {market}-ordre",
   "hlMarginStepAdding": "Tilføjer {amount} margin til {coin}",
   "hlMarginFundingReady": "Dine {amount} er i Investments. Tryk for at tilføje margin.",
   "positionProtectIt": "Beskyt den",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Annulleret. Pengene bliver i Forudsigelser, tilgængelige.",
   "standingOrderCancelled": "Annulleret. Pengene bliver i Investering, tilgængelige.",
   "standingPriceMoved": "Prisen gik til {price}. Tryk for at placere til den nye pris.",
-  "standingStageMoving": "Flytter penge",
   "standingStagePlacing": "Placerer",
   "standingStageApproval": "Kræver din godkendelse"
 }

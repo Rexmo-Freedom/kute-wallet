@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Ta runda się skończyła, gdy Twoje pieniądze były w drodze. Twoje {amount} jest w Prognozach.",
   "slipFundingInPredictions": "Twoje {amount} jest w Prognozach. Stuknij, aby spróbować ponownie.",
   "slipFundingInInvesting": "Twoje {amount} jest w Inwestowaniu. Stuknij, aby spróbować ponownie.",
-  "oneBalancePlacingBet": "Stawianie {amount} na {side} · {market}",
-  "oneBalanceOpeningOrder": "Otwieranie zlecenia {amount} na {market}",
   "hlMarginStepAdding": "Dodawanie {amount} depozytu do {coin}",
   "hlMarginFundingReady": "Twoje {amount} jest w Investments. Stuknij, aby dodać depozyt.",
   "positionProtectIt": "Zabezpiecz",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Anulowano. Pieniądze zostają w Prognozach, dostępne.",
   "standingOrderCancelled": "Anulowano. Pieniądze zostają w Inwestowaniu, dostępne.",
   "standingPriceMoved": "Cena zmieniła się na {price}. Dotknij, aby złożyć po nowej cenie.",
-  "standingStageMoving": "Przenosimy pieniądze",
   "standingStagePlacing": "Składamy",
   "standingStageApproval": "Wymaga Twojej zgody"
 }

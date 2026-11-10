@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Този рунд приключи, докато парите ти пътуваха. Твоите {amount} са в Прогнози.",
   "slipFundingInPredictions": "Твоите {amount} са в Прогнози. Докосни, за да опиташ пак.",
   "slipFundingInInvesting": "Твоите {amount} са в Инвестиране. Докосни, за да опиташ пак.",
-  "oneBalancePlacingBet": "Залагане на {amount} за {side} · {market}",
-  "oneBalanceOpeningOrder": "Отваряне на поръчка за {amount} {market}",
   "hlMarginStepAdding": "Добавяне на {amount} маржин към {coin}",
   "hlMarginFundingReady": "Твоите {amount} са в Investments. Докосни, за да добавиш маржин.",
   "positionProtectIt": "Защити я",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Отменено. Парите остават в Прогнози, налични.",
   "standingOrderCancelled": "Отменено. Парите остават в Инвестиране, налични.",
   "standingPriceMoved": "Цената стана {price}. Докосни, за да поставиш на новата цена.",
-  "standingStageMoving": "Местим парите",
   "standingStagePlacing": "Поставяме",
   "standingStageApproval": "Нужно е твоето одобрение"
 }

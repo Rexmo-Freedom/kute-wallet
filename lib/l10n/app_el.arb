@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Αυτός ο γύρος έληξε ενώ τα χρήματά σου μεταφέρονταν. Τα {amount} σου είναι στις Προβλέψεις.",
   "slipFundingInPredictions": "Τα {amount} σου είναι στις Προβλέψεις. Πάτησε για να ξαναδοκιμάσεις.",
   "slipFundingInInvesting": "Τα {amount} σου είναι στις Επενδύσεις. Πάτησε για να ξαναδοκιμάσεις.",
-  "oneBalancePlacingBet": "Τοποθέτηση {amount} στο {side} · {market}",
-  "oneBalanceOpeningOrder": "Άνοιγμα εντολής {amount} {market}",
   "hlMarginStepAdding": "Προσθήκη περιθωρίου {amount} στο {coin}",
   "hlMarginFundingReady": "Τα {amount} σου είναι στα Investments. Πάτησε για προσθήκη περιθωρίου.",
   "positionProtectIt": "Προστάτεψέ τη",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Ακυρώθηκε. Τα χρήματα μένουν στις Προβλέψεις, διαθέσιμα.",
   "standingOrderCancelled": "Ακυρώθηκε. Τα χρήματα μένουν στις Επενδύσεις, διαθέσιμα.",
   "standingPriceMoved": "Η τιμή πήγε στο {price}. Πάτησε για να τοποθετήσεις στη νέα τιμή.",
-  "standingStageMoving": "Μεταφέρουμε τα χρήματα",
   "standingStagePlacing": "Τοποθετείται",
   "standingStageApproval": "Χρειάζεται την έγκρισή σου"
 }

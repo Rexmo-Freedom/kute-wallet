@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Toto kolo skončilo, zatímco se tvoje peníze přesouvaly. Tvých {amount} je v Predikcích.",
   "slipFundingInPredictions": "Tvých {amount} je v Predikcích. Klepnutím to zkusíš znovu.",
   "slipFundingInInvesting": "Tvých {amount} je v Investování. Klepnutím to zkusíš znovu.",
-  "oneBalancePlacingBet": "Sázka {amount} na {side} · {market}",
-  "oneBalanceOpeningOrder": "Otevírání příkazu {amount} {market}",
   "hlMarginStepAdding": "Přidávání marže {amount} do {coin}",
   "hlMarginFundingReady": "Tvých {amount} je v Investments. Klepnutím přidáš marži.",
   "positionProtectIt": "Ochránit",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Zrušeno. Peníze zůstávají v Předpovědích, k dispozici.",
   "standingOrderCancelled": "Zrušeno. Peníze zůstávají v Investování, k dispozici.",
   "standingPriceMoved": "Cena se změnila na {price}. Klepnutím zadáte za novou cenu.",
-  "standingStageMoving": "Přesouváme peníze",
   "standingStagePlacing": "Zadáváme",
   "standingStageApproval": "Čeká na vaše schválení"
 }

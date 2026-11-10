@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Ta krog se je končal, medtem ko se je vaš denar premikal. Vaših {amount} je v Napovedih.",
   "slipFundingInPredictions": "Vaših {amount} je v Napovedih. Tapnite za ponoven poskus.",
   "slipFundingInInvesting": "Vaših {amount} je v Investiranju. Tapnite za ponoven poskus.",
-  "oneBalancePlacingBet": "Stava {amount} na {side} · {market}",
-  "oneBalanceOpeningOrder": "Odpiranje naročila {amount} za {market}",
   "hlMarginStepAdding": "Dodajanje kritja {amount} za {coin}",
   "hlMarginFundingReady": "Vaših {amount} je v Investments. Tapnite za dodajanje kritja.",
   "positionProtectIt": "Zaščiti jo",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Preklicano. Denar ostane v Napovedih, na voljo.",
   "standingOrderCancelled": "Preklicano. Denar ostane v Vlaganju, na voljo.",
   "standingPriceMoved": "Cena se je premaknila na {price}. Tapni za oddajo po novi ceni.",
-  "standingStageMoving": "Premikamo denar",
   "standingStagePlacing": "Oddajamo",
   "standingStageApproval": "Potrebna je tvoja odobritev"
 }

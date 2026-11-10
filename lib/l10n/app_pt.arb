@@ -3362,8 +3362,6 @@
   "slipFundingRoundEnded": "Esta ronda terminou enquanto o seu dinheiro estava a ser movido. Os seus {amount} estão nas Previsões.",
   "slipFundingInPredictions": "Os seus {amount} estão nas Previsões. Toque para tentar de novo.",
   "slipFundingInInvesting": "Os seus {amount} estão em Investir. Toque para tentar de novo.",
-  "oneBalancePlacingBet": "A colocar {amount} em {side} · {market}",
-  "oneBalanceOpeningOrder": "A abrir ordem de {amount} em {market}",
   "hlMarginStepAdding": "A adicionar {amount} de margem a {coin}",
   "hlMarginFundingReady": "Os seus {amount} estão nos Investments. Toque para adicionar margem.",
   "positionProtectIt": "Protegê-la",
@@ -4345,7 +4343,6 @@
   "standingPredictionCancelled": "Cancelado. O dinheiro fica em Previsões, disponível.",
   "standingOrderCancelled": "Cancelado. O dinheiro fica em Investir, disponível.",
   "standingPriceMoved": "O preço passou para {price}. Toque para colocar ao novo preço.",
-  "standingStageMoving": "A mover o dinheiro",
   "standingStagePlacing": "A colocar",
   "standingStageApproval": "Precisa da sua aprovação"
 }

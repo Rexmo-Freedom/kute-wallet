@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Ce tour s'est terminé pendant le transfert de votre argent. Vos {amount} sont dans Prédictions.",
   "slipFundingInPredictions": "Vos {amount} sont dans Prédictions. Touchez pour réessayer.",
   "slipFundingInInvesting": "Vos {amount} sont dans Investir. Touchez pour réessayer.",
-  "oneBalancePlacingBet": "Mise de {amount} sur {side} · {market}",
-  "oneBalanceOpeningOrder": "Ouverture d'un ordre de {amount} sur {market}",
   "hlMarginStepAdding": "Ajout de {amount} de marge à {coin}",
   "hlMarginFundingReady": "Vos {amount} sont dans Investments. Touchez pour ajouter la marge.",
   "positionProtectIt": "La protéger",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Annulé. L'argent reste dans Prédictions, disponible.",
   "standingOrderCancelled": "Annulé. L'argent reste dans Investir, disponible.",
   "standingPriceMoved": "Le prix est passé à {price}. Touchez pour placer au nouveau prix.",
-  "standingStageMoving": "Transfert de l'argent",
   "standingStagePlacing": "Placement",
   "standingStageApproval": "Votre accord est requis"
 }

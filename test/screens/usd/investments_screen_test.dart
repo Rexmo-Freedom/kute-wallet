@@ -90,6 +90,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart'
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize, KutePillTabs;
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
@@ -1491,8 +1492,10 @@ void main() {
   });
 
   testWidgets(
-      'with money on a rail its lines follow the split, which leaves their '
-      'money out of Available, and open nothing either', (tester) async {
+      'with money on its way into an order nothing is said under the '
+      'split: the money is Invested at once (founder, 10 November 2026: '
+      '"under the main balance what is happening. Do not have this")',
+      (tester) async {
     final events = recordEvents();
     await pumpInvestments(tester,
         balance: const OneBalanceState(
@@ -1513,23 +1516,18 @@ void main() {
                       market: 'Lakers vs Celtics')),
             ]));
     final l10n = _l10n(tester);
-    // $30.00 in all: nothing invested, $5.00 on its way to the bet (its
-    // line), $25.00 Available.
+    // $30.00 in all: $5.00 on its way to the bet, Invested already;
+    // $25.00 Available; no line under the split.
     expect(tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader))
         .amountText, r'$30.00');
-    expect(_splitFigure(tester, 'invested'), r'$0.00');
+    expect(_splitFigure(tester, 'invested'), r'$5.00');
     expect(_splitFigure(tester, 'available'), r'$25.00');
-    final line = find.text(r'Placing $5.00 on Yes · Lakers vs Celtics');
-    expect(line, findsOneWidget);
-    expect(tester.getTopLeft(line).dy,
-        greaterThan(tester
-            .getBottomLeft(
-                find.byKey(const ValueKey('investments-balance-split')))
-            .dy));
+    expect(find.textContaining('Placing'), findsNothing);
+    expect(find.byType(PendingDepositLine), findsNothing);
     expect(find.text('${l10n.available} '), findsOneWidget);
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
         findsNothing);
-    await tester.tap(line);
+    await tester.tap(find.byKey(const ValueKey('investments-balance-split')));
     await _pumpFrames(tester, 6);
     expect(find.byType(OpenInvestmentsScreen), findsNothing);
     expect(find.byType(PortfolioScreen), findsNothing);

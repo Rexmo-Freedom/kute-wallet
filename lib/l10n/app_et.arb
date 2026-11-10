@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "See voor lõppes, kuni sinu raha liikus. Sinu {amount} on kontol Ennustused.",
   "slipFundingInPredictions": "Sinu {amount} on kontol Ennustused. Puuduta, et uuesti proovida.",
   "slipFundingInInvesting": "Sinu {amount} on kontol Investeerimine. Puuduta, et uuesti proovida.",
-  "oneBalancePlacingBet": "Panustame {amount} valikule {side} · {market}",
-  "oneBalanceOpeningOrder": "Avame {amount} {market} tehingu",
   "hlMarginStepAdding": "Lisame {coin} positsioonile {amount} marginaali",
   "hlMarginFundingReady": "Sinu {amount} on kontol Investments. Puuduta, et lisada marginaali.",
   "positionProtectIt": "Kaitse seda",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Tühistatud. Raha jääb Ennustustesse, saadaval.",
   "standingOrderCancelled": "Tühistatud. Raha jääb Investeerimisse, saadaval.",
   "standingPriceMoved": "Hind liikus {price} peale. Puuduta, et panna uue hinnaga.",
-  "standingStageMoving": "Liigutame raha",
   "standingStagePlacing": "Esitame",
   "standingStageApproval": "Vajab sinu kinnitust"
 }

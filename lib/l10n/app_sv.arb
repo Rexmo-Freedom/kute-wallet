@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Den här rundan tog slut medan dina pengar var på väg. Dina {amount} finns i Prognoser.",
   "slipFundingInPredictions": "Dina {amount} finns i Prognoser. Tryck för att försöka igen.",
   "slipFundingInInvesting": "Dina {amount} finns i Investera. Tryck för att försöka igen.",
-  "oneBalancePlacingBet": "Lägger {amount} på {side} · {market}",
-  "oneBalanceOpeningOrder": "Öppnar order på {amount} för {market}",
   "hlMarginStepAdding": "Lägger till {amount} marginal på {coin}",
   "hlMarginFundingReady": "Dina {amount} finns i Investments. Tryck för att lägga till marginal.",
   "positionProtectIt": "Skydda den",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Avbrutet. Pengarna stannar i Förutsägelser, tillgängliga.",
   "standingOrderCancelled": "Avbrutet. Pengarna stannar i Investera, tillgängliga.",
   "standingPriceMoved": "Priset gick till {price}. Tryck för att lägga till det nya priset.",
-  "standingStageMoving": "Flyttar pengar",
   "standingStagePlacing": "Lägger",
   "standingStageApproval": "Behöver ditt godkännande"
 }

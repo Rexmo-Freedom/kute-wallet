@@ -11271,16 +11271,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Se plasează $amount pe $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Se deschide ordinul de $amount pe $market';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Se adaugă marjă de $amount la $coin';
   }
@@ -14519,9 +14509,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String standingPriceMoved(String price) {
     return 'Prețul a ajuns la $price. Atinge pentru a plasa la noul preț.';
   }
-
-  @override
-  String get standingStageMoving => 'Mutăm banii';
 
   @override
   String get standingStagePlacing => 'Se plasează';

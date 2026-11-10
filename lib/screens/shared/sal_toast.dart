@@ -48,9 +48,10 @@
 // and one with an action carry an X at the trailing edge
 // (44 pt to hit, read "Close") that only sends the toast off; an action
 // ([SalToast.actionLabel], "Cancel") is a word in the pill before it. A
-// [SalToast.sticky] toast never goes by itself (a running order's), and a
-// toast shown with a [tag] already on screen changes in place rather
-// than arriving again (the placing toast turning into the placed one).
+// [SalToast.sticky] toast never goes by itself (an order waiting on the
+// person: the price moved), and a toast shown with a [tag] already on
+// screen changes in place rather than arriving again (that one turning
+// into how the order ended).
 
 import 'dart:async';
 import 'dart:math' as math;

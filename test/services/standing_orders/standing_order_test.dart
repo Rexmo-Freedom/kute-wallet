@@ -121,6 +121,17 @@ void main() {
     expect(back.attempts, 2);
     expect(back.movedToPrice, 0.81);
     expect(back.createdAt, o.createdAt);
+    // The fill's own figures round-trip; a record from before them reads
+    // none.
+    final filled = StandingOrder.fromJson(o
+        .copyWith(
+            state: StandingOrderState.filled, filledSize: 19.6, filledUsd: 9.8)
+        .toJson())!;
+    expect(filled.filledSize, 19.6);
+    expect(filled.filledUsd, 9.8);
+    expect(filled.placedUsd, 9.8);
+    expect(back.filledSize, isNull);
+    expect(back.filledUsd, isNull);
     // Unreadable rows are skipped, never thrown.
     expect(StandingOrder.fromJson({'v': 99}), isNull);
     expect(StandingOrder.fromJson({'v': 1, 'id': 'x'}), isNull);

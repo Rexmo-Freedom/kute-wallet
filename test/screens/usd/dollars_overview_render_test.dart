@@ -1,8 +1,11 @@
 // On demand: renders the whole Dollars page on its Overview pill into PNGs
 // for a look by eye: with positions, without, and with Investing's browsing
 // withheld, light and dark, 320 and 375 wide; the end of the tab, scrolled,
-// over the bar; and the pill row in the longest locale. Logos are not fetched,
-// so the big tiles show their category glyph or letter tile.
+// over the bar; the pill row in the longest locale; and the one card of an
+// order on its way, Placing then placed (a prediction in the order's own
+// card, an Investing order on a listed position's row), light and dark.
+// Logos are not fetched, so the big tiles show their category glyph or
+// letter tile.
 //
 //   flutter test test/screens/usd/dollars_overview_render_test.dart \
 //     --dart-define=DOLLARS_OVERVIEW_RENDER_OUT=<dir>
@@ -27,6 +30,7 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/open_pnl_history_provider.dart'
     show OpenPnlSources;
 import 'package:kute/screens/usd/usd_account_screen.dart';
+import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -87,6 +91,7 @@ Future<void> _render(WidgetTester tester, String name,
     bool positions = false,
     bool withheld = false,
     bool scrolled = false,
+    List<StandingOrder> standing = const [],
     Locale? locale}) async {
   final now = DateTime.now();
   const coins = ['BTC', 'ETH', 'SOL', 'HYPE'];
@@ -142,6 +147,15 @@ Future<void> _render(WidgetTester tester, String name,
       ]);
   for (var i = 0; i < 12; i++) {
     await tester.pump(const Duration(milliseconds: 100));
+  }
+  if (standing.isNotEmpty) {
+    ProviderScope.containerOf(
+            tester.element(find.byType(InvestmentsBody, skipOffstage: false)))
+        .read(standingOrdersProvider.notifier)
+        .debugReplace(standing);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
   }
   if (scrolled) {
     for (var i = 0; i < 6; i++) {
@@ -224,6 +238,71 @@ void main() {
       testWidgets('scrolled end $w $mode', (tester) => _render(
           tester, 'scrolled_end_${w}_$mode',
           size: size, dark: dark, positions: true, scrolled: true));
+    }
+  }
+  // The one card of an order on its way: Placing, then placed (founder, 10
+  // November 2026: "show the actual one, with placing and when it's
+  // placed, we just show placed").
+  StandingOrder prediction(StandingOrderState state) => StandingOrder(
+        id: 'so_render_p',
+        walletId: 'spending',
+        venue: StandingOrderVenue.predictions,
+        marketKey: 'tok-render',
+        marketTitle: 'Will it rain in Lisbon tomorrow?',
+        sideLabel: 'Yes',
+        isBuy: true,
+        size: 19.23,
+        approvedPrice: 0.52,
+        amountUsd: 10,
+        orderKind: 'market',
+        state: state,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        filledSize: state == StandingOrderState.filled ? 19.6 : null,
+        filledUsd: state == StandingOrderState.filled ? 9.8 : null,
+      );
+  StandingOrder investing(StandingOrderState state) => StandingOrder(
+        id: 'so_render_i',
+        walletId: 'spending',
+        venue: StandingOrderVenue.investing,
+        marketKey: 'ETH',
+        marketTitle: 'ETH · Perp',
+        sideLabel: 'long',
+        isBuy: true,
+        size: 20,
+        approvedPrice: 3000,
+        amountUsd: 20,
+        orderKind: 'market',
+        state: state,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        leverage: 2,
+        marketKind: 'perp',
+      );
+  for (final dark in [false, true]) {
+    final mode = dark ? 'dark' : 'light';
+    const size = Size(375, 812);
+    for (final (name, state) in [
+      ('placing', StandingOrderState.funding),
+      ('placed', StandingOrderState.filled),
+    ]) {
+      testWidgets('one card $name prediction $mode', (tester) => _render(
+          tester, 'one_card_${name}_prediction_$mode',
+          size: size,
+          dark: dark,
+          positions: true,
+          standing: [prediction(state)]));
+      testWidgets('one card $name investing $mode', (tester) => _render(
+          tester, 'one_card_${name}_investing_$mode',
+          size: size,
+          dark: dark,
+          positions: true,
+          standing: [investing(state)]));
+      testWidgets('one card $name alone $mode', (tester) => _render(
+          tester, 'one_card_${name}_alone_$mode',
+          size: size,
+          dark: dark,
+          standing: [prediction(state)]));
     }
   }
   // The longest name the pill takes (Romanian, "Prezentare generală"), then

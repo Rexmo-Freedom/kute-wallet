@@ -11266,16 +11266,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Statoma $amount už $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Atidaromas $amount $market pavedimas';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Pridedama $amount maržos prie $coin';
   }
@@ -14505,9 +14495,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String standingPriceMoved(String price) {
     return 'Kaina pasikeitė į $price. Palieskite, kad pateiktumėte nauja kaina.';
   }
-
-  @override
-  String get standingStageMoving => 'Perkeliame pinigus';
 
   @override
   String get standingStagePlacing => 'Teikiame';

@@ -29,8 +29,6 @@ import 'package:kute/theme/app_theme.dart' show AppColors;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
-import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesVenueList;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show HlPositionRow;
 import 'package:kute/screens/shared/all_activity.dart'
@@ -108,32 +106,6 @@ void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     OpenOnce.reset();
-  });
-
-  group('the squares', () {
-    test('the biggest open positions, biggest first, four at most', () {
-      // portfolioOpenRanked hands them biggest first.
-      const ranked = ['poly-a', 'hl-ETH', 'hl-HYPE', 'poly-b', 'hl-BTC'];
-      expect(dollarsActivitySquareIds(ranked),
-          ['poly-a', 'hl-ETH', 'hl-HYPE', 'poly-b']);
-      expect(dollarsActivitySquareIds(ranked.take(3).toList()),
-          ['poly-a', 'hl-ETH', 'hl-HYPE']);
-      expect(dollarsActivitySquareIds(const []), isEmpty);
-    });
-
-    test('each square is the position\'s own row, in the slices\' order', () {
-      const a = SizedBox(key: ValueKey('hl-ETH'));
-      const b = SizedBox(key: ValueKey('poly-a'));
-      const c = SizedBox(key: ValueKey('hl-BTC'));
-      final lists = [
-        const BalancesVenueList(rows: [a, c]),
-        const BalancesVenueList(rows: [b]),
-      ];
-      expect(
-          dollarsActivitySquareRows(['poly-a', 'hl-ETH', 'gone'], lists),
-          [b, a],
-          reason: 'a slice whose row is not read yet leaves no hole');
-    });
   });
 
   testWidgets(

@@ -280,7 +280,10 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       if (mapped != null &&
           !(mapped == StandingOrderState.failed &&
               byId(id)?.state == StandingOrderState.needsApproval)) {
-        unawaited(advance(id, mapped, failureCode: next.failureCode));
+        unawaited(advance(id, mapped,
+            failureCode: next.failureCode,
+            filledSize: next.filledShares,
+            filledUsd: next.filledCost));
       }
       return;
     }
@@ -304,7 +307,14 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     if (id != null) {
       final mapped = standingStateForHlOrder(next.status,
           readiness: next.readiness, result: next.result?.kind);
-      if (mapped != null) unawaited(advance(id, mapped));
+      final fill = next.result;
+      if (mapped != null) {
+        unawaited(advance(id, mapped,
+            filledSize: fill != null && fill.filledSz > 0 ? fill.filledSz : null,
+            filledUsd: fill != null && fill.filledSz > 0 && fill.avgPx > 0
+                ? fill.filledSz * fill.avgPx
+                : null));
+      }
       return;
     }
     if (next.status == PendingHlOrderStatus.awaitingBalance &&
@@ -605,14 +615,35 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       {String? failureCode,
       String? orderHash,
       double? movedToPrice,
+      double? filledSize,
+      double? filledUsd,
       bool quiet = false}) async {
     final order = byId(id);
-    if (order == null || !StandingOrder.canMove(order.state, to)) return;
+    if (order == null) return;
+    // The fill's figures can come after the fill itself (the venue's
+    // settlement read): noted on the record, nothing else moves.
+    if (order.state == StandingOrderState.filled &&
+        to == StandingOrderState.filled) {
+      if (order.filledUsd == null && filledUsd != null) {
+        final noted = order.copyWith(
+            filledSize: filledSize, filledUsd: filledUsd);
+        _put(noted);
+        try {
+          await _store.save(noted);
+        } catch (_) {}
+      }
+      return;
+    }
+    if (!StandingOrder.canMove(order.state, to)) return;
+    final filled = to == StandingOrderState.filled;
     final next = order.copyWith(
       state: to,
       updatedAt: clock(),
       orderHash: orderHash,
       movedToPrice: movedToPrice,
+      // The fill's own figures, only for the fill.
+      filledSize: filled ? filledSize : null,
+      filledUsd: filled ? filledUsd : null,
       failureCode: to == StandingOrderState.failed ? failureCode : null,
     );
     _put(next);

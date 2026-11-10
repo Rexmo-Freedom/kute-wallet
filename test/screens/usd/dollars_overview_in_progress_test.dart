@@ -1,13 +1,18 @@
 // The Dollars Overview shows what is being placed (founder, 9 November
 // 2026: "On the Overview we must show exactly there what bets or
 // investments are in progress of being implemented, as soon as they
-// touch"): a standing order leads the squares from the accept, as the
-// venue's own placing row with its stage in the compact words; a tap opens
-// its money journey; it counts toward the four; filled, it holds its slot
-// until the position lists and the position takes that slot; failed or
-// cancelled, it goes. Predictions and Investing alike.
+// touch"), as ONE card from the accept to the listed position (founder,
+// 10 November 2026, on 2.2.0 (98): "After the investment is placed, the old
+// one stays there for a bit, until it eventually leaves. This can't be,
+// show the actual one, with placing and when it's placed, we just show
+// placed"): the order holds one slot, keyed by its position, drawn by the
+// position's own row widget: "Placing" from the accept, placed the moment
+// it fills (the fill's own figures), then the listed position in place,
+// never a second or a stale card. A tap while it places opens its money
+// journey; it counts toward the four; failed or cancelled, it goes.
+// Predictions and Investing alike.
 //
-// A filled card hands over once (founder, 10 November 2026: sold, the
+// A filled order hands over once (founder, 10 November 2026: sold, the
 // Overview still showed "Prediction placed"): the position listing, or its
 // sale, hands it over for good; the card waits for its position at most
 // kDollarsFilledCardHold and leaves on time without another rebuild.
@@ -138,23 +143,37 @@ void main() {
   final squares = find.byKey(const ValueKey('dollars-activity-squares'));
   Finder inSquares(Finder f) => find.descendant(of: squares, matching: f);
 
-  /// The keys of the squares' rows, in order.
+  /// The keys of the squares' cards, in order: every card is keyed by
+  /// the position it is (or places into).
   List<String> order(WidgetTester tester) => [
         for (final e in inSquares(find.byWidgetPredicate((w) =>
                 w.key is ValueKey<String> &&
-                ((w.key! as ValueKey<String>).value.startsWith('standing-') ||
+                ((w.key! as ValueKey<String>).value.startsWith('poly-') ||
                     (w.key! as ValueKey<String>).value.startsWith('hl-'))))
             .evaluate())
           (e.widget.key! as ValueKey<String>).value,
       ];
+
+  Finder text(String key, String words) => find.descendant(
+      of: inSquares(find.byKey(ValueKey(key))),
+      matching: find.textContaining(words));
+
+  Finder figure(String key, String value) => find.descendant(
+      of: inSquares(find.byKey(ValueKey(key))),
+      matching:
+          find.byWidgetPredicate((w) => w is RollingFigure && w.text == value));
 
   group('pure', () {
     final now = DateTime(2026, 11, 9, 12);
     StandingOrder at(StandingOrder o, StandingOrderState s, Duration ago) =>
         o.copyWith(state: s, updatedAt: now.subtract(ago));
 
-    test('open ones newest first; a fresh fill until its position lists; '
-        'failed, cancelled and old fills never', () {
+    List<String?> ids(List<DollarsOverviewSlot> slots) =>
+        [for (final s in slots) s.order?.id ?? s.id];
+
+    test('one slot per order, newest first, keyed by its position; open '
+        'ones always, a fresh fill until it hands over; failed, cancelled '
+        'and old fills never; then the ranked positions', () {
       final a = at(_prediction(id: 'a'), StandingOrderState.funding,
           Duration.zero);
       final b = at(_investing(), StandingOrderState.posting, Duration.zero);
@@ -167,14 +186,87 @@ void main() {
       final cancelled = at(_prediction(id: 'c'), StandingOrderState.cancelled,
           Duration.zero);
       final all = [old, failed, cancelled, filled, a, b];
-      expect(dollarsStandingShown(all, listed: {}, now: now),
-          [b, a, filled]);
-      expect(dollarsStandingShown(all, listed: {'poly-tok-f'}, now: now),
-          [b, a],
-          reason: 'the position took over');
+      final slots =
+          dollarsOverviewSlots(['hl-BTC'], all, listed: {'hl-BTC'}, now: now);
+      expect([for (final s in slots) s.id],
+          ['hl-ETH', 'poly-tok-a', 'poly-tok-f', 'hl-BTC']);
+      expect(ids(slots), ['so_i', 'a', 'f', 'hl-BTC']);
       expect(
-          dollarsStandingShown(all, listed: {}, now: now, investing: false),
-          [a, filled]);
+          ids(dollarsOverviewSlots(const [], all,
+              listed: {}, now: now, handedOver: {'f'})),
+          ['so_i', 'a'],
+          reason: 'handed over and not listed: its card never returns');
+      expect(
+          ids(dollarsOverviewSlots(const [], all,
+              listed: {}, now: now, investing: false)),
+          ['a', 'f']);
+    });
+
+    test('the slot is the position the order places into: the listed one, '
+        'else the perp, or the spot holding for a spot order', () {
+      final perp = _investing(coin: 'HYPE');
+      final spot = StandingOrder.fromJson(
+          {...perp.toJson(), 'marketKind': 'spot', 'leverage': 1})!;
+      expect(dollarsStandingSlotId(perp, {}), 'hl-HYPE');
+      expect(dollarsStandingSlotId(spot, {}), 'hl-spot-HYPE');
+      expect(dollarsStandingSlotId(perp, {'hl-spot-HYPE'}), 'hl-spot-HYPE');
+      expect(dollarsStandingSlotId(_prediction(id: 'p'), {}), 'poly-tok-p');
+    });
+
+    test('an order into a position already listed takes that position\'s '
+        'slot: one slot, never two', () {
+      final open = at(_investing(), StandingOrderState.posting, Duration.zero);
+      final slots = dollarsOverviewSlots(['hl-BTC', 'hl-ETH'], [open],
+          listed: {'hl-BTC', 'hl-ETH'}, now: now);
+      expect([for (final s in slots) s.id], ['hl-ETH', 'hl-BTC']);
+      expect(slots.first.order, open);
+      expect(slots.last.order, isNull);
+    });
+
+    test('filled and listed: the listed slot says placed until the card '
+        'hold; sold, or past the hold, the plain position', () {
+      final filled = at(_prediction(id: 'f'), StandingOrderState.filled,
+          const Duration(seconds: 30));
+      final slots = dollarsOverviewSlots(['poly-tok-f'], [filled],
+          listed: {'poly-tok-f'}, now: now, handedOver: {'f'});
+      expect(slots.single.order, filled);
+      expect(
+          dollarsOverviewSlots(['poly-tok-f'], [filled],
+                  listed: {'poly-tok-f'},
+                  now: now,
+                  handedOver: {'f'},
+                  ended: {'f'})
+              .single
+              .order,
+          isNull,
+          reason: 'sold or being sold');
+      expect(
+          dollarsOverviewSlots(['poly-tok-f'], [filled],
+                  listed: {'poly-tok-f'},
+                  now: filled.updatedAt.add(kDollarsFilledCardHold),
+                  handedOver: {'f'})
+              .single
+              .order,
+          isNull,
+          reason: 'past the card hold');
+    });
+
+    test('ended: a fill whose position is being sold or was sold after the '
+        'accept', () {
+      final filled = at(_prediction(id: 'f'), StandingOrderState.filled,
+          const Duration(seconds: 30));
+      expect(dollarsEndedOrders([filled]), isEmpty);
+      expect(dollarsEndedOrders([filled], selling: {'poly-tok-f'}), ['f']);
+      expect(
+          dollarsEndedOrders([filled], soldAt: {
+            'poly-tok-f': filled.createdAt.add(const Duration(seconds: 1))
+          }),
+          ['f']);
+      expect(
+          dollarsEndedOrders([filled], soldAt: {
+            'poly-tok-f': filled.createdAt.subtract(const Duration(days: 1))
+          }),
+          isEmpty);
     });
 
     test('a fresh fill\'s position takes the first slot; the rest ranked',
@@ -198,14 +290,15 @@ void main() {
         'once handed over never comes back', () {
       final filled = at(_prediction(id: 'f'), StandingOrderState.filled,
           const Duration(seconds: 30));
-      expect(dollarsStandingShown([filled], listed: {}, now: now), [filled]);
+      expect(ids(dollarsOverviewSlots(const [], [filled], listed: {}, now: now)),
+          ['f']);
       expect(
-          dollarsStandingShown([filled],
+          dollarsOverviewSlots(const [], [filled],
               listed: {}, now: now, handedOver: {'f'}),
           isEmpty,
           reason: 'the position listed once, then was sold');
       expect(
-          dollarsStandingShown([
+          dollarsOverviewSlots(const [], [
             at(_prediction(id: 'f'), StandingOrderState.filled,
                 kDollarsFilledCardHold)
           ], listed: {}, now: now),
@@ -265,9 +358,8 @@ void main() {
   });
 
   testWidgets(
-      'a prediction leads the squares from the accept, its stage in the '
-      'compact words; a tap opens its journey; it fails and goes',
-      (tester) async {
+      'a prediction leads the squares from the accept as one card saying '
+      'Placing; a tap opens its journey; it fails and goes', (tester) async {
     await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           HyperliquidTradingState(
@@ -278,33 +370,27 @@ void main() {
 
     notifier.debugReplace([_prediction()]);
     await tester.pump();
-    expect(order(tester), ['standing-so_p', 'hl-BTC']);
-    final card = inSquares(find.byKey(const ValueKey('standing-so_p')));
+    expect(order(tester), ['poly-tok-so_p', 'hl-BTC']);
+    final card = inSquares(find.byKey(const ValueKey('poly-tok-so_p')));
+    // The position row's look (PortfolioPositionRow), built from the order.
     expect(find.descendant(of: card, matching: find.byType(PlacingBetRow)),
         findsOneWidget);
-    expect(find.descendant(of: card, matching: find.textContaining('Moving money')),
-        findsOneWidget);
-    expect(
-        find.descendant(
-            of: card,
-            matching: find.byWidgetPredicate(
-                (w) => w is RollingFigure && w.text == r'$10.00')),
-        findsOneWidget);
+    expect(text('poly-tok-so_p', 'Placing'), findsOneWidget);
+    expect(find.textContaining('Moving money'), findsNothing);
+    expect(figure('poly-tok-so_p', r'$10.00'), findsOneWidget);
     // The existing square, two side by side.
     expect(inSquares(find.byKey(const ValueKey('portfolio-square'))),
         findsNWidgets(2));
+    // No spinner anywhere on it.
+    expect(inSquares(find.byType(CircularProgressIndicator)), findsNothing);
 
     notifier.debugReplace([_prediction(state: StandingOrderState.posting)]);
     await tester.pump();
-    expect(find.descendant(of: card, matching: find.textContaining('Placing')),
-        findsOneWidget);
+    expect(text('poly-tok-so_p', 'Placing'), findsOneWidget);
     notifier
         .debugReplace([_prediction(state: StandingOrderState.needsApproval)]);
     await tester.pump();
-    expect(
-        find.descendant(
-            of: card, matching: find.textContaining('Needs your approval')),
-        findsOneWidget);
+    expect(text('poly-tok-so_p', 'Needs your approval'), findsOneWidget);
 
     await tester.tap(card);
     await tester.pump();
@@ -359,15 +445,152 @@ void main() {
       _investing(),
     ]);
     await tester.pump();
-    expect(order(tester), ['standing-so_i', 'standing-a', 'hl-BTC', 'hl-SOL']);
+    expect(order(tester), ['hl-ETH', 'poly-tok-a', 'hl-BTC', 'hl-SOL']);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
 
   testWidgets(
-      'Investing: the order leads from the accept ("Long · Moving money"); '
-      'filled it holds its slot saying placed, then the position takes '
-      'that same slot', (tester) async {
+      'Predictions, one card: Placing, then placed from the fill\'s own '
+      'figures, then the listed position in the same slot saying placed, '
+      'then its own line; sold, nothing comes back', (tester) async {
+    var clock = DateTime.now();
+    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+      dollarsOverviewClockProvider.overrideWithValue(() => clock),
+      polymarketActivePositionsProvider
+          .overrideWith((ref) => ref.watch(_positions)),
+      livePriceProvider.overrideWith(_Prices.new),
+    ]);
+    final container = _container(tester);
+    final notifier = container.read(standingOrdersProvider.notifier);
+    const key = 'poly-tok-so_p';
+
+    notifier.debugReplace([_prediction(at: clock)]);
+    await tester.pump();
+    expect(order(tester), [key]);
+    expect(text(key, 'Placing'), findsOneWidget);
+    final slot = tester.getRect(inSquares(find.byKey(const ValueKey(key))));
+
+    // Filled, the position not read yet: the same card says placed at
+    // once, with what the fill cost; never a placing card after the fill.
+    notifier.debugReplace([
+      _prediction(state: StandingOrderState.filled, at: clock)
+          .copyWith(filledSize: 19.6, filledUsd: 9.8)
+    ]);
+    await tester.pump();
+    expect(order(tester), [key]);
+    expect(text(key, 'Prediction placed'), findsOneWidget);
+    expect(find.textContaining('Placing'), findsNothing);
+    expect(figure(key, r'$9.80'), findsOneWidget);
+    expect(tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
+
+    // The position lists: the slot is the position's own row, under the
+    // same key, in the same place, still saying placed. One card.
+    container.read(_positions.notifier).state = [_poly('tok-so_p')];
+    await tester.pump();
+    await tester.pump();
+    expect(order(tester), [key]);
+    expect(inSquares(find.byType(PolyPositionRow)), findsOneWidget);
+    expect(inSquares(find.byType(PlacingBetRow)), findsNothing);
+    expect(text(key, 'Prediction placed'), findsOneWidget);
+    expect(tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
+
+    // The card hold ends: the position's own line, nothing else changes.
+    clock = clock.add(kDollarsFilledCardHold);
+    await tester.pump(kDollarsFilledCardHold);
+    await tester.pump();
+    expect(order(tester), [key]);
+    expect(find.textContaining('placed'), findsNothing);
+    expect(inSquares(find.byType(PolyPositionRow)), findsOneWidget);
+
+    // Sold: the position goes, and nothing comes back, here or after the
+    // order is read again.
+    container.read(_positions.notifier).state = const [];
+    await tester.pump();
+    await tester.pump();
+    expect(order(tester), isEmpty);
+    notifier.debugReplace([
+      _prediction(state: StandingOrderState.filled)
+          .copyWith(updatedAt: clock)
+    ]);
+    await tester.pump();
+    expect(order(tester), isEmpty);
+    expect(find.textContaining('placed'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'Investing, one card: the venue lists the position before the order\'s '
+      'answer: the listed row itself says Placing (a tap opens the journey), '
+      'then Order placed, then its own line; never a second card',
+      (tester) async {
+    var clock = DateTime.now();
+    late _Trading trading;
+    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+      dollarsOverviewClockProvider.overrideWithValue(() => clock),
+      hyperliquidTradingProvider.overrideWith(() => trading = _Trading(
+          HyperliquidTradingState(
+              isInitialized: true, positions: [_perp('BTC', 500)]))),
+    ]);
+    final notifier = _container(tester).read(standingOrdersProvider.notifier);
+    notifier.debugReplace([_investing()]);
+    await tester.pump();
+    expect(order(tester), ['hl-ETH', 'hl-BTC']);
+    expect(text('hl-ETH', 'Long · Placing'), findsOneWidget);
+    expect(figure('hl-ETH', r'$20.00'), findsOneWidget);
+    final slot = tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH'))));
+
+    // The venue lists ETH while the order still reads posting: the listed
+    // row takes the slot and says Placing. Not two ETH cards.
+    notifier.debugReplace([_investing(state: StandingOrderState.posting)]);
+    trading.land([_perp('BTC', 500), _perp('ETH', 20)]);
+    await tester.pump();
+    await tester.pump();
+    expect(order(tester), ['hl-ETH', 'hl-BTC']);
+    expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
+    expect(text('hl-ETH', 'Long · Placing'), findsOneWidget);
+    expect(tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))),
+        slot);
+    // Placing, its tap is the order's: the journey (Cancel lives there).
+    await tester.tap(inSquares(find.byKey(const ValueKey('hl-ETH'))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
+    Navigator.of(tester.element(find.byType(StandingOrderJourneySheet))).pop();
+    await tester.pump(const Duration(milliseconds: 600));
+
+    // It fills: the same row says placed at once.
+    notifier.debugReplace([
+      _investing(state: StandingOrderState.filled)
+          .copyWith(updatedAt: clock, filledSize: 0.0133, filledUsd: 40)
+    ]);
+    await tester.pump();
+    expect(order(tester), ['hl-ETH', 'hl-BTC']);
+    expect(text('hl-ETH', 'Long · Order placed'), findsOneWidget);
+    expect(find.textContaining('Placing'), findsNothing);
+
+    // The card hold ends: the position's own line.
+    clock = clock.add(kDollarsFilledCardHold);
+    await tester.pump(kDollarsFilledCardHold);
+    await tester.pump();
+    expect(order(tester), ['hl-ETH', 'hl-BTC']);
+    expect(find.textContaining('Order placed'), findsNothing);
+    expect(text('hl-ETH', 'Long · 1 ETH'), findsOneWidget);
+
+    // Closed: the position goes and nothing comes back.
+    trading.land([_perp('BTC', 500)]);
+    await tester.pump();
+    await tester.pump();
+    expect(order(tester), ['hl-BTC']);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'Investing, the fill before the listing: the order\'s card says Order '
+      'placed with the fill\'s margin, then the position takes that same '
+      'slot', (tester) async {
     late _Trading trading;
     await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
       hyperliquidTradingProvider.overrideWith(() => trading = _Trading(
@@ -377,80 +600,25 @@ void main() {
     final notifier = _container(tester).read(standingOrdersProvider.notifier);
     notifier.debugReplace([_investing()]);
     await tester.pump();
-    expect(order(tester), ['standing-so_i', 'hl-BTC']);
-    final card = inSquares(find.byKey(const ValueKey('standing-so_i')));
-    expect(find.descendant(of: card, matching: find.text('Long · Moving money')),
-        findsOneWidget);
-    final slot = tester.getRect(card);
-
-    // Filled, the position not read yet: the card stays, placed.
-    notifier.debugReplace([_investing(state: StandingOrderState.filled)]);
+    final slot = tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH'))));
+    notifier.debugReplace([
+      _investing(state: StandingOrderState.filled)
+          .copyWith(filledSize: 0.0133, filledUsd: 40)
+    ]);
     await tester.pump();
-    expect(order(tester), ['standing-so_i', 'hl-BTC']);
-    expect(find.descendant(of: card, matching: find.text('Long · Order placed')),
-        findsOneWidget);
+    expect(order(tester), ['hl-ETH', 'hl-BTC']);
+    expect(text('hl-ETH', 'Long · Order placed'), findsOneWidget);
+    // The margin at the fill: $40 notional at 2x.
+    expect(figure('hl-ETH', r'$20.00'), findsOneWidget);
 
-    // The position lists: it takes the card's slot, ahead of the bigger
-    // BTC, so nothing moves.
     trading.land([_perp('BTC', 500), _perp('ETH', 20)]);
     await tester.pump();
     await tester.pump();
     expect(order(tester), ['hl-ETH', 'hl-BTC']);
-    final eth = tester.widgetList<HlPositionRow>(inSquares(find.byType(HlPositionRow)))
-        .map((r) => (r.key! as ValueKey<String>).value)
-        .toList();
-    expect(eth.first, 'hl-ETH');
-    expect(
-        tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))).topLeft,
-        slot.topLeft);
-    expect(tester.takeException(), isNull);
-    await unmountInvestments(tester);
-  });
-
-  testWidgets(
-      'Predictions: the filled card hands over to the position row under '
-      'the same key; the position sold, the card never comes back',
-      (tester) async {
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
-      polymarketActivePositionsProvider
-          .overrideWith((ref) => ref.watch(_positions)),
-      livePriceProvider.overrideWith(_Prices.new),
-    ]);
-    final container = _container(tester);
-    final notifier = container.read(standingOrdersProvider.notifier);
-    final card = inSquares(find.byKey(const ValueKey('standing-so_p')));
-
-    // Filled, the position not read yet: the card, placed.
-    notifier.debugReplace([_prediction(state: StandingOrderState.filled)]);
-    await tester.pump();
-    expect(card, findsOneWidget);
-    expect(
-        find.descendant(
-            of: card, matching: find.textContaining('Prediction placed')),
-        findsOneWidget);
-
-    // The position lists under the key the order names: the row takes
-    // over at once.
-    container.read(_positions.notifier).state = [_poly('tok-so_p')];
-    await tester.pump();
-    await tester.pump();
-    expect(card, findsNothing);
-    expect(inSquares(find.byKey(const ValueKey('poly-tok-so_p'))),
-        findsOneWidget);
-    expect(inSquares(find.byType(PolyPositionRow)), findsOneWidget);
-
-    // Sold: the position goes, and the card does not come back, here or
-    // after leaving the Overview and coming back.
-    container.read(_positions.notifier).state = const [];
-    await tester.pump();
-    await tester.pump();
-    expect(card, findsNothing);
-    notifier.debugReplace([
-      _prediction(state: StandingOrderState.filled)
-          .copyWith(updatedAt: DateTime.now())
-    ]);
-    await tester.pump();
-    expect(card, findsNothing);
+    expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
+    expect(text('hl-ETH', 'Long · Order placed'), findsOneWidget);
+    expect(tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))),
+        slot);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
@@ -468,11 +636,11 @@ void main() {
     _container(tester).read(standingOrdersProvider.notifier).debugReplace(
         [_prediction(state: StandingOrderState.filled, at: clock)]);
     await tester.pump();
-    expect(order(tester), ['standing-so_p', 'hl-BTC']);
+    expect(order(tester), ['poly-tok-so_p', 'hl-BTC']);
 
     clock = clock.add(kDollarsFilledCardHold - const Duration(seconds: 1));
     await tester.pump(kDollarsFilledCardHold - const Duration(seconds: 1));
-    expect(order(tester), ['standing-so_p', 'hl-BTC'],
+    expect(order(tester), ['poly-tok-so_p', 'hl-BTC'],
         reason: 'still inside the hold');
 
     clock = clock.add(const Duration(seconds: 1));

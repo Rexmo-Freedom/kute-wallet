@@ -213,4 +213,55 @@ void main() {
     expect(StandingOrderJourneySheet.activeStepFor(StandingOrderState.posting), 1);
     expect(StandingOrderJourneySheet.activeStepFor(StandingOrderState.filled), 2);
   });
+
+  test(
+      'the Overview card\'s word: Placing from the accept until the fill '
+      '(the money moving included), placed the moment it fills', () async {
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    for (final s in [
+      StandingOrderState.funding,
+      StandingOrderState.funded,
+      StandingOrderState.posting,
+      StandingOrderState.posted,
+    ]) {
+      expect(standingOrderStageLine(l10n, _prediction(state: s)), 'Placing',
+          reason: s.name);
+      expect(standingOrderStageLine(l10n, _investing().copyWith(state: s)),
+          'Placing',
+          reason: s.name);
+    }
+    expect(
+        standingOrderStageLine(
+            l10n, _prediction(state: StandingOrderState.filled)),
+        'Prediction placed');
+    expect(
+        standingOrderStageLine(
+            l10n, _investing().copyWith(state: StandingOrderState.filled)),
+        'Order placed');
+    expect(
+        standingOrderStageLine(
+            l10n, _prediction(state: StandingOrderState.needsApproval)),
+        'Needs your approval');
+  });
+
+  test('placed, the card carries the fill\'s own figures', () {
+    // Predictions: what the shares cost.
+    expect(
+        _prediction(state: StandingOrderState.filled)
+            .copyWith(filledSize: 19.6, filledUsd: 9.8)
+            .placedUsd,
+        9.8);
+    // Investing: the margin at the fill, the notional over the leverage.
+    expect(
+        _investing()
+            .copyWith(
+                state: StandingOrderState.filled,
+                filledSize: 0.0005,
+                filledUsd: 30)
+            .placedUsd,
+        closeTo(30 / _investing().leverage, 1e-9));
+    // No figures in the answer: the stake stands in.
+    expect(_prediction(state: StandingOrderState.filled).placedUsd,
+        _prediction().amountUsd);
+  });
 }

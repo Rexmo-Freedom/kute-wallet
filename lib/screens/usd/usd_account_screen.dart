@@ -10,10 +10,12 @@
 //   * the shared hero, [InvestmentBalanceHeader] in its one-balance mode:
 //     the total (dollars plus the venues' open positions) standing alone,
 //     no title over it (Invested is in Balances, never twice), and,
-//     while anything is on a rail, the in-flight lines under it ("$5.00 moving to
-//     Predictions", "$12.40 coming back from Investing", "Incoming
-//     $20.00", "$0.60 unavailable until balancing completes"), so money
-//     in flight is never hidden. THE BALANCE IS NOT A DOOR (owner
+//     while money arrives from outside or a venue still owes it back,
+//     the in-flight lines under it ("Incoming $20.00", "$0.60
+//     unavailable until balancing completes"), so money in flight is
+//     never hidden. Never a line for an order on its way (founder, 10
+//     November 2026): its money is Invested at once and the Overview's
+//     card says Placing. THE BALANCE IS NOT A DOOR (owner
 //     decision October 2026, replacing "the balance is the door to the
 //     Portfolio"): neither the hero nor the compact bar's small total
 //     opens anything, and the hero wears no arrow; the Portfolio is the

@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Ez a kör véget ért, amíg a pénzed úton volt. A(z) {amount} az Előrejelzésekben van.",
   "slipFundingInPredictions": "A(z) {amount} az Előrejelzésekben van. Koppints az újrapróbáláshoz.",
   "slipFundingInInvesting": "A(z) {amount} a Befektetésben van. Koppints az újrapróbáláshoz.",
-  "oneBalancePlacingBet": "{amount} feltétele erre: {side} · {market}",
-  "oneBalanceOpeningOrder": "{amount} értékű {market} megbízás nyitása",
   "hlMarginStepAdding": "{amount} fedezet hozzáadása: {coin}",
   "hlMarginFundingReady": "A(z) {amount} az Investmentsben van. Koppints a fedezet hozzáadásához.",
   "positionProtectIt": "Védd meg",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Megszakítva. A pénz az Előrejelzésekben marad, elérhető.",
   "standingOrderCancelled": "Megszakítva. A pénz a Befektetésben marad, elérhető.",
   "standingPriceMoved": "Az ár {price} lett. Koppints, hogy az új áron add le.",
-  "standingStageMoving": "Pénz mozgatása",
   "standingStagePlacing": "Leadás",
   "standingStageApproval": "Jóváhagyásodra vár"
 }

@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Tämä kierros päättyi, kun rahasi olivat matkalla. {amount} on tililläsi Ennusteet.",
   "slipFundingInPredictions": "{amount} on tililläsi Ennusteet. Napauta yrittääksesi uudelleen.",
   "slipFundingInInvesting": "{amount} on tililläsi Sijoita. Napauta yrittääksesi uudelleen.",
-  "oneBalancePlacingBet": "Asetetaan {amount} vaihtoehdolle {side} · {market}",
-  "oneBalanceOpeningOrder": "Avataan {amount} {market} -toimeksianto",
   "hlMarginStepAdding": "Lisätään {amount} marginaalia kohteeseen {coin}",
   "hlMarginFundingReady": "{amount} on tililläsi Investments. Napauta lisätäksesi marginaalia.",
   "positionProtectIt": "Suojaa se",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Peruttu. Rahat pysyvät Ennusteissa, käytettävissä.",
   "standingOrderCancelled": "Peruttu. Rahat pysyvät Sijoittamisessa, käytettävissä.",
   "standingPriceMoved": "Hinta muuttui: {price}. Napauta asettaaksesi uuteen hintaan.",
-  "standingStageMoving": "Rahaa siirretään",
   "standingStagePlacing": "Asetetaan",
   "standingStageApproval": "Vaatii hyväksyntäsi"
 }

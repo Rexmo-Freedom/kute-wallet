@@ -7,6 +7,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
+    show formatDollars;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/currency_conversions_provider.dart'
@@ -361,8 +363,9 @@ void main() {
     });
 
     testWidgets(
-        'money on a rail: the in-flight lines under the split, in order; '
-        'the total counts it and Available leaves the lines\' money out',
+        'money on a rail: never a line for an order on its way (its money is '
+        'Invested at once); incoming and unavailable lines under the split, '
+        'in order, and Available leaves their money out',
         (tester) async {
       await pumpOne(
           tester,
@@ -385,19 +388,22 @@ void main() {
       expect(header(tester).amountText, r'$138.00');
       expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, isNull);
-      // 138 - 57.5 invested - 25.6 on the lines (5 + 20 + 0.6); the sweep
-      // home has no line, so its 12.4 stays in Available.
-      expect(_split(tester), (r'$57.50', r'$54.90'));
+      // 57.5 invested + the bet's 5 on its way; 138 - 62.5 - 20.6 on the
+      // lines (20 + 0.6); the sweep home has no line, so its 12.4 stays in
+      // Available.
+      expect(_split(tester), (r'$62.50', r'$54.90'));
       final splitBottom = tester
           .getBottomLeft(
               find.byKey(const ValueKey('investments-balance-split')))
           .dy;
       final lines = [
-        r'Placing $5.00 on Yes · Lakers vs Celtics',
         r'Incoming $20.00',
         r'$0.60 unavailable until balancing completes',
       ];
-      expect(find.byType(PendingDepositLine), findsNWidgets(3));
+      // Nothing says what is happening to the order (founder, 10 November
+      // 2026: "under the main balance what is happening. Do not have this").
+      expect(find.textContaining('Placing'), findsNothing);
+      expect(find.byType(PendingDepositLine), findsNWidgets(2));
       expect(find.textContaining('coming back'), findsNothing);
       expect(find.textContaining('moving to'), findsNothing);
       double top(String line) => tester.getTopLeft(find.text(line)).dy;
@@ -432,53 +438,37 @@ void main() {
     });
 
     testWidgets('each in-flight line on its own', (tester) async {
-      await pumpOne(
-          tester,
-          known.copyWith(inFlight: const [
-            InFlightMove(
-                kind: InFlightKind.toVenue,
+      // An order on its way, its margin or its Bitcoin leg: no line, its
+      // money Invested at once (42.5 + 57.5 + the order's money).
+      for (final move in const [
+        InFlightMove(
+            kind: InFlightKind.toVenue,
+            venue: OneBalanceVenue.investing,
+            usd: 7.25,
+            order: _order),
+        InFlightMove(
+            kind: InFlightKind.toVenue,
+            venue: OneBalanceVenue.investing,
+            usd: 30,
+            order: InFlightOrder(
+                id: 'fo_margin',
                 venue: OneBalanceVenue.investing,
-                usd: 7.25,
-                order: _order),
-          ]));
-      expect(find.text(r'Opening $7.25 NVDA order'), findsOneWidget);
-      expect(find.byType(PendingDepositLine), findsOneWidget);
-      // Margin added to a position through Investments names the margin,
-      // never an order.
-      await pumpOne(
-          tester,
-          known.copyWith(inFlight: const [
-            InFlightMove(
-                kind: InFlightKind.toVenue,
-                venue: OneBalanceVenue.investing,
-                usd: 30,
-                order: InFlightOrder(
-                    id: 'fo_margin',
-                    venue: OneBalanceVenue.investing,
-                    orderUsd: 30,
-                    side: 'Long',
-                    market: 'TSLA',
-                    margin: true)),
-          ]));
-      expect(find.text(r'Adding $30.00 margin to TSLA'), findsOneWidget);
-      expect(find.textContaining('order'), findsNothing);
-      // The Bitcoin leg of the same order (dollars arriving for it) and
-      // its move into the venue: one line, the order's.
-      await pumpOne(
-          tester,
-          known.copyWith(inFlight: const [
-            InFlightMove(
-                kind: InFlightKind.toVenue,
-                venue: OneBalanceVenue.predictions,
-                usd: 2,
-                order: _bet),
-            InFlightMove(
-                kind: InFlightKind.incomingDollars, usd: 3.1, order: _bet),
-          ]));
-      expect(find.text(r'Placing $5.00 on Yes · Lakers vs Celtics'),
-          findsOneWidget);
-      expect(find.textContaining('Incoming'), findsNothing);
-      expect(find.byType(PendingDepositLine), findsOneWidget);
+                orderUsd: 30,
+                side: 'Long',
+                market: 'TSLA',
+                margin: true)),
+        InFlightMove(
+            kind: InFlightKind.incomingDollars, usd: 3.1, order: _bet),
+      ]) {
+        await pumpOne(tester, known.copyWith(inFlight: [move]));
+        expect(find.byType(PendingDepositLine), findsNothing,
+            reason: '${move.usd}');
+        expect(find.textContaining('Opening'), findsNothing);
+        expect(find.textContaining('Adding'), findsNothing);
+        expect(find.textContaining('Incoming'), findsNothing);
+        expect(_split(tester)!.$1, formatDollars(57.5 + move.usd));
+        expect(_split(tester)!.$2, r'$42.50');
+      }
       // The idle sweep home is plumbing: no line of its own; its cash
       // counts in Available, so the split still makes the total.
       await pumpOne(
@@ -517,8 +507,8 @@ void main() {
     });
 
     testWidgets(
-        'with the slip closed, each source of the order shows its own '
-        'state under the order', (tester) async {
+        'with the slip closed, an order\'s sources say nothing under the '
+        'balance either', (tester) async {
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
@@ -545,22 +535,27 @@ void main() {
                           from: MoneyPlace.dollars,
                           usd: 5,
                           status: MoneyStepStatus.done),
-                      MoneyStep(
-                          id: 'leg:investing',
-                          kind: MoneyStepKind.leg,
-                          from: MoneyPlace.investing,
-                          usd: 2,
-                          status: MoneyStepStatus.failed),
                     ])),
           ]));
-      expect(find.text(r'Placing $15.00 on Yes · Lakers'), findsOneWidget);
-      expect(find.text(r'Moving $8.00 from Bitcoin'), findsOneWidget);
-      expect(find.text(r'Moved $5.00 from Dollars'), findsOneWidget);
-      expect(find.text("\$2.00 from Investing didn't move"), findsOneWidget);
-      expect(find.byType(PendingDepositLine), findsNWidgets(4));
+      expect(find.byType(PendingDepositLine), findsNothing);
+      expect(find.textContaining('Placing'), findsNothing);
+      expect(find.textContaining('Moving'), findsNothing);
+      expect(find.textContaining('Moved'), findsNothing);
+      expect(InvestmentBalanceHeader.inFlightLines(
+              tester.element(find.byType(InvestmentBalanceHeader)),
+              known.copyWith(inFlight: const [
+                InFlightMove(
+                    kind: InFlightKind.toVenue,
+                    venue: OneBalanceVenue.predictions,
+                    usd: 8,
+                    order: _bet),
+              ]),
+              formatDollars),
+          isEmpty);
     });
 
-    testWidgets('the lines are in the app language', (tester) async {
+    testWidgets('in any language, an order on its way has no line',
+        (tester) async {
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
@@ -571,9 +566,8 @@ void main() {
                 order: _bet),
           ]),
           locale: const Locale('pt'));
-      // The line's own translation lives in the ARB files.
-      expect(find.textContaining('A colocar'), findsOneWidget);
-      expect(find.textContaining('Placing'), findsNothing);
+      expect(find.byType(PendingDepositLine), findsNothing);
+      expect(find.textContaining('A colocar'), findsNothing);
     });
 
     testWidgets(
@@ -608,14 +602,16 @@ void main() {
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
-            InFlightMove(
-                kind: InFlightKind.toVenue,
-                venue: OneBalanceVenue.predictions,
-                usd: 5,
-                order: _bet),
+            InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
           ]),
           onTap: () => taps++);
       expect(chevron, findsOneWidget);
+      expect(
+          InvestmentBalanceHeader.showsInFlight(known.copyWith(inFlight: const [
+            InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
+          ])),
+          isTrue);
+      // An order on its way has no line.
       expect(
           InvestmentBalanceHeader.showsInFlight(known.copyWith(inFlight: const [
             InFlightMove(
@@ -624,7 +620,7 @@ void main() {
                 usd: 5,
                 order: _bet),
           ])),
-          isTrue);
+          isFalse);
       // A sweep home alone has no line, so the split stays.
       expect(
           InvestmentBalanceHeader.showsInFlight(known.copyWith(inFlight: const [
@@ -639,7 +635,7 @@ void main() {
           InvestmentBalanceHeader.showsInFlight(
               known.copyWith(waiting: const {OneBalanceVenue.investing: 0.6})),
           isTrue);
-      await tester.tap(find.text(r'Placing $5.00 on Yes · Lakers vs Celtics'));
+      await tester.tap(find.text(r'Incoming $20.00'));
       await tester.pumpAndSettle();
       expect(taps, 1);
       expect(events.where((e) => e.$1 == 'activity_history_opened'), isEmpty);
@@ -650,16 +646,11 @@ void main() {
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
-            InFlightMove(
-                kind: InFlightKind.toVenue,
-                venue: OneBalanceVenue.predictions,
-                usd: 5,
-                order: _bet),
+            InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
           ]),
           balancePrivacy: 1);
       expect(header(tester).amountText, '••••••');
-      expect(find.text('Placing •••••• on Yes · Lakers vs Celtics'),
-          findsOneWidget);
+      expect(find.text('Incoming ••••••'), findsOneWidget);
       expect(find.textContaining(r'$'), findsNothing);
     });
   });

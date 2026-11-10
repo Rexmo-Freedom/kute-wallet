@@ -337,6 +337,33 @@ void main() {
       expect(c.read(standingOrdersProvider).single.state, StandingOrderState.filled);
     });
 
+    test('the fill\'s own figures go on the record, also when the venue\'s '
+        'settlement read comes after the fill', () async {
+      final c = container();
+      final intent = _bet();
+      approve(intent);
+      final notifier = c.read(pendingPolymarketBetProvider.notifier);
+      notifier.setIntent(intent);
+      await settle();
+      notifier.updateStatus(PendingBetStatus.placing);
+      await settle();
+      notifier.updateStatus(PendingBetStatus.done);
+      await settle();
+      final filled = c.read(standingOrdersProvider).single;
+      expect(filled.state, StandingOrderState.filled);
+      expect(filled.filledUsd, isNull);
+      expect(filled.placedUsd, filled.amountUsd);
+      notifier.recordSettlement(
+          filledShares: 19.6, filledCost: 9.8, orderedShares: 20);
+      await settle();
+      final noted = c.read(standingOrdersProvider).single;
+      expect(noted.state, StandingOrderState.filled);
+      expect(noted.filledSize, 19.6);
+      expect(noted.filledUsd, 9.8);
+      expect(noted.placedUsd, 9.8);
+      expect((await store.load('w1')).single.filledUsd, 9.8);
+    });
+
     test('a failure is reported once, with its code', () async {
       final c = container();
       final intent = _bet();

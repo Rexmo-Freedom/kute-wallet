@@ -11239,16 +11239,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return '$amount feltétele erre: $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return '$amount értékű $market megbízás nyitása';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return '$amount fedezet hozzáadása: $coin';
   }
@@ -14481,9 +14471,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String standingPriceMoved(String price) {
     return 'Az ár $price lett. Koppints, hogy az új áron add le.';
   }
-
-  @override
-  String get standingStageMoving => 'Pénz mozgatása';
 
   @override
   String get standingStagePlacing => 'Leadás';

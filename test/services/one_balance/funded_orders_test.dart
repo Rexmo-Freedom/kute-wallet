@@ -257,7 +257,9 @@ void main() {
     final ordered = moves.where((m) => m.order != null).toList();
     expect(ordered, isNotEmpty);
     expect(ordered.map((m) => m.order!.id).toSet(), {id});
-    expect(ordered.every((m) => m.hasLine), isTrue);
+    // An order's money on its way has no line under the balance: it is
+    // Invested at once (founder, 10 November 2026).
+    expect(ordered.every((m) => !m.hasLine), isTrue);
     final sweep = moves.where((m) => m.kind == InFlightKind.fromVenue);
     expect(sweep.single.order, isNull);
     expect(sweep.single.hasLine, isFalse);

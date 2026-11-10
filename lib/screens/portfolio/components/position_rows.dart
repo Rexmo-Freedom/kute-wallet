@@ -302,6 +302,30 @@ class PortfolioCardList extends StatelessWidget {
   }
 }
 
+/// A standing order placing into the position under it (the Dollars
+/// Overview's ONE card, founder 10 November 2026: "show the actual one,
+/// with placing and when it's placed, we just show placed";
+/// dollars_activity_tab.dart): the listed position's own row
+/// ([PolyPositionRow], [HlPositionRow], [HlSpotRow]) says [status] where
+/// its state goes ("Yes · Placing", "Long · Order placed"), and [onTap],
+/// when given, takes the row's tap (the order's money journey, where it
+/// can still be cancelled) in place of the position's. A row selling says
+/// so first. Nothing above: the row as it is.
+class PortfolioRowStatusScope extends InheritedWidget {
+  const PortfolioRowStatusScope(
+      {super.key, required this.status, this.onTap, required super.child});
+
+  final String status;
+  final VoidCallback? onTap;
+
+  static PortfolioRowStatusScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PortfolioRowStatusScope>();
+
+  @override
+  bool updateShouldNotify(PortfolioRowStatusScope old) =>
+      old.status != status || old.onTap != onTap;
+}
+
 /// How a [PortfolioPositionRow] is drawn (see the file header): the
 /// Portfolio's own row ([list]), the Investing list's row ([market]), a
 /// big square ([square]), the full-width compact card an odd last
@@ -1909,10 +1933,14 @@ class PolyPositionRow extends ConsumerWidget {
         !event.isSyntheticBinary &&
         (event.gameId != null || event.metadataGameId != null);
 
-    // The state, where the position has one, in place of the side.
+    // The state, where the position has one, in place of the side: a
+    // standing order placing into it says so ([PortfolioRowStatusScope]).
+    final standing = PortfolioRowStatusScope.maybeOf(context);
     String? status;
     if (selling) {
       status = l10n.betSellingEllipsis;
+    } else if (standing != null) {
+      status = standing.status;
     } else if (p.isResolved) {
       // A win is claimed automatically: it reads "Settled" like any
       // closed position.
@@ -1989,12 +2017,13 @@ class PolyPositionRow extends ConsumerWidget {
             : null,
         pnl: portfolioPnlPill(pnl, percent: pnlPercent),
         pnlAmount: money(pnl.abs()),
-        onTap: () {
-          HapticFeedback.selectionClick();
-          TrackingService.track('open_investments_position_tapped',
-              params: {'product': 'predictions'});
-          PositionDetailSheet.show(context, position: p);
-        },
+        onTap: standing?.onTap ??
+            () {
+              HapticFeedback.selectionClick();
+              TrackingService.track('open_investments_position_tapped',
+                  params: {'product': 'predictions'});
+              PositionDetailSheet.show(context, position: p);
+            },
       ),
     );
   }
@@ -2130,6 +2159,9 @@ class HlPositionRow extends ConsumerWidget {
     final descriptor = ref.watch(hyperliquidAccountMarketProvider(p.coin));
     final coin = descriptor?.coin ?? p.coin;
     String money(double usd) => formatDollars(usd);
+    final side = p.isLong ? l10n.longLabel : l10n.shortLabel;
+    // A standing order placing into it says so in place of the size.
+    final standing = PortfolioRowStatusScope.maybeOf(context);
     return PortfolioPositionRow(
       leading: _hlImage(
           coin: coin,
@@ -2140,20 +2172,24 @@ class HlPositionRow extends ConsumerWidget {
           hlFriendlyName(coin) ??
           descriptor?.unitAssetName ??
           coin,
-      subtitle: '${p.isLong ? l10n.longLabel : l10n.shortLabel} · '
-          '${formatHlSize(p.szi.abs())} ${_ticker(coin)}',
+      subtitle: standing != null
+          ? '$side · ${standing.status}'
+          : '$side · ${formatHlSize(p.szi.abs())} ${_ticker(coin)}',
       // Balances hidden: the side alone, no size.
-      hiddenSquareLine: p.isLong ? l10n.longLabel : l10n.shortLabel,
-      chip: p.isLong ? l10n.longLabel : l10n.shortLabel,
+      hiddenSquareLine:
+          standing != null ? '$side · ${standing.status}' : side,
+      chip: side,
       value: money(hlCloseValue(p, liveMid: mid)),
       pnl: portfolioPnlPill(pnl, percent: roe * 100),
       pnlAmount: money(pnl.abs()),
-      onTap: () {
-        HapticFeedback.selectionClick();
-        TrackingService.track('open_investments_position_tapped',
-            params: {'product': 'trading'});
-        HlPositionDetailSheet.show(context, position: p, market: descriptor);
-      },
+      onTap: standing?.onTap ??
+          () {
+            HapticFeedback.selectionClick();
+            TrackingService.track('open_investments_position_tapped',
+                params: {'product': 'trading'});
+            HlPositionDetailSheet.show(context,
+                position: p, market: descriptor);
+          },
     );
   }
 }
@@ -2178,6 +2214,8 @@ class HlSpotRow extends ConsumerWidget {
     final cost = balance.costBasis;
     final pnl = cost != null && value != null ? value - cost : null;
     String money(double usd) => formatDollars(usd);
+    // A standing order placing into it says so in place of the size.
+    final standing = PortfolioRowStatusScope.maybeOf(context);
     return PortfolioPositionRow(
       leading: _hlImage(
           coin: balance.coin,
@@ -2186,22 +2224,27 @@ class HlSpotRow extends ConsumerWidget {
           category: market?.category),
       title:
           hlFriendlyName(balance.coin) ?? market?.unitAssetName ?? balance.coin,
-      subtitle:
-          '${formatHlSize(balance.total)} ${balance.coin} · ${l10n.investingSpot}',
-      hiddenSquareLine: l10n.investingSpot,
+      subtitle: standing != null
+          ? '${l10n.investingSpot} · ${standing.status}'
+          : '${formatHlSize(balance.total)} ${balance.coin} · '
+              '${l10n.investingSpot}',
+      hiddenSquareLine: standing != null
+          ? '${l10n.investingSpot} · ${standing.status}'
+          : l10n.investingSpot,
       value: value == null ? '—' : money(value),
       pnl: pnl == null
           ? null
           : portfolioPnlPill(pnl,
               percent: cost != null && cost > 0 ? pnl / cost * 100 : null),
       pnlAmount: pnl == null ? null : money(pnl.abs()),
-      onTap: market == null
-          ? null
-          : () {
-              TrackingService.track('open_investments_position_tapped',
-                  params: {'product': 'trading', 'kind': 'spot'});
-              HlMarketDetailSheet.show(context, market: market);
-            },
+      onTap: standing?.onTap ??
+          (market == null
+              ? null
+              : () {
+                  TrackingService.track('open_investments_position_tapped',
+                      params: {'product': 'trading', 'kind': 'spot'});
+                  HlMarketDetailSheet.show(context, market: market);
+                }),
     );
   }
 }

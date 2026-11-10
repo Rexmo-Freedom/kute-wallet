@@ -3096,8 +3096,6 @@
   "slipFundingRoundEnded": "Această rundă s-a încheiat cât timp banii tăi erau în drum. Cei {amount} ai tăi sunt în Predicții.",
   "slipFundingInPredictions": "Cei {amount} ai tăi sunt în Predicții. Atinge pentru a încerca din nou.",
   "slipFundingInInvesting": "Cei {amount} ai tăi sunt în Investiții. Atinge pentru a încerca din nou.",
-  "oneBalancePlacingBet": "Se plasează {amount} pe {side} · {market}",
-  "oneBalanceOpeningOrder": "Se deschide ordinul de {amount} pe {market}",
   "hlMarginStepAdding": "Se adaugă marjă de {amount} la {coin}",
   "hlMarginFundingReady": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a adăuga marjă.",
   "positionProtectIt": "Protejeaz-o",
@@ -4079,7 +4077,6 @@
   "standingPredictionCancelled": "Anulat. Banii rămân în Predicții, disponibili.",
   "standingOrderCancelled": "Anulat. Banii rămân în Investiții, disponibili.",
   "standingPriceMoved": "Prețul a ajuns la {price}. Atinge pentru a plasa la noul preț.",
-  "standingStageMoving": "Mutăm banii",
   "standingStagePlacing": "Se plasează",
   "standingStageApproval": "Necesită aprobarea ta"
 }

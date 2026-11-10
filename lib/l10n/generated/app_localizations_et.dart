@@ -11200,16 +11200,6 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Panustame $amount valikule $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Avame $amount $market tehingu';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Lisame $coin positsioonile $amount marginaali';
   }
@@ -14434,9 +14424,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String standingPriceMoved(String price) {
     return 'Hind liikus $price peale. Puuduta, et panna uue hinnaga.';
   }
-
-  @override
-  String get standingStageMoving => 'Liigutame raha';
 
   @override
   String get standingStagePlacing => 'Esitame';

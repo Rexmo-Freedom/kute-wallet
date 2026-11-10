@@ -10796,16 +10796,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return '$sideに$amountを予測中 · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return '$amountの$market注文を発注中';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return '$coinに証拠金$amountを追加中';
   }
@@ -13989,9 +13979,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String standingPriceMoved(String price) {
     return '価格が$priceに変わりました。タップすると新しい価格で発注します。';
   }
-
-  @override
-  String get standingStageMoving => '資金を移動中';
 
   @override
   String get standingStagePlacing => '発注中';

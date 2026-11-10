@@ -254,6 +254,35 @@ void main() {
       expect(broken.availableUsd, 0);
     });
 
+    test('money on its way into an order is Invested, never a line', () {
+      const state = OneBalanceState(
+        dollarsUsd: 10,
+        investedUsd: 4,
+        inFlight: [
+          InFlightMove(
+              kind: InFlightKind.toVenue,
+              venue: OneBalanceVenue.predictions,
+              usd: 5,
+              order: InFlightOrder(
+                  id: 'fo_bet',
+                  venue: OneBalanceVenue.predictions,
+                  orderUsd: 5,
+                  side: 'Yes',
+                  market: 'Lakers')),
+        ],
+      );
+      expect(state.onLinesUsd, 0);
+      expect(state.forOrdersUsd, 5);
+      final split = oneBalanceSplit(
+          totalUsd: state.totalUsd,
+          investedUsd: state.investedUsd,
+          forOrdersUsd: state.forOrdersUsd,
+          onLinesUsd: state.onLinesUsd);
+      expect(state.totalUsd, 19);
+      expect(split.investedUsd, 9);
+      expect(split.availableUsd, 10);
+    });
+
     test('the state names what its lines carry: lined moves and waiting', () {
       const state = OneBalanceState(
         dollarsUsd: 10,

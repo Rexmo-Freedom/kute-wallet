@@ -125,11 +125,14 @@ class InFlightMove {
   /// not the rail. Null for money on a rail for no order.
   final InFlightOrder? order;
 
-  /// Whether the header gives this move a line of its own: the order it
-  /// funds, or dollars arriving from outside. Money moving between the
+  /// Whether the header gives this move a line of its own: dollars
+  /// arriving from outside. Money on its way into an order has none
+  /// (founder, 10 November 2026: nothing under the balance says what is
+  /// happening; it is Invested at once, [OneBalanceState.forOrdersUsd],
+  /// and the Overview's card says Placing). Money moving between the
   /// person's own accounts for no order (a sweep home, a move with no
   /// order) leaves the total unchanged and is plumbing: no line.
-  bool get hasLine => order != null || kind == InFlightKind.incomingDollars;
+  bool get hasLine => order == null && kind == InFlightKind.incomingDollars;
 
   InFlightMove copyWith({
     InFlightKind? kind,
@@ -255,6 +258,19 @@ class OneBalanceState {
     return sum;
   }
 
+  /// The money on a rail into an order (an order funded from Dollars, or
+  /// from Bitcoin through Dollars): the hero counts it as Invested
+  /// ([oneBalanceSplit]), never as a line of its own.
+  double get forOrdersUsd {
+    var sum = 0.0;
+    for (final move in inFlight) {
+      if (move.order != null && move.usd.isFinite && move.usd > 0) {
+        sum += move.usd;
+      }
+    }
+    return sum;
+  }
+
   /// Total of the in-flight rows, all kinds.
   double get inFlightUsd {
     var sum = 0.0;
@@ -337,7 +353,9 @@ class OneBalanceState {
 /// ADDS UP to the figure over it, to the cent, in the currency on screen:
 ///
 ///   Invested  = the venues' positions and reserved order cash
-///               ([OneBalanceState.investedUsd]);
+///               ([OneBalanceState.investedUsd]), and the money on its way
+///               into an order ([forOrdersUsd], [OneBalanceState
+///               .forOrdersUsd]): accepted, it is invested;
 ///   Available = the rest of the total, less [onLinesUsd] (the money the
 ///               in-flight lines under it name, [OneBalanceState.onLinesUsd]):
 ///               Dollars, the cash the venues keep, and money moving
@@ -356,6 +374,7 @@ class OneBalanceState {
 ({double investedUsd, double availableUsd}) oneBalanceSplit({
   required double totalUsd,
   required double investedUsd,
+  double forOrdersUsd = 0,
   double onLinesUsd = 0,
   double rate = 1,
 }) {
@@ -363,7 +382,8 @@ class OneBalanceState {
   final r = rate.isFinite && rate > 0 ? rate : 1.0;
   int cents(double usd) => (clean(usd) * r * 100).round();
   final total = cents(totalUsd);
-  final invested = cents(investedUsd).clamp(0, total);
+  final invested =
+      (cents(investedUsd) + cents(forOrdersUsd)).clamp(0, total);
   final lines = cents(onLinesUsd).clamp(0, total - invested);
   final available = total - invested - lines;
   return (
