@@ -519,14 +519,15 @@ void main() {
     expect(findMoneyStepContaining('from Investing'), findsOneWidget);
     expect(findMoneyStepContaining('from Dollars'), findsOneWidget);
     // The step list names the active step once; the bar (the slip's busy
-    // button) reads it too.
+    // button) says OK, which only closes the slip (founder, 10 November
+    // 2026, on 2.2.0 (99)).
     expect(
         find.descendant(
             of: find.byType(SlipFundingSteps),
             matching: find.text('Getting your prediction ready')),
         findsOneWidget);
     expect(barPrimaryBusy(tester), isTrue);
-    expect(barPrimaryLabel(tester), 'Getting your prediction ready');
+    expect(barPrimaryLabel(tester), 'OK');
     expect(find.text('Placing \$10.00 on Yes'), findsOneWidget);
     final pending = _container(tester).read(pendingPolymarketBetProvider)!;
     expect(pending.status, PendingBetStatus.awaitingBalance);

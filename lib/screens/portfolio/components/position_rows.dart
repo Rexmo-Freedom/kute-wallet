@@ -54,7 +54,10 @@
 // figures as every other shape and as the brag card (hlLivePnl on the
 // margin, the shares at the live price). Asked with
 // [PortfolioPositionSquares.holdings], they read what they hold whatever
-// its length, where the Activity tab's keep to their one line each:
+// its length. The Activity tab's (the Dollars Overview's) wrap too, their
+// squares in a row as tall as the tallest (founder, 10 November 2026, on
+// 2.2.0 (99): "on the overview the text is cut"), but keep their own line
+// and figures:
 //   * the line under the name starts with the side, then the state, and
 //     the event last ([PortfolioPositionRow.squareLine],
 //     [polyPositionSquareLine]: "Yes · Settled · Brazil Presidential
@@ -420,9 +423,11 @@ class PortfolioPositionSquares extends StatelessWidget {
   final List<Widget> rows;
 
   /// The Portfolio screen's Positions (see the file header): the side
-  /// first, nothing cut, a row of squares as tall as its tallest, the
-  /// figures masked with balances hidden. False: the Activity tab's, one
-  /// line each at the one height.
+  /// first, the figures masked with balances hidden. False: the Dollars
+  /// Overview's. Either way nothing is cut (founder, 10 November 2026, on
+  /// 2.2.0 (99): "on the overview the text is cut"): the name and the line
+  /// under it wrap to the lines they need, a row of squares as tall as
+  /// its tallest.
   final bool holdings;
 
   @override
@@ -441,7 +446,7 @@ class PortfolioPositionSquares extends StatelessWidget {
               squareInnerWidth: (box.maxWidth - kPortfolioSquareGap.w) / 2 -
                   _kSquarePad.w * 2,
               child: ActivitySquareGrid(
-                  equalHeights: holdings, children: rows.sublist(0, paired)),
+                  equalHeights: true, children: rows.sublist(0, paired)),
             ),
           ),
         if (rows.length.isOdd) ...[
@@ -1218,6 +1223,7 @@ class PortfolioPositionRow extends StatelessWidget {
         return _holding(square: false);
       case PortfolioRowLayout.square:
         // The line under the name says the side held: the title alone.
+        // Whole, as the Portfolio's: nothing cut ([PortfolioPositionSquares]).
         return _PositionSquare(
           leading: leading,
           name: title,
@@ -1228,6 +1234,7 @@ class PortfolioPositionRow extends StatelessWidget {
               : portfolioCornerPnl(context, under, amount: pnlAmount),
           detail: detail,
           onTap: onTap,
+          whole: true,
         );
       case PortfolioRowLayout.wide:
         return _PositionWide(
@@ -1240,6 +1247,7 @@ class PortfolioPositionRow extends StatelessWidget {
               : portfolioCornerPnl(context, under, amount: pnlAmount),
           detail: detail,
           onTap: onTap,
+          whole: true,
         );
       case PortfolioRowLayout.position:
         return _PositionLine(
@@ -1569,7 +1577,11 @@ class _PositionSquare extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final amount = change?.amount;
-    return KutePressable(
+    // Whole: as tall as its words (at least the square's height), a
+    // height of its own wherever it stands, and stretched to its row's
+    // tallest inside the grid's IntrinsicHeight (a tight height passes
+    // through).
+    final card = KutePressable(
       enabled: onTap != null,
       child: Container(
         key: const ValueKey('portfolio-square'),
@@ -1683,6 +1695,7 @@ class _PositionSquare extends StatelessWidget {
         ),
       ),
     );
+    return whole ? IntrinsicHeight(child: card) : card;
   }
 }
 

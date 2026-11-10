@@ -12583,6 +12583,10 @@
     "description": "Standing orders: the state after the accept while the money moves and the prediction is posted (the slip has closed)."
   },
   "standingPlacingOrder": "Placing your order",
+  "standingPlacingInvestment": "Placing your investment",
+  "@standingPlacingInvestment": {
+    "description": "Standing orders: Sal's toast at the top once the person leaves the locked Investing ticket while the order is still on its way (no spinner, no Cancel; closable)."
+  },
   "standingPredictionPlaced": "Prediction placed",
   "standingOrderPlaced": "Order placed",
   "standingPredictionFailed": "Your prediction wasn't placed. The money is in Predictions, available.",

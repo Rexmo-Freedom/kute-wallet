@@ -241,6 +241,51 @@ void main() {
     await drain(tester);
   });
 
+  testWidgets(
+      'a sticky information toast with its X (the placing toast\'s shape): '
+      'Sal and the words, no mark, no spinner, no action; it stays until '
+      'closed, by the 44 pt X or a swipe up', (tester) async {
+    await pumpApp(tester);
+    var closed = 0;
+    SalToast.show(page,
+        message: 'Placing your prediction',
+        detail: 'Will it rain?',
+        tone: SalToastTone.info,
+        sticky: true,
+        closable: true,
+        onClose: () => closed++);
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(_clip(tester), 'blink');
+    expect(find.byKey(_mark), findsNothing);
+    expect(find.byType(KuteStatusMark), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byKey(const ValueKey('sal-toast-action')), findsNothing);
+    final x = find.byKey(const ValueKey('sal-toast-close'));
+    expect(x, findsOneWidget);
+    expect(tester.getSize(x), const Size(44, 44));
+    expect(success + failure, 0);
+    // Past every tone's own time: still there.
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.byKey(_toast), findsOneWidget);
+    await tester.tap(x);
+    await left(tester);
+    expect(find.byKey(_toast), findsNothing);
+    expect(closed, 1);
+
+    SalToast.show(page,
+        message: 'Placing your investment',
+        tone: SalToastTone.info,
+        sticky: true,
+        closable: true);
+    await tester.pump();
+    await tester.pump(_arrive);
+    await tester.drag(find.byKey(_toast), const Offset(0, -80));
+    await left(tester);
+    expect(find.byKey(_toast), findsNothing);
+    await drain(tester);
+  });
+
   testWidgets('a swipe up sends it off; a swipe down springs back',
       (tester) async {
     await pumpApp(tester);

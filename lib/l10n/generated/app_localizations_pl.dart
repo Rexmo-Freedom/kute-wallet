@@ -14456,6 +14456,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get standingPlacingOrder => 'Składamy Twoje zlecenie';
 
   @override
+  String get standingPlacingInvestment => 'Składamy Twoją inwestycję';
+
+  @override
   String get standingPredictionPlaced => 'Prognoza złożona';
 
   @override

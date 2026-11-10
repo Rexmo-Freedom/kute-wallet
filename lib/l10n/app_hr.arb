@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} gore ili dolje · {length}",
   "standingPlacingPrediction": "Postavljamo tvoju prognozu",
   "standingPlacingOrder": "Postavljamo tvoj nalog",
+  "standingPlacingInvestment": "Postavljamo tvoje ulaganje",
   "standingPredictionPlaced": "Prognoza postavljena",
   "standingOrderPlaced": "Nalog postavljen",
   "standingPredictionFailed": "Tvoja prognoza nije postavljena. Novac je u Prognozama, dostupan.",

@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} üles või alla · {length}",
   "standingPlacingPrediction": "Paneme su ennustust",
   "standingPlacingOrder": "Paneme su korraldust",
+  "standingPlacingInvestment": "Paneme su investeeringut",
   "standingPredictionPlaced": "Ennustus pandud",
   "standingOrderPlaced": "Korraldus pandud",
   "standingPredictionFailed": "Su ennustust ei pandud. Raha on Ennustustes, saadaval.",

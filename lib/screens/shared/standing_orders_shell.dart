@@ -5,14 +5,14 @@
 //
 //  * RESUME on start and on every unlock: the wallet's standing orders
 //    are loaded and carried on (standing_orders_provider.dart).
-//  * NOTHING WHILE IT PLACES (founder, 10 November 2026, on 2.2.0 (98): no
-//    "thinking" placing indicator once the slip is gone): the order's one
-//    card on the Dollars Overview says Placing, and its journey keeps
-//    Cancel (standing_order_journey.dart).
+//  * PLACING: the slip put Sal's placing toast up when the person left it
+//    (standing_order_toasts.dart): Sal and the words, no spinner, no
+//    Cancel. It stays until the order ends; an order that ends with no
+//    result toast (the person acted on it) takes it with it.
 //  * RESULT: an order filled plays the money-success haptic and Sal says
 //    "Prediction placed" / "Order placed"; one that failed plays the
 //    failure tap and Sal says where the money is; one the person
-//    cancelled, Sal says so (standing_order_toasts.dart).
+//    cancelled, Sal says so. In place of the placing toast when it is up.
 //  * PRICE MOVED past the approval: Sal says the new price with one tap
 //    that opens the slip at it (its own Face ID places it, from the money
 //    already on the venue), or the order is cancelled from the toast or
@@ -89,6 +89,12 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
       if (was == null || was.state == o.state) continue;
       if (o.state == StandingOrderState.cancelled) {
         StandingOrderToasts.cancelled(context, l10n, o);
+      } else if (o.state.isTerminal &&
+          StandingOrderToasts.isPlacing(o)) {
+        // Its result toast comes on the outcomes stream right after this
+        // (a microtask), in place of the placing toast. One that never
+        // comes (a quiet end) leaves the placing toast to go here.
+        Timer(Duration.zero, () => StandingOrderToasts.endQuietly(o));
       }
     }
   }
@@ -116,6 +122,7 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
     final l10n = context.l10n;
     final container = ProviderScope.containerOf(context, listen: false);
     final price = order.movedToPrice ?? order.approvedPrice;
+    StandingOrderToasts.markSaid(StandingOrderToasts.tagOf(order));
     SalToast.show(
       context,
       tag: StandingOrderToasts.tagOf(order),

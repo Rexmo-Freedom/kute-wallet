@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
+import 'package:kute/helpers/root_navigator.dart' show kuteRootNavigatorKey;
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
@@ -33,6 +34,10 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show DepositSheet;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
+import 'package:kute/screens/shared/sal_toast.dart' show SalToast;
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
@@ -52,6 +57,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_hyperliquid_move_rail.dart';
+import '../../helpers/render_png.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/shell_bar_harness.dart';
 import '../../helpers/runtime_policy_fixture.dart';
@@ -240,8 +246,16 @@ class _Landed extends DollarsLandingWatcher {
 late _Env _env;
 late _Funder _funder;
 
+/// On demand: the locked ticket saying OK and Sal's placing toast written
+/// as PNGs, light and dark (`--dart-define=OK_TOAST_RENDER_OUT=<dir>`).
+const _renderOut = String.fromEnvironment('OK_TOAST_RENDER_OUT');
+final _shot = GlobalKey();
+
 Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
-    {bool knownEmpty = false, String currency = 'USD'}) async {
+    {bool knownEmpty = false,
+    String currency = 'USD',
+    bool sheet = false,
+    bool dark = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -284,16 +298,47 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
           funderFor: (_) => _funder, dollarsUsd: () => 0)),
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
-    child: shellBarApp(
-      home: const Scaffold(
-        body: Align(
-          alignment: Alignment.bottomCenter,
-          child: HlOrderSlipSheet(market: _market, initialIsLong: true),
-        ),
-      ),
-    ),
+    child: sheet
+        // The ticket as the app opens it: a modal sheet over a page on the
+        // root navigator, Sal's toasts on the root overlay.
+        ? shellBarApp(
+            navigatorKey: kuteRootNavigatorKey,
+            dark: dark,
+            wrap: (_, child) => RepaintBoundary(key: _shot, child: child),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    key: const ValueKey('open-slip'),
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      isDismissible: true,
+                      enableDrag: false,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const HlOrderSlipSheet(
+                          market: _market, initialIsLong: true),
+                    ),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          )
+        : shellBarApp(
+            home: const Scaffold(
+              body: Align(
+                alignment: Alignment.bottomCenter,
+                child: HlOrderSlipSheet(market: _market, initialIsLong: true),
+              ),
+            ),
+          ),
   ));
   await _frames(tester);
+  if (sheet) {
+    await tester.tap(find.byKey(const ValueKey('open-slip')));
+    await _frames(tester);
+  }
 }
 
 Future<void> _frames(WidgetTester tester, [int n = 10]) async {
@@ -453,8 +498,12 @@ void main() {
     expect(barPrimaryBusy(tester), isTrue);
     expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
     expect(find.textContaining('You can leave'), findsNothing);
-    // With its standing order on record and not yet posted, the busy
-    // button (Sal working on it) says Cancel and takes the tap.
+    // While its order is on its way the busy button (Sal working on it)
+    // says OK and takes the tap, which only closes the ticket (founder,
+    // 10 November 2026, on 2.2.0 (99)): from the accept, before the
+    // record exists, and on record, posted or not.
+    expect(barPrimaryLabel(tester), 'OK');
+    expect(barPrimaryEnabled(tester), isTrue);
     final standing = _container(tester).read(standingOrdersProvider.notifier);
     final keep = _container(tester).read(standingOrdersProvider);
     final at = DateTime.now();
@@ -478,11 +527,22 @@ void main() {
     ]);
     await _frames(tester, 2);
     expect(barPrimaryBusy(tester), isTrue);
-    expect(barPrimaryLabel(tester), 'Cancel');
+    expect(barPrimaryLabel(tester), 'OK');
     expect(barPrimaryEnabled(tester), isTrue);
+    expect(find.text('Cancel'), findsNothing);
+    standing.debugReplace([
+      standing.byId('so_hl')!.copyWith(state: StandingOrderState.posting),
+    ]);
+    await _frames(tester, 2);
+    expect(barPrimaryLabel(tester), 'OK');
+    // Its result known: OK gives way to the ticket's own end.
+    standing.debugReplace([
+      standing.byId('so_hl')!.copyWith(state: StandingOrderState.failed),
+    ]);
+    await _frames(tester, 2);
+    expect(barPrimaryLabel(tester), isNot('OK'));
     standing.debugReplace(keep);
     await _frames(tester, 2);
-    expect(barPrimaryLabel(tester), isNot('Cancel'));
 
     // The venue credits it and the autofire places it: never a second
     // prompt.
@@ -497,6 +557,61 @@ void main() {
     expect(approvals, hasLength(1));
     await release(tester);
   });
+  testWidgets(
+      'OK on Sal\'s button closes the ticket as leaving does: the order goes '
+      'on, nothing cancelled, and Sal says "Placing your investment" at the '
+      'top with no spinner and no Cancel', (tester) async {
+    await _pumpSlip(tester, rail, sheet: true);
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 20);
+    expect(barPrimaryLabel(tester), 'OK');
+    final c = _container(tester);
+    final before = c.read(pendingHyperliquidOrderProvider)!;
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    // The order goes on: nothing cancelled.
+    final after = c.read(pendingHyperliquidOrderProvider);
+    expect(after, isNotNull);
+    expect(after!.status, before.status);
+    expect(events, isNot(contains('standing_order_cancelled')));
+    // Sal at the top: the words and the order, nothing thinking, no
+    // Cancel; the X closes it.
+    expect(find.byKey(const ValueKey('sal-toast')), findsOneWidget);
+    expect(find.text('Placing your investment'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byKey(const ValueKey('sal-toast-mark')), findsNothing);
+    expect(find.byKey(const ValueKey('sal-toast-action')), findsNothing);
+    expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
+    SalToast.debugReset();
+    StandingOrderToasts.debugReset();
+    await release(tester);
+  });
+  for (final dark in [false, true]) {
+    final mode = dark ? 'dark' : 'light';
+    testWidgets('render: the locked ticket saying OK, then the placing toast '
+        '($mode)', (tester) async {
+      await tester.runAsync(loadRenderFonts);
+      await _pumpSlip(tester, rail, sheet: true, dark: dark);
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester, 20);
+      await writeRenderPng(
+          tester, _shot, '$_renderOut/ticket_ok_investment_$mode.png');
+      // Sal's sheets are not read in the test's fake time: the rig draws
+      // him in the toast, as where the sheets cannot be read.
+      SalSpriteCache.debugSetManifest(null);
+      addTearDown(SalSpriteCache.debugReset);
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester, 10);
+      expect(find.text('Placing your investment'), findsOneWidget);
+      await writeRenderPng(
+          tester, _shot, '$_renderOut/toast_placing_investment_$mode.png');
+      SalToast.debugReset();
+      StandingOrderToasts.debugReset();
+      await release(tester);
+    }, skip: _renderOut.isEmpty);
+  }
+
   testWidgets('known zero across all sources opens Investing deposit and preserves slip',
       (tester) async {
     debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);

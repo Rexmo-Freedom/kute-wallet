@@ -14438,6 +14438,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get standingPlacingOrder => 'Toimeksiantoasi asetetaan';
 
   @override
+  String get standingPlacingInvestment => 'Sijoitustasi asetetaan';
+
+  @override
   String get standingPredictionPlaced => 'Ennuste asetettu';
 
   @override

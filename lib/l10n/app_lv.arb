@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} augšup vai lejup · {length}",
   "standingPlacingPrediction": "Iesniedzam tavu prognozi",
   "standingPlacingOrder": "Iesniedzam tavu rīkojumu",
+  "standingPlacingInvestment": "Iesniedzam tavu investīciju",
   "standingPredictionPlaced": "Prognoze iesniegta",
   "standingOrderPlaced": "Rīkojums iesniegts",
   "standingPredictionFailed": "Tava prognoze netika iesniegta. Nauda ir Prognozēs, pieejama.",

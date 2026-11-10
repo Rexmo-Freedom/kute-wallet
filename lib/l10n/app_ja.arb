@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} 上昇か下落か · {length}",
   "standingPlacingPrediction": "予測を発注しています",
   "standingPlacingOrder": "注文を発注しています",
+  "standingPlacingInvestment": "投資を発注しています",
   "standingPredictionPlaced": "予測を発注しました",
   "standingOrderPlaced": "注文を発注しました",
   "standingPredictionFailed": "予測は発注されませんでした。資金は予測に残っており、利用できます。",

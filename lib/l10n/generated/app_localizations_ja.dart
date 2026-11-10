@@ -13958,6 +13958,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get standingPlacingOrder => '注文を発注しています';
 
   @override
+  String get standingPlacingInvestment => '投資を発注しています';
+
+  @override
   String get standingPredictionPlaced => '予測を発注しました';
 
   @override

@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} Sus sau Jos · {length}",
   "standingPlacingPrediction": "Îți plasăm predicția",
   "standingPlacingOrder": "Îți plasăm ordinul",
+  "standingPlacingInvestment": "Îți plasăm investiția",
   "standingPredictionPlaced": "Predicție plasată",
   "standingOrderPlaced": "Ordin plasat",
   "standingPredictionFailed": "Predicția ta nu a fost plasată. Banii sunt în Predicții, disponibili.",

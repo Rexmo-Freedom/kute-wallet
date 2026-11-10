@@ -14412,6 +14412,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get standingPlacingOrder => 'Placerer din ordre';
 
   @override
+  String get standingPlacingInvestment => 'Placerer din investering';
+
+  @override
   String get standingPredictionPlaced => 'Forudsigelse placeret';
 
   @override

@@ -12,7 +12,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/screens/shared/money_steps_view.dart' show MoneyStepsView;
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/sal_toast.dart' show SalToast;
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
 import 'package:kute/screens/shared/rubber_band_progress.dart'
     show RubberBandProgress;
 import 'package:kute/services/continuous_haptics.dart';
@@ -65,6 +68,7 @@ import 'package:money2/money2.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/shell_bar_harness.dart';
+import '../../helpers/render_png.dart';
 import '../../services/standing_orders/fake_secret_store.dart';
 
 const _ownSpark =
@@ -232,10 +236,16 @@ class _StoredFunded extends FundedOrdersNotifier {
   List<FundedOrderRecord> build() => records;
 }
 
+/// On demand: the locked slip saying OK and Sal's placing toast written
+/// as PNGs, light and dark (`--dart-define=OK_TOAST_RENDER_OUT=<dir>`).
+const _renderOut = String.fromEnvironment('OK_TOAST_RENDER_OUT');
+final _shot = GlobalKey();
+
 Future<void> _pumpSlip(WidgetTester tester,
     {bool knownEmpty = false,
     List<FundedOrderRecord>? funded,
-    StandingOrderStore? standingStore}) async {
+    StandingOrderStore? standingStore,
+    bool dark = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -282,7 +292,7 @@ Future<void> _pumpSlip(WidgetTester tester,
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
     child: standingStore != null
-        ? _sheetApp()
+        ? _sheetApp(dark: dark)
         : shellBarApp(
       home: const Scaffold(
         resizeToAvoidBottomInset: false,
@@ -307,8 +317,10 @@ Future<void> _pumpSlip(WidgetTester tester,
 
 /// The app with the slip opened as the bottom modal sheet it is (tap
 /// outside to leave, no drag), on the root navigator.
-Widget _sheetApp() => shellBarApp(
+Widget _sheetApp({bool dark = false}) => shellBarApp(
       navigatorKey: kuteRootNavigatorKey,
+      dark: dark,
+      wrap: (_, child) => RepaintBoundary(key: _shot, child: child),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(
@@ -513,12 +525,14 @@ void main() {
     expect(pending.amount, greaterThan(0));
     expect(pending.status, PendingBetStatus.awaitingBalance);
 
-    // The steps, on the slip, under one busy button (the bar, spinning).
+    // The steps, on the slip, under one busy button (the bar, spinning)
+    // that says OK and only closes the slip (founder, 10 November 2026,
+    // on 2.2.0 (99)).
     expect(
         find.byKey(const ValueKey('bet-slip-funded-progress')), findsOneWidget);
     expect(_cta(tester).isBusy, isTrue);
     expect(barPrimaryBusy(tester), isTrue);
-    expect(barPrimaryEnabled(tester), isFalse);
+    expect(barPrimaryLabel(tester), 'OK');
     final money = '\$${pending.amount.toStringAsFixed(2)}';
     expect(find.text('Placing $money on Yes'), findsOneWidget);
 
@@ -580,7 +594,7 @@ void main() {
 
     testWidgets(
         'the slip stays up, locked as before: the steps, Sal\'s busy button '
-        'saying Cancel, no "you can leave" line and no placing toast',
+        'saying OK the whole way, no "you can leave" line and no toast',
         (tester) async {
       await accept(tester, 'standing_slip_locked');
       // The old locked slip: the keypad folded, the steps in its place.
@@ -589,31 +603,38 @@ void main() {
           findsOneWidget);
       expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
       expect(find.textContaining('You can leave'), findsNothing);
-      // The bar's busy button (Sal working on it) is the Cancel.
-      expect(find.byKey(const ValueKey('bet-slip-standing-cancel')),
-          findsOneWidget);
+      // The bar's busy button (Sal working on it) is OK, never Cancel.
+      expect(
+          find.byKey(const ValueKey('bet-slip-standing-ok')), findsOneWidget);
       expect(barPrimaryBusy(tester), isTrue);
-      expect(barPrimaryLabel(tester), 'Cancel');
+      expect(barPrimaryLabel(tester), 'OK');
       expect(barPrimaryEnabled(tester), isTrue);
+      expect(find.text('Cancel'), findsNothing);
       // No toast while the slip says it all.
       expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
-      // Posted: too late to cancel, the button is the step again.
+      // Posted, past the point a cancel could stop it: still OK.
       _container(tester)
           .read(standingOrdersProvider.notifier)
           .debugReplace([_standing(state: StandingOrderState.posting)]);
       await _frames(tester, 2);
-      expect(find.byKey(const ValueKey('bet-slip-standing-cancel')),
-          findsNothing);
-      expect(barPrimaryLabel(tester), isNot('Cancel'));
-      expect(barPrimaryEnabled(tester), isFalse);
+      expect(
+          find.byKey(const ValueKey('bet-slip-standing-ok')), findsOneWidget);
+      expect(barPrimaryLabel(tester), 'OK');
+      // Its result known: OK gives way to the slip's own end.
+      _container(tester)
+          .read(standingOrdersProvider.notifier)
+          .debugReplace([_standing(state: StandingOrderState.filled)]);
+      await _frames(tester, 2);
+      expect(find.byKey(const ValueKey('bet-slip-standing-ok')), findsNothing);
+      expect(barPrimaryLabel(tester), isNot('OK'));
       SalToast.debugReset();
       await release(tester);
     });
 
     testWidgets(
         'leaving never cancels: the haptics stop at once, the order goes on, '
-        'and nothing takes the slip\'s place: no placing toast, no spinner',
-        (tester) async {
+        'and Sal says "Placing your prediction" at the top: no spinner, no '
+        'Cancel, closable', (tester) async {
       final c = await accept(tester, 'standing_slip_leave');
       final before = c.read(pendingPolymarketBetProvider)!;
       // Leave it: a tap above the sheet, as when it is idle (its X and
@@ -645,30 +666,79 @@ void main() {
       expect(after, isNotNull);
       expect(after!.status, before.status);
       expect(events, isNot(contains('standing_order_cancelled')));
-      // Nothing in its place (founder, 10 November 2026, on 2.2.0 (98)):
-      // no placing toast, no thinking indicator; the Overview's card says
-      // Placing and Sal's result toast says how it ended.
-      await _frames(tester, 10);
-      expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
-      expect(find.text('Placing your prediction'), findsNothing);
+      // Sal at the top: the words and the market, nothing thinking, no
+      // Cancel; the X closes it.
+      expect(find.byKey(const ValueKey('sal-toast')), findsOneWidget);
+      expect(find.text('Placing your prediction'), findsOneWidget);
+      expect(find.text('Will it rain?'), findsWidgets);
       expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byKey(const ValueKey('sal-toast-mark')), findsNothing);
+      expect(find.byKey(const ValueKey('sal-toast-action')), findsNothing);
+      expect(find.text('Cancel'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('sal-toast-close')));
+      await _frames(tester, 6);
+      expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+      // Closed, the order still goes on.
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.funding);
+      expect(events, isNot(contains('standing_order_cancelled')));
       SalToast.debugReset();
+      StandingOrderToasts.debugReset();
       await release(tester);
     });
 
-    testWidgets('Cancel on Sal\'s button cancels the order and closes the slip',
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('render: the locked slip saying OK, then the placing toast '
+          '($mode)', (tester) async {
+        await tester.runAsync(loadRenderFonts);
+        expect(await policy.refresh(), isTrue);
+        await _pumpSlip(tester,
+            standingStore: store('standing_slip_render'), dark: dark);
+        await _tapDoor(tester);
+        await _frames(tester, 10);
+        _container(tester)
+            .read(standingOrdersProvider.notifier)
+            .debugReplace([_standing()]);
+        await _frames(tester, 6);
+        await writeRenderPng(
+            tester, _shot, '$_renderOut/slip_ok_prediction_$mode.png');
+        // Sal's sheets are not read in the test's fake time: the rig draws
+        // him in the toast, as where the sheets cannot be read.
+        SalSpriteCache.debugSetManifest(null);
+        addTearDown(SalSpriteCache.debugReset);
+        await tapBarPrimary(tester, settle: false);
+        await _frames(tester, 10);
+        expect(find.text('Placing your prediction'), findsOneWidget);
+        await writeRenderPng(
+            tester, _shot, '$_renderOut/toast_placing_prediction_$mode.png');
+        SalToast.debugReset();
+        StandingOrderToasts.debugReset();
+        await release(tester);
+      }, skip: _renderOut.isEmpty);
+    }
+
+    testWidgets(
+        'OK on Sal\'s button closes the slip exactly as leaving does: the '
+        'order goes on, nothing cancelled, the placing toast at the top',
         (tester) async {
-      final c = await accept(tester, 'standing_slip_cancel');
+      final c = await accept(tester, 'standing_slip_ok');
       await tapBarPrimary(tester, settle: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      // The haptics stop at once.
+      expect(ContinuousHaptics.isRunning(), isFalse);
       await _frames(tester, 10);
-      expect(c.read(standingOrdersProvider).single.state,
-          StandingOrderState.cancelled);
-      expect(events.where((e) => e == 'standing_order_cancelled'),
-          hasLength(1));
       expect(find.byType(BetSlipSheet), findsNothing);
-      // Cancelled, not placing: no placing toast.
-      expect(find.text('Placing your prediction'), findsNothing);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.funding);
+      expect(c.read(pendingPolymarketBetProvider), isNotNull);
+      expect(events, isNot(contains('standing_order_cancelled')));
+      expect(find.text('Placing your prediction'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byKey(const ValueKey('sal-toast-action')), findsNothing);
       SalToast.debugReset();
+      StandingOrderToasts.debugReset();
       await release(tester);
     });
   });

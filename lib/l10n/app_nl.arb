@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} omhoog of omlaag · {length}",
   "standingPlacingPrediction": "Je voorspelling wordt geplaatst",
   "standingPlacingOrder": "Je order wordt geplaatst",
+  "standingPlacingInvestment": "Je belegging wordt geplaatst",
   "standingPredictionPlaced": "Voorspelling geplaatst",
   "standingOrderPlaced": "Order geplaatst",
   "standingPredictionFailed": "Je voorspelling is niet geplaatst. Het geld staat in Voorspellingen, beschikbaar.",

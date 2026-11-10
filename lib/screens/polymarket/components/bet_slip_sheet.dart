@@ -1,7 +1,14 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart'
-    show StandingOrder, StandingOrderVenue, standingOrdersProvider;
+    show
+        StandingOrder,
+        StandingOrderState,
+        StandingOrderVenue,
+        standingOrdersProvider;
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show polyOutcomeFill;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
@@ -1335,13 +1342,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// we allow the user to leave"): the keypad folded, the money's journey
   /// in its place, the bar's button on the running step, then the result.
   /// From here the person can leave it (a tap above it, or back), which
-  /// never cancels the order ([_onLeave]); the bar's button is "Cancel"
-  /// while the order can still be cancelled ([_standingCancelCta]).
+  /// never cancels the order ([_onLeave]); the bar's button is "OK", which
+  /// leaves it too, while the order is on its way ([_standingOkCta]).
   void _closeForStandingOrder() {
     if (!mounted) return;
     _standingTokenId = _selectedTokenId;
     if (!_standingAccepted) _updateState(() => _standingAccepted = true);
   }
+
+  /// The orders on the slip's market that had already ended when it first
+  /// looked after its accept: never this accept's own. Null: not looked
+  /// yet.
+  Set<String>? _standingEndedBefore;
 
   /// The accept made a standing order of this slip's bet (see
   /// [_closeForStandingOrder]): the slip may be left while it places.
@@ -1356,79 +1368,97 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// and nothing the slip still hears navigates.
   bool _left = false;
 
-  /// The person cancelled the order from the slip's own button.
-  bool _cancelledHere = false;
-
   /// A new try on this slip: the lock is the placing lock again until
   /// its own accept.
   void _resetStanding() {
     _standingAccepted = false;
     _standingTokenId = null;
-    _cancelledHere = false;
+    _standingEndedBefore = null;
   }
 
-  /// The open standing order of this slip's accept, while it can still
-  /// be cancelled (before it is posted); null otherwise. Watched, so the
-  /// button goes back to the step the moment the order is posted.
-  String? _standingCancelId() {
-    if (!_standingAccepted || _left || _placedSuccess) return null;
+  /// Whether this slip's accepted order is still on its way: from the
+  /// accept (before its record exists) until it ends. Watched, so the
+  /// button gives way to the result the moment it is known.
+  bool _standingOnItsWay() {
+    if (!_standingAccepted || _left || _placedSuccess) return false;
     final token = _standingTokenId;
-    if (token == null) return null;
-    final order = ref.watch(standingOrdersProvider.select((all) {
+    if (token == null) return false;
+    final ended = _standingEndedBefore ??= {
+      for (final o in ref.read(standingOrdersProvider))
+        if (o.venue == StandingOrderVenue.predictions &&
+            o.marketKey == token &&
+            !o.isOpen)
+          o.id,
+    };
+    // This accept's order (newest on the market that had not ended
+    // before it); null until its record exists, which is on its way too.
+    final state = ref.watch(standingOrdersProvider.select((all) {
       StandingOrder? found;
       for (final o in all) {
         if (o.venue == StandingOrderVenue.predictions &&
             o.marketKey == token &&
-            o.isOpen) {
+            !ended.contains(o.id)) {
           found = o;
         }
       }
-      return found;
+      return found?.state;
     }));
-    return order != null && order.canCancel ? order.id : null;
+    return state == null || !state.isTerminal;
   }
 
-  /// The bar's button while the order can still be cancelled: the busy
-  /// button as it is (Sal working on it, in the slip's own look), saying
-  /// "Cancel" and taking the tap (founder, 10 November 2026: "the cancel
-  /// should be sal button"). Null once it cannot be cancelled.
-  Widget? _standingCancelCta(Color selectedColor) {
-    final id = _standingCancelId();
-    if (id == null) return null;
+  /// The bar's button while the order is on its way: the busy button as
+  /// it is (Sal working on it, in the slip's own look), saying "OK" and
+  /// taking the tap, which closes the slip exactly as leaving it does
+  /// (founder, 10 November 2026, on 2.2.0 (99): "instead of cancel, we
+  /// should say ok"): the order goes on, nothing is cancelled. Cancel
+  /// lives in the order's journey (from its Overview card). Null once the
+  /// result is known.
+  Widget? _standingOkCta(Color selectedColor) {
+    if (!_standingOnItsWay()) return null;
     return PolySlipCta(
-      key: const ValueKey('bet-slip-standing-cancel'),
+      key: const ValueKey('bet-slip-standing-ok'),
       color: selectedColor,
       // Dark on the white button, as the busy step (founder decision).
       neutral: true,
       isBusy: true,
       tapWhileBusy: true,
-      busyLabel: context.l10n.cancel,
+      busyLabel: context.l10n.ok,
       enabled: true,
-      onTap: () => _cancelStanding(id),
-      label: context.l10n.cancel,
+      onTap: () => Navigator.of(context).maybePop(),
+      label: context.l10n.ok,
       band: false,
     );
   }
 
-  /// Cancel on the slip's button: the order is cancelled (the existing
-  /// `standing_order_cancelled`) and the slip closes; Sal says it was
-  /// cancelled (standing_orders_shell.dart).
-  void _cancelStanding(String id) {
-    if (_cancelledHere) return;
-    _cancelledHere = true;
-    unawaited(ref.read(standingOrdersProvider.notifier).cancel(id));
-    Navigator.of(context).maybePop();
-  }
-
-  /// The slip is going (didPop): once it had a standing order, its
-  /// haptics stop now. Nothing takes its place on screen (founder, 10
-  /// November 2026, on 2.2.0 (98): no "thinking" placing indicator once
-  /// the slip is gone): the order's one card on the Dollars Overview says
-  /// Placing, its journey (from that card) still has Cancel, and Sal's
-  /// result toast says how it ended.
+  /// The slip is going (didPop; OK, the X, a tap above, back or a swipe
+  /// down): once it had a standing order, its haptics stop now, and while
+  /// that order is still on its way Sal's placing toast takes over at the
+  /// top (standing_order_toasts.dart: Sal and the words, no spinner, no
+  /// Cancel, closable). While the slip is up it never shows.
   void _onLeave() {
     if (!_standingAccepted || _left) return;
     _updateState(() => _left = true);
+    final token = _standingTokenId;
+    if (_placedSuccess || token == null) return;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final order = StandingOrderToasts.openOn(
+        container, StandingOrderVenue.predictions, token);
+    // Only a bet still on its way gets the toast: not one that ended on
+    // the slip, nor one waiting on a new price (Sal asks about that).
+    final status = ref.read(pendingPolymarketBetProvider)?.status;
+    if (status == PendingBetStatus.failed ||
+        status == PendingBetStatus.done ||
+        order?.state == StandingOrderState.needsApproval ||
+        (order == null && status == null)) {
+      return;
+    }
+    // The root overlay (root_navigator.dart); this slip's own context
+    // only where the app has no root key.
+    StandingOrderToasts.placing(kuteRootContext(context), context.l10n,
+        venue: StandingOrderVenue.predictions,
+        marketKey: token,
+        marketTitle: widget.marketQuestion,
+        order: order);
   }
 
   /// The one prompt of a pre-funded bet: the slip's bet prepared, then
@@ -6271,9 +6301,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       final steps = _fundingSteps(progress.record);
       final running = !progress.failed && !progress.done;
       final Widget button;
-      final cancel = running ? _standingCancelCta(selectedColor) : null;
-      if (cancel != null) {
-        button = cancel;
+      final ok = running ? _standingOkCta(selectedColor) : null;
+      if (ok != null) {
+        button = ok;
       } else if (running || progress.done) {
         final label = steps[progress.active.clamp(0, steps.length - 1)];
         button = PolySlipCta(
@@ -6316,7 +6346,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ),
       );
     }
-    final action = (failed ? null : _standingCancelCta(selectedColor)) ??
+    final action = (failed ? null : _standingOkCta(selectedColor)) ??
         _buildPrimaryActionInner(c, selectedColor, selected,
             busy: busy,
             failed: failed,

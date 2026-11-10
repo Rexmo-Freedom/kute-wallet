@@ -14510,6 +14510,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get standingPlacingOrder => 'Τοποθετούμε την εντολή σου';
 
   @override
+  String get standingPlacingInvestment => 'Τοποθετούμε την επένδυσή σου';
+
+  @override
   String get standingPredictionPlaced => 'Η πρόβλεψη τοποθετήθηκε';
 
   @override

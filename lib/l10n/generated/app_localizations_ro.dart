@@ -14484,6 +14484,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get standingPlacingOrder => 'Îți plasăm ordinul';
 
   @override
+  String get standingPlacingInvestment => 'Îți plasăm investiția';
+
+  @override
   String get standingPredictionPlaced => 'Predicție plasată';
 
   @override

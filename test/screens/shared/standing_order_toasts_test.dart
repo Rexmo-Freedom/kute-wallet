@@ -1,9 +1,13 @@
 // A standing order's Sal toasts (standing_order_toasts.dart) with the
 // app's shell mounted as the app mounts it (standing_orders_shell.dart,
-// beside the navigator): nothing while the order is on its way (founder,
-// 10 November 2026, on 2.2.0 (98): no "thinking" placing indicator once
-// the slip is gone), and Sal's result toast once it ends: placed (the one
-// success haptic), not placed, cancelled. Predictions and Investing alike.
+// beside the navigator). The shell never puts anything up while the order
+// is on its way; the slip, once left, puts up Sal's placing toast
+// (founder, 10 November 2026, on 2.2.0 (99): "on the top when we close it
+// we should say investment or prediction is placing ... but we can swipe
+// it away or close it"): Sal and the words, no spinner, no clock, no
+// Cancel; closable and swipable, the order unaffected; replaced in place
+// by Sal's result toast once it ends: placed (the one success haptic),
+// not placed, cancelled. Predictions and Investing alike.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +22,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
+import 'package:kute/screens/shared/standing_order_toasts.dart';
 import 'package:kute/screens/shared/standing_orders_shell.dart';
 import 'package:kute/services/standing_orders/standing_order_store.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
@@ -105,6 +110,7 @@ void main() {
   tearDown(() {
     TrackingService.debugTrackObserver = null;
     SalToast.debugReset();
+    StandingOrderToasts.debugReset();
     SalToast.debugSuccessFeedbackOverride = null;
     SalToast.debugFailureFeedbackOverride = null;
     SalReactions.debugReset();
@@ -191,8 +197,8 @@ void main() {
   }
 
   testWidgets(
-      'while the order is on its way nothing shows: no placing toast, no '
-      'spinner, at any step (founder, 10 November 2026)', (tester) async {
+      'the shell alone shows nothing while the order is on its way: no '
+      'toast, no spinner, at any step', (tester) async {
     final c = await pump(tester);
     final order = _prediction();
     await running(tester, c, order);
@@ -295,6 +301,146 @@ void main() {
         'hyperliquid');
     expect(find.text('Cancelled. The money stays in Investing, available.'),
         findsOneWidget);
+    await drain(tester);
+  });
+  /// The slip left while its order is on its way (bet_slip_sheet.dart,
+  /// order_slip_sheet.dart `_onLeave`).
+  Future<void> leave(WidgetTester tester, StandingOrder order) async {
+    StandingOrderToasts.placing(
+        kuteRootNavigatorKey.currentContext,
+        lookupAppLocalizations(const Locale('en')),
+        venue: order.venue,
+        marketKey: order.marketKey,
+        marketTitle: order.marketTitle,
+        order: order);
+    await tester.pump();
+    await tester.pump(_arrive);
+  }
+
+  void expectPlacing(WidgetTester tester, String message) {
+    expect(find.byKey(_toast), findsOneWidget);
+    expect(find.text(message), findsOneWidget);
+    // Sal and the words: nothing thinking, no Cancel; the X closes it.
+    expect(shown(tester).tone, SalToastTone.info);
+    expect(find.byKey(const ValueKey('sal-toast-mark')), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byKey(_action), findsNothing);
+    expect(find.text('Cancel'), findsNothing);
+    expect(find.byKey(_close), findsOneWidget);
+    expect(tester.getSize(find.byKey(_close)), const Size(44, 44));
+  }
+
+  testWidgets(
+      'left on its way: "Placing your prediction" at the top, Sal and the '
+      'words only; it stays through every step and becomes "Prediction '
+      'placed" in place, with the one success haptic', (tester) async {
+    var beats = 0;
+    SalToast.debugSuccessFeedbackOverride = () async => beats++;
+    final c = await pump(tester);
+    final order = _prediction();
+    await running(tester, c, order);
+    await leave(tester, order);
+    expectPlacing(tester, 'Placing your prediction');
+    expect(find.text('Will it rain tomorrow?'), findsOneWidget);
+    expect(beats, 0);
+    for (final state in [
+      StandingOrderState.funded,
+      StandingOrderState.posting,
+      StandingOrderState.posted,
+    ]) {
+      await moveTo(tester, c, order, state);
+      await tester.pump(const Duration(seconds: 5));
+      expectPlacing(tester, 'Placing your prediction');
+    }
+    await c
+        .read(standingOrdersProvider.notifier)
+        .advance('so_p', StandingOrderState.filled);
+    await tester.pump();
+    // In place: one toast, never a second arriving under a leaving one.
+    expect(find.byType(SalToast), findsOneWidget);
+    await tester.pump(_arrive);
+    expect(find.text('Prediction placed'), findsOneWidget);
+    expect(find.text('Placing your prediction'), findsNothing);
+    expect(shown(tester).tone, SalToastTone.success);
+    expect(beats, 1);
+    await drain(tester);
+    expect(find.byKey(_toast), findsNothing);
+    expect(beats, 1);
+  });
+
+  testWidgets(
+      'closed with the X or swiped away any time: the order goes on, the '
+      'placing toast does not come back, and Sal still says how it ended',
+      (tester) async {
+    final c = await pump(tester);
+    final order = _prediction();
+    await running(tester, c, order);
+    await leave(tester, order);
+    await tester.tap(find.byKey(_close));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(_toast), findsNothing);
+    expect(c.read(standingOrdersProvider).single.state,
+        StandingOrderState.funding);
+    expect(named('standing_order_cancelled'), isEmpty);
+    await moveTo(tester, c, order, StandingOrderState.posting);
+    expect(find.byKey(_toast), findsNothing);
+
+    // Swiped up instead.
+    await leave(tester, order.copyWith(state: StandingOrderState.posting));
+    await tester.drag(find.byKey(_toast), const Offset(0, -80));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(_toast), findsNothing);
+    await moveTo(tester, c, order, StandingOrderState.posted);
+    expect(find.byKey(_toast), findsNothing);
+    expect(c.read(standingOrdersProvider).single.state,
+        StandingOrderState.posted);
+
+    await c
+        .read(standingOrdersProvider.notifier)
+        .advance('so_p', StandingOrderState.failed, failureCode: 'x');
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(shown(tester).tone, SalToastTone.failure);
+    await drain(tester);
+  });
+
+  testWidgets(
+      'Investing: "Placing your investment"; a cancel from its journey '
+      'turns it into the cancelled toast in place', (tester) async {
+    final c = await pump(tester);
+    final order = _investing(state: StandingOrderState.funded);
+    await running(tester, c, order);
+    await leave(tester, order);
+    expectPlacing(tester, 'Placing your investment');
+    expect(find.text('BTC · Perp'), findsOneWidget);
+    await c.read(standingOrdersProvider.notifier).cancel('so_i');
+    await tester.pump();
+    expect(find.byType(SalToast), findsOneWidget);
+    await tester.pump(_arrive);
+    expect(find.text('Placing your investment'), findsNothing);
+    expect(find.text('Cancelled. The money stays in Investing, available.'),
+        findsOneWidget);
+    await drain(tester);
+    expect(find.byKey(_toast), findsNothing);
+  });
+
+  testWidgets(
+      'an order that ends with no result toast of its own (the person '
+      'acted on it) takes the placing toast with it', (tester) async {
+    final c = await pump(tester);
+    final order = _prediction(state: StandingOrderState.posted);
+    await running(tester, c, order);
+    await leave(tester, order);
+    expect(find.byKey(_toast), findsOneWidget);
+    await c.read(standingOrdersProvider.notifier).advance(
+        'so_p', StandingOrderState.failed,
+        failureCode: 'price_moved', quiet: true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(_toast), findsNothing);
     await drain(tester);
   });
 }

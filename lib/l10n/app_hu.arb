@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} fel vagy le · {length}",
   "standingPlacingPrediction": "Előrejelzésed leadása folyamatban",
   "standingPlacingOrder": "Megbízásod leadása folyamatban",
+  "standingPlacingInvestment": "Befektetésed leadása folyamatban",
   "standingPredictionPlaced": "Előrejelzés leadva",
   "standingOrderPlaced": "Megbízás leadva",
   "standingPredictionFailed": "Az előrejelzésed nem lett leadva. A pénz az Előrejelzésekben van, elérhető.",

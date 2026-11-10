@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} nahoru, nebo dolů · {length}",
   "standingPlacingPrediction": "Zadáváme vaši předpověď",
   "standingPlacingOrder": "Zadáváme váš příkaz",
+  "standingPlacingInvestment": "Zadáváme vaši investici",
   "standingPredictionPlaced": "Předpověď zadána",
   "standingOrderPlaced": "Příkaz zadán",
   "standingPredictionFailed": "Vaše předpověď nebyla zadána. Peníze jsou v Předpovědích, k dispozici.",

@@ -14519,6 +14519,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get standingPlacingOrder => 'Placement de votre ordre';
 
   @override
+  String get standingPlacingInvestment => 'Placement de votre investissement';
+
+  @override
   String get standingPredictionPlaced => 'Prédiction placée';
 
   @override

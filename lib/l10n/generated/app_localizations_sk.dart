@@ -14428,6 +14428,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get standingPlacingOrder => 'Zadávame váš príkaz';
 
   @override
+  String get standingPlacingInvestment => 'Zadávame vašu investíciu';
+
+  @override
   String get standingPredictionPlaced => 'Predpoveď zadaná';
 
   @override

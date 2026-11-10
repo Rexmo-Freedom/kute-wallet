@@ -14470,6 +14470,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get standingPlacingOrder => 'Teikiame tavo pavedimą';
 
   @override
+  String get standingPlacingInvestment => 'Teikiame tavo investiciją';
+
+  @override
   String get standingPredictionPlaced => 'Prognozė pateikta';
 
   @override

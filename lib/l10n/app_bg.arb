@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} нагоре или надолу · {length}",
   "standingPlacingPrediction": "Поставяме прогнозата ти",
   "standingPlacingOrder": "Поставяме поръчката ти",
+  "standingPlacingInvestment": "Поставяме инвестицията ти",
   "standingPredictionPlaced": "Прогнозата е поставена",
   "standingOrderPlaced": "Поръчката е поставена",
   "standingPredictionFailed": "Прогнозата ти не беше поставена. Парите са в Прогнози, налични.",

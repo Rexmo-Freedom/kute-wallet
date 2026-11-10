@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} Πάνω ή Κάτω · {length}",
   "standingPlacingPrediction": "Τοποθετούμε την πρόβλεψή σου",
   "standingPlacingOrder": "Τοποθετούμε την εντολή σου",
+  "standingPlacingInvestment": "Τοποθετούμε την επένδυσή σου",
   "standingPredictionPlaced": "Η πρόβλεψη τοποθετήθηκε",
   "standingOrderPlaced": "Η εντολή τοποθετήθηκε",
   "standingPredictionFailed": "Η πρόβλεψή σου δεν τοποθετήθηκε. Τα χρήματα είναι στις Προβλέψεις, διαθέσιμα.",

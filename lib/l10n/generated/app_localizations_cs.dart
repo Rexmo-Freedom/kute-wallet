@@ -14404,6 +14404,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get standingPlacingOrder => 'Zadáváme váš příkaz';
 
   @override
+  String get standingPlacingInvestment => 'Zadáváme vaši investici';
+
+  @override
   String get standingPredictionPlaced => 'Předpověď zadána';
 
   @override

@@ -1,6 +1,13 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart'
-    show StandingOrder, StandingOrderVenue, standingOrdersProvider;
+    show
+        StandingOrder,
+        StandingOrderState,
+        StandingOrderVenue,
+        standingOrdersProvider;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
 import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
@@ -1821,7 +1828,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // ticket is locked while it places until its own accept.
     _clearFundedStop();
     _standingAccepted = false;
-    _cancelledHere = false;
+    _standingEndedBefore = null;
     _orderInFlight = true;
     // The button starts thinking HERE, on the tap, not once the order
     // is on the wire. Everything _confirmInner does before that point
@@ -2394,12 +2401,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// that we allow the user to leave"): the money's journey and the bar's
   /// button on the running step, then the result. From here the person
   /// can leave it, which never cancels the order ([_onLeave]); the bar's
-  /// button is "Cancel" while the order can still be cancelled
-  /// ([_standingCancelId]).
+  /// button is "OK", which leaves it too, while the order is on its way
+  /// ([_standingOnItsWay]).
   void _closeForStandingOrder() {
     if (!mounted || _standingAccepted) return;
     _updateDraft(() => _standingAccepted = true);
   }
+
+  /// The orders on the ticket's market that had already ended when it
+  /// first looked after its accept: never this accept's own. Null: not
+  /// looked yet.
+  Set<String>? _standingEndedBefore;
 
   /// The accept made a standing order of this ticket's order: the ticket
   /// may be left while it places. Reset by every new try.
@@ -2410,48 +2422,69 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// navigates.
   bool _left = false;
 
-  /// The person cancelled the order from the ticket's own button.
-  bool _cancelledHere = false;
-
-  /// The open standing order of this ticket's accept while it can still
-  /// be cancelled (before it is posted); null otherwise. Watched, so the
-  /// button goes back to the step the moment the order is posted.
-  String? _standingCancelId() {
-    if (!_standingAccepted || _left || _completed) return null;
+  /// Whether this ticket's accepted order is still on its way: from the
+  /// accept (before its record exists) until it ends. Watched, so the
+  /// button gives way to the result the moment it is known.
+  bool _standingOnItsWay() {
+    if (!_standingAccepted || _left || _completed) return false;
     final coin = market.coin;
-    final order = ref.watch(standingOrdersProvider.select((all) {
+    final ended = _standingEndedBefore ??= {
+      for (final o in ref.read(standingOrdersProvider))
+        if (o.venue == StandingOrderVenue.investing &&
+            o.marketKey == coin &&
+            !o.isOpen)
+          o.id,
+    };
+    // This accept's order (newest on the market that had not ended
+    // before it); null until its record exists, which is on its way too.
+    final state = ref.watch(standingOrdersProvider.select((all) {
       StandingOrder? found;
       for (final o in all) {
         if (o.venue == StandingOrderVenue.investing &&
             o.marketKey == coin &&
-            o.isOpen) {
+            !ended.contains(o.id)) {
           found = o;
         }
       }
-      return found;
+      return found?.state;
     }));
-    return order != null && order.canCancel ? order.id : null;
+    return state == null || !state.isTerminal;
   }
 
-  /// Cancel on the ticket's button: the order is cancelled (the existing
-  /// `standing_order_cancelled`) and the ticket closes; Sal says it was
-  /// cancelled (standing_orders_shell.dart).
-  void _cancelStanding(String id) {
-    if (_cancelledHere) return;
-    _cancelledHere = true;
-    unawaited(ref.read(standingOrdersProvider.notifier).cancel(id));
-    Navigator.of(context).maybePop();
-  }
-
-  /// The ticket is going (didPop): once it had a standing order, its
-  /// haptics stop now. Nothing takes its place on screen (founder, 10
-  /// November 2026, on 2.2.0 (98): no "thinking" placing indicator once
-  /// the ticket is gone): the order's one card on the Dollars Overview
-  /// says Placing, its journey (from that card) still has Cancel, and
-  /// Sal's result toast says how it ended.
+  /// The ticket is going (didPop; OK, the X, a tap above, back or a swipe
+  /// down): once it had a standing order, its haptics stop now, and while
+  /// that order is still on its way Sal's placing toast takes over at the
+  /// top (standing_order_toasts.dart: Sal and the words, no spinner, no
+  /// Cancel, closable). While the ticket is up it never shows.
   void _onLeave() {
     if (!_standingAccepted || _left) return;
     _updateDraft(() => _left = true);
+    if (_completed) return;
+    final coin = market.coin;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final order = StandingOrderToasts.openOn(
+        container, StandingOrderVenue.investing, coin);
+    // Only an order still on its way gets the toast: not one that ended
+    // on the ticket, nor one waiting on a new price (Sal asks about that).
+    final status = ref.read(pendingHyperliquidOrderProvider)?.status;
+    if (status == PendingHlOrderStatus.failed ||
+        status == PendingHlOrderStatus.done ||
+        status == PendingHlOrderStatus.unconfirmed ||
+        order?.state == StandingOrderState.needsApproval ||
+        (order == null && status == null)) {
+      return;
+    }
+    // The order's own label (the standing order's title).
+    final label = isSpot
+        ? market.coin
+        : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}';
+    // The root overlay (root_navigator.dart); this ticket's own context
+    // only where the app has no root key.
+    StandingOrderToasts.placing(kuteRootContext(context), context.l10n,
+        venue: StandingOrderVenue.investing,
+        marketKey: coin,
+        marketTitle: label,
+        order: order);
   }
 
   /// Funds [shortfallUsd] from Dollars and places the order once the
@@ -5399,9 +5432,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // visibly up the sheet, worst on Android where a three button nav
     // bar is half again as tall as an iOS home indicator. A phone with
     // no inset at all still gets its 16.
-    // The standing order this ticket accepted, while it can be cancelled:
-    // the bar's busy button is its "Cancel".
-    final standingCancelId = widget.sendPick == null ? _standingCancelId() : null;
+    // The standing order this ticket accepted, while it is on its way: the
+    // bar's busy button is its "OK" (leaves the ticket, never cancels).
+    final standingOk = widget.sendPick == null &&
+        !(funded?.failed ?? false) &&
+        _standingOnItsWay();
     final action = Padding(
       padding: EdgeInsets.fromLTRB(
         20.w,
@@ -5511,17 +5546,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   barContext: widget.sendPick != null
                       ? _sendBarContext(widget.sendPick!,
                           minUsd: minAmountUsd)
-                      : standingCancelId != null
+                      : standingOk
                       // The busy button as it is (Sal working on it),
-                      // saying "Cancel" and taking the tap while the
-                      // order can still be cancelled (founder, 10
-                      // November 2026: "the cancel should be sal button").
+                      // saying "OK" and taking the tap while the order is
+                      // on its way: it closes the ticket exactly as
+                      // leaving does, the order goes on (founder, 10
+                      // November 2026, on 2.2.0 (99): "instead of cancel,
+                      // we should say ok"). Cancel is in its journey.
                       ? KuteBarContext.primary(
-                          label: context.l10n.cancel,
-                          onPrimary: () => _cancelStanding(standingCancelId),
+                          label: context.l10n.ok,
+                          onPrimary: () => Navigator.of(context).maybePop(),
                           busy: true,
                           tapWhileBusy: true,
-                          busyLabel: context.l10n.cancel,
+                          busyLabel: context.l10n.ok,
                           category: SearchCategory.perpetuals,
                           source: 'order_slip',
                           // Never waits on input.

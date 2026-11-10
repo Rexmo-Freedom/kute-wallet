@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} upp eller ner · {length}",
   "standingPlacingPrediction": "Lägger din förutsägelse",
   "standingPlacingOrder": "Lägger din order",
+  "standingPlacingInvestment": "Lägger din investering",
   "standingPredictionPlaced": "Förutsägelse lagd",
   "standingOrderPlaced": "Order lagd",
   "standingPredictionFailed": "Din förutsägelse lades inte. Pengarna finns i Förutsägelser, tillgängliga.",

@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} w górę czy w dół · {length}",
   "standingPlacingPrediction": "Składamy Twoją prognozę",
   "standingPlacingOrder": "Składamy Twoje zlecenie",
+  "standingPlacingInvestment": "Składamy Twoją inwestycję",
   "standingPredictionPlaced": "Prognoza złożona",
   "standingOrderPlaced": "Zlecenie złożone",
   "standingPredictionFailed": "Twoja prognoza nie została złożona. Pieniądze są w Prognozach, dostępne.",

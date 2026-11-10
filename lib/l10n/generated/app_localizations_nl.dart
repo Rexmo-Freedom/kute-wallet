@@ -14460,6 +14460,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get standingPlacingOrder => 'Je order wordt geplaatst';
 
   @override
+  String get standingPlacingInvestment => 'Je belegging wordt geplaatst';
+
+  @override
   String get standingPredictionPlaced => 'Voorspelling geplaatst';
 
   @override

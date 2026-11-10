@@ -134,6 +134,15 @@ class _Prices extends LivePriceNotifier {
 ProviderContainer _container(WidgetTester tester) => ProviderScope.containerOf(
     tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
 
+/// The same slot: the same place and width. Its height follows its words,
+/// which wrap rather than cut (founder, 10 November 2026, on 2.2.0 (99):
+/// "on the overview the text is cut"), so "Prediction placed" may take a
+/// line more than "Placing".
+void expectSameSlot(Rect actual, Rect slot) {
+  expect(actual.topLeft, slot.topLeft);
+  expect(actual.width, slot.width);
+}
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -482,7 +491,8 @@ void main() {
     expect(text(key, 'Prediction placed'), findsOneWidget);
     expect(find.textContaining('Placing'), findsNothing);
     expect(figure(key, r'$9.80'), findsOneWidget);
-    expect(tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
+    expectSameSlot(
+        tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
 
     // The position lists: the slot is the position's own row, under the
     // same key, in the same place, still saying placed. One card.
@@ -493,7 +503,8 @@ void main() {
     expect(inSquares(find.byType(PolyPositionRow)), findsOneWidget);
     expect(inSquares(find.byType(PlacingBetRow)), findsNothing);
     expect(text(key, 'Prediction placed'), findsOneWidget);
-    expect(tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
+    expectSameSlot(
+        tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
 
     // The card hold ends: the position's own line, nothing else changes.
     clock = clock.add(kDollarsFilledCardHold);
@@ -550,8 +561,8 @@ void main() {
     expect(order(tester), ['hl-ETH', 'hl-BTC']);
     expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
     expect(text('hl-ETH', 'Long · Placing'), findsOneWidget);
-    expect(tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))),
-        slot);
+    expectSameSlot(
+        tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))), slot);
     // Placing, its tap is the order's: the journey (Cancel lives there).
     await tester.tap(inSquares(find.byKey(const ValueKey('hl-ETH'))));
     await tester.pump();
@@ -617,8 +628,8 @@ void main() {
     expect(order(tester), ['hl-ETH', 'hl-BTC']);
     expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
     expect(text('hl-ETH', 'Long · Order placed'), findsOneWidget);
-    expect(tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))),
-        slot);
+    expectSameSlot(
+        tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))), slot);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

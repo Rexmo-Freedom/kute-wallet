@@ -14399,6 +14399,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get standingPlacingOrder => 'Paneme su korraldust';
 
   @override
+  String get standingPlacingInvestment => 'Paneme su investeeringut';
+
+  @override
   String get standingPredictionPlaced => 'Ennustus pandud';
 
   @override

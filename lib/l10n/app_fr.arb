@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} Hausse ou Baisse · {length}",
   "standingPlacingPrediction": "Placement de votre prédiction",
   "standingPlacingOrder": "Placement de votre ordre",
+  "standingPlacingInvestment": "Placement de votre investissement",
   "standingPredictionPlaced": "Prédiction placée",
   "standingOrderPlaced": "Ordre placé",
   "standingPredictionFailed": "Votre prédiction n'a pas été placée. L'argent est dans Prédictions, disponible.",

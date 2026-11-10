@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} kils ar kris · {length}",
   "standingPlacingPrediction": "Teikiame tavo prognozę",
   "standingPlacingOrder": "Teikiame tavo pavedimą",
+  "standingPlacingInvestment": "Teikiame tavo investiciją",
   "standingPredictionPlaced": "Prognozė pateikta",
   "standingOrderPlaced": "Pavedimas pateiktas",
   "standingPredictionFailed": "Tavo prognozė nepateikta. Pinigai yra Prognozėse, prieinami.",

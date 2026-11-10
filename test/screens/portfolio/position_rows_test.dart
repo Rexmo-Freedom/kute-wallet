@@ -829,18 +829,29 @@ void main() {
     });
 
     testWidgets(
-        'the Activity tab\'s squares keep their subtitle, one line and the '
-        'one height, and read no setting', (tester) async {
-      await _pump(tester, PortfolioPositionSquares(rows: [row(long, 'Yes'), row('B', 'No')]));
+        'the Activity tab\'s (the Dollars Overview\'s) squares keep their '
+        'subtitle and read no setting, but never cut: the long name wraps, '
+        'both squares of the row as tall as the tallest (founder, 10 '
+        'November 2026, on 2.2.0 (99))', (tester) async {
+      await _pump(
+          tester,
+          width: 375,
+          PortfolioPositionSquares(rows: [row(long, 'Yes'), row('B', 'No')]));
+      expect(tester.takeException(), isNull);
       final title = tester.widget<Text>(
           find.byKey(const ValueKey('portfolio-row-title')).first);
-      expect(title.maxLines, 1);
+      expect(title.data, long);
+      expect(title.maxLines, isNull);
+      expect(title.overflow, isNull);
       expect(
           tester
               .widget<Text>(
                   find.byKey(const ValueKey('portfolio-row-subtitle')).first)
               .data,
           'Event only');
+      final squares = find.byKey(const ValueKey('portfolio-square'));
+      expect(tester.getRect(squares.at(0)).height,
+          tester.getRect(squares.at(1)).height);
     });
 
     testWidgets(

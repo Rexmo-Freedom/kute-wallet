@@ -14406,6 +14406,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get standingPlacingOrder => 'Lägger din order';
 
   @override
+  String get standingPlacingInvestment => 'Lägger din investering';
+
+  @override
   String get standingPredictionPlaced => 'Förutsägelse lagd';
 
   @override

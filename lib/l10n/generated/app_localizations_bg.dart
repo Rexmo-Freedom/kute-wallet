@@ -14430,6 +14430,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get standingPlacingOrder => 'Поставяме поръчката ти';
 
   @override
+  String get standingPlacingInvestment => 'Поставяме инвестицията ти';
+
+  @override
   String get standingPredictionPlaced => 'Прогнозата е поставена';
 
   @override

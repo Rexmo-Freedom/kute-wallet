@@ -3,7 +3,10 @@
 // withheld, light and dark, 320 and 375 wide; the end of the tab, scrolled,
 // over the bar; the pill row in the longest locale; and the one card of an
 // order on its way, Placing then placed (a prediction in the order's own
-// card, an Investing order on a listed position's row), light and dark.
+// card, an Investing order on a listed position's row), light and dark;
+// and three predictions with long names, two squares and the full-width
+// card, every name whole (founder, 10 November 2026, on 2.2.0 (99): "on
+// the overview the text is cut"), light and dark.
 // Logos are not fetched, so the big tiles show their category glyph or
 // letter tile.
 //
@@ -27,6 +30,10 @@ import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show polymarketActivePositionsProvider;
+import 'package:kute/providers/polymarket_live_prices_provider.dart'
+    show livePriceProvider;
 import 'package:kute/providers/open_pnl_history_provider.dart'
     show OpenPnlSources;
 import 'package:kute/screens/usd/usd_account_screen.dart';
@@ -36,6 +43,8 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import '../hyperliquid/hl_market_map_fixture.dart';
+import 'dollars_overview_no_cut_test.dart'
+    show NoLivePolyPrices, longPositions;
 import 'investments_harness.dart';
 
 const _out = String.fromEnvironment('DOLLARS_OVERVIEW_RENDER_OUT');
@@ -92,6 +101,7 @@ Future<void> _render(WidgetTester tester, String name,
     bool withheld = false,
     bool scrolled = false,
     List<StandingOrder> standing = const [],
+    List<Override> extra = const [],
     Locale? locale}) async {
   final now = DateTime.now();
   const coins = ['BTC', 'ETH', 'SOL', 'HYPE'];
@@ -144,6 +154,7 @@ Future<void> _render(WidgetTester tester, String name,
                       _perp(c, i.isEven ? 3 : -1.5),
                   ],
                   recentFills: [for (final c in coins) _opened(c, now)]))),
+        ...extra,
       ]);
   for (var i = 0; i < 12; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -304,6 +315,18 @@ void main() {
           dark: dark,
           standing: [prediction(state)]));
     }
+  }
+  for (final dark in [false, true]) {
+    final mode = dark ? 'dark' : 'light';
+    testWidgets('long names $mode', (tester) => _render(
+        tester, 'overview_long_names_$mode',
+        size: const Size(375, 812),
+        dark: dark,
+        extra: [
+          polymarketActivePositionsProvider
+              .overrideWith((_) => longPositions()),
+          livePriceProvider.overrideWith(NoLivePolyPrices.new),
+        ]));
   }
   // The longest name the pill takes (Romanian, "Prezentare generală"), then
   // German and Greek, on the narrowest phone.

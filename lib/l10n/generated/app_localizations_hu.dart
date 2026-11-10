@@ -14446,6 +14446,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get standingPlacingOrder => 'Megbízásod leadása folyamatban';
 
   @override
+  String get standingPlacingInvestment => 'Befektetésed leadása folyamatban';
+
+  @override
   String get standingPredictionPlaced => 'Előrejelzés leadva';
 
   @override

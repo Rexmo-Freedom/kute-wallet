@@ -14438,6 +14438,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get standingPlacingOrder => 'Postavljamo tvoj nalog';
 
   @override
+  String get standingPlacingInvestment => 'Postavljamo tvoje ulaganje';
+
+  @override
   String get standingPredictionPlaced => 'Prognoza postavljena';
 
   @override

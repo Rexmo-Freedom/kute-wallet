@@ -23,7 +23,11 @@
 //     "Latest" grid (ActivitySquareGrid); an odd last one, one alone
 //     included, is one full-width compact card under them, never a lone
 //     half square (PortfolioPositionSquares, the no-orphan rule; founder,
-//     6 November 2026), as on the Portfolio. Each square IS the position's
+//     6 November 2026), as on the Portfolio. Nothing on them is cut
+//     (founder, 10 November 2026, on 2.2.0 (99): "on the overview the
+//     text is cut"): the name and the line under it wrap as the
+//     Portfolio's do, the squares of a row as tall as the tallest. Each
+//     square IS the position's
 //     own row (portfolioVenueLists), so a tap opens the position exactly
 //     as the Portfolio's row does. Still reading with nothing listed: the
 //     squares' skeletons (PortfolioSquaresSkeleton). Nothing open: nothing
@@ -501,10 +505,9 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.fromLTRB(12.w, 14.h, 12.w, 8.h),
+        // Wraps rather than cut (founder: no cut text on the Overview).
         child: Text(
           label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: context.colors.textSecondary,
             fontSize: 14.sp,
@@ -599,8 +602,6 @@ class DollarsPnlStrip extends ConsumerWidget {
                           child: Text(
                             l10n.portfolioStatOpenPnl,
                             key: const ValueKey('dollars-pnl-label'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: c.textSecondary,
                               fontSize: 13.sp,

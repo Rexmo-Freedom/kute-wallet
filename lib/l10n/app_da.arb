@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} op eller ned · {length}",
   "standingPlacingPrediction": "Placerer din forudsigelse",
   "standingPlacingOrder": "Placerer din ordre",
+  "standingPlacingInvestment": "Placerer din investering",
   "standingPredictionPlaced": "Forudsigelse placeret",
   "standingOrderPlaced": "Ordre placeret",
   "standingPredictionFailed": "Din forudsigelse blev ikke placeret. Pengene er i Forudsigelser, tilgængelige.",

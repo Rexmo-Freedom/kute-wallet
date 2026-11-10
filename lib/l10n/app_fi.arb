@@ -4070,6 +4070,7 @@
   "predictUpOrDownLength": "{asset} ylös vai alas · {length}",
   "standingPlacingPrediction": "Ennustettasi asetetaan",
   "standingPlacingOrder": "Toimeksiantoasi asetetaan",
+  "standingPlacingInvestment": "Sijoitustasi asetetaan",
   "standingPredictionPlaced": "Ennuste asetettu",
   "standingOrderPlaced": "Toimeksianto asetettu",
   "standingPredictionFailed": "Ennustettasi ei asetettu. Rahat ovat Ennusteissa, käytettävissä.",

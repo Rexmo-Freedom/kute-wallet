@@ -24279,6 +24279,12 @@ abstract class AppLocalizations {
   /// **'Placing your order'**
   String get standingPlacingOrder;
 
+  /// Standing orders: Sal's toast at the top once the person leaves the locked Investing ticket while the order is still on its way (no spinner, no Cancel; closable).
+  ///
+  /// In en, this message translates to:
+  /// **'Placing your investment'**
+  String get standingPlacingInvestment;
+
   /// No description provided for @standingPredictionPlaced.
   ///
   /// In en, this message translates to:
