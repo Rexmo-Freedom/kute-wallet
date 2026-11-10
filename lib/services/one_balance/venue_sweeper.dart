@@ -83,7 +83,26 @@ class VenueSweeperState {
     this.held = const <OneBalanceVenue, double>{},
     this.movable = const <OneBalanceVenue, double>{},
     this.belowMinimum = const <OneBalanceVenue, double>{},
+    this.classified = const <OneBalanceVenue>{},
   });
+
+  /// Venues a read has classified this session (a pass or a preview put
+  /// their cash in held, dust or waiting, or found nothing there). Until
+  /// a venue is in it, its buckets say nothing: the cash simply has not
+  /// been looked at yet (the first boot after a launch or a recovery, before
+  /// the first event, cash move or heartbeat), and the header counts the
+  /// venue's live idle cash as Available ([isClassified],
+  /// `cappedVenueCash`).
+  final Set<OneBalanceVenue> classified;
+
+  /// Whether the sweeper has a say about [venue]'s cash: it classified it,
+  /// holds a bucket for it, or is moving it right now.
+  bool isClassified(OneBalanceVenue venue) =>
+      classified.contains(venue) ||
+      sweeping.contains(venue) ||
+      waiting.containsKey(venue) ||
+      dust.containsKey(venue) ||
+      held.containsKey(venue);
 
   /// What a Rebalance ([VenueSweeper.sweepNow]) would send home from each
   /// venue right now, as the last read of the venues saw it (a pass, or
@@ -119,6 +138,7 @@ class VenueSweeperState {
     Map<OneBalanceVenue, double>? held,
     Map<OneBalanceVenue, double>? movable,
     Map<OneBalanceVenue, double>? belowMinimum,
+    Set<OneBalanceVenue>? classified,
   }) =>
       VenueSweeperState(
         waiting: waiting ?? this.waiting,
@@ -127,6 +147,7 @@ class VenueSweeperState {
         held: held ?? this.held,
         movable: movable ?? this.movable,
         belowMinimum: belowMinimum ?? this.belowMinimum,
+        classified: classified ?? this.classified,
       );
 
   @override
@@ -137,7 +158,8 @@ class VenueSweeperState {
       mapEquals(other.held, held) &&
       mapEquals(other.movable, movable) &&
       mapEquals(other.belowMinimum, belowMinimum) &&
-      setEquals(other.sweeping, sweeping);
+      setEquals(other.sweeping, sweeping) &&
+      setEquals(other.classified, classified);
 
   @override
   int get hashCode => Object.hash(
@@ -148,12 +170,14 @@ class VenueSweeperState {
         Object.hashAll(
             belowMinimum.entries.map((e) => Object.hash(e.key, e.value))),
         Object.hashAllUnordered(sweeping),
+        Object.hashAllUnordered(classified),
       );
 
   @override
   String toString() =>
       'VenueSweeperState(waiting: $waiting, dust: $dust, held: $held, '
-      'movable: $movable, belowMinimum: $belowMinimum, sweeping: $sweeping)';
+      'movable: $movable, belowMinimum: $belowMinimum, sweeping: $sweeping, '
+      'classified: $classified)';
 }
 
 /// What a pass did with one venue, as the Portfolio's Rebalance reports it.
@@ -359,6 +383,9 @@ class VenueSweeper {
   final Map<OneBalanceVenue, double> _held = {};
   final Map<OneBalanceVenue, double> _movable = {};
   final Map<OneBalanceVenue, double> _belowMinimum = {};
+
+  /// Venues whose cash a read has classified ([VenueSweeperState.classified]).
+  final Set<OneBalanceVenue> _classified = {};
 
   /// Moves started per venue: a [preview] that read a venue before a move
   /// left it does not record what it read.
@@ -1199,7 +1226,10 @@ class VenueSweeper {
     final a = put(_waiting, waiting);
     final b = put(_dust, dust);
     final h = put(_held, held);
-    if (a || b || h) _publish();
+    // Every bucket write is a classification, an empty one included (the
+    // venue holds nothing, or a sweep took all of it).
+    final c = _classified.add(venue);
+    if (a || b || h || c) _publish();
   }
 
   void _publish() {
@@ -1210,6 +1240,7 @@ class VenueSweeper {
       movable: Map.unmodifiable(_movable),
       belowMinimum: Map.unmodifiable(_belowMinimum),
       sweeping: Set.unmodifiable(_inFlight),
+      classified: Set.unmodifiable(_classified),
     );
     if (next == _state) return;
     _state = next;

@@ -31,6 +31,9 @@
 //               venue and reachable by the engine, so always Available
 //               (founder decision 13 October 2026: one balance), never
 //               Invested. Dust only tells the sweeper to leave it alone.
+//               Before the sweeper's first pass has looked at a venue (a
+//               cold start, a recovered wallet), its live idle cash counts
+//               as held, less what is already in flight home from it.
 //
 // Waiting, dust and venue cash are the sweeper's classification from its
 // last pass, each capped by the venue's live unreserved cash
@@ -252,20 +255,46 @@ double? _liveIdleCash(UnifiedVenueBalances venues, OneBalanceVenue venue) =>
 /// Predictions cash takes the cash off the live read at the fill, and the
 /// position onto it, while the sweeper's `held` still said $3.55 until
 /// its next pass: the spent cash stayed in Available next to the position
-/// it bought. The live read can only lower a bucket here, never raise it
-/// (cash a read shows that the sweeper has not classified yet can be a
-/// sweep that left a moment ago and is counted in flight), and the sweeper
-/// re-classifies on its next pass.
+/// it bought. Once the sweeper has classified a venue, the live read can
+/// only lower its buckets here, never raise them (cash a read shows that
+/// the last pass did not see can be a sweep that left a moment ago and is
+/// counted in flight), and the sweeper re-classifies on its next pass.
+///
+/// BEFORE THE FIRST CLASSIFICATION (founder, 10 November 2026: a wallet
+/// recovered from its 12 words showed $15.65 less Available than the same
+/// wallet on the phone, until a bet woke the sweeper). On a cold start the
+/// sweeper's state is empty until its first pass, which waits for an
+/// event, a venue's cash moving, a resume or the 3-minute heartbeat; the
+/// venues' cash was then counted nowhere. A venue the sweeper has not
+/// classified yet ([VenueSweeperState.isClassified]) counts its live idle
+/// cash as held (Available), less what [inFlight] already counts coming
+/// home from it (a sweep a previous run started, which the venue's read
+/// can still show): never twice. Nothing moves; the sweeper classifies it
+/// on its first pass.
 ({
   Map<OneBalanceVenue, double> waiting,
   Map<OneBalanceVenue, double> dust,
   Map<OneBalanceVenue, double> held,
-}) cappedVenueCash(UnifiedVenueBalances venues, VenueSweeperState sweeper) {
+}) cappedVenueCash(UnifiedVenueBalances venues, VenueSweeperState sweeper,
+    {Iterable<InFlightMove> inFlight = const []}) {
   final waiting = <OneBalanceVenue, double>{};
   final dust = <OneBalanceVenue, double>{};
   final held = <OneBalanceVenue, double>{};
   for (final venue in OneBalanceVenue.values) {
-    var room = _liveIdleCash(venues, venue) ?? double.infinity;
+    final live = _liveIdleCash(venues, venue);
+    if (!sweeper.isClassified(venue)) {
+      if (live == null) continue;
+      var leaving = 0.0;
+      for (final move in inFlight) {
+        if (move.kind == InFlightKind.fromVenue && move.venue == venue) {
+          leaving += _clean(move.usd);
+        }
+      }
+      final h = _clean(live - leaving);
+      if (h >= kSweepDustUsd) held[venue] = h;
+      continue;
+    }
+    var room = live ?? double.infinity;
     double take(double? usd) {
       final want = usd == null ? 0.0 : _clean(usd);
       final got = want < room ? want : room;
@@ -304,7 +333,7 @@ OneBalanceState oneBalanceStateFrom({
   required VenueSweeperState sweeper,
   OneBalanceLiveMarks marks = OneBalanceLiveMarks.zero,
 }) {
-  final cash = cappedVenueCash(venues, sweeper);
+  final cash = cappedVenueCash(venues, sweeper, inFlight: inFlight);
   // Dust is venue cash like any other: the sweeper leaves it where it is,
   // and a bet or an order there spends it.
   final venueCash = <OneBalanceVenue, double>{};

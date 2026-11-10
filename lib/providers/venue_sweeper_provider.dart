@@ -506,10 +506,18 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
         polymarketTradingProvider.select((s) => (
               cash: s.valueOrNull?.usdcBalance,
               orders: s.valueOrNull?.openOrders.length,
+              known: (s.valueOrNull?.isAuthenticated ?? false) &&
+                  (s.valueOrNull?.balanceKnown ?? false),
             )), (previous, next) {
       if (previous != null && previous != next) {
         _cashMoved(OneBalanceVenue.predictions);
       }
+    });
+    // Investing's cash from the badge poll (the trading stack's own state
+    // moves with VenueCashReleased): its first read, and every change,
+    // re-classifies it, as Predictions' does.
+    ref.listen<double>(hyperliquidFreeUsdcProvider, (previous, next) {
+      if (previous != next) _cashMoved(OneBalanceVenue.investing);
     });
     StreamSubscription<void>? depositSettled;
     try {
@@ -553,6 +561,17 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
       _cashPass?.cancel();
       _sweeper.dispose();
     });
+    // The first classification at once, read-only (founder, 10 November
+    // 2026: a recovered wallet's venue cash waited for a bet to show).
+    // Before, nothing classified the venues on a cold start until an
+    // event, a cash move, a resume or the 3-minute heartbeat: the session
+    // unlocks before Home builds this, and Predictions' account (from its
+    // cache, or read before Home) rarely moves in that window. A preview
+    // never sends, never reports and never runs the rollout, whatever
+    // [venueAutoSweepProvider] says. Venues that have not answered yet
+    // are classified when their cash first moves (the listeners above).
+    unawaited(Future<void>(() => _sweeper.preview())
+        .then((_) {}, onError: (_) {}));
     return const VenueSweeperState();
   }
 
