@@ -14514,10 +14514,6 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Puoi uscire. L\'ordine continua e compare in Attività.';
-
-  @override
   String get standingStageMoving => 'Spostiamo il denaro';
 
   @override

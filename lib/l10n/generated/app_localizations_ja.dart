@@ -13991,9 +13991,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote => 'ここを離れても大丈夫です。注文は続き、アクティビティに表示されます。';
-
-  @override
   String get standingStageMoving => '資金を移動中';
 
   @override

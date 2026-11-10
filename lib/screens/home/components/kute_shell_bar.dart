@@ -289,7 +289,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     final live = _top(ref.read(kuteBarContextProvider),
         covered: _searchCovered());
     if (live == null || !live.isPrimary || !live.current) return;
-    if (!live.enabled || live.busy || live.onPrimary == null) return;
+    if (!live.actionable) return;
     HapticFeedback.lightImpact();
     live.onPrimary!();
   }

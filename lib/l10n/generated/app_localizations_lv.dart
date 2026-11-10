@@ -14417,10 +14417,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Vari iet. Rīkojums turpinās un redzams Aktivitātē.';
-
-  @override
   String get standingStageMoving => 'Pārvietojam naudu';
 
   @override

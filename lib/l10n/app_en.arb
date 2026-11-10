@@ -12628,7 +12628,6 @@
       }
     }
   },
-  "standingLeaveNote": "You can leave. The order continues and shows in Activity.",
   "standingStageMoving": "Moving money",
   "@standingStageMoving": {
     "description": "Overview card line for a prediction or order whose money is still moving to the venue. Short."

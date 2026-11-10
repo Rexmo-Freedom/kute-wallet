@@ -11,8 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/screens/shared/standing_order_journey.dart'
-    show StandingOrderJourneySheet;
+import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -297,17 +296,6 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
   await _frames(tester);
 }
 
-
-/// The slip closed at the accept: Sal's placing toast ("Placing your order", with
-/// Cancel and the X) stands in its place; its tap opens the money journey.
-Future<void> _journeyFromToast(WidgetTester tester) async {
-  expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
-  expect(find.byKey(const ValueKey('sal-toast-action')), findsOneWidget);
-  await tester.tap(find.text('Placing your order'));
-  await _frames(tester, 10);
-  expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
-}
-
 Future<void> _frames(WidgetTester tester, [int n = 10]) async {
   for (var i = 0; i < n; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -315,10 +303,8 @@ Future<void> _frames(WidgetTester tester, [int n = 10]) async {
 }
 
 
-// The app's container: after the accept the slip closes at once
-// (standing orders), so it is read from the app, not the slip.
 ProviderContainer _container(WidgetTester tester) =>
-    ProviderScope.containerOf(tester.element(find.byType(Navigator).first));
+    ProviderScope.containerOf(tester.element(find.byType(HlOrderSlipSheet)));
 
 void main() {
   late FakeHyperliquidMoveRail rail;
@@ -459,9 +445,44 @@ void main() {
     expect(pending.marginUsd, greaterThan(0));
     expect(pending.fundingSource, 'bitcoin');
 
-    // The ticket closed at the accept (standing orders): Sal's placing
-    // toast stands in its place; its tap opens the money journey.
-    await _journeyFromToast(tester);
+    // The steps, on the ticket, under one busy button: the ticket stays
+    // up after the accept, locked as before, with no placing toast and no
+    // "you can leave" line.
+    expect(find.byKey(const ValueKey('order-slip-funded-progress')),
+        findsOneWidget);
+    expect(barPrimaryBusy(tester), isTrue);
+    expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+    expect(find.textContaining('You can leave'), findsNothing);
+    // With its standing order on record and not yet posted, the busy
+    // button (Sal working on it) says Cancel and takes the tap.
+    final standing = _container(tester).read(standingOrdersProvider.notifier);
+    final keep = _container(tester).read(standingOrdersProvider);
+    final at = DateTime.now();
+    standing.debugReplace([
+      StandingOrder(
+        id: 'so_hl',
+        walletId: 'w',
+        venue: StandingOrderVenue.investing,
+        marketKey: 'BTC',
+        marketTitle: 'BTC · Perp',
+        sideLabel: 'long',
+        isBuy: true,
+        size: 1,
+        approvedPrice: 60000,
+        amountUsd: 10,
+        orderKind: 'market',
+        state: StandingOrderState.funded,
+        createdAt: at,
+        updatedAt: at,
+      ),
+    ]);
+    await _frames(tester, 2);
+    expect(barPrimaryBusy(tester), isTrue);
+    expect(barPrimaryLabel(tester), 'Cancel');
+    expect(barPrimaryEnabled(tester), isTrue);
+    standing.debugReplace(keep);
+    await _frames(tester, 2);
+    expect(barPrimaryLabel(tester), isNot('Cancel'));
 
     // The venue credits it and the autofire places it: never a second
     // prompt.

@@ -14475,10 +14475,6 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Možeš otići. Nalog se nastavlja i vidi se u Aktivnosti.';
-
-  @override
   String get standingStageMoving => 'Premještamo novac';
 
   @override

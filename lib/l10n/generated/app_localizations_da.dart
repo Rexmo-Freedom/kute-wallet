@@ -14449,10 +14449,6 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Du kan gå. Ordren fortsætter og vises i Aktivitet.';
-
-  @override
   String get standingStageMoving => 'Flytter penge';
 
   @override

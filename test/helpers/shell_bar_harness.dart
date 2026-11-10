@@ -172,11 +172,10 @@ String barPrimaryLabel(WidgetTester tester) {
 String barPrimaryDeclaredLabel(WidgetTester tester) =>
     barPrimaryContext(tester).label;
 
-/// Whether a tap runs the action: enabled, not busy, with a handler.
-bool barPrimaryEnabled(WidgetTester tester) {
-  final ctx = barPrimaryContext(tester);
-  return ctx.enabled && !ctx.busy && ctx.onPrimary != null;
-}
+/// Whether a tap runs the action: enabled, with a handler, not busy (or
+/// busy and still taking the tap: a placing order's Cancel).
+bool barPrimaryEnabled(WidgetTester tester) =>
+    barPrimaryContext(tester).actionable;
 
 /// Whether the button shows its progress ring.
 bool barPrimaryBusy(WidgetTester tester) => barPrimaryContext(tester).busy;
@@ -220,10 +219,8 @@ String scopeLabel(WidgetTester tester, {Finder? within}) {
 }
 
 /// Whether that surface's action runs on a tap.
-bool scopeEnabled(WidgetTester tester, {Finder? within}) {
-  final ctx = scopeContext(tester, within: within);
-  return ctx.enabled && !ctx.busy && ctx.onPrimary != null;
-}
+bool scopeEnabled(WidgetTester tester, {Finder? within}) =>
+    scopeContext(tester, within: within).actionable;
 
 /// Whether that surface declares itself busy.
 bool scopeBusy(WidgetTester tester, {Finder? within}) =>

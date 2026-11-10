@@ -743,10 +743,15 @@ class SlipFundingSteps extends StatelessWidget {
     this.money,
     this.from,
     this.to,
+    this.haptics = true,
   });
 
   /// The steps, in order.
   final List<String> steps;
+
+  /// False: the steps play no haptics (the slip was left while its order
+  /// goes on; `MoneyStepsView.haptics`).
+  final bool haptics;
 
   /// The journey's stations when the graph does not say: where the
   /// money starts (Bitcoin for a bitcoin-funded order, else Dollars) and
@@ -791,6 +796,7 @@ class SlipFundingSteps extends StatelessWidget {
         to: to,
         slow: slow,
         note: note,
+        haptics: haptics,
       );
     }
     // The older stage lines: the same journey, one road from the money's
@@ -814,6 +820,7 @@ class SlipFundingSteps extends StatelessWidget {
       ],
       slow: slow,
       note: note,
+      haptics: haptics,
     );
   }
 }

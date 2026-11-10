@@ -14497,10 +14497,6 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Je kunt weg. De order loopt door en staat in Activiteit.';
-
-  @override
   String get standingStageMoving => 'Geld wordt verplaatst';
 
   @override

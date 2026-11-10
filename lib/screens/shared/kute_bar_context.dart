@@ -272,6 +272,7 @@ class KuteBarContext {
   })  : kind = KuteBarKind.search,
         enabled = true,
         busy = false,
+        tapWhileBusy = false,
         onPrimary = null,
         busyLabel = null,
         disabledLabel = null,
@@ -316,6 +317,7 @@ class KuteBarContext {
     required this.onPrimary,
     this.enabled = true,
     this.busy = false,
+    this.tapWhileBusy = false,
     this.busyLabel,
     this.disabledLabel,
     this.style,
@@ -365,6 +367,7 @@ class KuteBarContext {
         kind = KuteBarKind.trade,
         enabled = true,
         busy = false,
+        tapWhileBusy = false,
         onPrimary = null,
         busyLabel = null,
         disabledLabel = null,
@@ -383,6 +386,12 @@ class KuteBarContext {
   final KuteBarKind kind;
   final bool enabled;
   final bool busy;
+
+  /// The busy button still takes a tap ([onPrimary]): a placing order's
+  /// "Cancel" on the slip's own button while Sal works on it (founder, 10
+  /// November 2026: "the cancel should be sal button"). The busy look
+  /// stays (Sal thinking, the shimmer) under [busyLabel].
+  final bool tapWhileBusy;
   final VoidCallback? onPrimary;
   final String? busyLabel;
 
@@ -395,7 +404,8 @@ class KuteBarContext {
   final double? pairedWidth;
 
   /// Whether the primary button takes a tap now.
-  bool get actionable => enabled && !busy && onPrimary != null;
+  bool get actionable =>
+      enabled && (!busy || tapWhileBusy) && onPrimary != null;
 
   /// The words on the primary button now: the busy label while busy, the
   /// action while it takes a tap, else what the person has to do.
@@ -427,6 +437,7 @@ class KuteBarContext {
         kind = KuteBarKind.search,
         enabled = true,
         busy = false,
+        tapWhileBusy = false,
         onPrimary = null,
         busyLabel = null,
         disabledLabel = null,
@@ -516,6 +527,7 @@ class KuteBarContext {
           onPrimary: onPrimary,
           enabled: enabled,
           busy: busy,
+          tapWhileBusy: tapWhileBusy,
           busyLabel: busyLabel,
           disabledLabel: disabledLabel,
           style: style,

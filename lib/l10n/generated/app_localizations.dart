@@ -24333,12 +24333,6 @@ abstract class AppLocalizations {
   /// **'Price moved to {price}. Tap to place at the new price.'**
   String standingPriceMoved(String price);
 
-  /// No description provided for @standingLeaveNote.
-  ///
-  /// In en, this message translates to:
-  /// **'You can leave. The order continues and shows in Activity.'**
-  String get standingLeaveNote;
-
   /// Overview card line for a prediction or order whose money is still moving to the venue. Short.
   ///
   /// In en, this message translates to:

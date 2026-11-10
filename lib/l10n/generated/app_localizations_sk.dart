@@ -14465,10 +14465,6 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Môžete odísť. Príkaz pokračuje a je vidieť v Aktivite.';
-
-  @override
   String get standingStageMoving => 'Presúvame peniaze';
 
   @override

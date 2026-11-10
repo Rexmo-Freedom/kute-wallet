@@ -4079,7 +4079,6 @@
   "standingPredictionCancelled": "Zrušeno. Peníze zůstávají v Předpovědích, k dispozici.",
   "standingOrderCancelled": "Zrušeno. Peníze zůstávají v Investování, k dispozici.",
   "standingPriceMoved": "Cena se změnila na {price}. Klepnutím zadáte za novou cenu.",
-  "standingLeaveNote": "Můžete odejít. Příkaz pokračuje a je vidět v Aktivitě.",
   "standingStageMoving": "Přesouváme peníze",
   "standingStagePlacing": "Zadáváme",
   "standingStageApproval": "Čeká na vaše schválení"

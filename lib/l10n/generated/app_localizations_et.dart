@@ -14436,10 +14436,6 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Võid lahkuda. Korraldus jätkub ja on näha Tegevuses.';
-
-  @override
   String get standingStageMoving => 'Liigutame raha';
 
   @override

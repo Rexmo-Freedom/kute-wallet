@@ -4079,7 +4079,6 @@
   "standingPredictionCancelled": "Tühistatud. Raha jääb Ennustustesse, saadaval.",
   "standingOrderCancelled": "Tühistatud. Raha jääb Investeerimisse, saadaval.",
   "standingPriceMoved": "Hind liikus {price} peale. Puuduta, et panna uue hinnaga.",
-  "standingLeaveNote": "Võid lahkuda. Korraldus jätkub ja on näha Tegevuses.",
   "standingStageMoving": "Liigutame raha",
   "standingStagePlacing": "Esitame",
   "standingStageApproval": "Vajab sinu kinnitust"

@@ -14494,10 +14494,6 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Lahko greš. Naročilo se nadaljuje in je vidno v Dejavnosti.';
-
-  @override
   String get standingStageMoving => 'Premikamo denar';
 
   @override

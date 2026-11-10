@@ -1,8 +1,13 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
-import 'package:kute/services/standing_orders/standing_order.dart'
-    show StandingOrderVenue;
+import 'package:kute/services/standing_orders/standing_orders_provider.dart'
+    show
+        StandingOrder,
+        StandingOrderState,
+        StandingOrderVenue,
+        standingOrdersProvider;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
 import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
@@ -1819,8 +1824,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     if (_orderInFlight || _isPlacing) return;
-    // A new try: an earlier funded order's stop gives way to it.
+    // A new try: an earlier funded order's stop gives way to it, and the
+    // ticket is locked while it places until its own accept.
     _clearFundedStop();
+    _standingAccepted = false;
+    _cancelledHere = false;
     _orderInFlight = true;
     // The button starts thinking HERE, on the tap, not once the order
     // is on the wire. Everything _confirmInner does before that point
@@ -2386,6 +2394,100 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     });
   }
 
+  /// The accept is done and the order's money is on its way as a
+  /// standing order (standing_orders/). The ticket stays up, locked as it
+  /// always was while placing (founder, 10 November 2026: "the same bottom
+  /// modal sheet we had before when it was locked ... only difference is
+  /// that we allow the user to leave"): the money's journey and the bar's
+  /// button on the running step, then the result. From here the person
+  /// can leave it, which never cancels the order ([_onLeave]); the bar's
+  /// button is "Cancel" while the order can still be cancelled
+  /// ([_standingCancelId]).
+  void _closeForStandingOrder() {
+    if (!mounted || _standingAccepted) return;
+    _updateDraft(() => _standingAccepted = true);
+  }
+
+  /// The accept made a standing order of this ticket's order: the ticket
+  /// may be left while it places. Reset by every new try.
+  bool _standingAccepted = false;
+
+  /// The person left the ticket while its order goes on: every progress
+  /// haptic of the ticket stops at once, and nothing it still hears
+  /// navigates.
+  bool _left = false;
+
+  /// The person cancelled the order from the ticket's own button.
+  bool _cancelledHere = false;
+
+  /// The open standing order of this ticket's accept while it can still
+  /// be cancelled (before it is posted); null otherwise. Watched, so the
+  /// button goes back to the step the moment the order is posted.
+  String? _standingCancelId() {
+    if (!_standingAccepted || _left || _completed) return null;
+    final coin = market.coin;
+    final order = ref.watch(standingOrdersProvider.select((all) {
+      StandingOrder? found;
+      for (final o in all) {
+        if (o.venue == StandingOrderVenue.investing &&
+            o.marketKey == coin &&
+            o.isOpen) {
+          found = o;
+        }
+      }
+      return found;
+    }));
+    return order != null && order.canCancel ? order.id : null;
+  }
+
+  /// Cancel on the ticket's button: the order is cancelled (the existing
+  /// `standing_order_cancelled`) and the ticket closes; Sal says it was
+  /// cancelled (standing_orders_shell.dart).
+  void _cancelStanding(String id) {
+    if (_cancelledHere) return;
+    _cancelledHere = true;
+    unawaited(ref.read(standingOrdersProvider.notifier).cancel(id));
+    Navigator.of(context).maybePop();
+  }
+
+  /// The ticket is going (didPop): once it had a standing order, its
+  /// haptics stop now, and while that order still runs Sal's placing
+  /// toast takes over (with Cancel and its X). While the ticket is up it
+  /// never shows too.
+  void _onLeave() {
+    if (!_standingAccepted || _left) return;
+    _updateDraft(() => _left = true);
+    if (_cancelledHere || _completed) return;
+    final coin = market.coin;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final order = StandingOrderToasts.openOn(
+        container, StandingOrderVenue.investing, coin);
+    // Only an order still on its way gets the toast: not one that ended
+    // on the ticket, nor one waiting on a new price (Sal asks about that).
+    final status = ref.read(pendingHyperliquidOrderProvider)?.status;
+    if (status == PendingHlOrderStatus.failed ||
+        status == PendingHlOrderStatus.done ||
+        status == PendingHlOrderStatus.unconfirmed ||
+        order?.state == StandingOrderState.needsApproval ||
+        (order == null && status == null)) {
+      return;
+    }
+    // The order's own label (the standing order's title).
+    final label = isSpot
+        ? market.coin
+        : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}';
+    // The root overlay (root_navigator.dart); this slip's own context
+    // only where the app has no root key.
+    StandingOrderToasts.placing(
+        kuteRootContext(context),
+        container,
+        context.l10n,
+        venue: StandingOrderVenue.investing,
+        marketKey: coin,
+        marketTitle: label,
+        order: order);
+  }
+
   /// Funds [shortfallUsd] from Dollars and places the order once the
   /// money lands: one approval (the order plus the dollars allowed to
   /// leave for it, held as the autofire grant), the controller moves the
@@ -2398,37 +2500,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// that cannot cover the move turn the button into "Add $X to
   /// Investments". A credit timeout keeps the cash at the venue for the
   /// sweeper and says so with the existing copy.
-  /// The accept is done and the order's money is on its way, headless (a
-  /// standing order, standing_orders/): the ticket closes at once and
-  /// Sal's placing toast takes its place, with Cancel and an X (founder, 9
-  /// November 2026); its tap opens the money journey. Deferred a frame, so
-  /// the state set just before it has rendered. Closes once.
-  void _closeForStandingOrder() {
-    if (!mounted || _closedForStanding) return;
-    _closedForStanding = true;
-    final nav = Navigator.of(context, rootNavigator: true);
-    final coin = market.coin;
-    // The order's own label (the standing order's title).
-    final label = isSpot
-        ? market.coin
-        : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}';
-    final container = ProviderScope.containerOf(context, listen: false);
-    final l10n = context.l10n;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      // Sal says it is being placed, with Cancel and the X; a tap on the
-      // toast opens the money journey (standing_order_toasts.dart).
-      StandingOrderToasts.placing(nav.context, container, l10n,
-          venue: StandingOrderVenue.investing,
-          marketKey: coin,
-          marketTitle: label,
-          order: StandingOrderToasts.openOn(
-              container, StandingOrderVenue.investing, coin));
-    });
-  }
-
-  bool _closedForStanding = false;
 
   Future<void> _confirmFunded({
     required String walletId,
@@ -3369,6 +3440,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (funded != null) {
       return RubberBandProgress(
         key: const ValueKey('order-slip-funded-progress'),
+        // Left: the pull is felt no more.
+        haptic: !_left,
         progress: funded.progress,
         outcome: funded.done
             ? RubberBandOutcome.success
@@ -3380,6 +3453,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     return RubberBandBusy(
       key: const ValueKey('order-slip-placement-band'),
+      haptic: !_left,
       busy: _checkingConnection ||
           (!_isLedger && (_isPlacing || _preparing) && !_completed),
       outcome: _completed ? RubberBandOutcome.success : null,
@@ -3430,7 +3504,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _pendingSub?.close();
     _pendingSub = ref.listenManual(pendingHyperliquidOrderProvider,
         (previous, next) {
-      if (!mounted || next == null) return;
+      // Left: the order's end is Sal's (the toast), never this ticket's.
+      if (!mounted || next == null || _left) return;
       switch (next.status) {
         case PendingHlOrderStatus.placing:
           _trackFundingStep(OrderFundingStage.order);
@@ -4343,7 +4418,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// Accepted is distinct from filled; show a receipt without inventing a fill.
   Future<void> _onRestingAccepted() async {
-    if (_completed || !mounted) return;
+    if (_completed || !mounted || _left) return;
     _completed = true;
     _fillSub?.cancel();
     final amount = formatDollars(_marginUsd);
@@ -4353,7 +4428,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Reduce Motion, covered or in the background).
     setState(() {});
     await RubberBand.settle(context);
-    if (!nav.mounted) return;
+    if (!nav.mounted || _left) return;
     HlOrderSlipSheet.popAllSheetsDownToHost(nav);
     pushKuteSuccessOverlay(
       navigator: nav,
@@ -4387,7 +4462,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     required double avgPx,
     Iterable<HlFill> fills = const [],
   }) async {
-    if (_completed || !mounted) return;
+    if (_completed || !mounted || _left) return;
     _completed = true;
     _fillSub?.cancel();
     // What the fill did to the position held when the order went out:
@@ -4420,7 +4495,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Let the band's success snap play before the sheet goes.
     setState(() {});
     await RubberBand.settle(context);
-    if (!nav.mounted) return;
+    if (!nav.mounted || _left) return;
     HlOrderSlipSheet.popAllSheetsDownToHost(nav);
     pushHlOrderPlacedOverlay(
       navigator: nav,
@@ -4991,6 +5066,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             note: funded.failed
                 ? fundedStopLine(_strings, funded.record, formatHlUsd)
                 : null,
+            haptics: !_left,
           );
     // What the order does to a position already held here: adding to it
     // is a small pill; reducing, closing or flipping it stays a line. No
@@ -5357,6 +5433,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // visibly up the sheet, worst on Android where a three button nav
     // bar is half again as tall as an iOS home indicator. A phone with
     // no inset at all still gets its 16.
+    // The standing order this ticket accepted, while it can be cancelled:
+    // the bar's busy button is its "Cancel".
+    final standingCancelId = widget.sendPick == null ? _standingCancelId() : null;
     final action = Padding(
       padding: EdgeInsets.fromLTRB(
         20.w,
@@ -5466,6 +5545,22 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   barContext: widget.sendPick != null
                       ? _sendBarContext(widget.sendPick!,
                           minUsd: minAmountUsd)
+                      : standingCancelId != null
+                      // The busy button as it is (Sal working on it),
+                      // saying "Cancel" and taking the tap while the
+                      // order can still be cancelled (founder, 10
+                      // November 2026: "the cancel should be sal button").
+                      ? KuteBarContext.primary(
+                          label: context.l10n.cancel,
+                          onPrimary: () => _cancelStanding(standingCancelId),
+                          busy: true,
+                          tapWhileBusy: true,
+                          busyLabel: context.l10n.cancel,
+                          category: SearchCategory.perpetuals,
+                          source: 'order_slip',
+                          // Never waits on input.
+                          disabledLabel: null,
+                        )
                       : KuteBarContext.primary(
                     label: funded != null &&
                         funded.failed &&
@@ -5576,7 +5671,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           );
     if (advanced) {
       return PopScope(
-        canPop: !_isPlacing,
+        // Locked while it places; once the accept made a standing order
+        // of it, the person may leave (the order goes on).
+        canPop: _standingAccepted || !_isPlacing,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) _onLeave();
+        },
         child: Scaffold(
           backgroundColor: base.background,
           appBar: AppBar(
@@ -5602,7 +5702,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ),
       );
     }
-    return KeyboardDismissOnTap(
+    return PopScope(
+      // The ticket's own lock is the tap-outside's (see the file header);
+      // this only hears it go.
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _onLeave();
+      },
+      child: KeyboardDismissOnTap(
       child: Theme(
         // Shared widgets inside the sheet read `context.colors`; handing
         // them the tinted palette keeps them legible without forking them.
@@ -5641,6 +5747,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -4079,7 +4079,6 @@
   "standingPredictionCancelled": "Megszakítva. A pénz az Előrejelzésekben marad, elérhető.",
   "standingOrderCancelled": "Megszakítva. A pénz a Befektetésben marad, elérhető.",
   "standingPriceMoved": "Az ár {price} lett. Koppints, hogy az új áron add le.",
-  "standingLeaveNote": "Elmehetsz. A megbízás folytatódik, és megjelenik a Tevékenységben.",
   "standingStageMoving": "Pénz mozgatása",
   "standingStagePlacing": "Leadás",
   "standingStageApproval": "Jóváhagyásodra vár"

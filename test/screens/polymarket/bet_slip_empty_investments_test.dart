@@ -10,8 +10,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/screens/shared/standing_order_journey.dart'
-    show StandingOrderJourneySheet;
+import 'package:kute/helpers/root_navigator.dart';
+import 'package:kute/screens/shared/money_steps_view.dart' show MoneyStepsView;
+import 'package:kute/screens/shared/sal_toast.dart' show SalToast;
+import 'package:kute/screens/shared/rubber_band_progress.dart'
+    show RubberBandProgress;
+import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/standing_orders/standing_order_store.dart';
+import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -59,6 +65,7 @@ import 'package:money2/money2.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/shell_bar_harness.dart';
+import '../../services/standing_orders/fake_secret_store.dart';
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -226,7 +233,9 @@ class _StoredFunded extends FundedOrdersNotifier {
 }
 
 Future<void> _pumpSlip(WidgetTester tester,
-    {bool knownEmpty = false, List<FundedOrderRecord>? funded}) async {
+    {bool knownEmpty = false,
+    List<FundedOrderRecord>? funded,
+    StandingOrderStore? standingStore}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -268,9 +277,13 @@ Future<void> _pumpSlip(WidgetTester tester,
       bitcoinLegEnvProvider.overrideWith((_) => _env.env),
       orderFundingControllerProvider.overrideWithValue(OrderFundingController(
           funderFor: (_) => _funder, dollarsUsd: () => 0)),
+      if (standingStore != null)
+        standingOrderStoreProvider.overrideWithValue(standingStore),
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
-    child: shellBarApp(
+    child: standingStore != null
+        ? _sheetApp()
+        : shellBarApp(
       home: const Scaffold(
         resizeToAvoidBottomInset: false,
         body: Align(
@@ -284,20 +297,77 @@ Future<void> _pumpSlip(WidgetTester tester,
     ),
   ));
   await _frames(tester);
+  if (standingStore != null) {
+    // The slip as the app opens it: a modal sheet over a page, the bar
+    // its button, Sal's toasts on the root overlay.
+    await tester.tap(find.byKey(const ValueKey('open-slip')));
+    await _frames(tester);
+  }
+}
+
+/// The app with the slip opened as the bottom modal sheet it is (tap
+/// outside to leave, no drag), on the root navigator.
+Widget _sheetApp() => shellBarApp(
+      navigatorKey: kuteRootNavigatorKey,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              key: const ValueKey('open-slip'),
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                isDismissible: true,
+                enableDrag: false,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const BetSlipSheet(
+                    marketQuestion: 'Will it rain?',
+                    outcomes: _outcomes,
+                    initialAmountUsd: null),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+/// The standing orders' store without disk: the records in memory, the
+/// secrets in [FakeSecretStore].
+class _MemoryStandingStore extends StandingOrderStore {
+  _MemoryStandingStore() : super(secrets: FakeSecretStore());
+  final Map<String, StandingOrder> rows = {};
+  @override
+  Future<List<StandingOrder>> load(String walletId) async =>
+      [for (final o in rows.values) if (o.walletId == walletId) o];
+  @override
+  Future<void> save(StandingOrder order) async => rows[order.id] = order;
+  @override
+  Future<void> remove(StandingOrder order) async => rows.remove(order.id);
+}
+
+/// The open standing order the accept made, as the provider holds it.
+StandingOrder _standing({StandingOrderState state = StandingOrderState.funding}) {
+  final at = DateTime.now();
+  return StandingOrder(
+    id: 'so_test',
+    walletId: 'w',
+    venue: StandingOrderVenue.predictions,
+    marketKey: 'yes-token',
+    marketTitle: 'Will it rain?',
+    sideLabel: 'Yes',
+    isBuy: true,
+    size: 2,
+    approvedPrice: 0.5,
+    amountUsd: 1,
+    orderKind: 'market',
+    state: state,
+    createdAt: at,
+    updatedAt: at,
+  );
 }
 
 /// The busy button animates for as long as it waits: pump, never settle.
-
-/// The slip closed at the accept: Sal's placing toast ("Placing your prediction", with
-/// Cancel and the X) stands in its place; its tap opens the money journey.
-Future<void> _journeyFromToast(WidgetTester tester) async {
-  expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
-  expect(find.byKey(const ValueKey('sal-toast-action')), findsOneWidget);
-  await tester.tap(find.text('Placing your prediction'));
-  await _frames(tester, 10);
-  expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
-}
-
 Future<void> _frames(WidgetTester tester, [int n = 10]) async {
   for (var i = 0; i < n; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -317,10 +387,8 @@ Future<void> _tapDoor(WidgetTester tester) async {
   await tapBarPrimary(tester, settle: false);
 }
 
-// The app's container: after the accept the slip closes at once
-// (standing orders), so it is read from the app, not the slip.
 ProviderContainer _container(WidgetTester tester) =>
-    ProviderScope.containerOf(tester.element(find.byType(Navigator).first));
+    ProviderScope.containerOf(tester.element(find.byType(BetSlipSheet)));
 
 void main() {
   late RuntimeCapabilitiesService policy;
@@ -445,9 +513,12 @@ void main() {
     expect(pending.amount, greaterThan(0));
     expect(pending.status, PendingBetStatus.awaitingBalance);
 
-    // The slip closed at the accept (standing orders): Sal's placing
-    // toast stands in its place; its tap opens the money journey.
-    await _journeyFromToast(tester);
+    // The steps, on the slip, under one busy button (the bar, spinning).
+    expect(
+        find.byKey(const ValueKey('bet-slip-funded-progress')), findsOneWidget);
+    expect(_cta(tester).isBusy, isTrue);
+    expect(barPrimaryBusy(tester), isTrue);
+    expect(barPrimaryEnabled(tester), isFalse);
     final money = '\$${pending.amount.toStringAsFixed(2)}';
     expect(find.text('Placing $money on Yes'), findsOneWidget);
 
@@ -489,5 +560,112 @@ void main() {
     expect(sheets, ['receive']);
     expect(approvals, isEmpty);
     await release(tester);
+  });
+
+  group('the accepted bet as a standing order', () {
+    StandingOrderStore store(String box) => _MemoryStandingStore();
+
+    /// Opens the slip, accepts the minimum funded from bitcoin, and gives
+    /// the provider the standing order the accept made.
+    Future<ProviderContainer> accept(WidgetTester tester, String box) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, standingStore: store(box));
+      await _tapDoor(tester);
+      await _frames(tester, 10);
+      final c = _container(tester);
+      c.read(standingOrdersProvider.notifier).debugReplace([_standing()]);
+      await _frames(tester, 2);
+      return c;
+    }
+
+    testWidgets(
+        'the slip stays up, locked as before: the steps, Sal\'s busy button '
+        'saying Cancel, no "you can leave" line and no placing toast',
+        (tester) async {
+      await accept(tester, 'standing_slip_locked');
+      // The old locked slip: the keypad folded, the steps in its place.
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
+          findsOneWidget);
+      expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
+      expect(find.textContaining('You can leave'), findsNothing);
+      // The bar's busy button (Sal working on it) is the Cancel.
+      expect(find.byKey(const ValueKey('bet-slip-standing-cancel')),
+          findsOneWidget);
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryLabel(tester), 'Cancel');
+      expect(barPrimaryEnabled(tester), isTrue);
+      // No toast while the slip says it all.
+      expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+      // Posted: too late to cancel, the button is the step again.
+      _container(tester)
+          .read(standingOrdersProvider.notifier)
+          .debugReplace([_standing(state: StandingOrderState.posting)]);
+      await _frames(tester, 2);
+      expect(find.byKey(const ValueKey('bet-slip-standing-cancel')),
+          findsNothing);
+      expect(barPrimaryLabel(tester), isNot('Cancel'));
+      expect(barPrimaryEnabled(tester), isFalse);
+      SalToast.debugReset();
+      await release(tester);
+    });
+
+    testWidgets(
+        'leaving never cancels: the haptics stop at once, the order goes on, '
+        'and Sal\'s placing toast takes over', (tester) async {
+      final c = await accept(tester, 'standing_slip_leave');
+      final before = c.read(pendingPolymarketBetProvider)!;
+      // Leave it: a tap above the sheet, as when it is idle (its X and
+      // back go the same way, through the same lock).
+      await tester.tapAt(const Offset(195, 40));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(find.byType(BetSlipSheet), findsOneWidget,
+          reason: 'still on its way out');
+      // At once, while the sheet is still on its way out: nothing of the
+      // slip plays a haptic any more.
+      expect(
+          tester
+              .widget<RubberBandProgress>(
+                  find.byKey(const ValueKey('bet-slip-funded-progress')))
+              .haptic,
+          isFalse);
+      for (final steps
+          in tester.widgetList<MoneyStepsView>(find.byType(MoneyStepsView))) {
+        expect(steps.haptics, isFalse);
+      }
+      expect(ContinuousHaptics.isRunning(), isFalse);
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsNothing);
+      // The order goes on: nothing cancelled, the bet still queued.
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.funding);
+      final after = c.read(pendingPolymarketBetProvider);
+      expect(after, isNotNull);
+      expect(after!.status, before.status);
+      expect(events, isNot(contains('standing_order_cancelled')));
+      // Sal's placing toast, with Cancel and its X.
+      expect(find.text('Placing your prediction'), findsOneWidget);
+      expect(find.byKey(const ValueKey('sal-toast-action')), findsOneWidget);
+      expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
+      SalToast.debugReset();
+      await release(tester);
+    });
+
+    testWidgets('Cancel on Sal\'s button cancels the order and closes the slip',
+        (tester) async {
+      final c = await accept(tester, 'standing_slip_cancel');
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester, 10);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.cancelled);
+      expect(events.where((e) => e == 'standing_order_cancelled'),
+          hasLength(1));
+      expect(find.byType(BetSlipSheet), findsNothing);
+      // Cancelled, not placing: no placing toast.
+      expect(find.text('Placing your prediction'), findsNothing);
+      SalToast.debugReset();
+      await release(tester);
+    });
   });
 }

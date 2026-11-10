@@ -400,6 +400,10 @@ class RubberBandProgressState extends State<RubberBandProgress>
         oldWidget.progress != widget.progress ||
         oldWidget.maxStretch != widget.maxStretch) {
       _sync(fromOutcome: outcomeChanged);
+    } else if (oldWidget.haptic && !widget.haptic) {
+      // The haptic turned off (a slip left while its order goes on): the
+      // pull stops being felt at once.
+      _stopFeel();
     }
   }
 
@@ -654,7 +658,11 @@ class RubberBandBusy extends StatefulWidget {
     this.ceiling = defaultCeiling,
     this.enabled = true,
     this.failureTap = true,
+    this.haptic = true,
   });
+
+  /// The pull's haptic ([RubberBandProgress.haptic]).
+  final bool haptic;
 
   /// What the time build approaches.
   static const double defaultCeiling = 0.85;
@@ -844,6 +852,7 @@ class RubberBandBusyState extends State<RubberBandBusy>
       progress: progress,
       outcome: outcome,
       failureTap: widget.failureTap,
+      haptic: widget.haptic,
       child: widget.child,
     );
   }

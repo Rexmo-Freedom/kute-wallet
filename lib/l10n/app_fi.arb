@@ -4079,7 +4079,6 @@
   "standingPredictionCancelled": "Peruttu. Rahat pysyvät Ennusteissa, käytettävissä.",
   "standingOrderCancelled": "Peruttu. Rahat pysyvät Sijoittamisessa, käytettävissä.",
   "standingPriceMoved": "Hinta muuttui: {price}. Napauta asettaaksesi uuteen hintaan.",
-  "standingLeaveNote": "Voit poistua. Toimeksianto jatkuu ja näkyy Tapahtumissa.",
   "standingStageMoving": "Rahaa siirretään",
   "standingStagePlacing": "Asetetaan",
   "standingStageApproval": "Vaatii hyväksyntäsi"

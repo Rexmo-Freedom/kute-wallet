@@ -1,6 +1,7 @@
 // The standing orders at the top of Activity: the venue's own row with
-// the placing copy, a tap opening the money journey with Cancel while the
-// order has not left; the journey's words by state.
+// the placing copy, a tap opening the money journey with Cancel (the bar's
+// own busy button) while the order has not left; the journey's words by
+// state.
 
 import 'dart:io';
 
@@ -21,6 +22,7 @@ import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/portfolio_overrides.dart';
+import '../../helpers/shell_bar_harness.dart' show scopeContext;
 import '../../services/standing_orders/fake_secret_store.dart';
 
 final _at = DateTime(2026, 11, 9, 12);
@@ -155,9 +157,18 @@ void main() {
     expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
     expect(find.byKey(const ValueKey('standing-journey-title')), findsOneWidget);
     expect(find.text('Placing your prediction'), findsOneWidget);
-    expect(find.textContaining('You can leave'), findsOneWidget);
+    // No "you can leave" line; Cancel is the bar's own busy button (Sal
+    // working on it), taking the tap.
+    expect(find.textContaining('You can leave'), findsNothing);
     expect(find.byKey(const ValueKey('standing-journey-cancel')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('standing-journey-cancel')));
+    final bar =
+        scopeContext(tester, within: find.byType(StandingOrderJourneySheet));
+    expect(bar.label, 'Cancel');
+    expect(bar.busy, isTrue);
+    expect(bar.busyLabel, 'Cancel');
+    expect(bar.actionable, isTrue);
+    expect(find.byType(TextButton), findsNothing);
+    bar.onPrimary!();
     // The cancel persists to Hive (real I/O) before the sheet closes.
     await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 200)));

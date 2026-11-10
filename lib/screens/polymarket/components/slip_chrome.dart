@@ -346,10 +346,15 @@ class PolySlipCta extends StatelessWidget {
     this.bandProgress,
     this.bandExpected = const Duration(seconds: 4),
     this.disabledLabel,
+    this.tapWhileBusy = false,
   });
 
   final Color color;
   final bool isBusy;
+
+  /// The busy button still takes the tap ([onTap]): a placing order's
+  /// "Cancel" ([KuteBarContext.tapWhileBusy]).
+  final bool tapWhileBusy;
 
   /// What the slip's button says while [enabled] is false: the step to
   /// take ("Enter an amount"; KuteBarContext.disabledLabel). Null where
@@ -412,6 +417,7 @@ class PolySlipCta extends StatelessWidget {
         onPrimary: onTap,
         enabled: enabled,
         busy: isBusy,
+        tapWhileBusy: tapWhileBusy,
         busyLabel: isBusy
             ? (busyLabel ?? context.l10n.betPlacingOrderEllipsis)
             : null,

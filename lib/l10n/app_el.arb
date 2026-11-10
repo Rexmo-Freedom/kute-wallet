@@ -4079,7 +4079,6 @@
   "standingPredictionCancelled": "Ακυρώθηκε. Τα χρήματα μένουν στις Προβλέψεις, διαθέσιμα.",
   "standingOrderCancelled": "Ακυρώθηκε. Τα χρήματα μένουν στις Επενδύσεις, διαθέσιμα.",
   "standingPriceMoved": "Η τιμή πήγε στο {price}. Πάτησε για να τοποθετήσεις στη νέα τιμή.",
-  "standingLeaveNote": "Μπορείς να φύγεις. Η εντολή συνεχίζει και φαίνεται στη Δραστηριότητα.",
   "standingStageMoving": "Μεταφέρουμε τα χρήματα",
   "standingStagePlacing": "Τοποθετείται",
   "standingStageApproval": "Χρειάζεται την έγκρισή σου"

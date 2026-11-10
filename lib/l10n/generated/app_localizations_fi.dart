@@ -14475,10 +14475,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Voit poistua. Toimeksianto jatkuu ja näkyy Tapahtumissa.';
-
-  @override
   String get standingStageMoving => 'Rahaa siirretään';
 
   @override

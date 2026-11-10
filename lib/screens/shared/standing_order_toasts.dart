@@ -5,8 +5,9 @@
 // close it"). One toast per order, tagged by its venue and market
 // ([tagFor]), that changes in place as the order moves:
 //
-//  * PLACING, from the accept (the slip closes and this takes the place
-//    the money journey's sheet had): "Placing your prediction" / "Placing
+//  * PLACING, once the person leaves the slip while its order still runs
+//    (the slip itself stays up, locked, from the accept: never both at
+//    once; founder, 10 November 2026): "Placing your prediction" / "Placing
 //    your order" over the market, the pending tone (Sal's blink, the
 //    clock), sticky: it stays until the person closes it with the X or
 //    the order ends. "Cancel" in the pill while the order has not left
@@ -64,8 +65,9 @@ abstract final class StandingOrderToasts {
         standingOrderId: id, venue: venue, marketKey: marketKey));
   }
 
-  /// The placing toast (see the file header). [order] null: the slip has
-  /// just closed and the standing order has no record yet; it is looked up
+  /// The placing toast (see the file header). [order] null: the slip was
+  /// left the instant of the accept and the standing order has no record
+  /// yet; it is looked up
   /// by [venue] and [marketKey] when Cancel or the tap needs it.
   static void placing(
     BuildContext? context,

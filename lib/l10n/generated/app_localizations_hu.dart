@@ -14483,10 +14483,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Elmehetsz. A megbízás folytatódik, és megjelenik a Tevékenységben.';
-
-  @override
   String get standingStageMoving => 'Pénz mozgatása';
 
   @override

@@ -5,9 +5,11 @@
 // we already have, of the transfer and such"): the same steps the slip
 // showed while it was open ([SlipFundingSteps] over the funded order's
 // step graph: the walking Sal, the route, the checkpoints), on a sheet the
-// person can leave at any time while the order goes on. Opens right after
-// the accept (the slip closes at once) and from the pending Activity row.
-// Cancel is offered while the order has not left for the venue.
+// person can leave at any time while the order goes on. Opens from the
+// pending Activity row, the Overview's placing row and Sal's toasts (right
+// after the accept the slip itself stays up, locked, with the same steps;
+// bet_slip_sheet.dart). Cancel, the bar's own button, is offered while the
+// order has not left for the venue.
 
 import 'dart:async';
 
@@ -18,6 +20,7 @@ import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
     show formatDollars;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart'
     show SlipFundingSteps, fundedStopLine;
 import 'package:kute/services/one_balance/funded_orders.dart';
@@ -197,25 +200,31 @@ class StandingOrderJourneySheet extends ConsumerWidget {
             ),
             SizedBox(height: 14.h),
             steps,
-            SizedBox(height: 12.h),
-            if (order.isOpen)
-              Text(
-                l10n.standingLeaveNote,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: c.textSecondary, fontSize: 13.sp),
-              ),
+            // Cancel is the bar's own button, Sal working on it, while the
+            // order has not left for the venue (founder, 10 November 2026:
+            // "the cancel should be sal button"), as on the slip.
             if (order.canCancel && order.id.isNotEmpty)
-              TextButton(
-                key: const ValueKey('standing-journey-cancel'),
-                onPressed: () {
-                  // The order is cancelled at once (its state changes
-                  // before anything is persisted): the sheet closes now.
-                  unawaited(ref
-                      .read(standingOrdersProvider.notifier)
-                      .cancel(order.id));
-                  Navigator.of(context).pop();
-                },
-                child: Text(l10n.cancel),
+              KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: l10n.cancel,
+                  onPrimary: () {
+                    // The order is cancelled at once (its state changes
+                    // before anything is persisted): the sheet closes now.
+                    unawaited(ref
+                        .read(standingOrdersProvider.notifier)
+                        .cancel(order.id));
+                    Navigator.of(context).pop();
+                  },
+                  busy: true,
+                  tapWhileBusy: true,
+                  busyLabel: l10n.cancel,
+                  source: 'standing_order',
+                  // Never waits on input.
+                  disabledLabel: null,
+                ),
+                child: SizedBox(
+                    key: const ValueKey('standing-journey-cancel'),
+                    height: kuteBarScrollClearance.h),
               ),
           ],
         ),

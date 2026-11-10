@@ -14441,10 +14441,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get standingLeaveNote =>
-      'Můžete odejít. Příkaz pokračuje a je vidět v Aktivitě.';
-
-  @override
   String get standingStageMoving => 'Přesouváme peníze';
 
   @override

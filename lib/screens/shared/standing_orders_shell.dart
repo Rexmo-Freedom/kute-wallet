@@ -6,7 +6,7 @@
 //  * RESUME on start and on every unlock: the wallet's standing orders
 //    are loaded and carried on (standing_orders_provider.dart).
 //  * PLACING: while the order's placing toast is up (the slip put it there
-//    at the accept), it follows the order: "Cancel" goes once the order
+//    when the person left it), it follows the order: "Cancel" goes once the order
 //    has left for the venue (standing_order_toasts.dart).
 //  * RESULT: an order filled plays the money-success haptic and Sal says
 //    "Prediction placed" / "Order placed"; one that failed plays the

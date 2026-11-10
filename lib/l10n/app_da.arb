@@ -4079,7 +4079,6 @@
   "standingPredictionCancelled": "Annulleret. Pengene bliver i Forudsigelser, tilgængelige.",
   "standingOrderCancelled": "Annulleret. Pengene bliver i Investering, tilgængelige.",
   "standingPriceMoved": "Prisen gik til {price}. Tryk for at placere til den nye pris.",
-  "standingLeaveNote": "Du kan gå. Ordren fortsætter og vises i Aktivitet.",
   "standingStageMoving": "Flytter penge",
   "standingStagePlacing": "Placerer",
   "standingStageApproval": "Kræver din godkendelse"

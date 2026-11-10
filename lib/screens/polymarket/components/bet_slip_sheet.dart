@@ -1,9 +1,14 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
-import 'package:kute/services/standing_orders/standing_order.dart'
-    show StandingOrderVenue;
+import 'package:kute/services/standing_orders/standing_orders_provider.dart'
+    show
+        StandingOrder,
+        StandingOrderState,
+        StandingOrderVenue,
+        standingOrdersProvider;
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show polyOutcomeFill;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
@@ -1330,32 +1335,129 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     );
   }
 
-  /// The accept is done and the bet's money is on its way, headless (a
-  /// standing order, standing_orders/): the slip closes at once and Sal's
-  /// placing toast takes its place, with Cancel and an X (founder, 9
-  /// November 2026: "Placing your prediction / cancel should be Sal");
-  /// its tap opens the money journey. Deferred a frame, so the state set
-  /// just before it has rendered.
+  /// The accept is done and the bet's money is on its way as a standing
+  /// order (standing_orders/). The slip stays up, locked as it always was
+  /// while placing (founder, 10 November 2026: "the same bottom modal
+  /// sheet we had before when it was locked ... only difference is that
+  /// we allow the user to leave"): the keypad folded, the money's journey
+  /// in its place, the bar's button on the running step, then the result.
+  /// From here the person can leave it (a tap above it, or back), which
+  /// never cancels the order ([_onLeave]); the bar's button is "Cancel"
+  /// while the order can still be cancelled ([_standingCancelCta]).
   void _closeForStandingOrder() {
     if (!mounted) return;
-    final nav = Navigator.of(context, rootNavigator: true);
-    final tokenId = _selectedTokenId;
+    _standingTokenId = _selectedTokenId;
+    if (!_standingAccepted) _updateState(() => _standingAccepted = true);
+  }
+
+  /// The accept made a standing order of this slip's bet (see
+  /// [_closeForStandingOrder]): the slip may be left while it places.
+  /// Reset by every new try.
+  bool _standingAccepted = false;
+
+  /// The market the standing order is on (the outcome's token).
+  String? _standingTokenId;
+
+  /// The person left the slip while its order goes on: every progress
+  /// haptic of the slip (the band's pull, the steps' taps) stops at once,
+  /// and nothing the slip still hears navigates.
+  bool _left = false;
+
+  /// The person cancelled the order from the slip's own button.
+  bool _cancelledHere = false;
+
+  /// A new try on this slip: the lock is the placing lock again until
+  /// its own accept.
+  void _resetStanding() {
+    _standingAccepted = false;
+    _standingTokenId = null;
+    _cancelledHere = false;
+  }
+
+  /// The open standing order of this slip's accept, while it can still
+  /// be cancelled (before it is posted); null otherwise. Watched, so the
+  /// button goes back to the step the moment the order is posted.
+  String? _standingCancelId() {
+    if (!_standingAccepted || _left || _placedSuccess) return null;
+    final token = _standingTokenId;
+    if (token == null) return null;
+    final order = ref.watch(standingOrdersProvider.select((all) {
+      StandingOrder? found;
+      for (final o in all) {
+        if (o.venue == StandingOrderVenue.predictions &&
+            o.marketKey == token &&
+            o.isOpen) {
+          found = o;
+        }
+      }
+      return found;
+    }));
+    return order != null && order.canCancel ? order.id : null;
+  }
+
+  /// The bar's button while the order can still be cancelled: the busy
+  /// button as it is (Sal working on it, in the slip's own look), saying
+  /// "Cancel" and taking the tap (founder, 10 November 2026: "the cancel
+  /// should be sal button"). Null once it cannot be cancelled.
+  Widget? _standingCancelCta(Color selectedColor) {
+    final id = _standingCancelId();
+    if (id == null) return null;
+    return PolySlipCta(
+      key: const ValueKey('bet-slip-standing-cancel'),
+      color: selectedColor,
+      // Dark on the white button, as the busy step (founder decision).
+      neutral: true,
+      isBusy: true,
+      tapWhileBusy: true,
+      busyLabel: context.l10n.cancel,
+      enabled: true,
+      onTap: () => _cancelStanding(id),
+      label: context.l10n.cancel,
+      band: false,
+    );
+  }
+
+  /// Cancel on the slip's button: the order is cancelled (the existing
+  /// `standing_order_cancelled`) and the slip closes; Sal says it was
+  /// cancelled (standing_orders_shell.dart).
+  void _cancelStanding(String id) {
+    if (_cancelledHere) return;
+    _cancelledHere = true;
+    unawaited(ref.read(standingOrdersProvider.notifier).cancel(id));
+    Navigator.of(context).maybePop();
+  }
+
+  /// The slip is going (didPop): once it had a standing order, its
+  /// haptics stop now, and while that order still runs Sal's placing
+  /// toast takes over (with Cancel and its X), as it did when the slip
+  /// closed at the accept. While the slip is up it never shows too.
+  void _onLeave() {
+    if (!_standingAccepted || _left) return;
+    _updateState(() => _left = true);
+    final token = _standingTokenId;
+    if (_cancelledHere || _placedSuccess || token == null) return;
     final container = ProviderScope.containerOf(context, listen: false);
-    final l10n = context.l10n;
-    final title = widget.marketQuestion;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      if (tokenId == null) return;
-      // Sal says it is being placed, with Cancel and the X; a tap on the
-      // toast opens the money journey (standing_order_toasts.dart).
-      StandingOrderToasts.placing(nav.context, container, l10n,
-          venue: StandingOrderVenue.predictions,
-          marketKey: tokenId,
-          marketTitle: title,
-          order: StandingOrderToasts.openOn(
-              container, StandingOrderVenue.predictions, tokenId));
-    });
+    final order = StandingOrderToasts.openOn(
+        container, StandingOrderVenue.predictions, token);
+    // Only a bet still on its way gets the toast: not one that ended on
+    // the slip, nor one waiting on a new price (Sal asks about that).
+    final status = ref.read(pendingPolymarketBetProvider)?.status;
+    if (status == PendingBetStatus.failed ||
+        status == PendingBetStatus.done ||
+        order?.state == StandingOrderState.needsApproval ||
+        (order == null && status == null)) {
+      return;
+    }
+    // The root overlay (root_navigator.dart); this slip's own context
+    // only where the app has no root key.
+    StandingOrderToasts.placing(
+        kuteRootContext(context),
+        container,
+        context.l10n,
+        venue: StandingOrderVenue.predictions,
+        marketKey: token,
+        marketTitle: widget.marketQuestion,
+        order: order);
   }
 
   /// The one prompt of a pre-funded bet: the slip's bet prepared, then
@@ -2626,6 +2728,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (_buyInFlight || _isPlacing) return;
     // A new bet: nothing moved for it yet.
     _placedFundingFeeUsd = null;
+    _resetStanding();
     _updateState(() {
       _buyInFlight = true;
       _prepareFailed = false;
@@ -4492,6 +4595,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // A retry is a new placement, so it asks for a fresh approval
     // (Phase 1b.4).
     if (_buyInFlight) return;
+    _resetStanding();
     // A retry of a 5-minute round stopped by its price moving: the
     // submit says why it is sent again (categorical only).
     final stopped = ref.read(pendingPolymarketBetProvider);
@@ -4696,7 +4800,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       ref.listen<PendingBetStatus?>(
           pendingPolymarketBetProvider.select((i) => i?.status),
           (prev, status) {
-        if (!_isPlacing || _placedSuccess) return;
+        // Left: the order's end is Sal's (the toast), never this slip's.
+        if (!_isPlacing || _placedSuccess || _left) return;
         // `done` = order placed: show the success state and release the sheet.
         if (status == PendingBetStatus.done) {
           // Success haptic fires in PolymarketBetController (the single
@@ -4721,7 +4826,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               // once the snap has been seen (at once under Reduce Motion,
               // covered or in the background).
               await RubberBand.settle(context);
-              if (!mounted) return;
+              if (!mounted || _left) return;
               final nav = Navigator.of(context, rootNavigator: true);
               ref.read(pendingPolymarketBetProvider.notifier).clear();
               showBetSlipPlacedConfirmation(
@@ -4765,7 +4870,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               // once the snap has been seen (at once under Reduce Motion,
               // covered or in the background).
               await RubberBand.settle(context);
-              if (!mounted) return;
+              if (!mounted || _left) return;
               final nav = Navigator.of(context, rootNavigator: true);
               ref.read(pendingPolymarketBetProvider.notifier).clear();
               if (partial == null) {
@@ -4838,7 +4943,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             await RubberBand.settle(context);
-            if (!mounted) return;
+            if (!mounted || _left) return;
             ref.read(pendingPolymarketBetProvider.notifier).clear();
             final nav = Navigator.of(context, rootNavigator: true);
             nav.popUntil((route) {
@@ -5549,6 +5654,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ),
         );
 
+    // Locked while it places, as always; once the accept made a standing
+    // order of it, the person may leave (the order goes on).
+    final canLeave = _standingAccepted ||
+        (!_buyInFlight && !_draft.ledgerBusy && !activelyPlacing);
     // No share button on the slip (founder, 7 November 2026): a pick is
     // sent only from Send, where the slip runs in send mode and its primary
     // is the send (screens/share/slip_share.dart).
@@ -5556,11 +5665,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // The full-screen Advanced page keeps the app palette (user
       // decision: only sheets wear the side colour).
       return PopScope(
-        canPop: !_buyInFlight && !_draft.ledgerBusy && !activelyPlacing,
+        canPop: canLeave,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) _onLeave();
+        },
         child: Builder(
           builder: (context) => PolySlipAdvancedScaffold(
             title: context.l10n.betSlipAdvancedTitle,
-            canPop: !_buyInFlight && !_draft.ledgerBusy && !activelyPlacing,
+            canPop: canLeave,
             onBack: () => Navigator.of(context).pop(),
             body: KeyboardDismissOnTap(child: ticket(fullscreen: true)),
           ),
@@ -5570,7 +5682,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // Flipping side inside the sheet (Yes↔No, candidate Yes↔No) slides the
     // whole sheet to the other colour rather than cutting to it.
     return PopScope(
-      canPop: !_buyInFlight && !_draft.ledgerBusy && !activelyPlacing,
+      canPop: canLeave,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _onLeave();
+      },
       child: KeyboardDismissOnTap(
         child: tinted(
           AnimatedContainer(
@@ -6115,6 +6230,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ? MoneyPlace.bitcoin
               : MoneyPlace.dollars,
           to: MoneyPlace.predictions,
+          haptics: !_left,
           note: progress.failed
               ? fundedStopLine(context.l10n, progress.record, formatDollars)
               : null,
@@ -6134,6 +6250,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ],
           active: 0,
           to: MoneyPlace.predictions,
+          haptics: !_left,
         ),
         record: null,
       );
@@ -6183,7 +6300,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       final steps = _fundingSteps(progress.record);
       final running = !progress.failed && !progress.done;
       final Widget button;
-      if (running || progress.done) {
+      final cancel = running ? _standingCancelCta(selectedColor) : null;
+      if (cancel != null) {
+        button = cancel;
+      } else if (running || progress.done) {
         final label = steps[progress.active.clamp(0, steps.length - 1)];
         button = PolySlipCta(
           color: selectedColor,
@@ -6209,6 +6329,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       }
       return RubberBandProgress(
         key: const ValueKey('bet-slip-funded-progress'),
+        // Left: the pull is felt no more.
+        haptic: !_left,
         progress: progress.progress,
         outcome: progress.done
             ? RubberBandOutcome.success
@@ -6223,11 +6345,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ),
       );
     }
-    final action = _buildPrimaryActionInner(c, selectedColor, selected,
-        busy: busy,
-        failed: failed,
-        busyLabel: busyLabel,
-        placeFilledMinimum: placeFilledMinimum);
+    final action = (failed ? null : _standingCancelCta(selectedColor)) ??
+        _buildPrimaryActionInner(c, selectedColor, selected,
+            busy: busy,
+            failed: failed,
+            busyLabel: busyLabel,
+            placeFilledMinimum: placeFilledMinimum);
     if (journey == null) return action;
     return Column(
       mainAxisSize: MainAxisSize.min,
