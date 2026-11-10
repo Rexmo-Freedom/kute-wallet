@@ -541,6 +541,10 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       slippagePct: intent.slippagePct,
       leverage: intent.leverage,
       marketKind: intent.kind == HlMarketKind.spot ? 'spot' : 'perp',
+      // The coin the account will list the position under: a builder
+      // dex's perp is held dex-qualified ("xyz:NVDA"), not under the
+      // displayed coin (the Overview's slot, dollars_activity_tab.dart).
+      positionCoin: market.isSpot ? market.coin : market.wireCoin,
       entrySource: intent.entrySource ?? intent.source,
     );
     final notifier = ref.read(pendingHyperliquidOrderProvider.notifier);

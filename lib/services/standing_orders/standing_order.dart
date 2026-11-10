@@ -130,6 +130,7 @@ class StandingOrder {
     this.slippagePct = 0,
     this.leverage = 1,
     this.marketKind,
+    this.positionCoin,
     this.marketImage,
     this.marketCategory,
     this.eventSlug,
@@ -189,6 +190,14 @@ class StandingOrder {
 
   /// Investing: `perp` | `spot`.
   final String? marketKind;
+
+  /// Investing: the coin the venue holds the position under, as the
+  /// account lists it (clearinghouseState's `coin`): a perp's wire coin,
+  /// dex-qualified on a builder (HIP-3) dex ("xyz:NVDA" where [marketKey]
+  /// is the displayed "NVDA"), the token for spot. The Overview keys the
+  /// order's slot by it (dollars_activity_tab.dart). Null for predictions
+  /// and for records kept before it was.
+  final String? positionCoin;
   final String? marketImage;
   final String? marketCategory;
 
@@ -331,6 +340,7 @@ class StandingOrder {
         slippagePct: slippagePct,
         leverage: leverage,
         marketKind: marketKind,
+        positionCoin: positionCoin,
         marketImage: marketImage,
         marketCategory: marketCategory,
         eventSlug: eventSlug,
@@ -372,6 +382,7 @@ class StandingOrder {
         'slippagePct': slippagePct,
         'leverage': leverage,
         'marketKind': marketKind,
+        'positionCoin': positionCoin,
         'marketImage': marketImage,
         'marketCategory': marketCategory,
         'eventSlug': eventSlug,
@@ -424,6 +435,7 @@ class StandingOrder {
         slippagePct: dbl(json['slippagePct']),
         leverage: json['leverage'] is int ? json['leverage'] as int : 1,
         marketKind: json['marketKind'] as String?,
+        positionCoin: json['positionCoin'] as String?,
         marketImage: json['marketImage'] as String?,
         marketCategory: json['marketCategory'] as String?,
         eventSlug: json['eventSlug'] as String?,

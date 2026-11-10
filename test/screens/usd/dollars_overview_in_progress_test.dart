@@ -38,9 +38,10 @@ import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import 'investments_harness.dart';
 
-HlPerpPosition _perp(String coin, double margin) => HlPerpPosition(
+HlPerpPosition _perp(String coin, double margin, {double szi = 1}) =>
+    HlPerpPosition(
     coin: coin,
-    szi: 1,
+    szi: szi,
     entryPx: 100,
     positionValue: margin * 2,
     unrealizedPnl: 0,
@@ -82,15 +83,18 @@ StandingOrder _prediction(
 
 StandingOrder _investing(
         {StandingOrderState state = StandingOrderState.funding,
-        String coin = 'ETH'}) =>
+        String coin = 'ETH',
+        String? positionCoin,
+        bool isBuy = true}) =>
     StandingOrder(
       id: 'so_i',
       walletId: 'spending',
       venue: StandingOrderVenue.investing,
       marketKey: coin,
+      positionCoin: positionCoin,
       marketTitle: '$coin · Perp',
-      sideLabel: 'long',
-      isBuy: true,
+      sideLabel: isBuy ? 'long' : 'short',
+      isBuy: isBuy,
       size: 20,
       approvedPrice: 3000,
       amountUsd: 20,
@@ -342,6 +346,67 @@ void main() {
           }),
           isEmpty,
           reason: 'a sale of an earlier position of the token');
+    });
+
+    test('a builder dex (HIP-3) perp: the slot is the coin the account '
+        'holds it by ("hl-xyz:NVDA"), never the displayed "hl-NVDA"; filled '
+        'and listed, ONE slot (2.2.0 (101): a Nvidia short showed its '
+        'placed card beside the listed position)', () {
+      final nvda = at(
+          _investing(coin: 'NVDA', positionCoin: 'xyz:NVDA', isBuy: false),
+          StandingOrderState.filled,
+          const Duration(seconds: 10));
+      expect(dollarsStandingPositionIds(nvda),
+          ['hl-xyz:NVDA', 'hl-spot-NVDA']);
+      expect(dollarsStandingSlotId(nvda, {}), 'hl-xyz:NVDA',
+          reason: 'not listed yet: the row it will list under');
+      final listed = {'hl-BTC', 'hl-xyz:NVDA'};
+      final slots = dollarsOverviewSlots(['hl-xyz:NVDA', 'hl-BTC'], [nvda],
+          listed: listed, now: now);
+      expect([for (final s in slots) s.id], ['hl-xyz:NVDA', 'hl-BTC']);
+      expect(slots.first.order, nvda,
+          reason: 'the listed row says placed: the order draws no card of '
+              'its own');
+      expect(dollarsHandingOver([nvda], listed: listed), ['so_i']);
+      expect(
+          dollarsPinnedRanked(['hl-BTC', 'hl-xyz:NVDA'], [nvda], now: now),
+          ['hl-xyz:NVDA', 'hl-BTC']);
+      // Another dex's Nvidia is another position: the order keeps its own.
+      expect(dollarsStandingSlotId(nvda, {'hl-io:NVDA'}), 'hl-xyz:NVDA');
+      expect(dollarsHandingOver([nvda], listed: {'hl-io:NVDA'}), isEmpty);
+    });
+
+    test('an Investing order kept before the position coin was (the '
+        'displayed coin only) still finds its builder dex position: never '
+        'its own card beside it', () {
+      final legacy = at(_investing(coin: 'NVDA', isBuy: false),
+          StandingOrderState.filled, const Duration(seconds: 10));
+      expect(dollarsStandingPlacesInto(legacy, 'hl-xyz:NVDA'), isTrue);
+      expect(dollarsStandingPlacesInto(legacy, 'hl-NVDA'), isTrue);
+      expect(dollarsStandingPlacesInto(legacy, 'hl-xyz:NVDAX'), isFalse);
+      expect(dollarsStandingPlacesInto(legacy, 'hl-spot-xyz:NVDA'), isFalse);
+      final listed = {'hl-BTC', 'hl-xyz:NVDA'};
+      expect(dollarsStandingSlotId(legacy, listed), 'hl-xyz:NVDA');
+      final slots = dollarsOverviewSlots(['hl-xyz:NVDA', 'hl-BTC'], [legacy],
+          listed: listed, now: now, handedOver: {'so_i'});
+      expect([for (final s in slots) s.id], ['hl-xyz:NVDA', 'hl-BTC']);
+      expect(slots.first.order, legacy);
+      // A spot order matches its holding only.
+      final spot = StandingOrder.fromJson(
+          {...legacy.toJson(), 'marketKind': 'spot', 'leverage': 1})!;
+      expect(dollarsStandingPlacesInto(spot, 'hl-xyz:NVDA'), isFalse);
+      expect(dollarsStandingSlotId(spot, {}), 'hl-spot-NVDA');
+    });
+
+    test('the position coin is kept with the order', () {
+      final o = _investing(coin: 'NVDA', positionCoin: 'xyz:NVDA');
+      expect(StandingOrder.fromJson(o.toJson())!.positionCoin, 'xyz:NVDA');
+      expect(o.copyWith(state: StandingOrderState.filled).positionCoin,
+          'xyz:NVDA');
+      expect(
+          StandingOrder.fromJson({...o.toJson()}..remove('positionCoin'))!
+              .positionCoin,
+          isNull);
     });
 
     test('the next hold end: the card hold, then the slot hold, then none',
@@ -633,6 +698,48 @@ void main() {
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
+
+  for (final positionCoin in const ['xyz:NVDA', null]) {
+    testWidgets(
+        'Investing, a builder dex (HIP-3) stock perp (position coin '
+        '$positionCoin): ONE card, the order\'s, then the listed position '
+        'in the same slot saying placed; never both (2.2.0 (101))',
+        (tester) async {
+      late _Trading trading;
+      await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+        hyperliquidTradingProvider.overrideWith(() => trading = _Trading(
+            HyperliquidTradingState(
+                isInitialized: true, positions: [_perp('BTC', 500)]))),
+      ]);
+      final notifier =
+          _container(tester).read(standingOrdersProvider.notifier);
+      final nvda = _investing(
+          coin: 'NVDA', positionCoin: positionCoin, isBuy: false);
+      notifier.debugReplace([
+        nvda.copyWith(
+            state: StandingOrderState.filled,
+            updatedAt: DateTime.now(),
+            filledSize: 0.06,
+            filledUsd: 40)
+      ]);
+      await tester.pump();
+      final slotKey = positionCoin == null ? 'hl-NVDA' : 'hl-xyz:NVDA';
+      expect(order(tester), [slotKey, 'hl-BTC']);
+      expect(text(slotKey, 'Short · Order placed'), findsOneWidget);
+
+      // The venue lists it under its dex-qualified coin.
+      trading.land(
+          [_perp('BTC', 500), _perp('xyz:NVDA', 20, szi: -0.06)]);
+      await tester.pump();
+      await tester.pump();
+      expect(order(tester), ['hl-xyz:NVDA', 'hl-BTC']);
+      expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
+      expect(find.textContaining('Order placed'), findsOneWidget);
+      expect(text('hl-xyz:NVDA', 'Short · Order placed'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+  }
 
   testWidgets(
       'a filled card whose position never lists leaves when its hold ends, '

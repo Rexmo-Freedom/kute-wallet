@@ -133,7 +133,13 @@ class StandingOrderRow extends StatelessWidget {
                 : l10n.shortLabel;
         return PortfolioPositionRow(
           leading: ClipOval(
-            child: HlCoinIcon(coin: order.marketKey, size: kPortfolioRowImage.w),
+            // The logo under the coin the venue holds it by, as the
+            // listed row (a builder dex's perp: "xyz:NVDA").
+            child: HlCoinIcon(
+                coin: order.marketKey,
+                wireCoin:
+                    order.marketKind == 'spot' ? null : order.positionCoin,
+                size: kPortfolioRowImage.w),
           ),
           // The listed row's name for the coin where it has one.
           title: hlFriendlyName(order.marketKey) ?? order.marketTitle,

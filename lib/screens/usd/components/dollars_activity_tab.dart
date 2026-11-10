@@ -54,9 +54,12 @@
 // a bit, until it eventually leaves. This can't be, show the actual one,
 // with placing and when it's placed, we just show placed"). The order
 // holds ONE slot, keyed by the position it places into
-// ([dollarsStandingSlotId]: the row key the venue lists it under), and
-// that slot is always drawn by the position's own row widget
-// (PortfolioPositionRow):
+// ([dollarsStandingSlotId]: the row key the venue lists it under, by the
+// coin the account holds it by, StandingOrder.positionCoin: a builder
+// dex's stock perp lists as "hl-xyz:NVDA", never the displayed "NVDA";
+// founder, 10 November 2026, on 2.2.0 (101): a Nvidia short showed its
+// "Order placed" card and the listed position at once), and that slot is
+// always drawn by the position's own row widget (PortfolioPositionRow):
 //
 //   * on its way: "Placing" ("Needs your approval" when the price moved),
 //     in the position row's look built from the order's figures
@@ -184,27 +187,65 @@ final dollarsOverviewClockProvider =
     Provider<DateTime Function()>((ref) => DateTime.now);
 
 /// The ids a standing order's position lists under (open_investments_
-/// screen.dart's row keys): the prediction's token, the perp or the spot
-/// holding of the coin.
+/// screen.dart's row keys): the prediction's token, the perp under the
+/// coin the account holds it by ([StandingOrder.positionCoin]: a builder
+/// dex's perp is "hl-xyz:NVDA", never the displayed "hl-NVDA"), or the
+/// spot holding of the coin.
 List<String> dollarsStandingPositionIds(StandingOrder order) =>
     order.venue == StandingOrderVenue.predictions
         ? ['poly-${order.marketKey}']
-        : ['hl-${order.marketKey}', 'hl-spot-${order.marketKey}'];
+        : [
+            'hl-${order.positionCoin ?? order.marketKey}',
+            'hl-spot-${order.marketKey}',
+          ];
+
+/// Whether the row key [id] is the position [order] places into: one of
+/// its ids ([dollarsStandingPositionIds]), or, for an Investing perp order
+/// kept before [StandingOrder.positionCoin] was (it knows the displayed
+/// coin only), a builder dex's perp of that coin ("hl-xyz:NVDA" for
+/// "NVDA"). Pure for the tests.
+bool dollarsStandingPlacesInto(StandingOrder order, String id) {
+  if (dollarsStandingPositionIds(order).contains(id)) return true;
+  if (order.venue != StandingOrderVenue.investing ||
+      order.positionCoin != null ||
+      order.marketKind == 'spot' ||
+      !id.startsWith('hl-') ||
+      id.startsWith('hl-spot-')) {
+    return false;
+  }
+  final coin = id.substring(3);
+  final colon = coin.indexOf(':');
+  return colon > 0 && coin.substring(colon + 1) == order.marketKey;
+}
 
 /// The slot a standing order holds on the Overview: the row key its
-/// position lists under ([dollarsStandingPositionIds]), the listed one
-/// where one is ([listed]), else the one it will list under (a spot
-/// holding for a spot order, the perp otherwise). Pure for the tests.
+/// position lists under ([dollarsStandingPlacesInto]), the listed one
+/// where one is ([listed]), so an order never draws its own card beside
+/// its listed position; else the one it will list under (a spot holding
+/// for a spot order, the perp otherwise). Pure for the tests.
 String dollarsStandingSlotId(StandingOrder order, Set<String> listed) {
   final ids = dollarsStandingPositionIds(order);
   for (final id in ids) {
     if (listed.contains(id)) return id;
+  }
+  for (final id in listed) {
+    if (dollarsStandingPlacesInto(order, id)) return id;
   }
   return order.venue == StandingOrderVenue.investing &&
           order.marketKind == 'spot'
       ? ids.last
       : ids.first;
 }
+
+/// Whether [order]'s position is being sold ([selling], row keys) or was
+/// sold after the order was accepted ([soldAt], row key to the latest
+/// sale).
+bool _dollarsStandingSold(StandingOrder order, Set<String> selling,
+        Map<String, DateTime> soldAt) =>
+    selling.any((id) => dollarsStandingPlacesInto(order, id)) ||
+    soldAt.entries.any((e) =>
+        e.value.isAfter(order.createdAt) &&
+        dollarsStandingPlacesInto(order, e.key));
 
 /// One square of the Overview: the position row key it shows, and the
 /// standing order placing into it, if any (see the file header).
@@ -261,9 +302,7 @@ List<String> dollarsEndedOrders(
     [
       for (final o in all)
         if (o.state == StandingOrderState.filled &&
-            dollarsStandingPositionIds(o).any((id) =>
-                selling.contains(id) ||
-                (soldAt[id]?.isAfter(o.createdAt) ?? false)))
+            _dollarsStandingSold(o, selling, soldAt))
           o.id,
     ];
 
@@ -280,10 +319,8 @@ List<String> dollarsHandingOver(
     [
       for (final o in all)
         if (o.state == StandingOrderState.filled &&
-            dollarsStandingPositionIds(o).any((id) =>
-                listed.contains(id) ||
-                selling.contains(id) ||
-                (soldAt[id]?.isAfter(o.createdAt) ?? false)))
+            (listed.any((id) => dollarsStandingPlacesInto(o, id)) ||
+                _dollarsStandingSold(o, selling, soldAt)))
           o.id,
     ];
 
@@ -317,8 +354,10 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
         now.difference(o.updatedAt) >= kDollarsFilledHold) {
       continue;
     }
-    for (final id in dollarsStandingPositionIds(o)) {
-      if (ranked.contains(id) && !pinned.contains(id)) pinned.add(id);
+    for (final id in ranked) {
+      if (dollarsStandingPlacesInto(o, id) && !pinned.contains(id)) {
+        pinned.add(id);
+      }
     }
   }
   return [...pinned, for (final id in ranked) if (!pinned.contains(id)) id];
