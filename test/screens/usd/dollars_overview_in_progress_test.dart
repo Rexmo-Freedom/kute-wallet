@@ -21,7 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
+import 'package:kute/models/hyperliquid_market.dart'
+    show HlFill, HlPerpPosition;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition, polymarketActivePositionsProvider;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
@@ -407,6 +408,52 @@ void main() {
           StandingOrder.fromJson({...o.toJson()}..remove('positionCoin'))!
               .positionCoin,
           isNull);
+    });
+
+    test('Investing closes: a perp closing, or closed by a fill after the '
+        'accept, ends its filled order', () {
+      final nvda = at(
+          _investing(coin: 'NVDA', positionCoin: 'xyz:NVDA', isBuy: false),
+          StandingOrderState.filled,
+          const Duration(seconds: 10));
+      HlFill fill(String dir, DateTime at, {String coin = 'xyz:NVDA'}) =>
+          HlFill(
+              coin: coin,
+              px: 180,
+              sz: 0.06,
+              side: 'B',
+              time: at.millisecondsSinceEpoch,
+              closedPnl: 0,
+              fee: 0,
+              feeToken: 'USDC',
+              oid: 1,
+              hash: '0x',
+              dir: dir,
+              cloid: null);
+      final closedAt = nvda.createdAt.add(const Duration(seconds: 5));
+      final closes = dollarsHlCloses([
+        fill('Open Short', nvda.createdAt),
+        fill('Close Short', closedAt),
+        fill('Close Long', closedAt, coin: 'BTC'),
+      ]);
+      expect(closes.keys, {'hl-xyz:NVDA', 'hl-BTC'});
+      expect(closes['hl-xyz:NVDA']!.millisecondsSinceEpoch,
+          closedAt.millisecondsSinceEpoch);
+      expect(dollarsEndedOrders([nvda], soldAt: closes), ['so_i']);
+      expect(dollarsEndedOrders([nvda], selling: {'hl-xyz:NVDA'}), ['so_i']);
+      expect(
+          dollarsEndedOrders([nvda],
+              soldAt: dollarsHlCloses([fill('Open Short', closedAt)])),
+          isEmpty,
+          reason: 'its own opening fill is no sale');
+      expect(
+          dollarsEndedOrders([nvda],
+              soldAt: dollarsHlCloses([
+                fill('Close Short',
+                    nvda.createdAt.subtract(const Duration(days: 1)))
+              ])),
+          isEmpty,
+          reason: 'an earlier position of the coin');
     });
 
     test('the next hold end: the card hold, then the slot hold, then none',

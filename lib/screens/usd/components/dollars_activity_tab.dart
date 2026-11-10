@@ -76,13 +76,19 @@
 //
 // A FILLED ORDER HANDS OVER ONCE (founder, 10 November 2026: sold, the
 // Overview still showed "Prediction placed"). The moment its position
-// lists, or its token is being sold or was sold, the order is handed over
-// ([dollarsHandedOverProvider], for the app's session, so leaving the
-// Overview and coming back changes nothing): its own card never returns,
-// a sold or closed position brings nothing back ([dollarsEndedOrders]),
-// and the tab rebuilds itself when the next hold ends
-// ([dollarsNextHoldEnd]), so nothing outlives its hold. Failed or
+// lists, or is being sold or was sold (a prediction's token, an Investing
+// perp closing or closed by a fill, [dollarsHlCloses]), the order is
+// handed over ([dollarsHandedOverProvider], for the app's session, so
+// leaving the Overview and coming back changes nothing): its own card
+// never returns, a sold or closed position brings nothing back
+// ([dollarsEndedOrders]), and the tab rebuilds itself when the next hold
+// ends ([dollarsNextHoldEnd]), so nothing outlives its hold. Failed or
 // cancelled, the order goes (Sal says so, standing_order_toasts.dart).
+// A perp closed in full leaves the squares the moment the close fills, not
+// on the next account read (hlPositionsAfterCloses,
+// hyperliquid_trading_provider.dart; founder, 10 November 2026, on 2.2.0
+// (101): "after selling an investment ... it still shows up in the
+// Overview for some seconds").
 
 // Nothing else (founder, 8 November 2026: "on the overview we just show the
 // open positions and the P&L graph, up to 4 open positions"). The market map
@@ -117,6 +123,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlFill;
+import 'package:kute/providers/hyperliquid_trading_provider.dart'
+    show hyperliquidDisplayTradingProvider;
 import 'package:kute/providers/open_pnl_history_provider.dart'
     show
         OpenPnlChartStatus,
@@ -324,6 +333,22 @@ List<String> dollarsHandingOver(
           o.id,
     ];
 
+/// The perps closed by [fills] (a close or a liquidation), by row key
+/// ("hl-" and the fill's coin, dex-qualified on a builder dex as the row
+/// is), to the latest such fill: a filled order into one of them was
+/// sold ([dollarsEndedOrders]). Pure for the tests.
+Map<String, DateTime> dollarsHlCloses(List<HlFill> fills) {
+  final out = <String, DateTime>{};
+  for (final f in fills) {
+    if (!f.liquidated && !f.dir.trim().startsWith('Close')) continue;
+    final id = 'hl-${f.coin}';
+    final at = DateTime.fromMillisecondsSinceEpoch(f.time, isUtc: true);
+    final was = out[id];
+    if (was == null || at.isAfter(was)) out[id] = at;
+  }
+  return out;
+}
+
 /// When the Overview next changes on its own: the earliest end, after
 /// [now], of a filled order's card hold ([kDollarsFilledCardHold]) or slot
 /// hold ([kDollarsFilledHold]); null when none is running. Pure for the
@@ -436,6 +461,22 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
       final sellingIds = {
         for (final t in selling ?? const <String>{}) 'poly-$t'
       };
+      // Investing's the same way: a perp closing, or closed by a fill
+      // after the accept.
+      if (venues.trading) {
+        final (closing, fills) =
+            ref.watch(hyperliquidDisplayTradingProvider.select((s) => (
+                  s.valueOrNull?.pendingCloseCoins,
+                  s.valueOrNull?.recentFills,
+                )));
+        sellingIds.addAll({
+          for (final coin in closing ?? const <String>{}) 'hl-$coin'
+        });
+        dollarsHlCloses(fills ?? const []).forEach((id, at) {
+          final was = soldAt[id];
+          if (was == null || at.isAfter(was)) soldAt[id] = at;
+        });
+      }
       handedOver.addAll(dollarsHandingOver(all,
           listed: listed, selling: sellingIds, soldAt: soldAt));
       ended = dollarsEndedOrders(all, selling: sellingIds, soldAt: soldAt)

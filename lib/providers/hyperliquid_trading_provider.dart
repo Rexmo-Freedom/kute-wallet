@@ -191,6 +191,51 @@ HlPerpPosition isolatedMarginTarget({
   return current;
 }
 
+/// How long a perp closed in full stays off the account's positions while
+/// the venue's reads still show it at its size before the close
+/// ([hlPositionsAfterCloses]).
+const Duration kHlClosedInFullHold = Duration(seconds: 60);
+
+/// A perp closed in full, as the close's fill came back: its signed size
+/// before the close and when.
+typedef HlClosedInFull = ({double szi, DateTime at});
+
+/// The account's [positions] without the perps closed in full ([closed],
+/// by coin) that a read still shows at exactly their size before the
+/// close: a read from before the venue indexed the close (the poll in
+/// flight, or the account's previous answer given again while it
+/// refreshes). So a closed position leaves the Portfolio and the Overview
+/// the moment the close fills, not on the next poll (founder, 10 November
+/// 2026, on 2.2.0 (101): "after selling an investment ... it still shows
+/// up in the Overview for some seconds"). Also the closes still held: one
+/// is let go once a read shows its coin gone or at another size (the
+/// close indexed, or a new position opened), or after
+/// [kHlClosedInFullHold]. Pure for the tests.
+({List<HlPerpPosition> positions, Map<String, HlClosedInFull> held})
+    hlPositionsAfterCloses(
+  List<HlPerpPosition> positions,
+  Map<String, HlClosedInFull> closed, {
+  required DateTime now,
+}) {
+  if (closed.isEmpty) return (positions: positions, held: closed);
+  final held = <String, HlClosedInFull>{};
+  final kept = <HlPerpPosition>[];
+  for (final p in positions) {
+    final c = closed[p.coin];
+    if (c != null &&
+        now.difference(c.at) < kHlClosedInFullHold &&
+        (p.szi - c.szi).abs() <= 1e-9 * c.szi.abs()) {
+      held[p.coin] = c;
+      continue;
+    }
+    kept.add(p);
+  }
+  return (
+    positions: kept.length == positions.length ? positions : kept,
+    held: held,
+  );
+}
+
 /// The perp → spot transfer a spot buy of [usd] needs before it is placed,
 /// from a FRESH read of the account ([spotBalances], [perpWithdrawable]):
 /// zero when spot USDC covers it, else the shortfall rounded up to a cent
@@ -413,6 +458,10 @@ class HyperliquidTradingNotifier
   /// the size actually dropped (or after a 120 s safety TTL so a close
   /// that silently failed doesn't pin the card forever).
   final Map<String, ({double absSzi, DateTime at})> _closeBaselines = {};
+
+  /// The perps closed in full whose stale reads stay off the positions
+  /// ([hlPositionsAfterCloses]).
+  Map<String, HlClosedInFull> _closedInFull = const {};
 
   /// Safe state write — long-running async work can outlive this
   /// autoDispose notifier (user navigates away mid-order); writing to a
@@ -678,6 +727,12 @@ class HyperliquidTradingNotifier
 
     _orderDexes = _dexesFor(snap, current.openOrders);
 
+    // A perp closed in full stays gone while a read still shows it at its
+    // size before the close.
+    final afterCloses =
+        hlPositionsAfterCloses(snap.positions, _closedInFull, now: now);
+    _closedInFull = afterCloses.held;
+
     // Optimistic margin after a fill: keep the figures shown at the fill
     // until the venue's own margin moves off the pre-fill baseline (it
     // indexed the fill) or the hold's TTL passes; then the snapshot wins.
@@ -690,7 +745,7 @@ class HyperliquidTradingNotifier
       perpEquity: snap.accountValue,
       totalMarginUsed: keepHold ? hold.totalMarginUsed : snap.totalMarginUsed,
       withdrawable: keepHold ? hold.withdrawable : snap.withdrawable,
-      positions: snap.positions,
+      positions: afterCloses.positions,
       spotBalances: snap.spotBalances,
       pendingCloseCoins: pending,
       // A real snapshot: the figures are the venue's answer now (a build
@@ -702,6 +757,23 @@ class HyperliquidTradingNotifier
   }
 
   // ───────────────────── optimistic margin after a fill ─────────────────────
+
+  /// [position] closed in full: off the positions now, and kept off while
+  /// a read still shows it at its size ([hlPositionsAfterCloses]).
+  void _dropClosedInFull(HlPerpPosition position) {
+    final s = _current;
+    if (s == null) return;
+    _closedInFull = {
+      ..._closedInFull,
+      position.coin: (szi: position.szi, at: DateTime.now()),
+    };
+    _setData(s.copyWith(
+      positions: [
+        for (final p in s.positions)
+          if (p.coin != position.coin) p,
+      ],
+    ));
+  }
 
   HlOptimisticMargin? _optimisticMargin;
 
@@ -1529,6 +1601,13 @@ class HyperliquidTradingNotifier
           orderType: 'market',
           notionalUsd: size * refPx,
         );
+        if (result.isFilled &&
+            pos.szi.abs() > 0 &&
+            result.filledSz >= pos.szi.abs() * (1 - 1e-9)) {
+          // Closed in full: the position leaves the lists now, not on the
+          // next account poll ([hlPositionsAfterCloses]).
+          _dropClosedInFull(pos);
+        }
         if (result.isFilled && pos.szi.abs() > 0) {
           // Margin released (and PnL realised) by the fill, shown now; the
           // next account poll reconciles (see _applySnapshot).
