@@ -4,7 +4,10 @@
 // pill), the price row (price, its move against the target, the target),
 // a 54 px sparkline (no in-chart "Target" badge: the target is printed
 // above it) and the Up / Down pills (44) with their odds, about 200 px in
-// all (founder, 2 November 2026: bigger still). The buttons keep their
+// all (founder, 2 November 2026: bigger still), and under the sparkline the
+// strip of rounds that picks which one the buttons bet on (the past rounds
+// as dots move into it; founder on build 2.2.0 (101): "we also don't have
+// the 'next' tab"), about 250 px with it. The buttons keep their
 // squared ~14 px corners (not full pills) and wear the market page's solid
 // Yes / No fill (founder, 2 November 2026: "put them back at the darker
 // colours"): the market colour with its faint top highlight, white text
@@ -21,10 +24,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/providers/crypto_live_odds_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/services/polymarket/crypto_window_results.dart';
+import 'package:kute/services/polymarket/current_round.dart';
 import 'package:kute/theme/app_theme.dart';
 
 final _start = DateTime.utc(2026, 11, 1, 12, 0);
@@ -63,6 +69,11 @@ List<Override> compactCardOverrides() => [
             CryptoWindowResult(3, true),
             CryptoWindowResult(4, null),
           ]),
+      cryptoOddsClockProvider.overrideWithValue(
+          () => _start.add(const Duration(seconds: 146))),
+      polyRoundWindowReaderProvider
+          .overrideWithValue((asset, start, minutes) async => null),
+      polymarketActivePositionsProvider.overrideWithValue(const []),
     ];
 
 Widget compactCardApp({bool dark = false}) => ProviderScope(
@@ -110,7 +121,8 @@ void main() {
     final card = find.byKey(const ValueKey('crypto-round-compact'));
     expect(card, findsOneWidget);
     final h = tester.getSize(card).height;
-    expect(h, inInclusiveRange(185, 215));
+    expect(h, inInclusiveRange(235, 265));
+    expect(find.byKey(const ValueKey('crypto-round-strip')), findsOneWidget);
     expect(find.text('BTC up or down · 5m'), findsOneWidget);
     expect(find.byKey(const ValueKey('crypto-round-countdown')), findsOneWidget);
     expect(find.text('02:34'), findsOneWidget);

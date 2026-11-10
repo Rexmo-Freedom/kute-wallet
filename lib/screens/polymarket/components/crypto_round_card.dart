@@ -9,11 +9,12 @@
 // odds), the pills ([CompactSidePill]), the dots ([PastRoundDots]), the
 // "Next · 7:20" line ([CryptoNextWindowLine]) and the on-screen counter
 // the shared Chainlink feed streams for ([CryptoCardOnScreen]). Moved here
-// from polymarket_screen.dart on 8 November 2026 unchanged. The slots a
-// taller card once used (a strip under the plot, its own plot height,
-// a card with no round or no odds) stay for the next card that needs
-// them; the Instant page that used them went on 9 November 2026 (the
-// rounds are Crypto's rows).
+// from polymarket_screen.dart on 8 November 2026 unchanged. The strip
+// of rounds under the plot (crypto_round_strip.dart) is the live card's
+// again since build 2.2.0 (101); the other slots a taller card once used
+// (its own plot height, a card with no round or no odds) stay for the
+// next card that needs them (the Instant page that used them went on 9
+// November 2026; the rounds are Crypto's rows).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -189,8 +190,9 @@ class CompactCryptoCard extends StatelessWidget {
   final VoidCallback onUp;
   final VoidCallback onDown;
 
-  /// A strip laid between the sparkline and the buttons (a taller card's
-  /// window strip); null on the list's card.
+  /// A strip laid between the sparkline and the buttons: the live card's
+  /// strip of rounds (crypto_round_strip.dart); null on a card of one
+  /// given window.
   final Widget? strip;
 
   /// The plot's height; the compact card's 54, a taller card more.
@@ -421,7 +423,7 @@ class CompactCryptoCard extends StatelessWidget {
                     ),
                   ),
           ),
-          // A taller card's strip of rounds, 10 under the plot.
+          // The strip of rounds, 10 under the plot.
           if (strip != null) ...[
             SizedBox(height: 10.h),
             strip!,

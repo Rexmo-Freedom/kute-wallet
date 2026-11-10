@@ -1,5 +1,7 @@
 // The card's buttons roll to the next window partway through this one
-// (founder, 8 November 2026), with a fake clock and fake books: before and
+// (founder, 8 November 2026), the strip's Next pill picked by the roll
+// (crypto_round_strip_card_test.dart for the strip itself), with a fake
+// clock and fake books: before and
 // after the moment, the next window without prices (to the very end), a tap
 // at the moment, a slip open across it, the rollover, someone holding this
 // window, the name on the slip, the gate. The chart, target and countdown
@@ -260,6 +262,12 @@ bool pillSays(WidgetTester tester, Key key, String label) => tester
         matching: find.byType(Semantics, skipOffstage: false))))
     .any((w) => w.properties.label == label);
 
+/// The card's own line over the buttons once they bet on a round ahead
+/// (the strip's line, crypto_round_strip.dart).
+String cardWindowName(DateTime start) =>
+    'BTC up or down · ${polyRoundClock(start, locale: 'en')}–'
+    '${polyRoundClock(start.add(const Duration(minutes: 5)), locale: 'en')}';
+
 void _expectThisWindowOnShow() {
   expect(find.text(r'Target $75,987'), findsOneWidget);
   expect(find.text('02:59'), findsOneWidget);
@@ -346,9 +354,12 @@ void main() {
       await moveTo(tester, world, moment);
       world.quoteNext();
       await moveTo(tester, world, moment);
+      // The strip's Next pill is the one picked; over the buttons, the
+      // round they bet on by name.
       expect(find.text('Next · ${nextClock()}'), findsOneWidget);
       expect(find.text('Up'), findsOneWidget);
-      final next = 'Next · ${nextClock()}';
+      final next = cardWindowName(nextStart);
+      expect(find.text(next), findsOneWidget);
       expect(pillSays(tester, _upPill, '$next, Up 50.5%'), isTrue);
       expect(pillSays(tester, _downPill, '$next, Down 49.5%'), isTrue);
       _expectThisWindowOnShow();
@@ -411,7 +422,8 @@ void main() {
       world.listed = false;
       world.now = moment;
       await pumpCard(tester);
-      expect(world.reads, 1);
+      // The strip reads the next round and the one after.
+      expect(world.reads, 2);
       await moveTo(tester, world, veryEnd);
       expect(find.byKey(_next), findsNothing);
       await tester.tap(find.byKey(_upPill));
@@ -530,7 +542,7 @@ void main() {
       world.quoteNext();
       await moveTo(tester, world, nextStart);
       expect(find.byKey(_next), findsOneWidget);
-      expect(pillSays(tester, _upPill, 'Next · ${nextClock()}, Up 50.5%'),
+      expect(pillSays(tester, _upPill, '${cardWindowName(nextStart)}, Up 50.5%'),
           isTrue);
 
       final container = ProviderScope.containerOf(

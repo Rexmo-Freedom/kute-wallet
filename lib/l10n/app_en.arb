@@ -12555,7 +12555,7 @@
   },
   "predictRoundNow": "Now · {time}",
   "@predictRoundNow": {
-    "description": "On the Instant card's strip of rounds, the round in play with its time left, e.g. 'Now · 1:49'.",
+    "description": "On the live crypto round card's strip of rounds (Predictions › Crypto › 5 Min and the round's own sheet, under the chart), the round in play with its time left, e.g. 'Now · 1:49'.",
     "placeholders": {
       "time": {
         "type": "String"
@@ -12564,7 +12564,7 @@
   },
   "predictRoundNoPricesYet": "No prices yet",
   "@predictRoundNoPricesYet": {
-    "description": "On the Instant card's strip of rounds, after a round ahead that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short."
+    "description": "On the live crypto round card's strip of rounds (Predictions › Crypto › 5 Min and the round's own sheet, under the chart), after a round that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short."
   },
   "predictUpOrDownLength": "{asset} up or down · {length}",
   "@predictUpOrDownLength": {

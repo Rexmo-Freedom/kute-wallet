@@ -506,6 +506,7 @@ prediction_prefund_used
 prediction_sell_cta_tapped
 prediction_slippage_adjusted
 predictions_cash_pulled
+predictions_instant_round_picked
 predictions_position_detail_viewed
 predictions_region_checked
 price_alert_created

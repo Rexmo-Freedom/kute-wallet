@@ -24249,13 +24249,13 @@ abstract class AppLocalizations {
   /// **'5 min · 15 min · 1 hour · 4 hours'**
   String get categoryInstantLengths;
 
-  /// On the Instant card's strip of rounds, the round in play with its time left, e.g. 'Now · 1:49'.
+  /// On the live crypto round card's strip of rounds (Predictions › Crypto › 5 Min and the round's own sheet, under the chart), the round in play with its time left, e.g. 'Now · 1:49'.
   ///
   /// In en, this message translates to:
   /// **'Now · {time}'**
   String predictRoundNow(String time);
 
-  /// On the Instant card's strip of rounds, after a round ahead that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short.
+  /// On the live crypto round card's strip of rounds (Predictions › Crypto › 5 Min and the round's own sheet, under the chart), after a round that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short.
   ///
   /// In en, this message translates to:
   /// **'No prices yet'**
