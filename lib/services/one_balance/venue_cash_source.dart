@@ -164,6 +164,12 @@ const Map<OneBalanceVenue, Duration> kVenuePullEta = {
 /// The longest an action waits on a pull before it stops honestly.
 const Duration kVenueCashMaxWait = Duration(minutes: 8);
 
+/// How long a pull that left a venue counts as on its way: the puller's
+/// Dollars count it for this long ([VenueCashPuller.pendingTtl]), and the
+/// venue's figure stays debited by it for no longer
+/// (`VenueCashSnapshot`), proof or not.
+const Duration kVenueCashPendingTtl = Duration(minutes: 20);
+
 /// The wait an action gives a plan: its ETA plus two minutes of slack,
 /// never more than [kVenueCashMaxWait].
 Duration venueCashWaitFor(Duration eta) {
@@ -895,7 +901,7 @@ class VenueCashPuller {
     this.onAmountTooSmall,
     this.pollEvery = const Duration(seconds: 3),
     this.nudgeEvery = const Duration(seconds: 20),
-    this.pendingTtl = const Duration(minutes: 20),
+    this.pendingTtl = kVenueCashPendingTtl,
   })  : _sources = sources,
         _readDollars = readDollars,
         _minimumUsd = minimumUsd,
