@@ -12,7 +12,9 @@
 //  * RESULT: an order filled plays the money-success haptic and Sal says
 //    "Prediction placed" / "Order placed"; one that failed plays the
 //    failure tap and Sal says where the money is; one the person
-//    cancelled, Sal says so. In place of the placing toast when it is up.
+//    cancelled, Sal says so. In place of the one standing order toast on
+//    screen, whichever order it is about (one toast at a time, founder,
+//    on 2.2.0 (101): "we only show the toolbar with one please").
 //  * PRICE MOVED past the approval: Sal says the new price with one tap
 //    that opens the slip at it (its own Face ID places it, from the money
 //    already on the venue), or the order is cancelled from the toast or
@@ -122,10 +124,10 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
     final l10n = context.l10n;
     final container = ProviderScope.containerOf(context, listen: false);
     final price = order.movedToPrice ?? order.approvedPrice;
-    StandingOrderToasts.markSaid(StandingOrderToasts.tagOf(order));
+    StandingOrderToasts.markSaid(order);
     SalToast.show(
       context,
-      tag: StandingOrderToasts.tagOf(order),
+      tag: StandingOrderToasts.tag,
       message: l10n.standingPriceMoved('${(price * 100).round()}%'),
       detail: order.marketTitle,
       tone: SalToastTone.pending,

@@ -22,6 +22,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
+import 'package:kute/screens/shared/standing_order_journey.dart'
+    show StandingOrderJourneySheet;
 import 'package:kute/screens/shared/standing_order_toasts.dart';
 import 'package:kute/screens/shared/standing_orders_shell.dart';
 import 'package:kute/services/standing_orders/standing_order_store.dart';
@@ -305,14 +307,16 @@ void main() {
   });
   /// The slip left while its order is on its way (bet_slip_sheet.dart,
   /// order_slip_sheet.dart `_onLeave`).
-  Future<void> leave(WidgetTester tester, StandingOrder order) async {
+  Future<void> leave(WidgetTester tester, StandingOrder order,
+      {VoidCallback? reopen}) async {
     StandingOrderToasts.placing(
         kuteRootNavigatorKey.currentContext,
         lookupAppLocalizations(const Locale('en')),
         venue: order.venue,
         marketKey: order.marketKey,
         marketTitle: order.marketTitle,
-        order: order);
+        order: order,
+        reopen: reopen);
     await tester.pump();
     await tester.pump(_arrive);
   }
@@ -440,6 +444,137 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(_toast), findsNothing);
+    await drain(tester);
+  });
+
+  testWidgets(
+      'a tap on the placing toast opens the slip that was left (its reopen), '
+      'never the white journey sheet', (tester) async {
+    final c = await pump(tester);
+    final order = _prediction();
+    await running(tester, c, order);
+    var reopened = 0;
+    await leave(tester, order, reopen: () => reopened++);
+    await tester.tap(find.text('Placing your prediction'));
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(reopened, 1);
+    expect(find.byType(StandingOrderJourneySheet), findsNothing);
+    expect(find.byKey(_toast), findsNothing);
+    await drain(tester);
+  });
+
+  testWidgets(
+      'two orders on their way at once: ONE toast, the newest left one in '
+      'place of the first (never two, never one arriving under a leaving '
+      'one), its tap that order\'s; a result for either replaces it in '
+      'place; once it goes nothing comes back for the one still placing',
+      (tester) async {
+    var beats = 0;
+    SalToast.debugSuccessFeedbackOverride = () async => beats++;
+    final c = await pump(tester);
+    final bet = _prediction(state: StandingOrderState.posted);
+    final buy = _investing(state: StandingOrderState.posted);
+    c.read(standingOrdersProvider.notifier).debugReplace([bet, buy]);
+    await tester.pump();
+    final taps = <String>[];
+    await leave(tester, bet, reopen: () => taps.add('bet'));
+    expectPlacing(tester, 'Placing your prediction');
+    // The second order's slip left: in place, one toast at every frame.
+    StandingOrderToasts.placing(
+        kuteRootNavigatorKey.currentContext,
+        lookupAppLocalizations(const Locale('en')),
+        venue: buy.venue,
+        marketKey: buy.marketKey,
+        marketTitle: buy.marketTitle,
+        order: buy,
+        reopen: () => taps.add('buy'));
+    await tester.pump();
+    expect(find.byType(SalToast), findsOneWidget);
+    await tester.pump(_arrive);
+    expect(find.byType(SalToast), findsOneWidget);
+    expectPlacing(tester, 'Placing your investment');
+    expect(find.text('Placing your prediction'), findsNothing);
+    expect(StandingOrderToasts.isAbout(buy.venue, buy.marketKey), isTrue);
+    expect(StandingOrderToasts.isPlacing(bet), isFalse);
+    expect(StandingOrderToasts.isPlacing(buy), isTrue);
+    // The bet ending quietly (the person acted on it) leaves the toast,
+    // which is about the investment, alone.
+    StandingOrderToasts.endQuietly(bet);
+    await tester.pump(const Duration(milliseconds: 400));
+    expectPlacing(tester, 'Placing your investment');
+    await tester.tap(find.text('Placing your investment'));
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(taps, ['buy']);
+    expect(find.byKey(_toast), findsNothing);
+
+    // Both left again; the bet fills: its result in place of the
+    // investment's placing toast, one toast, the one success haptic.
+    await leave(tester, bet, reopen: () => taps.add('bet'));
+    StandingOrderToasts.placing(
+        kuteRootNavigatorKey.currentContext,
+        lookupAppLocalizations(const Locale('en')),
+        venue: buy.venue,
+        marketKey: buy.marketKey,
+        marketTitle: buy.marketTitle,
+        order: buy,
+        reopen: () => taps.add('buy'));
+    await tester.pump();
+    await tester.pump(_arrive);
+    expectPlacing(tester, 'Placing your investment');
+    await c
+        .read(standingOrdersProvider.notifier)
+        .advance('so_p', StandingOrderState.filled);
+    await tester.pump();
+    expect(find.byType(SalToast), findsOneWidget);
+    await tester.pump(_arrive);
+    expect(find.byType(SalToast), findsOneWidget);
+    expect(find.text('Prediction placed'), findsOneWidget);
+    expect(find.text('Placing your investment'), findsNothing);
+    expect(beats, 1);
+    // The investment fills before the bet's result has gone: in place
+    // again, the same tone, so not felt twice.
+    await c
+        .read(standingOrdersProvider.notifier)
+        .advance('so_i', StandingOrderState.filled);
+    await tester.pump();
+    expect(find.byType(SalToast), findsOneWidget);
+    await tester.pump(_arrive);
+    expect(find.text('Order placed'), findsOneWidget);
+    expect(find.byType(SalToast), findsOneWidget);
+    expect(beats, 1);
+    await drain(tester);
+    expect(find.byKey(_toast), findsNothing);
+    expect(beats, 1);
+  });
+
+  testWidgets(
+      'a result while another order is still placing: in place; once it has '
+      'gone, nothing is put back up for the one still on its way',
+      (tester) async {
+    final c = await pump(tester);
+    final bet = _prediction(state: StandingOrderState.posting);
+    final buy = _investing();
+    c.read(standingOrdersProvider.notifier).debugReplace([bet, buy]);
+    await tester.pump();
+    await leave(tester, buy);
+    expectPlacing(tester, 'Placing your investment');
+    await c
+        .read(standingOrdersProvider.notifier)
+        .advance('so_p', StandingOrderState.failed, failureCode: 'x');
+    await tester.pump();
+    expect(find.byType(SalToast), findsOneWidget);
+    await tester.pump(_arrive);
+    expect(shown(tester).tone, SalToastTone.failure);
+    expect(find.text('Placing your investment'), findsNothing);
+    await drain(tester);
+    expect(find.byKey(_toast), findsNothing);
+    // The investment still on its way: nothing extra.
+    expect(c.read(standingOrdersProvider.notifier).byId('so_i')!.isOpen,
+        isTrue);
+    await tester.pump(const Duration(seconds: 10));
     expect(find.byKey(_toast), findsNothing);
     await drain(tester);
   });

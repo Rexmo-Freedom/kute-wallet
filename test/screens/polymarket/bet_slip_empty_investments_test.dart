@@ -14,6 +14,8 @@ import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/screens/shared/money_steps_view.dart' show MoneyStepsView;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/sal_toast.dart' show SalToast;
+import 'package:kute/screens/shared/standing_order_journey.dart'
+    show StandingOrderJourneySheet;
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
 import 'package:kute/screens/shared/rubber_band_progress.dart'
@@ -737,6 +739,60 @@ void main() {
       expect(find.text('Placing your prediction'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.byKey(const ValueKey('sal-toast-action')), findsNothing);
+      SalToast.debugReset();
+      StandingOrderToasts.debugReset();
+      await release(tester);
+    });
+
+    testWidgets(
+        'a tap on the placing toast opens the same slip again, locked on its '
+        'order as it was left (the steps, the OK), never the white journey '
+        'sheet; it goes once its order is placed', (tester) async {
+      final c = await accept(tester, 'standing_slip_reopen');
+      final sheetsBefore = events.where((e) => e == 'polymarket_bet_slip_opened').length;
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsNothing);
+      expect(find.text('Placing your prediction'), findsOneWidget);
+      // The toast's tap (not its X).
+      await tester.tap(find.text('Placing your prediction'));
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      expect(find.byType(StandingOrderJourneySheet), findsNothing);
+      // The toast is gone while the slip is up.
+      expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+      // Locked as before: the keypad folded, the steps, Sal's busy OK.
+      expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
+          findsOneWidget);
+      expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('bet-slip-standing-ok')), findsOneWidget);
+      expect(barPrimaryLabel(tester), 'OK');
+      expect(barPrimaryBusy(tester), isTrue);
+      // Bound to the same order, no new slip counted.
+      expect(tester.widget<BetSlipSheet>(find.byType(BetSlipSheet))
+          .standingEndedBefore, isEmpty);
+      expect(events.where((e) => e == 'polymarket_bet_slip_opened').length,
+          sheetsBefore);
+      // OK leaves it again: the placing toast comes back, one.
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsNothing);
+      expect(find.byType(SalToast), findsOneWidget);
+      expect(find.text('Placing your prediction'), findsOneWidget);
+      // Open again, then its order fills: the slip goes, Sal says it.
+      await tester.tap(find.text('Placing your prediction'));
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      c
+          .read(standingOrdersProvider.notifier)
+          .debugReplace([_standing(state: StandingOrderState.filled)]);
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsNothing);
+      expect(find.text('Placing your prediction'), findsNothing);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.filled);
+      expect(events, isNot(contains('standing_order_cancelled')));
       SalToast.debugReset();
       StandingOrderToasts.debugReset();
       await release(tester);

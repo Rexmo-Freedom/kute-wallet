@@ -36,6 +36,8 @@ import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/sal_toast.dart' show SalToast;
+import 'package:kute/screens/shared/standing_order_journey.dart'
+    show StandingOrderJourneySheet;
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
 import 'package:kute/screens/shared/slip_shortfall.dart';
@@ -583,6 +585,68 @@ void main() {
     expect(find.byKey(const ValueKey('sal-toast-mark')), findsNothing);
     expect(find.byKey(const ValueKey('sal-toast-action')), findsNothing);
     expect(find.byKey(const ValueKey('sal-toast-close')), findsOneWidget);
+    SalToast.debugReset();
+    StandingOrderToasts.debugReset();
+    await release(tester);
+  });
+  testWidgets(
+      'a tap on the placing toast opens the same ticket again, locked on its '
+      'order as it was left (the steps, the OK), never the white journey '
+      'sheet; it goes once its order is placed', (tester) async {
+    await _pumpSlip(tester, rail, sheet: true);
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 20);
+    expect(barPrimaryLabel(tester), 'OK');
+    final c = _container(tester);
+    final standing = c.read(standingOrdersProvider.notifier);
+    final keep = c.read(standingOrdersProvider);
+    final at = DateTime.now();
+    final order = StandingOrder(
+      id: 'so_hl',
+      walletId: 'w',
+      venue: StandingOrderVenue.investing,
+      marketKey: 'BTC',
+      marketTitle: 'BTC · Perp',
+      sideLabel: 'long',
+      isBuy: true,
+      size: 1,
+      approvedPrice: 60000,
+      amountUsd: 10,
+      orderKind: 'market',
+      state: StandingOrderState.funded,
+      createdAt: at,
+      updatedAt: at,
+    );
+    standing.debugReplace([...keep, order]);
+    await _frames(tester, 2);
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(find.text('Placing your investment'), findsOneWidget);
+    // The toast's tap (not its X).
+    await tester.tap(find.text('Placing your investment'));
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsOneWidget);
+    expect(find.byType(StandingOrderJourneySheet), findsNothing);
+    expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+    // Locked as before: the steps, Sal's busy OK, on the same side.
+    final reopened =
+        tester.widget<HlOrderSlipSheet>(find.byType(HlOrderSlipSheet));
+    expect(reopened.standingEndedBefore, isNotNull);
+    expect(reopened.standingEndedBefore, isNot(contains('so_hl')));
+    expect(reopened.initialIsLong, isTrue);
+    expect(find.byKey(const ValueKey('order-slip-funded-progress')),
+        findsOneWidget);
+    expect(barPrimaryLabel(tester), 'OK');
+    expect(barPrimaryBusy(tester), isTrue);
+    // Its order fills: the ticket goes, nothing cancelled.
+    standing.debugReplace([
+      for (final o in c.read(standingOrdersProvider))
+        o.id == 'so_hl' ? o.copyWith(state: StandingOrderState.filled) : o,
+    ]);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(events, isNot(contains('standing_order_cancelled')));
     SalToast.debugReset();
     StandingOrderToasts.debugReset();
     await release(tester);

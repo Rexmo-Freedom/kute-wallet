@@ -438,6 +438,15 @@ class BetSlipSheet extends ConsumerStatefulWidget {
   /// null: the ordinary slip.
   final SendPickSession? sendPick;
 
+  /// REOPENED from Sal's placing toast (founder, 10 November 2026, on
+  /// 2.2.0 (101): "we should just reuse the betslip, the red or green
+  /// one"): the slip opens locked on the standing order the slip that was
+  /// left had accepted, exactly as it was left (its side's colour, the
+  /// money's journey in the keypad's place, the "OK"), following that
+  /// order: the orders on its market it looks past (every other one,
+  /// [StandingOrderToasts.followSet]). Null: the ordinary slip.
+  final Set<String>? standingEndedBefore;
+
   final _BetSlipDraft? _sharedDraft;
   final bool _advanced;
 
@@ -462,6 +471,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     this.source = 'unknown',
     this.event,
     this.sendPick,
+    this.standingEndedBefore,
   })  : _sharedDraft = null,
         _advanced = false;
 
@@ -485,6 +495,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         source = source.source,
         event = source.event,
         sendPick = source.sendPick,
+        standingEndedBefore = null,
         _sharedDraft = draft,
         _advanced = true;
 
@@ -622,19 +633,9 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // (a long-standing Flutter gap) — that let a user swipe the sheet
     // away mid-placement. Dismissal is via tap-outside (isDismissible),
     // which DOES go through PopScope, so the placing-state lock holds.
-    showKuteModalSheet(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: false,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      routeSettings: const RouteSettings(name: routeName),
-      builder: (_) => FastBetScope(
-        active: ledgerWalletId == null && polyIsFastBetRound(marketSlug),
-        child: BetSlipSheet(
+    _present(
+      context,
+      BetSlipSheet(
         marketQuestion: marketQuestion,
         marketSlug: marketSlug,
         marketImage: marketImage,
@@ -654,9 +655,66 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         source: source,
         event: event,
         sendPick: ledgerWalletId == null ? sendPick : null,
-      )),
+      ),
     );
   }
+
+  /// The slip's sheet over everything (the root navigator), as [show]
+  /// opens it.
+  static Future<void> _present(BuildContext context, BetSlipSheet slip) =>
+      showKuteModalSheet(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        isDismissible: true,
+        enableDrag: false,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.4),
+        routeSettings: const RouteSettings(name: routeName),
+        builder: (_) => FastBetScope(
+          active: slip.ledgerWalletId == null &&
+              polyIsFastBetRound(slip.marketSlug),
+          child: slip,
+        ),
+      );
+
+  /// Opens the slip [left] again, locked on its standing order (Sal's
+  /// placing toast's tap, [standingEndedBefore]): the same market, side
+  /// and stake as it was left. Nothing is counted again (it is the same
+  /// slip, not a new one opened) and no gate runs (nothing new can be
+  /// placed from it while its order is on its way).
+  static Future<void> reopenStanding(
+    BuildContext context,
+    BetSlipSheet left, {
+    required int selectedIndex,
+    required bool buyNo,
+    required double amountUsd,
+    required Set<String> endedBefore,
+  }) =>
+      _present(
+        context,
+        BetSlipSheet(
+          marketQuestion: left.marketQuestion,
+          marketSlug: left.marketSlug,
+          marketImage: left.marketImage,
+          outcomes: left.outcomes,
+          initialOutcomeIndex: selectedIndex,
+          onDeposit: left.onDeposit,
+          marketEndAt: left.marketEndAt,
+          marketCategory: left.marketCategory,
+          initialBuyNo: buyNo,
+          sideLabelPos: left.sideLabelPos,
+          sideLabelNeg: left.sideLabelNeg,
+          outcomeColors: left.outcomeColors,
+          outcomeLabels: left.outcomeLabels,
+          initialAmountUsd: amountUsd,
+          negRisk: left.negRisk,
+          source: left.source,
+          event: left.event,
+          standingEndedBefore: endedBefore,
+        ),
+      );
 
   /// Pop the bet slip plus any modal sheets / fullscreen routes that
   /// were stacked above the host (Polymarket / Home). Used before
@@ -1036,6 +1094,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _amountController.addListener(_onAmountChanged);
     }
     _draft.addListener(_onDraftChanged);
+    // Reopened from Sal's placing toast: locked on the order the left
+    // slip accepted, as that slip was once it accepted.
+    if (widget.standingEndedBefore case final ended?) {
+      _standingAccepted = true;
+      _standingTokenId = _selectedTokenId;
+      _standingEndedBefore = ended;
+    }
     if (!_isLedger) _loadLiveDelay(widget.outcomes[_selectedIndex].conditionId);
     _pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
     _orderFunding = ref.read(orderFundingControllerProvider);
@@ -1326,6 +1391,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           caps.blockReason('polymarket.deposit') == null &&
           (!_usesAdvanced || caps.blockReason('trading.advanced') == null),
       busy: _isPlacing ||
+          _standingAccepted ||
           _buyInFlight ||
           _doorCalculating ||
           _orderPlaced ||
@@ -1392,18 +1458,24 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     };
     // This accept's order (newest on the market that had not ended
     // before it); null until its record exists, which is on its way too.
-    final state = ref.watch(standingOrdersProvider.select((all) {
-      StandingOrder? found;
-      for (final o in all) {
-        if (o.venue == StandingOrderVenue.predictions &&
-            o.marketKey == token &&
-            !ended.contains(o.id)) {
-          found = o;
-        }
-      }
-      return found?.state;
-    }));
+    final state = ref.watch(standingOrdersProvider
+        .select((all) => _standingOrderIn(all, token, ended)?.state));
     return state == null || !state.isTerminal;
+  }
+
+  /// This slip's accepted order among [all]: the newest on [token] not in
+  /// [ended].
+  static StandingOrder? _standingOrderIn(
+      List<StandingOrder> all, String token, Set<String> ended) {
+    StandingOrder? found;
+    for (final o in all) {
+      if (o.venue == StandingOrderVenue.predictions &&
+          o.marketKey == token &&
+          !ended.contains(o.id)) {
+        found = o;
+      }
+    }
+    return found;
   }
 
   /// The bar's button while the order is on its way: the busy button as
@@ -1441,8 +1513,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final token = _standingTokenId;
     if (_placedSuccess || token == null) return;
     final container = ProviderScope.containerOf(context, listen: false);
-    final order = StandingOrderToasts.openOn(
-        container, StandingOrderVenue.predictions, token);
+    // This slip's own order when it is on record, else the open one on
+    // its market.
+    final ended = _standingEndedBefore;
+    final mine = ended == null
+        ? null
+        : _standingOrderIn(container.read(standingOrdersProvider), token, ended);
+    if (mine != null && mine.state.isTerminal) return;
+    final order = mine ??
+        StandingOrderToasts.openOn(
+            container, StandingOrderVenue.predictions, token);
     // Only a bet still on its way gets the toast: not one that ended on
     // the slip, nor one waiting on a new price (Sal asks about that).
     final status = ref.read(pendingPolymarketBetProvider)?.status;
@@ -1452,14 +1532,50 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         (order == null && status == null)) {
       return;
     }
+    // A tap on the toast opens this slip again, locked on this order, as
+    // it is being left (founder, on 2.2.0 (101): "we should just reuse
+    // the betslip, the red or green one"); the journey sheet only when
+    // there is no root to open it from or the order has already ended.
+    final left = widget;
+    final selectedIndex = _selectedIndex;
+    final buyNo = _buyNo;
+    final amount = _amount;
+    final endedBefore = _standingEndedBefore;
+    final fallback = kuteRootContext(context);
+    void reopen() {
+      final root = kuteRootContext();
+      final ended = StandingOrderToasts.followSet(
+          container, StandingOrderVenue.predictions, token,
+          id: order?.id, fallback: endedBefore);
+      if (root == null || ended == null) {
+        StandingOrderToasts.openJourney(fallback,
+            id: order?.id,
+            venue: StandingOrderVenue.predictions,
+            marketKey: token);
+        return;
+      }
+      unawaited(BetSlipSheet.reopenStanding(root, left,
+          selectedIndex: selectedIndex,
+          buyNo: buyNo,
+          amountUsd: amount,
+          endedBefore: ended));
+    }
+
     // The root overlay (root_navigator.dart); this slip's own context
     // only where the app has no root key.
-    StandingOrderToasts.placing(kuteRootContext(context), context.l10n,
+    StandingOrderToasts.placing(fallback, context.l10n,
         venue: StandingOrderVenue.predictions,
         marketKey: token,
         marketTitle: widget.marketQuestion,
-        order: order);
+        order: order,
+        reopen: reopen);
   }
+
+  /// Reopened from the placing toast ([BetSlipSheet.standingEndedBefore])
+  /// and its order still on its way: the slip is locked as the left one
+  /// was while it placed (the ticket inert, the "OK" its button).
+  bool _followingStanding() =>
+      widget.standingEndedBefore != null && _standingOnItsWay();
 
   /// The one prompt of a pre-funded bet: the slip's bet prepared, then
   /// the funded bet's approval (bet + funding cap, the autofire grant).
@@ -4793,6 +4909,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (!_isLedger && warmCid != null && warmCid.isNotEmpty) {
       ref.watch(polymarketMinOrderSizeProvider(warmCid));
     }
+    // Reopened from Sal's placing toast: once its order is placed the
+    // slip goes, and Sal's result toast says so (nothing is placed here,
+    // so there is no receipt of the slip's own). A stop stays on the slip
+    // as it does on the one that was left: the failed step, where the
+    // money is, the bet again.
+    final followed = widget.standingEndedBefore;
+    final followedToken = _standingTokenId;
+    if (followed != null && followedToken != null) {
+      ref.listen<StandingOrderState?>(
+          standingOrdersProvider.select(
+              (all) => _standingOrderIn(all, followedToken, followed)?.state),
+          (prev, next) {
+        if (next != StandingOrderState.filled || _left || !mounted) return;
+        Navigator.of(context).maybePop();
+      });
+    }
     // Drive the placing panel's success → auto-close. When the engine
     // (or the BTC auto-fire) flips the intent to `done`, show the brief
     // "Placed" state, then close the sheet and land where the position
@@ -4996,7 +5128,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         : ref.watch(pendingPolymarketBetProvider.select((i) => i?.status));
     final placementFailed = (_isPlacing || _prepareFailed) &&
         betStatus == PendingBetStatus.failed;
-    final activelyPlacing = _isPlacing && !_placedSuccess && !placementFailed;
+    final activelyPlacing = (_isPlacing && !_placedSuccess && !placementFailed) ||
+        _followingStanding();
     // Where the submitted order is; the button's label follows it.
     final placeStage = _isLedger
         ? null

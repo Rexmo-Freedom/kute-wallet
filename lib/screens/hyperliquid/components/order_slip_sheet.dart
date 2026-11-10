@@ -343,6 +343,15 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// placed; null: the ordinary ticket.
   final SendPickSession? sendPick;
 
+  /// REOPENED from Sal's placing toast (founder, 10 November 2026, on
+  /// 2.2.0 (101): "we should just reuse the betslip, the red or green
+  /// one"): the ticket opens locked on the standing order the ticket that
+  /// was left had accepted, exactly as it was left (its side's colour, the
+  /// money's journey in the keypad's place, the "OK"), following that
+  /// order: the orders on its market it looks past (every other one,
+  /// [StandingOrderToasts.followSet]). Null: the ordinary ticket.
+  final Set<String>? standingEndedBefore;
+
   const HlOrderSlipSheet({
     super.key,
     required this.market,
@@ -352,6 +361,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     this.ledgerWalletId,
     this.initialUsd,
     this.sendPick,
+    this.standingEndedBefore,
   });
 
   /// Route name used to pop back down to the host after a fill — see
@@ -414,17 +424,9 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     // (long-standing Flutter gap) — that would let a user swipe the
     // sheet away mid-placement. Dismissal is via tap-outside
     // (isDismissible), which DOES go through PopScope.
-    showKuteModalSheet(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: false,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      routeSettings: const RouteSettings(name: routeName),
-      builder: (_) => HlOrderSlipSheet(
+    _present(
+      context,
+      HlOrderSlipSheet(
         market: market,
         initialIsLong: isLong,
         source: source,
@@ -435,6 +437,46 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
       ),
     );
   }
+
+  /// The ticket's sheet over everything (the root navigator), as [show]
+  /// opens it.
+  static Future<void> _present(BuildContext context, HlOrderSlipSheet slip) =>
+      showKuteModalSheet(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        isDismissible: true,
+        enableDrag: false,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.4),
+        routeSettings: const RouteSettings(name: routeName),
+        builder: (_) => slip,
+      );
+
+  /// Opens the ticket [left] again, locked on its standing order (Sal's
+  /// placing toast's tap, [standingEndedBefore]): the same market, side
+  /// and amount as it was left. Nothing is counted again (it is the same
+  /// ticket, not a new one opened) and no gate runs (nothing new can be
+  /// placed from it while its order is on its way).
+  static Future<void> reopenStanding(
+    BuildContext context,
+    HlOrderSlipSheet left, {
+    required bool isLong,
+    required double marginUsd,
+    required Set<String> endedBefore,
+  }) =>
+      _present(
+        context,
+        HlOrderSlipSheet(
+          market: left.market,
+          initialIsLong: isLong,
+          source: left.source,
+          entrySource: left.entrySource,
+          initialUsd: marginUsd,
+          standingEndedBefore: endedBefore,
+        ),
+      );
 
   /// Pop the slip plus any modal sheets / fullscreen routes stacked
   /// above the host screen — copy of
@@ -1123,6 +1165,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final carried = widget.initialUsd;
     final prefilled = carried != null && carried > 0;
     _marginUsd = prefilled ? carried : 0;
+    // Reopened from Sal's placing toast: locked on the order the left
+    // ticket accepted, as that ticket was once it accepted.
+    if (widget.standingEndedBefore case final ended?) {
+      _standingAccepted = true;
+      _standingEndedBefore = ended;
+    }
     _amountController = TextEditingController(
         text: prefilled ? _trimZeros(carried.toStringAsFixed(2)) : null);
     if (prefilled) _amountMethod = 'prefill';
@@ -2437,19 +2485,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     };
     // This accept's order (newest on the market that had not ended
     // before it); null until its record exists, which is on its way too.
-    final state = ref.watch(standingOrdersProvider.select((all) {
-      StandingOrder? found;
-      for (final o in all) {
-        if (o.venue == StandingOrderVenue.investing &&
-            o.marketKey == coin &&
-            !ended.contains(o.id)) {
-          found = o;
-        }
-      }
-      return found?.state;
-    }));
+    final state = ref.watch(standingOrdersProvider
+        .select((all) => _standingOrderIn(all, coin, ended)?.state));
     return state == null || !state.isTerminal;
   }
+
+  /// This ticket's accepted order among [all]: the newest on [coin] not in
+  /// [ended].
+  static StandingOrder? _standingOrderIn(
+      List<StandingOrder> all, String coin, Set<String> ended) {
+    StandingOrder? found;
+    for (final o in all) {
+      if (o.venue == StandingOrderVenue.investing &&
+          o.marketKey == coin &&
+          !ended.contains(o.id)) {
+        found = o;
+      }
+    }
+    return found;
+  }
+
+  /// Reopened from the placing toast ([HlOrderSlipSheet.standingEndedBefore])
+  /// and its order still on its way: the ticket is locked as the left one
+  /// was while it placed (the form inert, the "OK" its button).
+  bool _followingStanding() =>
+      widget.standingEndedBefore != null && _standingOnItsWay();
 
   /// The ticket is going (didPop; OK, the X, a tap above, back or a swipe
   /// down): once it had a standing order, its haptics stop now, and while
@@ -2462,8 +2522,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (_completed) return;
     final coin = market.coin;
     final container = ProviderScope.containerOf(context, listen: false);
-    final order = StandingOrderToasts.openOn(
-        container, StandingOrderVenue.investing, coin);
+    // This ticket's own order when it is on record, else the open one on
+    // its market.
+    final ended = _standingEndedBefore;
+    final mine = ended == null
+        ? null
+        : _standingOrderIn(container.read(standingOrdersProvider), coin, ended);
+    if (mine != null && mine.state.isTerminal) return;
+    final order = mine ??
+        StandingOrderToasts.openOn(
+            container, StandingOrderVenue.investing, coin);
     // Only an order still on its way gets the toast: not one that ended
     // on the ticket, nor one waiting on a new price (Sal asks about that).
     final status = ref.read(pendingHyperliquidOrderProvider)?.status;
@@ -2478,13 +2546,36 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final label = isSpot
         ? market.coin
         : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}';
+    // A tap on the toast opens this ticket again, locked on this order,
+    // as it is being left (founder, on 2.2.0 (101): "we should just reuse
+    // the betslip, the red or green one"); the journey sheet only when
+    // there is no root to open it from or the order has already ended.
+    final left = widget;
+    final isLong = _isLong;
+    final margin = _marginUsd;
+    final fallback = kuteRootContext(context);
+    void reopen() {
+      final root = kuteRootContext();
+      final follow = StandingOrderToasts.followSet(
+          container, StandingOrderVenue.investing, coin,
+          id: order?.id, fallback: ended);
+      if (root == null || follow == null) {
+        StandingOrderToasts.openJourney(fallback,
+            id: order?.id, venue: StandingOrderVenue.investing, marketKey: coin);
+        return;
+      }
+      unawaited(HlOrderSlipSheet.reopenStanding(root, left,
+          isLong: isLong, marginUsd: margin, endedBefore: follow));
+    }
+
     // The root overlay (root_navigator.dart); this ticket's own context
     // only where the app has no root key.
-    StandingOrderToasts.placing(kuteRootContext(context), context.l10n,
+    StandingOrderToasts.placing(fallback, context.l10n,
         venue: StandingOrderVenue.investing,
         marketKey: coin,
         marketTitle: label,
-        order: order);
+        order: order,
+        reopen: reopen);
   }
 
   /// Funds [shortfallUsd] from Dollars and places the order once the
@@ -4518,7 +4609,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   // ── Build ──────────────────────────────────────────────────────────
 
   @override
-  Widget build(BuildContext context) => _buildTicket(context, ref);
+  Widget build(BuildContext context) {
+    // Reopened from Sal's placing toast: once its order is placed the
+    // ticket goes, and Sal's result toast says so (nothing is placed
+    // here, so there is no receipt of the ticket's own). A stop stays on
+    // the ticket as it does on the one that was left.
+    final followed = widget.standingEndedBefore;
+    if (followed != null) {
+      final coin = market.coin;
+      ref.listen<StandingOrderState?>(
+          standingOrdersProvider.select(
+              (all) => _standingOrderIn(all, coin, followed)?.state),
+          (prev, next) {
+        if (next != StandingOrderState.filled || _left || !mounted) return;
+        Navigator.of(context).maybePop();
+      });
+    }
+    return _buildTicket(context, ref);
+  }
 
   Widget _buildTicket(BuildContext context, WidgetRef ref,
       {bool advanced = false}) {
@@ -5623,7 +5731,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _ledgerPending ||
         ledgerBlocked ||
         _isPlacing ||
-        _preparing;
+        _preparing ||
+        _followingStanding();
     final ticket = advanced
         ? Column(
             children: [
