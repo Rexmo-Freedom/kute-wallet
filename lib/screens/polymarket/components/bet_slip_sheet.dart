@@ -150,7 +150,7 @@ import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/funding_fees.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart'
-    show pendingBetHoldsCash, venueSweeperProvider;
+    show pendingBetBlocksNewBet, venueSweeperProvider;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
@@ -1396,7 +1396,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _doorCalculating ||
           _orderPlaced ||
           _placedSuccess ||
-          (queued != null && queued.funded && pendingBetHoldsCash(queued)) ||
+          pendingBetBlocksNewBet(queued, ref.read(fundedOrdersProvider)) ||
           sweeping,
     );
   }
@@ -1586,6 +1586,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (!mounted) return const PrefundApproval.unavailable();
     final intent = _slipIntent();
     if (intent == null) return const PrefundApproval.unavailable();
+    // Never over a bet already accepted and on its way: Confirm refuses
+    // this one with the pending line instead.
+    if (pendingBetBlocksNewBet(ref.read(pendingPolymarketBetProvider),
+        ref.read(fundedOrdersProvider))) {
+      return const PrefundApproval.unavailable();
+    }
     _pendingNotifier.setIntent(intent);
     final grant = await _approveBet(
         funding: OrderFundingPlan(
@@ -2972,14 +2978,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     });
     // One bet queued behind its funding at a time (one approval slot): a
     // second tap must not overwrite the queued one, whose money is on its
-    // way. And never while Predictions cash is on its way home: the stake
-    // would be sized against cash that is leaving.
+    // way, in any state from its accept on (held while its legs run
+    // included). And never while Predictions cash is on its way home: the
+    // stake would be sized against cash that is leaving.
     final queued = ref.read(pendingPolymarketBetProvider);
     final sweeping = ref
         .read(venueSweeperProvider)
         .sweeping
         .contains(OneBalanceVenue.predictions);
-    if ((queued != null && queued.funded && pendingBetHoldsCash(queued)) ||
+    if (pendingBetBlocksNewBet(queued, ref.read(fundedOrdersProvider)) ||
         sweeping) {
       _stopped(sweeping ? 'venue_settling' : 'previous_order_pending');
       PolymarketPlacementDiagnostics.declined(

@@ -81,6 +81,8 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
         HyperliquidInsufficientMarginException,
         HyperliquidOrderNotPlacedException,
         HyperliquidOrderUnconfirmedException;
+import 'package:kute/services/one_balance/funded_orders.dart'
+    show FundedOrderRecord, FundedOrdersNotifier, fundedOrdersProvider;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -409,6 +411,22 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
       (intent.status == PendingHlOrderStatus.awaitingBalance ||
           intent.status == PendingHlOrderStatus.placing);
 
+  /// Whether [intent] is an order the person already ACCEPTED and whose
+  /// money is on its way, so a second funded order must be refused (one
+  /// queued intent, one approval slot) instead of overwriting it: queued
+  /// or placing ([isActive]), or held (`awaitingDeposit` with its funding)
+  /// while an Investing funding chain is live ([runs]): a venue-cash or
+  /// Bitcoin-funded order waits there while its legs run, and overwritten
+  /// its chain lost its order after its money had moved.
+  static bool blocksNewOrder(
+          PendingHlOrderIntent? intent, List<FundedOrderRecord> runs) =>
+      isActive(intent) ||
+      (intent != null &&
+          intent.status == PendingHlOrderStatus.awaitingDeposit &&
+          intent.fundUsd > 0 &&
+          FundedOrdersNotifier.activeOf(runs, OneBalanceVenue.investing) !=
+              null);
+
   /// A done or failed order is reported to every listener (the slip shows
   /// its receipt or its message from that change) and then cleared, so
   /// nothing reads a finished order as one still holding the venue's cash
@@ -455,9 +473,13 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
     double? fundUsd,
     bool continueJourney = false,
   }) async {
-    if (isActive(state)) {
-      // One funded order at a time: the queued one's grant and money are
-      // not this one's to take.
+    final current = state;
+    if (isActive(current) ||
+        (current != null &&
+            !identical(current.placement, intent.placement) &&
+            blocksNewOrder(current, ref.read(fundedOrdersProvider)))) {
+      // One funded order at a time: the queued (or held) one's grant and
+      // money are not this one's to take.
       return const OrderFundingRefused(kHlOrderQueuedReason);
     }
     // The watcher ([pendingHlOrderAutoFireProvider]) must be alive: the

@@ -2607,10 +2607,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // A Bitcoin-funded order still on its way here counts too: its order
     // waits (unqueued) for its dollars. So does margin being added from
     // Investments (the margin sheet): its credit must not be this order's.
-    final activeFunding = FundedOrdersNotifier.activeOf(
-        ref.read(fundedOrdersProvider), OneBalanceVenue.investing);
-    if (PendingHyperliquidOrderNotifier.isActive(
-            ref.read(pendingHyperliquidOrderProvider)) ||
+    // A venue-cash order held while its legs run counts too
+    // ([PendingHyperliquidOrderNotifier.blocksNewOrder]).
+    final runs = ref.read(fundedOrdersProvider);
+    final activeFunding =
+        FundedOrdersNotifier.activeOf(runs, OneBalanceVenue.investing);
+    if (PendingHyperliquidOrderNotifier.blocksNewOrder(
+            ref.read(pendingHyperliquidOrderProvider), runs) ||
         activeFunding?.fromBitcoin == true ||
         activeFunding?.label.kind == FundedOrderKind.margin) {
       _trackBlocked('order_queued');

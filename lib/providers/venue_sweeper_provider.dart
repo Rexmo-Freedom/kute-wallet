@@ -54,6 +54,8 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
+import 'package:kute/services/one_balance/funded_orders.dart'
+    show FundedOrderRecord;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/investing_sweep_rules.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -114,6 +116,30 @@ bool pendingBetHoldsCash(PendingBetIntent? intent) => switch (intent?.status) {
         true,
       _ => false,
     };
+
+/// Whether the queued Predictions bet in [intent] is a bet the person
+/// already ACCEPTED and whose money is on its way, so a second accept must
+/// be refused (one funded bet at a time: one queued intent, one approval
+/// slot) instead of overwriting it. Every state [pendingBetHoldsCash]
+/// names, and the one before them: held (`awaitingDeposit` with its
+/// funding cap) while the funding chain it is bound to ([runs], its
+/// `fundedRunId`) is still live. A venue-cash bet (Dollars and the
+/// Investing cash) waits there while its legs run; overwritten, its chain
+/// found its bet gone (`order_gone`) after its money had moved. An armed
+/// bet still waiting for its own slip's Confirm (no run yet), a slip
+/// being filled in and a bet whose run is over block nothing.
+bool pendingBetBlocksNewBet(
+    PendingBetIntent? intent, List<FundedOrderRecord> runs) {
+  if (intent == null || !intent.funded) return false;
+  if (pendingBetHoldsCash(intent)) return true;
+  if (intent.status != PendingBetStatus.awaitingDeposit) return false;
+  final runId = intent.fundedRunId;
+  if (runId == null) return false;
+  for (final r in runs) {
+    if (r.id == runId) return r.stage.active;
+  }
+  return false;
+}
 
 /// Whether a settlement record in [stage], last updated at [updatedAt],
 /// is money genuinely on its way (broadcast to processing, and recent)

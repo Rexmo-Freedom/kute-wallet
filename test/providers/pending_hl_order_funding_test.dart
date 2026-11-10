@@ -18,6 +18,7 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -894,6 +895,73 @@ void main() {
       expect(
           events.singleWhere((e) => e.$1 == 'hl_builder_fee_after_funding').$2,
           {'approved': true});
+    });
+  });
+
+  test(
+      'an order held while its venue-cash legs run (awaitingDeposit) is never '
+      'overwritten: a second funded order is refused before anything moves',
+      () {
+    fakeAsync((async) {
+      FundedOrdersNotifier.persist = false;
+      addTearDown(() => FundedOrdersNotifier.persist = true);
+      final controller = _Controller(() async => _funded);
+      final c = container(controller);
+      final first = _intent(_Placement(resizable: true));
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      // The venue-cash path: held, never fired, while its legs run.
+      notifier.setIntent(first);
+      final run = c.read(fundedOrdersProvider.notifier).start(
+          const FundedOrderLabel(
+              venue: OneBalanceVenue.investing,
+              orderUsd: 20,
+              side: 'Long',
+              market: 'BTC',
+              marketKey: 'BTC'),
+          stage: FundedOrderStage.preparing);
+      // The guard every other state answers to said nothing here.
+      expect(PendingHyperliquidOrderNotifier.isActive(first), isFalse);
+      expect(
+          PendingHyperliquidOrderNotifier.blocksNewOrder(
+              c.read(pendingHyperliquidOrderProvider),
+              c.read(fundedOrdersProvider)),
+          isTrue);
+      final second = _intent(_Placement(resizable: true), marginUsd: 10);
+      OrderFundingOutcome? outcome;
+      notifier
+          .fundAndQueue(second,
+              grant: approve(second),
+              controller: controller,
+              orderUsd: 10,
+              requiredUsd: second.requiredUsd,
+              readyUsd: 0)
+          .then((o) => outcome = o);
+      async.flushMicrotasks();
+      expect((outcome as OrderFundingRefused).reason, kHlOrderQueuedReason);
+      expect(controller.asks, isEmpty);
+      expect(identical(c.read(pendingHyperliquidOrderProvider), first), isTrue);
+      // Its own queue (the chain's Dollars share) still goes.
+      notifier
+          .fundAndQueue(first,
+              grant: approve(first),
+              controller: controller,
+              orderUsd: 20,
+              requiredUsd: first.requiredUsd,
+              readyUsd: 0)
+          .then((o) => outcome = o);
+      async.flushMicrotasks();
+      expect(outcome, same(_funded));
+      // Once its run is over, a held order no longer blocks.
+      c
+          .read(fundedOrdersProvider.notifier)
+          .setStage(run, FundedOrderStage.failed);
+      notifier.clear();
+      notifier.setIntent(first);
+      expect(
+          PendingHyperliquidOrderNotifier.blocksNewOrder(
+              c.read(pendingHyperliquidOrderProvider),
+              c.read(fundedOrdersProvider)),
+          isFalse);
     });
   });
 }
