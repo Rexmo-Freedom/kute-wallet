@@ -14,7 +14,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition, polymarketActivePositionsProvider;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show kPortfolioCornerAmountSize;
+import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/open_once.dart';
 
 import 'investments_harness.dart';
@@ -78,66 +82,99 @@ void main() {
   final list = find.byKey(const ValueKey('dollars-activity-list'));
   final squares = find.byKey(const ValueKey('dollars-activity-squares'));
 
-  for (final code in ['en', 'pt', 'de']) {
-    for (final width in [375.0, 430.0]) {
-      testWidgets(
-          '$code at ${width.round()} pt: two squares and the full-width '
-          'card, every name whole, nothing ellipsized or overflowing',
-          (tester) async {
-        await pumpInvestments(tester,
-            size: Size(width, 1400),
-            locale: Locale(code),
-            overrides: [
-              polymarketActivePositionsProvider
-                  .overrideWith((_) => longPositions()),
-              livePriceProvider.overrideWith(NoLivePolyPrices.new),
-            ]);
-        for (var i = 0; i < 6; i++) {
-          await tester.pump(const Duration(milliseconds: 100));
-        }
-        expect(tester.takeException(), isNull);
-        expect(squares, findsOneWidget);
-        final squareCards = find.descendant(
-            of: squares,
-            matching: find.byKey(const ValueKey('portfolio-square')));
-        final wide = find.descendant(
-            of: squares, matching: find.byKey(const ValueKey('portfolio-wide')));
-        expect(squareCards, findsNWidgets(2));
-        expect(wide, findsOneWidget);
+  // The founder's two, and since 10 November 2026 (2.2.0 (101): "the
+  // amount I am winning should be a bit bigger") the corner's P&L in money
+  // at 15 too: at 320 pt and a large text size, in both themes.
+  final cases = [
+    for (final code in ['en', 'pt', 'de'])
+      for (final width in [375.0, 430.0])
+        (code: code, width: width, scale: 1.0, dark: false),
+    for (final dark in [false, true])
+      (code: 'en', width: 320.0, scale: 1.5, dark: dark),
+    (code: 'de', width: 320.0, scale: 1.5, dark: true),
+  ];
+  for (final (:code, :width, :scale, :dark) in cases) {
+    testWidgets(
+        '$code at ${width.round()} pt'
+        '${scale == 1 ? '' : ', text ×$scale'}${dark ? ', dark' : ''}: '
+        'two squares and the full-width '
+        'card, every name whole, nothing ellipsized or overflowing',
+        (tester) async {
+      await pumpInvestments(tester,
+          size: Size(width, 1400),
+          locale: Locale(code),
+          textScale: scale,
+          dark: dark,
+          overrides: [
+            polymarketActivePositionsProvider
+                .overrideWith((_) => longPositions()),
+            livePriceProvider.overrideWith(NoLivePolyPrices.new),
+          ]);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(tester.takeException(), isNull);
+      expect(squares, findsOneWidget);
+      final squareCards = find.descendant(
+          of: squares,
+          matching: find.byKey(const ValueKey('portfolio-square')));
+      final wide = find.descendant(
+          of: squares, matching: find.byKey(const ValueKey('portfolio-wide')));
+      expect(squareCards, findsNWidgets(2));
+      expect(wide, findsOneWidget);
 
-        // Every market's name is on screen whole.
-        for (final q in kShownNames) {
-          expect(
-              find.descendant(of: squares, matching: find.textContaining(q)),
-              findsOneWidget,
-              reason: q);
-        }
+      // Every market's name is on screen whole.
+      for (final q in kShownNames) {
+        expect(find.descendant(of: squares, matching: find.textContaining(q)),
+            findsOneWidget,
+            reason: q);
+      }
 
-        // No paragraph on the Overview is cut: none past its line limit,
-        // none ending in an ellipsis, none wider than the room it has.
-        final paragraphs = [
-          for (final e in find
-              .descendant(of: list, matching: find.byType(RichText))
-              .evaluate())
-            e.renderObject! as RenderParagraph,
-        ];
-        expect(paragraphs, isNotEmpty);
-        for (final p in paragraphs) {
-          final words = p.text.toPlainText();
-          expect(p.didExceedMaxLines, isFalse, reason: 'cut: "$words"');
-          expect(words.trimRight().endsWith('…'), isFalse,
-              reason: 'ellipsized: "$words"');
-          expect(p.size.width, lessThanOrEqualTo(width),
-              reason: 'overflows: "$words"');
-        }
+      // No paragraph on the Overview is cut: none past its line limit,
+      // none ending in an ellipsis, none wider than the room it has.
+      final paragraphs = [
+        for (final e in find
+            .descendant(of: list, matching: find.byType(RichText))
+            .evaluate())
+          e.renderObject! as RenderParagraph,
+      ];
+      expect(paragraphs, isNotEmpty);
+      for (final p in paragraphs) {
+        final words = p.text.toPlainText();
+        expect(p.didExceedMaxLines, isFalse, reason: 'cut: "$words"');
+        expect(words.trimRight().endsWith('…'), isFalse,
+            reason: 'ellipsized: "$words"');
+        expect(p.size.width, lessThanOrEqualTo(width),
+            reason: 'overflows: "$words"');
+      }
 
-        // The squares of the row: one height, at least the square's.
-        final left = tester.getRect(squareCards.at(0));
-        final right = tester.getRect(squareCards.at(1));
-        expect(left.height, right.height);
-        expect(left.top, right.top);
-        await unmountInvestments(tester);
-      });
-    }
+      // The squares of the row: one height, at least the square's.
+      final left = tester.getRect(squareCards.at(0));
+      final right = tester.getRect(squareCards.at(1));
+      expect(left.height, right.height);
+      expect(left.top, right.top);
+
+      // The P&L in money in each corner at 15 (was 13), over its % at
+      // 12, and inside its card: scaled down rather than cut where the
+      // room is short; the value stays the bigger figure.
+      for (final card in [squareCards.at(0), squareCards.at(1), wide]) {
+        final usd = find.descendant(
+            of: card,
+            matching: find.byKey(const ValueKey('portfolio-row-pnl-usd')));
+        expect(usd, findsOneWidget);
+        final style = tester.widget<RollingFigure>(usd).style;
+        expect(style.fontSize, kPortfolioCornerAmountSize.sp);
+        final value = tester.widget<RollingFigure>(find.descendant(
+            of: card,
+            matching: find.byKey(const ValueKey('portfolio-row-value'))));
+        expect(value.style.fontSize!, greaterThan(style.fontSize!));
+        final box = tester.getRect(card);
+        final r = tester.getRect(usd);
+        expect(r.left, greaterThanOrEqualTo(box.left));
+        expect(r.right, lessThanOrEqualTo(box.right + 0.5));
+        expect(r.top, greaterThanOrEqualTo(box.top));
+      }
+      await unmountInvestments(tester);
+    });
   }
 }

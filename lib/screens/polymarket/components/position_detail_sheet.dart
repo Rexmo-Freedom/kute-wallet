@@ -88,11 +88,12 @@ const Color _kPolyRed = AppColors.marketDown;
 // the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one),
 // and the held side (founder, 1 November 2026: no Share pill beside them
 // any more, it crowded "You hold No"); right under its chance, when the
-// market ends as one quiet centred line ("Ends Dec 9, 00:00", a countdown
-// under a day, what an ended market waits for; founder, 6 November 2026:
-// no pill), then, until the dial's first drag on this device, a quiet
-// "Drag the needle to see what it'd be worth" (the needle leans once to
-// show it moves); while the needle is dragged, "Set a sell at 72%" takes
+// market ends as one centred line ("Ends Dec 9, 00:00", "Ends today at
+// 21:00", "Ends tomorrow at 09:00", a countdown under an hour, what an
+// ended market waits for; founder, 6 November 2026: no pill; 10 November
+// 2026: clearer, polyPositionEndsText), then, until the dial's first
+// drag on this device, a quiet "Drag the needle to see what it'd be
+// worth" (the needle leans once to show it moves); while the needle is dragged, "Set a sell at 72%" takes
 // their place. Once settled, the chance bar (position_chance_bar.dart)
 // with "Settled" under its chance. Then, actions first (founder, 6
 // November 2026), what can be done to it while open as an option card
@@ -490,8 +491,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         ? const <PolymarketTeam>[]
         : (event.teams.isNotEmpty ? event.teams : fetchedTeams);
     final sportsTeams = event == null ? null : _sportsTeams(event, fetchedTeams);
-    // When the market ends ("Ends Dec 9, 00:00", a countdown under a day,
-    // what an ended market waits for, "Settled"): a quiet line right under
+    // When the market ends ("Ends Dec 9, 00:00", "Ends today at 21:00", a
+    // countdown under an hour, what an ended market waits for, "Settled"
+    // (polyPositionEndsText)): a line right under
     // the chance, dial or bar (founder, 6 November 2026); with neither on
     // screen (the stream playing), over the options.
     final hasExpiry = pos.isResolved || pos.endDateStr?.isNotEmpty == true;
@@ -1273,9 +1275,16 @@ class _ResultOrSellSlot extends StatelessWidget {
               ),
             );
           }
-          // One height for both, so nothing under it moves.
+          // One height for both, so nothing under it moves: the "Ends …"
+          // line (over the hint when [tall]) at the viewer's text size,
+          // never less than the slot's own.
+          final scaler = MediaQuery.textScalerOf(context);
+          final lines = _expiryLineHeight(context) +
+              (tall ? 4.h + scaler.scale(12.sp) * 1.3 : 0) +
+              8.h;
+          final least = tall ? 52.h : 36.h;
           return SizedBox(
-            height: tall ? 52.h : 36.h,
+            height: lines > least ? lines : least,
             child: Center(
               child: AnimatedSwitcher(
                 duration: reduceMotion
@@ -1529,30 +1538,73 @@ class _PositionExpiryState extends State<_PositionExpiry> {
       return const SizedBox.shrink();
     } else if (widget.quietBeforeEnd) {
       return const SizedBox.shrink();
-    } else if (left.inDays >= 1) {
-      label = context.l10n
-          .betEndsDate(DateFormat('MMM d, HH:mm').format(end!.toLocal()));
     } else {
-      final h = left.inHours;
-      final m = (left.inMinutes % 60).toString().padLeft(2, '0');
-      final s = (left.inSeconds % 60).toString().padLeft(2, '0');
-      label = context.l10n.predictEndsIn(h > 0 ? '$h:$m:$s' : '$m:$s');
+      label = polyPositionEndsText(context.l10n, end!, now: now);
     }
     final c = context.colors;
-    // A quiet line, centred under the chance: no pill, no border.
+    // A line, centred under the chance: no pill, no border, at the rows'
+    // 15 in textSecondary so it reads at a glance; never cut, a long one at
+    // a large text size shrinks instead.
     return Center(
-      child: Text(label,
-          key: const ValueKey('poly-position-expiry'),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-              color: c.textSecondary,
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w500,
-              letterSpacing: -0.1,
-              height: 1.3,
-              fontFeatures: const [FontFeature.tabularFigures()])),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(label,
+            key: const ValueKey('poly-position-expiry'),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            style: polyPositionExpiryStyle(c)),
+      ),
     );
   }
 }
+
+/// The open-position screen's "Ends …" line: 15 w600 in textSecondary
+/// (founder, 10 November 2026, on 2.2.0 (101): "the end date should be
+/// more clear"; it was 13 w500).
+TextStyle polyPositionExpiryStyle(AppColorsExtension c) => TextStyle(
+    color: c.textSecondary,
+    fontSize: _kExpirySize.sp,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    height: _kExpiryHeight,
+    fontFeatures: const [FontFeature.tabularFigures()]);
+
+const double _kExpirySize = 15;
+const double _kExpiryHeight = 1.3;
+
+/// When an open position's market ends, as the line under its chance says
+/// it, in the app's language and the phone's time zone (founder, 10
+/// November 2026: "the end date should be more clear"): under an hour the
+/// countdown ("Ends in 12:34"); later today or tomorrow the day in words
+/// with the hour ("Ends today at 21:00", "Ends tomorrow at 09:00"); after
+/// that the date with the hour ("Ends Dec 31, 21:00"), the year too when it
+/// is not this one ("Ends Jan 5, 2027, 21:00"). It used to be a fixed
+/// English "MMM d, HH:mm" or an "h:mm:ss" countdown under a day ("Ends in
+/// 3:22:11"). Pure for the tests.
+String polyPositionEndsText(AppLocalizations l10n, DateTime end,
+    {required DateTime now}) {
+  final left = end.difference(now);
+  if (left < const Duration(hours: 1)) {
+    final s = left.isNegative ? 0 : left.inSeconds;
+    final m = (s ~/ 60).toString().padLeft(2, '0');
+    final sec = (s % 60).toString().padLeft(2, '0');
+    return l10n.predictEndsIn('$m:$sec');
+  }
+  final locale = l10n.localeName;
+  final at = end.toLocal();
+  final today = now.toLocal();
+  final days = DateTime.utc(at.year, at.month, at.day)
+      .difference(DateTime.utc(today.year, today.month, today.day))
+      .inDays;
+  final time = DateFormat.Hm(locale).format(at);
+  if (days <= 0) return l10n.polyPosEndsTodayAt(time);
+  if (days == 1) return l10n.polyPosEndsTomorrowAt(time);
+  final date = at.year == today.year
+      ? DateFormat.MMMd(locale).format(at)
+      : DateFormat.yMMMd(locale).format(at);
+  return l10n.betEndsDate('$date, $time');
+}
+
+/// The height of the "Ends …" line at the viewer's text size.
+double _expiryLineHeight(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(_kExpirySize.sp) * _kExpiryHeight;

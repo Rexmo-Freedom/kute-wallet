@@ -17386,6 +17386,18 @@ abstract class AppLocalizations {
   /// **'Tomorrow {time}'**
   String polyKickoffTomorrow(String time);
 
+  /// Predictions open-position screen, the line under the chance: the market ends later today, {time} the local time ('Ends today at 21:00'). Starts the line, so capitalised.
+  ///
+  /// In en, this message translates to:
+  /// **'Ends today at {time}'**
+  String polyPosEndsTodayAt(String time);
+
+  /// Predictions open-position screen, the line under the chance: the market ends tomorrow, {time} the local time ('Ends tomorrow at 09:00'). Starts the line, so capitalised.
+  ///
+  /// In en, this message translates to:
+  /// **'Ends tomorrow at {time}'**
+  String polyPosEndsTomorrowAt(String time);
+
   /// No description provided for @polyKickoffStartsInMinutes.
   ///
   /// In en, this message translates to:

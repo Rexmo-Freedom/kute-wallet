@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Končni · {date}",
   "polyKickoffToday": "Danes {time}",
   "polyKickoffTomorrow": "Jutri {time}",
+  "polyPosEndsTodayAt": "Konec danes ob {time}",
+  "polyPosEndsTomorrowAt": "Konec jutri ob {time}",
   "polyKickoffStartsInMinutes": "Začetek čez {minutes} min",
   "polyMarkerHalfTime": "Polčas",
   "polyMarkerSecondHalf": "2. polčas",

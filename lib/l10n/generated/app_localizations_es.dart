@@ -10163,6 +10163,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Termina hoy a las $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Termina mañana a las $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Empieza en $minutes min';
   }

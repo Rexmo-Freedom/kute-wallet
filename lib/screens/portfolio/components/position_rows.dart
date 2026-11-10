@@ -28,7 +28,9 @@
 //   * a Predictions row that is still open adds a thin bar, the held
 //     side's live chance ([PortfolioChanceBar]);
 //   * on the right what it is worth now (15 w600) with the P&L under it
-//     in money and as a % (12, a caret, up or down: "▲ $0.61 · 5.4%";
+//     in money and as a % (12, a caret, up or down: "▲ $0.61 · 5.4%"; on
+//     a square or the full-width card the money 15 over its % 12,
+//     [kPortfolioCornerAmountSize];
 //     founder, 6 November 2026: "on each open position say how much I am
 //     actually winning in dollars"); a P&L under a cent reads "$0.00 ·
 //     0.0%" quietly, never a red minus ([portfolioPnlPill]).
@@ -529,6 +531,18 @@ PortfolioCornerPnl portfolioCornerPnl(
   );
 }
 
+/// The size of the P&L in money in a square's or the full-width card's
+/// corner: 15, the rows' figure size, a step up from the corner's 13
+/// (founder, 10 November 2026, on 2.2.0 (101): "the amount I am winning
+/// should be a bit bigger"); its % stays 12 under it, the value stays the
+/// biggest figure.
+const double kPortfolioCornerAmountSize = 15;
+
+/// [corner] (the corner's own style, in the P&L's colour) at
+/// [kPortfolioCornerAmountSize]: the P&L in money.
+TextStyle portfolioCornerAmountStyle(TextStyle corner) => corner.copyWith(
+    fontSize: kPortfolioCornerAmountSize.sp, letterSpacing: -0.2);
+
 /// A position square's height: [kActivitySquareHeight], or its content at
 /// the viewer's text size when that is taller (no overflow at an
 /// accessibility size).
@@ -536,7 +550,9 @@ double portfolioSquareHeight(BuildContext context) {
   final scaler = MediaQuery.textScalerOf(context);
   // The top row: the logo, or the corner's two lines (the P&L in money
   // over its %) when they are taller at the viewer's text size.
-  final corner = scaler.scale(13.sp) * 1.2 + 1.h + scaler.scale(12.sp) * 1.3;
+  final corner = scaler.scale(kPortfolioCornerAmountSize.sp) * 1.2 +
+      1.h +
+      scaler.scale(12.sp) * 1.3;
   final top = corner > kPortfolioSquareIcon.w ? corner : kPortfolioSquareIcon.w;
   final content = _kSquarePad.w * 2 +
       top +
@@ -1629,7 +1645,8 @@ class _PositionSquare extends StatelessWidget {
                                       key: const ValueKey(
                                           'portfolio-row-pnl-usd'),
                                       text: amount,
-                                      style: cornerStyle,
+                                      style: portfolioCornerAmountStyle(
+                                          cornerStyle),
                                     ),
                                     SizedBox(height: 1.h),
                                   ],
@@ -1846,7 +1863,8 @@ class _PositionWide extends StatelessWidget {
                                       key: const ValueKey(
                                           'portfolio-row-pnl-usd'),
                                       text: amount,
-                                      style: cornerStyle,
+                                      style: portfolioCornerAmountStyle(
+                                          cornerStyle),
                                     ),
                                     SizedBox(height: 1.h),
                                   ],

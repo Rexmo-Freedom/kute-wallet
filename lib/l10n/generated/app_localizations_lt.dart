@@ -10168,6 +10168,16 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Baigiasi šiandien $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Baigiasi rytoj $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Prasidės po $minutes min.';
   }

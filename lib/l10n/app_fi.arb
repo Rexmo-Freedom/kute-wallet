@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Lopputulos · {date}",
   "polyKickoffToday": "Tänään {time}",
   "polyKickoffTomorrow": "Huomenna {time}",
+  "polyPosEndsTodayAt": "Päättyy tänään klo {time}",
+  "polyPosEndsTomorrowAt": "Päättyy huomenna klo {time}",
   "polyKickoffStartsInMinutes": "Alkaa {minutes} min kuluttua",
   "polyMarkerHalfTime": "Puoliaika",
   "polyMarkerSecondHalf": "2. puoliaika",

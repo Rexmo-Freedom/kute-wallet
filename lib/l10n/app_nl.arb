@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Einde · {date}",
   "polyKickoffToday": "Vandaag {time}",
   "polyKickoffTomorrow": "Morgen {time}",
+  "polyPosEndsTodayAt": "Eindigt vandaag om {time}",
+  "polyPosEndsTomorrowAt": "Eindigt morgen om {time}",
   "polyKickoffStartsInMinutes": "Begint over {minutes} min",
   "polyMarkerHalfTime": "Rust",
   "polyMarkerSecondHalf": "2e helft",

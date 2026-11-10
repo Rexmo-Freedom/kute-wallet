@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Endstand · {date}",
   "polyKickoffToday": "Heute {time}",
   "polyKickoffTomorrow": "Morgen {time}",
+  "polyPosEndsTodayAt": "Endet heute um {time}",
+  "polyPosEndsTomorrowAt": "Endet morgen um {time}",
   "polyKickoffStartsInMinutes": "Beginnt in {minutes} Min.",
   "polyMarkerHalfTime": "Halbzeit",
   "polyMarkerSecondHalf": "2. Halbzeit",

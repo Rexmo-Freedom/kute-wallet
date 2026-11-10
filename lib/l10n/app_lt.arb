@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Pabaiga · {date}",
   "polyKickoffToday": "Šiandien {time}",
   "polyKickoffTomorrow": "Rytoj {time}",
+  "polyPosEndsTodayAt": "Baigiasi šiandien {time}",
+  "polyPosEndsTomorrowAt": "Baigiasi rytoj {time}",
   "polyKickoffStartsInMinutes": "Prasidės po {minutes} min.",
   "polyMarkerHalfTime": "Pertrauka",
   "polyMarkerSecondHalf": "2-asis kėlinys",

@@ -3146,6 +3146,8 @@
   "polyMarkerFinalOn": "Final · {date}",
   "polyKickoffToday": "Hoje {time}",
   "polyKickoffTomorrow": "Amanhã {time}",
+  "polyPosEndsTodayAt": "Termina hoje às {time}",
+  "polyPosEndsTomorrowAt": "Termina amanhã às {time}",
   "polyKickoffStartsInMinutes": "Começa dentro de {minutes} min",
   "polyMarkerHalfTime": "Intervalo",
   "polyMarkerSecondHalf": "2.ª parte",

@@ -83,8 +83,10 @@ class PolyPositionResultLine extends StatelessWidget {
   static const sinceKey = ValueKey('poly-position-result-since');
 
   /// The figure's size and line height (the "since" caption is smaller,
-  /// under it).
-  static const double _figureSize = 17;
+  /// under it): 20, a step up from the 17 it was (founder, 10 November
+  /// 2026, on 2.2.0 (101): "the amount I am winning should be a bit
+  /// bigger"), still under the tiles' 24 below it.
+  static const double _figureSize = 20;
   static const double _figureHeight = 1.25;
 
   /// The height of the figure's line ("▲ $9.40") as drawn, for what sits
@@ -132,10 +134,10 @@ class PolyPositionResultLine extends StatelessWidget {
               if (!flat) ...[
                 CustomPaint(
                   key: caretKey,
-                  size: Size(8.w, 6.h),
+                  size: Size(9.w, 7.h),
                   painter: PolyCaretPainter(up: up, color: color),
                 ),
-                SizedBox(width: 5.w),
+                SizedBox(width: 6.w),
               ],
               Text(amountText, key: figureKey, style: figure, maxLines: 1),
             ],

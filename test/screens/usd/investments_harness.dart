@@ -186,6 +186,9 @@ Future<RecordingRewardsApi> pumpInvestments(
 
   /// The Settings currency.
   String currency = 'USD',
+
+  /// The viewer's text size (1: the default).
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -253,6 +256,13 @@ Future<RecordingRewardsApi> pumpInvestments(
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        builder: textScale == 1
+            ? null
+            : (context, child) => MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: child!,
+                ),
         home: child ?? const UsdAccountScreen(),
       ),
     ),

@@ -145,8 +145,12 @@ List<Override> _overrides(
     ];
 
 Future<void> _pump(WidgetTester tester, PolymarketPosition position,
-    {PolymarketEvent? event, PolyPositionJourney? journey}) async {
-  tester.view.physicalSize = const Size(390, 1200);
+    {PolymarketEvent? event,
+    PolyPositionJourney? journey,
+    double width = 390,
+    double textScale = 1,
+    bool dark = false}) async {
+  tester.view.physicalSize = Size(width, 1200);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -157,10 +161,17 @@ Future<void> _pump(WidgetTester tester, PolymarketPosition position,
       builder: (_, __) => MaterialApp(
         theme: ThemeData(
           splashFactory: NoSplash.splashFactory,
-          extensions: [AppColorsExtension.light()],
+          extensions: [
+            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+          ],
         ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: PositionDetailSheet(position: position),
       ),
     ),
@@ -517,9 +528,17 @@ void main() {
       await _pump(tester, endingAt(end));
       expect(expiry, findsOneWidget);
       final text = tester.widget<Text>(expiry);
-      expect(text.data,
-          'Ends ${DateFormat('MMM d, HH:mm').format(end.toLocal())}');
+      // The date and the hour in the app's language, the year only when it
+      // is not this one (founder, 10 November 2026: clearer).
+      final local = end.toLocal();
+      final day = local.year == DateTime.now().year
+          ? DateFormat.MMMd('en').format(local)
+          : DateFormat.yMMMd('en').format(local);
+      expect(text.data, 'Ends $day, ${DateFormat.Hm('en').format(local)}');
       expect(text.style?.color, AppColorsExtension.light().textSecondary);
+      // A step up from the quiet 13 w500 it was.
+      expect(text.style?.fontSize, 15.sp);
+      expect(text.style?.fontWeight, FontWeight.w600);
       expect(text.maxLines, 1);
       // A line, not a pill: nothing bordered around it.
       expect(
@@ -575,14 +594,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('under a day to go: the countdown on the same line',
-        (tester) async {
-      await _pump(tester,
-          endingAt(DateTime.now().add(const Duration(hours: 2, minutes: 5))));
-      expect(
-          RegExp(r'^Ends in 2:0[45]:[0-9]{2}$')
-              .hasMatch(tester.widget<Text>(expiry).data ?? ''),
-          isTrue);
+    testWidgets('hours to go: today or tomorrow at the hour, on the same '
+        'line, never an h:mm:ss countdown', (tester) async {
+      final at = DateTime.now().add(const Duration(hours: 2, minutes: 5));
+      await _pump(tester, endingAt(at));
+      final day = at.day == DateTime.now().day ? 'today' : 'tomorrow';
+      expect(tester.widget<Text>(expiry).data,
+          'Ends $day at ${DateFormat.Hm('en').format(at)}');
       expect(tester.getRect(expiry).top,
           greaterThan(tester.getRect(figure).bottom));
       expect(tester.getRect(expiry).bottom,
@@ -742,6 +760,119 @@ void main() {
     expect(sell.share!.barContext!.market, isTrue);
     expect(sell.share!.brag, isNotNull, reason: 'in profit: the card');
     expect(tester.takeException(), isNull);
+  });
+
+  group(
+      'the amount won and when it ends, clearer (founder, 10 November '
+      '2026, on 2.2.0 (101))', () {
+    final en = lookupAppLocalizations(const Locale('en'));
+    final de = lookupAppLocalizations(const Locale('de'));
+    final now = DateTime(2026, 11, 10, 14, 30);
+
+    test('under an hour: the countdown', () {
+      expect(
+          polyPositionEndsText(
+              en, now.add(const Duration(minutes: 12, seconds: 34)),
+              now: now),
+          'Ends in 12:34');
+      expect(polyPositionEndsText(en, now, now: now), 'Ends in 00:00');
+    });
+
+    test(
+        'later today or tomorrow: the day in words and the hour, never '
+        'an h:mm:ss countdown', () {
+      expect(polyPositionEndsText(en, DateTime(2026, 11, 10, 21), now: now),
+          'Ends today at 21:00');
+      expect(polyPositionEndsText(en, DateTime(2026, 11, 11, 9, 5), now: now),
+          'Ends tomorrow at 09:05');
+      expect(polyPositionEndsText(de, DateTime(2026, 11, 10, 21), now: now),
+          'Endet heute um 21:00');
+      expect(polyPositionEndsText(de, DateTime(2026, 11, 11, 9), now: now),
+          'Endet morgen um 09:00');
+    });
+
+    test(
+        'later: the date and the hour in the app\'s language, the year '
+        'only when it is not this one', () {
+      expect(polyPositionEndsText(en, DateTime(2026, 12, 31, 21), now: now),
+          'Ends Dec 31, 21:00');
+      expect(polyPositionEndsText(en, DateTime(2027, 1, 5, 21), now: now),
+          'Ends Jan 5, 2027, 21:00');
+      expect(polyPositionEndsText(de, DateTime(2026, 12, 31, 21), now: now),
+          'Endet 31. Dez., 21:00');
+    });
+
+    final ending = PolymarketPosition(
+      marketId: _no.marketId,
+      marketQuestion: _no.marketQuestion,
+      outcome: _no.outcome,
+      size: _no.size,
+      avgPrice: _no.avgPrice,
+      currentPrice: _no.currentPrice,
+      pnl: _no.pnl,
+      pnlPercent: _no.pnlPercent,
+      isResolved: false,
+      tokenId: _no.tokenId,
+      eventSlug: _no.eventSlug,
+      endDateStr: DateTime.now()
+          .add(const Duration(days: 40))
+          .toUtc()
+          .toIso8601String(),
+    );
+
+    testWidgets(
+        'the result 20 (was 17), still under the tiles\' 24; the '
+        '"Ends" line 15 w600 in textSecondary', (tester) async {
+      await _pump(tester, ending);
+      final figure = tester
+          .widget<Text>(find.byKey(PolyPositionResultLine.figureKey))
+          .style!;
+      expect(figure.fontSize, 20.sp);
+      expect(figure.fontWeight, FontWeight.w700);
+      final expiry = tester
+          .widget<Text>(find.byKey(const ValueKey('poly-position-expiry')));
+      expect(expiry.style!.fontSize, 15.sp);
+      expect(expiry.style!.fontWeight, FontWeight.w600);
+      expect(expiry.overflow, isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final dark in [false, true]) {
+      testWidgets(
+          'nothing cut at 320 pt and a large text size '
+          '(${dark ? 'dark' : 'light'})', (tester) async {
+        await _pump(tester, ending, width: 320, textScale: 1.6, dark: dark);
+        final colors =
+            dark ? AppColorsExtension.dark() : AppColorsExtension.light();
+        final expiryFinder = find.byKey(const ValueKey('poly-position-expiry'));
+        final expiry = tester.widget<Text>(expiryFinder);
+        expect(expiry.style!.color, colors.textSecondary);
+        expect(expiry.data, startsWith('Ends '));
+        final view = Offset.zero & const Size(320, 1200);
+        for (final f in [
+          expiryFinder,
+          find.byKey(PolyPositionResultLine.figureKey),
+          find.byKey(PositionDetailSheet.dialHintKey),
+        ]) {
+          final r = tester.getRect(f);
+          expect(r.left, greaterThanOrEqualTo(view.left - 0.5));
+          expect(r.right, lessThanOrEqualTo(view.right + 0.5));
+        }
+        // The line and the hint keep to their slot: over the tiles, the
+        // figure's chance above them.
+        expect(
+            tester.getRect(expiryFinder).top,
+            greaterThan(tester
+                .getRect(find.byKey(PolyPositionSpeedometer.figureKey))
+                .bottom));
+        expect(
+            tester.getRect(find.byKey(PositionDetailSheet.dialHintKey)).bottom,
+            lessThanOrEqualTo(tester
+                .getRect(find.byKey(const ValueKey('poly-position-value')))
+                .top));
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   group('the journey\'s data', () {

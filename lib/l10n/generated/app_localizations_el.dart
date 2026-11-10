@@ -10185,6 +10185,16 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Λήγει σήμερα στις $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Λήγει αύριο στις $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Ξεκινά σε $minutes λεπτά';
   }

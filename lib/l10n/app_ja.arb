@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "試合終了 · {date}",
   "polyKickoffToday": "今日 {time}",
   "polyKickoffTomorrow": "明日 {time}",
+  "polyPosEndsTodayAt": "今日 {time}終了",
+  "polyPosEndsTomorrowAt": "明日 {time}終了",
   "polyKickoffStartsInMinutes": "{minutes}分後に開始",
   "polyMarkerHalfTime": "ハーフタイム",
   "polyMarkerSecondHalf": "後半",

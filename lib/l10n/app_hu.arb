@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Vége · {date}",
   "polyKickoffToday": "Ma {time}",
   "polyKickoffTomorrow": "Holnap {time}",
+  "polyPosEndsTodayAt": "Vége: ma {time}",
+  "polyPosEndsTomorrowAt": "Vége: holnap {time}",
   "polyKickoffStartsInMinutes": "Kezdés {minutes} perc múlva",
   "polyMarkerHalfTime": "Félidő",
   "polyMarkerSecondHalf": "2. félidő",

@@ -10102,6 +10102,16 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Lõpeb täna kell $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Lõpeb homme kell $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Algab $minutes min pärast';
   }

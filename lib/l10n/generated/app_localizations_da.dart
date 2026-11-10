@@ -10114,6 +10114,16 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Slutter i dag kl. $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Slutter i morgen kl. $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Starter om $minutes min';
   }

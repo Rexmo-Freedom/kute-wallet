@@ -10123,6 +10123,16 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Končí dnes o $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Končí zajtra o $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Začína o $minutes min';
   }

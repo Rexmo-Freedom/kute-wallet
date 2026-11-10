@@ -9732,6 +9732,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return '今日 $time終了';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return '明日 $time終了';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return '$minutes分後に開始';
   }

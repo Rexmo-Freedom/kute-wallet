@@ -10139,6 +10139,16 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Vége: ma $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Vége: holnap $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Kezdés $minutes perc múlva';
   }

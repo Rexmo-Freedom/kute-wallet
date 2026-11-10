@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Slut · {date}",
   "polyKickoffToday": "I dag {time}",
   "polyKickoffTomorrow": "I morgen {time}",
+  "polyPosEndsTodayAt": "Slutter i dag kl. {time}",
+  "polyPosEndsTomorrowAt": "Slutter i morgen kl. {time}",
   "polyKickoffStartsInMinutes": "Starter om {minutes} min",
   "polyMarkerHalfTime": "Pause",
   "polyMarkerSecondHalf": "2. halvleg",

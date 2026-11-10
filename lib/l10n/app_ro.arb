@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Final · {date}",
   "polyKickoffToday": "Azi {time}",
   "polyKickoffTomorrow": "Mâine {time}",
+  "polyPosEndsTodayAt": "Se încheie azi la {time}",
+  "polyPosEndsTomorrowAt": "Se încheie mâine la {time}",
   "polyKickoffStartsInMinutes": "Începe în {minutes} min",
   "polyMarkerHalfTime": "Pauză",
   "polyMarkerSecondHalf": "Repriza 2",

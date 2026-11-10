@@ -10121,6 +10121,16 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Päättyy tänään klo $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Päättyy huomenna klo $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Alkaa $minutes min kuluttua';
   }

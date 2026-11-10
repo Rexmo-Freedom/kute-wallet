@@ -10188,6 +10188,16 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Fin aujourd\'hui à $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Fin demain à $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Commence dans $minutes min';
   }

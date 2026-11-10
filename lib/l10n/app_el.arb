@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Τελικό · {date}",
   "polyKickoffToday": "Σήμερα {time}",
   "polyKickoffTomorrow": "Αύριο {time}",
+  "polyPosEndsTodayAt": "Λήγει σήμερα στις {time}",
+  "polyPosEndsTomorrowAt": "Λήγει αύριο στις {time}",
   "polyKickoffStartsInMinutes": "Ξεκινά σε {minutes} λεπτά",
   "polyMarkerHalfTime": "Ημίχρονο",
   "polyMarkerSecondHalf": "2ο ημίχρονο",

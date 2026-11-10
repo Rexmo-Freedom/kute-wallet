@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Beigas · {date}",
   "polyKickoffToday": "Šodien {time}",
   "polyKickoffTomorrow": "Rīt {time}",
+  "polyPosEndsTodayAt": "Beidzas šodien plkst. {time}",
+  "polyPosEndsTomorrowAt": "Beidzas rīt plkst. {time}",
   "polyKickoffStartsInMinutes": "Sākas pēc {minutes} min",
   "polyMarkerHalfTime": "Puslaiks",
   "polyMarkerSecondHalf": "2. puslaiks",

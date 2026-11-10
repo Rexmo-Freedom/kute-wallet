@@ -10169,6 +10169,16 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Se încheie azi la $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Se încheie mâine la $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Începe în $minutes min';
   }

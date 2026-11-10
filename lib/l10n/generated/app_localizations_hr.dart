@@ -10136,6 +10136,16 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Završava danas u $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Završava sutra u $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Počinje za $minutes min';
   }

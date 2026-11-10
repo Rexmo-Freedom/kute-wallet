@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Lõpp · {date}",
   "polyKickoffToday": "Täna {time}",
   "polyKickoffTomorrow": "Homme {time}",
+  "polyPosEndsTodayAt": "Lõpeb täna kell {time}",
+  "polyPosEndsTomorrowAt": "Lõpeb homme kell {time}",
   "polyKickoffStartsInMinutes": "Algab {minutes} min pärast",
   "polyMarkerHalfTime": "Poolaeg",
   "polyMarkerSecondHalf": "2. poolaeg",

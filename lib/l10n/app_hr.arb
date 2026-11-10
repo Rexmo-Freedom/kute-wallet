@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Kraj · {date}",
   "polyKickoffToday": "Danas {time}",
   "polyKickoffTomorrow": "Sutra {time}",
+  "polyPosEndsTodayAt": "Završava danas u {time}",
+  "polyPosEndsTomorrowAt": "Završava sutra u {time}",
   "polyKickoffStartsInMinutes": "Počinje za {minutes} min",
   "polyMarkerHalfTime": "Poluvrijeme",
   "polyMarkerSecondHalf": "2. poluvrijeme",

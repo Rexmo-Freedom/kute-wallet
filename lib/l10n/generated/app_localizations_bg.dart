@@ -10133,6 +10133,16 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Приключва днес в $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Приключва утре в $time';
+  }
+
+  @override
   String polyKickoffStartsInMinutes(int minutes) {
     return 'Започва след $minutes мин';
   }

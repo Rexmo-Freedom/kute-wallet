@@ -2880,6 +2880,8 @@
   "polyMarkerFinalOn": "Край · {date}",
   "polyKickoffToday": "Днес {time}",
   "polyKickoffTomorrow": "Утре {time}",
+  "polyPosEndsTodayAt": "Приключва днес в {time}",
+  "polyPosEndsTomorrowAt": "Приключва утре в {time}",
   "polyKickoffStartsInMinutes": "Започва след {minutes} мин",
   "polyMarkerHalfTime": "Полувреме",
   "polyMarkerSecondHalf": "2-ро полувреме",
