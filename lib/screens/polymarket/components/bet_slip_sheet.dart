@@ -152,8 +152,8 @@ import 'package:kute/services/one_balance/funding_fees.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart'
     show pendingBetBlocksNewBet, venueSweeperProvider;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show committedFundsProvider, orderDollarsProvider;
 import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
@@ -3576,7 +3576,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// The spending account's Dollars, read, never sent anywhere.
   double _dollarsUsd() {
     try {
-      final d = ref.read(usdBalanceProvider);
+      // Less what other accepted orders hold (committed_funds.dart): a
+      // bet never sizes on dollars an Investing order already took.
+      final d = ref.read(orderDollarsProvider);
       return d.isFinite && d > 0 ? d : 0;
     } catch (_) {
       return 0;
@@ -3841,6 +3843,28 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // on the Investments header, whatever happens to the slip.
     final runner = ref.read(bitcoinFundedOrderRunnerProvider);
     final fundedId = runner.beginFunded(_fundedLabel(pending, outcomeLabel));
+    // The Dollars this bet moves are its own from this accept: an order
+    // accepted meanwhile sizes and checks against the rest, never the
+    // same dollars (committed_funds.dart). Another order took them first:
+    // nothing moves, the Dollars door, exactly as a balance that fell.
+    final commitments = ref.read(committedFundsProvider.notifier);
+    if (!commitments.commitDollars(OneBalanceVenue.predictions,
+        usd: plan.fundUsd, runId: fundedId)) {
+      final short = commitments.dollarsShortUsd(
+          OneBalanceVenue.predictions, plan.fundUsd);
+      runner.dropFunded(fundedId);
+      grant.revoke();
+      pendingNotifier.clear();
+      _stopped('insufficient_balance');
+      PolymarketPlacementTimeline.finish('declined',
+          reason: 'insufficient_dollars');
+      await _openDollarsTopUp(
+          shortfallUsd: short,
+          requiredUsd: required,
+          readyUsd: ready,
+          topUpUsd: plan.fundUsd);
+      return;
+    }
     _swapNeeded = true;
     TrackingService.track('bet_slip_place', params: {
       'amount_bucket': TrackingService.usdBucket(_amount),
@@ -4272,6 +4296,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ),
           fundUsd: plan.fundUsd,
           readyUsd: ready,
+          // Each source's share is this bet's from the accept.
+          dollarsUsd: min(dollars, plan.fundUsd),
+          otherVenueUsd: rest.otherUsd,
           entrySource: source,
           // Runs whatever happens to this slip: reads only the container.
           // The rest from the other venue under the same grant, then the
@@ -4525,7 +4552,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final orders =
         ref.read(polymarketTradingProvider).valueOrNull?.openOrders ??
             const [];
-    return PolymarketBetController.spendableUsdc(cash, orders);
+    final spendable = PolymarketBetController.spendableUsdc(cash, orders);
+    // Less what an Investing order accepted meanwhile is about to pull
+    // from it (committed_funds.dart): never this bet's.
+    final held = ref.read(committedFundsProvider.notifier).heldUsd(
+        MoneyPlace.predictions,
+        exceptHeldOn: OneBalanceVenue.predictions);
+    return held > 0 ? max(0.0, spendable - held) : spendable;
   }
 
   /// What this stake is short of in Predictions cash:
@@ -5381,7 +5414,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 .watch(venueCashReachExcludingProvider(
                     OneBalanceVenue.predictions))
                 .valueOrNull ??
-            ref.watch(usdBalanceProvider);
+            ref.watch(orderDollarsProvider);
         final reach = min(otherSpendable, reachRead) + bitcoinUsd;
         final ready = _predictionsReady(venueCash);
         final held = _fundingPlan;
@@ -6648,7 +6681,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ? _fundingPlan!
           : planBetFunding(requiredUsd: required, readyUsd: ready);
       // Dollars plus Investing cash: the bet pulls what Dollars lack.
-      final dollarsOnly = ref.watch(usdBalanceProvider);
+      final dollarsOnly = ref.watch(orderDollarsProvider);
       final dollars = dollarsOnly + 1e-9 >= plan.fundUsd
           ? dollarsOnly
           : (ref

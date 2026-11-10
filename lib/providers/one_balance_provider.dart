@@ -58,8 +58,15 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show
+        CommittedFundsNotifier,
+        committedDollarsInFlight,
+        committedFundsProvider,
+        watchCommittedUsd;
 import 'package:kute/services/one_balance/funded_orders.dart'
     show FundedOrdersNotifier, fundedOrdersProvider;
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyPlace;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show kSweepDustUsd, kVenueMoveMaxAge, pendingVenueMoveOf;
@@ -387,13 +394,24 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     placedOrderRow: (rowId) =>
         FundedOrdersNotifier.placedOrderOwns(funded, rowId),
   );
+  // Dollars an accepted order has committed and not yet seen leave are
+  // money on its way into that order (Invested), never Available: a
+  // second order accepted meanwhile sees only the rest
+  // (committed_funds.dart).
+  final committed =
+      watchCommittedUsd(ref, MoneyPlace.dollars, dollarsUsd: dollars);
+  final commitments = ref.watch(committedFundsProvider);
+  final committedInFlight = commitments.isEmpty
+      ? const <InFlightMove>[]
+      : committedDollarsInFlight(commitments,
+          now: CommittedFundsNotifier.clock(), runs: funded);
   return oneBalanceStateFrom(
-    dollarsUsd: dollars,
+    dollarsUsd: dollars - committed,
     dollarsKnown: !usdReading.isLoading &&
         !usdReading.hasError &&
         !ref.watch(usdBalanceUnknownProvider),
     venues: venues,
-    inFlight: inFlight,
+    inFlight: [...inFlight, ...committedInFlight],
     // Waiting, and the cash a venue keeps or cannot move (dust), both
     // Available, from the sweeper's passes, capped by the venues' reads.
     sweeper: ref.watch(venueSweeperProvider),

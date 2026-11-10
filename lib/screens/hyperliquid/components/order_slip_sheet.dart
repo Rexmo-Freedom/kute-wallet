@@ -99,8 +99,8 @@ import 'package:kute/providers/hyperliquid_user_events_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show committedFundsProvider, orderDollarsProvider;
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -2328,9 +2328,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// Dollars on the spending account, read live. Zero when unreadable.
   double _dollarsUsd({bool watch = false}) {
     try {
+      // Less what other accepted orders hold (committed_funds.dart): an
+      // order never sizes on dollars a bet already took.
       return watch
-          ? ref.watch(usdBalanceProvider)
-          : ref.read(usdBalanceProvider);
+          ? ref.watch(orderDollarsProvider)
+          : ref.read(orderDollarsProvider);
     } catch (_) {
       return 0;
     }
@@ -2892,6 +2894,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       market: FundedOrderLabel.shortName(market.coin),
       marketKey: market.coin,
     ));
+    // The Dollars this order moves are its own from this accept: a bet
+    // accepted meanwhile sizes and checks against the rest, never the same
+    // dollars (committed_funds.dart). A bet took them first: nothing
+    // moves, the button becomes the Dollars door, exactly as a balance
+    // that fell.
+    final commitments = ref.read(committedFundsProvider.notifier);
+    if (!commitments.commitDollars(OneBalanceVenue.investing,
+        usd: fundUsd, runId: fundedId)) {
+      final short =
+          commitments.dollarsShortUsd(OneBalanceVenue.investing, fundUsd);
+      runner.dropFunded(fundedId);
+      grant.revoke();
+      AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+      _trackFundingFailed('fund', null, category: 'insufficient_funds');
+      _stopped('insufficient_balance');
+      _updateDraft(() {
+        _preparing = false;
+        _fundingStage = null;
+        _fundPlan = _FundPlan(
+            shortfallUsd: plan.shortfallUsd,
+            fundUsd: _dollarsUsd() + short,
+            arrivingUsd: plan.arrivingUsd);
+      });
+      return;
+    }
 
     // Listen for the order's fill BEFORE anything moves, so a fast fill
     // cannot slip between the placement and the subscription.
@@ -3368,6 +3395,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ),
           fundUsd: planFundUsd,
           readyUsd: ready,
+          // Each source's share is this order's from the accept.
+          dollarsUsd: math.min(dollars, planFundUsd),
+          otherVenueUsd: rest.otherUsd,
           entrySource: _entrySource,
           // Runs whatever happens to this ticket: reads only the
           // container. The rest from the other venue under the same
@@ -4078,13 +4108,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (b.coin == 'USDC') spot += b.available;
     }
     final queued = ref.read(pendingHyperliquidOrderProvider);
+    // Less what a bet accepted meanwhile is about to pull from it
+    // (committed_funds.dart): never this order's.
+    final held = ref
+        .read(committedFundsProvider.notifier)
+        .heldUsd(MoneyPlace.investing, exceptHeldOn: OneBalanceVenue.investing);
     return hlSlipReadyUsd(
       withdrawableUsd: ref.read(hyperliquidWithdrawableProvider),
       spotUsdc: spot,
-      // A funded order still queued or placing owns the money it moved.
-      queuedRequiredUsd: PendingHyperliquidOrderNotifier.isActive(queued)
-          ? PendingHlOrderAutoFire.requiredFor(queued!)
-          : 0,
+      // A funded order still queued or placing owns the money it moved;
+      // a bet's leg about to leave owns its share.
+      queuedRequiredUsd: (PendingHyperliquidOrderNotifier.isActive(queued)
+              ? PendingHlOrderAutoFire.requiredFor(queued!)
+              : 0) +
+          held,
       // A sweep carrying the venue's cash home right now: none of it is
       // this order's (the funding then covers the whole order).
       sweeping: ref.exists(venueSweeperProvider) &&

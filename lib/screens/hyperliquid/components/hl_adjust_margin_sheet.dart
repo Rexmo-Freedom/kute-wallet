@@ -74,8 +74,8 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show orderDollarsProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/home/components/deposit/deposit_quick_amounts.dart';
@@ -326,7 +326,10 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   /// Dollars on the spending account, read live. Zero when unreadable.
   double _dollars({bool watch = false}) {
     try {
-      final v = watch ? ref.watch(usdBalanceProvider) : ref.read(usdBalanceProvider);
+      // Less what other accepted orders hold (committed_funds.dart).
+      final v = watch
+          ? ref.watch(orderDollarsProvider)
+          : ref.read(orderDollarsProvider);
       return v.isFinite && v > 0 ? v : 0;
     } catch (_) {
       return 0;

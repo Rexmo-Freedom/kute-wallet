@@ -51,10 +51,10 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/providers/one_balance_provider.dart'
     show oneBalanceProvider;
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show orderDollarsProvider;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/route_minimums.dart'
     show venueFloorUsd;
@@ -427,7 +427,7 @@ final venueCashRefreshProvider = FutureProvider.autoDispose<void>((ref) async {
 /// synchronous, never loading.
 final investmentsSpendableProvider =
     Provider.autoDispose<InvestmentsSpendable>((ref) {
-  final dollars = ref.watch(usdBalanceProvider);
+  final dollars = ref.watch(orderDollarsProvider);
   final walletId =
       ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
   final last = ref.watch(venueCashLastReadProvider);
@@ -446,7 +446,7 @@ final investmentsSpendableProvider =
 /// venue's cash alone. Synchronous, never loading.
 final investmentsSpendableExcludingProvider = Provider.autoDispose
     .family<InvestmentsSpendable, OneBalanceVenue>((ref, venue) {
-  final dollars = ref.watch(usdBalanceProvider);
+  final dollars = ref.watch(orderDollarsProvider);
   final walletId =
       ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
   final last = ref.watch(venueCashLastReadProvider);
@@ -513,7 +513,7 @@ final venueCashClosedProvider =
 /// Synchronous, never loading.
 final dollarsToBitcoinSpendableProvider =
     Provider.autoDispose<InvestmentsSpendable>((ref) {
-  final dollars = ref.watch(usdBalanceProvider);
+  final dollars = ref.watch(orderDollarsProvider);
   final walletId =
       ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
   final last = ref.watch(venueCashLastReadProvider);

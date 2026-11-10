@@ -116,6 +116,8 @@ import 'package:kute/services/funding/owned_address_resolver.dart'
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementFundingUnknown, SettlementStepUpHook, SettlementStopped;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show committedFundsProvider, venueCashPlaceOf, watchCommittedUsd;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
@@ -637,6 +639,8 @@ class BitcoinFundedOrderRequest {
     this.bindAttempt,
     this.isCurrentAttempt,
     this.orderInFlight,
+    this.dollarsUsd = 0,
+    this.otherVenueUsd = 0,
   });
 
   final OneBalanceVenue venue;
@@ -644,6 +648,16 @@ class BitcoinFundedOrderRequest {
   /// Whether the other venue's cash brings part of the move (only what
   /// Dollars and the Bitcoin leg cannot: [decideOrderSources]).
   final bool otherVenueUsed;
+
+  /// What the move takes from Dollars as they are now (the sources'
+  /// Dollars share), committed to this order from the accept
+  /// (`committed_funds.dart`): an order on the other venue accepted
+  /// meanwhile never counts it.
+  final double dollarsUsd;
+
+  /// What the move takes from the other venue's cash, committed the same
+  /// way until its leg is sent.
+  final double otherVenueUsd;
 
   /// The order's one approval (its autofire grant), binding the order,
   /// the funding move and the Bitcoin leg.
@@ -743,6 +757,15 @@ class BitcoinFundedOrderRunner {
     return start(request);
   }
 
+  /// The Dollars reading the chain itself goes by (its leg environment).
+  double _dollarsReading() {
+    try {
+      return _ref.read(bitcoinLegEnvProvider).dollarsNow();
+    } catch (_) {
+      return 0;
+    }
+  }
+
   BitcoinFundedRun start(BitcoinFundedOrderRequest r) {
     if (r.isCurrentAttempt?.call() == false) {
       r.grant.revoke();
@@ -756,6 +779,31 @@ class BitcoinFundedOrderRunner {
       orders.remove(id);
       return BitcoinFundedRun(id, Future.value(BitcoinFundedEnd.notSent));
     }
+    // Every source's share is this order's from the accept on: Dollars
+    // (checked: another order accepted meanwhile may have taken them),
+    // the bitcoin the leg sends and the other venue's cash (sized on
+    // figures already net of other orders). Nothing has moved yet.
+    final commitments = _ref.read(committedFundsProvider.notifier);
+    if (!commitments.commitDollars(r.venue,
+        usd: r.dollarsUsd, dollarsUsd: _dollarsReading(), runId: id)) {
+      orders.stop(id,
+          stage: FundedOrderStage.failed,
+          reason: 'not_sent',
+          moneyAt: FundedMoneyAt.investments);
+      try {
+        r.dropOrder();
+      } catch (_) {}
+      r.grant.revoke();
+      return BitcoinFundedRun(id, Future.value(BitcoinFundedEnd.notSent));
+    }
+    final plan = r.plan;
+    if (isUsableUsdPerBtc(plan.usdPerBtc) && plan.maxSats > 0) {
+      commitments.hold(MoneyPlace.bitcoin, r.venue,
+          usd: plan.maxSats / 1e8 * plan.usdPerBtc, runId: id);
+    }
+    final other = OneBalanceVenue.values.firstWhere((v) => v != r.venue);
+    commitments.hold(venueCashPlaceOf(other), r.venue,
+        usd: r.otherVenueUsd, runId: id);
     return BitcoinFundedRun(id, _run(id, r));
   }
 
@@ -1095,9 +1143,32 @@ final spendingBitcoinLandingUsdProvider = Provider.autoDispose<double>((ref) {
   try {
     rate = ref.watch(selectedCurrencyProvider('USD')).toDouble();
   } catch (_) {}
+  // Less what accepted orders' Bitcoin legs are about to send.
+  final held = watchCommittedUsd(ref, MoneyPlace.bitcoin);
+  if (held > 0 && isUsableUsdPerBtc(rate)) {
+    sats = math.max(0, sats - (held / rate * 1e8).ceil());
+  }
   return bitcoinMaxLandingUsd(
       (sats: sats, usdPerBtc: isUsableUsdPerBtc(rate) ? rate : 0.0));
 });
+
+/// [wallet] less the sats accepted orders' Bitcoin legs are about to send
+/// (`committed_funds.dart`): what a NEW order's leg is sized on. Never
+/// what a leg's own send checks.
+SpendingBitcoin spendingBitcoinLessCommitted(
+    T Function<T>(ProviderListenable<T> provider) read,
+    SpendingBitcoin wallet) {
+  if (!isUsableUsdPerBtc(wallet.usdPerBtc) || wallet.sats <= 0) return wallet;
+  var held = 0.0;
+  try {
+    held = read(committedFundsProvider.notifier).heldUsd(MoneyPlace.bitcoin);
+  } catch (_) {}
+  if (!held.isFinite || held <= 0) return wallet;
+  return (
+    sats: math.max(0, wallet.sats - (held / wallet.usdPerBtc * 1e8).ceil()),
+    usdPerBtc: wallet.usdPerBtc,
+  );
+}
 
 /// The spending wallet's bitcoin read fresh, for a tap whose cached
 /// figures do not cover the leg (the balance not synced yet on a cold
@@ -1241,7 +1312,8 @@ Future<BitcoinLegSizing> sizeBitcoinLegFor(
 }) async {
   final cached = cachedSpendingBitcoin(read);
   final fresh = await freshSpendingBitcoin(read);
-  return _sizeOn(fresh ?? cached, dollarsShortUsd);
+  return _sizeOn(
+      spendingBitcoinLessCommitted(read, fresh ?? cached), dollarsShortUsd);
 }
 
 // ── The slip's decision ────────────────────────────────────────────────
@@ -1472,6 +1544,8 @@ Future<OrderSources> decideOrderSources(
   var wallet = cachedSpendingBitcoin(read);
   final fresh = await freshSpendingBitcoin(read);
   if (fresh != null) wallet = fresh;
+  // Less what accepted orders' Bitcoin legs are about to send.
+  wallet = spendingBitcoinLessCommitted(read, wallet);
   var max = bitcoinMaxLandingUsd(wallet);
   if (max > 0) {
     // The route's own price for all of it, when it answers (its real
@@ -1865,6 +1939,15 @@ class _FundedChain {
   final VenueCashSnapshot _cashSnapshot;
 
   Ref get _ref => runner._ref;
+
+  /// The leg's sats are leaving: the bitcoin balance's own send hold
+  /// shows them from now, so they are no longer held here.
+  void _bitcoinLeaving() {
+    try {
+      _ref.read(committedFundsProvider.notifier).sourceSent(MoneyPlace.bitcoin);
+    } catch (_) {}
+  }
+
   late final BitcoinLegEnv env = _ref.read(bitcoinLegEnvProvider);
   late final FundedOrdersNotifier orders =
       _ref.read(fundedOrdersProvider.notifier);
@@ -2349,6 +2432,7 @@ class _FundedChain {
         onSending: () {
           sending = true;
           _sentAt = _now();
+          _bitcoinLeaving();
           journey.bitcoinSent(venue);
         },
       );
@@ -2495,6 +2579,7 @@ class _FundedChain {
         onSending: () {
           sentAt = _now();
           _sentAt = sentAt;
+          _bitcoinLeaving();
           journey.bitcoinSent(venue);
         },
       );

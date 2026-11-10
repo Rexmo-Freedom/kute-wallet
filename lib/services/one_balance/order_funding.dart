@@ -36,6 +36,8 @@ import 'package:kute/services/funding/settlement_funding_outcome.dart'
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementFundingUnknown, SettlementStopReason, SettlementStopped;
 import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show DollarsCommitments, committedFundsProvider;
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
     show hyperliquidVenueFunderProvider;
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -397,17 +399,38 @@ class OrderFundingController {
   const OrderFundingController({
     required VenueFunder Function(OneBalanceVenue venue) funderFor,
     required double Function() dollarsUsd,
+    DollarsCommitments? Function()? commitments,
   })  : _funderFor = funderFor,
-        _dollarsUsd = dollarsUsd;
+        _dollarsUsd = dollarsUsd,
+        _commitments = commitments;
 
   final VenueFunder Function(OneBalanceVenue venue) _funderFor;
   final double Function() _dollarsUsd;
 
+  /// What other accepted orders hold of Dollars (`committed_funds.dart`):
+  /// a move is checked against Dollars less theirs, and its own share is
+  /// claimed in the same synchronous step, so two orders accepted at
+  /// nearly the same time can never both count the same dollars. Null:
+  /// Dollars as read (tests of a single order).
+  final DollarsCommitments? Function()? _commitments;
+
   /// This controller reading Dollars through [dollarsUsd]: an order funded
   /// from bitcoin passes the fresh balance its dollars landed in, before
-  /// the shown balance caught up. The check stays the guard.
+  /// the shown balance caught up. The check stays the guard, and what
+  /// other orders hold is still taken off.
   OrderFundingController withDollars(double Function() dollarsUsd) =>
-      OrderFundingController(funderFor: _funderFor, dollarsUsd: dollarsUsd);
+      OrderFundingController(
+          funderFor: _funderFor,
+          dollarsUsd: dollarsUsd,
+          commitments: _commitments);
+
+  DollarsCommitments? _ledger() {
+    try {
+      return _commitments?.call();
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// [orderUsd] is the order's size, [requiredUsd] what the venue must
   /// hold for it (size plus any margin or reservation), [readyUsd] what
@@ -445,7 +468,14 @@ class OrderFundingController {
     bool continueJourney = false,
     String? marketKind,
   }) {
-    final funder = _funderFor(venue);
+    final VenueFunder funder;
+    try {
+      funder = _funderFor(venue);
+    } catch (_) {
+      // Nothing moves: whatever the order held of Dollars is free again.
+      _ledger()?.releaseDollars(venue);
+      rethrow;
+    }
     return _run(
       funder,
       venue: venue,
@@ -478,9 +508,14 @@ class OrderFundingController {
     bool continueJourney = false,
     String? marketKind,
   }) async {
+    final ledger = _ledger();
     final shortfall =
         ShortfallRules.shortfallUsd(requiredUsd: requiredUsd, readyUsd: readyUsd);
-    if (shortfall <= 0) return const OrderFundingNotNeeded();
+    if (shortfall <= 0) {
+      // Nothing leaves Dollars for it.
+      ledger?.releaseDollars(venue);
+      return const OrderFundingNotNeeded();
+    }
     final journey = OrderFundingJourney.instance;
     final dollars = _dollarsUsd();
     if (!continueJourney || !journey.isRunning(venue)) {
@@ -514,6 +549,7 @@ class OrderFundingController {
       } catch (e) {
         final reason = _refusalReason(e);
         journey.failed(venue, OrderFundingStage.quote, reason);
+        ledger?.releaseDollars(venue);
         return OrderFundingRefused(reason, error: e);
       }
       journey.setFundUsd(venue, fund);
@@ -525,12 +561,22 @@ class OrderFundingController {
 
     // Dollars are checked again right here, the last read before any
     // approval is used: a balance that fell since the slip looked sends
-    // the person to the Dollars door, with nothing moved.
-    if (!dollars.isFinite || dollars + 1e-9 < fund) {
+    // the person to the Dollars door, with nothing moved. What OTHER
+    // accepted orders hold is not this move's (an Investing order and a
+    // bet accepted together never both count the same dollars), and this
+    // move's own share is claimed in the same synchronous step: no other
+    // check can slip between the two.
+    final reading = _dollarsUsd();
+    final available = ledger == null
+        ? reading
+        : ledger.availableFor(venue, dollarsUsd: reading);
+    if (!available.isFinite || available + 1e-9 < fund) {
+      ledger?.releaseDollars(venue);
       journey.failed(venue, OrderFundingStage.quote, 'insufficient_funds');
-      return OrderFundingNeedsDollars(
-          OrderFundingPlan._ceilCents(fund - (dollars.isFinite ? dollars : 0)));
+      return OrderFundingNeedsDollars(OrderFundingPlan._ceilCents(
+          fund - (available.isFinite && available > 0 ? available : 0)));
     }
+    ledger?.claimDollars(venue, fund);
 
     onStage?.call(OrderFundingStage.fund);
     journey.step(venue, OrderFundingStage.fund);
@@ -547,6 +593,12 @@ class OrderFundingController {
               })
           : await funder.fund(usd: fund, auth: auth, purpose: purpose);
     } catch (e) {
+      if (e is SettlementFundingUnknown) {
+        // Maybe sent: held until the reading shows it, or briefly.
+        ledger?.dollarsSent(venue, fromUsd: reading);
+      } else {
+        ledger?.releaseDollars(venue);
+      }
       if (keepUnconfirmed && e is SettlementFundingUnknown) {
         // Maybe sent: the run stays open at the credit, which the venue's
         // autofire closes (placed, or the credit wait running out).
@@ -559,7 +611,9 @@ class OrderFundingController {
       return OrderFundingRefused(reason, error: e);
     }
 
-    // Dollars have left. The credit is the venue autofire's to wait for.
+    // Dollars have left: they count here until the reading shows them.
+    ledger?.dollarsSent(venue, fromUsd: reading);
+    // The credit is the venue autofire's to wait for.
     onStage?.call(OrderFundingStage.credit);
     journey.funded(venue, move, orderUsd: orderUsd);
     return OrderFundingFunded(move);
@@ -613,6 +667,7 @@ final orderFundingControllerProvider = Provider<OrderFundingController>(
         return 0;
       }
     },
+    commitments: () => ref.read(committedFundsProvider.notifier),
   ),
 );
 
