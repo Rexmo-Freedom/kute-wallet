@@ -27,7 +27,11 @@
 //    up at the venue by its hash (and the order guard reconciles its own
 //    journal before anything is posted again); one still waiting for its
 //    money is queued again with its id, and the autofire posts the stored
-//    order when the venue counts the money.
+//    order when the venue counts the money. An Investing order is queued
+//    on the very market it was approved on, found by its position coin (a
+//    builder dex's "xyz:NVDA", never the first "NVDA" listed); one kept
+//    before that coin was, whose ticker more than one dex lists, or whose
+//    market is gone, is settled as not resumable, never placed on a guess.
 //
 // Analytics (exact amounts, never ids or text): `standing_order_created`,
 // `standing_order_resumed`, `standing_order_cancelled`; the venues' own
@@ -43,7 +47,10 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
-import 'package:kute/models/hyperliquid_market.dart' show HlMarketKind;
+import 'package:kute/models/hyperliquid_market.dart'
+    show HlMarket, HlMarketKind;
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
 import 'package:kute/providers/pending_bet_autofire.dart'
     show kPendingBetAutofireId, pendingBetAutoFireProvider, polymarketFundedWorstPrice;
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
@@ -120,6 +127,17 @@ final standingOrderLookupProvider = Provider<StandingOrderLookup>((ref) =>
       if (backend == null) throw StateError('Predictions account not ready');
       return backend.getOrderById(hash);
     });
+
+/// The venue's markets of a kind ([spot] or the perps of every dex), for
+/// a resumed Investing order to find its own in. Tests fake it.
+typedef StandingHlMarkets = Future<List<HlMarket>> Function({
+  required bool spot,
+});
+
+final standingHlMarketsProvider = Provider<StandingHlMarkets>((ref) =>
+    ({required bool spot}) => spot
+        ? ref.read(hyperliquidSpotMarketsProvider.future)
+        : ref.read(hyperliquidPerpMarketsProvider.future));
 
 /// What a resume wakes once it has queued a standing order again: the
 /// venue's watcher that posts it when the money is counted. Tests, which
@@ -924,9 +942,28 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     final current = ref.read(pendingHyperliquidOrderProvider);
     if (current != null && current.standingOrderId == order.id) return;
     if (PendingHyperliquidOrderNotifier.isActive(current)) return;
+    // The very market it was approved on: by the coin the account holds
+    // it by (a builder dex's "xyz:NVDA", never the first "NVDA" listed).
+    final List<HlMarket> markets;
+    try {
+      markets = await ref.read(standingHlMarketsProvider)(
+          spot: order.marketKind == 'spot');
+    } catch (_) {
+      // Unreadable now: left as it is, resumed again next time.
+      return;
+    }
+    final market = resumeMarketFor(order, markets);
+    if (market == null) {
+      // Gone, or an order kept before its position coin was whose coin
+      // more than one dex lists: never a guess, never another market.
+      await advance(order.id, StandingOrderState.failed,
+          failureCode: StandingOrderFailure.notResumable);
+      return;
+    }
     ref.read(pendingHyperliquidOrderProvider.notifier).setIntent(
           PendingHlOrderIntent(
             coin: order.marketKey,
+            market: market,
             kind: order.marketKind == 'spot'
                 ? HlMarketKind.spot
                 : HlMarketKind.perp,
@@ -950,6 +987,28 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
           ),
         );
     ref.read(standingOrderWatchersProvider).wakeInvesting();
+  }
+
+  /// The market a resumed Investing [order] places on, among [markets] (of
+  /// its kind): the one its position coin names ([StandingOrder.
+  /// positionCoin]: a perp's wire coin, "xyz:NVDA"; the token for spot);
+  /// for an order kept before that was, the only market of its coin. Null
+  /// when there is none, or several (the same ticker on more than one
+  /// dex): the order is never placed on a guess.
+  @visibleForTesting
+  static HlMarket? resumeMarketFor(
+      StandingOrder order, List<HlMarket> markets) {
+    final spot = order.marketKind == 'spot';
+    final positionCoin = order.positionCoin;
+    final found = [
+      for (final m in markets)
+        if (m.isSpot == spot &&
+            (positionCoin == null
+                ? m.coin == order.marketKey
+                : (spot ? m.coin : m.wireCoin) == positionCoin))
+          m,
+    ];
+    return found.length == 1 ? found.single : null;
   }
 
   /// What the venue's record of a posted prediction settles it as:

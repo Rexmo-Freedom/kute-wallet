@@ -13,6 +13,8 @@ import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/models/hyperliquid_market.dart'
+    show HlMarket, HlMarketKind;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/pending_bet_autofire.dart'
     show kPendingBetAutofireId, polymarketFundedWorstPrice;
@@ -118,6 +120,26 @@ class _Signer {
   }
 }
 
+/// A venue market: [wire] its wire coin ("xyz:NVDA"), shown as the bare
+/// ticker; [dex] its builder dex, '' for the main one.
+HlMarket _market(String wire,
+        {String dex = '', HlMarketKind kind = HlMarketKind.perp}) =>
+    HlMarket(
+      coin: wire.contains(':') ? wire.split(':').last : wire,
+      wireCoin: wire,
+      assetId: wire.hashCode & 0xffff,
+      kind: kind,
+      szDecimals: 2,
+      maxLeverage: 10,
+      onlyIsolated: false,
+      markPx: 180,
+      midPx: 180,
+      prevDayPx: 180,
+      dayNtlVlm: 1,
+      dex: dex,
+      isHip3: dex.isNotEmpty,
+    );
+
 void main() {
   late Directory dir;
   late FakeSecretStore secrets;
@@ -125,6 +147,10 @@ void main() {
   late _Signer signer;
   late List<(String, Map<String, Object>?)> events;
   Map<String, dynamic>? Function(String hash)? lookup;
+
+  /// The venue's markets a resumed Investing order is found in; null: the
+  /// list cannot be read.
+  List<HlMarket>? hlMarkets;
 
   setUpAll(() {
     dir = Directory.systemTemp.createTempSync('standing_provider_test');
@@ -143,6 +169,11 @@ void main() {
     signer = _Signer();
     events = [];
     lookup = null;
+    hlMarkets = [
+      _market('BTC'),
+      _market('xyz:NVDA', dex: 'xyz'),
+      _market('io:NVDA', dex: 'io'),
+    ];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     StandingOrdersNotifier.clock = () => _now;
     AuthGrants.clock = () => _now;
@@ -167,6 +198,11 @@ void main() {
         final l = lookup;
         if (l == null) throw StateError('no venue');
         return l(hash);
+      }),
+      standingHlMarketsProvider.overrideWithValue(({required bool spot}) async {
+        final m = hlMarkets;
+        if (m == null) throw StateError('no venue');
+        return [for (final x in m) if (x.isSpot == spot) x];
       }),
       standingOrderWatchersProvider.overrideWithValue(StandingOrderWatchers(
           wakePredictions: () => woke++, wakeInvesting: () => woke++)),
@@ -530,12 +566,16 @@ void main() {
       DateTime? createdAt,
       StandingOrderVenue venue = StandingOrderVenue.predictions,
       String orderKind = 'market',
+      String? marketKey,
+      String? positionCoin,
     }) =>
         StandingOrder(
           id: 'so_restart',
           walletId: 'w1',
           venue: venue,
-          marketKey: venue == StandingOrderVenue.predictions ? '111' : 'BTC',
+          marketKey: marketKey ??
+              (venue == StandingOrderVenue.predictions ? '111' : 'BTC'),
+          positionCoin: positionCoin,
           marketTitle: 'Will it rain?',
           sideLabel: 'Yes',
           isBuy: true,
@@ -654,6 +694,7 @@ void main() {
       expect(hl.standingOrderId, 'so_restart');
       expect(hl.status, PendingHlOrderStatus.awaitingBalance);
       expect(hl.coin, 'BTC');
+      expect(hl.market?.wireCoin, 'BTC');
       expect(hl.leverage, 2);
       expect(hl.marginUsd, 10);
       expect(hl.placement, isNull);
@@ -676,6 +717,121 @@ void main() {
       c = container();
       await c.read(standingOrdersProvider.notifier).resume();
       expect(c.read(standingOrdersProvider).single.state, StandingOrderState.posted);
+    });
+  });
+
+  group('resume, Investing on a builder dex (HIP-3)', () {
+    StandingOrder nvda({String? positionCoin}) => StandingOrder(
+          id: 'so_nvda',
+          walletId: 'w1',
+          venue: StandingOrderVenue.investing,
+          marketKey: 'NVDA',
+          positionCoin: positionCoin,
+          marketTitle: 'NVDA · Perp',
+          sideLabel: 'short',
+          isBuy: false,
+          size: 10,
+          approvedPrice: 180,
+          amountUsd: 10,
+          orderKind: 'market',
+          state: StandingOrderState.funding,
+          createdAt: _now.subtract(const Duration(minutes: 3)),
+          updatedAt: _now.subtract(const Duration(minutes: 3)),
+          fundUsd: 10.3,
+          slippagePct: 5,
+          leverage: 1,
+          marketKind: 'perp',
+        );
+
+    test('queued again on the very dex it was approved on, never the first '
+        '"NVDA" listed', () async {
+      await store.save(nvda(positionCoin: 'xyz:NVDA'));
+      await store.writeSecret('so_nvda', {'venue': 'investing'});
+      // io's Nvidia listed first: the old lookup by the bare coin took it.
+      hlMarkets = [_market('io:NVDA', dex: 'io'), ...hlMarkets!];
+      final c = container(wakes: 1);
+      await c.read(standingOrdersProvider.notifier).resume();
+      final hl = c.read(pendingHyperliquidOrderProvider)!;
+      expect(hl.standingOrderId, 'so_nvda');
+      expect(hl.market?.wireCoin, 'xyz:NVDA');
+      expect(hl.market?.dex, 'xyz');
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.funding);
+    });
+
+    test('kept before its position coin was, its coin on more than one dex: '
+        'settled as not resumable, never posted', () async {
+      await store.save(nvda());
+      await store.writeSecret('so_nvda', {'venue': 'investing'});
+      final c = container();
+      await c.read(standingOrdersProvider.notifier).resume();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
+      final o = c.read(standingOrdersProvider).single;
+      expect(o.state, StandingOrderState.failed);
+      expect(o.failureCode, StandingOrderFailure.notResumable);
+      expect(await store.hasSecret('so_nvda'), isFalse);
+    });
+
+    test('kept before its position coin was, its coin on one dex only: '
+        'queued again there', () async {
+      await store.save(nvda());
+      await store.writeSecret('so_nvda', {'venue': 'investing'});
+      hlMarkets = [_market('BTC'), _market('xyz:NVDA', dex: 'xyz')];
+      final c = container(wakes: 1);
+      await c.read(standingOrdersProvider.notifier).resume();
+      expect(c.read(pendingHyperliquidOrderProvider)!.market?.wireCoin,
+          'xyz:NVDA');
+    });
+
+    test('its market gone: not resumable; the list unreadable: left as it '
+        'is for the next resume', () async {
+      await store.save(nvda(positionCoin: 'xyz:NVDA'));
+      await store.writeSecret('so_nvda', {'venue': 'investing'});
+      hlMarkets = [_market('BTC'), _market('io:NVDA', dex: 'io')];
+      var c = container();
+      await c.read(standingOrdersProvider.notifier).resume();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
+      expect(c.read(standingOrdersProvider).single.failureCode,
+          StandingOrderFailure.notResumable);
+
+      await (await Hive.openBox<String>('standing_prov')).clear();
+      secrets.values.clear();
+      await store.save(nvda(positionCoin: 'xyz:NVDA'));
+      await store.writeSecret('so_nvda', {'venue': 'investing'});
+      hlMarkets = null;
+      c = container();
+      await c.read(standingOrdersProvider.notifier).resume();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.funding);
+    });
+
+    test('resumeMarketFor: by the position coin; a spot order by its token; '
+        'an old order only when one market has its coin', () {
+      final markets = [
+        _market('BTC'),
+        _market('xyz:NVDA', dex: 'xyz'),
+        _market('io:NVDA', dex: 'io'),
+        _market('NVDAX', kind: HlMarketKind.spot),
+      ];
+      expect(
+          StandingOrdersNotifier.resumeMarketFor(
+                  nvda(positionCoin: 'io:NVDA'), markets)
+              ?.wireCoin,
+          'io:NVDA');
+      expect(StandingOrdersNotifier.resumeMarketFor(nvda(), markets), isNull);
+      final btc = StandingOrder.fromJson(
+          {...nvda().toJson(), 'marketKey': 'BTC'})!;
+      expect(StandingOrdersNotifier.resumeMarketFor(btc, markets)?.wireCoin,
+          'BTC');
+      final spot = StandingOrder.fromJson({
+        ...nvda().toJson(),
+        'marketKey': 'NVDAX',
+        'positionCoin': 'NVDAX',
+        'marketKind': 'spot',
+      })!;
+      expect(StandingOrdersNotifier.resumeMarketFor(spot, markets)?.coin,
+          'NVDAX');
     });
   });
 
