@@ -829,7 +829,8 @@ void main() {
     });
 
     testWidgets(
-        'the Activity tab\'s (the Dollars Overview\'s) squares keep their '
+        'asked without holdings (the Dollars Overview\'s until it drew the '
+        'Portfolio\'s cards, 11 November 2026): the squares keep their '
         'subtitle and read no setting, but never cut: the long name wraps, '
         'both squares of the row as tall as the tallest (founder, 10 '
         'November 2026, on 2.2.0 (99))', (tester) async {
@@ -1130,6 +1131,42 @@ void main() {
       expect(find.byKey(bar), findsNothing);
     });
 
+    testWidgets(
+        'a prediction whose cost is not known (listed with no entry '
+        'price): no P&L in any shape, never its whole value as a profit; '
+        'the list row keeps its bar, without a tick', (tester) async {
+      // The squares and the full-width card.
+      await held(tester, [
+        PolyPositionRow(position: open('free', avg: 0)),
+        PolyPositionRow(position: open('free2', avg: 0)),
+        PolyPositionRow(position: open('free3', avg: 0)),
+      ]);
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('portfolio-square')), findsNWidgets(2));
+      expect(find.byKey(const ValueKey('portfolio-wide')), findsOneWidget);
+      expect(find.byKey(const ValueKey('portfolio-row-value')),
+          findsNWidgets(3));
+      expect(find.byKey(const ValueKey('portfolio-row-pnl')), findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-row-pnl-usd')), findsNothing);
+      expect(find.text('0.0%'), findsNothing);
+      // The list row.
+      await _pump(tester, PolyPositionRow(position: open('free', avg: 0)));
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('portfolio-row-pnl-pill')), findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-row-pnl-usd')), findsNothing);
+      expect(find.byKey(bar), findsOneWidget);
+      expect(find.byKey(tick), findsNothing);
+      // The Investing list's row.
+      await _pump(
+          tester,
+          PortfolioRowLayoutScope(
+              layout: PortfolioRowLayout.market,
+              child: PolyPositionRow(position: open('free', avg: 0))));
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('portfolio-row-pnl')), findsNothing);
+      expect(find.textContaining('0.0%'), findsNothing);
+    });
+
     testWidgets('none on a bet on its way, a combo or Investing',
         (tester) async {
       await held(tester, [
@@ -1166,8 +1203,8 @@ void main() {
       expect(find.byKey(bar), findsNothing);
     });
 
-    testWidgets('the Overview tab\'s squares keep their height: no bar',
-        (tester) async {
+    testWidgets('asked without holdings (no caller in the app since the '
+        'Overview draws the Portfolio\'s cards): no bar', (tester) async {
       await held(
           tester,
           [

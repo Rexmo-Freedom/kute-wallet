@@ -23,7 +23,16 @@
 //     "Latest" grid (ActivitySquareGrid); an odd last one, one alone
 //     included, is one full-width compact card under them, never a lone
 //     half square (PortfolioPositionSquares, the no-orphan rule; founder,
-//     6 November 2026), as on the Portfolio. Nothing on them is cut
+//     6 November 2026), as on the Portfolio. THE SAME CARDS as the
+//     Portfolio's Positions (PortfolioPositionSquares.holdings; founder, 11
+//     November 2026, on 2.2.0 (106), of a prediction whose Portfolio card
+//     read "Yes · Fed Decision in December" over its chance bar and whose
+//     Overview card read "Fed Decision in December · Yes" with no bar:
+//     "here on the predictions remember we should have this little bar on
+//     the bottom on the overview"): the side first on the line under the
+//     name, an open prediction's chance bar under it (above the value on a
+//     square, under the line on the full-width card), the same P&L, and
+//     the figures masked with balances hidden. Nothing on them is cut
 //     (founder, 10 November 2026, on 2.2.0 (99): "on the overview the
 //     text is cut"): the name and the line under it wrap as the
 //     Portfolio's do, the squares of a row as tall as the tallest. Each
@@ -40,6 +49,12 @@
 //     was opened (the open P&L engine's series, its last point that
 //     figure; the split fill, the dashed line at zero, no scrub, no range
 //     row). A tap opens the Portfolio on Positions. Nothing open: no card.
+//     A prediction whose cost is not known yet (just filled, listed before
+//     its entry is priced: PolymarketPosition.costKnown) writes no P&L on
+//     its card and counts for none in the figure or on the line, never its
+//     whole value as a profit (founder, 11 November 2026, on 2.2.0 (106):
+//     "Open profits +$14.85" over a $14.85 prediction down $0.14); alone,
+//     no card.
 //
 // IN PROGRESS FIRST (founder, 9 November 2026: "On the Overview we must
 // show exactly there what bets or investments are in progress of being
@@ -551,8 +566,12 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                 // Two by two, an odd last one (one alone included) the
                 // full-width compact card: never a lone half square (the
                 // no-orphan rule).
+                // The Portfolio's own cards (holdings): the side first on
+                // the line, the chance bar under it, masked with balances
+                // hidden (see the file header).
                 PortfolioPositionSquares(
                     key: const ValueKey('dollars-activity-squares'),
+                    holdings: true,
                     rows: squares)
               else if (loading)
                 const PortfolioSquaresSkeleton(

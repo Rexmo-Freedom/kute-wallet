@@ -631,15 +631,19 @@ class SearchPositionRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(formatHlUsd(value), style: SearchListRow.figureStyle(context)),
-          SizedBox(height: 2.h),
-          Text(
-            p.isResolved
-                ? l10n.activitySettled
-                : '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
-            style: SearchListRow.subtitleStyle(context).copyWith(
-                color: p.isResolved ? c.textSecondary : pnlColor,
-                fontWeight: FontWeight.w600),
-          ),
+          // No cost known yet (PolymarketPosition.costKnown): no P&L, as
+          // on its Positions row.
+          if (p.isResolved || p.costKnown) ...[
+            SizedBox(height: 2.h),
+            Text(
+              p.isResolved
+                  ? l10n.activitySettled
+                  : '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
+              style: SearchListRow.subtitleStyle(context).copyWith(
+                  color: p.isResolved ? c.textSecondary : pnlColor,
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
         ],
       ),
       onTap: onTap,

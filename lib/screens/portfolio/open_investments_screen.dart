@@ -532,18 +532,23 @@ typedef PortfolioOpenPnlPart = ({
 
 /// The open predictions' P&L at the live price, as their rows read it
 /// (PolyPositionRow: the shares at the live price, a resolved one at its
-/// last price, less what they cost), and what they cost. Rebuilds the
-/// caller only when the sum moves. [leaveOut]: positions left out by
-/// their key ([openPnlKeyPrediction]; the open P&L chart's pin leaves out
-/// the positions it could not chart).
+/// last price, less what they cost), and what they cost. A position whose
+/// cost is not known (PolymarketPosition.costKnown: just filled, listed
+/// before its entry is priced) writes no P&L on its row and counts for
+/// none here, never its whole value as a profit (founder, 11 November
+/// 2026, on 2.2.0 (106): "Open profits +$14.85" on a $14.85 prediction).
+/// Rebuilds the caller only when the sum moves. [leaveOut]: positions
+/// left out by their key ([openPnlKeyPrediction]; the open P&L chart's
+/// pin leaves out the positions it could not chart).
 PortfolioOpenPnlPart portfolioPredictionsOpenPnl(
     WidgetRef ref, List<PolymarketPosition> positions,
     {Set<String> leaveOut = const {}}) {
-  if (leaveOut.isNotEmpty) {
+  if (leaveOut.isNotEmpty || positions.any((p) => !p.costKnown)) {
     positions = [
       for (final p in positions)
-        if (!leaveOut.contains(openPnlKeyPrediction(
-            tokenId: p.tokenId, marketId: p.marketId, outcome: p.outcome)))
+        if (p.costKnown &&
+            !leaveOut.contains(openPnlKeyPrediction(
+                tokenId: p.tokenId, marketId: p.marketId, outcome: p.outcome)))
           p,
     ];
   }

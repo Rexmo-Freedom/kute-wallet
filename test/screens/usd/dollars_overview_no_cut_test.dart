@@ -17,7 +17,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show kPortfolioCornerAmountSize;
+    show PortfolioChanceBar, kPortfolioCornerAmountSize;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/open_once.dart';
 
@@ -33,11 +33,13 @@ const kLongMarkets = [
 
 /// What the cards write for them, whole (polyPositionRowNames: the
 /// person's name over the question it answers, as the founder's "Pete
-/// Hegseth" over "Who will leave Trump Admi…").
+/// Hegseth" over "Who will leave Trump Admi…"; the side first on the line,
+/// as the Portfolio's cards, which the Overview's are since 11 November
+/// 2026).
 const kShownNames = [
   'Jensen Huang announced resignation or removal by March 31, 2027',
   'Pete Hegseth',
-  'Leave Trump Administration before 2027 · Yes',
+  'Yes · Leave Trump Administration before 2027',
   'The Federal Reserve cut interest rates by 50 basis points or more at its '
       'December 2026 meeting',
 ];
@@ -173,6 +175,24 @@ void main() {
         expect(r.left, greaterThanOrEqualTo(box.left));
         expect(r.right, lessThanOrEqualTo(box.right + 0.5));
         expect(r.top, greaterThanOrEqualTo(box.top));
+        // The chance bar (founder, 11 November 2026: "we should have this
+        // little bar on the bottom on the overview"): on every card,
+        // whole inside it, under the line.
+        final bar = find.descendant(
+            of: card, matching: find.byType(PortfolioChanceBar));
+        expect(bar, findsOneWidget);
+        final b = tester.getRect(bar);
+        expect(b.left, greaterThanOrEqualTo(box.left));
+        expect(b.right, lessThanOrEqualTo(box.right + 0.5));
+        expect(b.bottom, lessThanOrEqualTo(box.bottom));
+        expect(
+            b.top,
+            greaterThanOrEqualTo(tester
+                .getRect(find.descendant(
+                    of: card,
+                    matching:
+                        find.byKey(const ValueKey('portfolio-row-subtitle'))))
+                .bottom));
       }
       await unmountInvestments(tester);
     });

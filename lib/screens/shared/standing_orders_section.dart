@@ -158,6 +158,8 @@ class StandingOrderRow extends StatelessWidget {
                       '${order.marketKey} · $side'
                   : '$side · ${formatHlSize(order.filledSize ?? order.size)} '
                       '${order.marketKey}',
+          // Balances hidden: no size, as the listed row.
+          hiddenSquareLine: status != null ? '$side · $status' : side,
           chip: side,
           value: formatDollars(order.placedUsd),
           onTap: onTap,

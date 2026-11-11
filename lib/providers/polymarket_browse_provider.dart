@@ -5,10 +5,16 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
     show PolyCrestImage, polyFeedArtworkUrls;
 import 'package:kute/services/polymarket/event_trading_over.dart';
+import 'package:kute/services/polymarket/pending_fills.dart'
+    show PolymarketPendingFill;
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/polymarket/polymarket_feed_cache.dart';
 import 'package:kute/services/polymarket/price_history_disk_cache.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/standing_orders/standing_order.dart'
+    show StandingOrder, standingFillEntryPrice;
+import 'package:kute/services/standing_orders/standing_orders_provider.dart'
+    show standingOrdersProvider;
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/helpers/search_debounce.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
@@ -1255,6 +1261,100 @@ class PolymarketPosition {
     this.eventSlug,
     this.endDateStr,
   });
+
+  /// Whether what a share cost is known ([avgPrice] above zero). The Data
+  /// API lists a just-filled position before it prices its entry
+  /// (`avg_price` 0), and a position moved in has none: without a cost
+  /// there is no P&L to write, never the whole value as a profit (founder,
+  /// 11 November 2026, on 2.2.0 (106): a $14.85 prediction read "$14.85 ·
+  /// 0.0%" and "Open profits +$14.85" for the seconds its entry was
+  /// missing). Every reader asks this: the Positions rows, the open P&L
+  /// (portfolioOpenPnl), its chart (openPnlBookProvider), the brag card.
+  bool get costKnown => avgPrice.isFinite && avgPrice > 0;
+}
+
+/// A buy the venue matched, as its own answer said: the shares it bought
+/// and what they cost (pUSD).
+typedef PolyFillCost = ({double shares, double costUsd});
+
+/// The session's buys by outcome token, then by order key
+/// (PolymarketPendingFill.key): each bet's own fill, noted by
+/// [polymarketActivePositionsProvider] while the trading state carries it
+/// (its pending fills leave once the reads show the shares and the spend,
+/// which can be before the Data API prices the position's entry) and kept
+/// while the token is held. A plain map, read and never watched.
+final polyFillCostsProvider =
+    Provider<Map<String, Map<String, PolyFillCost>>>((ref) => {});
+
+/// [fills] noted into [memo] ([polyFillCostsProvider]), and the tokens no
+/// longer [held] with no fill pending dropped (a position sold and bought
+/// again starts from its new fills). Pure for the tests.
+@visibleForTesting
+void notePolyFillCosts(
+  Map<String, Map<String, PolyFillCost>> memo,
+  List<PolymarketPendingFill> fills,
+  Set<String> held,
+) {
+  final pending = <String>{};
+  for (final f in fills) {
+    if (f.tokenId.isEmpty) continue;
+    pending.add(f.tokenId);
+    if (!f.price.isFinite || f.price <= 0 || f.price > 1) continue;
+    if (!f.costUsd.isFinite || f.costUsd <= 0) continue;
+    // The fill's own shares: what it spent at its price (its `shares`
+    // shrinks as the positions read catches up).
+    (memo[f.tokenId] ??= {})[f.key] =
+        (shares: f.costUsd / f.price, costUsd: f.costUsd);
+  }
+  memo.removeWhere(
+      (token, _) => !held.contains(token) && !pending.contains(token));
+}
+
+/// What a share of the open position on [tokenId] ([size] shares) cost,
+/// 0 to 1, where the positions read does not say ([avgPrice] 0, a
+/// just-filled position the Data API lists before it prices its entry),
+/// from what else is known of it, in this order:
+///
+///   * the read's own entry cost ([initialValue], `entry_cost_usdc`) over
+///     the shares;
+///   * the buys the venue matched this session ([fills],
+///     [polyFillCostsProvider]: every bet's own fill, its cost over its
+///     shares);
+///   * the filled standing orders into the token ([orders]: their fills'
+///     own figures, StandingOrder.filledUsd over filledSize).
+///
+/// The fills only where they account for the shares held (within 2%): a
+/// position larger than what they bought has shares whose cost they do
+/// not know. 0 when nothing says: the cost is unknown
+/// ([PolymarketPosition.costKnown]) and no P&L is written. Pure for the
+/// tests.
+@visibleForTesting
+double polyPositionEntryPrice({
+  required String tokenId,
+  required double size,
+  required double avgPrice,
+  double initialValue = 0,
+  Iterable<PolyFillCost> fills = const [],
+  List<StandingOrder> orders = const [],
+}) {
+  if (avgPrice.isFinite && avgPrice > 0) return avgPrice;
+  if (tokenId.isEmpty || !size.isFinite || size <= 0) return 0;
+  bool price(double p) => p.isFinite && p > 0 && p <= 1;
+  if (initialValue.isFinite && initialValue > 0 && price(initialValue / size)) {
+    return initialValue / size;
+  }
+  var shares = 0.0;
+  var cost = 0.0;
+  for (final f in fills) {
+    shares += f.shares;
+    cost += f.costUsd;
+  }
+  // The shares held that the fills must account for.
+  if (shares > 0 && shares >= size * 0.98 - 0.01 && price(cost / shares)) {
+    return cost / shares;
+  }
+  final entry = standingFillEntryPrice(orders, tokenId, size);
+  return entry != null && price(entry) ? entry : 0;
 }
 
 // NOTE: the old `_isSettledLoss(Position)` heuristic — classify a position as a
@@ -1283,15 +1383,33 @@ final polymarketActivePositionsProvider =
     Provider.autoDispose<List<PolymarketPosition>>((ref) {
   final state = ref.watch(polymarketTradingProvider).valueOrNull;
   if (state == null || !state.isAuthenticated) return [];
-  return state.openPositions
+  final open = state.openPositions
       .where((p) => !p.redeemable && p.size >= kPolyDustShares)
+      .toList();
+  // A position listed before its entry is priced: its cost from its own
+  // fill where one is known ([polyPositionEntryPrice]), so the Overview
+  // and the Portfolio read one P&L from the first second. The standing
+  // orders are read only while such a position is listed.
+  final fills = ref.read(polyFillCostsProvider);
+  notePolyFillCosts(fills, state.pendingFills,
+      {for (final p in state.openPositions) p.asset});
+  final unpriced = open.any((p) => !(p.avgPrice > 0));
+  final orders =
+      unpriced ? ref.watch(standingOrdersProvider) : const <StandingOrder>[];
+  return open
       .map((p) => PolymarketPosition(
             marketId: p.conditionId,
             marketQuestion: p.title,
             marketImage: p.icon,
             outcome: p.outcome,
             size: p.size,
-            avgPrice: p.avgPrice,
+            avgPrice: polyPositionEntryPrice(
+                tokenId: p.asset,
+                size: p.size,
+                avgPrice: p.avgPrice,
+                initialValue: p.initialValue,
+                fills: fills[p.asset]?.values ?? const [],
+                orders: orders),
             currentPrice: p.curPrice,
             pnl: p.cashPnl,
             pnlPercent: p.percentPnl,

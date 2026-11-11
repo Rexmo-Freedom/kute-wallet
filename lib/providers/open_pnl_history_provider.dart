@@ -139,13 +139,16 @@ class OpenPnlBook {
 }
 
 /// The positions the hero's open P&L counts (portfolioOpenPnl): every
-/// open prediction, every perp, every spot holding with a recorded cost
-/// whose market is known.
+/// open prediction whose cost is known (PolymarketPosition.costKnown: one
+/// listed before its entry is priced has no P&L, in the figure or on the
+/// line), every perp, every spot holding with a recorded cost whose
+/// market is known.
 final openPnlBookProvider = Provider.autoDispose<OpenPnlBook>((ref) {
   final venues = ref.watch(portfolioVenuesProvider);
   final entries = <OpenPnlEntry>[];
   if (venues.predictions) {
     for (final p in ref.watch(polymarketActivePositionsProvider)) {
+      if (!p.costKnown) continue;
       // One without a token is counted in the figure but has no history
       // to read: it is left out of the chart.
       final token = p.tokenId ?? '';

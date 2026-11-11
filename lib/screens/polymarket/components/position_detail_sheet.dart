@@ -949,11 +949,16 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               text: formatDollars(currentValue),
                               style: positionTileValueStyle(c),
                             ),
-                            caption: RollingNumberText(
-                              text: pnlText,
-                              style:
-                                  positionTileCaptionStyle(c, color: pnlColor),
-                            ),
+                            // No cost known (just filled, listed before
+                            // its entry is priced): no P&L, never the
+                            // whole value as a profit, as on its card.
+                            caption: costBasis > 0
+                                ? RollingNumberText(
+                                    text: pnlText,
+                                    style: positionTileCaptionStyle(c,
+                                        color: pnlColor),
+                                  )
+                                : null,
                           );
                           if (whatIf != null && showGauge) {
                             // Dragging: what it would be worth at the

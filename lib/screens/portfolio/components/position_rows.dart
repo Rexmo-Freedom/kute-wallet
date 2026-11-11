@@ -56,10 +56,11 @@
 // figures as every other shape and as the brag card (hlLivePnl on the
 // margin, the shares at the live price). Asked with
 // [PortfolioPositionSquares.holdings], they read what they hold whatever
-// its length. The Activity tab's (the Dollars Overview's) wrap too, their
-// squares in a row as tall as the tallest (founder, 10 November 2026, on
-// 2.2.0 (99): "on the overview the text is cut"), but keep their own line
-// and figures:
+// its length. The Dollars Overview's are these very cards, asked the same
+// way (founder, 11 November 2026, on 2.2.0 (106): the Overview card must
+// be THE SAME card as the Portfolio's, "we should have this little bar on
+// the bottom on the overview"; until then they kept the list row's line,
+// the event before the side, and no bar):
 //   * the line under the name starts with the side, then the state, and
 //     the event last ([PortfolioPositionRow.squareLine],
 //     [polyPositionSquareLine]: "Yes · Settled · Brazil Presidential
@@ -73,6 +74,10 @@
 //     side ([PortfolioPositionRow.holdingChance]): none settled, selling,
 //     awaiting its result or on its way, none on a combo or on Investing.
 //     It follows the row's own live price;
+//   * a prediction whose cost is not known (PolymarketPosition.costKnown:
+//     just filled, listed before its entry is priced, with no fill of its
+//     own to say) writes no P&L in any shape, never its whole value as a
+//     profit, and counts for none in the open P&L (portfolioOpenPnl);
 //   * with balances hidden the value and the P&L are masked ("••••••",
 //     "••%", no colour) and the line says nothing of the money or the size
 //     ([PortfolioPositionRow.hiddenSquareLine]); the bar stays, the market's
@@ -417,19 +422,22 @@ const double kPortfolioSquareGap = 10;
 /// ([PortfolioRowLayout.wide]: the logo, the name over the side held, the
 /// value, the P&L in money over its %), never a lone half square. The
 /// Dollars Activity tab's squares (up to four) and the Portfolio screen's
-/// Positions (every position of a venue, [holdings]) both draw through it.
+/// Positions (every position of a venue) both draw through it, both as
+/// [holdings].
 class PortfolioPositionSquares extends StatelessWidget {
   const PortfolioPositionSquares(
       {super.key, required this.rows, this.holdings = false});
 
   final List<Widget> rows;
 
-  /// The Portfolio screen's Positions (see the file header): the side
-  /// first, the figures masked with balances hidden. False: the Dollars
-  /// Overview's. Either way nothing is cut (founder, 10 November 2026, on
-  /// 2.2.0 (99): "on the overview the text is cut"): the name and the line
-  /// under it wrap to the lines they need, a row of squares as tall as
-  /// its tallest.
+  /// The Portfolio screen's Positions and the Dollars Overview's (see the
+  /// file header): the side first, an open prediction's chance bar, the
+  /// figures masked with balances hidden. False: the list row's line and
+  /// no bar, reading no setting (no caller in the app since the Overview
+  /// asked for the Portfolio's cards, 11 November 2026). Either way
+  /// nothing is cut (founder, 10 November 2026, on 2.2.0 (99): "on the
+  /// overview the text is cut"): the name and the line under it wrap to
+  /// the lines they need, a row of squares as tall as its tallest.
   final bool holdings;
 
   @override
@@ -1950,8 +1958,12 @@ class PolyPositionRow extends ConsumerWidget {
         livePriceProvider.select((s) => s.live ? s.prices[p.tokenId] : null));
     final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
     final value = p.size * price;
+    // No cost known (a just-filled position listed before its entry is
+    // priced, PolymarketPosition.costKnown): no P&L, never the whole value
+    // as a profit.
+    final costKnown = p.costKnown;
     final pnl = (price - p.avgPrice) * p.size;
-    final pnlPercent = p.avgPrice > 0 ? (price / p.avgPrice - 1) * 100 : 0.0;
+    final pnlPercent = costKnown ? (price / p.avgPrice - 1) * 100 : 0.0;
     final selling = p.tokenId != null &&
         ref.watch(polymarketTradingProvider.select((s) =>
             s.valueOrNull?.pendingSaleTokens.contains(p.tokenId) ?? false));
@@ -2042,12 +2054,12 @@ class PolyPositionRow extends ConsumerWidget {
         note: polyPositionRowNote(names, status: status),
         value: money(value),
         chance: p.isResolved ? null : price,
-        entry: p.isResolved ? null : p.avgPrice,
-        holdingChance: status == null && price > 0 && p.avgPrice > 0
+        entry: p.isResolved || !costKnown ? null : p.avgPrice,
+        holdingChance: status == null && price > 0 && costKnown
             ? price
             : null,
-        pnl: portfolioPnlPill(pnl, percent: pnlPercent),
-        pnlAmount: money(pnl.abs()),
+        pnl: costKnown ? portfolioPnlPill(pnl, percent: pnlPercent) : null,
+        pnlAmount: costKnown ? money(pnl.abs()) : null,
         onTap: standing?.onTap ??
             () {
               HapticFeedback.selectionClick();

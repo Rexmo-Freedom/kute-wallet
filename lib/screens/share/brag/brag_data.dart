@@ -808,6 +808,9 @@ BragPortfolio bragPortfolio(WidgetRef ref,
   }
   if (venues.predictions) {
     for (final p in ref.watch(polymarketActivePositionsProvider)) {
+      // No cost known yet (PolymarketPosition.costKnown): no result to
+      // write, as on its Positions row.
+      if (!p.costKnown) continue;
       final live = ref.watch(
           livePriceProvider.select((s) => s.live ? s.prices[p.tokenId] : null));
       final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;

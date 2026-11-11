@@ -514,6 +514,38 @@ StandingOrderState? standingStateForHlOrder(
       PendingHlOrderStatus.failed => StandingOrderState.failed,
     };
 
+/// What a share of the prediction on [tokenId] cost, by the filled
+/// standing orders that bought it ([all]): their fills' own cost over
+/// their shares ([StandingOrder.filledUsd], [StandingOrder.filledSize]),
+/// newest first, until they account for the [size] shares held (within
+/// 2%). Null when they do not: an order whose fill carried no figures, or
+/// a holding larger than what they bought (shares whose cost they do not
+/// know). Pure for the tests.
+double? standingFillEntryPrice(
+    List<StandingOrder> all, String tokenId, double size) {
+  if (tokenId.isEmpty || !size.isFinite || size <= 0) return null;
+  final needed = size * 0.98 - 0.01;
+  var shares = 0.0;
+  var cost = 0.0;
+  for (final o in all.reversed) {
+    if (o.venue != StandingOrderVenue.predictions ||
+        o.state != StandingOrderState.filled ||
+        !o.isBuy ||
+        o.marketKey != tokenId) {
+      continue;
+    }
+    final got = o.filledSize;
+    final paid = o.filledUsd;
+    if (got == null || paid == null) continue;
+    if (!got.isFinite || got <= 0 || !paid.isFinite || paid <= 0) continue;
+    shares += got;
+    cost += paid;
+    if (shares >= needed) break;
+  }
+  if (shares <= 0 || shares < needed) return null;
+  return cost / shares;
+}
+
 /// When a prediction's post may go out at the earliest: the start of the
 /// round for a pick on a 5-minute window that has not started at [now]
 /// (the Crypto card's buttons on "Next"), else null (post as soon as the
