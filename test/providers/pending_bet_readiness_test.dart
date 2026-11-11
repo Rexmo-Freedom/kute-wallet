@@ -858,7 +858,7 @@ void main() {
         'landed once the reading has held, "Add funds" under the minimum',
         () async {
       PendingBetAutoFire.debugShortLandingGrace =
-          const Duration(milliseconds: 60);
+          const Duration(milliseconds: 250);
       final r = await delivered(held: 0, arriving: 10.6);
       r.trading.reads = _reads(pusd: 8, counted: 8);
       r.trading.land(8);
