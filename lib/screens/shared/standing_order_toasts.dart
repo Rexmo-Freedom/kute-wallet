@@ -14,25 +14,28 @@
 //    placing ... but we can swipe it away or close it"): "Placing your
 //    prediction" / "Placing your investment" over the market. Sal and the
 //    words only: no spinner, no clock or other "thinking" mark (founder,
-//    on 2.2.0 (98)), no Cancel (Cancel lives in the order's journey, from
-//    its Overview card). Sticky: it stays until the order ends, and the
-//    person can swipe it up or close it with the X any time; the order
-//    goes on either way. A tap opens that order's own slip again, locked
-//    as it was left (the bet slip or the order ticket, green or red, its
-//    journey running and its "OK"; founder, on 2.2.0 (101): "we should
-//    just reuse the betslip, the red or green one"), never the white
-//    journey sheet; the journey sheet only where the slip cannot be had.
+//    on 2.2.0 (98)), no Cancel (an accepted order is never cancelled by
+//    the person; founder, 11 November 2026, on 2.2.0 (104): "Say OK,
+//    don't allow for cancel"). Sticky: it stays until the order ends, and
+//    the person can swipe it up or close it with the X any time; the
+//    order goes on either way. A tap opens that order's own slip again,
+//    locked as it was left (the bet slip or the order ticket, green or
+//    red, its journey and its haptics running, its "OK"; founder, on
+//    2.2.0 (101): "we should just reuse the betslip, the red or green
+//    one"), through the one way back to an order
+//    (standing_order_slips.dart): there is no white journey sheet any
+//    more (founder, on 2.2.0 (104): "this screen should not exist").
 //    Never while the slip is on screen. A second order left while the
 //    first's placing toast is up takes its place: the newest one.
 //  * The END of any order, in place of whatever the toast says now, else
 //    as a new one: placed (Sal happy, the check, the one success haptic),
-//    not placed (Sal sad, the "!", the failure tap; a tap opens the
-//    journey) or cancelled (information). The haptic plays when the tone
-//    changes, so two results landing together are felt once. Once it has
-//    gone, an order still placing puts nothing back up. An order that
-//    ends with no result toast (the person acted on it themselves) takes
-//    the placing toast with it, when the toast is about that order
-//    ([endQuietly]).
+//    not placed (Sal sad, the "!", the failure tap; a tap opens its slip
+//    where the slip still shows the stop) or cancelled (information). The
+//    haptic plays when the tone changes, so two results landing together
+//    are felt once. Once it has gone, an order still placing puts nothing
+//    back up. An order that ends with no result toast (the person acted
+//    on it themselves) takes the placing toast with it, when the toast is
+//    about that order ([endQuietly]).
 //  * PRICE MOVED past the approval: the shell's own (standing_orders_shell
 //    .dart), on the same tag, so it too takes the toast's place.
 //
@@ -44,11 +47,10 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
-import 'package:kute/screens/shared/standing_order_journey.dart';
+import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 
 abstract final class StandingOrderToasts {
@@ -109,10 +111,10 @@ abstract final class StandingOrderToasts {
 
   /// The placing toast (see the file header). [order] null: the slip was
   /// left the instant of the accept and the standing order has no record
-  /// yet; a tap looks it up by [venue] and [marketKey]. [reopen] opens the
-  /// slip that was left again, locked on this order (the slip's own,
-  /// bet_slip_sheet.dart / order_slip_sheet.dart `_onLeave`); without one
-  /// a tap opens the order's journey sheet.
+  /// yet; a tap looks it up by [venue] and [marketKey]. A tap opens the
+  /// slip that was left again, locked on this order
+  /// ([StandingOrderSlips.reopen]: the one the slip handed over, else
+  /// rebuilt from the order's record).
   static void placing(
     BuildContext? context,
     AppLocalizations l10n, {
@@ -120,7 +122,6 @@ abstract final class StandingOrderToasts {
     required String marketKey,
     required String marketTitle,
     StandingOrder? order,
-    VoidCallback? reopen,
   }) {
     SalToast.show(
       context,
@@ -134,9 +135,8 @@ abstract final class StandingOrderToasts {
       tone: SalToastTone.info,
       sticky: true,
       closable: true,
-      onTap: reopen ??
-          () => openJourney(context,
-              id: order?.id, venue: venue, marketKey: marketKey),
+      onTap: () => unawaited(StandingOrderSlips.reopen(context,
+          id: order?.id, venue: venue, marketKey: marketKey)),
     );
     _about = _keyFor(venue, marketKey);
     _placing = true;
@@ -170,16 +170,6 @@ abstract final class StandingOrderToasts {
     _placing = false;
   }
 
-  /// Opens the money journey of the order (by [id], else the open one on
-  /// [venue] and [marketKey]) from the root navigator.
-  static void openJourney(BuildContext? fallback,
-      {String? id, StandingOrderVenue? venue, String? marketKey}) {
-    final context = kuteRootContext(fallback);
-    if (context == null) return;
-    unawaited(StandingOrderJourneySheet.show(context,
-        standingOrderId: id, venue: venue, marketKey: marketKey));
-  }
-
   /// The order filled.
   static void placed(BuildContext? context, AppLocalizations l10n,
       StandingOrder order) {
@@ -196,8 +186,9 @@ abstract final class StandingOrderToasts {
     );
   }
 
-  /// The order was not placed; a tap opens its journey, where it says why
-  /// and where the money is.
+  /// The order was not placed; a tap opens its slip where the slip still
+  /// shows the stop (the failed step, where the money is, try again;
+  /// [StandingOrderSlips.reopen]), else nothing.
   static void failed(BuildContext? context, AppLocalizations l10n,
       StandingOrder order) {
     markSaid(order);
@@ -210,11 +201,12 @@ abstract final class StandingOrderToasts {
           : l10n.standingOrderFailed,
       detail: order.marketTitle,
       tone: SalToastTone.failure,
-      onTap: () => openJourney(context, id: order.id),
+      onTap: () => unawaited(StandingOrderSlips.reopen(context, id: order.id)),
     );
   }
 
-  /// The person cancelled it (from the toast or the journey).
+  /// It was cancelled (the provider's own cancel; the person has no
+  /// Cancel any more, founder, 11 November 2026).
   static void cancelled(BuildContext? context, AppLocalizations l10n,
       StandingOrder order) {
     markSaid(order);

@@ -7,6 +7,8 @@
 // before the chain picks its route. The bet slip does the same
 // (bet_slip_empty_investments_test).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,8 +38,11 @@ import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/sal_toast.dart' show SalToast;
-import 'package:kute/screens/shared/standing_order_journey.dart'
-    show StandingOrderJourneySheet;
+import 'package:kute/screens/shared/rubber_band_progress.dart'
+    show RubberBandProgress;
+import 'package:kute/screens/shared/standing_order_slips.dart'
+    show StandingOrderSlips;
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
 import 'package:kute/screens/shared/slip_shortfall.dart';
@@ -298,6 +303,9 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
       bitcoinLegEnvProvider.overrideWith((_) => _env.env),
       orderFundingControllerProvider.overrideWithValue(OrderFundingController(
           funderFor: (_) => _funder, dollarsUsd: () => 0)),
+      // The venue's markets, for a ticket rebuilt from an order's record.
+      standingHlMarketsProvider.overrideWithValue(
+          ({required bool spot}) async => spot ? const [] : const [_market]),
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
     child: sheet
@@ -591,8 +599,9 @@ void main() {
   });
   testWidgets(
       'a tap on the placing toast opens the same ticket again, locked on its '
-      'order as it was left (the steps, the OK), never the white journey '
-      'sheet; it goes once its order is placed', (tester) async {
+      'order as it was left (the steps, the OK, its haptics running again), '
+      'never a journey sheet or a Cancel; leaving stops the haptics; it goes '
+      'once its order is placed', (tester) async {
     await _pumpSlip(tester, rail, sheet: true);
     await tapBarPrimary(tester, settle: false);
     await _frames(tester, 20);
@@ -627,8 +636,16 @@ void main() {
     await tester.tap(find.text('Placing your investment'));
     await _frames(tester, 10);
     expect(find.byType(HlOrderSlipSheet), findsOneWidget);
-    expect(find.byType(StandingOrderJourneySheet), findsNothing);
+    expect(find.text('Cancel'), findsNothing);
     expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+    // The haptics run again, as on the ticket after its accept.
+    expect(
+        tester
+            .widget<RubberBandProgress>(
+                find.byKey(const ValueKey('order-slip-funded-progress')))
+            .haptic,
+        isTrue);
+    expect(ContinuousHaptics.isRunning(), isTrue);
     // Locked as before: the steps, Sal's busy OK, on the same side.
     final reopened =
         tester.widget<HlOrderSlipSheet>(find.byType(HlOrderSlipSheet));
@@ -639,6 +656,17 @@ void main() {
         findsOneWidget);
     expect(barPrimaryLabel(tester), 'OK');
     expect(barPrimaryBusy(tester), isTrue);
+    // OK leaves it: the haptics stop at once; the toast opens it again.
+    await tapBarPrimary(tester, settle: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(ContinuousHaptics.isRunning(), isFalse);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    await tester.tap(find.text('Placing your investment'));
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsOneWidget);
+    expect(ContinuousHaptics.isRunning(), isTrue);
     // Its order fills: the ticket goes, nothing cancelled.
     standing.debugReplace([
       for (final o in c.read(standingOrdersProvider))
@@ -649,6 +677,110 @@ void main() {
     expect(events, isNot(contains('standing_order_cancelled')));
     SalToast.debugReset();
     StandingOrderToasts.debugReset();
+    StandingOrderSlips.debugReset();
+    await release(tester);
+  });
+
+  StandingOrder hlOrder({required bool isLong, required StandingOrderState state}) {
+    final at = DateTime.now();
+    return StandingOrder(
+      id: 'so_hl',
+      walletId: 'w1',
+      venue: StandingOrderVenue.investing,
+      marketKey: 'BTC',
+      marketTitle: 'BTC · Perp',
+      sideLabel: isLong ? 'long' : 'short',
+      isBuy: isLong,
+      size: 10,
+      approvedPrice: 60000,
+      amountUsd: 10,
+      orderKind: 'market',
+      state: state,
+      createdAt: at,
+      updatedAt: at,
+      marketKind: 'perp',
+      positionCoin: 'BTC',
+    );
+  }
+
+  Future<void> reopenHl(WidgetTester tester) async {
+    unawaited(StandingOrderSlips.reopen(
+        tester.element(find.byKey(const ValueKey('open-slip'))),
+        id: 'so_hl'));
+    await _frames(tester, 10);
+  }
+
+  testWidgets(
+      'a fresh app (nothing handed over): the ticket is rebuilt from the '
+      'order\'s record, on the very market it was approved on: locked, '
+      'Long, the steps, OK, the haptics running; leaving stops them',
+      (tester) async {
+    await _pumpSlip(tester, rail, sheet: true);
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 20);
+    final c = _container(tester);
+    final standing = c.read(standingOrdersProvider.notifier);
+    standing.debugReplace([
+      ...c.read(standingOrdersProvider),
+      hlOrder(isLong: true, state: StandingOrderState.funded),
+    ]);
+    await _frames(tester, 2);
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    // The app restarted: no ticket kept, the toast gone.
+    StandingOrderSlips.debugReset();
+    SalToast.debugReset();
+    StandingOrderToasts.debugReset();
+    await _frames(tester, 4);
+    await reopenHl(tester);
+    expect(find.byType(HlOrderSlipSheet), findsOneWidget);
+    final ticket =
+        tester.widget<HlOrderSlipSheet>(find.byType(HlOrderSlipSheet));
+    expect(ticket.source, 'standing_order');
+    expect(ticket.market.coin, 'BTC');
+    expect(ticket.initialIsLong, isTrue);
+    expect(ticket.initialUsd, 10);
+    expect(ticket.standingEndedBefore, isNot(contains('so_hl')));
+    expect(find.text('Cancel'), findsNothing);
+    expect(find.byKey(const ValueKey('order-slip-funded-progress')),
+        findsOneWidget);
+    expect(barPrimaryLabel(tester), 'OK');
+    expect(barPrimaryBusy(tester), isTrue);
+    expect(ContinuousHaptics.isRunning(), isTrue);
+    await tapBarPrimary(tester, settle: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(ContinuousHaptics.isRunning(), isFalse);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(events, isNot(contains('standing_order_cancelled')));
+    SalToast.debugReset();
+    StandingOrderToasts.debugReset();
+    StandingOrderSlips.debugReset();
+    await release(tester);
+  });
+
+  testWidgets(
+      'a Short rebuilt from its record opens the ticket on Short (red), '
+      'locked, OK, no Cancel', (tester) async {
+    await _pumpSlip(tester, rail, sheet: true);
+    Navigator.of(tester.element(find.byType(HlOrderSlipSheet))).pop();
+    await _frames(tester, 6);
+    final c = ProviderScope.containerOf(
+        tester.element(find.byKey(const ValueKey('open-slip'))));
+    c.read(standingOrdersProvider.notifier).debugReplace(
+        [hlOrder(isLong: false, state: StandingOrderState.posting)]);
+    await _frames(tester, 2);
+    await reopenHl(tester);
+    final ticket =
+        tester.widget<HlOrderSlipSheet>(find.byType(HlOrderSlipSheet));
+    expect(ticket.initialIsLong, isFalse);
+    expect(ticket.standingEndedBefore, isEmpty);
+    expect(barPrimaryLabel(tester), 'OK');
+    expect(barPrimaryBusy(tester), isTrue);
+    expect(find.text('Cancel'), findsNothing);
+    StandingOrderSlips.debugReset();
     await release(tester);
   });
   for (final dark in [false, true]) {

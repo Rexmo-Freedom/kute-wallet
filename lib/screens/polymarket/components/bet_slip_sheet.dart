@@ -1,6 +1,8 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/shared/standing_order_slips.dart'
+    show StandingOrderSlips;
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart'
@@ -444,7 +446,11 @@ class BetSlipSheet extends ConsumerStatefulWidget {
   /// left had accepted, exactly as it was left (its side's colour, the
   /// money's journey in the keypad's place, the "OK"), following that
   /// order: the orders on its market it looks past (every other one,
-  /// [StandingOrderToasts.followSet]). Null: the ordinary slip.
+  /// [StandingOrderToasts.followSet]). Every way back to an order on its
+  /// way opens it so (founder, 11 November 2026, on 2.2.0 (104): no white
+  /// journey sheet, no Cancel, "OK", its haptics running again;
+  /// standing_order_slips.dart), rebuilt from the order's record where
+  /// the left slip was not kept. Null: the ordinary slip.
   final Set<String>? standingEndedBefore;
 
   final _BetSlipDraft? _sharedDraft;
@@ -1482,9 +1488,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// it is (Sal working on it, in the slip's own look), saying "OK" and
   /// taking the tap, which closes the slip exactly as leaving it does
   /// (founder, 10 November 2026, on 2.2.0 (99): "instead of cancel, we
-  /// should say ok"): the order goes on, nothing is cancelled. Cancel
-  /// lives in the order's journey (from its Overview card). Null once the
-  /// result is known.
+  /// should say ok"): the order goes on, nothing is cancelled. There is
+  /// no Cancel anywhere (founder, 11 November 2026, on 2.2.0 (104): "Say
+  /// OK, don't allow for cancel"). Null once the result is known.
   Widget? _standingOkCta(Color selectedColor) {
     if (!_standingOnItsWay()) return null;
     return PolySlipCta(
@@ -1532,43 +1538,34 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         (order == null && status == null)) {
       return;
     }
-    // A tap on the toast opens this slip again, locked on this order, as
-    // it is being left (founder, on 2.2.0 (101): "we should just reuse
-    // the betslip, the red or green one"); the journey sheet only when
-    // there is no root to open it from or the order has already ended.
+    // Any tap on this order (the toast, its Overview card, its Activity
+    // row) opens this slip again, locked on this order, as it is being
+    // left (founder, on 2.2.0 (101): "we should just reuse the betslip,
+    // the red or green one"; on 2.2.0 (104): never the white journey
+    // sheet, no Cancel, the haptics running again):
+    // standing_order_slips.dart.
     final left = widget;
     final selectedIndex = _selectedIndex;
     final buyNo = _buyNo;
     final amount = _amount;
-    final endedBefore = _standingEndedBefore;
-    final fallback = kuteRootContext(context);
-    void reopen() {
-      final root = kuteRootContext();
-      final ended = StandingOrderToasts.followSet(
-          container, StandingOrderVenue.predictions, token,
-          id: order?.id, fallback: endedBefore);
-      if (root == null || ended == null) {
-        StandingOrderToasts.openJourney(fallback,
-            id: order?.id,
-            venue: StandingOrderVenue.predictions,
-            marketKey: token);
-        return;
-      }
-      unawaited(BetSlipSheet.reopenStanding(root, left,
+    StandingOrderSlips.remember(
+      venue: StandingOrderVenue.predictions,
+      marketKey: token,
+      orderId: order?.id,
+      endedBefore: _standingEndedBefore,
+      open: (root, follow) => BetSlipSheet.reopenStanding(root, left,
           selectedIndex: selectedIndex,
           buyNo: buyNo,
           amountUsd: amount,
-          endedBefore: ended));
-    }
-
+          endedBefore: follow),
+    );
     // The root overlay (root_navigator.dart); this slip's own context
     // only where the app has no root key.
-    StandingOrderToasts.placing(fallback, context.l10n,
+    StandingOrderToasts.placing(kuteRootContext(context), context.l10n,
         venue: StandingOrderVenue.predictions,
         marketKey: token,
         marketTitle: widget.marketQuestion,
-        order: order,
-        reopen: reopen);
+        order: order);
   }
 
   /// Reopened from the placing toast ([BetSlipSheet.standingEndedBefore])

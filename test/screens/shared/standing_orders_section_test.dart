@@ -1,7 +1,7 @@
 // The standing orders at the top of Activity: the venue's own row with
-// the placing copy, a tap opening the money journey with Cancel (the bar's
-// own busy button) while the order has not left; the journey's words by
-// state.
+// the placing copy; a tap opens the order's own slip again, locked as it
+// was left (standing_order_slips.dart), never a white journey sheet and
+// never a Cancel (founder, 11 November 2026, on 2.2.0 (104)).
 
 import 'dart:io';
 
@@ -15,14 +15,13 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PlacingBetRow;
-import 'package:kute/screens/shared/standing_order_journey.dart';
+import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/shared/standing_orders_section.dart';
 import 'package:kute/services/standing_orders/standing_order_store.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/portfolio_overrides.dart';
-import '../../helpers/shell_bar_harness.dart' show scopeContext;
 import '../../services/standing_orders/fake_secret_store.dart';
 
 final _at = DateTime(2026, 11, 9, 12);
@@ -146,72 +145,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a tap opens the journey, cancellable before posting',
-      (tester) async {
+  testWidgets(
+      'a tap opens the order\'s own slip again, through the one way back '
+      '(the slip its order was left on), at every step: no journey sheet, '
+      'no Cancel', (tester) async {
     final c = await pump(tester, const StandingOrdersSection());
-    c.read(standingOrdersProvider.notifier).debugReplace([_prediction()]);
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('standing-row-so_p')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
-    expect(find.byKey(const ValueKey('standing-journey-title')), findsOneWidget);
-    expect(find.text('Placing your prediction'), findsOneWidget);
-    // No "you can leave" line; Cancel is the bar's own busy button (Sal
-    // working on it), taking the tap.
-    expect(find.textContaining('You can leave'), findsNothing);
-    expect(find.byKey(const ValueKey('standing-journey-cancel')), findsOneWidget);
-    final bar =
-        scopeContext(tester, within: find.byType(StandingOrderJourneySheet));
-    expect(bar.label, 'Cancel');
-    expect(bar.busy, isTrue);
-    expect(bar.busyLabel, 'Cancel');
-    expect(bar.actionable, isTrue);
-    expect(find.byType(TextButton), findsNothing);
-    bar.onPrimary!();
-    // The cancel persists to Hive (real I/O) before the sheet closes.
-    await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 200)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(c.read(standingOrdersProvider).single.state,
-        StandingOrderState.cancelled);
-    expect(find.byType(StandingOrderJourneySheet), findsNothing);
-    expect(find.byType(PlacingBetRow), findsNothing);
+    addTearDown(StandingOrderSlips.debugReset);
+    final opened = <Set<String>>[];
+    StandingOrderSlips.remember(
+        venue: StandingOrderVenue.predictions,
+        marketKey: '111',
+        orderId: 'so_p',
+        open: (_, follow) async => opened.add(follow));
+    for (final state in [
+      StandingOrderState.funding,
+      StandingOrderState.funded,
+      StandingOrderState.posting,
+      StandingOrderState.posted,
+    ]) {
+      c.read(standingOrdersProvider.notifier)
+          .debugReplace([_prediction(state: state), _investing()]);
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('standing-row-so_p')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Cancel'), findsNothing, reason: state.name);
+      expect(find.byType(BottomSheet), findsNothing, reason: state.name);
+    }
+    // Each tap followed exactly this order: nothing else on its market.
+    expect(opened, [for (var i = 0; i < 4; i++) <String>{}]);
+    expect(c.read(standingOrdersProvider).first.state,
+        StandingOrderState.posted);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('once posting the journey offers no Cancel', (tester) async {
-    final c = await pump(tester, const StandingOrdersSection());
-    c.read(standingOrdersProvider.notifier)
-        .debugReplace([_prediction(state: StandingOrderState.posting)]);
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('standing-row-so_p')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
-    expect(find.byKey(const ValueKey('standing-journey-cancel')), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  test('the journey\'s words by state', () async {
+  test('the row\'s words by state', () async {
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
-    String title(StandingOrderState s) =>
-        StandingOrderJourneySheet.titleFor(l10n, _prediction(state: s));
-    expect(title(StandingOrderState.funding), 'Placing your prediction');
-    expect(title(StandingOrderState.posting), 'Placing your prediction');
-    expect(title(StandingOrderState.filled), 'Prediction placed');
-    expect(title(StandingOrderState.failed), contains('available'));
-    expect(title(StandingOrderState.cancelled), contains('stays in Predictions'));
-    expect(title(StandingOrderState.needsApproval), contains('81%'));
-    expect(StandingOrderJourneySheet.titleFor(l10n, _investing()),
-        'Placing your order');
+    String status(StandingOrderState s) =>
+        standingOrderRowStatus(l10n, _prediction(state: s));
+    expect(status(StandingOrderState.funding), 'Placing your prediction');
+    expect(status(StandingOrderState.posting), 'Placing your prediction');
+    expect(status(StandingOrderState.filled), 'Prediction placed');
+    expect(status(StandingOrderState.needsApproval), contains('81%'));
     expect(standingOrderRowStatus(l10n, _investing()), 'Placing your order');
     expect(standingOrderRowStatus(l10n, _prediction(state: StandingOrderState.needsApproval)),
         contains('Tap to place'));
-    expect(StandingOrderJourneySheet.activeStepFor(StandingOrderState.funding), 0);
-    expect(StandingOrderJourneySheet.activeStepFor(StandingOrderState.posting), 1);
-    expect(StandingOrderJourneySheet.activeStepFor(StandingOrderState.filled), 2);
   });
 
   test(

@@ -17,8 +17,12 @@
 //    on 2.2.0 (101): "we only show the toolbar with one please").
 //  * PRICE MOVED past the approval: Sal says the new price with one tap
 //    that opens the slip at it (its own Face ID places it, from the money
-//    already on the venue), or the order is cancelled from the toast or
-//    its journey.
+//    already on the venue; StandingOrderSlips.approveAtNewPrice, as a tap
+//    on the order's card does). No Cancel (founder, 11 November 2026, on
+//    2.2.0 (104): "don't allow for cancel"): the X puts the toast away,
+//    and an approval never given ends with the order's own life.
+//  * ENDED: a slip the person left for the order is not reopened on a
+//    later one (StandingOrderSlips.forget).
 //
 // This widget's context sits beside the navigator, with no overlay and no
 // navigator above it: the toasts draw on the root overlay and the sheets
@@ -30,13 +34,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/polymarket_model.dart' show PolymarketOutcome;
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
-import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
-    show BetSlipSheet;
 import 'package:kute/screens/shared/sal_toast.dart';
+import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/shared/standing_order_toasts.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 
@@ -89,6 +90,7 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
         continue;
       }
       if (was == null || was.state == o.state) continue;
+      if (o.state.isTerminal) StandingOrderSlips.forget(o);
       if (o.state == StandingOrderState.cancelled) {
         StandingOrderToasts.cancelled(context, l10n, o);
       } else if (o.state.isTerminal &&
@@ -117,12 +119,12 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
 
   /// The price moved past what was approved: one tap opens the slip at
   /// the new price (the money is already on the venue; the slip's own
-  /// Face ID places it), the standing order itself ends there. Cancel in
-  /// the pill cancels it.
+  /// Face ID places it), the standing order itself ends there
+  /// ([StandingOrderSlips.approveAtNewPrice]). No Cancel: the X puts the
+  /// toast away.
   void _askApproval(StandingOrder order) {
     if (!mounted) return;
     final l10n = context.l10n;
-    final container = ProviderScope.containerOf(context, listen: false);
     final price = order.movedToPrice ?? order.approvedPrice;
     StandingOrderToasts.markSaid(order);
     SalToast.show(
@@ -132,34 +134,9 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
       detail: order.marketTitle,
       tone: SalToastTone.pending,
       sticky: true,
-      actionLabel: l10n.cancel,
-      onAction: () => unawaited(
-          container.read(standingOrdersProvider.notifier).cancel(order.id)),
-      onTap: () {
-        unawaited(container.read(standingOrdersProvider.notifier).advance(
-            order.id, StandingOrderState.failed,
-            failureCode: 'price_moved', quiet: true));
-        final root = kuteRootContext();
-        if (root == null) return;
-        unawaited(BetSlipSheet.show(
-          root,
-          marketQuestion: order.marketTitle,
-          marketSlug: order.eventSlug,
-          marketImage: order.marketImage,
-          outcomes: [
-            PolymarketOutcome(
-              name: order.sideLabel,
-              price: price,
-              tokenId: order.marketKey,
-            ),
-          ],
-          marketEndAt: order.marketEndAt,
-          marketCategory: order.marketCategory,
-          negRisk: order.negRisk,
-          initialAmountUsd: order.amountUsd,
-          source: 'standing_order',
-        ));
-      },
+      closable: true,
+      onTap: () =>
+          unawaited(StandingOrderSlips.approveAtNewPrice(null, order)),
     );
   }
 

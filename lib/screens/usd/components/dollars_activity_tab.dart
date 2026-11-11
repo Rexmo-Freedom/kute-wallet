@@ -46,8 +46,14 @@
 // implemented, as soon as they touch"): a standing order (a prediction or
 // an Investing order accepted, its money on its way) leads the squares
 // the moment it is accepted. It counts toward the four, in-progress
-// first, newest first ([dollarsOverviewSlots]); a tap opens its money
-// journey, where it can still be cancelled.
+// first, newest first ([dollarsOverviewSlots]); a tap opens the order's
+// own slip again, locked as it was left: the bet slip or the order
+// ticket, green or red by its side, its journey and haptics running, its
+// "OK" (founder, 11 November 2026, on 2.2.0 (104): "this screen should
+// not exist, it should be the same one as this one. Say OK, don't allow
+// for cancel"; standing_order_slips.dart). No white journey sheet, no
+// Cancel. Once placed the card is the position's own row, whose tap
+// opens the position.
 //
 // ONE CARD, FROM THE ACCEPT TO THE POSITION (founder, 10 November 2026, on
 // 2.2.0 (98): "After the investment is placed, the old one stays there for
@@ -163,8 +169,8 @@ import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/screens/shared/standing_order_toasts.dart'
-    show StandingOrderToasts;
+import 'package:kute/screens/shared/standing_order_slips.dart'
+    show StandingOrderSlips;
 import 'package:kute/screens/shared/standing_orders_section.dart'
     show StandingOrderRow, standingOrderStageLine;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
@@ -506,7 +512,11 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         if (row != null) squares.add(row);
         continue;
       }
-      void journey() => StandingOrderToasts.openJourney(context, id: order.id);
+      // On its way, a tap opens its own slip again, locked (see the
+      // file header); placed, nothing of the order's own.
+      final VoidCallback? reopen = order.isOpen
+          ? () => unawaited(StandingOrderSlips.reopen(context, id: order.id))
+          : null;
       // Filled: no word of its own, the card is the position's as the
       // Portfolio lists it (founder, 11 November 2026).
       final status = standingOrderStageLine(l10n, order);
@@ -515,14 +525,13 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
               ? row
               : PortfolioRowStatusScope(
                   status: status,
-                  // On its way, a tap opens its journey (Cancel).
-                  onTap: order.isOpen ? journey : null,
+                  onTap: reopen,
                   child: row)
           : StandingOrderRow(
               key: ValueKey(slot.id),
               order: order,
               status: status,
-              onTap: journey));
+              onTap: reopen));
     }
     final loading =
         squares.isEmpty && lists.values.any((list) => list.loading);

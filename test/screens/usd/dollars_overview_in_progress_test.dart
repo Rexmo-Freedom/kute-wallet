@@ -8,8 +8,10 @@
 // placed"): the order holds one slot, keyed by its position, drawn by the
 // position's own row widget: "Placing" from the accept, placed the moment
 // it fills (the fill's own figures), then the listed position in place,
-// never a second or a stale card. A tap while it places opens its money
-// journey; it counts toward the four; failed or cancelled, it goes.
+// never a second or a stale card. A tap while it places opens the order's
+// own slip again, locked (standing_order_slips.dart; founder, 11 November
+// 2026: no white journey sheet, no Cancel); it counts toward the four;
+// failed or cancelled, it goes.
 // Predictions and Investing alike.
 //
 // A filled order hands over once (founder, 10 November 2026: sold, the
@@ -31,7 +33,7 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
     show HlPositionRow, PlacingBetRow, PolyPositionRow;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/screens/shared/standing_order_journey.dart';
+import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsBody;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
@@ -480,7 +482,8 @@ void main() {
 
   testWidgets(
       'a prediction leads the squares from the accept as one card saying '
-      'Placing; a tap opens its journey; it fails and goes', (tester) async {
+      'Placing; a tap opens its own slip again; it fails and goes',
+      (tester) async {
     await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           HyperliquidTradingState(
@@ -508,17 +511,27 @@ void main() {
     notifier.debugReplace([_prediction(state: StandingOrderState.posting)]);
     await tester.pump();
     expect(text('poly-tok-so_p', 'Placing'), findsOneWidget);
+    // Its tap is the slip its order was left on, again, locked on it
+    // (the one way back, standing_order_slips.dart): never a journey
+    // sheet, never a Cancel.
+    addTearDown(StandingOrderSlips.debugReset);
+    final opened = <Set<String>>[];
+    StandingOrderSlips.remember(
+        venue: StandingOrderVenue.predictions,
+        marketKey: 'tok-so_p',
+        orderId: 'so_p',
+        open: (_, follow) async => opened.add(follow));
+    await tester.tap(card);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(opened, [<String>{}]);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Cancel'), findsNothing);
+
     notifier
         .debugReplace([_prediction(state: StandingOrderState.needsApproval)]);
     await tester.pump();
     expect(text('poly-tok-so_p', 'Needs your approval'), findsOneWidget);
-
-    await tester.tap(card);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
-    Navigator.of(tester.element(find.byType(StandingOrderJourneySheet))).pop();
-    await tester.pump(const Duration(milliseconds: 600));
 
     notifier.debugReplace([_prediction(state: StandingOrderState.failed)]);
     await tester.pump();
@@ -645,7 +658,7 @@ void main() {
 
   testWidgets(
       'Investing, one card: the venue lists the position before the order\'s '
-      'answer: the listed row itself says Placing (a tap opens the journey), '
+      'answer: the listed row itself says Placing (a tap opens its ticket), '
       'then Order placed, then its own line; never a second card',
       (tester) async {
     var clock = DateTime.now();
@@ -675,13 +688,21 @@ void main() {
     expect(text('hl-ETH', 'Long · Placing'), findsOneWidget);
     expectSameSlot(
         tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))), slot);
-    // Placing, its tap is the order's: the journey (Cancel lives there).
+    // Placing, its tap is the order's: its own ticket again, locked (no
+    // journey sheet, no Cancel).
+    addTearDown(StandingOrderSlips.debugReset);
+    final opened = <Set<String>>[];
+    StandingOrderSlips.remember(
+        venue: StandingOrderVenue.investing,
+        marketKey: 'ETH',
+        orderId: 'so_i',
+        open: (_, follow) async => opened.add(follow));
     await tester.tap(inSquares(find.byKey(const ValueKey('hl-ETH'))));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.byType(StandingOrderJourneySheet), findsOneWidget);
-    Navigator.of(tester.element(find.byType(StandingOrderJourneySheet))).pop();
-    await tester.pump(const Duration(milliseconds: 600));
+    expect(opened, [<String>{}]);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Cancel'), findsNothing);
 
     // It fills: the same row says placed at once.
     notifier.debugReplace([

@@ -16,14 +16,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/models/polymarket_model.dart' show PolymarketOutcome;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
-import 'package:kute/screens/shared/standing_order_journey.dart'
-    show StandingOrderJourneySheet;
+import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/shared/standing_order_toasts.dart';
 import 'package:kute/screens/shared/standing_orders_shell.dart';
 import 'package:kute/services/standing_orders/standing_order_store.dart';
@@ -113,6 +113,7 @@ void main() {
     TrackingService.debugTrackObserver = null;
     SalToast.debugReset();
     StandingOrderToasts.debugReset();
+    StandingOrderSlips.debugReset();
     SalToast.debugSuccessFeedbackOverride = null;
     SalToast.debugFailureFeedbackOverride = null;
     SalReactions.debugReset();
@@ -257,7 +258,8 @@ void main() {
   });
 
   testWidgets(
-      'cancelled (from its journey): standing_order_cancelled once and '
+      'cancelled (the provider\'s own cancel; the person has none): '
+      'standing_order_cancelled once and '
       'Sal says the money stays in Predictions', (tester) async {
     final c = await pump(tester);
     await running(tester, c, _prediction(state: StandingOrderState.funded));
@@ -306,17 +308,28 @@ void main() {
     await drain(tester);
   });
   /// The slip left while its order is on its way (bet_slip_sheet.dart,
-  /// order_slip_sheet.dart `_onLeave`).
-  Future<void> leave(WidgetTester tester, StandingOrder order,
-      {VoidCallback? reopen}) async {
+  /// order_slip_sheet.dart `_onLeave`): it hands over its reopen
+  /// ([StandingOrderSlips.remember]) and puts up the placing toast.
+  void left(StandingOrder order, VoidCallback? reopen) {
+    if (reopen != null) {
+      StandingOrderSlips.remember(
+          venue: order.venue,
+          marketKey: order.marketKey,
+          orderId: order.id,
+          open: (_, __) async => reopen());
+    }
     StandingOrderToasts.placing(
         kuteRootNavigatorKey.currentContext,
         lookupAppLocalizations(const Locale('en')),
         venue: order.venue,
         marketKey: order.marketKey,
         marketTitle: order.marketTitle,
-        order: order,
-        reopen: reopen);
+        order: order);
+  }
+
+  Future<void> leave(WidgetTester tester, StandingOrder order,
+      {VoidCallback? reopen}) async {
+    left(order, reopen);
     await tester.pump();
     await tester.pump(_arrive);
   }
@@ -411,7 +424,7 @@ void main() {
   });
 
   testWidgets(
-      'Investing: "Placing your investment"; a cancel from its journey '
+      'Investing: "Placing your investment"; a cancel (the provider\'s own) '
       'turns it into the cancelled toast in place', (tester) async {
     final c = await pump(tester);
     final order = _investing(state: StandingOrderState.funded);
@@ -450,7 +463,7 @@ void main() {
 
   testWidgets(
       'a tap on the placing toast opens the slip that was left (its reopen), '
-      'never the white journey sheet', (tester) async {
+      'never a journey sheet, no Cancel', (tester) async {
     final c = await pump(tester);
     final order = _prediction();
     await running(tester, c, order);
@@ -460,7 +473,8 @@ void main() {
     await tester.pump();
     await tester.pump(_arrive);
     expect(reopened, 1);
-    expect(find.byType(StandingOrderJourneySheet), findsNothing);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('Cancel'), findsNothing);
     expect(find.byKey(_toast), findsNothing);
     await drain(tester);
   });
@@ -482,14 +496,7 @@ void main() {
     await leave(tester, bet, reopen: () => taps.add('bet'));
     expectPlacing(tester, 'Placing your prediction');
     // The second order's slip left: in place, one toast at every frame.
-    StandingOrderToasts.placing(
-        kuteRootNavigatorKey.currentContext,
-        lookupAppLocalizations(const Locale('en')),
-        venue: buy.venue,
-        marketKey: buy.marketKey,
-        marketTitle: buy.marketTitle,
-        order: buy,
-        reopen: () => taps.add('buy'));
+    left(buy, () => taps.add('buy'));
     await tester.pump();
     expect(find.byType(SalToast), findsOneWidget);
     await tester.pump(_arrive);
@@ -513,14 +520,7 @@ void main() {
     // Both left again; the bet fills: its result in place of the
     // investment's placing toast, one toast, the one success haptic.
     await leave(tester, bet, reopen: () => taps.add('bet'));
-    StandingOrderToasts.placing(
-        kuteRootNavigatorKey.currentContext,
-        lookupAppLocalizations(const Locale('en')),
-        venue: buy.venue,
-        marketKey: buy.marketKey,
-        marketTitle: buy.marketTitle,
-        order: buy,
-        reopen: () => taps.add('buy'));
+    left(buy, () => taps.add('buy'));
     await tester.pump();
     await tester.pump(_arrive);
     expectPlacing(tester, 'Placing your investment');
@@ -577,5 +577,78 @@ void main() {
     await tester.pump(const Duration(seconds: 10));
     expect(find.byKey(_toast), findsNothing);
     await drain(tester);
+  });
+
+  testWidgets(
+      'the price moved past the approval: Sal says the new price, its tap '
+      'the approval; no Cancel, the X puts it away and the order is left '
+      'as it is', (tester) async {
+    final c = await pump(tester);
+    await running(tester, c, _prediction(state: StandingOrderState.posting));
+    await c.read(standingOrdersProvider.notifier)
+        .needsApproval('so_p', priceNow: 0.81);
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(find.textContaining('81%'), findsOneWidget);
+    expect(shown(tester).tone, SalToastTone.pending);
+    expect(shown(tester).onTap, isNotNull);
+    expect(find.byKey(_action), findsNothing);
+    expect(find.text('Cancel'), findsNothing);
+    await tester.tap(find.byKey(_close));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(_toast), findsNothing);
+    expect(c.read(standingOrdersProvider).single.state,
+        StandingOrderState.needsApproval);
+    expect(named('standing_order_cancelled'), isEmpty);
+    await drain(tester);
+  });
+
+  testWidgets(
+      'an order that already ended: placed or not placed with no stop on its '
+      'slip, a tap opens nothing (never a journey sheet), not even the '
+      'slip it was left on', (tester) async {
+    final c = await pump(tester);
+    var opened = 0;
+    final order = _prediction();
+    await running(tester, c, order);
+    StandingOrderSlips.remember(
+        venue: order.venue,
+        marketKey: order.marketKey,
+        orderId: order.id,
+        open: (_, __) async => opened++);
+    await moveTo(tester, c, order, StandingOrderState.posted);
+    await c
+        .read(standingOrdersProvider.notifier)
+        .advance('so_p', StandingOrderState.failed, failureCode: 'x');
+    await tester.pump();
+    await tester.pump(_arrive);
+    // The failed toast's tap: no stop on the slip, nothing opens.
+    await tester.tap(find.textContaining("Your prediction wasn't placed"));
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(opened, 0);
+    expect(find.byType(BottomSheet), findsNothing);
+    await StandingOrderSlips.reopen(kuteRootNavigatorKey.currentContext,
+        id: 'so_p');
+    await tester.pump();
+    expect(opened, 0);
+    await drain(tester);
+  });
+
+  test('the outcome an order\'s token is: its own token, else a No', () {
+    const outcomes = [
+      PolymarketOutcome(name: 'Yes', price: 0.4, tokenId: 'y'),
+      PolymarketOutcome(name: 'No', price: 0.6, tokenId: 'n'),
+      PolymarketOutcome(
+          name: 'Ana', price: 0.3, tokenId: 'ana-yes', noTokenId: 'ana-no'),
+    ];
+    expect(StandingOrderSlips.pickOf(outcomes, 'y'), (index: 0, buyNo: false));
+    expect(StandingOrderSlips.pickOf(outcomes, 'n'), (index: 1, buyNo: false));
+    expect(StandingOrderSlips.pickOf(outcomes, 'ana-yes'),
+        (index: 2, buyNo: false));
+    expect(StandingOrderSlips.pickOf(outcomes, 'ana-no'),
+        (index: 2, buyNo: true));
+    expect(StandingOrderSlips.pickOf(outcomes, 'gone'), isNull);
   });
 }

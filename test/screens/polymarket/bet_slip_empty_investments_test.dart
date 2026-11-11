@@ -6,6 +6,8 @@
 // No deposit sheet is ever pushed, and the direct Bitcoin → Predictions
 // leg is planned before the chain picks its route.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,8 +16,8 @@ import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/screens/shared/money_steps_view.dart' show MoneyStepsView;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/sal_toast.dart' show SalToast;
-import 'package:kute/screens/shared/standing_order_journey.dart'
-    show StandingOrderJourneySheet;
+import 'package:kute/screens/shared/standing_order_slips.dart'
+    show StandingOrderSlips;
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
 import 'package:kute/screens/shared/rubber_band_progress.dart'
@@ -36,6 +38,8 @@ import 'package:kute/providers/pending_bet_autofire.dart'
     show kPendingBetAutofireId;
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show polymarketEventDetailsProvider;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -65,6 +69,7 @@ import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart' show AppColors;
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
@@ -243,6 +248,19 @@ class _StoredFunded extends FundedOrdersNotifier {
 const _renderOut = String.fromEnvironment('OK_TOAST_RENDER_OUT');
 final _shot = GlobalKey();
 
+/// The market the standing orders are on, as Gamma reads it by its slug.
+const _eventSlug = 'will-it-rain';
+const _event = PolymarketEvent(
+  id: 'e-rain',
+  slug: _eventSlug,
+  title: 'Will it rain?',
+  volume: 1000,
+  liquidity: 1000,
+  category: 'other',
+  conditionId: 'c-rain',
+  outcomes: _outcomes,
+);
+
 Future<void> _pumpSlip(WidgetTester tester,
     {bool knownEmpty = false,
     List<FundedOrderRecord>? funded,
@@ -291,6 +309,8 @@ Future<void> _pumpSlip(WidgetTester tester,
           funderFor: (_) => _funder, dollarsUsd: () => 0)),
       if (standingStore != null)
         standingOrderStoreProvider.overrideWithValue(standingStore),
+      polymarketEventDetailsProvider.overrideWith(
+          (ref, slug) async => slug == _eventSlug ? _event : null),
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
     child: standingStore != null
@@ -361,15 +381,21 @@ class _MemoryStandingStore extends StandingOrderStore {
 }
 
 /// The open standing order the accept made, as the provider holds it.
-StandingOrder _standing({StandingOrderState state = StandingOrderState.funding}) {
+StandingOrder _standing(
+    {StandingOrderState state = StandingOrderState.funding,
+    String token = 'yes-token',
+    String side = 'Yes',
+    double? movedToPrice}) {
   final at = DateTime.now();
   return StandingOrder(
     id: 'so_test',
     walletId: 'w',
     venue: StandingOrderVenue.predictions,
-    marketKey: 'yes-token',
+    marketKey: token,
     marketTitle: 'Will it rain?',
-    sideLabel: 'Yes',
+    sideLabel: side,
+    eventSlug: _eventSlug,
+    movedToPrice: movedToPrice,
     isBuy: true,
     size: 2,
     approvedPrice: 0.5,
@@ -746,8 +772,9 @@ void main() {
 
     testWidgets(
         'a tap on the placing toast opens the same slip again, locked on its '
-        'order as it was left (the steps, the OK), never the white journey '
-        'sheet; it goes once its order is placed', (tester) async {
+        'order as it was left (green, the steps, the OK, its haptics running '
+        'again), never a journey sheet or a Cancel; leaving stops the '
+        'haptics again; it goes once its order is placed', (tester) async {
       final c = await accept(tester, 'standing_slip_reopen');
       final sheetsBefore = events.where((e) => e == 'polymarket_bet_slip_opened').length;
       await tapBarPrimary(tester, settle: false);
@@ -758,7 +785,27 @@ void main() {
       await tester.tap(find.text('Placing your prediction'));
       await _frames(tester, 10);
       expect(find.byType(BetSlipSheet), findsOneWidget);
-      expect(find.byType(StandingOrderJourneySheet), findsNothing);
+      expect(find.text('Cancel'), findsNothing);
+      // The haptics run again, exactly as on the slip after its accept:
+      // the band's pull and the steps' taps.
+      expect(
+          tester
+              .widget<RubberBandProgress>(
+                  find.byKey(const ValueKey('bet-slip-funded-progress')))
+              .haptic,
+          isTrue);
+      for (final steps
+          in tester.widgetList<MoneyStepsView>(find.byType(MoneyStepsView))) {
+        expect(steps.haptics, isTrue);
+      }
+      expect(ContinuousHaptics.isRunning(), isTrue);
+      // Green: the side's colour, as the slip colours a Yes.
+      expect(
+          tester
+              .widget<PolySlipCta>(
+                  find.byKey(const ValueKey('bet-slip-standing-ok')))
+              .color,
+          AppColors.marketUp);
       // The toast is gone while the slip is up.
       expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
       // Locked as before: the keypad folded, the steps, Sal's busy OK.
@@ -774,8 +821,12 @@ void main() {
           .standingEndedBefore, isEmpty);
       expect(events.where((e) => e == 'polymarket_bet_slip_opened').length,
           sheetsBefore);
-      // OK leaves it again: the placing toast comes back, one.
+      // OK leaves it again: the haptics stop at once, the placing toast
+      // comes back, one.
       await tapBarPrimary(tester, settle: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(ContinuousHaptics.isRunning(), isFalse);
       await _frames(tester, 10);
       expect(find.byType(BetSlipSheet), findsNothing);
       expect(find.byType(SalToast), findsOneWidget);
@@ -795,6 +846,139 @@ void main() {
       expect(events, isNot(contains('standing_order_cancelled')));
       SalToast.debugReset();
       StandingOrderToasts.debugReset();
+      await release(tester);
+    });
+
+    /// What a tap on the order opens, from anywhere (the toast, the
+    /// Overview's card, the Activity row): the one way back.
+    Future<void> reopen(WidgetTester tester) async {
+      unawaited(StandingOrderSlips.reopen(
+          tester.element(find.byKey(const ValueKey('open-slip'))),
+          id: 'so_test'));
+      await _frames(tester, 10);
+    }
+
+    testWidgets(
+        'a fresh app (nothing handed over, the order accepted before a '
+        'restart): the slip is rebuilt from the order\'s record, the market '
+        'read again by its slug: locked on it, green, the steps, OK, the '
+        'haptics running; leaving stops them', (tester) async {
+      final c = await accept(tester, 'standing_slip_fresh');
+      await tapBarPrimary(tester, settle: false);
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsNothing);
+      expect(ContinuousHaptics.isRunning(), isFalse);
+      // The app restarted: no slip kept, the toast gone.
+      StandingOrderSlips.debugReset();
+      SalToast.debugReset();
+      StandingOrderToasts.debugReset();
+      await _frames(tester, 4);
+      final opened =
+          events.where((e) => e == 'polymarket_bet_slip_opened').length;
+      await reopen(tester);
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      final slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
+      // Rebuilt (not the slip that was left): the market as Gamma lists
+      // it, the side the order bought, its stake.
+      expect(slip.event, same(_event));
+      expect(slip.source, 'standing_order');
+      expect(slip.outcomes, _event.outcomes);
+      expect(slip.initialOutcomeIndex, 0);
+      expect(slip.initialAmountUsd, 1);
+      expect(slip.standingEndedBefore, isEmpty);
+      expect(find.text('Cancel'), findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
+          findsOneWidget);
+      expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('bet-slip-standing-ok')), findsOneWidget);
+      expect(barPrimaryLabel(tester), 'OK');
+      expect(
+          tester
+              .widget<PolySlipCta>(
+                  find.byKey(const ValueKey('bet-slip-standing-ok')))
+              .color,
+          AppColors.marketUp);
+      expect(ContinuousHaptics.isRunning(), isTrue);
+      // Nothing new counted: it is the same slip.
+      expect(events.where((e) => e == 'polymarket_bet_slip_opened').length,
+          opened);
+      // A second tap while it is up opens nothing over it.
+      await reopen(tester);
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      // OK leaves it: the haptics stop, the order goes on.
+      await tapBarPrimary(tester, settle: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(ContinuousHaptics.isRunning(), isFalse);
+      await _frames(tester, 10);
+      expect(find.byType(BetSlipSheet), findsNothing);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.funding);
+      expect(events, isNot(contains('standing_order_cancelled')));
+      SalToast.debugReset();
+      StandingOrderToasts.debugReset();
+      StandingOrderSlips.debugReset();
+      await release(tester);
+    });
+
+    testWidgets(
+        'a No rebuilt from its record is red: the side the order bought on '
+        'its market, locked, OK, no Cancel', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, standingStore: store('standing_slip_no'));
+      // The slip the test opened is put away: only the order is left.
+      Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+      await _frames(tester, 6);
+      final c = ProviderScope.containerOf(
+          tester.element(find.byKey(const ValueKey('open-slip'))));
+      c.read(standingOrdersProvider.notifier).debugReplace(
+          [_standing(state: StandingOrderState.posting, token: 'no-token',
+              side: 'No')]);
+      await _frames(tester, 2);
+      await reopen(tester);
+      final slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
+      expect(slip.initialOutcomeIndex, 1);
+      expect(slip.standingEndedBefore, isEmpty);
+      expect(barPrimaryLabel(tester), 'OK');
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(find.text('Cancel'), findsNothing);
+      expect(
+          tester
+              .widget<PolySlipCta>(
+                  find.byKey(const ValueKey('bet-slip-standing-ok')))
+              .color,
+          AppColors.marketDown);
+      StandingOrderSlips.debugReset();
+      await release(tester);
+    });
+
+    testWidgets(
+        'the price moved past the approval: a tap on the order is the '
+        'approval, the slip at the new price, unlocked, its own Confirm; '
+        'the standing order ends there, quietly', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, standingStore: store('standing_slip_moved'));
+      Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+      await _frames(tester, 6);
+      final c = ProviderScope.containerOf(
+          tester.element(find.byKey(const ValueKey('open-slip'))));
+      c.read(standingOrdersProvider.notifier).debugReplace([
+        _standing(
+            state: StandingOrderState.needsApproval, movedToPrice: 0.6)
+      ]);
+      await _frames(tester, 2);
+      await reopen(tester);
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      final slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
+      expect(slip.standingEndedBefore, isNull);
+      expect(slip.initialAmountUsd, 1);
+      expect(find.byKey(const ValueKey('bet-slip-standing-ok')), findsNothing);
+      expect(find.text('Cancel'), findsNothing);
+      final order = c.read(standingOrdersProvider).single;
+      expect(order.state, StandingOrderState.failed);
+      expect(order.failureCode, 'price_moved');
+      StandingOrderSlips.debugReset();
       await release(tester);
     });
   });

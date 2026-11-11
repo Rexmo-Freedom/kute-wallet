@@ -1,5 +1,7 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
+import 'package:kute/screens/shared/standing_order_slips.dart'
+    show StandingOrderSlips;
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart'
@@ -349,7 +351,11 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// was left had accepted, exactly as it was left (its side's colour, the
   /// money's journey in the keypad's place, the "OK"), following that
   /// order: the orders on its market it looks past (every other one,
-  /// [StandingOrderToasts.followSet]). Null: the ordinary ticket.
+  /// [StandingOrderToasts.followSet]). Every way back to an order on its
+  /// way opens it so (founder, 11 November 2026, on 2.2.0 (104): no white
+  /// journey sheet, no Cancel, "OK", its haptics running again;
+  /// standing_order_slips.dart), rebuilt from the order's record where
+  /// the left ticket was not kept. Null: the ordinary ticket.
   final Set<String>? standingEndedBefore;
 
   const HlOrderSlipSheet({
@@ -2548,36 +2554,30 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final label = isSpot
         ? market.coin
         : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}';
-    // A tap on the toast opens this ticket again, locked on this order,
-    // as it is being left (founder, on 2.2.0 (101): "we should just reuse
-    // the betslip, the red or green one"); the journey sheet only when
-    // there is no root to open it from or the order has already ended.
+    // Any tap on this order (the toast, its Overview card, its Activity
+    // row) opens this ticket again, locked on this order, as it is being
+    // left (founder, on 2.2.0 (101): "we should just reuse the betslip,
+    // the red or green one"; on 2.2.0 (104): never the white journey
+    // sheet, no Cancel, the haptics running again):
+    // standing_order_slips.dart.
     final left = widget;
     final isLong = _isLong;
     final margin = _marginUsd;
-    final fallback = kuteRootContext(context);
-    void reopen() {
-      final root = kuteRootContext();
-      final follow = StandingOrderToasts.followSet(
-          container, StandingOrderVenue.investing, coin,
-          id: order?.id, fallback: ended);
-      if (root == null || follow == null) {
-        StandingOrderToasts.openJourney(fallback,
-            id: order?.id, venue: StandingOrderVenue.investing, marketKey: coin);
-        return;
-      }
-      unawaited(HlOrderSlipSheet.reopenStanding(root, left,
-          isLong: isLong, marginUsd: margin, endedBefore: follow));
-    }
-
+    StandingOrderSlips.remember(
+      venue: StandingOrderVenue.investing,
+      marketKey: coin,
+      orderId: order?.id,
+      endedBefore: ended,
+      open: (root, follow) => HlOrderSlipSheet.reopenStanding(root, left,
+          isLong: isLong, marginUsd: margin, endedBefore: follow),
+    );
     // The root overlay (root_navigator.dart); this ticket's own context
     // only where the app has no root key.
-    StandingOrderToasts.placing(fallback, context.l10n,
+    StandingOrderToasts.placing(kuteRootContext(context), context.l10n,
         venue: StandingOrderVenue.investing,
         marketKey: coin,
         marketTitle: label,
-        order: order,
-        reopen: reopen);
+        order: order);
   }
 
   /// Funds [shortfallUsd] from Dollars and places the order once the
@@ -5700,7 +5700,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                       // on its way: it closes the ticket exactly as
                       // leaving does, the order goes on (founder, 10
                       // November 2026, on 2.2.0 (99): "instead of cancel,
-                      // we should say ok"). Cancel is in its journey.
+                      // we should say ok"). No Cancel anywhere (founder,
+                      // 11 November 2026).
                       ? KuteBarContext.primary(
                           label: context.l10n.ok,
                           onPrimary: () => Navigator.of(context).maybePop(),

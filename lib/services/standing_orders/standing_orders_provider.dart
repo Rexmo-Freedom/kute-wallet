@@ -995,7 +995,6 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   /// for an order kept before that was, the only market of its coin. Null
   /// when there is none, or several (the same ticker on more than one
   /// dex): the order is never placed on a guess.
-  @visibleForTesting
   static HlMarket? resumeMarketFor(
       StandingOrder order, List<HlMarket> markets) {
     final spot = order.marketKind == 'spot';
