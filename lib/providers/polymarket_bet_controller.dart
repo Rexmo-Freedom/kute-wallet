@@ -790,6 +790,9 @@ class PolymarketBetController {
     if (error is PolymarketRefusalOutlivedApproval) return 'grant_expired';
     if (error is PolymarketStaleReservation) return 'balance_check';
     if (error is PolymarketBalanceRefused) return 'self_heal';
+    // Stopped at the collateral check before signing, whatever it waited
+    // on (an unread wallet or book included: nothing was submitted).
+    if (error is PolymarketCollateralPending) return 'balance_check';
     if (error is PolymarketOrderNotAcceptedException) return 'submit';
     if (error is PolymarketThinBook) {
       return error.limit != null || error.fillableUsd > 0 ? 'quote' : 'book';
@@ -1705,6 +1708,19 @@ class PolymarketBetController {
       return error.timedOut ? 'setup_timeout' : 'setup_failed';
     }
     if (error is PolymarketFundsConverting) return 'funds_converting';
+    // The buy's collateral was not confirmed before signing (nothing was
+    // sent). Only a wallet that was read and holds less than the buy is
+    // "add funds"; a read that failed is the connection, and a book that
+    // has not counted the money yet is a moment's wait. Its own words
+    // ("The trading balance is still being confirmed") used to match the
+    // balance wording below and say "Add funds to predict" every time.
+    if (error is PolymarketCollateralPending) {
+      return switch (error.wait) {
+        PolymarketCollateralWait.short => 'balance_or_allowance',
+        PolymarketCollateralWait.unread => 'venue_unreachable',
+        PolymarketCollateralWait.notCounted || null => 'balance_confirming',
+      };
+    }
     if (error is PolymarketStaleReservation) return 'stale_matched_orders';
     if (error is PolymarketBalanceRefused) {
       // An allowance to an address the app does not know is never set
@@ -1774,7 +1790,9 @@ class PolymarketBetController {
     return switch (_placementFailureCode(e)) {
       'setup_timeout' => l10n.betSetupSlow,
       'setup_failed' => l10n.betSetupFailed,
-      'funds_converting' => l10n.betDepositStillConverting,
+      'funds_converting' ||
+      'balance_confirming' =>
+        l10n.betDepositStillConverting,
       'previous_order_resolved' => l10n.betPreviousOrderChecked,
       'region_unavailable' => l10n.tradingUnavailableRegion,
       'account_read_failed' ||

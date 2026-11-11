@@ -173,6 +173,65 @@ void main() {
     expect(a.posts, 0);
   });
 
+  test(
+      'a conversion just mined, the wallet read from an endpoint a block '
+      'behind: read again, never taken for a wallet short of the buy',
+      () async {
+    // The wallet as the chain has it, and as a lagging endpoint still
+    // shows it for the first read after the conversion.
+    var pusd = _usd(0.3);
+    var usdce = _usd(10.3);
+    var counted = _usd(0.3);
+    var staleReads = 0;
+    var splitReads = 0;
+    var sleeps = 0;
+    final ready = await polyReadyVenueCollateral(
+        costMicros: _usd(10),
+        spenders: const [],
+        ops: PolyVenueCollateralOps(
+          readVenue: () async => PolyVenueCount(balance: counted),
+          readSplit: ({required bool fresh}) async {
+            splitReads++;
+            if (staleReads > 0) {
+              staleReads--;
+              // pUSD not shown yet, the USDC.e already gone.
+              return (pusd: _usd(0.3), usdce: BigInt.zero);
+            }
+            return (pusd: pusd, usdce: usdce);
+          },
+          wrap: () async {
+            final moved = usdce;
+            pusd += moved;
+            usdce = BigInt.zero;
+            staleReads = 1;
+            return moved;
+          },
+          refreshVenue: () async => counted = pusd,
+          approveSpender: (_) async => false,
+          sleep: (_) async => sleeps++,
+        ));
+    expect(ready, PolyVenueReadiness.refreshed);
+    expect(() => polyRequireConfirmedCollateral(ready), returnsNormally);
+    expect(sleeps, greaterThan(0));
+    expect(splitReads, greaterThanOrEqualTo(3));
+  });
+
+  test('the wait says why: unread, not counted or short', () {
+    PolymarketCollateralWait? waitOf(PolyVenueReadiness r) {
+      try {
+        polyRequireConfirmedCollateral(r);
+      } on PolymarketCollateralPending catch (e) {
+        return e.wait;
+      }
+      return null;
+    }
+
+    expect(waitOf(PolyVenueReadiness.unread), PolymarketCollateralWait.unread);
+    expect(waitOf(PolyVenueReadiness.notCounted),
+        PolymarketCollateralWait.notCounted);
+    expect(waitOf(PolyVenueReadiness.short), PolymarketCollateralWait.short);
+  });
+
   test('joining a prior conversion cannot synthesize aggregate pUSD proof',
       () async {
     final ready = await polyReadyVenueCollateral(

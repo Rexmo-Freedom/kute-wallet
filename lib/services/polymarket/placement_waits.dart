@@ -60,11 +60,28 @@ class PolymarketFundsConverting implements Exception {
   String toString() => 'The deposit is still being converted for trading.';
 }
 
+/// What an unconfirmed buy's collateral waits on
+/// ([PolymarketCollateralPending.wait]).
+enum PolymarketCollateralWait {
+  /// The wallet or the order book's count could not be read: nothing says
+  /// the money is not there.
+  unread,
+
+  /// The wallet holds the buy; the order book has not counted it yet.
+  notCounted,
+
+  /// The wallet was read and holds less pUSD than the buy.
+  short,
+}
+
 /// The wallet or the order book has not confirmed the buy's full all-in
 /// collateral yet. No order was signed or sent; a live approved order may
 /// wait and check again without sending another funding leg.
 class PolymarketCollateralPending implements Exception {
-  const PolymarketCollateralPending();
+  const PolymarketCollateralPending([this.wait]);
+
+  /// What the confirmation waits on, when the check said; null: unsaid.
+  final PolymarketCollateralWait? wait;
 
   @override
   String toString() => 'The trading balance is still being confirmed.';

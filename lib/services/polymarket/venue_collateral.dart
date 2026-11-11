@@ -165,6 +165,11 @@ class PolyVenueCollateralOps {
   static Future<void> _sleep(Duration d) => Future<void>.delayed(d);
 }
 
+/// How many more times the wallet is read (one per
+/// [PolymarketPlacementWaits.venueCountPoll]) after a conversion that
+/// converted something, while it still reads short of the buy.
+const int _kReadsAfterConversion = 4;
+
 /// Waits until the order book counts a buy costing [costMicros] against
 /// [spenders], doing what is missing first (see the file header).
 /// [afterRefusal] is the venue's balance refusal's one refresh: the
@@ -207,8 +212,9 @@ Future<PolyVenueReadiness> polyReadyVenueCollateral({
               pusd: split.pusd, usdce: usdce, costMicros: costMicros));
   if (convert) {
     ops.onStep?.call('approving');
+    var converted = BigInt.zero;
     try {
-      await ops.wrap().timeout(PolymarketPlacementWaits.conversion);
+      converted = await ops.wrap().timeout(PolymarketPlacementWaits.conversion);
     } on TimeoutException {
       // The conversion keeps going; nothing has been signed.
       ops.ensureCurrent?.call();
@@ -224,6 +230,21 @@ Future<PolyVenueReadiness> polyReadyVenueCollateral({
     // the current aggregate pUSD balance.
     split = await _safe(() => ops.readSplit(fresh: true));
     ops.ensureCurrent?.call();
+    // The conversion is mined, and the read right after it can still be
+    // answered by an endpoint a block behind (pUSD not there yet, the
+    // USDC.e already gone): a wallet that then reads short of the buy is
+    // read again, briefly, before it is believed. Taken for short, a
+    // direct bet ended on "Add funds to predict" with its money there.
+    for (var again = 0;
+        again < _kReadsAfterConversion &&
+            converted > BigInt.zero &&
+            (split == null || split.pusd < costMicros);
+        again++) {
+      await ops.sleep(PolymarketPlacementWaits.venueCountPoll);
+      ops.ensureCurrent?.call();
+      split = await _safe(() => ops.readSplit(fresh: true));
+      ops.ensureCurrent?.call();
+    }
     pusd = split?.pusd;
   }
 
@@ -294,9 +315,17 @@ Future<bool> _countedByVenueAlone(BigInt costMicros, List<String> spenders,
 /// A pending read never authorizes signing. Kept separate from the
 /// preparation operation so callers can show its fixed readiness result.
 void polyRequireConfirmedCollateral(PolyVenueReadiness readiness) {
-  if (readiness != PolyVenueReadiness.counted &&
-      readiness != PolyVenueReadiness.refreshed) {
-    throw const PolymarketCollateralPending();
+  switch (readiness) {
+    case PolyVenueReadiness.counted:
+    case PolyVenueReadiness.refreshed:
+      return;
+    case PolyVenueReadiness.notCounted:
+      throw const PolymarketCollateralPending(
+          PolymarketCollateralWait.notCounted);
+    case PolyVenueReadiness.short:
+      throw const PolymarketCollateralPending(PolymarketCollateralWait.short);
+    case PolyVenueReadiness.unread:
+      throw const PolymarketCollateralPending(PolymarketCollateralWait.unread);
   }
 }
 
