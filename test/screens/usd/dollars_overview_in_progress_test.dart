@@ -600,7 +600,7 @@ void main() {
     ]);
     await tester.pump();
     expect(order(tester), [key]);
-    expect(text(key, 'Prediction placed'), findsOneWidget);
+    expect(find.textContaining('placed'), findsNothing);
     expect(find.textContaining('Placing'), findsNothing);
     expect(figure(key, r'$9.80'), findsOneWidget);
     expectSameSlot(
@@ -614,7 +614,7 @@ void main() {
     expect(order(tester), [key]);
     expect(inSquares(find.byType(PolyPositionRow)), findsOneWidget);
     expect(inSquares(find.byType(PlacingBetRow)), findsNothing);
-    expect(text(key, 'Prediction placed'), findsOneWidget);
+    expect(find.textContaining('placed'), findsNothing);
     expectSameSlot(
         tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
 
@@ -690,7 +690,7 @@ void main() {
     ]);
     await tester.pump();
     expect(order(tester), ['hl-ETH', 'hl-BTC']);
-    expect(text('hl-ETH', 'Long · Order placed'), findsOneWidget);
+    expect(text('hl-ETH', 'Long · 1 ETH'), findsOneWidget);
     expect(find.textContaining('Placing'), findsNothing);
 
     // The card hold ends: the position's own line.
@@ -730,7 +730,8 @@ void main() {
     ]);
     await tester.pump();
     expect(order(tester), ['hl-ETH', 'hl-BTC']);
-    expect(text('hl-ETH', 'Long · Order placed'), findsOneWidget);
+    expect(text('hl-ETH', 'Long · 0.0133 ETH'), findsOneWidget);
+    expect(find.textContaining('placed'), findsNothing);
     // The margin at the fill: $40 notional at 2x.
     expect(figure('hl-ETH', r'$20.00'), findsOneWidget);
 
@@ -739,7 +740,7 @@ void main() {
     await tester.pump();
     expect(order(tester), ['hl-ETH', 'hl-BTC']);
     expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
-    expect(text('hl-ETH', 'Long · Order placed'), findsOneWidget);
+    expect(find.textContaining('placed'), findsNothing);
     expectSameSlot(
         tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))), slot);
     expect(tester.takeException(), isNull);
@@ -772,7 +773,7 @@ void main() {
       await tester.pump();
       final slotKey = positionCoin == null ? 'hl-NVDA' : 'hl-xyz:NVDA';
       expect(order(tester), [slotKey, 'hl-BTC']);
-      expect(text(slotKey, 'Short · Order placed'), findsOneWidget);
+      expect(text(slotKey, 'Short · 0.06 NVDA'), findsOneWidget);
 
       // The venue lists it under its dex-qualified coin.
       trading.land(
@@ -781,8 +782,8 @@ void main() {
       await tester.pump();
       expect(order(tester), ['hl-xyz:NVDA', 'hl-BTC']);
       expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
-      expect(find.textContaining('Order placed'), findsOneWidget);
-      expect(text('hl-xyz:NVDA', 'Short · Order placed'), findsOneWidget);
+      expect(find.textContaining('placed'), findsNothing);
+      expect(text('hl-xyz:NVDA', 'Short · 0.06 NVDA'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });

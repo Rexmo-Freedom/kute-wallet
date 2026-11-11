@@ -67,12 +67,14 @@
 //     position is already listed (an order adding to it, or the venue
 //     listing it before the order's answer is in), the listed row itself
 //     saying Placing (PortfolioRowStatusScope). Never a second card;
-//   * filled: the same slot says placed at once ("Prediction placed",
-//     "Order placed"), from the fill's own figures
-//     (StandingOrder.placedUsd), never a placing card after the fill;
+//   * filled: the same slot is the position's own card at once, as the
+//     Portfolio lists it, with no word of its own (founder, 11 November
+//     2026, on 2.2.0 (103): "don't say prediction placed or order placed,
+//     after it is placed, show the same card as in the portfolio"): from
+//     the fill's own figures (StandingOrder.placedUsd, filledSize) until
+//     the venue lists it, never a placing card after the fill;
 //   * listed: the slot is the listed position, in place (the same key, the
-//     same slot, nothing jumps), saying placed until
-//     [kDollarsFilledCardHold] from the fill, then its own line.
+//     same slot, nothing jumps), its own line.
 //
 // A FILLED ORDER HANDS OVER ONCE (founder, 10 November 2026: sold, the
 // Overview still showed "Prediction placed"). The moment its position
@@ -505,14 +507,17 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         continue;
       }
       void journey() => StandingOrderToasts.openJourney(context, id: order.id);
+      // Filled: no word of its own, the card is the position's as the
+      // Portfolio lists it (founder, 11 November 2026).
       final status = standingOrderStageLine(l10n, order);
       squares.add(row != null
-          ? PortfolioRowStatusScope(
-              status: status,
-              // On its way, a tap opens its journey (Cancel); placed, the
-              // position's own.
-              onTap: order.isOpen ? journey : null,
-              child: row)
+          ? status == null
+              ? row
+              : PortfolioRowStatusScope(
+                  status: status,
+                  // On its way, a tap opens its journey (Cancel).
+                  onTap: order.isOpen ? journey : null,
+                  child: row)
           : StandingOrderRow(
               key: ValueKey(slot.id),
               order: order,

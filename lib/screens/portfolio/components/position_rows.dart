@@ -2118,9 +2118,15 @@ class ComboPositionRow extends StatelessWidget {
 /// place of the facts. No tap, as before, unless [onTap] (a standing
 /// order's card on the Dollars Overview opens its money journey).
 class PlacingBetRow extends ConsumerWidget {
-  const PlacingBetRow({super.key, required this.bet, this.onTap});
+  const PlacingBetRow(
+      {super.key, required this.bet, this.showStep = true, this.onTap});
 
   final PlacingBet bet;
+
+  /// False: no step in place of the facts, the row reads as the listed
+  /// position does (a filled standing order's card on the Dollars
+  /// Overview, until the venue lists it).
+  final bool showStep;
   final VoidCallback? onTap;
 
   @override
@@ -2129,7 +2135,9 @@ class PlacingBetRow extends ConsumerWidget {
     final p = bet;
     final step = p.status == PlacingBetStatus.failed
         ? l10n.openInvestPlacementFailed
-        : p.stepLabel ?? l10n.openInvestUpdatingPosition;
+        : showStep
+            ? p.stepLabel ?? l10n.openInvestUpdatingPosition
+            : null;
     final names = polyPositionRowNames(
         question: p.marketQuestion,
         side: p.outcomeName,

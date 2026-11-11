@@ -17,7 +17,7 @@ import 'package:kute/providers/placing_polymarket_bet_provider.dart'
     show PlacingBet, PlacingBetStatus;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
-    show hlFriendlyName;
+    show formatHlSize, hlFriendlyName;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PlacingBetRow, PortfolioPositionRow, kPortfolioRowImage;
 import 'package:kute/screens/shared/standing_order_journey.dart';
@@ -40,18 +40,16 @@ String standingOrderRowStatus(AppLocalizations l10n, StandingOrder order) {
 }
 
 /// What the Dollars Overview's one card says of a standing order, in the
-/// compact words (dollars_activity_tab.dart; founder, 10 November 2026:
-/// "show the actual one, with placing and when it's placed, we just show
-/// placed"): Placing from the accept until it fills (the money moving
-/// included), waiting for the person when the price moved; placed the
-/// moment it filled, until the card is simply the listed position.
-String standingOrderStageLine(AppLocalizations l10n, StandingOrder order) =>
+/// compact words (dollars_activity_tab.dart): Placing from the accept
+/// until it fills (the money moving included), waiting for the person
+/// when the price moved. Filled: nothing (null), the card is the
+/// position's own, as the Portfolio lists it (founder, 11 November 2026,
+/// on 2.2.0 (103): "don't say prediction placed or order placed, after it
+/// is placed, show the same card as in the portfolio").
+String? standingOrderStageLine(AppLocalizations l10n, StandingOrder order) =>
     switch (order.state) {
       StandingOrderState.needsApproval => l10n.standingStageApproval,
-      StandingOrderState.filled =>
-        order.venue == StandingOrderVenue.predictions
-            ? l10n.standingPredictionPlaced
-            : l10n.standingOrderPlaced,
+      StandingOrderState.filled => null,
       _ => l10n.standingStagePlacing,
     };
 
@@ -95,7 +93,10 @@ class StandingOrderRow extends StatelessWidget {
       {super.key, required this.order, required this.status, this.onTap});
 
   final StandingOrder order;
-  final String status;
+
+  /// The order's word in place of the position's own line; null (filled)
+  /// and the row reads as the listed position will.
+  final String? status;
 
   /// Null: the row taps through nothing of its own (Activity wraps it).
   final VoidCallback? onTap;
@@ -121,6 +122,7 @@ class StandingOrderRow extends StatelessWidget {
             startedAt: order.createdAt,
             stepLabel: status,
           ),
+          showStep: status != null,
           onTap: onTap,
         );
       case StandingOrderVenue.investing:
@@ -143,7 +145,15 @@ class StandingOrderRow extends StatelessWidget {
           ),
           // The listed row's name for the coin where it has one.
           title: hlFriendlyName(order.marketKey) ?? order.marketTitle,
-          subtitle: '$side · $status',
+          subtitle: status != null
+              ? '$side · $status'
+              // Filled: the listed row's own line (HlPositionRow,
+              // HlSpotRow).
+              : order.marketKind == 'spot'
+                  ? '${formatHlSize(order.filledSize ?? order.size)} '
+                      '${order.marketKey} · $side'
+                  : '$side · ${formatHlSize(order.filledSize ?? order.size)} '
+                      '${order.marketKey}',
           chip: side,
           value: formatDollars(order.placedUsd),
           onTap: onTap,

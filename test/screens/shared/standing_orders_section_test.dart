@@ -233,11 +233,11 @@ void main() {
     expect(
         standingOrderStageLine(
             l10n, _prediction(state: StandingOrderState.filled)),
-        'Prediction placed');
+        isNull);
     expect(
         standingOrderStageLine(
             l10n, _investing().copyWith(state: StandingOrderState.filled)),
-        'Order placed');
+        isNull);
     expect(
         standingOrderStageLine(
             l10n, _prediction(state: StandingOrderState.needsApproval)),
