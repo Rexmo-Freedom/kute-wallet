@@ -323,7 +323,9 @@ KuteBarContext marketBarContext(
     primaryAction: brag == null ? null : openBrag,
     shareMarket: openMarketShare,
     label: l10n.barShareWithFriends,
-    sublabel: position ? l10n.barSharePositionSub : l10n.shareTheMarketSub,
+    // No second line for a market (founder, 11 November 2026: no "They
+    // get a link to look at it").
+    sublabel: position ? l10n.barSharePositionSub : null,
     clip: 'share',
     category: category,
     searchHint: searchHint,
@@ -344,7 +346,7 @@ KuteBarContext marketBarContext(
     actions: [
       KuteMarketBarAction(
         label: position ? l10n.shareThisPosition : l10n.shareTheMarket,
-        sublabel: position ? l10n.shareThisPositionSub : l10n.shareTheMarketSub,
+        sublabel: position ? l10n.shareThisPositionSub : null,
         icon: Icons.ios_share_rounded,
         onTap: (_) => _afterSalSheet(context, openMarketShare),
       ),

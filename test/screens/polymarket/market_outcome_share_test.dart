@@ -550,7 +550,7 @@ void main() {
         await _pump(tester, _btc);
         final top = _top(tester);
         expect(top.label, _l10n.barShareWithFriends);
-        expect(top.sublabel, _l10n.shareTheMarketSub);
+        expect(top.sublabel, isNull);
         expect(find.byKey(const ValueKey('send-pick-chip')), findsNothing);
         await _done(tester);
       }, _offline);

@@ -411,7 +411,7 @@ void main() {
     final bar = await _marketBar(tester, single: false);
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(bar.actions.map((a) => a.label), [l10n.shareTheMarket]);
-    expect(bar.sublabel, l10n.shareTheMarketSub);
+    expect(bar.sublabel, isNull);
     await _pumpSheet(tester, bar);
     expect(find.text(l10n.shareTheMarket), findsOneWidget);
     expect(find.text(l10n.sendAPrediction), findsNothing);
@@ -442,7 +442,7 @@ void main() {
     final bar = await _marketBar(tester, single: true);
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(bar.actions.map((a) => a.label), [l10n.shareTheMarket]);
-    expect(bar.sublabel, l10n.shareTheMarketSub);
+    expect(bar.sublabel, isNull);
     // The page's buttons send the market at once.
     expect(bar.directAction, isNotNull);
     await _pumpSheet(tester, bar);

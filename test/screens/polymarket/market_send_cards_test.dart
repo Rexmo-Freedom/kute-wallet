@@ -249,7 +249,7 @@ void main() {
         final l10n = lookupAppLocalizations(const Locale('en'));
         final bar = _bar(tester);
         expect(bar.actions.map((a) => a.label), [l10n.shareTheMarket]);
-        expect(bar.sublabel, l10n.shareTheMarketSub);
+        expect(bar.sublabel, isNull);
         expect(bar.directAction, isNotNull);
         await _tapSend(tester);
         _expectMarketSheet(tester);
@@ -270,7 +270,7 @@ void main() {
       final l10n = lookupAppLocalizations(const Locale('en'));
       final bar = _bar(tester);
       expect(bar.actions.map((a) => a.label), [l10n.shareTheMarket]);
-      expect(bar.sublabel, l10n.shareTheMarketSub);
+      expect(bar.sublabel, isNull);
       await _tapSend(tester);
       _expectMarketSheet(tester);
       expect(tester.takeException(), isNull);
