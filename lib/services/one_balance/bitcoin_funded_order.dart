@@ -709,6 +709,33 @@ class BitcoinFundedRun {
   final Object? error;
 }
 
+/// A funded order's placement, followed from before its order was queued
+/// ([BitcoinFundedOrderRunner.watchPlacement]) and handed to
+/// [BitcoinFundedOrderRunner.followFunded], or let go with [cancel].
+class FundedPlacementWatch {
+  FundedPlacementWatch._();
+
+  final Completer<void> _credited = Completer<void>();
+  final Completer<void> _cancelled = Completer<void>();
+
+  /// True once the order was placed (or sent unconfirmed), false when it
+  /// failed, was dropped unplaced, or the watch was let go.
+  late final Future<bool> placed;
+  bool? _placed;
+
+  /// Whether the order has already been placed (null: not ended yet).
+  bool? get placedNow => _placed;
+
+  /// The venue's own words and code when the order failed.
+  String? failedText;
+  String? failedCode;
+
+  /// Nothing follows this placement any more (the order never went).
+  void cancel() {
+    if (!_cancelled.isCompleted) _cancelled.complete();
+  }
+}
+
 /// The chain. See the file header.
 class BitcoinFundedOrderRunner {
   BitcoinFundedOrderRunner(this._ref);
@@ -826,12 +853,61 @@ class BitcoinFundedOrderRunner {
       .read(fundedOrdersProvider.notifier)
       .start(label, stage: FundedOrderStage.preparing);
 
+  /// [id]'s order placement, followed from NOW, before its order is
+  /// queued: the Investing ticket attaches it before its funding move, so
+  /// an order the auto-fire places (and clears) while the move is still
+  /// awaited is seen placed. Handed to [followFunded] once the move
+  /// returned, or let go ([FundedPlacementWatch.cancel]) when nothing is
+  /// followed. Never throws.
+  FundedPlacementWatch watchPlacement(String id) {
+    var venue = OneBalanceVenue.investing;
+    try {
+      venue = _ref.read(fundedOrdersProvider.notifier).byId(id)?.label.venue ??
+          venue;
+    } catch (_) {}
+    return _watch(venue, id, queuedLater: true);
+  }
+
+  FundedPlacementWatch _watch(OneBalanceVenue venue, String id,
+      {bool queuedLater = false}) {
+    final w = FundedPlacementWatch._();
+    try {
+      w.placed = _placementWait(venue,
+          fundedRunId: id,
+          queuedLater: queuedLater,
+          cancelled: w._cancelled.future, onFailed: (message, code) {
+        w.failedText = message;
+        w.failedCode = code;
+      })(onCredited: () {
+        if (w._credited.isCompleted) return;
+        w._credited.complete();
+        try {
+          final orders = _ref.read(fundedOrdersProvider.notifier);
+          if (orders.byId(id)?.stage.active == true) {
+            orders.setStage(id, FundedOrderStage.placing);
+          }
+        } catch (_) {}
+      }).then((placed) {
+        w._placed = placed;
+        return placed;
+      }).catchError((Object _) => w._placed = false);
+    } catch (_) {
+      w.placed = Future.value(false);
+    }
+    return w;
+  }
+
   /// [id]'s money left for the venue as [move] (null: nothing had to
   /// move, or what moved is in [rowIds]): its rows name the order, and
   /// the venue's autofire is followed to the end (placing on the credit,
-  /// then placed or stopped with the venue's own words). Never throws.
+  /// then placed or stopped with the venue's own words). [watch] is the
+  /// placement followed since before the order was queued
+  /// ([watchPlacement]); without one it is followed from now. Never
+  /// throws.
   void followFunded(String id,
-      {VenueMoveResult? move, Set<String> rowIds = const {}}) {
+      {VenueMoveResult? move,
+      Set<String> rowIds = const {},
+      FundedPlacementWatch? watch}) {
     try {
       final orders = _ref.read(fundedOrdersProvider.notifier);
       final record = orders.byId(id);
@@ -851,18 +927,11 @@ class BitcoinFundedOrderRunner {
           }
         }).catchError((Object _) {}));
       }
-      String? failedText;
-      String? failedCode;
       final venue = record.label.venue;
-      final credited = Completer<void>();
-      final placement =
-          _placementWait(venue, fundedRunId: id, onFailed: (message, code) {
-        failedText = message;
-        failedCode = code;
-      })(onCredited: () {
-        if (!credited.isCompleted) credited.complete();
-        orders.setStage(id, FundedOrderStage.placing);
-      }).catchError((Object _) => false);
+      final w = watch ?? _watch(venue, id);
+      String? failedCode() => w.failedCode;
+      final credited = w._credited;
+      final placement = w.placed;
       unawaited(placement.then((placed) {
         if (placed) {
           orders.setStage(id, FundedOrderStage.done);
@@ -870,9 +939,9 @@ class BitcoinFundedOrderRunner {
         }
         orders.stop(id,
             stage: FundedOrderStage.failed,
-            reason: failedCode ?? 'placement',
+            reason: w.failedCode ?? 'placement',
             moneyAt: FundedMoneyAt.venue,
-            message: failedText);
+            message: w.failedText);
       }));
       // The same step graph as an order funded from Bitcoin: the Dollars
       // leg (when one left) landing on its own, the venue's readiness, the
@@ -939,21 +1008,21 @@ class BitcoinFundedOrderRunner {
               phases: env.readiness?.call(venue),
               credited: credited.future,
               placement: placement,
-              failedCode: () => failedCode),
+              failedCode: failedCode),
           FundedStepId.convert => (s, update) => readinessPhaseStep(
               'converting', update,
               optional: true,
               phases: env.readiness?.call(venue),
               credited: credited.future,
               placement: placement,
-              failedCode: () => failedCode),
+              failedCode: failedCode),
           FundedStepId.approve => (s, update) => readinessPhaseStep(
               'approving', update,
               optional: true,
               phases: env.readiness?.call(venue),
               credited: credited.future,
               placement: placement,
-              failedCode: () => failedCode),
+              failedCode: failedCode),
           FundedStepId.confirm || FundedStepId.credit => (s, update) =>
               readinessPhaseStep(
                   step.id == FundedStepId.confirm ? 'confirming' : 'crediting',
@@ -961,14 +1030,16 @@ class BitcoinFundedOrderRunner {
                   phases: env.readiness?.call(venue),
                   credited: credited.future,
                   placement: placement,
-                  failedCode: () => failedCode),
+                  failedCode: failedCode),
           FundedStepId.place => (s, update) async => await placement
               ? const MoneyStepDone()
-              : MoneyStepFailed(failedCode ?? 'placement'),
+              : MoneyStepFailed(w.failedCode ?? 'placement'),
           _ => null,
         },
       ).run());
-    } catch (_) {}
+    } catch (_) {
+      watch?.cancel();
+    }
   }
 
   /// [id] stopped before its order could go, with the money at [moneyAt]
@@ -1007,34 +1078,41 @@ class BitcoinFundedOrderRunner {
   }
 
   /// Follows the venue's queued order to its end: placing is the credit,
-  /// done (or awaiting the venue's confirmation) is placed, failed or
-  /// cleared before either is not. [onFailed] hears the venue's own words
-  /// and code when it failed.
+  /// done (or awaiting the venue's confirmation) is placed, failed is not.
+  /// [onFailed] hears the venue's own words and code when it failed.
+  ///
+  /// Investing: a finished order is cleared at once, so no order (or
+  /// another run's) is UNKNOWN, never "not placed": its own outcome is
+  /// read back ([PendingHyperliquidOrderNotifier.settledFor]): placed,
+  /// failed, or, with none, dropped unplaced (not placed). [queuedLater]:
+  /// attached before the order is queued, so none yet just waits.
+  /// [cancelled] lets the wait go (not placed) when nothing follows it.
   BitcoinPlacementWait _placementWait(OneBalanceVenue venue,
           {void Function(String? message, String? code)? onFailed,
-          String? fundedRunId}) =>
+          String? fundedRunId,
+          bool queuedLater = false,
+          Future<void>? cancelled}) =>
       ({required void Function() onCredited}) {
         final done = Completer<bool>();
         void end(bool placed) {
           if (!done.isCompleted) done.complete(placed);
         }
 
+        unawaited(cancelled?.then((_) => end(false)));
         late final ProviderSubscription<void> sub;
         switch (venue) {
           case OneBalanceVenue.investing:
-            sub = _ref.listen<PendingHlOrderIntent?>(
-                pendingHyperliquidOrderProvider, (_, next) {
-              if (next == null) return end(false);
-              switch (next.status) {
+            void outcome(PendingHlOrderIntent order) {
+              switch (order.status) {
                 case PendingHlOrderStatus.placing:
-                  if (next.readiness != HlReadiness.crediting) onCredited();
+                  if (order.readiness != HlReadiness.crediting) onCredited();
                 case PendingHlOrderStatus.done:
                 // Sent with no answer, as Predictions' awaitingConfirmation:
                 // the order is out there, its own result says the rest.
                 case PendingHlOrderStatus.unconfirmed:
                   end(true);
                 case PendingHlOrderStatus.failed:
-                  final message = next.errorMessage;
+                  final message = order.errorMessage;
                   onFailed?.call(
                       message,
                       message != null && message == _l10n().hlFundsTimeout
@@ -1045,6 +1123,39 @@ class BitcoinFundedOrderRunner {
                 case PendingHlOrderStatus.awaitingBalance:
                   break;
               }
+            }
+
+            // This run's order: stamped with its id, or (a chain that does
+            // not stamp it) any, as before; once queued, only its own.
+            bool ours(PendingHlOrderIntent order) =>
+                fundedRunId == null ||
+                order.fundedRunId == fundedRunId ||
+                (!queuedLater && order.fundedRunId == null);
+            var seen = false;
+            void gone() {
+              FundedOrderRecord? record;
+              try {
+                record = fundedRunId == null
+                    ? null
+                    : _ref
+                        .read(fundedOrdersProvider.notifier)
+                        .byId(fundedRunId);
+              } catch (_) {}
+              final settled = _ref
+                  .read(pendingHyperliquidOrderProvider.notifier)
+                  .settledFor(fundedRunId,
+                      since: record?.createdAt, coin: record?.label.marketKey);
+              if (settled != null) return outcome(settled);
+              // Not queued yet: the ticket's funding has not started.
+              if (queuedLater && !seen) return;
+              end(false);
+            }
+
+            sub = _ref.listen<PendingHlOrderIntent?>(
+                pendingHyperliquidOrderProvider, (_, next) {
+              if (next == null || !ours(next)) return gone();
+              seen = true;
+              outcome(next);
             }, fireImmediately: true);
           case OneBalanceVenue.predictions:
             sub = _ref.listen<PendingBetIntent?>(pendingPolymarketBetProvider,

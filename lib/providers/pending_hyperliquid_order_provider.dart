@@ -273,6 +273,12 @@ class PendingHlOrderIntent {
   /// counted. Null for an order held in memory only, as before.
   final String? standingOrderId;
 
+  /// The funded-order record (`funded_orders.dart`) following this order,
+  /// when the ticket queued it behind a funding move; null otherwise. Its
+  /// outcome is read by that id once the order is cleared
+  /// ([PendingHyperliquidOrderNotifier.settledFor]).
+  final String? fundedRunId;
+
   PendingHlOrderIntent({
     required this.coin,
     required this.kind,
@@ -311,6 +317,7 @@ class PendingHlOrderIntent {
     this.bitcoinLandedAt,
     this.readiness,
     this.standingOrderId,
+    this.fundedRunId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// Whether the auto-fire may shrink this order to what arrived.
@@ -332,6 +339,7 @@ class PendingHlOrderIntent {
     DateTime? bitcoinLandedAt,
     HlReadiness? readiness,
     String? standingOrderId,
+    String? fundedRunId,
   }) {
     return PendingHlOrderIntent(
       coin: coin,
@@ -371,6 +379,7 @@ class PendingHlOrderIntent {
       bitcoinLandedAt: bitcoinLandedAt ?? this.bitcoinLandedAt,
       readiness: readiness ?? this.readiness,
       standingOrderId: standingOrderId ?? this.standingOrderId,
+      fundedRunId: fundedRunId ?? this.fundedRunId,
     );
   }
 }
@@ -393,6 +402,35 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
 
   void clear() {
     state = null;
+  }
+
+  /// The last few orders that finished (done, unconfirmed or failed), with
+  /// when, newest last. A finished order is cleared at once
+  /// ([_settleIfTerminal]), so a follower that attaches after that (the
+  /// order placed while its funding move was still awaited) reads its
+  /// outcome here instead of taking "cleared" for "not placed".
+  final List<({PendingHlOrderIntent intent, DateTime at})> _settled = [];
+  static const int _kSettledKept = 8;
+
+  /// The finished order that belongs to the funded run [fundedRunId]: the
+  /// one queued under that id, or, for an order queued without one (a
+  /// chain that does not stamp it), one on [coin] that finished at or
+  /// after [since] (the run's start: one live funded run per venue).
+  /// Null when none did: the order was dropped unplaced, or has not
+  /// finished.
+  PendingHlOrderIntent? settledFor(String? fundedRunId,
+      {DateTime? since, String? coin}) {
+    for (final s in _settled.reversed) {
+      final runId = s.intent.fundedRunId;
+      if (runId != null) {
+        if (runId == fundedRunId) return s.intent;
+        continue;
+      }
+      if (since == null || s.at.isBefore(since)) continue;
+      if (coin != null && s.intent.coin != coin) continue;
+      return s.intent;
+    }
+    return null;
   }
 
   /// The auto-fire's latest look at the order's money (see
@@ -444,6 +482,8 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
       return;
     }
     final failed = current.status == PendingHlOrderStatus.failed;
+    _settled.add((intent: current, at: FundedOrdersNotifier.clock()));
+    if (_settled.length > _kSettledKept) _settled.removeAt(0);
     state = null;
     if (failed) {
       VenueCashReleased.emit(OneBalanceVenue.investing, 'order_failed');
@@ -464,7 +504,8 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
   /// money may be on its way, and a retry must not fund it twice. A
   /// second order while one is queued or placing is refused
   /// ([kHlOrderQueuedReason]) with nothing changed. The outcome is
-  /// returned for the slip to show.
+  /// returned for the slip to show. [fundedRunId] names the funded-order
+  /// record following the order (its outcome is read by it).
   Future<OrderFundingOutcome> fundAndQueue(
     PendingHlOrderIntent intent, {
     required AuthGrant grant,
@@ -475,6 +516,7 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
     void Function(OrderFundingStage)? onStage,
     double? fundUsd,
     bool continueJourney = false,
+    String? fundedRunId,
   }) async {
     final current = state;
     if (isActive(current) ||
@@ -488,7 +530,9 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
     // The watcher ([pendingHlOrderAutoFireProvider]) must be alive: the
     // slip reads it before calling, and every state change below reaches
     // its listener, so the first check runs as soon as the move is sent.
-    state = intent.copyWith(status: PendingHlOrderStatus.awaitingBalance);
+    state = intent.copyWith(
+        status: PendingHlOrderStatus.awaitingBalance,
+        fundedRunId: fundedRunId);
     final startedAt = DateTime.now();
     OrderFundingOutcome outcome;
     try {

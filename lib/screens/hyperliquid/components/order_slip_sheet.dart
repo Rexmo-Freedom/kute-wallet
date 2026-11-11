@@ -2948,6 +2948,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     });
     _trackFundingStep(OrderFundingStage.fund);
 
+    // The order's placement, followed BEFORE it is queued (as the
+    // Predictions slip does): it is queued before its move is sent, so the
+    // auto-fire may place it, and clear it, while the move is still
+    // awaited (a long unconfirmed settlement while the credit lands).
+    // Followed only after, that order read as failed.
+    final placement = runner.watchPlacement(fundedId);
     final OrderFundingOutcome outcome;
     try {
       // The watcher that places the order on the credit, alive before
@@ -2956,6 +2962,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       outcome =
           await ref.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(
         pending,
+        fundedRunId: fundedId,
         grant: grant,
         controller: ref.read(orderFundingControllerProvider),
         orderUsd: marginUsd,
@@ -2969,6 +2976,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         },
       );
     } catch (e) {
+      placement.cancel();
       runner.stopFunded(fundedId,
           reason: 'venue_refused', message: _messageFor(e));
       _fundingFailedBeforeMove('fund', e, _messageFor(e), inSteps: true);
@@ -2977,17 +2985,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Followed to the end whatever happens to the ticket.
     switch (outcome) {
       case OrderFundingFunded(:final move):
-        runner.followFunded(fundedId, move: move);
+        runner.followFunded(fundedId, move: move, watch: placement);
       case OrderFundingNotNeeded() || OrderFundingUnconfirmed():
-        runner.followFunded(fundedId);
+        runner.followFunded(fundedId, watch: placement);
       case OrderFundingRefused(:final reason)
           when reason == kHlOrderQueuedReason:
+        // Another order's queue: this one never was.
+        placement.cancel();
         runner.dropFunded(fundedId);
+      case _ when placement.placedNow == true:
+        // Placed meanwhile all the same: never a failure in its steps.
+        runner.followFunded(fundedId, watch: placement);
       case OrderFundingRefused():
+        placement.cancel();
         runner.stopFunded(fundedId,
             reason: 'venue_refused', message: _strings.errorCopyGeneric);
       case OrderFundingNeedsDollars():
         // The button turns into the Add door: nothing to show in steps.
+        placement.cancel();
         runner.dropFunded(fundedId);
     }
     if (!mounted) return;
