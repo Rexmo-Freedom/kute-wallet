@@ -24,7 +24,9 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/one_balance/committed_funds.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyPlace;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -1131,6 +1133,46 @@ void main() {
             .lastWhere((e) => e.$1 == 'order_funding_completed')
             .$2!;
         expect(done['account_read_errors'] as int, greaterThan(0));
+      });
+    });
+  });
+
+  group('one order, one outcome', () {
+    test(
+        'Investing cash a prediction accepted meanwhile is about to pull is '
+        'never this order\'s: it waits for its own money', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = container(controller);
+        // Investing holds 30; a bet accepted a moment ago pulls 15 of it
+        // (committed_funds.dart). The slip sized this order's move on the
+        // 15 left, so 5.24 more is on its way from Dollars.
+        withdrawable = 30;
+        final commitments = c.read(committedFundsProvider.notifier);
+        commitments.hold(MoneyPlace.investing, OneBalanceVenue.predictions,
+            usd: 15);
+        final placement = _Placement(resizable: true);
+        final intent = _intent(placement);
+        c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+            grant: approve(intent),
+            controller: controller,
+            orderUsd: 20,
+            requiredUsd: intent.requiredUsd,
+            readyUsd: 15);
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+        expect(placement.placed, isEmpty,
+            reason: 'the 30 on the account is not all this order\'s: placing '
+                'now takes the cash the bet is about to move');
+        expect(c.read(pendingHyperliquidOrderProvider)!.status,
+            PendingHlOrderStatus.awaitingBalance);
+        // The bet's leg left (15 gone) and this order's money landed.
+        commitments.venueCashSent(OneBalanceVenue.investing);
+        withdrawable = 15 + 5.5;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(terminal().status, PendingHlOrderStatus.done);
       });
     });
   });

@@ -81,6 +81,9 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
         HyperliquidInsufficientMarginException,
         HyperliquidOrderNotPlacedException,
         HyperliquidOrderUnconfirmedException;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show committedFundsProvider;
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyPlace;
 import 'package:kute/services/one_balance/funded_orders.dart'
     show FundedOrderRecord, FundedOrdersNotifier, fundedOrdersProvider;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
@@ -1050,6 +1053,24 @@ class PendingHlOrderAutoFire {
     return margin;
   }
 
+  /// The account's cash the queued order may count as its own: perp
+  /// withdrawable plus unheld spot USDC, less what a prediction accepted
+  /// meanwhile is about to pull out of Investing (committed_funds.dart;
+  /// the slip sized this order's move on the same net figure,
+  /// `_hlReadyUsd`). Counted whole, the order placed at once on cash that
+  /// was the bet's, whose leg then found no money.
+  double _usableUsd(HlAccountSnapshot snap) {
+    final cash = hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
+    var held = 0.0;
+    try {
+      held = ref.read(committedFundsProvider.notifier).heldUsd(
+          MoneyPlace.investing,
+          exceptHeldOn: OneBalanceVenue.investing);
+    } catch (_) {}
+    if (!held.isFinite || held <= 0) return cash;
+    return cash > held ? cash - held : 0;
+  }
+
   Future<void> _maybeFire({String source = HlCreditedBy.accountPoll}) async {
     if (_firing) return;
     final intent = ref.read(pendingHyperliquidOrderProvider);
@@ -1076,8 +1097,7 @@ class PendingHlOrderAutoFire {
     double withdrawable = 0;
     try {
       final snap = await _readAccount(intent, source);
-      withdrawable =
-          hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
+      withdrawable = _usableUsd(snap);
     } catch (_) {
       // Transient read failure — the poll below retries.
     }
@@ -1435,8 +1455,7 @@ class PendingHlOrderAutoFire {
       double available;
       try {
         final snap = await ref.read(hyperliquidAccountProvider.future);
-        available =
-            hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
+        available = _usableUsd(snap);
       } catch (_) {
         continue;
       }
