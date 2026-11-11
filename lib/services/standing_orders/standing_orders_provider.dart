@@ -59,6 +59,10 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/services/one_balance/funded_orders.dart'
+    show FundedMoneyAt, FundedOrderRecord, fundedOrdersProvider;
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyStepKind, MoneyStepStatus;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/order_funding.dart'
@@ -306,7 +310,9 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   void _onBet(PendingBetIntent? prev, PendingBetIntent? next) {
     if (next == null) {
       final id = prev?.standingOrderId;
-      if (id != null) _dropped(id);
+      if (id != null) {
+        _dropped(id, nothingMoved: prev != null && _betMovedNothing(prev));
+      }
       return;
     }
     final id = next.standingOrderId;
@@ -353,7 +359,15 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   void _onHlOrder(PendingHlOrderIntent? prev, PendingHlOrderIntent? next) {
     if (next == null) {
       final id = prev?.standingOrderId;
-      if (id != null) _dropped(id);
+      if (id != null) {
+        // The funding controller answers before anything is marked on
+        // the intent: no answer on it, nothing left Dollars (its refusal,
+        // a Dollars shortfall, an error before the move).
+        _dropped(id,
+            nothingMoved: prev != null &&
+                prev.fundedAt == null &&
+                prev.fundQuoteId == null);
+      }
       return;
     }
     final id = next.standingOrderId;
@@ -391,9 +405,18 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   /// Investing order has nothing to be looked up by, so its standing
   /// order ends there, quietly: the account's own orders and positions
   /// say the rest, and nothing is left to place or to resume.
-  void _dropped(String id) {
+  ///
+  /// [nothingMoved]: it was stopped before any of its money moved (the
+  /// funding refused, Dollars short): the slip's own message is the only
+  /// one (its Add door, its stop), so it is removed quietly instead of a
+  /// second "wasn't placed, the money is in ..." toast for one refusal.
+  void _dropped(String id, {bool nothingMoved = false}) {
     final order = byId(id);
     if (order == null || !order.isOpen || _cancelling.contains(id)) return;
+    if (nothingMoved && order.state == StandingOrderState.funding) {
+      unawaited(_forget(order));
+      return;
+    }
     if (order.state == StandingOrderState.posting ||
         order.state == StandingOrderState.posted) {
       if (order.venue == StandingOrderVenue.investing) {
@@ -438,6 +461,26 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
           state: StandingOrderState.posted, updatedAt: clock()));
     }
     await _forget(order);
+  }
+
+  /// Whether [bet], cleared, had none of its money reach Predictions:
+  /// no Dollars move recorded on it, and its funded run stopped with no
+  /// leg landed and the money not at the venue. A bet with no run on
+  /// record is not known to have moved nothing.
+  bool _betMovedNothing(PendingBetIntent bet) {
+    if (bet.fundQuoteRef != null) return false;
+    final runId = bet.fundedRunId;
+    if (runId == null) return false;
+    FundedOrderRecord? run;
+    try {
+      run = ref.read(fundedOrdersProvider.notifier).byId(runId);
+    } catch (_) {
+      return false;
+    }
+    if (run == null || run.stage.active) return false;
+    if (run.moneyAt == FundedMoneyAt.venue) return false;
+    return !run.steps.steps.any((s) =>
+        s.kind == MoneyStepKind.leg && s.status == MoneyStepStatus.done);
   }
 
   /// The predictions whose end is being read from the venue.

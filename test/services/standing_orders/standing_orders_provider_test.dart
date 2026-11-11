@@ -23,6 +23,8 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
     show HlOrderResult, HlOrderResultKind;
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/polymarket_order_v2.dart';
 import 'package:kute/services/standing_orders/polymarket_signed_order.dart';
@@ -515,15 +517,70 @@ void main() {
           StandingOrderState.posted);
     });
 
-    test('a queued order cleared before it left for the venue is dropped',
-        () async {
+    test(
+        'a queued order cleared before it left for the venue, its money '
+        'already moved, is dropped', () async {
       final (c, id, outcomes) = await standHl(hlOrder(orderKind: 'market'));
-      c.read(pendingHyperliquidOrderProvider.notifier).clear();
+      final hl = c.read(pendingHyperliquidOrderProvider.notifier);
+      // The move left Dollars (the funding controller's answer).
+      hl.setIntent(c
+          .read(pendingHyperliquidOrderProvider)!
+          .copyWith(fundQuoteId: 'q', fundedAt: _now));
+      hl.clear();
       await settle();
       final o = c.read(standingOrdersProvider.notifier).byId(id)!;
       expect(o.state, StandingOrderState.failed);
       expect(o.failureCode, 'dropped');
       expect(outcomes.single.state, StandingOrderState.failed);
+    });
+
+    test(
+        'refused before any money moved (the move refused, Dollars short): '
+        'removed quietly, the slip\'s own message is the only one', () async {
+      final (c, id, outcomes) = await standHl(hlOrder(orderKind: 'market'));
+      // fundAndQueue's refusal clears the queued order it set first.
+      c.read(pendingHyperliquidOrderProvider.notifier).clear();
+      await settle();
+      expect(outcomes, isEmpty, reason: 'no "wasn\'t placed" toast');
+      expect(c.read(standingOrdersProvider), isEmpty);
+      expect(await store.hasSecret(id), isFalse);
+      expect(await store.load('w1'), isEmpty, reason: 'never resumed');
+    });
+
+    test(
+        'a prediction whose funding stopped before any money reached '
+        'Predictions: removed quietly, the slip says where the money is',
+        () async {
+      final c = container();
+      final runs = c.read(fundedOrdersProvider.notifier);
+      final run = runs.start(
+          const FundedOrderLabel(
+              venue: OneBalanceVenue.predictions,
+              orderUsd: 10,
+              side: 'Yes',
+              market: 'Will it rain?',
+              marketKey: '111'),
+          stage: FundedOrderStage.preparing);
+      // Queued behind its legs only (nothing from Dollars), as the
+      // venue-cash chain does at once.
+      final intent = _bet().copyWith(fundedRunId: run);
+      approve(intent);
+      final notifier = c.read(pendingPolymarketBetProvider.notifier);
+      notifier.setIntent(intent);
+      await settle();
+      final id = c.read(standingOrdersProvider).single.id;
+      final outcomes = <StandingOrder>[];
+      c.read(standingOrdersProvider.notifier).outcomes.listen(outcomes.add);
+      // The leg was refused at its quote: the run stops, the bet goes.
+      runs.stop(run,
+          stage: FundedOrderStage.failed,
+          reason: 'venue_refused',
+          moneyAt: FundedMoneyAt.investments);
+      notifier.clear();
+      await settle();
+      expect(outcomes, isEmpty);
+      expect(c.read(standingOrdersProvider), isEmpty);
+      expect(await store.hasSecret(id), isFalse);
     });
 
     test('a failure is reported once, with its code', () async {
