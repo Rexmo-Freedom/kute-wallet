@@ -13,6 +13,14 @@
 //     operation. Deterministic, whenever it landed, and it survives a
 //     restart. A row takes every receive linked to it: a payout split
 //     across several transfers is one row.
+//     One link is not taken at its word: a receive linked to a row it does
+//     not fit, while it is the exact figure of another listed row of the
+//     wallet's that has no receive at all ([crossedDeliveryLinks]). A Swap
+//     paid from two places delivers twice within the minute, and the
+//     reconciler once settled the slower leg on the faster leg's receive;
+//     the slower leg's own delivery then stood alone as "Received ₿".
+//     Such a receive goes to the row it is the delivery of, and the row it
+//     was linked to claims its own by amount and time like any other.
 //  2. otherwise, a row delivering bitcoin to the wallet's own Spark balance
 //     claims it by amount and time, from [kOwnDeliveryEarlyMargin] before
 //     the row to [kOwnDeliveryArrivalWindow] after it (the reconciler's own
@@ -272,31 +280,65 @@ Map<String, String> ownBitcoinDeliveryReceives(
   ];
   if (inbound.isEmpty || exchanges.isEmpty) return claimed;
 
+  // Whether [d] is the wallet's own money coming home: one of its own
+  // withdrawal kinds (never to a Spark address known not to be its own),
+  // or a row settling to its own address.
+  ({bool ownWithdrawal, bool toSelf}) ownership(SwapOrder d) {
+    final toSelf = settlesToOwnAddress(d.withdrawalAddress, ownAddresses);
+    // A Spark address the wallet knows is not its own: someone else's
+    // money, whatever the flow says.
+    final foreign = !toSelf &&
+        ownAddresses.isNotEmpty &&
+        sparkIdentityPubkeyHex(d.withdrawalAddress.trim()) != null;
+    return (
+      ownWithdrawal: d.isOrchestra &&
+          _ownWithdrawalKinds.contains(classify(d)) &&
+          !foreign,
+      toSelf: toSelf,
+    );
+  }
+
   // 1. The reconciler's links: the row it settled, wherever its id went.
   // Every receive linked to a listed row folds into it, however many legs
-  // the payout took and whenever each landed.
+  // the payout took and whenever each landed. A link crossed over from
+  // another of the wallet's rows goes to the row it is the delivery of.
   final linkedSats = <String, int>{};
   final linkedExpected = <String, int>{};
+  // What a row lost to a crossed link: the sats it was settled on by
+  // mistake and the figure it was matched against then (0: not recorded).
+  final crossedAway = <String, ({int sats, int expected})>{};
   if (links.isNotEmpty) {
+    final crossed = {
+      for (final c in crossedDeliveryLinks(exchanges, inbound,
+          links: links,
+          owns: (ex) {
+            final own = ownership(ex.details);
+            return own.ownWithdrawal || own.toSelf;
+          }))
+        c.receiveId: c,
+    };
     for (final rx in inbound) {
       final link = links[rx.id];
       if (link == null) continue;
-      final order = link.orderId;
-      final resolved = order == null ? null : OrchestraOrderIds.resolve(order);
-      for (final ex in exchanges) {
-        if (ex.details.coinTo.toUpperCase() != 'BTC') continue;
-        final op = ex.details.operationId;
-        if (ex.id == order ||
-            ex.id == resolved ||
-            (link.operationId != null && op == link.operationId)) {
-          claimed[rx.id] = ex.id;
-          linkedSats[ex.id] = (linkedSats[ex.id] ?? 0) + rx.amountSats.abs();
-          final expected = link.expectedSats;
-          if (expected != null && expected > (linkedExpected[ex.id] ?? 0)) {
-            linkedExpected[ex.id] = expected;
-          }
-          break;
-        }
+      final cross = crossed[rx.id];
+      if (cross != null) {
+        claimed[rx.id] = cross.toRow;
+        linkedSats[cross.toRow] =
+            (linkedSats[cross.toRow] ?? 0) + rx.amountSats.abs();
+        final lost = crossedAway[cross.fromRow];
+        crossedAway[cross.fromRow] = (
+          sats: (lost?.sats ?? 0) + rx.amountSats.abs(),
+          expected: math.max(lost?.expected ?? 0, cross.expectedSats ?? 0),
+        );
+        continue;
+      }
+      final ex = _linkedRow(link, exchanges);
+      if (ex == null) continue;
+      claimed[rx.id] = ex.id;
+      linkedSats[ex.id] = (linkedSats[ex.id] ?? 0) + rx.amountSats.abs();
+      final expected = link.expectedSats;
+      if (expected != null && expected > (linkedExpected[ex.id] ?? 0)) {
+        linkedExpected[ex.id] = expected;
       }
     }
   }
@@ -327,19 +369,20 @@ Map<String, String> ownBitcoinDeliveryReceives(
     final to = d.networkTo.toUpperCase();
     if (to != 'SPARK' && to != 'LIGHTNING') continue;
     if (OwnSparkArrivals.failedStatuses.contains(d.status)) continue;
-    final fieldSats = orchestraBtcFieldToSats(d.withdrawalAmount);
+    var fieldSats = orchestraBtcFieldToSats(d.withdrawalAmount);
     final linked = linkedSats[ex.id] ?? 0;
+    // A row settled on a receive that was another row's delivery reads
+    // that receive's figure, not its own: it waits for what it said it
+    // would deliver when it was matched.
+    final lost = crossedAway[ex.id];
+    if (lost != null &&
+        lost.expected > 0 &&
+        (fieldSats - lost.sats).abs() <= tightDeliveryTolerance(lost.sats)) {
+      fieldSats = lost.expected;
+    }
     final expected = math.max(fieldSats, linkedExpected[ex.id] ?? 0);
-    final kind = classify(d);
-    final toSelf = settlesToOwnAddress(d.withdrawalAddress, ownAddresses);
-    // A Spark address the wallet knows is not its own: someone else's
-    // money, whatever the flow says.
-    final foreign = !toSelf &&
-        ownAddresses.isNotEmpty &&
-        sparkIdentityPubkeyHex(d.withdrawalAddress.trim()) != null;
-    final ownWithdrawal =
-        d.isOrchestra && _ownWithdrawalKinds.contains(kind) && !foreign;
-    final cctp = (d.routeVersion ?? '').startsWith('hypercore_cctp_to_');
+    final (:ownWithdrawal, :toSelf) = ownership(d);
+    final cctp = _isCctp(d);
     if ((ownWithdrawal || toSelf) && linked == 0) {
       final sentUsd = deliverySentUsd(d);
       if (sentUsd != null) {
@@ -511,11 +554,244 @@ Map<String, String> ownBitcoinDeliveryReceives(
 /// half an hour for a row only a bet-flow tag ties to the wallet.
 Duration _deliveryWindow(SwapOrder d, bool own) {
   if (!own) return const Duration(minutes: 30);
-  final version = d.routeVersion ?? '';
-  if (version.startsWith('hypercore_cctp_to_')) {
-    return kOwnCctpDeliveryArrivalWindow;
+  return _isCctp(d) ? kOwnCctpDeliveryArrivalWindow : kOwnDeliveryArrivalWindow;
+}
+
+/// Whether [d] is a Circle CCTP move out of Investing.
+bool _isCctp(SwapOrder d) =>
+    (d.routeVersion ?? '').startsWith('hypercore_cctp_to_');
+
+/// The row among [exchanges] that [link] names: by the id it had when it
+/// was matched, by the order its quote became, or by its settlement
+/// operation. Only a row delivering bitcoin; null when it is not listed.
+SwapOrderTransaction? _linkedRow(
+    OrchestraDeliveryLink link, List<SwapOrderTransaction> exchanges) {
+  final order = link.orderId;
+  final resolved = order == null ? null : OrchestraOrderIds.resolve(order);
+  for (final ex in exchanges) {
+    if (ex.details.coinTo.toUpperCase() != 'BTC') continue;
+    final op = ex.details.operationId;
+    if (ex.id == order ||
+        ex.id == resolved ||
+        (link.operationId != null && op == link.operationId)) {
+      return ex;
+    }
   }
-  return kOwnDeliveryArrivalWindow;
+  return null;
+}
+
+/// A delivery link that crossed over between two of the wallet's rows:
+/// [receiveId] is linked to [fromRow] and is the delivery of [toRow].
+/// [sats] is the receive's amount, [expectedSats] what [fromRow] said it
+/// would deliver when it was matched (null when not recorded).
+typedef CrossedDeliveryLink = ({
+  String receiveId,
+  String fromRow,
+  String toRow,
+  int sats,
+  int? expectedSats,
+});
+
+/// The links among [links] that name the wrong row of two deliveries
+/// landing close together (a Swap paid from two places): the receive is
+/// linked to one row, and
+///
+///  * it is not what that row said it would deliver when it was matched
+///    (more than two percent off the recorded expectation), and that row's
+///    linked receives do not add up to the expectation either (a payout
+///    split across transfers is left alone);
+///  * another listed row [owns] says is the wallet's delivers bitcoin to
+///    Spark, has a figure, has no receive linked to it, and the receive is
+///    that figure within two percent, inside that row's window
+///    ([kOwnDeliveryEarlyMargin] before it to [kOwnDeliveryArrivalWindow]
+///    after it, a day for a Circle CCTP leg);
+///  * no unlinked receive in that window fits that row as well (as close
+///    in amount and no further from it in time): it really is without its
+///    delivery.
+///
+/// A row takes one crossed receive at most, the closest amount first. An
+/// exact figure on a row with nothing else to show for it is as tight as
+/// amount and time get; a receive from outside is never touched by this
+/// (only receives the reconciler already linked are read). Pure, so
+/// Activity and the reconciler read the same answer.
+List<CrossedDeliveryLink> crossedDeliveryLinks(
+  List<SwapOrderTransaction> exchanges,
+  Iterable<SparkTransaction> receives, {
+  required Map<String, OrchestraDeliveryLink> links,
+  bool Function(SwapOrderTransaction ex)? owns,
+}) {
+  if (links.isEmpty || exchanges.length < 2) return const [];
+  final inbound = [
+    for (final rx in receives)
+      if (rx.type == TransactionType.received && !isOnChainDeposit(rx)) rx,
+  ];
+  // Each linked receive's row, and what every row has linked to it.
+  final rowOf = <String, SwapOrderTransaction>{};
+  final linkedSum = <String, int>{};
+  final expectedOf = <String, int>{};
+  for (final rx in inbound) {
+    final link = links[rx.id];
+    if (link == null) continue;
+    final ex = _linkedRow(link, exchanges);
+    if (ex == null) continue;
+    rowOf[rx.id] = ex;
+    linkedSum[ex.id] = (linkedSum[ex.id] ?? 0) + rx.amountSats.abs();
+    final expected = link.expectedSats;
+    if (expected != null && expected > (expectedOf[ex.id] ?? 0)) {
+      expectedOf[ex.id] = expected;
+    }
+  }
+  if (rowOf.isEmpty) return const [];
+  // The rows without any receive that know what they delivered.
+  final bare = <({SwapOrderTransaction ex, int sats, Duration window})>[];
+  for (final ex in exchanges) {
+    final d = ex.details;
+    if (d.coinTo.toUpperCase() != 'BTC') continue;
+    final to = d.networkTo.toUpperCase();
+    if (to != 'SPARK' && to != 'LIGHTNING') continue;
+    if (OwnSparkArrivals.failedStatuses.contains(d.status)) continue;
+    if (linkedSum.containsKey(ex.id)) continue;
+    final sats = orchestraBtcFieldToSats(d.withdrawalAmount);
+    if (sats <= 0) continue;
+    if (owns != null && !owns(ex)) continue;
+    bare.add((
+      ex: ex,
+      sats: sats,
+      window:
+          _isCctp(d) ? kOwnCctpDeliveryArrivalWindow : kOwnDeliveryArrivalWindow,
+    ));
+  }
+  if (bare.isEmpty) return const [];
+  bool inWindow(SparkTransaction rx, SwapOrderTransaction ex, Duration w) {
+    final delta = rx.timestamp.difference(ex.timestamp);
+    return delta >= -kOwnDeliveryEarlyMargin && delta <= w;
+  }
+
+  final pairs = <({SparkTransaction rx, SwapOrderTransaction to, int diff})>[];
+  for (final rx in inbound) {
+    final from = rowOf[rx.id];
+    if (from == null) continue;
+    final sats = rx.amountSats.abs();
+    final expected = expectedOf[from.id];
+    if (expected != null) {
+      final tight = tightDeliveryTolerance(expected);
+      // It is what its row was waiting for, alone or with its other legs.
+      if ((sats - expected).abs() <= tight) continue;
+      if ((linkedSum[from.id]! - expected).abs() <= tight) continue;
+    }
+    for (final b in bare) {
+      if (b.ex.id == from.id) continue;
+      final diff = (sats - b.sats).abs();
+      final tight = tightDeliveryTolerance(b.sats);
+      if (diff > tight || !inWindow(rx, b.ex, b.window)) continue;
+      // The row has a receive of its own to claim, as close in amount
+      // and no further from it in time: nothing crossed over.
+      final gap = rx.timestamp.difference(b.ex.timestamp).abs();
+      final hasOwn = inbound.any((other) =>
+          other.id != rx.id &&
+          !rowOf.containsKey(other.id) &&
+          (other.amountSats.abs() - b.sats).abs() <= diff &&
+          inWindow(other, b.ex, b.window) &&
+          other.timestamp.difference(b.ex.timestamp).abs() <= gap);
+      if (hasOwn) continue;
+      pairs.add((rx: rx, to: b.ex, diff: diff));
+    }
+  }
+  pairs.sort((a, b) => a.diff.compareTo(b.diff));
+  final out = <CrossedDeliveryLink>[];
+  final taken = <String>{};
+  final moved = <String>{};
+  for (final p in pairs) {
+    if (moved.contains(p.rx.id) || !taken.add(p.to.id)) continue;
+    moved.add(p.rx.id);
+    final from = rowOf[p.rx.id]!;
+    out.add((
+      receiveId: p.rx.id,
+      fromRow: from.id,
+      toRow: p.to.id,
+      sats: p.rx.amountSats.abs(),
+      expectedSats: expectedOf[from.id],
+    ));
+  }
+  return out;
+}
+
+/// One of the wallet's deliveries to Bitcoin that knows its figure and has
+/// no receive linked to it yet: the row, the figure in sats, when the row
+/// started and how long after that its receive may land.
+typedef OwnDeliveryFigure = ({
+  String rowId,
+  int sats,
+  DateTime rowAt,
+  Duration window,
+});
+
+/// [e] as an [OwnDeliveryFigure], or null when it is not one: an Orchestra
+/// row delivering bitcoin to Spark that did not fail, is not a send to
+/// someone else, has a figure, and that no receive is linked to ([linked]:
+/// the row ids and operations the reconciler's links name).
+OwnDeliveryFigure? ownDeliveryFigureOf(SwapOrder e,
+    {required Set<String> linked}) {
+  if (!e.isOrchestra ||
+      e.coinTo.toUpperCase() != 'BTC' ||
+      e.networkTo.toUpperCase() != 'SPARK' ||
+      e.activityDirection == 'send' ||
+      OwnSparkArrivals.failedStatuses.contains(e.status)) {
+    return null;
+  }
+  if (linked.contains(e.id) ||
+      (e.operationId != null && linked.contains(e.operationId))) {
+    return null;
+  }
+  final sats = orchestraBtcFieldToSats(e.withdrawalAmount);
+  if (sats <= 0) return null;
+  return (
+    rowId: e.id,
+    sats: sats,
+    rowAt: DateTime.fromMillisecondsSinceEpoch(e.timestamp),
+    window:
+        _isCctp(e) ? kOwnCctpDeliveryArrivalWindow : kOwnDeliveryArrivalWindow,
+  );
+}
+
+/// The receives among [receives] the delivery reconciler must not settle
+/// row [rowId] on (waiting for [targetSats], 0 when its figure is not
+/// known), because another of the wallet's own deliveries ([others]) has
+/// the better claim: the receive landed in that row's window, is within
+/// ten percent of its figure (the band an estimate is held to), and is
+/// closer to it, in proportion, than to [targetSats].
+///
+/// Without this a leg still on its way was settled on its sibling's
+/// receive: the reconciler takes, for a row with no closer match, the
+/// receive within half to five quarters of its figure (a first leg of a
+/// split payout), and two legs of one Swap land within the minute. The
+/// leg then read the sibling's amount and "Completed" before its money
+/// arrived, and its own delivery stood beside the move as "Received ₿".
+/// Pure.
+Set<String> receivesSpokenFor({
+  required String rowId,
+  required int targetSats,
+  required Iterable<OwnDeliveryFigure> others,
+  required Iterable<SparkTransaction> receives,
+}) {
+  final spoken = <String>{};
+  for (final rx in receives) {
+    final sats = rx.amountSats.abs();
+    if (sats <= 0) continue;
+    for (final o in others) {
+      if (o.rowId == rowId || o.sats <= 0) continue;
+      final delta = rx.timestamp.difference(o.rowAt);
+      if (delta < -kOwnDeliveryEarlyMargin || delta > o.window) continue;
+      final theirs = (sats - o.sats).abs();
+      if (theirs > math.max(1, (o.sats * 0.10).round())) continue;
+      if (targetSats <= 0 ||
+          theirs / o.sats < (sats - targetSats).abs() / targetSats) {
+        spoken.add(rx.id);
+        break;
+      }
+    }
+  }
+  return spoken;
 }
 
 /// The delivery reconciler's pick of the receives among [receives] that

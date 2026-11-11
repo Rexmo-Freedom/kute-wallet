@@ -2,10 +2,14 @@ import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
     show
+        CrossedDeliveryLink,
+        crossedDeliveryLinks,
         deliverySentUsd,
         isOnChainDeposit,
         kOwnCctpDeliveryArrivalWindow,
         orchestraBtcFieldToSats,
+        ownDeliveryFigureOf,
+        receivesSpokenFor,
         reconcilerDeliveryLegs,
         snapshotReceivedUsd,
         tightDeliveryTolerance,
@@ -1425,7 +1429,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     } catch (_) {}
   }
 
-  Future<void> _reconcileSyntheticOrchestraRows() async {
+  Future<void> _reconcileSyntheticOrchestraRows({bool healed = false}) async {
     try {
       // Not just acu- placeholders: real ord_/q_ Orchestra rows bound
       // for Spark (Predictions withdraw, claim deliveries) also sit
@@ -1450,6 +1454,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // slots keeps this correct if that mapping ever widens. Every
       // receive's amount is kept so a row's linked legs can be summed.
       final receives = <SparkTransaction>[];
+      // Every landed receive, the linked ones included: what a crossed
+      // link is read from.
+      final landed = <SparkTransaction>[];
       final receiveSats = <String, int>{};
       final seenRxIds = <String>{};
       for (final snapshot in cacheSnapshots) {
@@ -1462,11 +1469,44 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           if (!seenRxIds.add(tx.id)) continue;
           receiveSats[tx.id] = tx.amountSats.abs();
           if (tx.isPending) continue;
+          landed.add(tx);
           if (alreadyHidden.contains(tx.id)) continue;
           receives.add(tx);
         }
       }
       final rows = ref.read(swapOrdersProvider);
+      // A link an earlier pass crossed between two deliveries landing
+      // together (a Swap paid from two places) is put right first, once,
+      // and the pass starts over from what is stored then.
+      if (!healed && landed.any((rx) => links.containsKey(rx.id))) {
+        final crossed = crossedDeliveryLinks(
+          [
+            for (final e in rows)
+              if (e.isOrchestra && e.coinTo.toUpperCase() == 'BTC')
+                SwapOrderTransaction(
+                  id: e.id,
+                  timestamp: DateTime.fromMillisecondsSinceEpoch(e.timestamp),
+                  isConfirmed: e.isComplete,
+                  details: e,
+                ),
+          ],
+          landed,
+          links: links,
+          owns: (ex) => ex.details.activityDirection != 'send',
+        );
+        if (crossed.isNotEmpty) {
+          await _healCrossedDeliveryLinks(crossed, rows);
+          await _reconcileSyntheticOrchestraRows(healed: true);
+          return;
+        }
+      }
+      // The wallet's other deliveries to Bitcoin that know their figure
+      // and have no receive yet: a receive that fits one of them better is
+      // not offered to the row being settled.
+      late final figures = [
+        for (final e in rows)
+          if (ownDeliveryFigureOf(e, linked: linkedRows) case final f?) f,
+      ];
       final awaiting = <({SwapOrder row, int linkedSats, int? expectedSats})>[
         for (final e in rows)
           if (orchestraRowAwaitsDelivery(e, linked: linkedRows, now: now))
@@ -1504,10 +1544,20 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         // what it said it would deliver; any other row for its figure.
         final short = w.expectedSats != null;
         final target = short ? w.expectedSats! - w.linkedSats : estSats;
+        final spoken = receivesSpokenFor(
+            rowId: ex.id,
+            targetSats: target,
+            others: figures,
+            receives: receives);
         final legs = reconcilerDeliveryLegs(
           targetSats: target,
           rowAt: DateTime.fromMillisecondsSinceEpoch(ex.timestamp),
-          receives: receives,
+          receives: spoken.isEmpty
+              ? receives
+              : [
+                  for (final rx in receives)
+                    if (!spoken.contains(rx.id)) rx,
+                ],
           band: !short,
           // A Circle CCTP leg may be held for screening: its day.
           window: _isCctpRow(ex)
@@ -1521,6 +1571,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         for (final rx in legs) {
           receives.remove(rx);
         }
+        figures.removeWhere((f) => f.rowId == ex.id);
         final deliveredSats =
             w.linkedSats + legs.fold<int>(0, (s, rx) => s + rx.amountSats);
         final actualBtc = (deliveredSats / 1e8).toStringAsFixed(8);
@@ -1613,6 +1664,29 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         unawaited(_finishPredictionsDeposit(settled));
       }
     } catch (_) {}
+  }
+
+  /// Puts right the delivery links an earlier pass [crossed] between two
+  /// of the wallet's rows ([crossedDeliveryLinks]): each receive is linked
+  /// to the row it is the delivery of, and the row it was settled on by
+  /// mistake waits again for its own ([rowWaitingAgainAfterCrossedLink]).
+  Future<void> _healCrossedDeliveryLinks(
+      List<CrossedDeliveryLink> crossed, List<SwapOrder> rows) async {
+    final byId = {for (final e in rows) e.id: e};
+    for (final c in crossed) {
+      final to = byId[c.toRow];
+      final from = byId[c.fromRow];
+      if (to == null || from == null) continue;
+      final figure = orchestraBtcFieldToSats(to.withdrawalAmount);
+      PolymarketSparkTxsService.tagOrchestraDelivery(c.receiveId,
+          orderId: to.id,
+          operationId: to.operationId,
+          expectedSats: figure > 0 ? figure : null);
+      final waiting = rowWaitingAgainAfterCrossedLink(from, c);
+      if (waiting == null) continue;
+      await ref.read(swapOrdersProvider.notifier).updateExchange(waiting);
+      ref.read(walletTransactionCacheProvider.notifier).mergeSwapOrder(waiting);
+    }
   }
 
   @override
@@ -2663,6 +2737,30 @@ class _RiverpodStandingDepositRows implements StandingDepositRows {
   if (linked <= 0 || expected == null) return null;
   if (expected - linked <= tightDeliveryTolerance(expected)) return null;
   return (row: e, linkedSats: linked, expectedSats: expected);
+}
+
+/// [from], the row the delivery reconciler settled on a receive that was
+/// another row's delivery ([crossed]), waiting again for its own: back on
+/// its way with the figure it was matched against, so its own receive or
+/// its order's status settles it. Null when the row is left as it is:
+/// Orchestra itself reported it done (`success`), it no longer reads the
+/// crossed receive's figure, what it expected was not recorded, or it is
+/// not a real order (`ord_`), whose status can always be read again.
+@visibleForTesting
+SwapOrder? rowWaitingAgainAfterCrossedLink(
+    SwapOrder from, CrossedDeliveryLink crossed) {
+  final expected = crossed.expectedSats;
+  if (expected == null ||
+      from.status != 'settled' ||
+      !from.id.startsWith('ord_') ||
+      (orchestraBtcFieldToSats(from.withdrawalAmount) - crossed.sats).abs() >
+          tightDeliveryTolerance(crossed.sats)) {
+    return null;
+  }
+  return from.copyWith(
+    status: 'exchanging',
+    withdrawalAmount: (expected / 1e8).toStringAsFixed(8),
+  );
 }
 
 @visibleForTesting
