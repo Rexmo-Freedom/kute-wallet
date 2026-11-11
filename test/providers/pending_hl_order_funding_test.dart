@@ -1078,7 +1078,9 @@ void main() {
       });
     });
 
-    test('one read in flight: the ledger push joins the tick\'s read', () {
+    test(
+        'one read in flight: the ledger push sends no second one beside the '
+        'tick\'s read (its own goes behind it)', () {
       fakeAsync((async) {
         final controller = _Controller(() async => _funded);
         final c = live(controller);
@@ -1094,15 +1096,16 @@ void main() {
         c.read(pendingHlOrderAutoFireProvider).accountMoved(credited: true);
         async.elapse(const Duration(milliseconds: 100));
         expect(venue.reads.length, before,
-            reason: 'joined the read in flight, no second request');
+            reason: 'no second request while one is in flight');
         async.elapse(const Duration(milliseconds: 600));
         async.flushMicrotasks();
         final done = events
             .lastWhere((e) => e.$1 == 'order_funding_completed')
             .$2!;
         expect(done['ms_funded_to_ledger_push'], isA<int>());
-        // The tick and the push shared one read: placed once, never a
-        // second placement that finds the approval spent.
+        // The tick's read showed the money and placed; the push's own
+        // read (sent behind it) finds the order gone: placed once, never
+        // a second placement that finds the approval spent.
         expect(placement.placed, [20]);
         expect(events.where((e) => e.$1 == 'order_funding_failed'), isEmpty);
       });

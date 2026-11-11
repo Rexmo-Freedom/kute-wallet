@@ -207,7 +207,10 @@ const int kHlNoPollIntervalSecs = 0;
 /// websocket ledger push, a fill or a credit invalidates it), its 4 s /
 /// 5 s / 15 s poll and the queued order's fresh credit read
 /// ([HlAccountNotifier.freshRead]). A read asked while one is in flight
-/// joins it; the poll and the fresh read also take a read sent less than
+/// joins it, unless the asker knows the account changed just now (a
+/// build after an invalidation, [HlAccountNotifier.refresh], a credit
+/// signal): that one waits for a single read sent behind the one in
+/// flight. The poll and the fresh read also take a read sent less than
 /// [reuseWithin] (950 ms) ago instead of sending another, so these never
 /// read the account twice within the same second. The fresh read backs off
 /// after a failure (a 429 included): 1, 2, 4, 8, then 15 s at most,
@@ -242,16 +245,57 @@ class HlAccountReads {
   int sent = 0;
   int failed = 0;
 
+  /// The read queued behind the one in flight ([read]'s `after`), per
+  /// account: what it will fetch, whether that is the full account, and
+  /// everyone waiting on it.
+  final Map<String, Completer<HlAccountSnapshot>> _queued = {};
+  final Map<String, Future<HlAccountSnapshot> Function()> _queuedFetch = {};
+  final Map<String, bool> _queuedLight = {};
+
   /// [fetch] for [address], joined with one in flight; with [reuse], a
   /// read completed within [reuseWithin] answers instead.
+  ///
+  /// [after]: the asker knows the account changed just now (an exchange
+  /// action answered, a fill or a ledger push on the socket, an explicit
+  /// refresh before an order is sized): only a request SENT from now on
+  /// answers it. A read in flight was sent before and may not show the
+  /// change, so it is not joined; ONE more read is sent when it ends,
+  /// shared by everyone who asked meanwhile (still one request in flight
+  /// at a time). [light]: [fetch] is the credit watch's light read; the
+  /// queued read is the full one as soon as any asker needs the whole
+  /// account.
   Future<HlAccountSnapshot> read(
       String address, Future<HlAccountSnapshot> Function() fetch,
-      {bool reuse = false}) {
+      {bool reuse = false, bool after = false, bool light = false}) {
     final key = address.toLowerCase();
     final running = _inFlight[key];
-    if (running != null) return running;
+    if (running != null) {
+      if (!after) return running;
+      final queued = _queued[key];
+      if (queued != null) {
+        if (!light && (_queuedLight[key] ?? false)) {
+          _queuedFetch[key] = fetch;
+          _queuedLight[key] = false;
+        }
+        return queued.future;
+      }
+      final next = Completer<HlAccountSnapshot>();
+      _queued[key] = next;
+      _queuedFetch[key] = fetch;
+      _queuedLight[key] = light;
+      void send() {
+        _queued.remove(key);
+        _queuedLight.remove(key);
+        final queuedFetch = _queuedFetch.remove(key) ?? fetch;
+        read(address, queuedFetch)
+            .then(next.complete, onError: next.completeError);
+      }
+
+      running.then((_) => send(), onError: (Object _) => send());
+      return next.future;
+    }
     final last = _last[key];
-    if (reuse && last != null && _recent.containsKey(key)) {
+    if (reuse && !after && last != null && _recent.containsKey(key)) {
       return Future.value(last);
     }
     sent++;
@@ -259,11 +303,19 @@ class HlAccountReads {
     _inFlight[key] = future;
     _recent.remove(key)?.cancel();
     _recent[key] = Timer(reuseWithin, () => _recent.remove(key));
+    // No longer in flight from the first listener on, so a read queued
+    // behind this one (registered after it) is sent, not joined to it.
+    void ended() {
+      if (identical(_inFlight[key], future)) _inFlight.remove(key);
+    }
+
     future.then((snap) {
+      ended();
       _last[key] = snap;
       _backoff.remove(key);
       _backingOff.remove(key)?.cancel();
     }, onError: (Object _) {
+      ended();
       failed++;
       final before = _backoff[key] ?? Duration.zero;
       final next = before == Duration.zero
@@ -272,8 +324,6 @@ class HlAccountReads {
       _backoff[key] = next;
       _backingOff.remove(key)?.cancel();
       _backingOff[key] = Timer(next, () => _backingOff.remove(key));
-    }).whenComplete(() {
-      if (identical(_inFlight[key], future)) _inFlight.remove(key);
     });
     return future;
   }
@@ -346,8 +396,12 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     // sticking until something re-watches the provider.
     _startTimer();
     final model = ref.read(hyperliquidTradingModelProvider);
+    // A build is the first read or follows an invalidation (a fill, a
+    // ledger push, an action answered): never answered by a read sent
+    // before it, never by the credit watch's light one.
     final snap = await reads.read(
-        address, () => model.getPortfolioSnapshot(address));
+        address, () => model.getPortfolioSnapshot(address),
+        after: true);
     _reconcilePlacements(snap);
     _publishPositions(snap);
     _noteCredit(address, snap);
@@ -400,7 +454,10 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
           );
   }
 
-  Future<void> _silentRefresh() async {
+  /// [now]: the caller needs the account as it is from this moment
+  /// ([refresh]); the poll and the cadence listeners take a read sent
+  /// within the last second, or the one in flight.
+  Future<void> _silentRefresh({bool now = false}) async {
     if (_disposed) return;
     final address = _address;
     if (address == null) return;
@@ -408,7 +465,7 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
       final model = ref.read(hyperliquidTradingModelProvider);
       final snap = await reads.read(
           address, () => model.getPortfolioSnapshot(address),
-          reuse: true);
+          reuse: !now, after: now);
       if (_disposed) return;
       _take(address, snap);
       _applyCadence();
@@ -439,8 +496,8 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   /// was ever read.
   ///
   /// [reuse] false (a ledger push or a credit just said the money moved):
-  /// a read completed before it does not answer; one in flight still is
-  /// joined.
+  /// neither a read completed before it nor the one in flight answers;
+  /// one read is sent behind the one in flight ([HlAccountReads.read]).
   Future<({HlAccountSnapshot snap, bool sent, bool failed})> freshRead(
       {bool reuse = true}) async {
     final address = _address;
@@ -457,7 +514,7 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     try {
       final snap = await reads.read(
           address, () => model.getCreditSnapshot(address),
-          reuse: reuse);
+          reuse: reuse, after: !reuse, light: true);
       if (!_disposed) _take(address, snap);
       return (snap: snap, sent: true, failed: false);
     } catch (_) {
@@ -522,8 +579,11 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   /// One immediate refetch — called by the trading notifier after every
   /// exchange action and by the user-events provider on WS fills (which
   /// also `ref.invalidate`s; this method exists for callers that want to
-  /// keep the notifier's timers intact).
-  Future<void> refresh() => _silentRefresh();
+  /// keep the notifier's timers intact). The order slip calls it at
+  /// Confirm to size the order on the cash that is there NOW, and a
+  /// settled move to show where its money went: the venue is read from
+  /// this call on, never answered by a read sent before it.
+  Future<void> refresh() => _silentRefresh(now: true);
 }
 
 /// Perp clearinghouse summary + open positions + spot balances, polled
