@@ -22,8 +22,10 @@
 //   * THE CODE CARD: one soft card, "Your code" over the code, the QR
 //     square and the copy square at its right (the receive screens'
 //     square buttons). A tap on the card or the copy square copies the
-//     invite link (the code where no link resolves) with the app's
-//     snack bar; the QR square opens the QR in a sheet ([_ReferralQrSheet]:
+//     CODE itself, never the invite link (founder, 11 November 2026: "the
+//     copy should copy the code, not the invite link"), with "Code
+//     copied"; the link travels with Share invite and the QR. The QR
+//     square opens the QR in a sheet ([_ReferralQrSheet]:
 //     the receive screens' white plate, the code under it, the sheet's
 //     own "Share" in the bar sending the QR as an image). No QR on the
 //     page: almost nobody scans a referral QR in person;
@@ -49,7 +51,19 @@
 //     their fees (the ladder under it, "10% at 50 friends, 20% at 100
 //     friends"): every terms sentence the old card carried, nothing about
 //     payouts or eligibility was there to keep;
-//   * "Got a friend's code?" last, as before.
+//   * "Got a friend's code?" last, and only while a code can still be
+//     applied (founder, 11 November 2026: "don't show 'Got a friend's
+//     code' when [the person] can no longer add [one]"). The backend's
+//     rule (store.SetReferrerByCode, behind POST
+//     /affiliate/set-referrer-by-code): no referrer yet (409), the
+//     account at most 7 days old (410), not the person's own code (400),
+//     a code that exists (404). `/me` states the first (`is_referred`)
+//     but not the account's age, so the window is read from the spending
+//     wallet's local creation moment (its id, `<unix-ms>-<rand>`): never
+//     earlier than the backend's account row for a new wallet, later for
+//     a restored one (so a restore can still show the card, and the
+//     backend's own 409 / 410 then closes it for the run). Unknown age
+//     keeps the card ([referrerEntryOpen]).
 //
 // GATING, unchanged: where the runtime policy withholds
 // `affiliate.program` (or fails closed) there is no way in (Settings,
@@ -100,6 +114,9 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
 import 'package:kute/screens/analytics/components/balance_goals.dart'
     show BalanceGoalBar, BalanceGoalSalMotion;
 import 'package:kute/screens/share/cards/share_card_data.dart'
@@ -247,6 +264,36 @@ class ReferralProgress {
   }
 }
 
+/// The backend's late-entry window (store.SetReferrerByCode: an account
+/// older than 7 days gets 410, "past 7-day window").
+const Duration kReferrerEntryWindow = Duration(days: 7);
+
+/// The local creation moment a wallet id carries (`<unix-ms>-<rand>`, as
+/// every create and restore path mints it); null when it doesn't parse.
+DateTime? walletCreatedAtFromId(String? id) {
+  if (id == null) return null;
+  final dash = id.indexOf('-');
+  if (dash <= 0) return null;
+  final ms = int.tryParse(id.substring(0, dash));
+  return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+}
+
+/// Whether "Got a friend's code?" can still do anything for this person
+/// (see the file header): no referrer bound, the backend has not already
+/// answered that entry is closed ([closed]: a 409 or 410 this run), and
+/// the wallet no older than [kReferrerEntryWindow] where its age is known.
+bool referrerEntryOpen({
+  required bool isReferred,
+  bool closed = false,
+  DateTime? walletCreatedAt,
+  DateTime? now,
+}) {
+  if (isReferred || closed) return false;
+  if (walletCreatedAt == null) return true;
+  final age = (now ?? DateTime.now()).difference(walletCreatedAt);
+  return age <= kReferrerEntryWindow;
+}
+
 /// A rate as the page writes it in a sentence's number slot (5 → "5",
 /// 7.5 → "7.5"): the strings carry their own percent sign.
 String _rateNumber(double rate) =>
@@ -289,6 +336,9 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
   // Late-entry ("got a friend's code?") flow: started on the first typed
   // character, abandoned on leaving without a bound code. Never the code.
   bool _lateEntryStarted = false;
+  // Codes whose late entry the backend closed this run (a 409 or 410):
+  // the card stays away on every open until the app restarts.
+  static final Set<String> _entryClosedFor = <String>{};
   bool _lateEntryDone = false;
   bool _lateEntrySubmitting = false;
   int _lateEntryAttempts = 0;
@@ -343,6 +393,14 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       (_me?['affiliate_code'] as String?) ??
       AffiliateService.affiliateCode ??
       '';
+
+  /// "Got a friend's code?" can still apply one (see the file header).
+  bool get _lateEntryOpen => referrerEntryOpen(
+        isReferred: _me?['is_referred'] == true,
+        closed: _entryClosedFor.contains(_code),
+        walletCreatedAt: walletCreatedAtFromId(
+            pickSpendingWallet(ref.read(settingsProvider))?.id),
+      );
 
   /// The invite link: the OneLink (branded once it resolved, else the
   /// local long form), null where no template is configured.
@@ -421,6 +479,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     final participation =
         ref.read(runtimeCapabilitiesProvider).allows('affiliate.program');
     final isReferred = _me?['is_referred'] == true;
+    final lateEntryOpen = _lateEntryOpen;
     TrackingService.track('affiliate_dashboard_loaded', params: {
       'has_code': _code.isNotEmpty,
       'has_pending_payout': _d(_me?['accrued_usd']) > 0,
@@ -441,7 +500,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
                           : '100+',
       'is_referred': isReferred,
       'participation_allowed': participation,
-      'late_entry_shown': participation && !isReferred,
+      'late_entry_shown': participation && lateEntryOpen,
     });
   }
 
@@ -692,7 +751,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     final rate = progress.currentRate;
     final accrued = _d(_me?['accrued_usd']);
     final paid = _d(_me?['paid_usd']);
-    final isReferred = _me?['is_referred'] == true;
+    final lateEntryOpen = _lateEntryOpen;
     final payments = (_me?['payments'] as List<dynamic>?) ?? const [];
     final discount = _discount;
     final gap = SizedBox(height: kKuteActionCardGap.w);
@@ -739,7 +798,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
           ),
           _CodeCard(
             code: _code,
-            onCopy: _code.isEmpty ? null : _copyLink,
+            onCopy: _code.isEmpty ? null : _copyCode,
             onQr: _code.isEmpty || _link == null ? null : _openQrSheet,
           ),
           gap,
@@ -772,7 +831,10 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
           gap,
           _HowItWorks(steps: steps)
         ],
-        if (participationAllowed && !isReferred) ...[gap, _lateEntryCard(c)],
+        if (participationAllowed && lateEntryOpen) ...[
+          gap,
+          _lateEntryCard(c)
+        ],
       ],
     );
   }
@@ -804,21 +866,18 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
 
   // ── Copy, share, QR ──
 
-  /// [source]: `code_card` (the card) or `copy_button` (its square).
-  void _copyLink({String source = 'code_card'}) {
-    // The OneLink (branded if it resolved, else the local long form); the
-    // bare code where neither exists, so the copy never silently no-ops.
-    final link = _link;
-    final toCopy = link ?? _code;
-    if (toCopy.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: toCopy));
+  /// Copies the person's code, never the invite link (see the file
+  /// header). [source]: `code_card` (the card) or `copy_button` (its
+  /// square).
+  void _copyCode({String source = 'code_card'}) {
+    final code = _code;
+    if (code.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: code));
     TrackingService.affiliateCodeCopied(surface: 'earn', source: source);
     if (!mounted) return;
     showMessageSnackBar(
       context: context,
-      message: link != null
-          ? context.l10n.accountLinkCopied
-          : context.l10n.accountCodeCopied,
+      message: context.l10n.accountCodeCopied,
       error: false,
       duration: const Duration(seconds: 1),
     );
@@ -1057,6 +1116,10 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
             setState(() => _showReferees = !_showReferees);
             if (_showReferees) {
               TrackingService.affiliateRefereesViewed(boundCount: bound);
+              // Opened with fewer rows than friends joined (the list's
+              // read failed or ran behind the count): read it again, so
+              // the card never opens onto nothing.
+              if (_referees.length < bound) unawaited(_reloadReferees());
             }
           },
           child: Row(children: [
@@ -1081,6 +1144,11 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     );
   }
 
+  Future<void> _reloadReferees() async {
+    final r = await AffiliateService.getReferees(limit: 100);
+    if (mounted && r != null) setState(() => _referees = r);
+  }
+
   Widget _refereeRow(AppColorsExtension c, int i, Map<String, dynamic> r) {
     // contribution_usd is Kute's GROSS earnings from this referee, NOT the
     // referrer's cut. Show the actual profit this user makes from the friend:
@@ -1088,15 +1156,17 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     // chart: ratePct/100 * gross).
     final rate = _d(_me?['commission_rate_pct']);
     final contrib = _d(r['contribution_usd']) * rate / 100.0;
+    // Always the amount, exact to the cent ($0.00 before their first fee),
+    // so every friend's row says what they have earned the person.
     return Padding(
+      key: ValueKey('referral-friend-$i'),
       padding: EdgeInsets.symmetric(vertical: 7.h),
       child: Row(children: [
         Expanded(
           child: Text(context.l10n.accountUserNumber(i + 1),
               style: TextStyle(color: c.textPrimary, fontSize: 14.sp)),
         ),
-        if (contrib > 0)
-          Text(_usd(contrib),
+        Text(_usd(contrib),
               style: TextStyle(
                   color: c.textSecondary,
                   fontSize: 13.sp,
@@ -1216,7 +1286,12 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       _ => context.l10n.accountSomethingWentWrong,
     };
     showMessageSnackBar(context: context, message: msg, error: status != 200);
-    if (status == 200) _refresh();
+    // The backend closed entry for good (a referrer is bound, or the
+    // window has passed): the card goes and stays away this run.
+    if (status == 409 || status == 410) {
+      setState(() => _entryClosedFor.add(_code));
+    }
+    if (status == 200 || status == 409) _refresh();
   }
 }
 
@@ -1308,7 +1383,7 @@ class _CodeCard extends StatelessWidget {
 
   final String code;
 
-  /// Copies the link; [source] names the card or its square.
+  /// Copies the code; [source] names the card or its square.
   final void Function({String source})? onCopy;
   final VoidCallback? onQr;
 
@@ -1364,7 +1439,7 @@ class _CodeCard extends StatelessWidget {
             SizedBox(width: 8.w),
             Semantics(
               button: true,
-              label: l10n.accountCopyLink,
+              label: l10n.copy,
               excludeSemantics: true,
               child: ReceiveAddressIconButton(
                 key: const ValueKey('referral-code-copy'),
@@ -1386,7 +1461,7 @@ class _CodeCard extends StatelessWidget {
     return Semantics(
       key: const ValueKey('referral-code-card'),
       button: true,
-      label: '${l10n.accountYourCode}, $code, ${l10n.accountCopyLink}',
+      label: '${l10n.accountYourCode}, $code, ${l10n.copy}',
       child: KutePressable(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,

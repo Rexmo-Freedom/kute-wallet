@@ -21,11 +21,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/models/settings_model.dart';
+import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart'
     show shareCardEdges;
 import 'package:kute/screens/share/cards/share_card_data.dart'
     show InviteCardData;
+import 'package:kute/screens/share/cards/share_card_preview.dart'
+    show ShareCardShare;
 import 'package:kute/screens/settings/affiliate_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -57,6 +61,7 @@ Map<String, Object> _me({
   Object? rules = _rules,
   int discount = 20,
   List<Object> payments = const [],
+  bool referred = false,
 }) =>
     {
       'affiliate_code': code,
@@ -65,16 +70,21 @@ Map<String, Object> _me({
       'referees_activated': friends,
       'accrued_usd': accrued,
       'paid_usd': paid,
-      'is_referred': false,
+      'is_referred': referred,
       'payments': payments,
       'referee_discount_pct': discount,
       if (rules != null) 'rules': rules,
     };
 
-http.Client _backend(Map<String, Object>? me, {Completer<void>? gate}) =>
+http.Client _backend(Map<String, Object>? me,
+        {Completer<void>? gate,
+        List<Object> referees = const [],
+        int setReferrerStatus = 200}) =>
     MockClient((request) async {
       if (gate != null) await gate.future;
       switch (request.url.path) {
+        case '/api/v1/affiliate/set-referrer-by-code':
+          return http.Response('{}', setReferrerStatus);
         case '/api/v1/affiliate/me':
           return me == null
               ? http.Response('down', 500)
@@ -82,7 +92,7 @@ http.Client _backend(Map<String, Object>? me, {Completer<void>? gate}) =>
         case '/api/v1/affiliate/me/history':
           return http.Response(jsonEncode({'history': <Object>[]}), 200);
         case '/api/v1/affiliate/me/referees':
-          return http.Response(jsonEncode({'referees': <Object>[]}), 200);
+          return http.Response(jsonEncode({'referees': referees}), 200);
         default:
           return http.Response('not found', 404);
       }
@@ -195,6 +205,9 @@ void main() {
         Size size = const Size(390, 844),
         double textScale = 1,
         Locale? locale,
+        String? walletId,
+        List<Object> referees = const [],
+        int setReferrerStatus = 200,
         Future<void> Function()? then}) async {
       final p = policy = runtimePolicyFixture(
           also: {'affiliate.program'},
@@ -225,6 +238,22 @@ void main() {
       });
       await http.runWithClient(() async {
         await tester.pumpWidget(ProviderScope(
+          overrides: [
+            settingsProvider.overrideWith((_) => SettingsModel(Settings(
+                  currency: 'USD',
+                  language: 'en',
+                  btcFormat: 'sats',
+                  backup: false,
+                  biometricsEnabled: false,
+                  bitcoinElectrumNode: '',
+                  nodeType: 'Blockstream',
+                  reviewDone: true,
+                  wallets: [
+                    if (walletId != null)
+                      WalletConfig(id: walletId, name: 'Spending'),
+                  ],
+                ))),
+          ],
           child: ScreenUtilInit(
             designSize: const Size(430, 932),
             builder: (_, __) => MaterialApp(
@@ -242,7 +271,11 @@ void main() {
         ));
         await frames(tester);
         await then?.call();
-      }, () => _backend(me, gate: gate));
+      },
+          () => _backend(me,
+              gate: gate,
+              referees: referees,
+              setReferrerStatus: setReferrerStatus));
     }
 
     Finder scrollable() => find
@@ -349,16 +382,24 @@ void main() {
       await away(tester);
     });
 
-    testWidgets('the code card copies the link, the square too, with a source',
-        (tester) async {
+    testWidgets(
+        'the code card copies the CODE (never the link), the square too, '
+        'with a source', (tester) async {
       await pump(tester, me: _me());
       await tester.tap(find.byKey(const ValueKey('referral-code-card')));
       await tester.pump();
-      expect(copied.single, startsWith(_link));
-      expect(find.text('Link copied'), findsOneWidget);
+      expect(copied.single, 'EKVGUY');
+      expect(find.text('Code copied'), findsOneWidget);
+      expect(find.text('Link copied'), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      // The square beside the QR: the code too.
       await tester.tap(find.byKey(const ValueKey('referral-code-copy')));
       await tester.pump();
-      expect(copied, hasLength(2));
+      expect(copied, ['EKVGUY', 'EKVGUY']);
+      for (final text in copied) {
+        expect(text, isNot(contains('://')));
+        expect(text, isNot(contains('onelink')));
+      }
       final copies = events
           .where((e) => e.$1 == 'affiliate_code_copied')
           .map((e) => e.$2)
@@ -374,6 +415,177 @@ void main() {
       }
       await tester.pump(const Duration(seconds: 2));
       await away(tester);
+    });
+
+    testWidgets(
+        'Share invite still sends the invite LINK after a copy of the code',
+        (tester) async {
+      await pump(tester, me: _me());
+      await tester.tap(find.byKey(const ValueKey('referral-code-copy')));
+      await tester.pump();
+      expect(copied.single, 'EKVGUY');
+      await tester.pump(const Duration(seconds: 2));
+      kuteBarPrimaryContext(tester).onPrimary!();
+      await frames(tester, 6);
+      expect(find.byKey(const ValueKey('share-card-invite')), findsOneWidget);
+      final sent = <String>[];
+      ShareCardShare.debugSharer = (image, text) async {
+        sent.add(text);
+        return 'success';
+      };
+      addTearDown(() => ShareCardShare.debugSharer = null);
+      kuteBarPrimaryContext(tester).onPrimary!();
+      for (var i = 0; i < 50 && sent.isEmpty; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
+      expect(sent, hasLength(1));
+      expect(sent.single, contains(_link));
+      await away(tester);
+    });
+
+    group('Got a friend\'s code?', () {
+      String walletIdAged(Duration age) =>
+          '${DateTime.now().subtract(age).millisecondsSinceEpoch}-123';
+
+      Future<void> toBottom(WidgetTester tester) => tester.scrollUntilVisible(
+          find.byKey(const ValueKey('referral-how-it-works')), 300,
+          scrollable: scrollable());
+
+      testWidgets('a fresh account with no referrer: shown', (tester) async {
+        await pump(tester,
+            me: _me(), walletId: walletIdAged(const Duration(days: 2)));
+        await toBottom(tester);
+        await tester.drag(scrollable(), const Offset(0, -600));
+        await tester.pump();
+        expect(
+            find.byKey(const ValueKey('referral-late-entry')), findsOneWidget);
+        expect(find.text("Got a friend's code?"), findsOneWidget);
+        expect(
+            events.firstWhere((e) => e.$1 == 'affiliate_dashboard_loaded').$2,
+            containsPair('late_entry_shown', true));
+        await away(tester);
+      });
+
+      testWidgets('a referrer already set: hidden', (tester) async {
+        await pump(tester,
+            me: _me(referred: true),
+            walletId: walletIdAged(const Duration(days: 1)));
+        await toBottom(tester);
+        await tester.drag(scrollable(), const Offset(0, -600));
+        await tester.pump();
+        expect(find.byKey(const ValueKey('referral-late-entry')), findsNothing);
+        expect(find.text("Got a friend's code?"), findsNothing);
+        expect(
+            events.firstWhere((e) => e.$1 == 'affiliate_dashboard_loaded').$2,
+            containsPair('late_entry_shown', false));
+        await away(tester);
+      });
+
+      testWidgets('past the 7-day window: hidden', (tester) async {
+        await pump(tester,
+            me: _me(), walletId: walletIdAged(const Duration(days: 30)));
+        await toBottom(tester);
+        await tester.drag(scrollable(), const Offset(0, -600));
+        await tester.pump();
+        expect(find.byKey(const ValueKey('referral-late-entry')), findsNothing);
+        expect(
+            events.firstWhere((e) => e.$1 == 'affiliate_dashboard_loaded').$2,
+            containsPair('late_entry_shown', false));
+        await away(tester);
+      });
+
+      testWidgets('the backend answers "past the window": the card goes',
+          (tester) async {
+        // A restored wallet reads young locally; the backend knows better.
+        await pump(tester,
+            me: _me(code: 'RSTRD2'),
+            walletId: walletIdAged(const Duration(hours: 1)),
+            setReferrerStatus: 410, then: () async {
+          await toBottom(tester);
+          await tester.drag(scrollable(), const Offset(0, -600));
+          await tester.pump();
+          await tester.enterText(find.byType(TextField), 'ABCDEF');
+          await tester.tap(find.byKey(const ValueKey('referral-apply-code')));
+          await frames(tester);
+        });
+        expect(find.byKey(const ValueKey('referral-late-entry')), findsNothing);
+        await tester.pump(const Duration(seconds: 5));
+        await away(tester);
+      });
+    });
+
+    testWidgets(
+        'Your friends: one friend joined, the card opens onto that friend '
+        'and what they earned you', (tester) async {
+      await pump(tester,
+          me: _me(friends: 1),
+          referees: [
+            {
+              'activated': true,
+              'contribution_usd': 12.0,
+              'venue_revenue_usd': 0,
+            },
+          ]);
+      await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('referral-friends')), 200,
+          scrollable: scrollable());
+      expect(find.text('Your friends'), findsOneWidget);
+      expect(find.byKey(const ValueKey('referral-friend-0')), findsNothing);
+      await tester.tap(find.text('Your friends'));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('referral-friend-0')), findsOneWidget);
+      expect(find.text('User #1'), findsOneWidget);
+      // 5% of their $12.00 in fees.
+      expect(find.text(r'$0.60'), findsOneWidget);
+      expect(
+          events.firstWhere((e) => e.$1 == 'affiliate_referees_viewed').$2,
+          isNot(contains('EKVGUY')));
+      await away(tester);
+    });
+
+    testWidgets('Your friends: a friend who paid no fee yet reads \$0.00',
+        (tester) async {
+      await pump(tester, me: _me(friends: 1), referees: [
+        {'activated': true, 'contribution_usd': 0, 'venue_revenue_usd': 0},
+      ]);
+      await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('referral-friends')), 200,
+          scrollable: scrollable());
+      await tester.tap(find.text('Your friends'));
+      await tester.pump();
+      final row = find.byKey(const ValueKey('referral-friend-0'));
+      expect(row, findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text(r'$0.00')),
+          findsOneWidget);
+      await away(tester);
+    });
+
+    test('referrerEntryOpen: the backend rule, read from what the app knows',
+        () {
+      final now = DateTime(2026, 11, 11, 12);
+      expect(referrerEntryOpen(isReferred: false, now: now), isTrue);
+      expect(referrerEntryOpen(isReferred: true, now: now), isFalse);
+      expect(referrerEntryOpen(isReferred: false, closed: true, now: now),
+          isFalse);
+      expect(
+          referrerEntryOpen(
+              isReferred: false,
+              walletCreatedAt: now.subtract(const Duration(days: 7)),
+              now: now),
+          isTrue);
+      expect(
+          referrerEntryOpen(
+              isReferred: false,
+              walletCreatedAt:
+                  now.subtract(const Duration(days: 7, minutes: 1)),
+              now: now),
+          isFalse);
+      expect(walletCreatedAtFromId('1762862400000-42'),
+          DateTime.fromMillisecondsSinceEpoch(1762862400000));
+      expect(walletCreatedAtFromId('spending'), isNull);
+      expect(walletCreatedAtFromId(null), isNull);
     });
 
     testWidgets('Share invite opens the invite card with Sal; its Share is the bar',
