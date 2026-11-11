@@ -95,6 +95,39 @@ class _Venue extends HyperliquidModel {
       _read('credit');
 }
 
+/// A venue with a builder dex: the main account holds [main], the dex
+/// [dex]. A full read sees both (and is what the light read's dex part
+/// is taken from, as `getCreditSnapshot` reuses it); the light read sees
+/// the main account now and the dex as the last full read saw it.
+class _DexVenue extends HyperliquidModel {
+  double main = 0;
+  double dex = 0;
+  double _dexAsLastRead = 0;
+  final reads = <String>[];
+
+  HlAccountSnapshot _of(double dexCash) => HlAccountSnapshot(
+        accountValue: main + dexCash,
+        withdrawable: main + dexCash,
+        totalMarginUsed: 0,
+        positions: const [],
+        spotBalances: const [],
+        activeDexes: {if (dexCash > 0) 'xyz'},
+      );
+
+  @override
+  Future<HlAccountSnapshot> getPortfolioSnapshot(String address) async {
+    reads.add('full');
+    _dexAsLastRead = dex;
+    return _of(dex);
+  }
+
+  @override
+  Future<HlAccountSnapshot> getCreditSnapshot(String address) async {
+    reads.add('credit');
+    return _of(_dexAsLastRead);
+  }
+}
+
 /// A controller that answers what the test says, after recording the ask.
 class _Controller implements OrderFundingController {
   _Controller(this.answer);
@@ -1254,6 +1287,60 @@ void main() {
                 'was queued again after a restart');
         expect(placing.fundOrderId, 'o_late');
         expect(terminal().standingOrderId, 'so_late');
+      });
+    });
+
+    test(
+        'builder-dex cash the light read still counts (as the last full '
+        'read saw it) never places the order: the whole account is read '
+        'before it goes', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final dexVenue = _DexVenue()..dex = 21;
+        final c = ProviderContainer(overrides: [
+          settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+          sessionUnlockedProvider.overrideWith((_) => true),
+          hyperliquidAddressProvider.overrideWith(
+              (_) async => '0x1111111111111111111111111111111111111111'),
+          hyperliquidTradingModelProvider.overrideWithValue(dexVenue),
+          hyperliquidMoveRailProvider.overrideWithValue(rail),
+          orderFundingControllerProvider.overrideWithValue(controller),
+        ]);
+        addTearDown(c.dispose);
+        c.read(pendingHlOrderAutoFireProvider);
+        history = [];
+        c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
+        c.listen(hyperliquidAccountProvider, (_, __) {});
+        // The account as last read in full: 21 idle on the xyz dex.
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 10));
+        expect(c.read(hyperliquidWithdrawableProvider), 21);
+        // It has just become an order's margin there (nothing has read
+        // the account in full since); the next order is funded whole
+        // from Dollars and waits for its credit on the main account.
+        dexVenue.dex = 0;
+        final placement = _Placement(resizable: false);
+        final intent = _intent(placement, orderKind: 'limit');
+        OrderFundingJourney.reset();
+        c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+            grant: approve(intent),
+            controller: controller,
+            orderUsd: 20,
+            requiredUsd: intent.requiredUsd,
+            readyUsd: 0);
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+        expect(placement.placed, isEmpty,
+            reason: 'placed on 21 the account no longer has: the venue '
+                'refuses it for margin after the accept');
+        expect(c.read(pendingHyperliquidOrderProvider)!.status,
+            PendingHlOrderStatus.awaitingBalance);
+        // Its own money lands on the main account.
+        dexVenue.main = 20.5;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(terminal().status, PendingHlOrderStatus.done);
       });
     });
   });

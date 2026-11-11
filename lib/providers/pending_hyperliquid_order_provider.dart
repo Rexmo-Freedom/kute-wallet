@@ -888,10 +888,24 @@ class PendingHlOrderAutoFire {
   /// after funding a FRESH read, one in flight at a time and shared with
   /// the ledger push and the account poll ([HlAccountReads]); otherwise
   /// the provider's snapshot, as before.
-  Future<HlAccountSnapshot> _readAccount(
+  ///
+  /// `exact`: the figures are the venue's answer to a read made for this
+  /// look and cover the whole account. Not so for the provider's held
+  /// snapshot (as old as its last poll; an account holding only cash is
+  /// not polled at all), for the last snapshot standing in while the
+  /// fresh read backs off or fails, and for the light fresh read of an
+  /// account with anything on a builder dex (that part is as the last
+  /// full read saw it, up to 15 s old). An order is only PLACED on exact
+  /// figures ([_maybeFire] reads the account in full first otherwise);
+  /// waiting needs no more than these.
+  Future<({HlAccountSnapshot snap, bool exact})> _readAccount(
       PendingHlOrderIntent intent, String source) async {
     if (!_inFreshWindow(intent) || !ref.exists(hyperliquidAccountProvider)) {
-      return ref.read(hyperliquidAccountProvider.future);
+      // Not alive, or reading right now: the answer is its own read's.
+      final reading = !ref.exists(hyperliquidAccountProvider) ||
+          ref.read(hyperliquidAccountProvider).isLoading;
+      final snap = await ref.read(hyperliquidAccountProvider.future);
+      return (snap: snap, exact: reading);
     }
     if (_freshCountedFor != intent.fundedAt) {
       _freshCountedFor = intent.fundedAt;
@@ -908,7 +922,10 @@ class PendingHlOrderAutoFire {
         OneBalanceVenue.investing, HlCreditCount.accountReads, _freshReads);
     journey.count(OneBalanceVenue.investing, HlCreditCount.accountReadErrors,
         _freshReadErrors);
-    return read.snap;
+    return (
+      snap: read.snap,
+      exact: read.sent && !read.failed && read.snap.activeDexes.isEmpty,
+    );
   }
 
   void _cancelCreditFollowUps() {
@@ -1096,8 +1113,19 @@ class PendingHlOrderAutoFire {
     // place.
     double withdrawable = 0;
     try {
-      final snap = await _readAccount(intent, source);
-      withdrawable = _usableUsd(snap);
+      final read = await _readAccount(intent, source);
+      withdrawable = _usableUsd(read.snap);
+      if (!read.exact && placeableMargin(intent, withdrawable) != null) {
+        // The figures say the order can go, but they are not the venue's
+        // answer for the whole account as of now (see [_readAccount]):
+        // one full read first. Placed on money that had already left (a
+        // builder dex's cash turned margin, cash moved since the last
+        // poll), the order was refused for margin after the accept.
+        withdrawable = 0;
+        ref.invalidate(hyperliquidAccountProvider);
+        withdrawable =
+            _usableUsd(await ref.read(hyperliquidAccountProvider.future));
+      }
     } catch (_) {
       // Transient read failure — the poll below retries.
     }
