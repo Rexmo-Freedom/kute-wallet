@@ -44,6 +44,7 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
+import 'package:kute/providers/settings_provider.dart';
 
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -84,9 +85,10 @@ const Color _kPolyRed = AppColors.marketDown;
 // speedometer as the screen's hero (the held side's chance on a calm 180°
 // dial, the price paid a dot on its track, a long needle with a grab knob riding the track, the track filled to the
 // needle in the result's colour, the chance under the hub, drag to
-// explore: position_speedometer.dart); over it the result since the buy at
-// the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one),
-// and the held side (founder, 1 November 2026: no Share pill beside them
+// explore: position_speedometer.dart); over it what the position is worth
+// at the left with its change since the buy under it ("$13.20", "+247%
+// since 19¢"; while dragging, the what-if ones; founder, 11 November
+// 2026), and the held side at the right (founder, 1 November 2026: no Share pill beside them
 // any more, it crowded "You hold No"); right under its chance, when the
 // market ends as one centred line ("Ends Dec 9, 00:00", "Ends today at
 // 21:00", "Ends tomorrow at 09:00", a countdown under an hour, what an
@@ -99,7 +101,8 @@ const Color _kPolyRed = AppColors.marketDown;
 // November 2026), what can be done to it while open as an option card
 // (kute_action_cards.dart, as on the Investing screens; alone it takes the
 // full width): "Protect it", a sell at your price. Then two
-// tiles: what it is worth now with the profit or loss, and the payout if
+// tiles: the profit or loss, large, with what it is worth now under it
+// ("Profits", "+$9.40", "Worth now $13.20"), and the payout if
 // the held side wins with what was paid (once settled: what it paid out);
 // while the needle is dragged, what it would be worth then beside what it
 // is worth now. Then the cards to read more, two side by side (founder, 4
@@ -151,6 +154,11 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
   /// "Drag the needle to see what it'd be worth", under the result until
   /// the dial's first drag.
   static const dialHintKey = ValueKey('poly-position-dial-hint');
+
+  /// The value tile's large figure, the profit or loss ("-$0.06"), and
+  /// the line under it ("Worth now $4.26").
+  static const pnlFigureKey = ValueKey('poly-position-value-pnl');
+  static const worthCaptionKey = ValueKey('poly-position-value-worth');
 
   static void show(
     BuildContext context, {
@@ -445,6 +453,12 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
 
     final pnlPositive = pnl >= 0;
     final pnlColor = pnlPositive ? _kPolyGreen : _kPolyRed;
+    // Balances hidden (the home headline's privacy cycle): the value and
+    // the profit or loss are masked here as on the Portfolio rows.
+    final balanceVisible =
+        ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    String shown(String figure) =>
+        balanceVisible ? figure : PolyPositionResultLine.hiddenFigure;
     final pnlText =
         '${pnlPositive ? '+' : '-'}${formatDollars(pnl.abs())}'
         ' · ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toStringAsFixed(1)}%';
@@ -738,45 +752,58 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 return Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Over the dial: the result at the
-                                    // left (while dragging, the what-if
-                                    // one), the held side, and the Share
-                                    // pill at the end, centred on the
-                                    // result's figure line (the "since"
-                                    // caption is under that line).
+                                    // Over the dial: what it is worth at
+                                    // the left with the change since the
+                                    // buy under it (while dragging, the
+                                    // what-if ones), and the held side
+                                    // at the right, its right edge on
+                                    // the content's (founder, 11 November
+                                    // 2026: it had floated from the
+                                    // middle, a Flexible after an
+                                    // Expanded starting at half the
+                                    // row). Each may take up to half the
+                                    // row, smaller rather than cut.
                                     Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Expanded(
-                                          child: Align(
-                                            alignment: Alignment.topLeft,
-                                            child: ValueListenableBuilder<
-                                                double?>(
-                                              valueListenable: _whatIf,
-                                              builder: (context, whatIf, _) {
-                                                final change = whatIf == null
-                                                    ? pnl
-                                                    : pos.size * whatIf -
-                                                        costBasis;
-                                                final percent = whatIf == null
-                                                    ? pnlPercent
-                                                    : (costBasis > 0
-                                                        ? change /
-                                                            costBasis *
-                                                            100
-                                                        : 0.0);
-                                                return PolyPositionResultLine(
-                                                  pnl: change,
-                                                  pnlPercent: percent,
-                                                  amountText: formatDollars(change.abs()),
-                                                  boughtText: bought == null
-                                                      ? null
-                                                      : formatPolyBoughtCents(
-                                                          bought),
-                                                );
-                                              },
-                                            ),
+                                        Flexible(
+                                          child: ValueListenableBuilder<
+                                              double?>(
+                                            valueListenable: _whatIf,
+                                            builder: (context, whatIf, _) {
+                                              final worth = whatIf == null
+                                                  ? currentValue
+                                                  : pos.size * whatIf;
+                                              final change = whatIf == null
+                                                  ? pnl
+                                                  : worth - costBasis;
+                                              final percent = whatIf == null
+                                                  ? pnlPercent
+                                                  : (costBasis > 0
+                                                      ? change /
+                                                          costBasis *
+                                                          100
+                                                      : 0.0);
+                                              return PolyPositionResultLine(
+                                                valueText:
+                                                    formatDollars(worth),
+                                                // No cost known: no change
+                                                // claimed, never the whole
+                                                // value as a profit.
+                                                pnl: costBasis > 0
+                                                    ? change
+                                                    : 0,
+                                                pnlPercent: percent,
+                                                masked: !balanceVisible,
+                                                boughtText: bought == null
+                                                    ? null
+                                                    : formatPolyBoughtCents(
+                                                        bought),
+                                              );
+                                            },
                                           ),
                                         ),
                                         SizedBox(width: 12.w),
@@ -784,7 +811,16 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                           child: Padding(
                                             padding:
                                                 EdgeInsets.only(top: 3.h),
-                                            child: heldLine,
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.topRight,
+                                              child: _HeldSideLine(
+                                                outcome: pos.outcome,
+                                                color: polyHeldSideColor(
+                                                    pos.outcome, c),
+                                                textAlign: TextAlign.end,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -930,36 +966,80 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         SizedBox(height: 12.h),
                       ],
 
-                      // What it is worth now (with the profit or loss) and
-                      // what it pays if the held side wins (once settled:
-                      // what it paid), each on its own tile.
+                      // The profit or loss since the buy, large, with what
+                      // it is worth now under it (founder, 11 November
+                      // 2026: the value is the top left over the dial, so
+                      // the tile leads with the result; the Sell sheet's
+                      // own word for it, "Profits"), and what it pays if
+                      // the held side wins (once settled: what it paid),
+                      // each on its own tile. No cost known (just filled,
+                      // listed before its entry is priced): no P&L, never
+                      // the whole value as a profit, as on its card; the
+                      // value alone, as the tile's figure.
                       ValueListenableBuilder<double?>(
                         valueListenable: _whatIf,
                         builder: (context, whatIf, _) {
-                          final nowTile = PositionStatTile(
-                            key: const ValueKey('poly-position-value'),
-                            label: whatIf != null
-                                ? context.l10n.polyPosNow
-                                : pos.isResolved
-                                    ? context.l10n.betCurrentValue
-                                    : context.l10n.polyPosWorthNow,
-                            // In dollars. Rolling digits, so the value
-                            // visibly ticks with the live price.
-                            value: RollingNumberText(
-                              text: formatDollars(currentValue),
-                              style: positionTileValueStyle(c),
-                            ),
-                            // No cost known (just filled, listed before
-                            // its entry is priced): no P&L, never the
-                            // whole value as a profit, as on its card.
-                            caption: costBasis > 0
-                                ? RollingNumberText(
-                                    text: pnlText,
-                                    style: positionTileCaptionStyle(c,
-                                        color: pnlColor),
-                                  )
-                                : null,
-                          );
+                          final worthLabel = pos.isResolved
+                              ? context.l10n.betCurrentValue
+                              : context.l10n.polyPosWorthNow;
+                          final flat = polyResultIsFlat(pnl);
+                          final PositionStatTile nowTile;
+                          if (whatIf != null && showGauge) {
+                            // Dragging: what it is worth now, beside what
+                            // it would be worth at the explored chance.
+                            nowTile = PositionStatTile(
+                              key: const ValueKey('poly-position-value'),
+                              label: context.l10n.polyPosNow,
+                              value: RollingNumberText(
+                                text: shown(formatDollars(currentValue)),
+                                style: positionTileValueStyle(c),
+                              ),
+                              caption: costBasis > 0
+                                  ? RollingNumberText(
+                                      text: shown(pnlText),
+                                      style: positionTileCaptionStyle(c,
+                                          color: balanceVisible
+                                              ? pnlColor
+                                              : null),
+                                    )
+                                  : null,
+                            );
+                          } else if (costBasis > 0) {
+                            nowTile = PositionStatTile(
+                              key: const ValueKey('poly-position-value'),
+                              label: context.l10n.portfolioProfitLoss,
+                              // Signed, in the up / down colour, as the
+                              // tile's line wrote it; flat, "$0.00" plain.
+                              // Rolling digits, so it visibly ticks with
+                              // the live price.
+                              value: RollingNumberText(
+                                key: PositionDetailSheet.pnlFigureKey,
+                                text: shown(flat
+                                    ? formatDollars(0)
+                                    : '${pnl > 0 ? '+' : '-'}'
+                                        '${formatDollars(pnl.abs())}'),
+                                style: positionTileValueStyle(c,
+                                    color: !balanceVisible || flat
+                                        ? null
+                                        : pnlColor),
+                              ),
+                              caption: RollingNumberText(
+                                key: PositionDetailSheet.worthCaptionKey,
+                                text: '$worthLabel '
+                                    '${shown(formatDollars(currentValue))}',
+                                style: positionTileCaptionStyle(c),
+                              ),
+                            );
+                          } else {
+                            nowTile = PositionStatTile(
+                              key: const ValueKey('poly-position-value'),
+                              label: worthLabel,
+                              value: RollingNumberText(
+                                text: shown(formatDollars(currentValue)),
+                                style: positionTileValueStyle(c),
+                              ),
+                            );
+                          }
                           if (whatIf != null && showGauge) {
                             // Dragging: what it would be worth at the
                             // explored chance, beside what it is worth now.
@@ -975,14 +1055,14 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 key: const ValueKey('poly-position-worth-then'),
                                 label: context.l10n.polyPosWorthThen,
                                 value: RollingNumberText(
-                                  text: formatDollars(then),
+                                  text: shown(formatDollars(then)),
                                   style: positionTileValueStyle(c),
                                   duration: const Duration(milliseconds: 120),
                                 ),
                                 caption: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (!flat) ...[
+                                    if (!flat && balanceVisible) ...[
                                       CustomPaint(
                                         size: Size(7.w, 5.h),
                                         painter: PolyCaretPainter(
@@ -991,12 +1071,14 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                       SizedBox(width: 4.w),
                                     ],
                                     Text(
-                                      formatDollars(change.abs()),
+                                      shown(formatDollars(change.abs())),
                                       key: const ValueKey(
                                           'poly-position-worth-then-change'),
                                       maxLines: 1,
                                       style: positionTileCaptionStyle(c,
-                                          color: changeColor),
+                                          color: balanceVisible
+                                              ? changeColor
+                                              : null),
                                     ),
                                   ],
                                 ),
@@ -1352,7 +1434,13 @@ class _DialHintLine extends StatelessWidget {
 class _HeldSideLine extends StatelessWidget {
   final String outcome;
   final Color color;
-  const _HeldSideLine({required this.outcome, required this.color});
+
+  /// Centred once settled (alone on its row); at the end over the dial.
+  final TextAlign textAlign;
+  const _HeldSideLine(
+      {required this.outcome,
+      required this.color,
+      this.textAlign = TextAlign.center});
 
   static const lineKey = ValueKey('poly-position-held');
 
@@ -1372,7 +1460,7 @@ class _HeldSideLine extends StatelessWidget {
         TextSpan(text: outcome, style: style.copyWith(color: color)),
       ]),
       style: style,
-      textAlign: TextAlign.center,
+      textAlign: textAlign,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );

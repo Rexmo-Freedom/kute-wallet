@@ -27,6 +27,7 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/balance_privacy.dart';
 
 class _NoGames extends SportsLiveNotifier {
   @override
@@ -118,6 +119,7 @@ const _position = PolymarketPosition(
 );
 
 List<Override> _overrides(PolymarketEvent? event) => [
+      balancePrivacyOverride(),
       polymarketClaimablePositionsProvider.overrideWithValue(const []),
       polymarketActivePositionsProvider.overrideWithValue(const []),
       livePriceProvider.overrideWith(_Prices.new),

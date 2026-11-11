@@ -51,6 +51,7 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/shell_bar_harness.dart';
+import '../../helpers/balance_privacy.dart';
 
 class _NoGames extends SportsLiveNotifier {
   @override
@@ -221,6 +222,7 @@ Future<_Trading> _pump(WidgetTester tester, PolymarketPosition position,
   addTearDown(router.dispose);
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      balancePrivacyOverride(),
       polymarketClaimablePositionsProvider.overrideWithValue(const []),
       polymarketActivePositionsProvider.overrideWithValue(const []),
       livePriceProvider.overrideWith(_Prices.new),

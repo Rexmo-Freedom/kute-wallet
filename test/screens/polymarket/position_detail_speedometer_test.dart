@@ -7,6 +7,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,12 +34,15 @@ import '../../helpers/runtime_policy_fixture.dart';
 import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show positionTileCaptionStyle, positionTileValueStyle;
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarContextScope, KuteBarPrimaryStyle;
+import '../../helpers/balance_privacy.dart';
 
 class _NoGames extends SportsLiveNotifier {
   @override
@@ -126,8 +130,11 @@ final _election = PolymarketEvent(
 );
 
 List<Override> _overrides(
-        {PolymarketEvent? event, PolyPositionJourney? journey}) =>
+        {PolymarketEvent? event,
+        PolyPositionJourney? journey,
+        int balancePrivacy = 0}) =>
     [
+      balancePrivacyOverride(balancePrivacy),
       polymarketClaimablePositionsProvider.overrideWithValue(const []),
       polymarketActivePositionsProvider.overrideWithValue(const []),
       livePriceProvider.overrideWith(_Prices.new),
@@ -149,13 +156,15 @@ Future<void> _pump(WidgetTester tester, PolymarketPosition position,
     PolyPositionJourney? journey,
     double width = 390,
     double textScale = 1,
-    bool dark = false}) async {
+    bool dark = false,
+    int balancePrivacy = 0}) async {
   tester.view.physicalSize = Size(width, 1200);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
-    overrides: _overrides(event: event, journey: journey),
+    overrides: _overrides(
+        event: event, journey: journey, balancePrivacy: balancePrivacy),
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
@@ -235,8 +244,10 @@ void main() {
     KuteHaptics.debugReset();
   });
 
-  testWidgets('a No bought at 19¢ now at 66%: the dial, the result line in '
-      'the up colour, "Worth now" and "If No wins"', (tester) async {
+  testWidgets('a No bought at 19¢ now at 66%: the dial, what it is worth '
+      'at the top left with the change in the up colour under it, "You hold '
+      'No" at the right edge, "Profits" large and "If No wins"',
+      (tester) async {
     await _pump(tester, _no);
     final dial = tester.widget<PolyPositionSpeedometer>(
         find.byType(PolyPositionSpeedometer));
@@ -245,22 +256,33 @@ void main() {
     expect(find.text('You · 19%'), findsNothing);
     // No is the down side: its word in the down colour, as everywhere.
     expect(_heldSide(tester).style!.color, AppColors.marketDown);
-    // ▲ $9.40, "+247% since 19¢", at the top left over the dial; "You
-    // hold No" at the top right.
+    // What it is worth, $13.20, at the top left over the dial, "+247%
+    // since 19¢" under it in the up colour (founder, 11 November 2026:
+    // the value up here, the profit the tile's figure); "You hold No" at
+    // the top right.
     final figure = tester.widget<Text>(
         find.byKey(PolyPositionResultLine.figureKey));
-    expect(figure.data, r'$9.40');
-    expect(figure.style!.color, AppColors.marketUp);
-    expect(find.text('+247% since 19¢'), findsOneWidget);
+    expect(figure.data, r'$13.20');
+    expect(figure.style!.color, AppColorsExtension.light().textPrimary);
+    final since =
+        tester.widget<Text>(find.byKey(PolyPositionResultLine.sinceKey));
+    expect(since.data, '+247% since 19¢');
+    expect(since.style!.color, AppColors.marketUp);
     final result = tester.getRect(find.byKey(PolyPositionResultLine.lineKey));
     final heldRect =
         tester.getRect(find.byKey(const ValueKey('poly-position-held')));
     final dialRect =
         tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
     expect(result.left, closeTo(dialRect.left, 1));
-    // The held line keeps inside the dial's width; nothing to share
-    // beside it (founder, 4 November 2026: the round Sal button floats
-    // beside Sell).
+    // The held line at the right, its right edge on the content's (the
+    // tiles' right edge; founder, 11 November 2026: it had floated from
+    // the middle); nothing to share beside it (founder, 4 November 2026:
+    // the round Sal button floats beside Sell).
+    final contentRight = tester
+        .getRect(find.byKey(const ValueKey('poly-position-payout')))
+        .right;
+    expect(heldRect.right, closeTo(contentRight, 0.5));
+    expect(heldRect.left, greaterThan(390 / 2));
     expect(heldRect.right, lessThanOrEqualTo(dialRect.right + 1));
     expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
     expect(result.bottom, lessThanOrEqualTo(dialRect.top));
@@ -273,22 +295,30 @@ void main() {
                 .painter! as PolySpeedometerSweepPainter)
             .color,
         AppColors.marketUp);
-    final caret = tester.widget<CustomPaint>(
-        find.byKey(PolyPositionResultLine.caretKey));
-    expect((caret.painter! as PolyCaretPainter).up, isTrue);
-    expect((caret.painter! as PolyCaretPainter).color, AppColors.marketUp);
-    // The tiles.
+    // The tiles: the profit large, in its colour, what it is worth under
+    // it; the header's figures never said twice.
     expect(
         find.descendant(
             of: find.byKey(const ValueKey('poly-position-value')),
-            matching: find.text('Worth now')),
+            matching: find.text('Profits')),
         findsOneWidget);
+    final pnlFigure = tester
+        .widget<RollingNumberText>(find.byKey(PositionDetailSheet.pnlFigureKey));
+    expect(pnlFigure.text, r'+$9.40');
+    expect(pnlFigure.style, positionTileValueStyle(
+        AppColorsExtension.light(), color: AppColors.marketUp));
+    final worth = tester.widget<RollingNumberText>(
+        find.byKey(PositionDetailSheet.worthCaptionKey));
+    expect(worth.text, r'Worth now $13.20');
+    expect(worth.style, positionTileCaptionStyle(AppColorsExtension.light()));
+    expect(find.textContaining(r'$9.40'), findsNothing);
+    expect(find.textContaining('247%', findRichText: true), findsOneWidget);
     expect(
         find.descendant(
             of: find.byKey(const ValueKey('poly-position-payout')),
             matching: find.text('If No wins')),
         findsOneWidget);
-    expect(_rolling(r'$13.20'), findsOneWidget);
+    expect(_rolling(r'$13.20'), findsNothing);
     // No journey chart under the tiles any more (founder, 1 November
     // 2026), and no share card (4 November 2026: it floats beside Sell).
     expect(find.byType(PolyPositionJourneyLine), findsNothing);
@@ -308,24 +338,26 @@ void main() {
     expect(painter.entry, closeTo(0.34, 1e-9));
     expect(painter.trackColor, AppColorsExtension.light().border);
     expect(find.text('-0.3% since 34¢'), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(PolyPositionResultLine.sinceKey))
+            .style!
+            .color,
+        AppColors.marketDown);
     expect(_heldSide(tester).style!.color, AppColors.marketUp);
     final figure = tester.widget<Text>(
         find.byKey(PolyPositionResultLine.figureKey));
-    expect(figure.data, r'$0.05');
-    expect(figure.style!.color, AppColors.marketDown);
-    expect(
-        (tester
-                .widget<CustomPaint>(
-                    find.byKey(PolyPositionResultLine.caretKey))
-                .painter! as PolyCaretPainter)
-            .up,
-        isFalse);
+    expect(figure.data, r'$16.95');
+    final pnlFigure = tester
+        .widget<RollingNumberText>(find.byKey(PositionDetailSheet.pnlFigureKey));
+    expect(pnlFigure.text, r'-$0.05');
+    expect(pnlFigure.style.color, AppColors.marketDown);
     expect(find.text('If Yes wins'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('a named outcome is written in the primary text colour; flat '
-      'reads "0.0%" quietly, no caret', (tester) async {
+      'reads "0.0%" quietly, the profit "\$0.00" plain', (tester) async {
     await _pump(
         tester,
         const PolymarketPosition(
@@ -344,10 +376,18 @@ void main() {
         AppColorsExtension.light().textPrimary);
     final figure = tester.widget<Text>(
         find.byKey(PolyPositionResultLine.figureKey));
-    expect(figure.data, r'$0.00');
+    expect(figure.data, r'$5.00');
     expect(find.text('0.0% since 50¢'), findsOneWidget);
-    expect(figure.style!.color, AppColorsExtension.light().textSecondary);
-    expect(find.byKey(PolyPositionResultLine.caretKey), findsNothing);
+    expect(
+        tester
+            .widget<Text>(find.byKey(PolyPositionResultLine.sinceKey))
+            .style!
+            .color,
+        AppColorsExtension.light().textTertiary);
+    final pnlFigure = tester
+        .widget<RollingNumberText>(find.byKey(PositionDetailSheet.pnlFigureKey));
+    expect(pnlFigure.text, r'$0.00');
+    expect(pnlFigure.style.color, AppColorsExtension.light().textPrimary);
   });
 
   testWidgets(r'drag to 85%: "If No reaches", "Worth then" $17.00 ▲ $13.20 '
@@ -379,12 +419,12 @@ void main() {
         findsOneWidget);
     expect(find.byKey(const ValueKey('poly-position-payout')), findsNothing);
     expect(find.text('Set a sell at 85%'), findsOneWidget);
-    // The top left reads the what-if: ▲ $13.20, +347% since 19¢.
+    // The top left reads the what-if: worth $17.00, +347% since 19¢.
     expect(
         tester
             .widget<Text>(find.byKey(PolyPositionResultLine.figureKey))
             .data,
-        r'$13.20');
+        r'$17.00');
     expect(find.text('+347% since 19¢'), findsOneWidget);
     expect(events.where((e) => e.$1 == 'prediction_position_whatif_used'),
         isEmpty);
@@ -395,6 +435,7 @@ void main() {
     expect(find.byKey(const ValueKey('poly-position-worth-then')),
         findsNothing);
     expect(find.text('If No wins'), findsOneWidget);
+    expect(find.text('Profits'), findsOneWidget);
     // The offer stays a moment after the release.
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('Set a sell at 85%'), findsOneWidget);
@@ -938,6 +979,151 @@ void main() {
       expect(polyResultPercent(-0.3), '-0.3%');
       expect(polyResultPercent(0.01), '0.0%');
       expect(polyResultPercent(-12.4), '-12%');
+    });
+  });
+
+  group(
+      'the value at the top left, the profit large in its tile, "You hold" '
+      'at the right edge (founder, 11 November 2026)', () {
+    final held = find.byKey(const ValueKey('poly-position-held'));
+    final valueTile = find.byKey(const ValueKey('poly-position-value'));
+    final payoutTile = find.byKey(const ValueKey('poly-position-payout'));
+
+    for (final dark in [false, true]) {
+      testWidgets(
+          'nothing cut at 320 pt and text x1.5 '
+          '(${dark ? 'dark' : 'light'})', (tester) async {
+        await _pump(tester, _no, width: 320, textScale: 1.5, dark: dark);
+        final colors =
+            dark ? AppColorsExtension.dark() : AppColorsExtension.light();
+        // Every figure whole and inside the view.
+        final view = Offset.zero & const Size(320, 1200);
+        for (final f in [
+          find.byKey(PolyPositionResultLine.figureKey),
+          find.byKey(PolyPositionResultLine.sinceKey),
+          held,
+          find.byKey(PositionDetailSheet.pnlFigureKey),
+          find.byKey(PositionDetailSheet.worthCaptionKey),
+          valueTile,
+          payoutTile,
+        ]) {
+          final r = tester.getRect(f);
+          expect(r.left, greaterThanOrEqualTo(view.left - 0.5));
+          expect(r.right, lessThanOrEqualTo(view.right + 0.5));
+        }
+        expect(
+            tester
+                .getRect(find.byKey(PositionDetailSheet.pnlFigureKey))
+                .right,
+            lessThanOrEqualTo(tester.getRect(valueTile).right));
+        expect(
+            tester
+                .getRect(find.byKey(PositionDetailSheet.worthCaptionKey))
+                .right,
+            lessThanOrEqualTo(tester.getRect(valueTile).right));
+        // "You hold No" whole, at the content's right edge, clear of the
+        // value at the left.
+        expect(tester.renderObject<RenderParagraph>(held).didExceedMaxLines,
+            isFalse);
+        expect(tester.getRect(held).right,
+            closeTo(tester.getRect(payoutTile).right, 0.5));
+        expect(
+            tester.getRect(held).left,
+            greaterThan(tester
+                .getRect(find.byKey(PolyPositionResultLine.lineKey))
+                .right));
+        // The theme's colours: the value in the primary text, the profit
+        // in the up colour.
+        expect(
+            tester
+                .widget<Text>(find.byKey(PolyPositionResultLine.figureKey))
+                .style!
+                .color,
+            colors.textPrimary);
+        expect(
+            tester
+                .widget<RollingNumberText>(
+                    find.byKey(PositionDetailSheet.pnlFigureKey))
+                .style
+                .color,
+            AppColors.marketUp);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('a long side name keeps to the right half, smaller rather '
+        'than over the value', (tester) async {
+      await _pump(
+          tester,
+          const PolymarketPosition(
+            marketId: 'm-long',
+            marketQuestion: 'Who wins the cup?',
+            outcome: 'Borussia Mönchengladbach',
+            size: 10,
+            avgPrice: 0.4,
+            currentPrice: 0.5,
+            pnl: 1,
+            pnlPercent: 25,
+            isResolved: false,
+            tokenId: 'long',
+          ),
+          width: 320,
+          textScale: 1.5);
+      expect(tester.getRect(held).right,
+          closeTo(tester.getRect(payoutTile).right, 0.5));
+      expect(
+          tester.getRect(held).left,
+          greaterThan(tester
+              .getRect(find.byKey(PolyPositionResultLine.lineKey))
+              .right));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('balances hidden: the value, the change and the profit '
+        'masked, no colour', (tester) async {
+      await _pump(tester, _no, balancePrivacy: 1);
+      expect(
+          tester
+              .widget<Text>(find.byKey(PolyPositionResultLine.figureKey))
+              .data,
+          '••••••');
+      final since =
+          tester.widget<Text>(find.byKey(PolyPositionResultLine.sinceKey));
+      expect(since.data, '••% since 19¢');
+      expect(since.style!.color, AppColorsExtension.light().textTertiary);
+      final pnlFigure = tester.widget<RollingNumberText>(
+          find.byKey(PositionDetailSheet.pnlFigureKey));
+      expect(pnlFigure.text, '••••••');
+      expect(pnlFigure.style.color, AppColorsExtension.light().textPrimary);
+      expect(
+          tester
+              .widget<RollingNumberText>(
+                  find.byKey(PositionDetailSheet.worthCaptionKey))
+              .text,
+          'Worth now ••••••');
+      expect(find.textContaining(r'$13.20'), findsNothing);
+
+      // Dragging masks the what-if figures too.
+      final d = _dial(tester);
+      final g = await tester.startGesture(d.hub + const Offset(0, -10));
+      await tester.pump();
+      await g.moveTo(d.at(0.85));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+          tester
+              .widget<Text>(find.byKey(PolyPositionResultLine.figureKey))
+              .data,
+          '••••••');
+      expect(
+          tester
+              .widget<Text>(find
+                  .byKey(const ValueKey('poly-position-worth-then-change')))
+              .data,
+          '••••••');
+      expect(_rolling(r'$17.00'), findsNothing);
+      await g.up();
+      await tester.pump(const Duration(seconds: 5));
+      expect(tester.takeException(), isNull);
     });
   });
 }

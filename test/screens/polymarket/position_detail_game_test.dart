@@ -40,6 +40,7 @@ import 'package:kute/screens/shared/kute_motion.dart' show ScorePulseText;
 import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/balance_privacy.dart';
 
 /// The header's score ([ScorePulseText]: a goal pulses its number), found
 /// by the score it shows.
@@ -126,7 +127,7 @@ Future<void> _pump(WidgetTester tester, Widget child,
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
-    overrides: overrides,
+    overrides: [balancePrivacyOverride(), ...overrides],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
@@ -329,21 +330,23 @@ void main() {
       );
       expect(find.byType(KuteDogGlance), findsNothing);
       // 120 shares bought at 42c: worth $60 now (+$9.60), $120 paid if
-      // the 49ers win, $50.40 paid for it. No risk sentence.
+      // the 49ers win, $50.40 paid for it. No risk sentence. The value
+      // tile leads with the profit, what it is worth under it (founder,
+      // 11 November 2026).
       final value = find.byKey(const ValueKey('poly-position-value'));
-      expect(find.descendant(of: value, matching: find.text('Worth now')),
+      expect(find.descendant(of: value, matching: find.text('Profits')),
           findsOneWidget);
       expect(
           find.descendant(
               of: value,
               matching: find.byWidgetPredicate((w) =>
-                  w is RollingNumberText && w.text == r'$60.00')),
+                  w is RollingNumberText && w.text == r'+$9.60')),
           findsOneWidget);
       expect(
           find.descendant(
               of: value,
               matching: find.byWidgetPredicate((w) =>
-                  w is RollingNumberText && w.text == r'+$9.60 · +19.0%')),
+                  w is RollingNumberText && w.text == r'Worth now $60.00')),
           findsOneWidget);
       final payout = find.byKey(const ValueKey('poly-position-payout'));
       expect(
