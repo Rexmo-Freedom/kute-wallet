@@ -355,7 +355,7 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
-    testWidgets('a smaller deposit on its way offers Add more',
+    testWidgets('a smaller deposit on its way offers no Add more',
         (tester) async {
       await _pumpSlip(tester,
           available: 0,
@@ -364,13 +364,13 @@ void main() {
           ]));
       expect(barPrimaryLabel(tester),
           r'Deposit incoming · $2.00');
-      // Nothing typed asks for nothing more; an order the deposit falls
-      // short of does.
+      // Never on the Investing ticket, short or not (founder, 11
+      // November 2026).
       expect(find.byKey(const ValueKey('slip-deposit-add-more')),
           findsNothing);
       await _typeOnKeypad(tester, '20');
       expect(find.byKey(const ValueKey('slip-deposit-add-more')),
-          findsOneWidget);
+          findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 

@@ -4081,24 +4081,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
     }
   }
-  /// "Add more" under "Deposit incoming": the rest of the shortfall.
-  void _addMoreDeposit(double shortfallUsd, double incomingUsd) {
-    if (ref
-            .read(runtimeCapabilitiesProvider)
-            .blockReason('hyperliquid.deposit') !=
-        null) {
-      return;
-    }
-    unawaited(openSlipTopUp(
-      context,
-      ref,
-      venue: SlipVenue.investing,
-      shortfallUsd: shortfallUsd,
-      orderUsd: _marginUsd,
-      incomingUsd: incomingUsd,
-      onReturned: slipTopUpReturned,
-    ));
-  }
 
   /// The hot account's Investing cash that is ready: perp withdrawable
   /// plus spot USDC (the notifier sweeps between them on the way).
@@ -5642,21 +5624,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // Above the bar's room, never under the floating bar (founder,
           // 8 November 2026: it clipped): on the Advanced page the steps
           // grow in here; the plain ticket shows them at the top, where its
-          // figures were. Add more shows when the money on its way falls
-          // short.
+          // figures were. No "Add more" under a deposit on its way here
+          // (founder, 11 November 2026: "don't have the add more button in
+          // the sheet of investing, makes no sense there").
           StepsReveal(
-            child: advanced && fundedJourney != null
-                ? fundedJourney
-                : incoming
-                    ? SlipIncomingDepositNote(
-                        onAddMore: funding.state ==
-                                    SlipFundingState.incomingShort &&
-                                depositBlock == null
-                            ? () => _addMoreDeposit(
-                                hlShortfall, funding!.incomingUsd)
-                            : null,
-                      )
-                    : null,
+            child: advanced && fundedJourney != null ? fundedJourney : null,
           ),
           ArrivalSwitcher(
             state: primaryKind,
