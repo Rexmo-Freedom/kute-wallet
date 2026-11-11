@@ -1677,9 +1677,19 @@ void main() {
   test('a rejected action is not funded and keeps its row as expired',
       () async {
     sender.mode = _SendMode.rejected;
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<StateError>()));
-    expect((await only()).stage, SettlementStage.notFunded);
+    Object? thrown;
+    try {
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+    } catch (e) {
+      thrown = e;
+    }
+    // The exchange's rejection proves nothing left: the stop says so and
+    // names its record, so a move folds the row in and offers Retry.
+    final op = await only();
+    expect(thrown, isA<SettlementFundingRefused>());
+    expect((thrown as SettlementFundingRefused).cause, isA<StateError>());
+    expect(thrown.operationId, op.operationId);
+    expect(op.stage, SettlementStage.notFunded);
     expect(rows.byId.values.single.status, 'expired');
   });
 

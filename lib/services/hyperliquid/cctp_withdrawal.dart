@@ -1058,11 +1058,16 @@ class HypercoreCctpWithdrawal {
       // with it, so a move's stopped leg keeps its row.
       throw SettlementFundingRefused(cause, operationId: op.operationId);
     } on CctpSendRejected catch (e) {
-      // Signed and answered with a rejection: not executed. The record
-      // keeps its slow ledger check in case the answer was wrong.
+      // Signed and answered with a rejection (`status: err`): not
+      // executed. The record keeps its slow ledger check in case the
+      // answer was wrong. The stop carries that proof and the record, as
+      // a stop before the POST does: a bare cause read as an outcome
+      // nobody could account for, so a Swap's Investing leg stayed "on
+      // its way" for good beside its own unlinked "Expired" row, with no
+      // Retry, while its cash had never left Investing.
       await _markNotFunded(store, op.operationId, rowId);
       if (lease != null) store.releaseLease(op.operationId, lease);
-      throw e.cause;
+      throw SettlementFundingRefused(e.cause, operationId: op.operationId);
     } catch (e) {
       // The POST may have reached the exchange. Nothing signs again; the
       // ledger decides.
