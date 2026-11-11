@@ -114,6 +114,26 @@ double? orchestraOutNetOfKuteFee(OrchestraEstimate quote, double estimatedOut) {
   return estimatedOut * (1 - rate);
 }
 
+/// What an Orchestra estimate's output [out] lands once Kute's fee comes
+/// out, as the backend reports it: `/estimate` asks the provider WITHOUT
+/// the app fee and says so (`X-Kute-Estimate-Includes-App-Fee: false`,
+/// `X-Kute-App-Fee-Bps` the route's live rate), while the quote that is
+/// paid takes it. Every route an order's Bitcoin route planner compares
+/// (`planDirectBitcoinLeg`: the direct leg, the via chain's Bitcoin →
+/// Dollars leg, its Dollars → Investing hop) is read through this one
+/// rule, so each side carries its own Kute fee at its live rate (founder
+/// report, 11 November 2026: with Bitcoin → Dollars read gross, the chain
+/// looked 1% cheaper and won every time). A missing rate reads as none
+/// (the backend sends one on every priced route). Null for an unusable
+/// output or an impossible rate.
+double? estimateOutNetOfKuteFee(OrchestraEstimate est, double out) {
+  if (!out.isFinite || out <= 0) return null;
+  if (est.estimateIncludesAppFee == true) return out;
+  final bps = est.kuteAppFeeBps ?? 0;
+  if (bps < 0 || bps >= 10000) return null;
+  return out * (1 - bps / 10000);
+}
+
 /// What arrives after every fee, in the destination's unit: the provider's
 /// output as quoted when the Kute fee is already inside it, otherwise that
 /// output less the Kute fee. Unavailable while the Kute rate is unknown, so a

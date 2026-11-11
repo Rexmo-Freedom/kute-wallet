@@ -945,11 +945,18 @@ class OrderFundingJourney {
   /// The route an order that needs Bitcoin took (`direct` or
   /// `via_dollars`) and, for the chain, why ([reason], a fixed code).
   ///
-  /// [decision] (a fixed code: the chain's reason, or why direct) and
-  /// [costDiffUsd] (direct minus via, exact dollars) ride on this event
-  /// only, when the planner priced both.
+  /// [decision] (a fixed code: the chain's reason, or why direct),
+  /// [costDiffUsd] (direct minus via) and the two costs compared,
+  /// [directCostUsd] and [viaCostUsd] (exact dollars, each route's sats at
+  /// the wallet's price after its own Kute fee and provider costs, plus
+  /// the Dollars it uses), ride on this event only, when the planner
+  /// priced both.
   void setRoute(OneBalanceVenue venue, String route,
-      {String? reason, String? decision, double? costDiffUsd}) {
+      {String? reason,
+      String? decision,
+      double? costDiffUsd,
+      double? directCostUsd,
+      double? viaCostUsd}) {
     final run = _runs[venue];
     if (run == null) return;
     if (run.route == route && run.routeReason == reason) return;
@@ -963,6 +970,9 @@ class OrderFundingJourney {
       if (decision != null) 'route_decision': decision,
       if (costDiffUsd != null && costDiffUsd.isFinite)
         'route_cost_diff_usd': costDiffUsd,
+      if (directCostUsd != null && directCostUsd.isFinite)
+        'direct_cost_usd': directCostUsd,
+      if (viaCostUsd != null && viaCostUsd.isFinite) 'via_cost_usd': viaCostUsd,
     });
   }
 

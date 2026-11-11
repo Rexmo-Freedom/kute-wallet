@@ -134,6 +134,8 @@ import 'package:kute/services/orchestra/arrival_target.dart'
     show kArrivalTargetBuffer;
 import 'package:kute/providers/swap_orders_provider.dart'
     show swapOrdersProvider;
+import 'package:kute/services/orchestra/orchestra_fee_amount.dart'
+    show estimateOutNetOfKuteFee;
 import 'package:kute/services/orchestra/venue_arrivals.dart'
     show OrchestraOrderIds, VenueArrivals;
 import 'package:kute/services/orchestra_routes.dart'
@@ -1220,7 +1222,9 @@ Future<SpendingBitcoin?> freshSpendingBitcoin(
 }
 
 /// The route's estimate of what [sats] of spending bitcoin land in
-/// Dollars, or null when it does not answer within a few seconds.
+/// Dollars, Kute's fee taken out at the rate the estimate reports
+/// ([estimateOutNetOfKuteFee], the same rule the direct leg is read by),
+/// or null when it does not answer within a few seconds.
 Future<double?> _bitcoinLegEstimate(int sats) async {
   try {
     final seam = debugBitcoinLegEstimate;
@@ -1234,8 +1238,10 @@ Future<double?> _bitcoinLegEstimate(int sats) async {
     ).timeout(const Duration(seconds: 4));
     final OrchestraEstimate? est = result.data;
     if (est == null) return null;
-    return orchestraAmountToDouble(est.estimatedOut, kOrchestraUsdAssetCode,
-        chain: kOrchestraUsdChain);
+    return estimateOutNetOfKuteFee(
+        est,
+        orchestraAmountToDouble(est.estimatedOut, kOrchestraUsdAssetCode,
+            chain: kOrchestraUsdChain));
   } catch (_) {
     return null;
   }
@@ -2182,7 +2188,9 @@ class _FundedChain {
     journey.setRoute(venue, _route,
         reason: plan.reason,
         decision: plan.decision,
-        costDiffUsd: plan.costDiffUsd);
+        costDiffUsd: plan.costDiffUsd,
+        directCostUsd: plan.directCostUsd,
+        viaCostUsd: plan.viaCostUsd);
 
     final other = plan.direct
         ? plan.otherUsd

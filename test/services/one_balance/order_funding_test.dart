@@ -136,13 +136,17 @@ void main() {
     journey.start(OneBalanceVenue.predictions,
         orderUsd: 5, fundUsd: 5.1, readyUsd: 0, dollarsUsd: 0);
     journey.setRoute(OneBalanceVenue.predictions, 'direct',
-        decision: 'within_tolerance', costDiffUsd: 0.0175);
-    final p = events
-        .singleWhere((e) => e.$1 == 'order_funding_route_selected')
-        .$2!;
+        decision: 'within_tolerance',
+        costDiffUsd: 0.0175,
+        directCostUsd: 5.2175,
+        viaCostUsd: 5.2);
+    final p =
+        events.singleWhere((e) => e.$1 == 'order_funding_route_selected').$2!;
     expect(p['route'], 'direct');
     expect(p['route_decision'], 'within_tolerance');
     expect(p['route_cost_diff_usd'], 0.0175);
+    expect(p['direct_cost_usd'], 5.2175);
+    expect(p['via_cost_usd'], 5.2);
     expect(p.containsKey('route_reason'), isFalse);
   });
 

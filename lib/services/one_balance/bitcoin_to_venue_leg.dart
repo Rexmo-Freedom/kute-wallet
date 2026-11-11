@@ -69,6 +69,8 @@ import 'package:kute/services/one_balance/predictions_venue_funder.dart'
 import 'package:kute/services/one_balance/slow_move.dart'
     show kSlowMoveFallback;
 import 'package:kute/services/orchestra/arrival_target.dart';
+import 'package:kute/services/orchestra/orchestra_fee_amount.dart'
+    show estimateOutNetOfKuteFee;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
     show OrchestraQuoteRequest, RecipientKind;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
@@ -103,7 +105,8 @@ abstract final class DirectBitcoinReason {
 
 /// Why an order that needs Bitcoin went direct. Fixed codes, sent as
 /// `route_decision` next to `route_cost_diff_usd` (exact dollars, direct
-/// minus via) on `order_funding_route_selected`.
+/// minus via), `direct_cost_usd` and `via_cost_usd` on
+/// `order_funding_route_selected`.
 abstract final class DirectBitcoinDecision {
   /// Direct cost no more than the chain's.
   static const String notCostlier = 'not_costlier';
@@ -216,7 +219,13 @@ double _ceilCents(double usd) => ((usd * 100) - 1e-9).ceilToDouble() / 100;
 ///     is more than the chain's (the via leg's sats plus Dollars) by MORE
 ///     than [directToleranceUsd] of the leg (the larger of $0.02 and 0.25%
 ///     of what the leg lands), and only when the sats fit the approval's
-///     direct cap and the wallet.
+///     direct cap and the wallet. Both sides on the same, complete basis:
+///     every estimate is read net of the Kute fee it reports at its live
+///     rate (`estimateOutNetOfKuteFee`: the direct leg here, the via leg's
+///     Bitcoin → Dollars when [via] was sized, the Dollars → venue hop in
+///     [venueArriving]), provider costs are inside each output, and the
+///     chain's second hop is counted because the direct leg only has to
+///     land what the chain's Dollars move would (1. above).
 Future<DirectBitcoinPlan> planDirectBitcoinLeg({
   required double fundUsd,
   required double addUsd,
@@ -368,11 +377,7 @@ Future<double?> directBitcoinEstimate(OneBalanceVenue venue, int sats,
     if (est == null) return null;
     final out = orchestraAmountToDouble(est.estimatedOut, route.toAsset,
         chain: route.toChain);
-    if (!out.isFinite || out <= 0) return null;
-    if (est.estimateIncludesAppFee == true) return out;
-    final bps = est.kuteAppFeeBps ?? 0;
-    if (bps < 0 || bps >= 10000) return null;
-    return out * (1 - bps / 10000);
+    return estimateOutNetOfKuteFee(est, out);
   } catch (_) {
     return null;
   }

@@ -677,8 +677,13 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     final quote =
         await _estimate(route, amount, await _recipient(deposit: deposit));
     if (quote == null) throw const RouteUnavailable('no estimate');
-    final arriving = orchestraAmountToDouble(quote.estimatedOut, route.toAsset,
+    // What lands once Kute's fee comes out at the rate the estimate
+    // reports (the paid quote takes it; the estimate leaves it out). Zero
+    // between own Dollars and own Investing, the rule a route compared
+    // against a Bitcoin leg is read by too.
+    final gross = orchestraAmountToDouble(quote.estimatedOut, route.toAsset,
         chain: route.toChain);
+    final arriving = estimateOutNetOfKuteFee(quote, gross) ?? gross;
     final fee = orchestraFeeAmount(quote).usd ?? 0;
     final limits = await limitsRead;
     return VenueMoveQuote(
