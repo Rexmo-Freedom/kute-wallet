@@ -88,8 +88,6 @@ import 'package:kute/screens/shared/kute_share_actions.dart'
     show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
-import 'package:kute/screens/hyperliquid/components/hl_format.dart'
-    show hlPrimaryListings;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -140,7 +138,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart'
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/models/hyperliquid_market.dart'
-    show HlMarket, kHlLowLiquidityDayVolumeUsd;
+    show HlMarket;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
 import 'package:kute/screens/shared/message_display.dart';
@@ -1969,6 +1967,16 @@ class _SeeAllRow extends StatelessWidget {
   }
 }
 
+/// Bumped when [HlIconAvailability.ensure] settles logos, so the search
+/// home chooses its "Moving now" markets again.
+final _hlLogoRevisionProvider = Provider.autoDispose<int>((ref) {
+  final revision = HlIconAvailability.revision;
+  void changed() => ref.invalidateSelf();
+  revision.addListener(changed);
+  ref.onDispose(() => revision.removeListener(changed));
+  return revision.value;
+});
+
 /// The search home (founder, 31 October 2026; flat): the Connect your own
 /// AI card ([_ConnectOwnAiCard]; founder, 2 November 2026), then at most
 /// three blocks on the sheet's surface, 28 apart, each a 13 sp w600 title
@@ -1979,8 +1987,10 @@ class _SeeAllRow extends StatelessWidget {
 ///      only when there are any): 56 px rows with the logo or a magnifier,
 ///      the name, its ✕; "Clear" at the title's end.
 ///   2. "Moving now": six of the day's largest moves among the loaded
-///      liquid Investing markets, a two-column grid of flat rows (the
+///      liquid Investing markets that have a logo of their own
+///      ([searchMoversWithLogos]), a two-column grid of flat rows (the
 ///      ticker, the move); "See all ›" opens Investing on Trending.
+///      While the logos are still unknown, skeleton rows.
 ///   3. "Trending predictions": three one-line rows from the loaded
 ///      trending feed, the chance gauge and the chance at the right.
 ///
@@ -2055,22 +2065,20 @@ class _SearchHome extends ConsumerWidget {
 
     // Moving now: the biggest moves, liquid markets only, one per
     // underlying (its primary listing, as the results and the Investing
-    // lists show it: Nvidia moving on two exchanges is one row).
+    // lists show it: Nvidia moving on two exchanges is one row), and
+    // only those with a logo of their own (founder, 11 November 2026: a
+    // market with no logo is a thin one). Logos not known yet are
+    // settled in the background; the grid chooses again when they are.
     final universe =
         ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ?? const [];
-    final moving = showInvesting
-        ? hlPrimaryListings([
-            for (final m in universe)
-              if (m.prevDayPx > 0 &&
-                  m.markPx > 0 &&
-                  m.dayNtlVlm >= kHlLowLiquidityDayVolumeUsd)
-                m,
-          ]..sort((a, b) => (b.markPx / b.prevDayPx - 1)
-                .abs()
-                .compareTo((a.markPx / a.prevDayPx - 1).abs())))
-            .take(SearchMoverGrid.count)
-            .toList()
-        : const <HlMarket>[];
+    ref.watch(_hlLogoRevisionProvider);
+    final movers =
+        showInvesting ? searchMoversWithLogos(searchMoverPool(universe)) : null;
+    if (movers != null && movers.pending.isNotEmpty) {
+      unawaited(HlIconAvailability.ensure(movers.pending));
+    }
+    final moving = movers?.shown ?? const <HlMarket>[];
+    final movingLoading = movers?.loading ?? false;
 
     // Trending predictions: the trending feed as it is loaded. While it
     // is still on its way (a cold start) the block stands with skeleton
@@ -2154,6 +2162,7 @@ class _SearchHome extends ConsumerWidget {
                       ),
                     ),
                     if (moving.isNotEmpty ||
+                        movingLoading ||
                         trending.isNotEmpty ||
                         trendingLoading)
                       gap,
@@ -2161,15 +2170,23 @@ class _SearchHome extends ConsumerWidget {
                 );
           },
         ),
-        if (moving.isNotEmpty) ...[
+        if (moving.isNotEmpty || movingLoading) ...[
           block(
             1,
             l10n.searchHomeMovingNow,
-            SearchMoverGrid(
-              key: const ValueKey('search-home-moving'),
-              markets: moving,
-              onTap: (m) => _openInvestingPage(context, ref, m),
-            ),
+            // Logos still on their way on a cold start: the skeleton,
+            // as Trending predictions loads, never letter tiles.
+            movingLoading
+                ? SkeletonRowList(
+                    key: const ValueKey('search-home-moving-loading'),
+                    count: (SearchMoverGrid.count + 1) ~/ 2,
+                    padding: EdgeInsets.zero,
+                  )
+                : SearchMoverGrid(
+                    key: const ValueKey('search-home-moving'),
+                    markets: moving,
+                    onTap: (m) => _openInvestingPage(context, ref, m),
+                  ),
             // Send mode stays in the send: no way out to Investing.
             trailing: send != null
                 ? null

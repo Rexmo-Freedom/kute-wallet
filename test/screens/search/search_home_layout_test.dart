@@ -17,6 +17,7 @@
 //
 //   SEARCH_FRAMES=<dir> flutter test test/screens/search/search_home_layout_test.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -29,6 +30,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -42,6 +45,8 @@ import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlLineSparkline;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show HlLetterBadge;
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
@@ -52,6 +57,7 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/sal_sprite.dart'
     show SalSprite, SalSpriteCache, kSalSpriteDir;
 import 'package:kute/services/advisor/advisor_input_guard.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/search_recent_store.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -266,6 +272,14 @@ Finder get _hairlines => find.descendant(
         (w) => w is Container && w.constraints?.maxHeight == 0.5));
 
 void main() {
+  // Moving now lists only markets with a logo of their own: the movers'
+  // logos are known.
+  setUp(() {
+    for (final m in _universe) {
+      HlIconAvailability.debugSeed(m);
+    }
+  });
+  tearDown(HlIconPrefetch.debugReset);
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async => expect(await AdvisorInputGuard.isSafe('tesla'), isTrue));
   setUp(() {
@@ -647,6 +661,65 @@ void main() {
         'connect_own_ai');
     _navigator.currentState!.pop();
     await tester.pumpAndSettle();
+    await _close(tester);
+  });
+
+  // Founder, 11 November 2026: "don't show Moving now without svg, means
+  // that they have low liquidity".
+  testWidgets(
+      'Moving now lists only movers with a logo of their own: HYPE has none, '
+      'XRP (the next by move) takes its place, in rank order',
+      (tester) async {
+    // By move: DOGE, HYPE, ETH, SOL, LINK, AVAX, XRP, BTC.
+    HlIconPrefetch.debugReset();
+    for (final m in _universe) {
+      HlIconAvailability.debugSeed(m, hit: m.coin != 'HYPE');
+    }
+    await _open(tester, recent: 0);
+    final movers = find.byType(SearchMoverRow);
+    expect(movers, findsNWidgets(6));
+    expect([for (final r in tester.widgetList<SearchMoverRow>(movers)) r.market.coin],
+        ['DOGE', 'ETH', 'SOL', 'LINK', 'AVAX', 'XRP']);
+    expect(find.byType(HlLetterBadge), findsNothing);
+    await _close(tester);
+  });
+
+  testWidgets(
+      'logos not known yet: the skeleton, never letter tiles, and only the '
+      "markets' own logos are asked for; none found: no Moving now",
+      (tester) async {
+    HlIconPrefetch.debugReset();
+    final asked = <String>[];
+    final venue = Completer<void>();
+    SharedHttpClient.debugOverride = MockClient((req) async {
+      asked.add(req.url.toString());
+      await venue.future;
+      // The venue's web app shell: its "no logo".
+      return http.Response('<!doctype html><html></html>', 200,
+          headers: {'content-type': 'text/html'});
+    });
+    addTearDown(() => SharedHttpClient.debugOverride = null);
+
+    await _open(tester, recent: 0, liveSal: true);
+    expect(find.text('Moving now'), findsOneWidget);
+    expect(find.byKey(const ValueKey('search-home-moving-loading')),
+        findsOneWidget);
+    expect(find.byType(SearchMoverRow), findsNothing);
+    expect(find.byType(HlLetterBadge), findsNothing);
+    // Six at a time (the icon host's connection limit), best mover first.
+    expect(asked, hasLength(HlIconPrefetch.concurrency));
+    expect(asked.first, 'https://app.hyperliquid.xyz/coins/DOGE.svg');
+
+    venue.complete();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Moving now'), findsNothing);
+    expect(find.byType(SearchMoverRow), findsNothing);
+    expect(find.byType(HlLetterBadge), findsNothing);
+    expect(find.text('Trending predictions'), findsOneWidget);
+    expect(asked, hasLength(_universe.length), reason: 'each asked once');
+    expect(asked.where((u) => u.contains('coincap')), isEmpty);
     await _close(tester);
   });
 

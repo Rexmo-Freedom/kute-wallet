@@ -41,6 +41,7 @@ import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/search_recent_store.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 import '../helpers/kute_bar_test_support.dart';
 import '../helpers/runtime_policy_fixture.dart';
@@ -165,6 +166,14 @@ const _frames = [
 ];
 
 void main() {
+  // Moving now lists only markets with a logo of their own: the movers'
+  // logos are known.
+  setUp(() {
+    for (final m in _markets) {
+      HlIconAvailability.debugSeed(m);
+    }
+  });
+  tearDown(HlIconPrefetch.debugReset);
   setUp(() async {
     setUpShareTest();
     WidgetsApp.debugAllowBannerOverride = false;

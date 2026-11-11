@@ -580,6 +580,7 @@ abstract final class HlIconPrefetch {
   static Future<void> warmFromDisk({int limit = warmLimit}) async {
     final disk = await IconCaches.resolve(IconCaches.hyperliquid);
     if (disk == null) return;
+    _hlDiskNow();
     final sw = Stopwatch()..start();
     // Misses first: they are what lets an icon skip straight past the
     // candidates that have no logo to the one that does.
@@ -621,6 +622,7 @@ abstract final class HlIconPrefetch {
     _hlSvgCache.clear();
     _hlSvgFailed.clear();
     _hlSvgInflight.clear();
+    HlIconAvailability.debugReset();
   }
 }
 
@@ -682,6 +684,132 @@ Future<HlIconArt?> _loadFirstSvg(List<String> urls) async {
     if (art != null) return art;
   }
   return null;
+}
+
+/// The CoinCap host of [hlIconLastResorts]' last resort. A logo found
+/// only there is a stranger's guess at a ticker, not the market's own art.
+const String kHlCoinCapIconPrefix = 'https://assets.coincap.io/';
+
+/// What is known, without a request, about whether a market has a logo
+/// of its own ([HlIconAvailability]).
+enum HlLogoStatus {
+  /// A logo from the venue's own images, the backend's iconUrl or the
+  /// stock-logo CDN is in the memory or disk cache.
+  hit,
+
+  /// Every one of those candidates is a known miss (memory, or a disk
+  /// miss within its TTL): the icon would draw CoinCap's guess, a
+  /// category glyph or the letter tile.
+  miss,
+
+  /// At least one candidate has not been asked yet (and none is a hit).
+  unknown,
+}
+
+/// Whether a Hyperliquid market has a logo of its own: the candidates of
+/// [hlIconUrlsFor] less CoinCap's last resort, read from the memory cache
+/// and the disk cache (no request), and [ensure] to settle the unknown
+/// ones. Used where a market without a logo is left out ("Moving now":
+/// founder, 11 November 2026, a market with no logo is a thin one).
+abstract final class HlIconAvailability {
+  /// Bumped each time [ensure] settles a batch, so a list choosing by
+  /// [of] can choose again.
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
+  /// Candidate lists settled (or being settled) this session, so a list
+  /// that rebuilds asks for each at most once.
+  static final Set<String> _asked = {};
+
+  /// The candidates that count as the market's own logo: [hlIconUrlsFor]
+  /// without CoinCap's last resort.
+  static List<String> logoUrlsFor(HlMarket m) => [
+        for (final u
+            in hlIconUrlsFor(m.coin, m.wireCoin, m.iconUrl, m.category))
+          if (!u.startsWith(kHlCoinCapIconPrefix)) u,
+      ];
+
+  /// What is known about [m]'s logo now: a hit when any of its own
+  /// candidates is in memory or on disk (the icon draws one of them once
+  /// the ones before it are settled), a miss when every one is a known
+  /// miss, else unknown. Never asks the network.
+  static HlLogoStatus of(HlMarket m) {
+    final disk = _hlDiskNow();
+    var unknown = false;
+    for (final u in logoUrlsFor(m)) {
+      if (_hlSvgFailed.contains(u)) continue;
+      if (_hlSvgCache.containsKey(u)) return HlLogoStatus.hit;
+      final entry = disk?.lookup(u);
+      if (entry == null) {
+        unknown = true;
+      } else if (!entry.isMiss) {
+        return HlLogoStatus.hit;
+      }
+    }
+    return unknown ? HlLogoStatus.unknown : HlLogoStatus.miss;
+  }
+
+  /// Settles the logos of [markets] whose status is [HlLogoStatus.unknown]
+  /// (disk, else network), [HlIconPrefetch.concurrency] at a time, in
+  /// order, through the same loader the icon uses (one request per URL in
+  /// flight, misses believed for the disk cache's TTL), never past the
+  /// market's own candidates to CoinCap. A market already asked this
+  /// session is not asked again. [revision] is bumped when it is done.
+  static Future<void> ensure(Iterable<HlMarket> markets) async {
+    final lists = <List<String>>[];
+    for (final m in markets) {
+      if (of(m) != HlLogoStatus.unknown) continue;
+      final urls = logoUrlsFor(m);
+      if (urls.isEmpty || !_asked.add(urls.join('|'))) continue;
+      lists.add(urls);
+    }
+    if (lists.isEmpty) return;
+    await runBounded(lists, HlIconPrefetch.concurrency, _loadFirstSvg);
+    revision.value++;
+  }
+
+  /// Tests: [m]'s logo is known to be its first own candidate ([hit]),
+  /// or every own candidate a known miss.
+  @visibleForTesting
+  static void debugSeed(HlMarket m, {bool hit = true}) {
+    final urls = logoUrlsFor(m);
+    if (urls.isEmpty) return;
+    if (hit) {
+      _hlSvgFailed.remove(urls.first);
+      _hlSvgCache[urls.first] = HlIconArt(
+          bytes: Uint8List.fromList(utf8.encode(
+              '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+              '<circle cx="12" cy="12" r="12" fill="#F7931A"/></svg>')),
+          raster: false,
+          aspect: 1);
+    } else {
+      _hlSvgFailed.addAll(urls);
+    }
+  }
+
+  @visibleForTesting
+  static void debugReset() {
+    _asked.clear();
+    _hlDiskFuture = null;
+    _hlDiskValue = null;
+  }
+}
+
+/// The opened disk cache, once [IconCaches.hyperliquid] has resolved, for
+/// the synchronous [HlIconAvailability.of]; null before.
+Future<IconDiskCache?>? _hlDiskFuture;
+IconDiskCache? _hlDiskValue;
+
+IconDiskCache? _hlDiskNow() {
+  final pending = IconCaches.hyperliquid;
+  if (pending == null) return null;
+  if (!identical(pending, _hlDiskFuture)) {
+    _hlDiskFuture = pending;
+    _hlDiskValue = null;
+    pending.then((d) {
+      if (identical(_hlDiskFuture, pending)) _hlDiskValue = d;
+    }, onError: (_) {});
+  }
+  return _hlDiskValue;
 }
 
 /// A tasteful fallback glyph for a market that has no CDN logo. Hyperliquid's
@@ -755,6 +883,10 @@ class HlCoinIcon extends StatefulWidget {
 
   final double size;
 
+  /// Drawn instead of the category glyph or letter tile while the logo
+  /// loads or when there is none (Moving now never shows a letter tile).
+  final Widget? placeholder;
+
   const HlCoinIcon({
     super.key,
     required this.coin,
@@ -762,6 +894,7 @@ class HlCoinIcon extends StatefulWidget {
     this.iconUrl,
     this.category,
     this.size = 44,
+    this.placeholder,
   });
 
   @override
@@ -898,6 +1031,8 @@ class _HlCoinIconState extends State<HlCoinIcon> {
   /// Category/symbol glyph when we have one (oil, gold, wheat, index,
   /// stock…), otherwise the deterministic tinted letter badge.
   Widget _fallback(BuildContext context) {
+    final placeholder = widget.placeholder;
+    if (placeholder != null) return placeholder;
     final glyph = hlFallbackGlyph(widget.coin, widget.category);
     if (glyph == null) {
       return HlLetterBadge(coin: widget.coin, size: widget.size);

@@ -59,6 +59,7 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 import '../helpers/hl_chart_edit_harness.dart';
 import '../helpers/kute_bar_test_support.dart';
@@ -154,6 +155,14 @@ const _trading = {'hyperliquid.trade', 'polymarket.trade'};
 const _browse = {'hyperliquid.browse', 'polymarket.browse'};
 
 void main() {
+  // Moving now lists only markets with a logo of their own: the movers'
+  // logos are known.
+  setUp(() {
+    for (final m in [_perp]) {
+      HlIconAvailability.debugSeed(m);
+    }
+  });
+  tearDown(HlIconPrefetch.debugReset);
   tearDown(uninstallMarketGatingPolicy);
 
   group('the trade row\'s doors: what the slips ask when they open', () {

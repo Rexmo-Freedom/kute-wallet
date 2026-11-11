@@ -34,6 +34,7 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/search_recent_store.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 const _out = String.fromEnvironment('SEARCH_SHEET_RENDER_OUT');
 final _shotKey = GlobalKey();
@@ -262,6 +263,14 @@ Future<void> _render(
 }
 
 void main() {
+  // Moving now lists only markets with a logo of their own: the movers'
+  // logos are known.
+  setUp(() {
+    for (final m in _universe) {
+      HlIconAvailability.debugSeed(m);
+    }
+  });
+  tearDown(HlIconPrefetch.debugReset);
   if (_out.isEmpty) return;
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {

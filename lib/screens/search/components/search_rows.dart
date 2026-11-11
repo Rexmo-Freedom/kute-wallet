@@ -28,7 +28,10 @@
 //     listings open in place under it, each row saying what sets it
 //     apart ("NVDA · EntropyIO", "NVDAX · Spot");
 //   * "MOVING NOW" is a two-column grid of six flat rows, the ticker and
-//     the day's move ([SearchMoverGrid], [SearchMoverRow]);
+//     the day's move ([SearchMoverGrid], [SearchMoverRow]); only markets
+//     with a logo of their own are listed ([searchMoversWithLogos];
+//     founder, 11 November 2026: "don't show Moving now without svg,
+//     means that they have low liquidity"), never a letter tile;
 //   * the EMPTY state is Sal's `sad` face at 40 over one small centred
 //     line ([SearchEmptyState]).
 //
@@ -44,7 +47,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart'
-    show HlDexNames, HlMarket, HlMarketKind;
+    show HlDexNames, HlMarket, HlMarketKind, kHlLowLiquidityDayVolumeUsd;
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_search_provider.dart'
     show HlMarketSearchResult;
@@ -55,7 +58,7 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlLineSparkline;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
-    show formatHlPrice, formatHlPct, formatHlUsd;
+    show formatHlPrice, formatHlPct, formatHlUsd, hlPrimaryListings;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_motion.dart'
@@ -665,12 +668,15 @@ class SearchMoverRow extends StatelessWidget {
     final change = market.markPx / market.prevDayPx - 1;
     final move = formatHlPct(change);
     return SearchListRow(
+      // A blank plate, never the letter tile or a glyph, until the logo
+      // paints (only markets with a logo are listed here).
       leading: HlCoinIcon(
           coin: market.coin,
           wireCoin: market.wireCoin,
           iconUrl: market.iconUrl,
           category: market.category,
-          size: kSearchRowLogo),
+          size: kSearchRowLogo,
+          placeholder: searchEventLogo(context, null)),
       title: market.coin,
       titleLines: 1,
       trailing: Text(
@@ -720,6 +726,64 @@ class SearchMoverGrid extends StatelessWidget {
     }
     return SearchRowList(children: rows);
   }
+}
+
+/// How many of the day's largest movers "Moving now" looks through for
+/// [SearchMoverGrid.count] with a logo of their own.
+const int kSearchMoverPool = 30;
+
+/// The markets "Moving now" chooses from, best first: of [universe], the
+/// liquid ones ([kHlLowLiquidityDayVolumeUsd] traded in 24h) with a price
+/// and a previous-day price, one per underlying ([hlPrimaryListings]),
+/// by the size of the day's move, the first [kSearchMoverPool].
+List<HlMarket> searchMoverPool(Iterable<HlMarket> universe) =>
+    hlPrimaryListings([
+      for (final m in universe)
+        if (m.prevDayPx > 0 &&
+            m.markPx > 0 &&
+            m.dayNtlVlm >= kHlLowLiquidityDayVolumeUsd)
+          m,
+    ]..sort((a, b) => (b.markPx / b.prevDayPx - 1)
+          .abs()
+          .compareTo((a.markPx / a.prevDayPx - 1).abs())))
+        .take(kSearchMoverPool)
+        .toList();
+
+/// What "Moving now" draws from [ranked] ([searchMoverPool]): the first
+/// [count] markets in rank order whose logo is a known hit
+/// ([HlIconAvailability.of]; CoinCap's guess, a glyph or a letter tile
+/// is no logo), skipping known misses. [pending] are the markets whose
+/// logo is not known yet ranked before the last one [shown] needs: they
+/// are settled with [HlIconAvailability.ensure] and may take a place.
+/// While they could still fill a grid that is short, nothing is [shown]
+/// and the block is [loading] (its skeleton, never letter tiles); with
+/// enough known logos the grid shows them meanwhile. Fewer than [count]
+/// with every logo known: fewer rows; none: no block.
+({List<HlMarket> shown, List<HlMarket> pending, bool loading})
+    searchMoversWithLogos(
+  List<HlMarket> ranked, {
+  int count = SearchMoverGrid.count,
+  HlLogoStatus Function(HlMarket market) status = HlIconAvailability.of,
+}) {
+  final hits = <HlMarket>[];
+  final pending = <HlMarket>[];
+  for (final m in ranked) {
+    if (hits.length >= count) break;
+    switch (status(m)) {
+      case HlLogoStatus.hit:
+        hits.add(m);
+      case HlLogoStatus.unknown:
+        pending.add(m);
+      case HlLogoStatus.miss:
+        break;
+    }
+  }
+  final loading = hits.length < count && pending.isNotEmpty;
+  return (
+    shown: loading ? const <HlMarket>[] : hits,
+    pending: pending,
+    loading: loading,
+  );
 }
 
 /// Nothing found: Sal's `sad` face at 40 over one small centred line.

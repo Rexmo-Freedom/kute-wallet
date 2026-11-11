@@ -37,6 +37,7 @@ import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/search_recent_store.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
 import 'share_test_harness.dart';
@@ -157,6 +158,14 @@ class _Launcher extends StatelessWidget {
 }
 
 void main() {
+  // Moving now lists only markets with a logo of their own: the movers'
+  // logos are known.
+  setUp(() {
+    for (final m in [_market]) {
+      HlIconAvailability.debugSeed(m);
+    }
+  });
+  tearDown(HlIconPrefetch.debugReset);
   late ShareTestEnv env;
   late List<Object> opened;
 
