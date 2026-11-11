@@ -322,7 +322,6 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
   List<dynamic> _referees = [];
   int _windowDays = 30;
   String? _shareLink; // local OneLink first; upgraded to branded async
-  bool _showReferees = false;
   // Once per screen open: a retry re-runs _bootstrap without re-counting.
   bool _viewTracked = false;
   bool _shareLinkTracked = false;
@@ -824,7 +823,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
         ),
         if (_history.isNotEmpty) ...[gap, _graphCard(c)],
         if (payments.isNotEmpty) ...[gap, _paymentsCard(c, payments)],
-        if (progress.friends > 0) ...[gap, _refereesCard(c, progress.friends)],
+        // No "Your friends" list, ever (founder, 11 November 2026).
         // Withheld, only the rules the old card carried (a figure the
         // backend stated); nothing to explain without one.
         if (participationAllowed || discount != null || baseRate != null) ...[
@@ -1103,77 +1102,6 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     // Same locale-aware date as the Milestones screen, never an ISO date.
     return DateFormat.yMMMd(Localizations.localeOf(context).toString())
         .format(dt);
-  }
-
-  // ── Friends ──
-  Widget _refereesCard(AppColorsExtension c, int bound) {
-    return _SectionCard(
-      key: const ValueKey('referral-friends'),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            setState(() => _showReferees = !_showReferees);
-            if (_showReferees) {
-              TrackingService.affiliateRefereesViewed(boundCount: bound);
-              // Opened with fewer rows than friends joined (the list's
-              // read failed or ran behind the count): read it again, so
-              // the card never opens onto nothing.
-              if (_referees.length < bound) unawaited(_reloadReferees());
-            }
-          },
-          child: Row(children: [
-            Expanded(
-              child: Text(context.l10n.accountYourFriends,
-                  style: KuteActionCard.titleStyle(c)),
-            ),
-            Icon(
-                _showReferees
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
-                color: c.textSecondary,
-                size: 22.sp),
-          ]),
-        ),
-        if (_showReferees) ...[
-          SizedBox(height: 8.h),
-          for (var i = 0; i < _referees.length; i++)
-            _refereeRow(c, i, _referees[i] as Map<String, dynamic>),
-        ],
-      ]),
-    );
-  }
-
-  Future<void> _reloadReferees() async {
-    final r = await AffiliateService.getReferees(limit: 100);
-    if (mounted && r != null) setState(() => _referees = r);
-  }
-
-  Widget _refereeRow(AppColorsExtension c, int i, Map<String, dynamic> r) {
-    // contribution_usd is Kute's GROSS earnings from this referee, NOT the
-    // referrer's cut. Show the actual profit this user makes from the friend:
-    // their commission rate applied to that gross (same math as the earnings
-    // chart: ratePct/100 * gross).
-    final rate = _d(_me?['commission_rate_pct']);
-    final contrib = _d(r['contribution_usd']) * rate / 100.0;
-    // Always the amount, exact to the cent ($0.00 before their first fee),
-    // so every friend's row says what they have earned the person.
-    return Padding(
-      key: ValueKey('referral-friend-$i'),
-      padding: EdgeInsets.symmetric(vertical: 7.h),
-      child: Row(children: [
-        Expanded(
-          child: Text(context.l10n.accountUserNumber(i + 1),
-              style: TextStyle(color: c.textPrimary, fontSize: 14.sp)),
-        ),
-        Text(_usd(contrib),
-              style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()])),
-      ]),
-    );
   }
 
   // ── Late entry fallback ──

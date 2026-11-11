@@ -516,49 +516,14 @@ void main() {
       });
     });
 
-    testWidgets(
-        'Your friends: one friend joined, the card opens onto that friend '
-        'and what they earned you', (tester) async {
-      await pump(tester,
-          me: _me(friends: 1),
-          referees: [
-            {
-              'activated': true,
-              'contribution_usd': 12.0,
-              'venue_revenue_usd': 0,
-            },
-          ]);
-      await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('referral-friends')), 200,
-          scrollable: scrollable());
-      expect(find.text('Your friends'), findsOneWidget);
-      expect(find.byKey(const ValueKey('referral-friend-0')), findsNothing);
-      await tester.tap(find.text('Your friends'));
-      await tester.pump();
-      expect(find.byKey(const ValueKey('referral-friend-0')), findsOneWidget);
-      expect(find.text('User #1'), findsOneWidget);
-      // 5% of their $12.00 in fees.
-      expect(find.text(r'$0.60'), findsOneWidget);
-      expect(
-          events.firstWhere((e) => e.$1 == 'affiliate_referees_viewed').$2,
-          isNot(contains('EKVGUY')));
-      await away(tester);
-    });
-
-    testWidgets('Your friends: a friend who paid no fee yet reads \$0.00',
+    testWidgets('no "Your friends" list, ever, even with friends joined',
         (tester) async {
       await pump(tester, me: _me(friends: 1), referees: [
-        {'activated': true, 'contribution_usd': 0, 'venue_revenue_usd': 0},
+        {'activated': true, 'contribution_usd': 12.0, 'venue_revenue_usd': 0},
       ]);
-      await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('referral-friends')), 200,
-          scrollable: scrollable());
-      await tester.tap(find.text('Your friends'));
-      await tester.pump();
-      final row = find.byKey(const ValueKey('referral-friend-0'));
-      expect(row, findsOneWidget);
-      expect(find.descendant(of: row, matching: find.text(r'$0.00')),
-          findsOneWidget);
+      expect(find.byKey(const ValueKey('referral-friends')), findsNothing);
+      expect(find.text('Your friends'), findsNothing);
+      expect(find.text('User #1'), findsNothing);
       await away(tester);
     });
 
