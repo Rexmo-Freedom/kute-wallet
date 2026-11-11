@@ -14,7 +14,9 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/services/polymarket/usdce_wrap_gate.dart'
-    show FundedConversionHold;
+    show FundedConversionHold, UsdceWrapGate;
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolygonPollReadFailed;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
@@ -112,8 +114,40 @@ class _Trading extends PolymarketTradingNotifier {
     return reads;
   }
 
+  /// What the funded bet's chain watch reads; null = nothing to read.
+  ({BigInt pusd, BigInt usdce, int endpoint, int rpcErrors})? chain;
+  Object? chainError;
+  var chainReads = 0;
+
   @override
-  void nudgeConversion() => nudges++;
+  Future<({BigInt pusd, BigInt usdce, int endpoint, int rpcErrors})?>
+      readCollateralNow() async {
+    chainReads++;
+    final e = chainError;
+    if (e != null) throw e;
+    return chain;
+  }
+
+  /// When set, every nudge converts through the real single-flight gate.
+  UsdceWrapGate? gate;
+  var wraps = 0;
+
+  /// How many readiness reads had gone out at the first nudge.
+  int? firstNudgeAtReads;
+
+  @override
+  void nudgeConversion() {
+    nudges++;
+    firstNudgeAtReads ??= refreshAsks.length;
+    final g = gate;
+    if (g != null) {
+      unawaited(g.run('0xdeposit', () async {
+        wraps++;
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        return BigInt.one;
+      }));
+    }
+  }
 
   @override
   Future<bool> readyCollateralForBuy(double costUsd) async => false;
@@ -523,6 +557,130 @@ void main() {
     await settle(r.c);
     expect(r.trading.orders, hasLength(1));
     expect(r.trading.orderCosts.single, lessThanOrEqualTo(10.6));
+  });
+
+  group('the funded bet\'s own chain watch', () {
+    ({BigInt pusd, BigInt usdce, int endpoint, int rpcErrors}) chain(
+            {double pusd = 0, double usdce = 0, int endpoint = 2}) =>
+        (pusd: _usd(pusd), usdce: _usd(usdce), endpoint: endpoint, rpcErrors: 0);
+
+    void journey() => OrderFundingJourney.instance.start(
+        OneBalanceVenue.predictions,
+        orderUsd: 10,
+        fundUsd: 10,
+        readyUsd: 0,
+        dollarsUsd: 10);
+
+    test(
+        'sees every leg\'s money on chain before any other read: the hold '
+        'released, the conversion started at once, detected_by chain_poll',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.chain = chain(usdce: 10.6);
+      final watch = r.c.read(pendingBetAutoFireProvider).chainWatch;
+      expect(watch.active, isTrue);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      // The conversion was asked for before the readiness look read the
+      // wallet: straight from the chain read that saw the money.
+      expect(r.trading.firstNudgeAtReads, 0);
+      expect(r.trading.chainReads, 1);
+      expect(FundedConversionHold.held, isFalse);
+      expect(watch.active, isFalse);
+      final done =
+          events.singleWhere((e) => e.$1 == 'order_funding_completed').$2!;
+      expect(done['detected_by'], 'chain_poll');
+      expect(done['chain_reads'], 1);
+      expect(done['chain_rpc_errors'], 0);
+      expect(done['chain_rpc_endpoint'], 2);
+      expect(done['ms_funded_to_onchain_seen'], isA<int>());
+      expect(done['ms_funded_to_onchain_seen'] as int, greaterThanOrEqualTo(0));
+    });
+
+    test('part of the money on chain: still held; all of it: released',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.chain = chain(usdce: 4);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(FundedConversionHold.held, isTrue);
+      expect(r.trading.nudges, 0);
+      expect(r.trading.orders, isEmpty);
+      // The next tick (1 s) sees all of it.
+      r.trading.chain = chain(pusd: 4, usdce: 6.6);
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      expect(FundedConversionHold.held, isFalse);
+      expect(r.trading.nudges, greaterThan(0));
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.chainReads, 2);
+    });
+
+    test('the release and the readiness look both ask: one conversion',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.gate = UsdceWrapGate();
+      // The readiness look still sees USDC.e: it asks again (converting).
+      r.trading.reads = _reads(usdce: 10.6, counted: 0);
+      r.trading.chain = chain(usdce: 10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(r.trading.nudges, greaterThanOrEqualTo(2));
+      expect(r.trading.wraps, 1);
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.wraps, 1);
+    });
+
+    test('an RPC failure is counted and backed off, never taken for empty',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.chainError = const PolygonPollReadFailed(2);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      // 0 s, then the 1 s backoff: two tries, nothing released.
+      expect(r.trading.chainReads, 2);
+      expect(FundedConversionHold.held, isTrue);
+      r.trading.chainError = null;
+      r.trading.chain = chain(usdce: 10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 2500));
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      final done =
+          events.singleWhere((e) => e.$1 == 'order_funding_completed').$2!;
+      expect(done['detected_by'], 'chain_poll');
+      expect(done['chain_rpc_errors'], 4);
+      expect(done['chain_reads'], 3);
+    });
+
+    test('stops when the bet is cancelled or fails', () async {
+      journey();
+      final r = await start();
+      final watch = r.c.read(pendingBetAutoFireProvider).chainWatch;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(watch.active, isTrue);
+      r.c.read(pendingPolymarketBetProvider.notifier).updateStatus(
+          PendingBetStatus.failed,
+          errorMessage: 'x',
+          failureCode: 'funds_timeout');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(watch.active, isFalse);
+      final reads = r.trading.chainReads;
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      expect(r.trading.chainReads, reads);
+    });
+
+    test('stops once the bet is done', () async {
+      final r = await start();
+      r.c.read(pendingPolymarketBetProvider.notifier).setIntent(r.c
+          .read(pendingPolymarketBetProvider)!
+          .copyWith(status: PendingBetStatus.done));
+      final watch = r.c.read(pendingBetAutoFireProvider).chainWatch;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(watch.active, isFalse);
+    });
   });
 
   for (final fallback in [false, true]) {

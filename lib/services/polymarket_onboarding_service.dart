@@ -129,6 +129,17 @@ const _kMaxUint256Hex = PolymarketConstants.maxUint256Hex;
 /// A Polygon RPC or relayer read that failed or returned no usable result.
 /// Thrown only by the strict read variants; callers flag the read as
 /// failed instead of treating it as zero.
+/// A light poll's read ([PolymarketOnboardingService.readBalancesForPoll])
+/// got no answer from any endpoint it tried: [attempts] endpoints failed
+/// (an error, a 429 or other non-200, a timeout, a malformed answer).
+class PolygonPollReadFailed implements Exception {
+  const PolygonPollReadFailed(this.attempts);
+  final int attempts;
+
+  @override
+  String toString() => 'PolygonPollReadFailed($attempts)';
+}
+
 class PolymarketReadException implements Exception {
   final String message;
   const PolymarketReadException(this.message);
@@ -2002,6 +2013,9 @@ class PolymarketOnboardingService {
     // is confirmed: the order book can be asked to re-read the wallet
     // then, while the poll waits on for the confirmation.
     void Function()? onMined,
+    // Told right before the conversion is signed and sent (the balance
+    // read showed something to convert), for its timings.
+    void Function()? onSubmitting,
   }) async {
     // One conversion per delivered amount: in the wallet's queue, after
     // any action before it is confirmed, and never again for a read that
@@ -2019,6 +2033,7 @@ class PolymarketOnboardingService {
         return usdce;
       },
       wrap: (usdce) async {
+        onSubmitting?.call();
         if (kDebugMode) {
           // ignore: avoid_print
           print('[poly-relayer] WRAP $usdce micro USDC.e → pUSD '
@@ -2724,6 +2739,66 @@ class PolymarketOnboardingService {
   }
 
   /// ERC-20 balance, throwing on RPC failure.
+  /// The per-call bound of [readBalancesForPoll].
+  static const Duration pollCallTimeout = Duration(seconds: 3);
+
+  /// [owner]'s balances of [tokens] for a poll that must stay light (the
+  /// funded bet's chain watch, funded_chain_watch.dart): ONE endpoint at a
+  /// time, never raced, its calls one after the other (the read client
+  /// sends one `eth_call` per request: no batch), each bounded by
+  /// [perCallTimeout]. The endpoint is the first in the read order (the
+  /// one that answered last, recently failed ones last). When it fails
+  /// (an error, a 429 or other non-200, a timeout, a malformed answer) it
+  /// is cooled down like any failed read and the NEXT configured endpoint
+  /// is tried, [endpoints] at most. Returns the balances (in [tokens]'
+  /// order), the index in [polygonReadRpcs] of the endpoint that answered
+  /// (an index, never the URL) and how many endpoints failed before it.
+  /// Throws [PolygonPollReadFailed] when none answered.
+  Future<({List<BigInt> balances, int endpoint, int errors})>
+      readBalancesForPoll({
+    required List<String> tokens,
+    required String owner,
+    Duration perCallTimeout = pollCallTimeout,
+    int endpoints = 2,
+  }) async {
+    await _ensureHealthyRpcsLoaded();
+    final order = _polygonReadOrder();
+    final data = '0x${_encodeBalanceOfCall(owner)}';
+    var errors = 0;
+    for (final rpc in order.take(endpoints)) {
+      try {
+        if (!await _isPolygonRpc(rpc)) {
+          errors++;
+          continue;
+        }
+        final out = <BigInt>[];
+        for (final token in tokens) {
+          final answer = await _rpcRequest(
+              rpc,
+              'eth_call',
+              [
+                {'to': token, 'data': data},
+                'latest',
+              ],
+              timeout: perCallTimeout);
+          final result = answer?.result;
+          if (result is! String ||
+              !result.startsWith('0x') ||
+              result.length != 66) {
+            throw const PolymarketReadException('balanceOf failed');
+          }
+          out.add(BigInt.parse(result.substring(2), radix: 16));
+        }
+        _rpcAnswered(rpc);
+        return (balances: out, endpoint: _readRpcs.indexOf(rpc), errors: errors);
+      } catch (_) {
+        errors++;
+        _rpcFailed(rpc);
+      }
+    }
+    throw PolygonPollReadFailed(errors);
+  }
+
   Future<BigInt> readErc20BalanceOrThrow({
     required String token,
     required String owner,

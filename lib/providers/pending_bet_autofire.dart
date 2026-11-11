@@ -81,7 +81,13 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/polymarket/usdce_wrap_gate.dart'
-    show FundedConversionHold, fundedConversionHeld;
+    show FundedConversionHold, WrapPhase, WrapTimeline, fundedConversionHeld;
+import 'package:kute/services/polymarket/funded_chain_watch.dart';
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolygonPollReadFailed;
+import 'package:kute/services/platform/background_grace.dart'
+    show BackgroundGrace;
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
@@ -379,6 +385,55 @@ class PendingBetAutoFire {
   /// conversion and its order may run ([FundedConversionHold]).
   ({String token, DateTime? queuedAt, String? runId})? _landedConfirmed;
   void Function()? _uninstallHold;
+  void Function()? _uninstallWrapTimeline;
+
+  /// Which poll is refreshing the trading state on the autofire's behalf
+  /// now, so the change it publishes is credited to it (`detected_by`).
+  String? _refreshingFor;
+
+  /// Test seam: whether a chain read may go out now. Defaults to the app
+  /// in the foreground (or a background grace held) with the session
+  /// unlocked.
+  @visibleForTesting
+  static bool Function()? debugChainCanRead;
+
+  /// Test seam: the clock of the chain watch's cadence.
+  @visibleForTesting
+  static DateTime Function()? debugChainClock;
+
+  /// The funded bet's own on-chain watch (funded_chain_watch.dart): one
+  /// shared ticker, one read in flight, 1 s for 30 s after funding, 4 s
+  /// until 2 min, then the 15 s await poll alone.
+  late final FundedChainWatch _chainWatch = FundedChainWatch(
+    read: _readChain,
+    onRead: _onChainRead,
+    canRead: () =>
+        debugChainCanRead?.call() ??
+        (!_disposed &&
+            ref.read(sessionUnlockedProvider) &&
+            (_appInForeground() || BackgroundGrace.activeCount > 0)),
+    clock: debugChainClock,
+  );
+
+  /// The chain watch, for tests.
+  @visibleForTesting
+  FundedChainWatch get chainWatch => _chainWatch;
+
+  static bool _appInForeground() {
+    try {
+      final state = WidgetsBinding.instance.lifecycleState;
+      return state == null ||
+          state == AppLifecycleState.resumed ||
+          state == AppLifecycleState.inactive;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// The funded attempt's credit timings (the `ms_*` and `detected_by`
+  /// on its `order_funding_*` outcome): when the wallet was seen holding
+  /// every leg's money, and the conversion's moments after it.
+  _CreditTimeline? _timeline;
 
   bool _landedConfirmedFor(PendingBetIntent intent) {
     final c = _landedConfirmed;
@@ -411,11 +466,12 @@ class PendingBetAutoFire {
 
   PendingBetAutoFire(this.ref) {
     _uninstallHold = FundedConversionHold.install(_conversionHeld);
+    _uninstallWrapTimeline = WrapTimeline.install(_onWrapPhase);
     // Watch the trading provider for balance changes. Each time it
     // ticks (refresh, optimistic, push-driven), check whether the
     // pending bet can now be placed.
     _sub = ref.listen(polymarketTradingProvider, (_, __) {
-      _maybeFire();
+      _maybeFire(source: _refreshingFor ?? CreditDetectedBy.tradingPoll);
     });
     // The deposit's own path (PolymarketTradingNotifier.onDepositDelivered)
     // converts the money and re-reads the balance the moment Orchestra
@@ -424,7 +480,7 @@ class PendingBetAutoFire {
         ref.read(polymarketTradingProvider.notifier).depositSettled.listen((_) {
       // This signal has no order identity: a first leg or an unrelated
       // deposit must not certify every leg of the queued bet as landed.
-      _maybeFire();
+      _maybeFire(source: CreditDetectedBy.status);
     });
     // Also re-check whenever the intent itself changes (a fresh setIntent
     // from the bet slip should trigger an immediate look at the
@@ -434,15 +490,18 @@ class PendingBetAutoFire {
       if (next == null) {
         AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
       }
-      _maybeFire();
+      _maybeFire(source: CreditDetectedBy.status);
     });
-    ref.listen(fundedOrdersProvider, (_, __) => _maybeFire());
+    ref.listen(fundedOrdersProvider,
+        (_, __) => _maybeFire(source: CreditDetectedBy.status));
     AuthGrantRegistry.instance.addAutofireExpiredListener(_onAutofireExpired);
   }
 
   void dispose() {
     _disposed = true;
     _uninstallHold?.call();
+    _uninstallWrapTimeline?.call();
+    _chainWatch.dispose();
     _sub.close();
     _depositSettled?.cancel();
     _stopAwaitPolling();
@@ -542,7 +601,7 @@ class PendingBetAutoFire {
   @visibleForTesting
   static Duration fundsTimeout = kFundsTimeout;
 
-  Future<void> _maybeFire() async {
+  Future<void> _maybeFire({String source = CreditDetectedBy.status}) async {
     if (_firing) return;
     final intent = ref.read(pendingPolymarketBetProvider);
     if (intent == null) {
@@ -590,7 +649,10 @@ class PendingBetAutoFire {
     // Only this attempt's own completed funding legs can permit a short
     // landing to resize. An unscoped deposit notification only wakes us.
     final landed = _ownFundingDelivered(intent);
-    final arrived = balance >= (landed ? 0.000001 : autofireFireAt(intent));
+    // The chain watch (or an earlier readiness read) saw the wallet hold
+    // every leg's money: arrived, whatever the cached balance says yet.
+    final arrived = balance >= (landed ? 0.000001 : autofireFireAt(intent)) ||
+        (intent.funded && _landedConfirmedFor(intent));
     // A short round that ended while its money was on the way: its book
     // is shut and nothing is signed, never on another round either. Said
     // once the money is Predictions cash (founder, 23 October 2026: fund
@@ -605,6 +667,13 @@ class PendingBetAutoFire {
     // Nothing signs behind the lock; the next trading tick after unlock
     // fires.
     if (!ref.read(sessionUnlockedProvider)) return;
+    // Our own chain watch only while nothing says the money arrived; from
+    // then on the readiness look (every second) reads the chain itself.
+    if (arrived) {
+      _chainWatch.clear();
+    } else {
+      _watchChain(intent);
+    }
     if (!arrived) {
       // Funds aren't fully here yet. Keep forcing fresh balance reads until
       // they land (or we time out). Without this, a swap that settles after
@@ -623,7 +692,7 @@ class PendingBetAutoFire {
     // in between.
     _firing = true;
     try {
-      final ready = await _venueReady(intent);
+      final ready = await _venueReady(intent, source: source);
       final now = ref.read(pendingPolymarketBetProvider);
       if (now == null ||
           now.status != PendingBetStatus.awaitingBalance ||
@@ -702,11 +771,203 @@ class PendingBetAutoFire {
       try {
         ref.read(polymarketTradingProvider.notifier).invalidateBalanceCache();
       } catch (_) {}
+      _refreshingFor = CreditDetectedBy.awaitPoll;
       try {
         await ref.read(polymarketTradingProvider.notifier).refresh();
-      } catch (_) {}
-      await _maybeFire();
+      } catch (_) {
+      } finally {
+        _refreshingFor = null;
+      }
+      await _maybeFire(source: CreditDetectedBy.awaitPoll);
     });
+  }
+
+  /// The attempt [intent] is: its token, queue time and funded run.
+  static ({String token, DateTime? queuedAt, String? runId}) _attemptOf(
+          PendingBetIntent intent) =>
+      (token: intent.tokenId, queuedAt: intent.queuedAt, runId: intent.fundedRunId);
+
+  /// Keeps the chain watch on [intent] while it is funded and its money
+  /// has not been seen in full; off otherwise. Idempotent: one waiter per
+  /// attempt, one shared ticker.
+  void _watchChain(PendingBetIntent intent) {
+    if (!intent.funded || _landedConfirmedFor(intent)) {
+      _chainWatch.clear();
+      return;
+    }
+    final key = _attemptOf(intent);
+    _chainWatch.retainOnly(key);
+    _chainWatch.watch(key, since: intent.queuedAt ?? DateTime.now());
+  }
+
+  /// One chain-watch read, its RPC outcome counted on the funded
+  /// attempt's journey (`chain_reads`, `chain_rpc_errors`,
+  /// `chain_rpc_endpoint`): every failure is counted, none is silent.
+  Future<ChainCollateral?> _readChain() async {
+    final intent = ref.read(pendingPolymarketBetProvider);
+    final timeline = intent == null ? null : _timelineFor(intent);
+    void record() {
+      if (timeline == null) return;
+      final journey = OrderFundingJourney.instance;
+      const venue = OneBalanceVenue.predictions;
+      journey.count(venue, CreditCount.chainReads, timeline.chainReads);
+      journey.count(venue, CreditCount.chainRpcErrors, timeline.chainRpcErrors);
+      final endpoint = timeline.chainEndpoint;
+      if (endpoint != null) {
+        journey.count(venue, CreditCount.chainRpcEndpoint, endpoint);
+      }
+    }
+
+    timeline?.chainReads++;
+    try {
+      final read =
+          await ref.read(polymarketTradingProvider.notifier).readCollateralNow();
+      if (read != null && timeline != null) {
+        timeline.chainRpcErrors += read.rpcErrors;
+        if (read.endpoint >= 0) timeline.chainEndpoint = read.endpoint;
+      }
+      record();
+      return read;
+    } on PolygonPollReadFailed catch (e) {
+      timeline?.chainRpcErrors += e.attempts;
+      record();
+      rethrow;
+    } catch (_) {
+      timeline?.chainRpcErrors++;
+      record();
+      rethrow;
+    }
+  }
+
+  /// A chain read while a funded bet waits: once the wallet's pUSD +
+  /// USDC.e cover what the bet waits for (the same rule as
+  /// [_venueReady]: every leg's money), the hold is released and the
+  /// conversion starts at once; the bet then goes through its readiness
+  /// read as before.
+  void _onChainRead(ChainCollateral read) {
+    if (_disposed) return;
+    final intent = ref.read(pendingPolymarketBetProvider);
+    if (intent == null ||
+        intent.status != PendingBetStatus.awaitingBalance ||
+        !intent.funded ||
+        _landedConfirmedFor(intent) ||
+        !_chainWatch.isWatching(_attemptOf(intent))) {
+      _chainWatch.clear();
+      return;
+    }
+    // Nothing signs behind the lock (the conversion is signed).
+    if (!ref.read(sessionUnlockedProvider)) return;
+    final total = (read.pusd + read.usdce).toDouble() / 1e6;
+    if (total + 1e-6 < autofireFireAt(intent)) return;
+    _confirmLanded(intent,
+        usdce: read.usdce, source: CreditDetectedBy.chainPoll, convert: true);
+    if (!_firing) unawaited(_maybeFire(source: CreditDetectedBy.chainPoll));
+  }
+
+  /// The wallet's own balances showed every leg's money of [intent]: its
+  /// one conversion and its order may run from now
+  /// ([FundedConversionHold] released). Records when and by what it was
+  /// seen. With [convert], the conversion starts now (idempotent through
+  /// the wallet's single-flight gate). Once per attempt.
+  void _confirmLanded(PendingBetIntent intent,
+      {required BigInt usdce, required String source, bool convert = false}) {
+    if (_landedConfirmedFor(intent)) return;
+    _landedConfirmed = _attemptOf(intent);
+    _chainWatch.clear();
+    final journey = OrderFundingJourney.instance;
+    final now = OrderFundingJourney.clock();
+    final timeline = _timelineFor(intent);
+    timeline.seenAt ??= now;
+    if (journey.isRunning(OneBalanceVenue.predictions)) {
+      final fundedAt =
+          journey.fundedAtOf(OneBalanceVenue.predictions) ?? intent.queuedAt;
+      if (fundedAt != null) {
+        journey.timing(OneBalanceVenue.predictions,
+            CreditTiming.fundedToOnchainSeen,
+            now.difference(fundedAt).inMilliseconds);
+      }
+      journey.detectedBy(OneBalanceVenue.predictions, source);
+    }
+    if (convert && usdce >= _kUsdceDustMicros) {
+      try {
+        ref.read(polymarketTradingProvider.notifier).nudgeConversion();
+      } catch (_) {}
+    }
+  }
+
+  _CreditTimeline _timelineFor(PendingBetIntent intent) {
+    final key = _attemptOf(intent);
+    final current = _timeline;
+    if (current != null && current.key == key) return current;
+    return _timeline = _CreditTimeline(key);
+  }
+
+  /// A conversion's moment, for the funded attempt waiting or placing now.
+  void _onWrapPhase(WrapPhase phase) {
+    if (_disposed) return;
+    final intent = ref.read(pendingPolymarketBetProvider);
+    if (intent == null ||
+        !intent.funded ||
+        (intent.status != PendingBetStatus.awaitingBalance &&
+            intent.status != PendingBetStatus.placing)) {
+      return;
+    }
+    final journey = OrderFundingJourney.instance;
+    if (!journey.isRunning(OneBalanceVenue.predictions)) return;
+    final timeline = _timelineFor(intent);
+    final now = OrderFundingJourney.clock();
+    switch (phase) {
+      case WrapPhase.submitting:
+        timeline.wrapStartedAt = now;
+        if (timeline.wrapSubmittedAt == null) {
+          timeline.wrapSubmittedAt = now;
+          final seen = timeline.seenAt;
+          if (seen != null) {
+            journey.timing(OneBalanceVenue.predictions,
+                CreditTiming.seenToWrapSubmitted,
+                now.difference(seen).inMilliseconds);
+          }
+        }
+      case WrapPhase.mined:
+        final submitted = timeline.wrapSubmittedAt;
+        if (timeline.minedAt == null && submitted != null) {
+          timeline.minedAt = now;
+          journey.timing(OneBalanceVenue.predictions,
+              CreditTiming.wrapSubmittedToMined,
+              now.difference(submitted).inMilliseconds);
+        }
+      case WrapPhase.done:
+        // Every conversion of the attempt, whoever started it (the
+        // arrival watch, the release, the order's own): `legs.wrap`.
+        final from = timeline.wrapStartedAt;
+        if (from != null) {
+          timeline.wrapStartedAt = null;
+          journey.leg(OneBalanceVenue.predictions, OrderFundingLeg.wrap,
+              now.difference(from).inMilliseconds);
+        }
+    }
+  }
+
+  /// Adds one to the funded attempt's counter [name] on its journey.
+  void _countCredit(PendingBetIntent intent, String name) {
+    final timeline = _timelineFor(intent);
+    final n = (timeline.counts[name] ?? 0) + 1;
+    timeline.counts[name] = n;
+    OrderFundingJourney.instance.count(OneBalanceVenue.predictions, name, n);
+  }
+
+  /// The order book counts [intent]'s converted money now.
+  void _noteBookCounts(PendingBetIntent intent) {
+    if (!intent.funded) return;
+    final timeline = _timeline;
+    if (timeline == null || timeline.key != _attemptOf(intent)) return;
+    final mined = timeline.minedAt;
+    if (mined == null || timeline.bookCounted) return;
+    timeline.bookCounted = true;
+    OrderFundingJourney.instance.timing(
+        OneBalanceVenue.predictions,
+        CreditTiming.minedToBookCounts,
+        OrderFundingJourney.clock().difference(mined).inMilliseconds);
   }
 
   /// Reads [intent]'s readiness every [readyPollInterval] once its money
@@ -714,7 +975,9 @@ class PendingBetAutoFire {
   void _startReadyPolling() {
     if (_readyPoll != null) return;
     _readyPoll = Timer.periodic(readyPollInterval, (_) {
-      if (!_firing) unawaited(_maybeFire());
+      if (!_firing) {
+        unawaited(_maybeFire(source: CreditDetectedBy.awaitPoll));
+      }
     });
   }
 
@@ -805,6 +1068,7 @@ class PendingBetAutoFire {
       _setReadiness(PredictionsReadiness.ready);
       final intent = ref.read(pendingPolymarketBetProvider);
       if (intent?.funded == true) {
+        _noteBookCounts(intent!);
         final journey = OrderFundingJourney.instance;
         final from = _placeStartedAt;
         if (from != null) {
@@ -829,7 +1093,9 @@ class PendingBetAutoFire {
   /// The final actual quote is checked again before signing and is the
   /// only point that marks the balance confirmed.
   Future<bool> _venueReady(PendingBetIntent intent,
-      {BigInt? requiredCostMicros, bool refreshVenue = false}) async {
+      {BigInt? requiredCostMicros,
+      bool refreshVenue = false,
+      String source = CreditDetectedBy.awaitPoll}) async {
     final trading = ref.read(polymarketTradingProvider.notifier);
     PolyBuyReads? reads;
     try {
@@ -847,8 +1113,16 @@ class PendingBetAutoFire {
     }
     if (reads == null) {
       if (!intent.funded) return true;
+      // The wallet could not be read (every endpoint failed or timed
+      // out): counted, and read again on the next second's look.
+      _countCredit(intent, CreditCount.readinessReadErrors);
       _setReadiness(PredictionsReadiness.confirming);
       return false;
+    }
+    // The order book's count could not be read: counted (the book, not
+    // the chain, is what "Confirming balance" then waits on).
+    if (reads.venue == null && intent.funded) {
+      _countCredit(intent, CreditCount.bookCountErrors);
     }
     final cash = reads.pusd.toDouble() / 1e6;
     final delivered = _ownFundingDelivered(intent);
@@ -864,12 +1138,8 @@ class PendingBetAutoFire {
     }
     // The wallet's own balances show every leg's money (or every leg
     // landed, short): the one conversion and the order may run now.
-    if (intent.funded && !_landedConfirmedFor(intent)) {
-      _landedConfirmed = (
-        token: intent.tokenId,
-        queuedAt: intent.queuedAt,
-        runId: intent.fundedRunId
-      );
+    if (intent.funded) {
+      _confirmLanded(intent, usdce: reads.usdce, source: source);
     }
     var cost = requiredCostMicros ?? _costMicros(intent);
     // A proved short landing can resize a market order within its approval.
@@ -920,6 +1190,7 @@ class PendingBetAutoFire {
             reads.venue != null &&
             reads.venue!.balance >= cost;
     if (ready) {
+      _noteBookCounts(intent);
       _confirmedCash = (
         token: intent.tokenId,
         queuedAt: intent.queuedAt,
@@ -1008,6 +1279,7 @@ class PendingBetAutoFire {
   }
 
   void _stopAwaitPolling() {
+    _chainWatch.clear();
     _readyPoll?.cancel();
     _readyPoll = null;
     if (_awaitPoll != null) {
@@ -1807,17 +2079,12 @@ class PendingBetAutoFire {
       final approvedMax = polymarketFundedWorstPrice(intent);
       // A deposit that landed as USDC.e is converted first, so the
       // conversion never sits between the book read and the signature.
-      final wrapFrom = OrderFundingJourney.clock();
-      final converted = await tradingNotifier
+      // Its seconds reach the `legs` breakdown through the conversion's
+      // own moments ([_onWrapPhase]), as every conversion of a funded
+      // attempt does.
+      await tradingNotifier
           .readyCollateralForBuy(fees.allInCost(intent.amount, approvedMax));
       if (!_sameAttempt(intent)) return;
-      if (converted && funded) {
-        // The conversion's seconds, for the `legs` breakdown.
-        journey.leg(
-            OneBalanceVenue.predictions,
-            OrderFundingLeg.wrap,
-            OrderFundingJourney.clock().difference(wrapFrom).inMilliseconds);
-      }
 
       AuthGrant? approval;
       Map<String, dynamic>? response;
@@ -2520,4 +2787,52 @@ class PendingBetAutoFire {
     }
     return l10n.betActionNotCompleted;
   }
+}
+
+/// What first saw a funded bet's money in full on chain: Orchestra's
+/// status (a leg delivered, the deposit's own path), the bet's own chain
+/// watch, the autofire's await / readiness poll, or the trading poll.
+/// Sent as `detected_by` on the funding journey's outcome.
+abstract final class CreditDetectedBy {
+  static const String status = 'status';
+  static const String chainPoll = 'chain_poll';
+  static const String awaitPoll = 'await_poll';
+  static const String tradingPoll = 'trading_poll';
+}
+
+/// The exact credit timings of a funded Predictions bet, on its
+/// `order_funding_*` outcome (milliseconds).
+abstract final class CreditTiming {
+  static const String fundedToOnchainSeen = 'ms_funded_to_onchain_seen';
+  static const String seenToWrapSubmitted = 'ms_seen_to_wrap_submitted';
+  static const String wrapSubmittedToMined = 'ms_wrap_submitted_to_mined';
+  static const String minedToBookCounts = 'ms_mined_to_book_counts';
+}
+
+class _CreditTimeline {
+  _CreditTimeline(this.key);
+
+  final ({String token, DateTime? queuedAt, String? runId}) key;
+  DateTime? seenAt;
+  DateTime? wrapSubmittedAt;
+  DateTime? wrapStartedAt;
+  DateTime? minedAt;
+  bool bookCounted = false;
+  int chainReads = 0;
+  int chainRpcErrors = 0;
+  int? chainEndpoint;
+  final Map<String, int> counts = {};
+}
+
+/// The funded Predictions bet's read counters, on its `order_funding_*`
+/// outcome: the chain watch's ticks, the endpoints that failed, the index
+/// (in the configured Polygon read list, never a URL) of the endpoint
+/// that answered last, and the readiness reads that got no wallet answer
+/// or no order-book count.
+abstract final class CreditCount {
+  static const String chainReads = 'chain_reads';
+  static const String chainRpcErrors = 'chain_rpc_errors';
+  static const String chainRpcEndpoint = 'chain_rpc_endpoint';
+  static const String readinessReadErrors = 'readiness_read_errors';
+  static const String bookCountErrors = 'book_count_errors';
 }

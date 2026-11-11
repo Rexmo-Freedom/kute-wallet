@@ -5659,9 +5659,14 @@ class PolymarketTradingNotifier
         // reports the conversion mined, blocks before the confirmation
         // the poll waits on for, so by then it counts the money; the
         // order path keeps re-reading until it does (venue_collateral.dart).
-        onMined: _refreshVenueCount,
+        onMined: () {
+          WrapTimeline.note(WrapPhase.mined);
+          _refreshVenueCount();
+        },
+        onSubmitting: () => WrapTimeline.note(WrapPhase.submitting),
       );
       if (wrapped > BigInt.zero) {
+        WrapTimeline.note(WrapPhase.done);
         invalidateBalanceCache();
         // The deposit this USDC.e came with has arrived, whatever its
         // Orchestra status still says: its journey shows the arrival.
@@ -6376,13 +6381,79 @@ class PolymarketTradingNotifier
     );
   }
 
-  /// A queued buy found its deposit still USDC.e: makes sure a conversion
-  /// is running (it joins the arrival watch, never starts a second one).
-  /// Before the account's setup is done nothing can convert yet; the
-  /// delivery path converts once it is.
+  /// A queued buy found its deposit still USDC.e, or a funded bet's hold
+  /// was just released (its wallet shows every leg's money): the
+  /// conversion STARTS NOW, not on the arrival watch's next 4 s tick, and
+  /// the watch keeps an eye on anything still on its way. Idempotent:
+  /// every conversion goes through the wallet's single-flight gate
+  /// ([_wrapHeldUsdcE] → [UsdceWrapGate.run]), so a call while one runs
+  /// joins it, and `convertHeldUsdceOnce` never converts again for a read
+  /// that still shows what the last confirmed one took: never two
+  /// conversions for the same money. Still held ([FundedConversionHold]):
+  /// nothing converts. Before the account's setup is done nothing can
+  /// convert yet; the delivery path converts once it is.
   void nudgeConversion() {
     if (_disposed || !tradingReady) return;
     wrapIncomingUsdcEToPusd();
+    unawaited(convertHeldNow());
+  }
+
+  /// Converts the deposit wallet's USDC.e now, through the single-flight
+  /// gate (see [nudgeConversion]). The micro-USDC.e converted; zero when
+  /// nothing was (held, no account, nothing there, failed). Never throws.
+  Future<BigInt> convertHeldNow() async {
+    final current = state.valueOrNull;
+    final eoa = current?.walletAddress;
+    final wallet = current?.proxyWalletAddress;
+    final key = _privateKey;
+    if (_disposed ||
+        !tradingReady ||
+        eoa == null ||
+        wallet == null ||
+        wallet.isEmpty ||
+        key == null ||
+        FundedConversionHold.held) {
+      return BigInt.zero;
+    }
+    try {
+      final wrapped = await _wrapHeldUsdcE(
+          eoa: eoa, privateKey: key, wallet: wallet, trigger: 'arrival');
+      if (wrapped > BigInt.zero) await _showArrival();
+      return wrapped;
+    } catch (e) {
+      _devLog('[wrap] immediate conversion threw: $e');
+      return BigInt.zero;
+    }
+  }
+
+  /// The deposit wallet's pUSD and USDC.e read on chain now, for the
+  /// funded bet's chain watch (funded_chain_watch.dart): ONE endpoint at a
+  /// time, the two `balanceOf` calls one after the other (the read client
+  /// sends one call per request; no batch), 3 s per call, the next
+  /// configured endpoint on an error
+  /// ([PolymarketOnboardingService.readBalancesForPoll]). Also says which
+  /// endpoint answered (its index, never the URL) and how many failed
+  /// first. Null when there is no account to read yet; throws
+  /// [PolygonPollReadFailed] when no endpoint answered, so the watch backs
+  /// off instead of taking a failure for an empty wallet.
+  Future<({BigInt pusd, BigInt usdce, int endpoint, int rpcErrors})?>
+      readCollateralNow() async {
+    final wallet = state.valueOrNull?.proxyWalletAddress;
+    if (_disposed || wallet == null || wallet.isEmpty || _privateKey == null) {
+      return null;
+    }
+    final read = await PolymarketOnboardingService().readBalancesForPoll(
+        tokens: const [
+          PolymarketConstants.pusdAddress,
+          PolymarketConstants.usdcEAddress
+        ],
+        owner: wallet);
+    return (
+      pusd: read.balances[0],
+      usdce: read.balances[1],
+      endpoint: read.endpoint,
+      rpcErrors: read.errors,
+    );
   }
 
   /// Converts held USDC.e to pUSD when pUSD alone is short of a buy
@@ -6465,11 +6536,14 @@ class PolymarketTradingNotifier
   static Future<({BigInt pusd, BigInt usdce})?> _readCollateralSplit(
       String wallet) async {
     try {
+      // Strict reads: a failed read is no answer (null, the caller waits
+      // and reads again), never a zero balance. A zero from a failed
+      // USDC.e read sized a funded order on its pUSD alone.
       final onboarding = PolymarketOnboardingService();
       final balances = await Future.wait([
-        onboarding.readErc20Balance(
+        onboarding.readErc20BalanceOrThrow(
             token: PolymarketConstants.pusdAddress, owner: wallet),
-        onboarding.readErc20Balance(
+        onboarding.readErc20BalanceOrThrow(
             token: PolymarketConstants.usdcEAddress, owner: wallet),
       ]).timeout(const Duration(seconds: 5));
       return (pusd: balances[0], usdce: balances[1]);

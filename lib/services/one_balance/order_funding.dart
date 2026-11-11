@@ -809,6 +809,22 @@ class _FundingRun {
   /// Finer legs inside the stages ([OrderFundingLeg]), exact milliseconds
   /// each, for the `legs` breakdown of `order_funding_completed`.
   final Map<String, int> subLegs = {};
+
+  /// The credit's exact timings (`ms_funded_to_onchain_seen`,
+  /// `ms_seen_to_wrap_submitted`, `ms_wrap_submitted_to_mined`,
+  /// `ms_mined_to_book_counts` on Predictions; `ms_funded_to_ledger_push`,
+  /// `ms_funded_to_account_shows` on Investing), first figure kept.
+  final Map<String, int> timings = {};
+
+  /// Read counters (`chain_reads`, `chain_rpc_errors`,
+  /// `chain_rpc_endpoint`, `readiness_read_errors`, `book_count_errors`,
+  /// Investing `account_reads`, `account_read_errors`), latest value.
+  final Map<String, int> counts = {};
+
+  /// What first saw the money in full (Predictions `detected_by`), or
+  /// which read showed the credit (Investing `credited_by`).
+  String? detectedBy;
+  String? creditedBy;
 }
 
 /// The closed vocabulary of the `legs` breakdown on
@@ -970,6 +986,42 @@ class OrderFundingJourney {
     return run == null ? const {} : _legParams(run);
   }
 
+  /// When Dollars left for [venue] ([funded]); null before, or with no
+  /// run.
+  DateTime? fundedAtOf(OneBalanceVenue venue) => _runs[venue]?.fundedAt;
+
+  /// An exact credit timing [name] (`ms_*`) of the run: [ms] milliseconds.
+  /// The first figure is kept.
+  void timing(OneBalanceVenue venue, String name, int ms) {
+    final run = _runs[venue];
+    if (run == null || ms < 0) return;
+    run.timings.putIfAbsent(name, () => ms);
+  }
+
+  /// A read counter [name] of the run is [value] now (latest kept).
+  void count(OneBalanceVenue venue, String name, int value) {
+    final run = _runs[venue];
+    if (run == null || value < 0) return;
+    run.counts[name] = value;
+  }
+
+  /// What first saw the run's money in full ([how], a fixed code:
+  /// `status`, `chain_poll`, `await_poll`, `trading_poll`). The first
+  /// answer is kept.
+  void detectedBy(OneBalanceVenue venue, String how) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.detectedBy ??= how;
+  }
+
+  /// Which read showed the run's credit ([how], a fixed code). The first
+  /// answer is kept.
+  void creditedBy(OneBalanceVenue venue, String how) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.creditedBy ??= how;
+  }
+
   /// One leg's money landed [ms] after it started. [source] is the
   /// balance it came from (`bitcoin`, `dollars`, `predictions`,
   /// `investing`).
@@ -1015,6 +1067,10 @@ class OrderFundingJourney {
         if (run.otherVenueUsed != null)
           'other_venue_used': run.otherVenueUsed!,
         ...run.legMs,
+        ...run.timings,
+        ...run.counts,
+        if (run.detectedBy != null) 'detected_by': run.detectedBy!,
+        if (run.creditedBy != null) 'credited_by': run.creditedBy!,
       };
 
   void setFundUsd(OneBalanceVenue venue, double fundUsd) {
