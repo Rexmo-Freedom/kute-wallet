@@ -95,7 +95,14 @@
 //     the fill's own figures (StandingOrder.placedUsd, filledSize) until
 //     the venue lists it, never a placing card after the fill;
 //   * listed: the slot is the listed position, in place (the same key, the
-//     same slot, nothing jumps), its own line.
+//     same slot, nothing jumps), its own line;
+//   * never behind the Portfolio (founder, 11 November 2026, on 2.2.0
+//     (109): "Overview should be the same as Portfolio"): an Investing
+//     order the account already shows placed (its own fill after its
+//     accept, standingHlPlacedBy) is the position's plain card at once,
+//     whatever its record still says, and that evidence settles the order
+//     itself (StandingOrdersNotifier.settleInvestingFromFills: Sal's
+//     "Order placed", its slip closes).
 //
 // A FILLED ORDER HANDS OVER ONCE (founder, 10 November 2026: sold, the
 // Overview still showed "Prediction placed"). The moment its position
@@ -505,6 +512,30 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
       ended = dollarsEndedOrders(all, selling: sellingIds, soldAt: soldAt)
           .toSet();
     }
+    // An Investing order the account already shows placed (a fill of its
+    // own after its accept, standingHlPlacedBy) is placed here at once,
+    // as the Portfolio shows it (founder, 11 November 2026, on 2.2.0
+    // (109): "it updates instantly in the Portfolio but not on the
+    // Overview"): its slot is the position's plain card, no "Placing".
+    // The same evidence settles the order itself (Sal's "Order placed",
+    // its slip closes), so nothing here can go stale on its own.
+    var placedNow = const <String>{};
+    if (venues.trading &&
+        all.any((o) => o.isOpen && o.venue == StandingOrderVenue.investing)) {
+      final fills = ref.watch(hyperliquidDisplayTradingProvider
+              .select((s) => s.valueOrNull?.recentFills)) ??
+          const <HlFill>[];
+      final standing = ref.read(standingOrdersProvider.notifier);
+      placedNow = {
+        for (final o in all)
+          if (standing.placedInAccount(o, fills)) o.id,
+      };
+      if (placedNow.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) standing.settleInvestingFromFills(fills);
+        });
+      }
+    }
     _rebuildAt(dollarsNextHoldEnd(all, now: now), now);
     final slots = venues.any
         ? dollarsOverviewSlots(ranked, all,
@@ -529,12 +560,13 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
       }
       // On its way, a tap opens its own slip again, locked (see the
       // file header); placed, nothing of the order's own.
-      final VoidCallback? reopen = order.isOpen
+      final placed = placedNow.contains(order.id);
+      final VoidCallback? reopen = order.isOpen && !placed
           ? () => unawaited(StandingOrderSlips.reopen(context, id: order.id))
           : null;
       // Filled: no word of its own, the card is the position's as the
       // Portfolio lists it (founder, 11 November 2026).
-      final status = standingOrderStageLine(l10n, order);
+      final status = placed ? null : standingOrderStageLine(l10n, order);
       squares.add(row != null
           ? status == null
               ? row

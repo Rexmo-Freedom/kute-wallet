@@ -32,6 +32,19 @@
 //    builder dex's "xyz:NVDA", never the first "NVDA" listed); one kept
 //    before that coin was, whose ticker more than one dex lists, or whose
 //    market is gone, is settled as not resumable, never placed on a guess.
+//  * NOTHING STAYS "PLACING" ONCE THE VENUE HAS THE ORDER (founder, 11
+//    November 2026, on 2.2.0 (109): a placed Bitcoin short kept its
+//    ticket, Sal's "Placing your investment" and the Overview's "Placing"
+//    while the Portfolio already listed it). An Investing order that left
+//    for the venue with no end known here (its answer never came, came
+//    with no fill, or was lost with a restart) is read from the account's
+//    fills ([standingHlPlacedBy]: its coin, its side, after its accept):
+//    its fill is placed (Sal's "Order placed"), none is over quietly (the
+//    toast and its slip go), never "not placed" and never resumed. A limit
+//    resting on the book is said once, calmly ([restedInvesting]). The
+//    Overview settles the same way from the fills it already shows
+//    ([settleInvestingFromFills]). An order over quietly is never written
+//    back by a save still on its way ([_save]) nor loaded again.
 //
 // Analytics (exact amounts, never ids or text): `standing_order_created`,
 // `standing_order_resumed`, `standing_order_cancelled`; the venues' own
@@ -48,9 +61,16 @@ import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/hyperliquid_market.dart'
-    show HlMarket, HlMarketKind;
+    show HlFill, HlMarket, HlMarketKind;
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
-    show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
+    show
+        hyperliquidPerpMarketsProvider,
+        hyperliquidSpotMarketsProvider,
+        hyperliquidTradingModelProvider;
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show HlOrderResultKind;
 import 'package:kute/providers/pending_bet_autofire.dart'
     show kPendingBetAutofireId, pendingBetAutoFireProvider, polymarketFundedWorstPrice;
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
@@ -142,6 +162,54 @@ final standingHlMarketsProvider = Provider<StandingHlMarkets>((ref) =>
     ({required bool spot}) => spot
         ? ref.read(hyperliquidSpotMarketsProvider.future)
         : ref.read(hyperliquidPerpMarketsProvider.future));
+
+/// The Investing account's recent fills, newest first, for an order that
+/// left for the venue with no end known here: placed is a fill of its
+/// coin and side after it was accepted ([standingHlPlacedBy]). Throws when
+/// the account cannot be read. Tests fake it.
+typedef StandingHlFills = Future<List<HlFill>> Function();
+
+final standingHlFillsProvider = Provider<StandingHlFills>((ref) => () async {
+      final address = await ref
+          .read(hyperliquidAddressProvider.future)
+          .timeout(const Duration(seconds: 8));
+      if (address == null) throw StateError('Investing account not ready');
+      return ref
+          .read(hyperliquidTradingModelProvider)
+          .getUserFills(address)
+          .timeout(const Duration(seconds: 8));
+    });
+
+/// How early before an Investing order's accept a fill may be stamped and
+/// still be its own: the venue's clock against the phone's.
+const Duration kStandingHlFillSkew = Duration(seconds: 5);
+
+/// The fills of [fills] that are [order]'s own placement (founder, 11
+/// November 2026, on 2.2.0 (109): an order the account already shows must
+/// never stay "Placing"): an Investing perp order's coin (the coin the
+/// account holds it by, [StandingOrder.positionCoin]), its side, stamped
+/// at or after its accept. Empty when none, or for anything else (a
+/// prediction is settled from the venue's own record, by its hash). Pure
+/// for the tests.
+List<HlFill> standingHlPlacedBy(StandingOrder order, List<HlFill> fills) {
+  if (order.venue != StandingOrderVenue.investing ||
+      order.marketKind == 'spot') {
+    return const [];
+  }
+  final coin = order.positionCoin ?? order.marketKey;
+  final side = order.isBuy ? 'B' : 'A';
+  final since = order.createdAt.subtract(kStandingHlFillSkew);
+  return [
+    for (final f in fills)
+      if (f.coin == coin &&
+          f.side == side &&
+          !f.liquidated &&
+          f.sz > 0 &&
+          !DateTime.fromMillisecondsSinceEpoch(f.time, isUtc: true)
+              .isBefore(since))
+        f,
+  ];
+}
 
 /// What a resume wakes once it has queued a standing order again: the
 /// venue's watcher that posts it when the money is counted. Tests, which
@@ -372,6 +440,15 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     }
     final id = next.standingOrderId;
     if (id != null) {
+      // A limit the exchange took and holds on its book, nothing filled:
+      // placed, said once, calmly ([restedInvesting]), as a prediction
+      // resting on its book is.
+      if (next.status == PendingHlOrderStatus.done &&
+          next.result?.kind == HlOrderResultKind.resting &&
+          (next.result?.filledSz ?? 0) <= 0) {
+        unawaited(restedInvesting(id));
+        return;
+      }
       final mapped = standingStateForHlOrder(next.status,
           readiness: next.readiness, result: next.result?.kind);
       final fill = next.result;
@@ -420,7 +497,9 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     if (order.state == StandingOrderState.posting ||
         order.state == StandingOrderState.posted) {
       if (order.venue == StandingOrderVenue.investing) {
-        unawaited(_forget(order));
+        // Its answer proved nothing (unconfirmed, or accepted with no
+        // fill yet): the account's own fills say whether it was placed.
+        unawaited(_settleInvestingSent(id));
       } else {
         // A prediction: the venue's own record of the order, by its hash,
         // says how it ended (matched, killed, or resting on the book).
@@ -433,11 +512,170 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
 
   /// [order] is over with nothing to say (see [_dropped]): off the list,
   /// its approval and its record gone, so a restart never queues it again.
+  /// Remembered as gone ([_forgotten]): a write still on its way for it
+  /// (the accept's own, a transition's) never puts it back, and a resume
+  /// never loads it again.
   Future<void> _forget(StandingOrder order) async {
+    _forgotten.add(order.id);
     _publish([for (final o in state) if (o.id != order.id) o]);
     try {
       await _store.deleteSecret(order.id);
       await _store.remove(order);
+    } catch (_) {}
+  }
+
+  /// The orders ended with nothing to say ([_forget]) this session.
+  final Set<String> _forgotten = {};
+
+  /// Saves [order]'s record unless it was forgotten meanwhile ([_forget]):
+  /// a save that lands after the removal brought a placed order back as
+  /// "Placing" on the next unlock (founder, 11 November 2026, on 2.2.0
+  /// (109)).
+  Future<void> _save(StandingOrder order) async {
+    if (_forgotten.contains(order.id)) return;
+    await _store.save(order);
+    if (_forgotten.contains(order.id)) {
+      try {
+        await _store.remove(order);
+      } catch (_) {}
+    }
+  }
+
+  /// An Investing limit the exchange took and holds on its book, nothing
+  /// filled: placed, said ONCE, calmly ([outcomes] hears it in
+  /// [StandingOrderState.posted]: the shell's "Order placed", resting on
+  /// the book), then off the list as [_forget] does, as a prediction's
+  /// [rested]. Its fills later list its position as any other.
+  Future<void> restedInvesting(String id) async {
+    final order = byId(id);
+    if (order == null ||
+        !order.isOpen ||
+        order.venue != StandingOrderVenue.investing) {
+      return;
+    }
+    if (!_outcomes.isClosed) {
+      _outcomes.add(order.copyWith(
+          state: StandingOrderState.posted, updatedAt: clock()));
+    }
+    await _forget(order);
+  }
+
+  /// The Investing orders whose end is being read from the account.
+  final Set<String> _settlingHl = {};
+
+  /// An Investing order that left for the venue ([StandingOrderState.
+  /// posting] or [StandingOrderState.posted]) with no end known here (its
+  /// answer never came, or came with no fill): the account's fills say
+  /// it. A fill of its own ([standingHlPlacedBy]) is placed (Sal's "Order
+  /// placed", the slip closes); none is over quietly ([_forget]: the toast
+  /// and any slip on it go, the account's own orders say the rest).
+  /// Unreadable: [keepUnread] leaves it for the next look (a resume),
+  /// else it ends quietly too. Never "Placing" for good, never "not
+  /// placed" for an order the venue may hold. Never throws.
+  Future<void> _settleInvestingSent(String id, {bool keepUnread = false}) async {
+    if (!_settlingHl.add(id)) return;
+    try {
+      List<HlFill>? fills;
+      try {
+        fills = await ref.read(standingHlFillsProvider)();
+      } catch (_) {
+        fills = null;
+      }
+      if (_disposed) return;
+      final order = byId(id);
+      if (order == null ||
+          (order.state != StandingOrderState.posting &&
+              order.state != StandingOrderState.posted)) {
+        return;
+      }
+      // Still being placed by its queued order: that path owns the end.
+      final queued = ref.read(pendingHyperliquidOrderProvider);
+      if (queued != null &&
+          queued.standingOrderId == id &&
+          queued.status == PendingHlOrderStatus.placing) {
+        return;
+      }
+      if (fills == null) {
+        if (keepUnread) {
+          if (order.state == StandingOrderState.posting) {
+            await advance(id, StandingOrderState.posted);
+          }
+          return;
+        }
+        await _forget(order);
+        return;
+      }
+      final own = standingHlPlacedBy(order, fills);
+      if (own.isNotEmpty) {
+        await _placedFrom(order, own);
+        return;
+      }
+      await _forget(order);
+    } catch (_) {
+      // Left as it is: the next resume reads it.
+    } finally {
+      _settlingHl.remove(id);
+    }
+  }
+
+  /// Every open Investing order the account already shows placed
+  /// ([standingHlPlacedBy] over [fills], the account's recent fills) is
+  /// settled as placed now (founder, 11 November 2026, on 2.2.0 (109):
+  /// "it updates instantly in the Portfolio but not on the Overview"):
+  /// Sal's "Order placed", the slip on it closes, the Overview's card is
+  /// the position's own. Only one that left for the venue, or one no
+  /// queued order follows any more ([placedInAccount]). The ids settled.
+  List<String> settleInvestingFromFills(List<HlFill> fills) {
+    if (fills.isEmpty) return const [];
+    final settled = <String>[];
+    for (final order in [...state]) {
+      if (!placedInAccount(order, fills)) continue;
+      settled.add(order.id);
+      unawaited(_placedFrom(order, standingHlPlacedBy(order, fills)));
+    }
+    return settled;
+  }
+
+  /// Whether the open Investing [order] is already placed by the account's
+  /// [fills] ([standingHlPlacedBy]): one that left for the venue, or one
+  /// waiting for its money that no queued order follows any more (loaded
+  /// again after a restart). One still queued behind its money is its
+  /// queued order's: a fill of another order on its market never ends it.
+  bool placedInAccount(StandingOrder order, List<HlFill> fills) {
+    if (!order.isOpen || order.venue != StandingOrderVenue.investing) {
+      return false;
+    }
+    final left = order.state == StandingOrderState.posting ||
+        order.state == StandingOrderState.posted;
+    if (!left) {
+      if (order.state == StandingOrderState.needsApproval) return false;
+      if (ref.read(pendingHyperliquidOrderProvider) != null) return false;
+    }
+    return standingHlPlacedBy(order, fills).isNotEmpty;
+  }
+
+  /// [order] placed, by its own fills ([own]): filled with their figures,
+  /// said once ([outcomes]: Sal's "Order placed").
+  Future<void> _placedFrom(StandingOrder order, List<HlFill> own) async {
+    final current = byId(order.id);
+    if (current == null || !current.isOpen) return;
+    var size = 0.0;
+    var usd = 0.0;
+    for (final f in own) {
+      size += f.sz;
+      usd += f.sz * f.px;
+    }
+    final next = current.copyWith(
+      state: StandingOrderState.filled,
+      updatedAt: clock(),
+      filledSize: size > 0 ? size : null,
+      filledUsd: usd > 0 ? usd : null,
+    );
+    _put(next);
+    await _store.deleteSecret(order.id);
+    if (!_outcomes.isClosed) _outcomes.add(next);
+    try {
+      await _save(next);
     } catch (_) {}
   }
 
@@ -807,7 +1045,13 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
             id,
             StandingHlApproval(intent: approved, method: parent.method)
                 .toJson());
-        await _store.save(byId(id) ?? record);
+        if (_forgotten.contains(id)) {
+          // Placed and over before its approval was written: nothing
+          // may queue it again.
+          await _store.deleteSecret(id);
+        } else {
+          await _save(byId(id) ?? record);
+        }
         TrackingService.track('standing_order_created', params: {
           'venue': record.venue.analyticsName,
           'amount_usd': record.amountUsd,
@@ -904,7 +1148,7 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       }
     }
     try {
-      await _store.save(next);
+      await _save(next);
     } catch (_) {}
   }
 
@@ -1045,13 +1289,30 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     try {
       final walletId = _walletId();
       if (walletId == null) return;
-      final stored = await _store.load(walletId);
+      final stored = [
+        for (final o in await _store.load(walletId))
+          if (!_forgotten.contains(o.id)) o,
+      ];
       final known = {for (final o in state) o.id};
       _publish([...state, for (final o in stored) if (!known.contains(o.id)) o]
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
       for (final order in stored) {
         if (!order.isOpen || known.contains(order.id)) continue;
         await _resumeOne(order);
+      }
+      // One already here that left for the venue and that no queued
+      // order follows any more: read from the account again, so nothing
+      // says "Placing" past what the account shows.
+      final queued = ref.read(pendingHyperliquidOrderProvider)?.standingOrderId;
+      for (final order in [...state]) {
+        if (!known.contains(order.id) ||
+            order.venue != StandingOrderVenue.investing ||
+            order.state != StandingOrderState.posted ||
+            order.id == queued) {
+          continue;
+        }
+        await _settleInvestingSent(order.id,
+            keepUnread: !order.isExpiredAt(clock()));
       }
     } finally {
       _resuming = false;
@@ -1069,6 +1330,16 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       'stage': order.state.name,
       'wait_ms': now.difference(order.createdAt).inMilliseconds,
     });
+    // An Investing order that left for the venue before the app stopped:
+    // the account's fills say how it ended, past its life or not (never
+    // "not placed" for an order the venue may have filled, never
+    // "Placing" for good).
+    if (order.venue == StandingOrderVenue.investing &&
+        (order.state == StandingOrderState.posting ||
+            order.state == StandingOrderState.posted)) {
+      await _settleInvestingSent(order.id, keepUnread: !order.isExpiredAt(now));
+      return;
+    }
     if (order.isExpiredAt(now)) {
       await advance(order.id, StandingOrderState.failed,
           failureCode: StandingOrderFailure.expired);
@@ -1148,14 +1419,12 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   }
 
   Future<void> _resumeInvestingOrder(StandingOrder order) async {
-    if (order.state == StandingOrderState.posting) {
-      // Sent before the restart and its answer lost with the app: the
-      // venue has it or not, and the account's positions say which. Never
-      // sent again.
-      await advance(order.id, StandingOrderState.posted);
+    // Sent before the restart (posting or posted) is read from the
+    // account's fills in [_resumeOne], never sent again.
+    if (order.state == StandingOrderState.posting ||
+        order.state == StandingOrderState.posted) {
       return;
     }
-    if (order.state == StandingOrderState.posted) return;
     if (order.orderKind != 'market') {
       // Only the plain market order can be rebuilt without the slip.
       await advance(order.id, StandingOrderState.failed,

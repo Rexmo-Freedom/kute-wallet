@@ -121,8 +121,8 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
         StandingOrderToasts.placed(context, l10n, order);
       case StandingOrderState.failed:
         StandingOrderToasts.failed(context, l10n, order);
-      // A prediction limit resting on the book (StandingOrdersNotifier
-      // .rested): placed, waiting at its price.
+      // A limit resting on the book (StandingOrdersNotifier.rested, an
+      // Investing one restedInvesting): placed, waiting at its price.
       case StandingOrderState.posted:
         StandingOrderToasts.resting(context, l10n, order);
       default:

@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/root_navigator.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/polymarket_model.dart' show PolymarketOutcome;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
@@ -391,6 +392,104 @@ void main() {
     expect(find.byKey(_close), findsOneWidget);
     expect(tester.getSize(find.byKey(_close)), const Size(44, 44));
   }
+
+  // Founder, 11 November 2026, on 2.2.0 (109): an order the venue
+  // already had stayed "Placing" at the top. Every end of an Investing
+  // order ends the placing toast, said as it is.
+  testWidgets(
+      'Investing left while placing, and the account shows its fill: the '
+      'placing toast becomes "Order placed" in place, once', (tester) async {
+    var beats = 0;
+    SalToast.debugSuccessFeedbackOverride = () async => beats++;
+    final c = await pump(tester);
+    final order = _investing(state: StandingOrderState.posting);
+    await running(tester, c, order);
+    await leave(tester, order);
+    expectPlacing(tester, 'Placing your investment');
+    final settled = c.read(standingOrdersProvider.notifier).settleInvestingFromFills([
+      HlFill(
+        coin: 'BTC',
+        px: 60000,
+        sz: 0.0003,
+        side: 'B',
+        time: _at.add(const Duration(seconds: 2)).millisecondsSinceEpoch,
+        closedPnl: 0,
+        fee: 0.01,
+        feeToken: 'USDC',
+        oid: 1,
+        hash: '0x1',
+        dir: 'Open Long',
+        cloid: null,
+      ),
+    ]);
+    expect(settled, ['so_i']);
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(find.text('Placing your investment'), findsNothing);
+    expect(find.text('Order placed'), findsOneWidget);
+    expect(shown(tester).tone, SalToastTone.success);
+    expect(beats, 1);
+    await drain(tester);
+  });
+
+  testWidgets(
+      'Investing left while placing, resting on the book: one calm "Order '
+      'placed", resting, in place of the placing toast; ended quietly '
+      'instead: the placing toast goes', (tester) async {
+    final c = await pump(tester);
+    final order = _investing(state: StandingOrderState.posting);
+    await running(tester, c, order);
+    await leave(tester, order);
+    expectPlacing(tester, 'Placing your investment');
+    await c.read(standingOrdersProvider.notifier).restedInvesting('so_i');
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(find.text('Placing your investment'), findsNothing);
+    expect(find.text('Order placed'), findsOneWidget);
+    expect(
+        find.text(
+            "Resting on the book. It won't show in your positions until it fills."),
+        findsOneWidget);
+    expect(c.read(standingOrdersProvider), isEmpty);
+    await drain(tester);
+
+    // Over with nothing to say (off the list): the placing toast goes.
+    await running(tester, c, order);
+    await leave(tester, order);
+    expectPlacing(tester, 'Placing your investment');
+    c.read(standingOrdersProvider.notifier).debugReplace(const []);
+    await tester.pump();
+    await tester.pump(_arrive);
+    await tester.pump(_arrive);
+    expect(find.text('Placing your investment'), findsNothing);
+    expect(find.textContaining("wasn't placed"), findsNothing);
+    await drain(tester);
+  });
+
+  testWidgets(
+      'opening the slip again from anywhere (the Overview\'s card, the '
+      'Activity row) puts its placing toast away; another order\'s stays',
+      (tester) async {
+    final c = await pump(tester);
+    final order = _investing(state: StandingOrderState.posting);
+    await running(tester, c, order);
+    var opened = 0;
+    await leave(tester, order, reopen: () => opened++);
+    expectPlacing(tester, 'Placing your investment');
+    await StandingOrderSlips.reopen(kuteRootNavigatorKey.currentContext,
+        id: 'so_i');
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(opened, 1);
+    expect(find.byKey(_toast), findsNothing);
+    // Another market's slip leaves this order's toast alone.
+    await leave(tester, order, reopen: () => opened++);
+    StandingOrderToasts.hideFor(StandingOrderVenue.investing, 'ETH');
+    await tester.pump();
+    await tester.pump(_arrive);
+    expectPlacing(tester, 'Placing your investment');
+    await drain(tester);
+  });
 
   testWidgets(
       'left on its way: "Placing your prediction" at the top, Sal and the '

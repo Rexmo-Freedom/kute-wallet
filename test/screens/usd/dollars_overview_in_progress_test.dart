@@ -36,10 +36,24 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsBody;
+import 'package:kute/services/standing_orders/standing_order_store.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
+import '../../services/standing_orders/fake_secret_store.dart';
 import 'investments_harness.dart';
+
+/// The standing orders' store without Hive: nothing waits on real I/O.
+class _MemoryStore extends StandingOrderStore {
+  _MemoryStore() : super(secrets: FakeSecretStore(), boxName: 'unused');
+
+  @override
+  Future<List<StandingOrder>> load(String walletId) async => const [];
+  @override
+  Future<void> save(StandingOrder order) async {}
+  @override
+  Future<void> remove(StandingOrder order) async {}
+}
 
 HlPerpPosition _perp(String coin, double margin, {double szi = 1}) =>
     HlPerpPosition(
@@ -764,6 +778,64 @@ void main() {
     expect(find.textContaining('placed'), findsNothing);
     expectSameSlot(
         tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))), slot);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  // Founder, 11 November 2026, on 2.2.0 (109): "it updates instantly in
+  // the Portfolio but not on the Overview. Basically Overview should be
+  // the same as Portfolio."
+  testWidgets(
+      'Investing, the account already shows the order placed (its position '
+      'listed, its own fill after the accept) while its record still says '
+      'posting: the plain Portfolio card at once, and the order settles as '
+      'placed (Sal\'s "Order placed")', (tester) async {
+    final posting = _investing(state: StandingOrderState.posting);
+    final accepted = posting.createdAt;
+    HlFill fill(String side, DateTime at) => HlFill(
+          coin: 'ETH',
+          px: 3000,
+          sz: 0.0133,
+          side: side,
+          time: at.millisecondsSinceEpoch,
+          closedPnl: 0,
+          fee: 0.01,
+          feeToken: 'USDC',
+          oid: 9,
+          hash: '0x9',
+          dir: side == 'B' ? 'Open Long' : 'Open Short',
+          cloid: null,
+        );
+    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+      standingOrderStoreProvider.overrideWithValue(_MemoryStore()),
+      hyperliquidTradingProvider.overrideWith(() => _Trading(
+          HyperliquidTradingState(
+              isInitialized: true,
+              positions: [_perp('BTC', 500), _perp('ETH', 20)],
+              recentFills: [
+                // An earlier order's, and the other side: never its own.
+                fill('B', accepted.subtract(const Duration(minutes: 3))),
+                fill('A', accepted.add(const Duration(seconds: 2))),
+                fill('B', accepted.add(const Duration(seconds: 2))),
+              ]))),
+    ]);
+    final notifier = _container(tester).read(standingOrdersProvider.notifier);
+    final outcomes = <StandingOrder>[];
+    final sub = notifier.outcomes.listen(outcomes.add);
+    addTearDown(sub.cancel);
+    notifier.debugReplace([posting]);
+    await tester.pump();
+    expect(order(tester), ['hl-ETH', 'hl-BTC']);
+    expect(find.textContaining('Placing'), findsNothing);
+    expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
+    await tester.pump();
+    await tester.pump();
+    final settled = notifier.byId('so_i')!;
+    expect(settled.state, StandingOrderState.filled);
+    expect(settled.filledSize, 0.0133);
+    expect([for (final o in outcomes) o.state], [StandingOrderState.filled]);
+    expect(find.textContaining('Placing'), findsNothing);
+    expect(order(tester), ['hl-ETH', 'hl-BTC']);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

@@ -59,6 +59,9 @@ import 'package:kute/services/one_balance/one_balance_state.dart'
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart'
+    show hlCheckedNotionalUsd;
+import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:money2/money2.dart';
@@ -783,6 +786,124 @@ void main() {
     StandingOrderSlips.debugReset();
     await release(tester);
   });
+  // Founder, 11 November 2026, on 2.2.0 (109): a placed Short showed its
+  // ticket again with the keypad, "Minimum $10.49" under $10.48 and an OK,
+  // under Sal's "Placing your investment". "Just make it easy."
+  testWidgets(
+      'locked on its order with no money journey to show: the keypad '
+      'folded, the order\'s figure and its placing line, OK; never checked '
+      'against a minimum again', (tester) async {
+    await _pumpSlip(tester, rail, sheet: true);
+    Navigator.of(tester.element(find.byType(HlOrderSlipSheet))).pop();
+    await _frames(tester, 6);
+    final c = ProviderScope.containerOf(
+        tester.element(find.byKey(const ValueKey('open-slip'))));
+    // A Short of $10, accepted when that was its minimum: at 1% slippage
+    // the minimum now is more.
+    c.read(standingOrdersProvider.notifier).debugReplace(
+        [hlOrder(isLong: false, state: StandingOrderState.posted)]);
+    await _frames(tester, 2);
+    await reopenHl(tester);
+    expect(find.byType(HlOrderSlipSheet), findsOneWidget);
+    expect(find.byType(AmountKeypad), findsNothing);
+    expect(find.byKey(const ValueKey('order-slip-standing-placing')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
+    expect(find.textContaining('Minimum'), findsNothing);
+    expect(find.textContaining('Adds to your'), findsNothing);
+    expect(barPrimaryLabel(tester), 'OK');
+    expect(barPrimaryBusy(tester), isTrue);
+    StandingOrderSlips.debugReset();
+    await release(tester);
+  });
+
+  testWidgets(
+      'the slip or the toast, never both: opening the slip again (the '
+      'Overview, the Activity row) puts the placing toast away, leaving puts '
+      'it back; its order placed closes the slip; ended quietly too',
+      (tester) async {
+    await _pumpSlip(tester, rail, sheet: true);
+    Navigator.of(tester.element(find.byType(HlOrderSlipSheet))).pop();
+    await _frames(tester, 6);
+    final host = tester.element(find.byKey(const ValueKey('open-slip')));
+    final c = ProviderScope.containerOf(host);
+    final standing = c.read(standingOrdersProvider.notifier);
+    final order = hlOrder(isLong: false, state: StandingOrderState.posting);
+    standing.debugReplace([order]);
+    StandingOrderToasts.placing(host, lookupAppLocalizations(const Locale('en')),
+        venue: StandingOrderVenue.investing,
+        marketKey: 'BTC',
+        marketTitle: 'BTC · Perp',
+        order: order);
+    await _frames(tester, 6);
+    expect(find.text('Placing your investment'), findsOneWidget);
+
+    // Not the toast's tap: the Overview's card.
+    await reopenHl(tester);
+    expect(find.byType(HlOrderSlipSheet), findsOneWidget);
+    await _frames(tester, 6);
+    expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+
+    // OK leaves it: the toast is back, the order still on its way.
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(find.text('Placing your investment'), findsOneWidget);
+
+    // Open again, and the order is placed: the slip goes by itself.
+    await reopenHl(tester);
+    await _frames(tester, 6);
+    expect(find.byKey(const ValueKey('sal-toast')), findsNothing);
+    standing.debugReplace([order.copyWith(state: StandingOrderState.filled)]);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(find.text('Placing your investment'), findsNothing,
+        reason: 'placed: no placing toast comes back');
+
+    // Ended quietly (its record gone): an open slip goes too, never "on
+    // its way" for good, and nothing says placing.
+    standing.debugReplace([order]);
+    await _frames(tester, 2);
+    await reopenHl(tester);
+    expect(find.byType(HlOrderSlipSheet), findsOneWidget);
+    standing.debugReplace(const []);
+    await _frames(tester, 10);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(find.text('Placing your investment'), findsNothing);
+    SalToast.debugReset();
+    StandingOrderToasts.debugReset();
+    StandingOrderSlips.debugReset();
+    await release(tester);
+  });
+
+  testWidgets(
+      'an amount under the venue minimum is never confirmed: the check at '
+      'the confirm is the venue\'s own (the size sent, at its price), so '
+      'nothing is approved and the ticket names the minimum', (tester) async {
+    await _pumpSlip(tester, rail);
+    final pad = find.byType(AmountKeypad);
+    for (final key in ['1', '0']) {
+      await tester.tap(find.descendant(of: pad, matching: find.text(key)));
+      await tester.pump();
+    }
+    await _frames(tester, 3);
+    expect(tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+        .amountText, '10');
+    // $10 at 60,000 floors to 0.00016 BTC, $9.60 as the venue checks it.
+    expect(
+        hlCheckedNotionalUsd(
+            amountUsd: 10, referencePx: 60000, checkPx: 60000, szDecimals: 5),
+        lessThan(10));
+    await tapBarPrimary(tester, settle: false);
+    await _frames(tester, 20);
+    expect(approvals, isEmpty);
+    expect(_container(tester).read(pendingHyperliquidOrderProvider), isNull);
+    expect(_env.sends, 0);
+    expect(_funder.sent, isEmpty);
+    expect(find.textContaining('Minimum'), findsWidgets);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
     testWidgets('render: the locked ticket saying OK, then the placing toast '

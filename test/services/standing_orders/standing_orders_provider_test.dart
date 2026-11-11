@@ -14,7 +14,7 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart'
-    show HlMarket, HlMarketKind;
+    show HlFill, HlMarket, HlMarketKind;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/pending_bet_autofire.dart'
     show kPendingBetAutofireId, polymarketFundedWorstPrice;
@@ -144,6 +144,25 @@ HlMarket _market(String wire,
       isHip3: dex.isNotEmpty,
     );
 
+/// A fill on the Investing account: [coin], bought ('B') or sold ('A'),
+/// at [at].
+HlFill _fill(String coin,
+        {String side = 'B', required DateTime at, double sz = 0.0002}) =>
+    HlFill(
+      coin: coin,
+      px: 60000,
+      sz: sz,
+      side: side,
+      time: at.millisecondsSinceEpoch,
+      closedPnl: 0,
+      fee: 0.01,
+      feeToken: 'USDC',
+      oid: 7,
+      hash: '0x1',
+      dir: side == 'B' ? 'Open Long' : 'Open Short',
+      cloid: null,
+    );
+
 void main() {
   late Directory dir;
   late FakeSecretStore secrets;
@@ -155,6 +174,10 @@ void main() {
   /// The venue's markets a resumed Investing order is found in; null: the
   /// list cannot be read.
   List<HlMarket>? hlMarkets;
+
+  /// The Investing account's recent fills; null: the account cannot be
+  /// read.
+  List<HlFill>? hlFills;
 
   setUpAll(() {
     dir = Directory.systemTemp.createTempSync('standing_provider_test');
@@ -173,6 +196,7 @@ void main() {
     signer = _Signer();
     events = [];
     lookup = null;
+    hlFills = null;
     hlMarkets = [
       _market('BTC'),
       _market('xyz:NVDA', dex: 'xyz'),
@@ -210,6 +234,11 @@ void main() {
       }),
       standingOrderWatchersProvider.overrideWithValue(StandingOrderWatchers(
           wakePredictions: () => woke++, wakeInvesting: () => woke++)),
+      standingHlFillsProvider.overrideWithValue(() async {
+        final f = hlFills;
+        if (f == null) throw StateError('no account');
+        return f;
+      }),
     ]);
     addTearDown(() {
       expect(woke, wakes, reason: 'the venue watcher woken');
@@ -488,6 +517,97 @@ void main() {
           isEmpty);
       expect(await store.hasSecret(id), isFalse);
       expect((await store.load('w1')).where((o) => o.isOpen), isEmpty);
+    });
+
+    // Nothing may stay "Placing" once the venue has the order (founder,
+    // 11 November 2026, on 2.2.0 (109)): every end of an Investing order
+    // that left for the venue ends its standing order, said as it is.
+    test(
+        'an Investing limit resting on the book is said once, calmly '
+        '(posted: "Order placed", resting), then off the list', () async {
+      final (c, id, outcomes) = await standHl(hlOrder());
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      notifier.updateStatus(PendingHlOrderStatus.placing);
+      notifier.setIntent(c.read(pendingHyperliquidOrderProvider)!.copyWith(
+          status: PendingHlOrderStatus.done,
+          result: const HlOrderResult(kind: HlOrderResultKind.resting, oid: 7)));
+      await settle();
+      expect([for (final o in outcomes) o.state], [StandingOrderState.posted]);
+      expect(outcomes.single.id, id);
+      expect(c.read(standingOrdersProvider), isEmpty);
+      expect(await store.load('w1'), isEmpty);
+    });
+
+    test(
+        'unconfirmed, and the account shows its fill: placed (Sal\'s "Order '
+        'placed"), never left "Placing"', () async {
+      hlFills = [
+        _fill('ETH', at: _now.add(const Duration(seconds: 3))),
+        _fill('BTC', side: 'A', at: _now.add(const Duration(seconds: 3))),
+        _fill('BTC', at: _now.subtract(const Duration(minutes: 5))),
+        _fill('BTC', at: _now.add(const Duration(seconds: 3))),
+      ];
+      final (c, id, outcomes) = await standHl(hlOrder(orderKind: 'market'));
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      notifier.updateStatus(PendingHlOrderStatus.placing);
+      notifier.updateStatus(PendingHlOrderStatus.unconfirmed);
+      await settle();
+      expect([for (final o in outcomes) o.state], [StandingOrderState.filled]);
+      final order = c.read(standingOrdersProvider).single;
+      expect(order.id, id);
+      expect(order.state, StandingOrderState.filled);
+      expect(order.filledSize, 0.0002,
+          reason: 'only its own fill: its coin, its side, after its accept');
+      expect((await store.load('w1')).single.state, StandingOrderState.filled);
+    });
+
+    test('unconfirmed, the account shows nothing of it: over quietly',
+        () async {
+      hlFills = [_fill('BTC', at: _now.subtract(const Duration(minutes: 5)))];
+      final (c, _, outcomes) = await standHl(hlOrder(orderKind: 'market'));
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      notifier.updateStatus(PendingHlOrderStatus.placing);
+      notifier.updateStatus(PendingHlOrderStatus.unconfirmed);
+      await settle();
+      expect(outcomes, isEmpty);
+      expect(c.read(standingOrdersProvider), isEmpty);
+      expect(await store.load('w1'), isEmpty);
+    });
+
+    test(
+        'the account\'s fills settle an order that left for the venue at '
+        'once; one still queued behind its money is its queued order\'s',
+        () async {
+      final (c, id, outcomes) = await standHl(hlOrder(orderKind: 'market'));
+      final standing = c.read(standingOrdersProvider.notifier);
+      final fills = [_fill('BTC', at: _now.add(const Duration(seconds: 2)))];
+      // Funding, its queued order alive: a fill on its market is not its.
+      expect(standing.settleInvestingFromFills(fills), isEmpty);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.funding);
+      c.read(pendingHyperliquidOrderProvider.notifier)
+          .updateStatus(PendingHlOrderStatus.placing);
+      await settle();
+      expect(standing.placedInAccount(
+          c.read(standingOrdersProvider).single, fills), isTrue);
+      expect(standing.settleInvestingFromFills(fills), [id]);
+      await settle();
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.filled);
+      expect([for (final o in outcomes) o.state], [StandingOrderState.filled]);
+      // Its answer landing after changes nothing: one order, one outcome.
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      notifier.setIntent(c.read(pendingHyperliquidOrderProvider)!.copyWith(
+          status: PendingHlOrderStatus.done,
+          result: const HlOrderResult(
+              kind: HlOrderResultKind.filled,
+              oid: 7,
+              filledSz: 0.0002,
+              avgPx: 60000)));
+      await settle();
+      expect(outcomes, hasLength(1));
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.filled);
     });
 
     test(
@@ -1081,6 +1201,49 @@ void main() {
       c = container();
       await c.read(standingOrdersProvider.notifier).resume();
       expect(c.read(standingOrdersProvider).single.state, StandingOrderState.posted);
+    });
+
+    // Founder, 11 November 2026, on 2.2.0 (109): a placed order kept
+    // saying "Placing" (the toast, the Overview, a reopened ticket). One
+    // sent before the restart is read from the account's fills, never
+    // left posted for good and never "not placed".
+    test(
+        'Investing sent before the restart: its fill in the account is '
+        'placed; nothing of it, over quietly; past its life and unreadable, '
+        'over quietly, never "not placed"', () async {
+      final placedAt = _now.subtract(const Duration(minutes: 2));
+      hlFills = [_fill('BTC', at: placedAt)];
+      await store.save(stored(
+          venue: StandingOrderVenue.investing, state: StandingOrderState.posted));
+      var c = container();
+      final outcomes = <StandingOrder>[];
+      c.read(standingOrdersProvider.notifier).outcomes.listen(outcomes.add);
+      await c.read(standingOrdersProvider.notifier).resume();
+      await Future<void>.delayed(Duration.zero);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.filled);
+      expect([for (final o in outcomes) o.state], [StandingOrderState.filled]);
+      expect(c.read(pendingHyperliquidOrderProvider), isNull,
+          reason: 'never sent again');
+
+      await (await Hive.openBox<String>('standing_prov')).clear();
+      hlFills = const [];
+      await store.save(stored(
+          venue: StandingOrderVenue.investing, state: StandingOrderState.posting));
+      c = container();
+      await c.read(standingOrdersProvider.notifier).resume();
+      expect(c.read(standingOrdersProvider), isEmpty);
+      expect(await store.load('w1'), isEmpty);
+
+      hlFills = null;
+      await store.save(stored(
+          venue: StandingOrderVenue.investing,
+          state: StandingOrderState.posted,
+          createdAt: _now.subtract(const Duration(hours: 1))));
+      c = container();
+      await c.read(standingOrdersProvider.notifier).resume();
+      expect(c.read(standingOrdersProvider), isEmpty);
+      expect(await store.load('w1'), isEmpty);
     });
   });
 

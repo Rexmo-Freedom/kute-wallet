@@ -464,7 +464,12 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// placing toast's tap, [standingEndedBefore]): the same market, side
   /// and amount as it was left. Nothing is counted again (it is the same
   /// ticket, not a new one opened) and no gate runs (nothing new can be
-  /// placed from it while its order is on its way).
+  /// placed from it while its order is on its way). Locked whatever money
+  /// journey there is to show (founder, 11 November 2026, on 2.2.0 (109)):
+  /// the keypad folded, the order's line placing in its place, "OK";
+  /// never the editable form, never checked against a minimum again. It
+  /// goes by itself once its order ends with nothing on it to show
+  /// (placed, resting, over quietly), and only ever opens on a tap.
   static Future<void> reopenStanding(
     BuildContext context,
     HlOrderSlipSheet left, {
@@ -1176,6 +1181,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (widget.standingEndedBefore case final ended?) {
       _standingAccepted = true;
       _standingEndedBefore = ended;
+      // Reopened on an order on record: its record going is its end.
+      _standingSeen = _standingOrderIn(
+              ref.read(standingOrdersProvider), market.coin, ended) !=
+          null;
     }
     _amountController = TextEditingController(
         text: prefilled ? _trimZeros(carried.toStringAsFixed(2)) : null);
@@ -2492,11 +2501,25 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           o.id,
     };
     // This accept's order (newest on the market that had not ended
-    // before it); null until its record exists, which is on its way too.
+    // before it); null until its record exists, which is on its way too
+    // while its queued order is. A record seen and then gone ended
+    // quietly (standing_orders_provider.dart `_forget`): never "on its
+    // way" for good (founder, 11 November 2026, on 2.2.0 (109): "that
+    // thing is just stale there").
     final state = ref.watch(standingOrdersProvider
         .select((all) => _standingOrderIn(all, coin, ended)?.state));
-    return state == null || !state.isTerminal;
+    if (state != null) {
+      _standingSeen = true;
+      return !state.isTerminal;
+    }
+    if (_standingSeen) return false;
+    return ref.watch(pendingHyperliquidOrderProvider.select((p) => p != null)) ||
+        _isPlacing ||
+        _preparing;
   }
+
+  /// This ticket's accepted order has been on record ([_standingOnItsWay]).
+  bool _standingSeen = false;
 
   /// This ticket's accepted order among [all]: the newest on [coin] not in
   /// [ended].
@@ -4684,8 +4707,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   Widget build(BuildContext context) {
     // Reopened from Sal's placing toast: once its order is placed the
     // ticket goes, and Sal's result toast says so (nothing is placed
-    // here, so there is no receipt of the ticket's own). A stop stays on
-    // the ticket as it does on the one that was left.
+    // here, so there is no receipt of the ticket's own). So does every
+    // other end with nothing on the ticket to show (founder, 11 November
+    // 2026, on 2.2.0 (109): nothing may stay "Placing" once the venue has
+    // the order): resting on the book or over quietly (its record gone),
+    // cancelled, or not placed with no funded stop to show. A funded
+    // move's stop stays on the ticket as it does on the one that was left.
     final followed = widget.standingEndedBefore;
     if (followed != null) {
       final coin = market.coin;
@@ -4693,8 +4720,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           standingOrdersProvider.select(
               (all) => _standingOrderIn(all, coin, followed)?.state),
           (prev, next) {
-        if (next != StandingOrderState.filled || _left || !mounted) return;
-        Navigator.of(context).maybePop();
+        if (_left || !mounted) return;
+        final ended = next == null
+            ? prev != null
+            : next == StandingOrderState.filled ||
+                next == StandingOrderState.cancelled ||
+                (next == StandingOrderState.failed &&
+                    !(_fundedProgress(ref.read(fundedOrdersProvider))
+                            ?.failed ??
+                        false));
+        if (ended) Navigator.of(context).maybePop();
       });
     }
     return _buildTicket(context, ref);
@@ -5241,6 +5276,45 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // it was typed, the stop told in one notice, the button the same order
     // again ("Try again · Go Long …").
     final journeyShown = !advanced && fundedRunning;
+    // Locked on its accepted order with no money journey to show (its
+    // journey done, the order funded from what Investing held, or the
+    // ticket reopened from the order's record): the same locked ticket
+    // all the same (founder, 11 November 2026, on 2.2.0 (109): never the
+    // editable-looking form under an "OK"): the order's figure, the
+    // keypad folded, the journey's last line (the order being placed) in
+    // its place. Never checked against a minimum again: the order was
+    // accepted at it.
+    final standingLocked = !advanced &&
+        !journeyShown &&
+        widget.sendPick == null &&
+        !(funded?.failed ?? false) &&
+        _standingOnItsWay();
+    final lockedShown = journeyShown || standingLocked;
+    // Its money already landed (a standing order is always funded): the
+    // journey's lines done, the order's own line running.
+    final landed = standingLocked && !_isLedger
+        ? FundedOrdersNotifier.progressOn(fundedOrders,
+            OneBalanceVenue.investing, market.coin, DateTime.now())
+        : null;
+    final placingSteps = landed != null
+        ? _fundingSteps(landed.record)
+        : [
+            _strings.slipStepPreparingOrder,
+            _strings.slipStepOpeningOrder(formatHlUsd(_marginUsd),
+                _sideWord(), market.annotatedName ?? market.coin),
+          ];
+    final placingLine = standingLocked
+        ? SlipFundingSteps(
+            key: const ValueKey('order-slip-standing-placing'),
+            steps: placingSteps,
+            active: placingSteps.length - 1,
+            from: landed?.record.fromBitcoin == true
+                ? MoneyPlace.bitcoin
+                : MoneyPlace.dollars,
+            to: MoneyPlace.investing,
+            haptics: !_left,
+          )
+        : null;
     final fundedJourney = funded == null
         ? null
         : SlipFundingSteps(
@@ -5285,7 +5359,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // the rest, the order's line says it.
           if (!isSpot)
             FoldAway(
-              folded: journeyShown,
+              folded: lockedShown,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -5294,10 +5368,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             ),
           if (!advanced)
             ArrivalSwitcher(
-              state: journeyShown,
-              child: journeyShown
+              state: lockedShown,
+              child: lockedShown
                   ? SlipOrderFigure(
-                      record: funded.record,
+                      record: funded?.record,
                       orderUsd: _marginUsd,
                       money: formatHlUsd,
                       orderLine:
@@ -5333,7 +5407,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   : minAmountUsd,
               belowMinimum: belowMin,
               positionNote: _positionNote(netPlan)),
-          if (!advanced && addsToHeld && !journeyShown) ...[
+          if (!advanced && addsToHeld && !lockedShown) ...[
             SlipGap(10.h),
             SlipPositionPill(
               long: netPlan.heldSide == 'long',
@@ -5342,7 +5416,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ],
           // Advanced is the pill beside Max; when it is not the default,
           // a chip under the amount says what it is set to.
-          if (!advanced && !journeyShown && _hasAdvancedConfiguration) ...[
+          if (!advanced && !lockedShown && _hasAdvancedConfiguration) ...[
             SlipGap(10.h),
             SlipAdvancedChip(text: _advancedSummary(), onTap: _openAdvanced),
           ],
@@ -5362,7 +5436,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // The figures give their room to the money's journey while it
             // runs.
             FoldAway(
-              folded: journeyShown,
+              folded: lockedShown,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
@@ -5378,7 +5452,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ],
               ),
             ),
-            SlipJourney(steps: journeyShown ? fundedJourney : null),
+            SlipJourney(steps: journeyShown ? fundedJourney : placingLine),
           ],
 
           if (oiCapped) ...[
@@ -5859,7 +5933,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   // amount cannot change: the keypad folds away and the
                   // steps take its room. A stop brings it back.
                   input: FoldAway(
-                    folded: journeyShown,
+                    folded: lockedShown,
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 20.w),
                       child: IgnorePointer(

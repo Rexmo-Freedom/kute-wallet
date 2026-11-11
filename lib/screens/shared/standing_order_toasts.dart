@@ -25,10 +25,19 @@
 //    one"), through the one way back to an order
 //    (standing_order_slips.dart): there is no white journey sheet any
 //    more (founder, on 2.2.0 (104): "this screen should not exist").
-//    Never while the slip is on screen. A second order left while the
-//    first's placing toast is up takes its place: the newest one.
+//    Never while the slip is on screen: opening the order's slip again
+//    from anywhere (the toast, the Overview's card, the Activity row)
+//    puts it away ([hideFor]; founder, 11 November 2026, on 2.2.0 (109):
+//    the reopened ticket under "Placing your investment", "so
+//    confusing"), and leaving the slip puts it back up. A second order
+//    left while the first's placing toast is up takes its place: the
+//    newest one.
 //  * The END of any order, in place of whatever the toast says now, else
-//    as a new one: placed (Sal happy, the check, the one success haptic),
+//    as a new one: placed (Sal happy, the check, the one success haptic;
+//    an Investing order the account already shows filled is placed too,
+//    standing_orders_provider.dart `settleInvestingFromFills`), a limit
+//    resting on the book (calmly, "Order placed"; Predictions and
+//    Investing alike),
 //    not placed (Sal sad, the "!", the failure tap; a tap opens its slip
 //    where the slip still shows the stop) or cancelled (information). The
 //    haptic plays when the tone changes, so two results landing together
@@ -91,6 +100,16 @@ abstract final class StandingOrderToasts {
   static void markSaid(StandingOrder order) {
     _about = _keyFor(order.venue, order.marketKey);
     _placing = false;
+  }
+
+  /// The order on [venue] for [marketKey] has its slip on screen again
+  /// (standing_order_slips.dart): its placing toast, if up, goes (founder,
+  /// 11 November 2026, on 2.2.0 (109): the slip and the toast at once
+  /// "so confusing"). Leaving the slip puts it back up.
+  static void hideFor(StandingOrderVenue venue, String marketKey) {
+    if (!_placing || !isAbout(venue, marketKey)) return;
+    _placing = false;
+    SalToast.dismissTag(tag);
   }
 
   /// [order] ended with no result toast of its own: its placing toast, if
@@ -189,10 +208,11 @@ abstract final class StandingOrderToasts {
     );
   }
 
-  /// A prediction limit the venue holds on its book, nothing bought yet
-  /// (founder, 11 November 2026: the person knows what happened, calmly):
-  /// "Order placed", resting on the book, the one success beat; a tap
-  /// opens the Portfolio where open orders are listed.
+  /// A limit the venue holds on its book, nothing bought yet (a
+  /// prediction's or an Investing order's; founder, 11 November 2026: the
+  /// person knows what happened, calmly): "Order placed", resting on the
+  /// book, the one success beat; a tap opens the Portfolio where open
+  /// orders are listed.
   static void resting(BuildContext? context, AppLocalizations l10n,
       StandingOrder order) {
     markSaid(order);
@@ -207,7 +227,12 @@ abstract final class StandingOrderToasts {
         final root = kuteRootContext(context);
         if (root == null) return;
         openInvestmentsOrders(root,
-            product: 'predictions', orderKind: 'limit_buy');
+            product: order.venue == StandingOrderVenue.predictions
+                ? 'predictions'
+                : 'investing',
+            orderKind: order.venue == StandingOrderVenue.predictions
+                ? 'limit_buy'
+                : 'open');
       },
     );
   }

@@ -39,6 +39,13 @@
 // One slip at a time: while a slip is already on screen nothing opens over
 // it, so two slips never run their haptics together (the toast plays none
 // while an order places).
+//
+// The slip or the toast, never both (founder, 11 November 2026, on 2.2.0
+// (109): a reopened ticket under "Placing your investment", "so
+// confusing"): opening the slip again puts the order's placing toast away
+// ([StandingOrderToasts.hideFor]); leaving it puts the toast back up while
+// the order is still on its way. Nothing here opens a slip by itself:
+// only a tap (the toast, the Overview's card, the Activity row).
 
 import 'dart:async';
 
@@ -157,7 +164,10 @@ abstract final class StandingOrderSlips {
             o.id,
       });
     }
-    if (usable) return captured.open(root, follow);
+    if (usable) {
+      StandingOrderToasts.hideFor(v, key);
+      return captured.open(root, follow);
+    }
     // Nothing on record yet and nothing captured: nothing to open.
     if (order == null) return;
     return _rebuild(root, container, order, follow);
@@ -276,6 +286,7 @@ abstract final class StandingOrderSlips {
         if (!root.mounted) return;
         final at = kuteRootContext(root);
         if (slip == null || at == null || _slipOnTop(at)) return;
+        StandingOrderToasts.hideFor(order.venue, order.marketKey);
         await BetSlipSheet.reopenStanding(at, slip.slip,
             selectedIndex: slip.index,
             buyNo: slip.buyNo,
@@ -291,6 +302,7 @@ abstract final class StandingOrderSlips {
         final at = kuteRootContext(root);
         // The very market it was approved on, or nothing: never a guess.
         if (market == null || at == null || _slipOnTop(at)) return;
+        StandingOrderToasts.hideFor(order.venue, order.marketKey);
         await HlOrderSlipSheet.reopenStanding(
             at,
             HlOrderSlipSheet(
