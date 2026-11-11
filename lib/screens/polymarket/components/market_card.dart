@@ -7,6 +7,8 @@ import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
     show BetSlipSheet;
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/polymarket/components/outcome_leading.dart'
+    show kPolyOutcomeColors, polyChartedOutcomes;
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/game_time.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -128,7 +130,9 @@ void polyCardOpenSlip(
 ///   * an event with many outcomes: the question and the same meta line,
 ///     then its three most likely outcomes as rows of the name, a thin
 ///     chance bar and the percent ("Name ▬▬▬▬ 41%") and "+N more ›"; no
-///     pills (the card opens the event).
+///     pills (the card opens the event). Each bar is filled in its
+///     outcome's line colour on the market's chart (founder, 11 November
+///     2026: "more colourful, not corporate").
 ///
 /// The pills are quiet (founder, 1 November 2026): the neutral surface
 /// as their fill, the side's market colour as their ink; no solid green
@@ -759,7 +763,11 @@ class MarketCard extends ConsumerWidget {
   /// An event with many outcomes: the question over its meta line, then
   /// its three most likely outcomes as rows of the name (the first in
   /// the primary colour), a thin chance bar and the percent, and
-  /// "+N more ›" when there are more.
+  /// "+N more ›" when there are more. A bar is filled in the colour of
+  /// its outcome's line on the market's chart ([polyChartedOutcomes], the
+  /// rule the chart and the sheet's row dots read), so an outcome keeps
+  /// one colour from the card to the sheet; an outcome the chart draws no
+  /// line for keeps the neutral fill.
   Widget _buildOutcomes(BuildContext context, WidgetRef ref,
       AppColorsExtension c, String? image) {
     final top =
@@ -770,6 +778,17 @@ class MarketCard extends ConsumerWidget {
     // Fillers with no market behind them are not "more" outcomes.
     final more = polyRealOutcomes(outcomes).length - _kOutcomeRows;
     final meta = _buildMeta(context, ref, c);
+    final charted = polyChartedOutcomes(outcomes, kPolyOutcomeColors);
+    Color? lineColor(PolymarketOutcome o) {
+      for (final line in charted) {
+        if (identical(line.outcome, o) ||
+            (o.tokenId != null && line.outcome.tokenId == o.tokenId)) {
+          return line.color;
+        }
+      }
+      return null;
+    }
+
     // The rows start where the title does.
     final indent = EdgeInsets.only(left: kPolyCardImage.w + kPolyCardImageGap.w);
     Widget row(PolymarketOutcome o, bool first) {
@@ -791,6 +810,7 @@ class MarketCard extends ConsumerWidget {
       return _OutcomeLine(
         name: o.name,
         fraction: price.clamp(0.0, 1.0),
+        color: lineColor(o),
         chance: twoSided && !first
             ? polyCardOtherSideChance(_effectivePrice(top.first))
             : polyCardChance(_effectivePrice(o)),
@@ -1159,12 +1179,16 @@ class _OutcomeLine extends StatelessWidget {
 
   /// The outcome's chance, 0 to 1: the bar's fill.
   final double fraction;
+
+  /// The bar's fill colour ([PolyOutcomeChanceBar.color]).
+  final Color? color;
   final String chance;
   final TextStyle nameStyle;
   final TextStyle chanceStyle;
   const _OutcomeLine({
     required this.name,
     required this.fraction,
+    this.color,
     required this.chance,
     required this.nameStyle,
     required this.chanceStyle,
@@ -1182,7 +1206,8 @@ class _OutcomeLine extends StatelessWidget {
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle),
           ),
           SizedBox(width: 8.w),
-          Expanded(child: PolyOutcomeChanceBar(fraction: fraction)),
+          Expanded(
+              child: PolyOutcomeChanceBar(fraction: fraction, color: color)),
           SizedBox(width: 8.w),
           // Wide enough for "100%": the bars end on one edge.
           ConstrainedBox(
@@ -1196,11 +1221,15 @@ class _OutcomeLine extends StatelessWidget {
 }
 
 /// An outcome's chance as a thin bar: 4 tall, rounded, the track in the
-/// border colour and [fraction] of it filled in the primary text colour
+/// border colour and [fraction] of it filled in [color], the outcome's
+/// line colour on the chart, or the primary text colour when it has none
 /// (neutral, as the Yes/No gauge: a chance is not good or bad).
 class PolyOutcomeChanceBar extends StatelessWidget {
   final double fraction;
-  const PolyOutcomeChanceBar({super.key, required this.fraction});
+
+  /// The fill; null for the primary text colour.
+  final Color? color;
+  const PolyOutcomeChanceBar({super.key, required this.fraction, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1215,7 +1244,7 @@ class PolyOutcomeChanceBar extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
             widthFactor: fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.0,
             heightFactor: 1,
-            child: ColoredBox(color: c.textPrimary),
+            child: ColoredBox(color: color ?? c.textPrimary),
           ),
         ),
       ),

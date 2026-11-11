@@ -11,11 +11,14 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
     show polymarketCentsLabel;
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/polymarket/components/outcome_leading.dart'
+    show kPolyOutcomeColors, polyChartedOutcomes;
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
-Future<void> _pump(WidgetTester tester, MarketCard card) async {
+Future<void> _pump(WidgetTester tester, MarketCard card,
+    {bool dark = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -27,7 +30,10 @@ Future<void> _pump(WidgetTester tester, MarketCard card) async {
         theme: ThemeData(
           splashFactory: NoSplash.splashFactory,
           fontFamily: 'Inter',
-          extensions: [AppColorsExtension.light()],
+          brightness: dark ? Brightness.dark : Brightness.light,
+          extensions: [
+            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+          ],
         ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -249,6 +255,12 @@ void main() {
         .toList();
     expect(bars, [0.84, 0.16, 0.05]);
     expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height, 4);
+    // No token, so no line on the chart: the neutral fill.
+    expect(
+        tester
+            .widgetList<PolyOutcomeChanceBar>(find.byType(PolyOutcomeChanceBar))
+            .map((b) => b.color),
+        [null, null, null]);
     // The figures end on one edge, so the bars do too.
     expect(tester.getTopRight(find.text('84%')).dx,
         tester.getTopRight(find.text('5%')).dx);
@@ -309,5 +321,73 @@ void main() {
         ]),
         isFalse);
   });
-}
+  for (final dark in [false, true]) {
+    testWidgets(
+        'many outcomes (${dark ? 'dark' : 'light'}): each bar in its '
+        "outcome's chart line colour, in the chart's order", (tester) async {
+      const outcomes = [
+        PolymarketOutcome(name: 'No change', price: 0.029, tokenId: 'n'),
+        PolymarketOutcome(name: '25 bps increase', price: 0.855, tokenId: 'a'),
+        PolymarketOutcome(name: '50+ bps increase', price: 0.118, tokenId: 'b'),
+        PolymarketOutcome(name: '25 bps decrease', price: 0.004, tokenId: 'd'),
+      ];
+      await _pump(
+        tester,
+        const MarketCard(
+          title: 'Fed Decision in December?',
+          outcomes: outcomes,
+          volume: 0,
+          category: 'economy',
+        ),
+        dark: dark,
+      );
+      final c = dark ? AppColorsExtension.dark() : AppColorsExtension.light();
+      final barFinder = find.byType(PolyOutcomeChanceBar);
+      final bars = tester.widgetList<PolyOutcomeChanceBar>(barFinder).toList();
+      expect(bars.map((b) => b.fraction), [0.855, 0.118, 0.029]);
+      // What each bar paints: the track, then the fill over it.
+      List<Color> painted(int i) => tester
+          .widgetList<ColoredBox>(find.descendant(
+              of: barFinder.at(i), matching: find.byType(ColoredBox)))
+          .map((b) => b.color)
+          .toList();
+      final fills = [for (var i = 0; i < bars.length; i++) painted(i).last];
+      // The palette in order, three different colours.
+      expect(fills, kPolyOutcomeColors.take(3).toList());
+      expect(fills.toSet(), hasLength(3));
+      // The chart's own colour for the same outcome, rank for rank.
+      final chart = polyChartedOutcomes(outcomes, kPolyOutcomeColors);
+      expect(chart.take(3).map((l) => l.outcome.name),
+          ['25 bps increase', '50+ bps increase', 'No change']);
+      expect(fills, chart.take(3).map((l) => l.color).toList());
+      // The track, the text and the figures are as they were.
+      for (var i = 0; i < bars.length; i++) {
+        expect(painted(i).first, c.border);
+      }
+      expect(tester.getSize(barFinder.first).height, 4);
+      final name = tester.widget<Text>(find.text('25 bps increase'));
+      expect(name.style?.color, c.textPrimary);
+      final second = tester.widget<Text>(find.text('50+ bps increase'));
+      expect(second.style?.color, c.textSecondary);
+      expect(
+          tester.widget<Text>(find.text('85.5%')).style?.color, c.textPrimary);
+      expect(find.text('+1 more'), findsOneWidget);
+    });
+  }
 
+  testWidgets('a Yes/No market draws no outcome bars', (tester) async {
+    await _pump(
+      tester,
+      const MarketCard(
+        title: 'Will it rain?',
+        outcomes: [
+          PolymarketOutcome(name: 'Yes', price: 0.4, tokenId: 'y'),
+          PolymarketOutcome(name: 'No', price: 0.6, tokenId: 'n'),
+        ],
+        volume: 0,
+        category: 'weather',
+      ),
+    );
+    expect(find.byType(PolyOutcomeChanceBar), findsNothing);
+  });
+}
