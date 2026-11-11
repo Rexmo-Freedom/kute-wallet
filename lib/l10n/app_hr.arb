@@ -1431,6 +1431,8 @@
   "depositToPredict": "Uplati za predviđanja",
   "slipDepositIncoming": "Uplata stiže · {amount}",
   "slipDepositIncomingNote": "Tvoj novac je na putu. Gumb će se otključati kad stigne.",
+  "slipOtherOrderPlacingNote": "Tvoj drugi nalog još se postavlja. Ovaj možeš postaviti kad on bude gotov.",
+  "betOtherPredictionPlacingNote": "Tvoje drugo predviđanje još se postavlja. Ovo možeš postaviti kad ono bude gotovo.",
   "slipDepositAddMore": "Dodaj još",
   "slipDepositFailedNote": "Tvoja uplata nije prošla. Možeš uplatiti ponovno.",
   "ledgerOrderStepsNote": "Tvoj Ledger može tražiti do tri odobrenja: jednokratno odobrenje naknade, polugu i nalog.",

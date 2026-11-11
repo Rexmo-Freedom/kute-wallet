@@ -4939,6 +4939,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tu dinero está en camino. Este botón se activa cuando llegue.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Tu otra orden aún se está colocando. Podrás colocar esta cuando termine.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Tu otra predicción aún se está colocando. Podrás colocar esta cuando termine.';
+
+  @override
   String get slipDepositAddMore => 'Añadir más';
 
   @override

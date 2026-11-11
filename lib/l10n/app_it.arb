@@ -1431,6 +1431,8 @@
   "depositToPredict": "Deposita per prevedere",
   "slipDepositIncoming": "Deposito in arrivo · {amount}",
   "slipDepositIncomingNote": "Il tuo denaro è in arrivo. Il pulsante si sblocca appena arriva.",
+  "slipOtherOrderPlacingNote": "Il tuo altro ordine è ancora in fase di piazzamento. Potrai piazzare questo quando sarà completato.",
+  "betOtherPredictionPlacingNote": "La tua altra previsione è ancora in fase di piazzamento. Potrai piazzare questa quando sarà completata.",
   "slipDepositAddMore": "Aggiungi altro",
   "slipDepositFailedNote": "Il tuo deposito non è andato a buon fine. Puoi depositare di nuovo.",
   "ledgerOrderStepsNote": "Il Ledger può chiedere fino a tre approvazioni: un'approvazione unica della commissione, la leva e l'ordine.",

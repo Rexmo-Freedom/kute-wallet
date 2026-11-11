@@ -1431,6 +1431,8 @@
   "depositToPredict": "Depune ca să faci predicții",
   "slipDepositIncoming": "Depunere în curs · {amount}",
   "slipDepositIncomingNote": "Banii tăi sunt pe drum. Butonul se deblochează când ajung.",
+  "slipOtherOrderPlacingNote": "Celălalt ordin al tău încă se plasează. Îl poți plasa pe acesta când se termină.",
+  "betOtherPredictionPlacingNote": "Cealaltă predicție a ta încă se plasează. O poți plasa pe aceasta când se termină.",
   "slipDepositAddMore": "Adaugă mai mult",
   "slipDepositFailedNote": "Depunerea ta nu a reușit. Poți depune din nou.",
   "ledgerOrderStepsNote": "Ledger-ul poate cere până la trei aprobări: o aprobare unică pentru comision, levierul și ordinul.",

@@ -1431,6 +1431,8 @@
   "depositToPredict": "Indbetal for at forudsige",
   "slipDepositIncoming": "Indbetaling på vej · {amount}",
   "slipDepositIncomingNote": "Dine penge er på vej. Knappen låses op, når de er fremme.",
+  "slipOtherOrderPlacingNote": "Din anden ordre er ved at blive placeret. Du kan placere denne, når den er færdig.",
+  "betOtherPredictionPlacingNote": "Din anden forudsigelse er ved at blive placeret. Du kan placere denne, når den er færdig.",
   "slipDepositAddMore": "Tilføj mere",
   "slipDepositFailedNote": "Din indbetaling gik ikke igennem. Du kan indbetale igen.",
   "ledgerOrderStepsNote": "Din Ledger kan bede om op til tre godkendelser: en engangsgodkendelse af gebyr, gearingen og ordren.",

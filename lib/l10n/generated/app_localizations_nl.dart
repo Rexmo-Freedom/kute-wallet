@@ -4932,6 +4932,14 @@ class AppLocalizationsNl extends AppLocalizations {
       'Je geld is onderweg. Deze knop wordt actief zodra het binnen is.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Je andere order wordt nog geplaatst. Je kunt deze plaatsen zodra die klaar is.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Je andere voorspelling wordt nog geplaatst. Je kunt deze plaatsen zodra die klaar is.';
+
+  @override
   String get slipDepositAddMore => 'Meer toevoegen';
 
   @override

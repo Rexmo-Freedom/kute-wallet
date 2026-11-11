@@ -4925,6 +4925,14 @@ class AppLocalizationsPl extends AppLocalizations {
       'Twoje pieniądze są w drodze. Przycisk odblokuje się, gdy dotrą.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Twoje inne zlecenie jest jeszcze składane. Złożysz to, gdy tamto się zakończy.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Twoja inna prognoza jest jeszcze składana. Złożysz tę, gdy tamta się zakończy.';
+
+  @override
   String get slipDepositAddMore => 'Dodaj więcej';
 
   @override

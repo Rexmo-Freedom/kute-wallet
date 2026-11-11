@@ -1431,6 +1431,8 @@
   "depositToPredict": "Vlož a predpovedaj",
   "slipDepositIncoming": "Vklad je na ceste · {amount}",
   "slipDepositIncomingNote": "Tvoje peniaze sú na ceste. Tlačidlo sa odomkne, keď dorazia.",
+  "slipOtherOrderPlacingNote": "Tvoj druhý príkaz sa ešte zadáva. Tento môžeš zadať, keď bude hotový.",
+  "betOtherPredictionPlacingNote": "Tvoja druhá predpoveď sa ešte zadáva. Túto môžeš zadať, keď bude hotová.",
   "slipDepositAddMore": "Pridať viac",
   "slipDepositFailedNote": "Tvoj vklad neprešiel. Môžeš vložiť znova.",
   "ledgerOrderStepsNote": "Ledger môže chcieť až tri schválenia: jednorazové schválenie poplatku, páku a príkaz.",

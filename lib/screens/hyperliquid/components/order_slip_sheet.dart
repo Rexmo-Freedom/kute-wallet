@@ -2519,6 +2519,36 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   bool _followingStanding() =>
       widget.standingEndedBefore != null && _standingOnItsWay();
 
+  /// Whether this ticket's order would wait for another Investing order
+  /// still being placed: the very refusal [_confirmFunded] (and the
+  /// Bitcoin-funded confirm) gives an order that needs money moved
+  /// ([wouldFund]) while one is queued or placing
+  /// ([PendingHyperliquidOrderNotifier.blocksNewOrder]) or a funded chain
+  /// (an order or margin) is live. Never this ticket's own order (its
+  /// accept, its placing, its funded steps on this market, a reopened
+  /// standing ticket), and never over a shut open, which says its own
+  /// reason. Watched, so the ticket frees itself the moment it is done.
+  bool _heldByOtherOrder(List<FundedOrderRecord> runs,
+      {required bool wouldFund,
+      required bool fundedRunning,
+      required bool openBlocked}) {
+    if (_isLedger ||
+        !wouldFund ||
+        fundedRunning ||
+        openBlocked ||
+        widget.sendPick != null ||
+        widget.standingEndedBefore != null ||
+        _standingAccepted ||
+        _isPlacing ||
+        _preparing) {
+      return false;
+    }
+    final queued = ref.watch(pendingHyperliquidOrderProvider.select(
+        (i) => PendingHyperliquidOrderNotifier.blocksNewOrder(i, runs)));
+    return queued ||
+        FundedOrdersNotifier.activeOf(runs, OneBalanceVenue.investing) != null;
+  }
+
   /// The ticket is going (didPop; OK, the X, a tap above, back or a swipe
   /// down): once it had a standing order, its haptics stop now, and while
   /// that order is still on its way Sal's placing toast takes over at the
@@ -2621,7 +2651,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _trackBlocked('order_queued');
       _updateDraft(() {
         _errorCause = null;
-        _errorText = _strings.slipDepositIncomingNote;
+        _errorText = _strings.slipOtherOrderPlacingNote;
       });
       return;
     }
@@ -3036,7 +3066,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _trackFundingStep(OrderFundingStage.credit);
       case OrderFundingRefused(:final reason) when reason == kHlOrderQueuedReason:
         _fundingFailedBeforeMove(
-            'fund', reason, _strings.slipDepositIncomingNote);
+            'fund', reason, _strings.slipOtherOrderPlacingNote);
       case OrderFundingRefused(:final reason):
         _fundingFailedBeforeMove('fund', reason, _strings.errorCopyGeneric,
             inSteps: true);
@@ -3210,7 +3240,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _updateDraft(() {
         _fundingStage = null;
         _errorCause = null;
-        _errorText = _strings.slipDepositIncomingNote;
+        _errorText = _strings.slipOtherOrderPlacingNote;
       });
       return;
     }
@@ -5192,6 +5222,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final funded = _fundedProgress(fundedOrders);
     final fundedSteps = funded == null ? null : _fundingSteps(funded.record);
     final fundedRunning = funded != null && !funded.failed;
+    // Another Investing order is still being placed and this one would
+    // wait for it (one at a time, [_confirmFunded]): the note above the
+    // button says so and the button (or the note) opens the one placing.
+    final heldByOther = _heldByOtherOrder(fundedOrders,
+        wouldFund: fundShortfall > 0 ||
+            _errorText == _strings.slipOtherOrderPlacingNote,
+        fundedRunning: fundedRunning,
+        openBlocked: openBlock != null);
+    final otherPlacing = heldByOther
+        ? StandingOrderSlips.placingOn(
+            ref.watch(standingOrdersProvider), StandingOrderVenue.investing)
+        : null;
     // The plain ticket: while the money moves the order itself takes the
     // amount's place, one big number rolling up from what Investing holds
     // to the order as each leg lands, and the journey the figures' (they,
@@ -5410,7 +5452,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               key: const ValueKey('order-slip-funded-stop'),
               message: fundedStopLine(_strings, funded.record, formatHlUsd),
             ),
-          ] else if (_errorText != null && !(funded?.failed ?? false)) ...[
+          ] else if (_errorText != null &&
+              _errorText != _strings.slipOtherOrderPlacingNote &&
+              !(funded?.failed ?? false)) ...[
             SlipGap(10.h),
             HlTradeErrorNotice(message: _errorText!, error: _errorCause),
           ],
@@ -5520,6 +5564,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ? _openDepositDoor
               : null;
       primaryNeutral = true;
+    } else if (heldByOther) {
+      // Another order is still being placed: the button stays this order,
+      // and a tap opens the one placing (its locked ticket) instead.
+      final placing = otherPlacing;
+      primaryKind = 'trade';
+      primaryLabel = placesMinimum
+          ? _emptyCtaLabel(netPlan)
+          : _positionCtaLabel(netPlan) ?? _ctaLabel();
+      primaryAction = placing == null
+          ? null
+          : () => StandingOrderSlips.openInstead(context, placing);
+      primaryNeutral = false;
     } else if (belowMin && !_isScale && _marginUsd > 0 && minAmountUsd > 0) {
       // An amount under the venue minimum: the button names the minimum
       // the available line shows, and a tap writes it and places it, as
@@ -5609,6 +5665,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             CapabilityBlockNote(depositBlock),
           if (!incoming && (funding?.failed ?? false))
             const SlipDepositFailedNote(),
+          if (heldByOther && primaryKind == 'trade')
+            GestureDetector(
+              key: const ValueKey('order-slip-other-placing'),
+              behavior: HitTestBehavior.opaque,
+              onTap: primaryAction,
+              child: CapabilityBlockNote(_strings.slipOtherOrderPlacingNote),
+            ),
           if (priceStaleBlocks)
             Padding(
               padding: EdgeInsets.only(bottom: 8.h),

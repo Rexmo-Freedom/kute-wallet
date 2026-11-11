@@ -4904,6 +4904,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your money is on its way. This button unlocks when it lands.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Your other order is still being placed. You can place this one when it\'s done.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Your other prediction is still being placed. You can place this one when it\'s done.';
+
+  @override
   String get slipDepositAddMore => 'Add more';
 
   @override

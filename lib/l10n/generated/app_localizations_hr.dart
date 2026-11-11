@@ -4923,6 +4923,14 @@ class AppLocalizationsHr extends AppLocalizations {
       'Tvoj novac je na putu. Gumb će se otključati kad stigne.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Tvoj drugi nalog još se postavlja. Ovaj možeš postaviti kad on bude gotov.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Tvoje drugo predviđanje još se postavlja. Ovo možeš postaviti kad ono bude gotovo.';
+
+  @override
   String get slipDepositAddMore => 'Dodaj još';
 
   @override

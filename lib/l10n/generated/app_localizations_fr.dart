@@ -4955,6 +4955,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Votre argent est en route. Ce bouton se débloque dès son arrivée.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Votre autre ordre est encore en cours de placement. Vous pourrez placer celui-ci une fois qu\'il sera terminé.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Votre autre prédiction est encore en cours de placement. Vous pourrez placer celle-ci une fois qu\'elle sera terminée.';
+
+  @override
   String get slipDepositAddMore => 'Ajouter plus';
 
   @override

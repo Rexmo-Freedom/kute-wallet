@@ -1431,6 +1431,8 @@
   "depositToPredict": "入金して予測",
   "slipDepositIncoming": "入金処理中 · {amount}",
   "slipDepositIncomingNote": "お金は送金中です。到着するとこのボタンが使えるようになります。",
+  "slipOtherOrderPlacingNote": "別の注文をまだ発注中です。完了したらこの注文を発注できます。",
+  "betOtherPredictionPlacingNote": "別の予測をまだ注文中です。完了したらこの予測を注文できます。",
   "slipDepositAddMore": "さらに追加",
   "slipDepositFailedNote": "入金が完了しませんでした。もう一度入金できます。",
   "ledgerOrderStepsNote": "Ledgerで最大3回の承認を求められる場合があります。初回のみの手数料承認、レバレッジ、注文の3つです。",

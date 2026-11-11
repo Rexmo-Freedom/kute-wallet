@@ -8684,6 +8684,18 @@ abstract class AppLocalizations {
   /// **'Your money is on its way. This button unlocks when it lands.'**
   String get slipDepositIncomingNote;
 
+  /// Note above the order button of a second Investing order while another one is still being placed (one order at a time). Tapping it opens the order being placed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your other order is still being placed. You can place this one when it\'s done.'**
+  String get slipOtherOrderPlacingNote;
+
+  /// Note above the bet button of a second prediction while another one is still being placed (one prediction at a time). Tapping it opens the prediction being placed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your other prediction is still being placed. You can place this one when it\'s done.'**
+  String get betOtherPredictionPlacingNote;
+
   /// Small link under Deposit incoming when the deposit on its way does not cover the order; opens a deposit prefilled with the rest.
   ///
   /// In en, this message translates to:

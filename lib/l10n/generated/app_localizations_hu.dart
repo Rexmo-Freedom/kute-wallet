@@ -4925,6 +4925,14 @@ class AppLocalizationsHu extends AppLocalizations {
       'A pénzed úton van. A gomb akkor lesz elérhető, amikor megérkezik.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'A másik megbízásod leadása még folyamatban van. Ezt akkor adhatod le, ha az elkészült.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'A másik előrejelzésed leadása még folyamatban van. Ezt akkor adhatod le, ha az elkészült.';
+
+  @override
   String get slipDepositAddMore => 'Kiegészítés';
 
   @override

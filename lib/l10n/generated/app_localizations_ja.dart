@@ -4749,6 +4749,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get slipDepositIncomingNote => 'お金は送金中です。到着するとこのボタンが使えるようになります。';
 
   @override
+  String get slipOtherOrderPlacingNote => '別の注文をまだ発注中です。完了したらこの注文を発注できます。';
+
+  @override
+  String get betOtherPredictionPlacingNote => '別の予測をまだ注文中です。完了したらこの予測を注文できます。';
+
+  @override
   String get slipDepositAddMore => 'さらに追加';
 
   @override

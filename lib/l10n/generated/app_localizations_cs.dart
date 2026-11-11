@@ -4909,6 +4909,14 @@ class AppLocalizationsCs extends AppLocalizations {
       'Tvoje peníze jsou na cestě. Tlačítko se odemkne, až dorazí.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Tvůj druhý příkaz se ještě zadává. Tento můžeš zadat, až bude hotový.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Tvoje druhá predikce se ještě zadává. Tuto můžeš zadat, až bude hotová.';
+
+  @override
   String get slipDepositAddMore => 'Přidat další';
 
   @override

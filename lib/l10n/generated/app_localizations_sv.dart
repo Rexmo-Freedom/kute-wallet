@@ -4916,6 +4916,14 @@ class AppLocalizationsSv extends AppLocalizations {
       'Dina pengar är på väg. Knappen låses upp när de har kommit fram.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Din andra order läggs fortfarande. Du kan lägga den här när den är klar.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Din andra prognos läggs fortfarande. Du kan lägga den här när den är klar.';
+
+  @override
   String get slipDepositAddMore => 'Lägg till mer';
 
   @override

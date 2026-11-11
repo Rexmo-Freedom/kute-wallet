@@ -1431,6 +1431,8 @@
   "depositToPredict": "Položite za napovedi",
   "slipDepositIncoming": "Polog je na poti · {amount}",
   "slipDepositIncomingNote": "Vaš denar je na poti. Gumb se odklene, ko prispe.",
+  "slipOtherOrderPlacingNote": "Tvoje drugo naročilo se še oddaja. To lahko oddaš, ko bo končano.",
+  "betOtherPredictionPlacingNote": "Tvoja druga napoved se še oddaja. To lahko oddaš, ko bo končana.",
   "slipDepositAddMore": "Dodaj več",
   "slipDepositFailedNote": "Vaš polog ni uspel. Lahko položite znova.",
   "ledgerOrderStepsNote": "Vaš Ledger lahko zahteva do tri odobritve: enkratno odobritev provizije, vzvod in naročilo.",

@@ -4959,6 +4959,14 @@ class AppLocalizationsEl extends AppLocalizations {
       'Τα χρήματά σου είναι καθ\' οδόν. Το κουμπί ξεκλειδώνει μόλις φτάσουν.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Η άλλη εντολή σου τοποθετείται ακόμα. Μπορείς να τοποθετήσεις αυτήν μόλις ολοκληρωθεί.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Η άλλη πρόβλεψή σου τοποθετείται ακόμα. Μπορείς να τοποθετήσεις αυτήν μόλις ολοκληρωθεί.';
+
+  @override
   String get slipDepositAddMore => 'Πρόσθεσε κι άλλα';
 
   @override

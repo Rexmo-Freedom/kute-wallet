@@ -1431,6 +1431,8 @@
   "depositToPredict": "Iemaksāt, lai prognozētu",
   "slipDepositIncoming": "Iemaksa ceļā · {amount}",
   "slipDepositIncomingNote": "Tava nauda ir ceļā. Poga atbloķēsies, kad tā pienāks.",
+  "slipOtherOrderPlacingNote": "Tavs otrs rīkojums vēl tiek iesniegts. Šo varēsi iesniegt, kad tas būs pabeigts.",
+  "betOtherPredictionPlacingNote": "Tava otra prognoze vēl tiek iesniegta. Šo varēsi iesniegt, kad tā būs pabeigta.",
   "slipDepositAddMore": "Pievienot vēl",
   "slipDepositFailedNote": "Tava iemaksa neizdevās. Vari iemaksāt vēlreiz.",
   "ledgerOrderStepsNote": "Tavs Ledger var prasīt līdz trim apstiprinājumiem: vienreizēju maksas apstiprinājumu, sviru un rīkojumu.",

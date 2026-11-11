@@ -1431,6 +1431,8 @@
   "depositToPredict": "Einzahlen für Prognosen",
   "slipDepositIncoming": "Einzahlung unterwegs · {amount}",
   "slipDepositIncomingNote": "Dein Geld ist unterwegs. Der Button wird aktiv, sobald es da ist.",
+  "slipOtherOrderPlacingNote": "Deine andere Order wird noch platziert. Du kannst diese platzieren, sobald sie fertig ist.",
+  "betOtherPredictionPlacingNote": "Deine andere Prognose wird noch platziert. Du kannst diese platzieren, sobald sie fertig ist.",
   "slipDepositAddMore": "Mehr hinzufügen",
   "slipDepositFailedNote": "Deine Einzahlung ist nicht durchgegangen. Du kannst erneut einzahlen.",
   "ledgerOrderStepsNote": "Dein Ledger fragt eventuell bis zu dreimal nach Bestätigung: einmalige Gebührenfreigabe, Hebel und Auftrag.",

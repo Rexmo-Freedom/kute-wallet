@@ -4901,6 +4901,14 @@ class AppLocalizationsEt extends AppLocalizations {
       'Sinu raha on teel. Nupp avaneb, kui see kohale jõuab.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Sinu teist korraldust alles pannakse. Selle saad panna, kui see on valmis.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Sinu teist ennustust alles tehakse. Selle saad teha, kui see on valmis.';
+
+  @override
   String get slipDepositAddMore => 'Lisa veel';
 
   @override

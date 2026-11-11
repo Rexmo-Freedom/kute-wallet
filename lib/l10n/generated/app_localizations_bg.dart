@@ -4924,6 +4924,14 @@ class AppLocalizationsBg extends AppLocalizations {
       'Парите ти са на път. Бутонът ще се отключи, когато пристигнат.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Другата ти поръчка още се поставя. Ще можеш да поставиш тази, когато приключи.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Другата ти прогноза още се поставя. Ще можеш да поставиш тази, когато приключи.';
+
+  @override
   String get slipDepositAddMore => 'Добави още';
 
   @override

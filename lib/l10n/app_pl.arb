@@ -1431,6 +1431,8 @@
   "depositToPredict": "Wpłać, aby prognozować",
   "slipDepositIncoming": "Wpłata w drodze · {amount}",
   "slipDepositIncomingNote": "Twoje pieniądze są w drodze. Przycisk odblokuje się, gdy dotrą.",
+  "slipOtherOrderPlacingNote": "Twoje inne zlecenie jest jeszcze składane. Złożysz to, gdy tamto się zakończy.",
+  "betOtherPredictionPlacingNote": "Twoja inna prognoza jest jeszcze składana. Złożysz tę, gdy tamta się zakończy.",
   "slipDepositAddMore": "Dodaj więcej",
   "slipDepositFailedNote": "Twoja wpłata nie doszła do skutku. Możesz wpłacić ponownie.",
   "ledgerOrderStepsNote": "Ledger może poprosić o maksymalnie trzy zatwierdzenia: jednorazowe zatwierdzenie opłaty, dźwignię i zlecenie.",

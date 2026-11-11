@@ -4916,6 +4916,14 @@ class AppLocalizationsSk extends AppLocalizations {
       'Tvoje peniaze sú na ceste. Tlačidlo sa odomkne, keď dorazia.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Tvoj druhý príkaz sa ešte zadáva. Tento môžeš zadať, keď bude hotový.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Tvoja druhá predpoveď sa ešte zadáva. Túto môžeš zadať, keď bude hotová.';
+
+  @override
   String get slipDepositAddMore => 'Pridať viac';
 
   @override

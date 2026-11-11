@@ -4915,6 +4915,14 @@ class AppLocalizationsFi extends AppLocalizations {
       'Rahasi ovat matkalla. Painike aktivoituu, kun ne saapuvat.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Toista toimeksiantoasi asetetaan vielä. Voit asettaa tämän, kun se on valmis.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Toista ennustettasi asetetaan vielä. Voit tehdä tämän, kun se on valmis.';
+
+  @override
   String get slipDepositAddMore => 'Lisää vielä';
 
   @override

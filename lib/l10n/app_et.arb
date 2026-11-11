@@ -1431,6 +1431,8 @@
   "depositToPredict": "Ennustamiseks tee sissemakse",
   "slipDepositIncoming": "Sissemakse on teel · {amount}",
   "slipDepositIncomingNote": "Sinu raha on teel. Nupp avaneb, kui see kohale jõuab.",
+  "slipOtherOrderPlacingNote": "Sinu teist korraldust alles pannakse. Selle saad panna, kui see on valmis.",
+  "betOtherPredictionPlacingNote": "Sinu teist ennustust alles tehakse. Selle saad teha, kui see on valmis.",
   "slipDepositAddMore": "Lisa veel",
   "slipDepositFailedNote": "Sinu sissemakse ei õnnestunud. Võid uuesti sissemakse teha.",
   "ledgerOrderStepsNote": "Sinu Ledger võib küsida kuni kolme kinnitust: ühekordne tasu kinnitus, finantsvõimendus ja tellimus.",

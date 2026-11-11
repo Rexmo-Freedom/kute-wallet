@@ -1431,6 +1431,8 @@
   "depositToPredict": "Sätt in för att göra prognoser",
   "slipDepositIncoming": "Insättning på väg · {amount}",
   "slipDepositIncomingNote": "Dina pengar är på väg. Knappen låses upp när de har kommit fram.",
+  "slipOtherOrderPlacingNote": "Din andra order läggs fortfarande. Du kan lägga den här när den är klar.",
+  "betOtherPredictionPlacingNote": "Din andra prognos läggs fortfarande. Du kan lägga den här när den är klar.",
   "slipDepositAddMore": "Lägg till mer",
   "slipDepositFailedNote": "Din insättning gick inte igenom. Du kan sätta in igen.",
   "ledgerOrderStepsNote": "Din Ledger kan be om upp till tre godkännanden: ett engångsgodkännande av avgift, hävstången och ordern.",

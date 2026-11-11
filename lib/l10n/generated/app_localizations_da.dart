@@ -4919,6 +4919,14 @@ class AppLocalizationsDa extends AppLocalizations {
       'Dine penge er på vej. Knappen låses op, når de er fremme.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Din anden ordre er ved at blive placeret. Du kan placere denne, når den er færdig.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Din anden forudsigelse er ved at blive placeret. Du kan placere denne, når den er færdig.';
+
+  @override
   String get slipDepositAddMore => 'Tilføj mere';
 
   @override

@@ -4901,6 +4901,14 @@ class AppLocalizationsLv extends AppLocalizations {
       'Tava nauda ir ceļā. Poga atbloķēsies, kad tā pienāks.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Tavs otrs rīkojums vēl tiek iesniegts. Šo varēsi iesniegt, kad tas būs pabeigts.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Tava otra prognoze vēl tiek iesniegta. Šo varēsi iesniegt, kad tā būs pabeigta.';
+
+  @override
   String get slipDepositAddMore => 'Pievienot vēl';
 
   @override

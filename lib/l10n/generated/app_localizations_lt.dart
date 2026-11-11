@@ -4930,6 +4930,14 @@ class AppLocalizationsLt extends AppLocalizations {
       'Jūsų pinigai pakeliui. Mygtukas atsirakins, kai jie atkeliaus.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Kitas tavo pavedimas dar pateikiamas. Šį galėsi pateikti, kai jis bus baigtas.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Kita tavo prognozė dar pateikiama. Šią galėsi pateikti, kai ji bus baigta.';
+
+  @override
   String get slipDepositAddMore => 'Pridėti daugiau';
 
   @override

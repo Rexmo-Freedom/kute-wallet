@@ -163,6 +163,33 @@ abstract final class StandingOrderSlips {
     return _rebuild(root, container, order, follow);
   }
 
+  /// The order on [venue] still being placed among [all] (the newest open
+  /// one not resting on the book): the one a second order (or bet) there
+  /// waits for, one at a time (founder, 11 November 2026: "while one is
+  /// placing can't place another. Just be clear about this"). Null:
+  /// nothing on record to open.
+  static StandingOrder? placingOn(
+      List<StandingOrder> all, StandingOrderVenue venue) {
+    StandingOrder? found;
+    for (final o in all) {
+      if (o.venue == venue &&
+          o.isOpen &&
+          o.state != StandingOrderState.posted) {
+        found = o;
+      }
+    }
+    return found;
+  }
+
+  /// A second slip held while [order] is being placed: that slip goes and
+  /// [order]'s own opens in its place, locked on it ([reopen]; one slip at
+  /// a time).
+  static void openInstead(BuildContext slip, StandingOrder order) {
+    final root = kuteRootContext(slip);
+    Navigator.of(slip).pop();
+    unawaited(reopen(root, id: order.id));
+  }
+
   /// The price moved past what was approved: the standing order ends
   /// there (quietly: no result toast) and the slip opens at the new
   /// price, unlocked, for its own Confirm and Face ID to place it from

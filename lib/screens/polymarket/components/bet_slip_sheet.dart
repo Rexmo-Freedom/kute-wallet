@@ -2698,7 +2698,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           context: context,
           message: sweeping
               ? context.l10n.betVenueSettling
-              : context.l10n.ledgerBetPending,
+              : context.l10n.betOtherPredictionPlacingNote,
           error: true,
         );
       }
@@ -3761,7 +3761,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           reason: 'previous_order_pending');
       dropQueued();
       showMessageSnackBar(
-          context: context, message: context.l10n.ledgerBetPending, error: true);
+          context: context,
+          message: context.l10n.betOtherPredictionPlacingNote,
+          error: true);
       return;
     }
     // An "Add" tap whose X no longer covers what Investments lack: nothing
@@ -5202,6 +5204,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             CapabilityBlockNote(note),
           if (_advancedBlock case final reason? when reason != _tradeBlock)
             CapabilityBlockNote(reason),
+          // Another prediction is still being placed (one at a time): said
+          // here, and a tap opens the one placing ([_heldByOtherBet]).
+          if (_heldByOtherBet())
+            GestureDetector(
+              key: const ValueKey('bet-slip-other-placing'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _openOtherBet(),
+              child: CapabilityBlockNote(
+                  context.l10n.betOtherPredictionPlacingNote),
+            ),
           // While an order waits on a live game's in-play delay, the line
           // over the button says why it is taking a moment.
           if (_liveDelayNote(placeStage, activelyPlacing) case final note?)
@@ -6151,6 +6163,23 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ),
       );
     }
+    // Another prediction is still being placed: the button stays this
+    // bet, and a tap opens the one placing (its locked slip) instead.
+    if (_heldByOtherBet()) {
+      final open = _openOtherBet();
+      return PolySlipCta(
+        key: const ValueKey('bet-slip-other-placing-cta'),
+        color: selectedColor,
+        // Dark on the white button, never the side colour (founder).
+        neutral: true,
+        isBusy: false,
+        enabled: open != null,
+        onTap: open ?? () {},
+        label: _emptyStake
+            ? _betCtaLabel(selected, 0, empty: true)
+            : _betCtaLabel(selected, _amount),
+      );
+    }
     final action = (failed ? null : _standingOkCta(selectedColor)) ??
         _buildPrimaryActionInner(c, selectedColor, selected,
             busy: busy,
@@ -6417,6 +6446,41 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ? _betCtaLabel(selected, 0, empty: true)
           : _betCtaLabel(selected, _amount)),
     );
+  }
+
+  /// Whether this slip's bet would wait for another prediction still being
+  /// placed: the very refusal [_handleBuy] (and the Bitcoin-funded bet)
+  /// gives while a queued bet holds the one slot ([pendingBetBlocksNewBet])
+  /// or a Predictions funding chain is live. Never this slip's own bet (its
+  /// accept, its placing, its funded steps on this market, a reopened
+  /// standing slip), never a Ledger or send slip, never over a shut trade,
+  /// which says its own reason. Watched, so the slip frees itself the
+  /// moment it is done.
+  bool _heldByOtherBet() {
+    if (_isLedger ||
+        widget.sendPick != null ||
+        _standingAccepted ||
+        _isPlacing ||
+        _buyInFlight ||
+        _tradeBlock != null) {
+      return false;
+    }
+    final runs = ref.watch(fundedOrdersProvider);
+    if (_fundedProgress(runs) != null) return false;
+    final queued = ref.watch(pendingPolymarketBetProvider
+        .select((i) => pendingBetBlocksNewBet(i, runs)));
+    return queued ||
+        FundedOrdersNotifier.activeOf(runs, OneBalanceVenue.predictions) !=
+            null;
+  }
+
+  /// The tap that opens the prediction being placed in this slip's place
+  /// (its own locked slip); null while it has no record to open.
+  VoidCallback? _openOtherBet() {
+    final placing = StandingOrderSlips.placingOn(
+        ref.watch(standingOrdersProvider), StandingOrderVenue.predictions);
+    if (placing == null) return null;
+    return () => StandingOrderSlips.openInstead(context, placing);
   }
 
   /// The bet button's words for a stake of [amountUsd] on [selected].

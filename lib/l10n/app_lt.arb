@@ -1431,6 +1431,8 @@
   "depositToPredict": "Įnešti ir prognozuoti",
   "slipDepositIncoming": "Įnašas pakeliui · {amount}",
   "slipDepositIncomingNote": "Jūsų pinigai pakeliui. Mygtukas atsirakins, kai jie atkeliaus.",
+  "slipOtherOrderPlacingNote": "Kitas tavo pavedimas dar pateikiamas. Šį galėsi pateikti, kai jis bus baigtas.",
+  "betOtherPredictionPlacingNote": "Kita tavo prognozė dar pateikiama. Šią galėsi pateikti, kai ji bus baigta.",
   "slipDepositAddMore": "Pridėti daugiau",
   "slipDepositFailedNote": "Jūsų įnašas nepavyko. Galite įnešti dar kartą.",
   "ledgerOrderStepsNote": "Jūsų Ledger gali paprašyti iki trijų patvirtinimų: vienkartinio mokesčio patvirtinimo, sverto ir pavedimo.",

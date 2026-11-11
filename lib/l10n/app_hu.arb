@@ -1431,6 +1431,8 @@
   "depositToPredict": "Befizetés az előrejelzéshez",
   "slipDepositIncoming": "Befizetés úton · {amount}",
   "slipDepositIncomingNote": "A pénzed úton van. A gomb akkor lesz elérhető, amikor megérkezik.",
+  "slipOtherOrderPlacingNote": "A másik megbízásod leadása még folyamatban van. Ezt akkor adhatod le, ha az elkészült.",
+  "betOtherPredictionPlacingNote": "A másik előrejelzésed leadása még folyamatban van. Ezt akkor adhatod le, ha az elkészült.",
   "slipDepositAddMore": "Kiegészítés",
   "slipDepositFailedNote": "A befizetésed nem sikerült. Újra befizethetsz.",
   "ledgerOrderStepsNote": "A Ledgered legfeljebb három jóváhagyást kérhet: egy egyszeri díjjóváhagyást, a tőkeáttételt és a megbízást.",

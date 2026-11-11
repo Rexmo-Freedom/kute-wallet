@@ -4941,6 +4941,14 @@ class AppLocalizationsRo extends AppLocalizations {
       'Banii tăi sunt pe drum. Butonul se deblochează când ajung.';
 
   @override
+  String get slipOtherOrderPlacingNote =>
+      'Celălalt ordin al tău încă se plasează. Îl poți plasa pe acesta când se termină.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Cealaltă predicție a ta încă se plasează. O poți plasa pe aceasta când se termină.';
+
+  @override
   String get slipDepositAddMore => 'Adaugă mai mult';
 
   @override

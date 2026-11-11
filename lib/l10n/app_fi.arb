@@ -1431,6 +1431,8 @@
   "depositToPredict": "Talleta ennustaaksesi",
   "slipDepositIncoming": "Talletus tulossa · {amount}",
   "slipDepositIncomingNote": "Rahasi ovat matkalla. Painike aktivoituu, kun ne saapuvat.",
+  "slipOtherOrderPlacingNote": "Toista toimeksiantoasi asetetaan vielä. Voit asettaa tämän, kun se on valmis.",
+  "betOtherPredictionPlacingNote": "Toista ennustettasi asetetaan vielä. Voit tehdä tämän, kun se on valmis.",
   "slipDepositAddMore": "Lisää vielä",
   "slipDepositFailedNote": "Talletuksesi ei mennyt läpi. Voit tallettaa uudelleen.",
   "ledgerOrderStepsNote": "Ledgerisi voi pyytää enintään kolme hyväksyntää: kertaluonteisen maksuhyväksynnän, vivun ja toimeksiannon.",

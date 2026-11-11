@@ -1431,6 +1431,8 @@
   "depositToPredict": "Déposer pour prédire",
   "slipDepositIncoming": "Dépôt en cours · {amount}",
   "slipDepositIncomingNote": "Votre argent est en route. Ce bouton se débloque dès son arrivée.",
+  "slipOtherOrderPlacingNote": "Votre autre ordre est encore en cours de placement. Vous pourrez placer celui-ci une fois qu'il sera terminé.",
+  "betOtherPredictionPlacingNote": "Votre autre prédiction est encore en cours de placement. Vous pourrez placer celle-ci une fois qu'elle sera terminée.",
   "slipDepositAddMore": "Ajouter plus",
   "slipDepositFailedNote": "Votre dépôt n'a pas abouti. Vous pouvez déposer à nouveau.",
   "ledgerOrderStepsNote": "Votre Ledger peut demander jusqu'à trois approbations : une approbation unique des frais, le levier et l'ordre.",

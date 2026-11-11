@@ -1431,6 +1431,8 @@
   "depositToPredict": "Stort om te voorspellen",
   "slipDepositIncoming": "Storting onderweg · {amount}",
   "slipDepositIncomingNote": "Je geld is onderweg. Deze knop wordt actief zodra het binnen is.",
+  "slipOtherOrderPlacingNote": "Je andere order wordt nog geplaatst. Je kunt deze plaatsen zodra die klaar is.",
+  "betOtherPredictionPlacingNote": "Je andere voorspelling wordt nog geplaatst. Je kunt deze plaatsen zodra die klaar is.",
   "slipDepositAddMore": "Meer toevoegen",
   "slipDepositFailedNote": "Je storting is niet gelukt. Je kunt opnieuw storten.",
   "ledgerOrderStepsNote": "Je Ledger kan om maximaal drie goedkeuringen vragen: een eenmalige kostengoedkeuring, de hefboom en de order.",
