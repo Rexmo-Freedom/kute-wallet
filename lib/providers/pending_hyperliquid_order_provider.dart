@@ -520,7 +520,7 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
             fundQuoteId: move.quoteId,
             fundOrderId: move.orderId,
             fundMs: fundMs,
-            fundedAt: DateTime.now(),
+            fundedAt: PendingHlOrderAutoFire.clock(),
           );
           final registration = move.registration;
           if (registration != null && move.orderId == null) {
@@ -540,7 +540,8 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
         // watching the venue; the credit wait starts now.
         final current = state;
         if (current != null && identical(current.placement, intent.placement)) {
-          state = current.copyWith(fundMs: fundMs, fundedAt: DateTime.now());
+          state = current.copyWith(
+              fundMs: fundMs, fundedAt: PendingHlOrderAutoFire.clock());
         }
       case OrderFundingRefused():
       case OrderFundingNeedsDollars():
@@ -741,6 +742,11 @@ class PendingHlOrderAutoFire {
   /// never auto-place.
   static const kMaxIntentAge = Duration(minutes: 30);
 
+  /// Test seam: the clock the credit wait is timed by (the tick's
+  /// cadence, the fresh-read window, the funding time).
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
+
   /// The poll runs every second while the money is expected any moment,
   /// then settles to every four.
   static const Duration kAwaitFastInterval = Duration(seconds: 1);
@@ -770,13 +776,23 @@ class PendingHlOrderAutoFire {
     // Re-evaluate whenever the intent itself changes — a fresh setIntent
     // or a status flip to awaitingBalance should immediately check the
     // balance (the deposit might already have landed).
-    ref.listen(pendingHyperliquidOrderProvider, (_, next) {
+    ref.listen(pendingHyperliquidOrderProvider, (prev, next) {
       // A cleared order never fires: drop its confirm-time grant.
       if (next == null) {
         AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
       }
       if (next == null || !PendingHyperliquidOrderNotifier.isActive(next)) {
         _creditSeen = false;
+      }
+      // The funding was just handed over: the second-by-second credit
+      // watch starts NOW ([_scheduleTick]), not on whatever is left of a
+      // four-second tick scheduled while the legs before it ran.
+      if (next != null &&
+          next.fundedAt != null &&
+          prev?.fundedAt != next.fundedAt &&
+          _awaitPoll != null) {
+        _awaitPoll?.cancel();
+        _scheduleTick();
       }
       unawaited(_maybeFire());
     });
@@ -880,8 +896,7 @@ class PendingHlOrderAutoFire {
 
   bool _inFreshWindow(PendingHlOrderIntent intent) {
     final fundedAt = intent.fundedAt;
-    return fundedAt != null &&
-        DateTime.now().difference(fundedAt) < kFreshReadFor;
+    return fundedAt != null && clock().difference(fundedAt) < kFreshReadFor;
   }
 
   /// The account as the queued order reads it: within [kFreshReadFor]
@@ -1624,22 +1639,29 @@ class PendingHlOrderAutoFire {
   }
 
   /// Begin (or keep) the bounded balance poll while a deposit is in
-  /// flight: every second at first, every four seconds after
-  /// [kAwaitFastFor]. Idempotent — repeated _maybeFire calls won't stack
+  /// flight: every second at first and for [kFreshReadFor] after the
+  /// funding was handed over, every four seconds otherwise. Idempotent — repeated _maybeFire calls won't stack
   /// timers.
   void _startAwaitPolling() {
     if (_awaitPoll != null) return;
-    _awaitStart = DateTime.now();
+    _awaitStart = clock();
     _scheduleTick();
   }
 
   void _scheduleTick() {
     final start = _awaitStart;
     if (start == null) return;
-    final elapsed = DateTime.now().difference(start);
-    final interval =
-        elapsed < kAwaitFastFor ? kAwaitFastInterval : kAwaitSlowInterval;
-    _awaitPoll = Timer(interval, _onTick);
+    final elapsed = clock().difference(start);
+    // Fast from the start of the wait, and again for the fresh-read
+    // window after the funding was handed over: the order is queued from
+    // the accept, so a funding that took its time (a Bitcoin leg first, a
+    // slow quote) used to leave the money only after the fast phase had
+    // run out, and its credit was then looked for every four seconds.
+    final intent = ref.read(pendingHyperliquidOrderProvider);
+    final fast = elapsed < kAwaitFastFor ||
+        (intent != null && _inFreshWindow(intent));
+    _awaitPoll =
+        Timer(fast ? kAwaitFastInterval : kAwaitSlowInterval, _onTick);
   }
 
   void _onTick() {
@@ -1655,7 +1677,7 @@ class PendingHlOrderAutoFire {
     // regardless (the sweeper brings them home); surface an actionable
     // failure so the user can retry (instant once the USDC is there).
     final start = _awaitStart;
-    if (start != null && DateTime.now().difference(start) > kAwaitMaxWait) {
+    if (start != null && clock().difference(start) > kAwaitMaxWait) {
       _stopAwaitPolling();
       _trackAutofireFailed('funds_timeout', intent);
       _trackFundingFailed(intent, stage: 'credit', reason: 'timeout');

@@ -1144,6 +1144,38 @@ void main() {
       });
     });
 
+    test(
+        'the 1 s credit watch starts when the funding is handed over, '
+        'however long the legs before it took', () {
+      fakeAsync((async) {
+        final base = DateTime(2026, 11, 11, 12);
+        PendingHlOrderAutoFire.clock = () => base.add(async.elapsed);
+        addTearDown(() => PendingHlOrderAutoFire.clock = DateTime.now);
+        // The move leaves 40 s after the accept (a Bitcoin leg first, a
+        // slow quote): the order has been waiting, queued, all that time.
+        final controller = _Controller(() async {
+          await Future<void>.delayed(const Duration(seconds: 40));
+          return _funded;
+        });
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.elapse(const Duration(seconds: 40));
+        async.flushMicrotasks();
+        expect(c.read(pendingHyperliquidOrderProvider)!.fundedAt, isNotNull);
+        final start = venue.reads.length;
+        async.elapse(const Duration(seconds: 5));
+        expect(venue.reads.length - start, inInclusiveRange(4, 6),
+            reason: 'read every 4 s: the fast second-by-second watch had '
+                'run out before the money even left');
+        withdrawable = 21;
+        async.elapse(const Duration(milliseconds: 1100));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+      });
+    });
+
     test('a 429 backs the fresh reads off (1, 2, 4, 8 s), the order waits',
         () {
       fakeAsync((async) {
