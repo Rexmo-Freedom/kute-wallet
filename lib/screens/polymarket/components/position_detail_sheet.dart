@@ -160,6 +160,16 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
   static const pnlFigureKey = ValueKey('poly-position-value-pnl');
   static const worthCaptionKey = ValueKey('poly-position-value-worth');
 
+  /// While the needle is dragged, the what-if tile's large figure (the
+  /// profit or loss at the explored chance) and its "Worth then $17.00".
+  static const thenPnlFigureKey = ValueKey('poly-position-worth-then-pnl');
+  static const thenWorthCaptionKey =
+      ValueKey('poly-position-worth-then-value');
+
+  /// The payout tile's figure ("$4.98") and its "Paid $4.32".
+  static const payoutFigureKey = ValueKey('poly-position-payout-figure');
+  static const paidCaptionKey = ValueKey('poly-position-paid');
+
   static void show(
     BuildContext context, {
     required PolymarketPosition position,
@@ -459,9 +469,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String shown(String figure) =>
         balanceVisible ? figure : PolyPositionResultLine.hiddenFigure;
-    final pnlText =
-        '${pnlPositive ? '+' : '-'}${formatDollars(pnl.abs())}'
-        ' · ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toStringAsFixed(1)}%';
     // Settled: whether the held side won (the bar's own reading).
     final won = pos.won ?? currentPrice >= 0.5;
     // A resolved win in profit brags about it (founder, 4 November 2026);
@@ -975,119 +982,127 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       // each on its own tile. No cost known (just filled,
                       // listed before its entry is priced): no P&L, never
                       // the whole value as a profit, as on its card; the
-                      // value alone, as the tile's figure.
+                      // value alone, as the tile's figure. While the
+                      // needle is dragged, the same look twice: the
+                      // what-if profit with "Worth then" under it, beside
+                      // the profit now with "Worth now" under it, so the
+                      // header's what-if value is never the tile's large
+                      // figure (founder, 11 November 2026). Balances
+                      // hidden: every sum masked, no colour.
                       ValueListenableBuilder<double?>(
                         valueListenable: _whatIf,
                         builder: (context, whatIf, _) {
                           final worthLabel = pos.isResolved
                               ? context.l10n.betCurrentValue
                               : context.l10n.polyPosWorthNow;
-                          final flat = polyResultIsFlat(pnl);
-                          final PositionStatTile nowTile;
-                          if (whatIf != null && showGauge) {
-                            // Dragging: what it is worth now, beside what
-                            // it would be worth at the explored chance.
-                            nowTile = PositionStatTile(
-                              key: const ValueKey('poly-position-value'),
-                              label: context.l10n.polyPosNow,
+                          // A profit tile: [change] large, signed, in the
+                          // up / down colour (flat, "$0.00" plain), and
+                          // "[worthLabel] [worth]" under it. Rolling
+                          // digits, so it visibly ticks with the live
+                          // price (quicker while scrubbing).
+                          PositionStatTile profitTile({
+                            required Key key,
+                            required String label,
+                            required double change,
+                            required String worthLabel,
+                            required double worth,
+                            required Key figureKey,
+                            required Key captionKey,
+                            Duration duration =
+                                const Duration(milliseconds: 250),
+                          }) {
+                            final flat = polyResultIsFlat(change);
+                            return PositionStatTile(
+                              key: key,
+                              label: label,
                               value: RollingNumberText(
-                                text: shown(formatDollars(currentValue)),
-                                style: positionTileValueStyle(c),
-                              ),
-                              caption: costBasis > 0
-                                  ? RollingNumberText(
-                                      text: shown(pnlText),
-                                      style: positionTileCaptionStyle(c,
-                                          color: balanceVisible
-                                              ? pnlColor
-                                              : null),
-                                    )
-                                  : null,
-                            );
-                          } else if (costBasis > 0) {
-                            nowTile = PositionStatTile(
-                              key: const ValueKey('poly-position-value'),
-                              label: context.l10n.portfolioProfitLoss,
-                              // Signed, in the up / down colour, as the
-                              // tile's line wrote it; flat, "$0.00" plain.
-                              // Rolling digits, so it visibly ticks with
-                              // the live price.
-                              value: RollingNumberText(
-                                key: PositionDetailSheet.pnlFigureKey,
+                                key: figureKey,
                                 text: shown(flat
                                     ? formatDollars(0)
-                                    : '${pnl > 0 ? '+' : '-'}'
-                                        '${formatDollars(pnl.abs())}'),
+                                    : '${change > 0 ? '+' : '-'}'
+                                        '${formatDollars(change.abs())}'),
                                 style: positionTileValueStyle(c,
                                     color: !balanceVisible || flat
                                         ? null
-                                        : pnlColor),
+                                        : (change > 0
+                                            ? _kPolyGreen
+                                            : _kPolyRed)),
+                                duration: duration,
                               ),
                               caption: RollingNumberText(
-                                key: PositionDetailSheet.worthCaptionKey,
+                                key: captionKey,
                                 text: '$worthLabel '
-                                    '${shown(formatDollars(currentValue))}',
+                                    '${shown(formatDollars(worth))}',
                                 style: positionTileCaptionStyle(c),
-                              ),
-                            );
-                          } else {
-                            nowTile = PositionStatTile(
-                              key: const ValueKey('poly-position-value'),
-                              label: worthLabel,
-                              value: RollingNumberText(
-                                text: shown(formatDollars(currentValue)),
-                                style: positionTileValueStyle(c),
+                                duration: duration,
                               ),
                             );
                           }
-                          if (whatIf != null && showGauge) {
-                            // Dragging: what it would be worth at the
-                            // explored chance, beside what it is worth now.
-                            final then = pos.size * whatIf;
-                            final change = then - costBasis;
-                            final flat = polyResultIsFlat(change);
-                            final up = change > 0;
-                            final changeColor = flat
-                                ? c.textSecondary
-                                : (up ? _kPolyGreen : _kPolyRed);
-                            return PositionStatTiles(
-                              left: PositionStatTile(
-                                key: const ValueKey('poly-position-worth-then'),
-                                label: context.l10n.polyPosWorthThen,
+
+                          // The value alone (no cost known).
+                          PositionStatTile worthTile(
+                                  Key key, String label, double worth) =>
+                              PositionStatTile(
+                                key: key,
+                                label: label,
                                 value: RollingNumberText(
-                                  text: shown(formatDollars(then)),
+                                  text: shown(formatDollars(worth)),
                                   style: positionTileValueStyle(c),
-                                  duration: const Duration(milliseconds: 120),
                                 ),
-                                caption: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!flat && balanceVisible) ...[
-                                      CustomPaint(
-                                        size: Size(7.w, 5.h),
-                                        painter: PolyCaretPainter(
-                                            up: up, color: changeColor),
-                                      ),
-                                      SizedBox(width: 4.w),
-                                    ],
-                                    Text(
-                                      shown(formatDollars(change.abs())),
-                                      key: const ValueKey(
-                                          'poly-position-worth-then-change'),
-                                      maxLines: 1,
-                                      style: positionTileCaptionStyle(c,
-                                          color: balanceVisible
-                                              ? changeColor
-                                              : null),
-                                    ),
-                                  ],
-                                ),
+                              );
+
+                          const nowKey = ValueKey('poly-position-value');
+                          if (whatIf != null && showGauge) {
+                            const thenKey =
+                                ValueKey('poly-position-worth-then');
+                            final then = pos.size * whatIf;
+                            if (costBasis <= 0) {
+                              return PositionStatTiles(
+                                left: worthTile(thenKey,
+                                    context.l10n.polyPosWorthThen, then),
+                                right: worthTile(nowKey,
+                                    context.l10n.polyPosNow, currentValue),
+                              );
+                            }
+                            return PositionStatTiles(
+                              left: profitTile(
+                                key: thenKey,
+                                label: context.l10n.portfolioProfitLoss,
+                                change: then - costBasis,
+                                worthLabel: context.l10n.polyPosWorthThen,
+                                worth: then,
+                                figureKey:
+                                    PositionDetailSheet.thenPnlFigureKey,
+                                captionKey:
+                                    PositionDetailSheet.thenWorthCaptionKey,
+                                duration: const Duration(milliseconds: 120),
                               ),
-                              right: nowTile,
+                              right: profitTile(
+                                key: nowKey,
+                                label: context.l10n.polyPosNow,
+                                change: pnl,
+                                worthLabel: worthLabel,
+                                worth: currentValue,
+                                figureKey: PositionDetailSheet.pnlFigureKey,
+                                captionKey:
+                                    PositionDetailSheet.worthCaptionKey,
+                              ),
                             );
                           }
                           return PositionStatTiles(
-                            left: nowTile,
+                            left: costBasis > 0
+                                ? profitTile(
+                                    key: nowKey,
+                                    label: context.l10n.portfolioProfitLoss,
+                                    change: pnl,
+                                    worthLabel: worthLabel,
+                                    worth: currentValue,
+                                    figureKey:
+                                        PositionDetailSheet.pnlFigureKey,
+                                    captionKey:
+                                        PositionDetailSheet.worthCaptionKey,
+                                  )
+                                : worthTile(nowKey, worthLabel, currentValue),
                             right: PositionStatTile(
                               key: const ValueKey('poly-position-payout'),
                               label: pos.isResolved
@@ -1097,13 +1112,16 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               value: Text(
                                 pos.isResolved && !won
                                     ? context.l10n.betNoPayout
-                                    : formatDollars(pos.size),
+                                    : shown(formatDollars(pos.size)),
+                                key: PositionDetailSheet.payoutFigureKey,
                                 maxLines: 1,
                                 style: positionTileValueStyle(c),
                               ),
                               caption: costBasis > 0
                                   ? Text(
-                                      '${context.l10n.paid} $investedText',
+                                      '${context.l10n.paid} '
+                                      '${shown(investedText)}',
+                                      key: PositionDetailSheet.paidCaptionKey,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: positionTileCaptionStyle(c),
@@ -1166,8 +1184,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                             onTap: () => _showDetails(pos, [
                               PositionRow(
                                   context.l10n.activityOutcome, pos.outcome),
+                              // Balances hidden: the size and the sums
+                              // masked, as on the Portfolio rows; the
+                              // price paid is a chance, not a sum.
                               PositionRow(context.l10n.betShares,
-                                  pos.size.toStringAsFixed(2)),
+                                  shown(pos.size.toStringAsFixed(2))),
                               // What was paid per share: the chart's
                               // dashed "Bought" line, as a number.
                               if (pos.size > 0 && costBasis > 0)
@@ -1177,8 +1198,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                         costBasis / pos.size)),
                               // The entry basis (what the user actually
                               // paid).
-                              PositionRow(
-                                  context.l10n.betInvested, investedText),
+                              PositionRow(context.l10n.betInvested,
+                                  shown(investedText)),
                             ]),
                           ),
                           // The market's closing conditions (its
