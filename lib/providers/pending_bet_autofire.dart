@@ -186,6 +186,16 @@ const int _kNotReadyMaxGapPolls = 15;
 /// Below one cent of USDC.e there is nothing to convert.
 final BigInt _kUsdceDustMicros = BigInt.from(10000);
 
+/// How many readiness looks (one a second) a reading short of the bet's
+/// money must hold, unchanged, before it is taken for a short landing.
+/// The wallet's pUSD and USDC.e are two separate chain reads, each
+/// answered by whichever endpoint is first: around the block a conversion
+/// is mined in, or right after a leg's status says delivered, one can show
+/// the wallet before and the other after (pUSD not there yet, USDC.e
+/// already gone, or neither yet). A landing that really came in short
+/// reads the same on every look.
+const int kShortLandingLooks = 5;
+
 /// Where a queued bet's landed money is, from the deposit wallet's [pusd]
 /// and [usdce] read on chain, what the order book counts ([venue], null
 /// when it could not be read) and whether the account's setup is done,
@@ -400,6 +410,11 @@ class PendingBetAutoFire {
   /// Test seam: the clock of the chain watch's cadence.
   @visibleForTesting
   static DateTime Function()? debugChainClock;
+
+  /// Test seam: how long a short reading must hold before it is a short
+  /// landing ([kShortLandingLooks] readiness looks when null).
+  @visibleForTesting
+  static Duration? debugShortLandingGrace;
 
   /// The funded bet's own on-chain watch (funded_chain_watch.dart): one
   /// shared ticker, one read in flight, 1 s for 30 s after funding, 4 s
@@ -1083,6 +1098,38 @@ class PendingBetAutoFire {
     }
   }
 
+  /// The reading short of [intent]'s money that every leg's "delivered"
+  /// came with, and since when it has read exactly that.
+  ({
+    ({String token, DateTime? queuedAt, String? runId}) attempt,
+    BigInt pusd,
+    BigInt usdce,
+    DateTime since
+  })? _shortReading;
+
+  /// Whether a reading short of [intent]'s money, with every leg reported
+  /// delivered, has held long enough to be the landing itself
+  /// ([kShortLandingLooks]) and not a read made while the money (or its
+  /// conversion) was still reaching the endpoints. Any change starts the
+  /// count again.
+  bool _shortLandingHeld(PendingBetIntent intent,
+      {required BigInt pusd, required BigInt usdce}) {
+    final now = DateTime.now();
+    final attempt = _attemptOf(intent);
+    final seen = _shortReading;
+    if (seen == null ||
+        seen.attempt != attempt ||
+        seen.pusd != pusd ||
+        seen.usdce != usdce) {
+      _shortReading =
+          (attempt: attempt, pusd: pusd, usdce: usdce, since: now);
+      return false;
+    }
+    final grace =
+        debugShortLandingGrace ?? readyPollInterval * kShortLandingLooks;
+    return now.difference(seen.since) >= grace;
+  }
+
   /// Whether the order book can take [intent]'s order now
   /// ([autofireReadiness]), recorded on the bet. A deposit still USDC.e
   /// gets its conversion going; a book not counting the pUSD is asked to
@@ -1142,6 +1189,28 @@ class PendingBetAutoFire {
       _confirmLanded(intent, usdce: reads.usdce, source: source);
     }
     var cost = requiredCostMicros ?? _costMicros(intent);
+    // Every leg says delivered and this read shows less than the bet
+    // waits for, nothing left to convert: a short landing only once the
+    // reading has held ([_shortLandingHeld]). Until then the bet waits
+    // for the next look, a second away: never "Add funds" with the money
+    // there, never a smaller bet on the cash that was there before
+    // (founder, 11 November 2026: "we place the bet, then an error comes
+    // saying that there is no money").
+    if (requiredCostMicros == null &&
+        intent.funded &&
+        delivered &&
+        reads.usdce < _kUsdceDustMicros &&
+        reads.pusd < cost &&
+        total + 1e-6 < autofireFireAt(intent)) {
+      if (!_shortLandingHeld(intent, pusd: reads.pusd, usdce: reads.usdce)) {
+        if (intent.readiness == null) {
+          _setReadiness(PredictionsReadiness.waitingFunds);
+        }
+        return false;
+      }
+    } else {
+      _shortReading = null;
+    }
     // A proved short landing can resize a market order within its approval.
     // Never infer completion from the first arrival or a cached total.
     if (requiredCostMicros == null &&

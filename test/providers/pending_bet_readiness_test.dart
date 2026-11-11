@@ -757,6 +757,129 @@ void main() {
     expect(r.trading.orderCosts.single, lessThanOrEqualTo(10.45 + 1e-6));
   });
 
+  group('a short reading is not a short landing until it holds (founder, 11 '
+      'November 2026: "we place the bet, then an error comes saying that '
+      'there is no money")', () {
+    // The wallet's pUSD and USDC.e are two separate chain reads, answered
+    // by whichever endpoint is first. Around the block a conversion is
+    // mined in (or right after Orchestra says "delivered"), one can show
+    // the wallet before and the other after: pUSD not yet there, USDC.e
+    // already gone. With every leg reported done that read used to be
+    // taken for a short landing: "Add funds to predict" with the money
+    // there, or a smaller bet than the one accepted.
+    Future<({ProviderContainer c, _Trading trading})> delivered(
+        {required double held, required double arriving}) async {
+      final r = await start();
+      final id = graph(r.c, [
+        MoneyStep(
+            id: 'leg:dollars',
+            kind: MoneyStepKind.leg,
+            from: MoneyPlace.dollars,
+            usd: arriving,
+            status: MoneyStepStatus.done),
+      ]);
+      r.c.read(pendingPolymarketBetProvider.notifier).setIntent(r.c
+          .read(pendingPolymarketBetProvider)!
+          .copyWith(
+              fundedRunId: id,
+              fundReadyUsd: held,
+              fundArrivingUsd: arriving));
+      return (c: r.c, trading: r.trading);
+    }
+
+    setUp(() => PendingBetAutoFire.debugShortLandingGrace =
+        const Duration(milliseconds: 300));
+    tearDown(() => PendingBetAutoFire.debugShortLandingGrace = null);
+
+    test(
+        'cents of pUSD in the wallet, the conversion read torn: never "Add '
+        'funds", the bet waits and is placed in full', () async {
+      final r = await delivered(held: 0.3, arriving: 10.3);
+      // Landed as USDC.e, every leg done: the one conversion starts.
+      r.trading.reads = _reads(pusd: 0.3, usdce: 10.3, counted: 0.3);
+      r.trading.land(10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(r.trading.nudges, greaterThan(0));
+      // The torn read: USDC.e already converted, pUSD not shown yet.
+      r.trading.reads = _reads(pusd: 0.3, counted: 0.3);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      final waiting = r.c.read(pendingPolymarketBetProvider)!;
+      expect(waiting.status, PendingBetStatus.awaitingBalance,
+          reason: waiting.failureCode);
+      expect(r.trading.orders, isEmpty);
+      // The next reads show the converted money.
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, greaterThan(10));
+      expect(r.c.read(pendingPolymarketBetProvider)?.status,
+          isNot(PendingBetStatus.failed));
+    });
+
+    test(
+        'delivered by its status before our read shows it: waits for the '
+        'chain, never "Add funds" on the cents that were there', () async {
+      final r = await delivered(held: 0.3, arriving: 10.3);
+      r.trading.reads = _reads(pusd: 0.3, counted: 0.3);
+      r.trading.land(0.3);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      final waiting = r.c.read(pendingPolymarketBetProvider)!;
+      expect(waiting.status, PendingBetStatus.awaitingBalance,
+          reason: waiting.failureCode);
+      r.trading.reads = _reads(usdce: 10.3, pusd: 0.3, counted: 0.3);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, greaterThan(10));
+    });
+
+    test(
+        'dollars already in Predictions, the conversion read torn: the bet '
+        'accepted is the bet placed, never a smaller one on the old cash',
+        () async {
+      final r = await delivered(held: 3, arriving: 7.6);
+      r.trading.reads = _reads(pusd: 3, usdce: 7.6, counted: 3);
+      r.trading.land(10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      r.trading.reads = _reads(pusd: 3, counted: 3);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(r.trading.orders, isEmpty);
+      expect(r.c.read(pendingPolymarketBetProvider)!.status,
+          PendingBetStatus.awaitingBalance);
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, greaterThan(10));
+    });
+
+    test(
+        'a landing that stays short is still what it was: sized from what '
+        'landed once the reading has held, "Add funds" under the minimum',
+        () async {
+      PendingBetAutoFire.debugShortLandingGrace =
+          const Duration(milliseconds: 60);
+      final r = await delivered(held: 0, arriving: 10.6);
+      r.trading.reads = _reads(pusd: 8, counted: 8);
+      r.trading.land(8);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, lessThanOrEqualTo(8 + 1e-6));
+
+      final s = await delivered(held: 0, arriving: 10.6);
+      s.trading.reads = _reads(pusd: 0.4, counted: 0.4);
+      s.trading.land(0.4);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(s.c.read(pendingPolymarketBetProvider)!.status,
+          PendingBetStatus.awaitingBalance);
+      await settle(s.c);
+      final stopped = s.c.read(pendingPolymarketBetProvider)!;
+      expect(stopped.status, PendingBetStatus.failed);
+      expect(stopped.failureCode, 'insufficient_usdc');
+      expect(s.trading.orders, isEmpty);
+    });
+  });
+
   test('skipped or previous legs alone cannot certify a short landing',
       () async {
     final r = await start();
