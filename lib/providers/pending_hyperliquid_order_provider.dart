@@ -1073,7 +1073,7 @@ class PendingHlOrderAutoFire {
 
   Future<void> _maybeFire({String source = HlCreditedBy.accountPoll}) async {
     if (_firing) return;
-    final intent = ref.read(pendingHyperliquidOrderProvider);
+    var intent = ref.read(pendingHyperliquidOrderProvider);
     if (intent == null) {
       _stopAwaitPolling();
       return;
@@ -1111,6 +1111,12 @@ class PendingHlOrderAutoFire {
         still.status != PendingHlOrderStatus.awaitingBalance) {
       return;
     }
+    // The order as it is NOW, not the copy read before the wait: while
+    // the read was out it may have gained its standing order's id, its
+    // move's ids or its funding time. Placed from the old copy it lost
+    // them: its standing order stayed "Placing" for good and was queued
+    // again after a restart.
+    intent = still;
 
     // The account must cover what the order needs (balances are
     // floating-point, so an epsilon keeps an "almost there" race out);

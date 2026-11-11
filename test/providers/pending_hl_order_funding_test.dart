@@ -1138,6 +1138,51 @@ void main() {
   });
 
   group('one order, one outcome', () {
+    late _Venue venue;
+    late Directory hiveDir;
+    setUpAll(() {
+      hiveDir = Directory.systemTemp.createTempSync('hl_one_outcome_test');
+      Hive.init(hiveDir.path);
+    });
+    tearDownAll(() async {
+      await Hive.close();
+      hiveDir.deleteSync(recursive: true);
+    });
+
+    ProviderContainer live(_Controller controller) {
+      venue = _Venue(() => withdrawable);
+      final c = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+        sessionUnlockedProvider.overrideWith((_) => true),
+        hyperliquidAddressProvider.overrideWith(
+            (_) async => '0x1111111111111111111111111111111111111111'),
+        hyperliquidTradingModelProvider.overrideWithValue(venue),
+        hyperliquidMoveRailProvider.overrideWithValue(rail),
+        orderFundingControllerProvider.overrideWithValue(controller),
+      ]);
+      addTearDown(c.dispose);
+      c.read(pendingHlOrderAutoFireProvider);
+      history = [];
+      c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
+      c.listen(hyperliquidAccountProvider, (_, __) {});
+      return c;
+    }
+
+    PendingHlOrderIntent queue(ProviderContainer c, _Controller controller,
+        _Placement placement) {
+      OrderFundingJourney.reset();
+      OrderFundingJourney.instance.start(OneBalanceVenue.investing,
+          orderUsd: 20, fundUsd: 20.03, readyUsd: 0, dollarsUsd: 20.03);
+      final intent = _intent(placement);
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: intent.requiredUsd,
+          readyUsd: 0);
+      return intent;
+    }
+
     test(
         'Investing cash a prediction accepted meanwhile is about to pull is '
         'never this order\'s: it waits for its own money', () {
@@ -1173,6 +1218,39 @@ void main() {
         async.flushMicrotasks();
         expect(placement.placed, [20]);
         expect(terminal().status, PendingHlOrderStatus.done);
+      });
+    });
+
+    test(
+        'what the queued order gained while its account read was out (its '
+        'standing order, its move\'s id) is on the order that is placed', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        venue.latency = const Duration(milliseconds: 600);
+        withdrawable = 21;
+        async.elapse(const Duration(milliseconds: 1100));
+        // The 1 s tick's read is out (until 1.6 s) and will show the money.
+        expect(placement.placed, isEmpty);
+        final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+        notifier.setIntent(c
+            .read(pendingHyperliquidOrderProvider)!
+            .copyWith(standingOrderId: 'so_late', fundOrderId: 'o_late'));
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final placing = history.firstWhere(
+            (s) => s != null && s.status == PendingHlOrderStatus.placing)!;
+        expect(placing.standingOrderId, 'so_late',
+            reason: 'placed from a copy read before the wait, the order '
+                'lost its standing order: that one stayed "Placing" and '
+                'was queued again after a restart');
+        expect(placing.fundOrderId, 'o_late');
+        expect(terminal().standingOrderId, 'so_late');
       });
     });
   });
