@@ -52,6 +52,8 @@ import 'package:kute/services/one_balance/predictions_venue_funder.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
+import 'package:kute/services/polymarket/predictions_funding_window.dart'
+    show PolymarketMarketWindow;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:money2/money2.dart';
@@ -265,7 +267,12 @@ late _Investing _investing;
 Future<void> _pumpSlip(WidgetTester tester,
     {String? slug,
     double? initialAmountUsd = 10,
-    String currency = 'USD'}) async {
+    String currency = 'USD',
+    // What Dollars hold.
+    double dollars = 5,
+    // The CLOB's word on the market (null: not read).
+    PolymarketMarketWindow? window,
+    List<PolymarketOutcome> outcomes = _outcomes}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -292,21 +299,22 @@ Future<void> _pumpSlip(WidgetTester tester,
           .overrideWith((ref) => Stream.value(const <Order>[])),
       aiEnabledProvider.overrideWith((ref) async => false),
       currencyProvider.overrideWith((ref) => _Currency()),
-      // $5 in Dollars.
-      usdBalanceProvider.overrideWithValue(5),
+      // $5 in Dollars (unless the test says otherwise).
+      usdBalanceProvider.overrideWithValue(dollars),
       polymarketFeeTermsProvider
           .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
       polymarketBetControllerProvider.overrideWith(_Controller.new),
-      polymarketMarketWindowReaderProvider.overrideWithValue((_) async => null),
+      polymarketMarketWindowReaderProvider
+          .overrideWithValue((_) async => window),
       sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
       // $7 of Investing cash.
       venueCashPullerProvider.overrideWith((_) => VenueCashPuller(
           sources: [_investing],
-          readDollars: () => 5,
+          readDollars: () => dollars,
           minimumUsd: (_) async => 1)),
       bitcoinLegEnvProvider.overrideWith((_) => _env.env),
       orderFundingControllerProvider.overrideWithValue(OrderFundingController(
-          funderFor: (_) => _funder, dollarsUsd: () => 5)),
+          funderFor: (_) => _funder, dollarsUsd: () => dollars)),
     ],
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
     child: shellBarApp(
@@ -317,7 +325,7 @@ Future<void> _pumpSlip(WidgetTester tester,
           child: BetSlipSheet(
               marketQuestion: 'Will it rain?',
               marketSlug: slug,
-              outcomes: _outcomes,
+              outcomes: outcomes,
               initialAmountUsd: initialAmountUsd),
         ),
       ),
@@ -541,6 +549,175 @@ void main() {
         FundedOrderStage.done);
     expect(approvals, hasLength(1));
     await release(tester);
+  });
+
+  // Founder decision, 11 November 2026 (2.2.0 (106), real money: an
+  // amount tapped on a Bitcoin 5-minute round started a swap into
+  // Predictions before Confirm): pre-funding is removed. Money moves ONLY
+  // after the person accepts. An amount typed, tapped or held, on a fast
+  // round or anywhere, asks nothing, moves nothing and queues nothing;
+  // an approval still valid from an earlier bet authorises nothing here.
+  group('nothing moves before Confirm (founder, 11 November 2026)', () {
+    Future<void> type(WidgetTester tester, String amount) async {
+      final pad = find.byType(AmountKeypad);
+      for (final key in amount.split('')) {
+        await tester.tap(find.descendant(of: pad, matching: find.text(key)));
+        await tester.pump();
+      }
+    }
+
+    /// An earlier bet's approval on this very outcome, with caps far above
+    /// anything typed here, still inside its 30 minutes.
+    AuthGrant earlierApproval() => AuthGrantRegistry.instance.issueAutofire(
+        kPendingBetAutofireId,
+        PmGrants.fundedBetReview(
+            PmGrants.betReview(
+                walletId: 'w',
+                tokenId: 'yes-token',
+                maxCostUsd: 500,
+                worstPrice: 0.99,
+                orderType: 'fak'),
+            fundUsd: 500,
+            venue: OneBalanceVenue.predictions.name),
+        method: AuthGrantMethod.biometric);
+
+    // A round as the feed gives it: its market named, so the CLOB's word
+    // on it is read.
+    const round = [
+      PolymarketOutcome(
+          name: 'Up', price: 0.5, tokenId: 'yes-token', conditionId: '0xc0'),
+      PolymarketOutcome(
+          name: 'Down', price: 0.5, tokenId: 'no-token', conditionId: '0xc0'),
+    ];
+
+    /// Nothing asked, nothing moved, nothing queued.
+    void expectUntouched(WidgetTester tester, AuthGrant earlier) {
+      final c = _container(tester);
+      expect(approvals, isEmpty, reason: 'no approval prompt before Confirm');
+      expect(_funder.sent, isEmpty, reason: 'no move from Dollars');
+      expect(_env.sends, 0, reason: 'no Bitcoin leg');
+      expect(_investing.direct, isEmpty, reason: 'no Investing pull');
+      expect(_investing.home, isEmpty, reason: 'no Investing pull home');
+      expect(c.read(pendingPolymarketBetProvider), isNull,
+          reason: 'no bet armed or queued');
+      expect(c.read(fundedOrdersProvider), isEmpty,
+          reason: 'no funded order started');
+      expect(sheets, isEmpty);
+      expect(find.byType(SlipFundingSteps), findsNothing,
+          reason: 'no steps of a move on the slip');
+      // The earlier approval was neither used nor replaced.
+      expect(earlier.consumed, isFalse);
+      expect(earlier.revoked, isFalse);
+      expect(
+          identical(
+              AuthGrantRegistry.instance.peekAutofire(kPendingBetAutofireId),
+              earlier),
+          isTrue);
+      for (final name in [
+        'order_funding_started',
+        'bet_slip_place',
+        'step_up_auth',
+      ]) {
+        expect(events.where((e) => e.$1 == name), isEmpty, reason: name);
+      }
+      expect(events.where((e) => e.$1.contains('prefund')), isEmpty);
+    }
+
+    for (final minutes in [5, 15]) {
+      testWidgets(
+          'a $minutes-minute round: an amount held for seconds with an '
+          'earlier approval still valid moves nothing; Confirm funds and '
+          'places it as a standing order', (tester) async {
+        debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
+        expect(await policy.refresh(), isTrue);
+        final epoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        final earlier = earlierApproval();
+        // Dollars cover the whole move and the market takes orders: the
+        // very case the removed pre-funding started a move on.
+        await _pumpSlip(tester,
+            slug: 'btc-updown-${minutes}m-$epoch',
+            initialAmountUsd: null,
+            dollars: 100,
+            outcomes: round,
+            window: const PolymarketMarketWindow(
+                acceptingOrders: true, closed: false));
+        expectUntouched(tester, earlier);
+
+        // An amount goes in and stays for several seconds.
+        await type(tester, '2');
+        await _frames(tester, 30);
+        expect(_cta(tester).label, contains(r'$2'));
+        expectUntouched(tester, earlier);
+
+        // Edited to $20 and held again: still nothing.
+        await type(tester, '0');
+        await _frames(tester, 50);
+        expect(_cta(tester).label, contains(r'$20'));
+        expectUntouched(tester, earlier);
+
+        // Confirm: ONE approval, asked now, for this bet; then the move.
+        await _tapCta(tester);
+        await _frames(tester, 10);
+        expect(approvals, hasLength(1));
+        expect(approvals.single.action, SensitiveAction.pmBet);
+        expect(approvals.single.limits[VenueLimit.fundingUsd], isNotNull);
+        // The earlier approval went with the new one; it funded nothing.
+        expect(earlier.revoked, isTrue);
+        expect(earlier.consumed, isFalse);
+        expect(_funder.sent, hasLength(1));
+        expect(_env.sends, 0);
+        // The bet stands behind its money: queued, its steps on the
+        // slip, the button "OK" (a standing order, placed on landing).
+        final pending = _container(tester).read(pendingPolymarketBetProvider)!;
+        expect(pending.status, PendingBetStatus.awaitingBalance);
+        expect(pending.amount, 20);
+        expect(pending.tokenId, 'yes-token');
+        final record = _container(tester).read(fundedOrdersProvider).single;
+        expect(record.label.kind, FundedOrderKind.order);
+        expect(record.steps.byId('place'), isNotNull);
+        expect(find.byType(SlipFundingSteps), findsOneWidget);
+        expect(barPrimaryLabel(tester), 'OK');
+        final started =
+            events.where((e) => e.$1 == 'order_funding_started').toList();
+        expect(started, hasLength(1));
+        expect(started.single.$2!['market_kind'], 'short');
+
+        await placeAndFinish(tester);
+        expect(_container(tester).read(fundedOrdersProvider).single.stage,
+            FundedOrderStage.done);
+        expect(approvals, hasLength(1));
+        expect(_funder.sent, hasLength(1));
+        await release(tester);
+      });
+    }
+
+    testWidgets(
+        'a slip opened with an amount and closed without Confirm: nothing '
+        'asked, nothing moved, the earlier approval left alone',
+        (tester) async {
+      debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
+      expect(await policy.refresh(), isTrue);
+      final epoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final earlier = earlierApproval();
+      await _pumpSlip(tester,
+          slug: 'btc-updown-5m-$epoch',
+          initialAmountUsd: 20,
+          dollars: 100,
+          outcomes: round,
+          window: const PolymarketMarketWindow(
+              acceptingOrders: true, closed: false));
+      await _frames(tester, 50);
+      expectUntouched(tester, earlier);
+      // The slip goes: still nothing, and no approval dropped or issued.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+      expect(approvals, isEmpty);
+      expect(_funder.sent, isEmpty);
+      expect(earlier.revoked, isFalse);
+      expect(earlier.consumed, isFalse);
+      policy.dispose();
+      await tester.pump(const Duration(minutes: 31));
+    });
   });
 
   // Euros in Settings change nothing on the money path (founder, 8 November

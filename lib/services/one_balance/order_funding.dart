@@ -10,6 +10,11 @@
 // credit and places the queued order. Nothing is placed from here, and
 // nothing leaves Dollars without the venue funder's verified quote.
 //
+// Only ever called from a ticket's Confirm, under the approval that tap
+// asked (founder decision, 11 November 2026: pre-funding removed, money
+// moves only after Confirm; never at slip open or on an amount typed,
+// tapped or held).
+//
 // Money safety: the slip checks Dollars BEFORE asking for the one
 // approval, and this controller checks them again right before the
 // move. A refusal of any kind before the funder's `fund` resolves means
@@ -777,7 +782,7 @@ class _FundingRun {
   String? fundingSource;
 
   /// `live` for a game in play, `short` for a 5- or 15-minute round
-  /// (`PrefundMarketKind`), so their funded orders read apart.
+  /// (`FastMarketKind`), so their funded orders read apart.
   String? marketKind;
 
   /// The Bitcoin leg's sats left, and its dollars landed.

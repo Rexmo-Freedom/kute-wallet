@@ -11091,11 +11091,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Otevřené zisky';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Připrav predikci $amount';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Odeslat $amount';
   }

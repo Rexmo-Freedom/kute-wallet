@@ -40,7 +40,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
-import 'package:kute/services/polymarket/bet_prefund.dart'
+import 'package:kute/services/polymarket/predictions_funding_window.dart'
     show PolymarketMarketWindow;
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/order_connection.dart';
@@ -106,7 +106,7 @@ class PolymarketBetController {
     return (cash - committed).clamp(0.0, double.infinity);
   }
 
-  // Explicit prefunded bets use the actual pUSD and venue count. The display
+  // Funded bets (money moved at Confirm) use the actual pUSD and venue count. The display
   // aggregate may still show the pre-transfer balance (or unconverted USDC.e).
   Future<double> _freshSpendableUsdc() async {
     final notifier = ref.read(polymarketTradingProvider.notifier);

@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Portofelul tău de cheltuieli · {amount}",
   "depositFromAnotherWalletSubtitle": "Obține o adresă la care să trimiți dolari",
   "portfolioStatOpenPnl": "Profituri deschise",
-  "stepUpReasonBetReady": "Pregătește o predicție de {amount}",
   "multiMoveSendTitle": "Trimite {amount}",
   "multiMoveTitle": "Mută {amount} în {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași",

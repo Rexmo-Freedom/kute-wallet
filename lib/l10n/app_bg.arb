@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Вашият портфейл за харчене · {amount}",
   "depositFromAnotherWalletSubtitle": "Вземете адрес, на който да изпратите долари",
   "portfolioStatOpenPnl": "Отворени печалби",
-  "stepUpReasonBetReady": "Подготви прогноза за {amount}",
   "multiMoveSendTitle": "Изпрати {amount}",
   "multiMoveTitle": "Прехвърли {amount} към {destination}",
   "multiMoveDeliveredRemaining": "{delivered} доставени · {remaining} остават",

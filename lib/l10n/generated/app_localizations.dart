@@ -18768,12 +18768,6 @@ abstract class AppLocalizations {
   /// **'Open profits'**
   String get portfolioStatOpenPnl;
 
-  /// Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.
-  ///
-  /// In en, this message translates to:
-  /// **'Get your {amount} prediction ready'**
-  String stepUpReasonBetReady(String amount);
-
   /// Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.
   ///
   /// In en, this message translates to:

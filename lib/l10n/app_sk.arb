@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Vaša peňaženka na míňanie · {amount}",
   "depositFromAnotherWalletSubtitle": "Získajte adresu, na ktorú pošlete doláre",
   "portfolioStatOpenPnl": "Otvorené zisky",
-  "stepUpReasonBetReady": "Priprav predpoveď {amount}",
   "multiMoveSendTitle": "Odoslať {amount}",
   "multiMoveTitle": "Presunúť {amount} do {destination}",
   "multiMoveDeliveredRemaining": "{delivered} doručené · {remaining} zostáva",

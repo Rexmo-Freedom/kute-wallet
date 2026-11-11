@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Votre portefeuille de dépenses · {amount}",
   "depositFromAnotherWalletSubtitle": "Obtenez une adresse pour envoyer des dollars",
   "portfolioStatOpenPnl": "Gains latents",
-  "stepUpReasonBetReady": "Préparer une prédiction de {amount}",
   "multiMoveSendTitle": "Envoyer {amount}",
   "multiMoveTitle": "Transférer {amount} vers {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrés · {remaining} restants",

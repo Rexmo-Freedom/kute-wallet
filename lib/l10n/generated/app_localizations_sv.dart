@@ -11089,11 +11089,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Öppna vinster';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Gör en prognos på $amount redo';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Skicka $amount';
   }

@@ -18,6 +18,10 @@
 //     which `withdrawUsdc` only accepts for a quote-bound send whose
 //     verified recipient is this wallet's own Spark address.
 //
+// `fund` runs only for a bet the person confirmed, under that Confirm's
+// approval (founder decision, 11 November 2026: pre-funding removed,
+// money moves only after Confirm).
+//
 // Money safety: nothing leaves without a quote that passed the quote gate
 // (rule 7: the recipient is the wallet's own account), the step-up hook
 // refuses a quote whose recipient is not this wallet's Predictions

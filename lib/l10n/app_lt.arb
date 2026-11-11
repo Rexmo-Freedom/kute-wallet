@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Jūsų išlaidų piniginė · {amount}",
   "depositFromAnotherWalletSubtitle": "Gaukite adresą, kuriuo siųsti dolerius",
   "portfolioStatOpenPnl": "Atviras pelnas",
-  "stepUpReasonBetReady": "Paruoškite {amount} prognozę",
   "multiMoveSendTitle": "Siųsti {amount}",
   "multiMoveTitle": "Perkelti {amount} į {destination}",
   "multiMoveDeliveredRemaining": "{delivered} pristatyta · {remaining} liko",

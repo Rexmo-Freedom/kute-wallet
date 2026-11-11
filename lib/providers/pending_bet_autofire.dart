@@ -27,7 +27,10 @@
 // (`depositSettled`) fires it: a market bet is placed for what landed
 // (down to the venue's minimum), a limit bet that landed short fails,
 // and a bet queued more than 30 minutes ago never fires. The journey's
-// `order_funding_*` outcome is reported from here.
+// `order_funding_*` outcome is reported from here. A bet is queued here
+// only by the slip's Confirm (founder decision, 11 November 2026:
+// pre-funding removed; nothing is armed, funded or queued before the
+// person accepts).
 //
 // The next window (founder, 8 November 2026): a 5-minute card's buttons
 // roll to the next window partway through this one, so a bet queued for it
@@ -747,7 +750,7 @@ class PendingBetAutoFire {
   }
 
   /// Only this order's completed source steps can certify a short landing.
-  /// A scoped pre-fund record is used when there is no live step graph.
+  /// The move's own ledger record is used when there is no live step graph.
   bool _ownFundingDelivered(PendingBetIntent intent) {
     final id = intent.fundedRunId;
     if (id != null) {

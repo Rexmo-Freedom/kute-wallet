@@ -2865,6 +2865,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           'venue': 'hyperliquid',
           'stage': 'approval',
         });
+      } else {
+        // Approved as the ticket went: nothing was started under it, so
+        // the approval goes too (never left live for its 30 minutes).
+        grant.revoke();
+        AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
       }
       if (mounted) _updateDraft(() => _fundingStage = null);
       return;

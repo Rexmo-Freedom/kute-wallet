@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Το πορτοφόλι εξόδων σας · {amount}",
   "depositFromAnotherWalletSubtitle": "Λάβετε μια διεύθυνση για να στείλετε δολάρια",
   "portfolioStatOpenPnl": "Ανοιχτά κέρδη",
-  "stepUpReasonBetReady": "Ετοίμασε πρόβλεψη {amount}",
   "multiMoveSendTitle": "Αποστολή {amount}",
   "multiMoveTitle": "Μετακίνηση {amount} σε {destination}",
   "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν",

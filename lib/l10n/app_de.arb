@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Deine Ausgaben-Wallet · {amount}",
   "depositFromAnotherWalletSubtitle": "Erhalte eine Adresse, an die du Dollar sendest",
   "portfolioStatOpenPnl": "Offene Gewinne",
-  "stepUpReasonBetReady": "Prognose über {amount} vorbereiten",
   "multiMoveSendTitle": "{amount} senden",
   "multiMoveTitle": "{amount} nach {destination} verschieben",
   "multiMoveDeliveredRemaining": "{delivered} angekommen · {remaining} offen",

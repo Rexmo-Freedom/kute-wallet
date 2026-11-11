@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Käyttölompakkosi · {amount}",
   "depositFromAnotherWalletSubtitle": "Hae osoite, johon lähettää dollareita",
   "portfolioStatOpenPnl": "Avoimet voitot",
-  "stepUpReasonBetReady": "Valmistele {amount} ennuste",
   "multiMoveSendTitle": "Lähetä {amount}",
   "multiMoveTitle": "Siirrä {amount} kohteeseen {destination}",
   "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä",

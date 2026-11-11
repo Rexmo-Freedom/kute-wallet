@@ -11146,11 +11146,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Atviras pelnas';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Paruoškite $amount prognozę';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Siųsti $amount';
   }

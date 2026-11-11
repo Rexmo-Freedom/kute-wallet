@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Jūsu tēriņu maks · {amount}",
   "depositFromAnotherWalletSubtitle": "Iegūstiet adresi, uz kuru sūtīt dolārus",
   "portfolioStatOpenPnl": "Atvērtā peļņa",
-  "stepUpReasonBetReady": "Sagatavo prognozi {amount} apmērā",
   "multiMoveSendTitle": "Sūtīt {amount}",
   "multiMoveTitle": "Pārvietot {amount} uz {destination}",
   "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši",

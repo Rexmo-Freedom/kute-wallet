@@ -11151,11 +11151,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Profituri deschise';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Pregătește o predicție de $amount';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Trimite $amount';
   }

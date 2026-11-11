@@ -11066,11 +11066,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Atvērtā peļņa';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Sagatavo prognozi $amount apmērā';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Sūtīt $amount';
   }

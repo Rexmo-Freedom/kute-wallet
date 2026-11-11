@@ -11105,11 +11105,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Avoimet voitot';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Valmistele $amount ennuste';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Lähetä $amount';
   }

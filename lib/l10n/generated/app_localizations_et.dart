@@ -11080,11 +11080,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Avatud kasum';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Valmista ette ennustus $amount';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Saada $amount';
   }

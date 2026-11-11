@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Din forbrugspung · {amount}",
   "depositFromAnotherWalletSubtitle": "Få en adresse at sende dollars til",
   "portfolioStatOpenPnl": "Åbne gevinster",
-  "stepUpReasonBetReady": "Gør en forudsigelse på {amount} klar",
   "multiMoveSendTitle": "Send {amount}",
   "multiMoveTitle": "Flyt {amount} til {destination}",
   "multiMoveDeliveredRemaining": "{delivered} leveret · {remaining} tilbage",

@@ -11170,11 +11170,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Gains latents';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Préparer une prédiction de $amount';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Envoyer $amount';
   }

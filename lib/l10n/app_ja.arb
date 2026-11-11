@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "支払い用ウォレット · {amount}",
   "depositFromAnotherWalletSubtitle": "ドルを送るアドレスを取得",
   "portfolioStatOpenPnl": "含み益",
-  "stepUpReasonBetReady": "{amount}の予測を準備",
   "multiMoveSendTitle": "{amount}を送金",
   "multiMoveTitle": "{amount}を{destination}へ移動",
   "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}",

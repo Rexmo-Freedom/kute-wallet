@@ -11113,11 +11113,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Отворени печалби';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Подготви прогноза за $amount';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Изпрати $amount';
   }

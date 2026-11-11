@@ -11133,11 +11133,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Otwarte zyski';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Przygotuj prognozę $amount';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Wyślij $amount';
   }

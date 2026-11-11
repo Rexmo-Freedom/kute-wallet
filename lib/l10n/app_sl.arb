@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Vaša denarnica za porabo · {amount}",
   "depositFromAnotherWalletSubtitle": "Pridobite naslov, na katerega pošljete dolarje",
   "portfolioStatOpenPnl": "Odprti dobički",
-  "stepUpReasonBetReady": "Pripravite napoved {amount}",
   "multiMoveSendTitle": "Pošlji {amount}",
   "multiMoveTitle": "Premakni {amount} v {destination}",
   "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane",

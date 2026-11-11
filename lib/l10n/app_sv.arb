@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Din spendera-plånbok · {amount}",
   "depositFromAnotherWalletSubtitle": "Få en adress att skicka dollar till",
   "portfolioStatOpenPnl": "Öppna vinster",
-  "stepUpReasonBetReady": "Gör en prognos på {amount} redo",
   "multiMoveSendTitle": "Skicka {amount}",
   "multiMoveTitle": "Flytta {amount} till {destination}",
   "multiMoveDeliveredRemaining": "{delivered} levererat · {remaining} kvar",

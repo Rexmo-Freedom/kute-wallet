@@ -187,7 +187,7 @@ void main() {
         venue: PolyVenueCount(
             balance: BigInt.from(((venue ?? pusd) * 1e6).round())),
       );
-  const prefunded = PendingBetIntent(
+  const funded = PendingBetIntent(
       tokenId: _token,
       amount: 5,
       slippagePct: 5,
@@ -195,14 +195,14 @@ void main() {
       outcomeName: 'Up',
       expectedPrice: 0.61);
 
-  test('prefunded bet reaches placement using fresh cash despite stale display',
+  test('funded bet reaches placement using fresh cash despite stale display',
       () async {
-    final (_, _, trading) = await run(prefunded, fresh: true, reads: cash(20));
+    final (_, _, trading) = await run(funded, fresh: true, reads: cash(20));
     expect(trading.orders, hasLength(1));
   });
 
   test(
-      'prefunded bet cannot use unconverted cash, stale venue count or reservations',
+      'funded bet cannot use unconverted cash, stale venue count or reservations',
       () async {
     for (final reads in [
       cash(0, usdce: 20),
@@ -211,13 +211,13 @@ void main() {
       null
     ]) {
       final (pending, _, trading) =
-          await run(prefunded, fresh: true, reads: reads);
+          await run(funded, fresh: true, reads: reads);
       expect(trading.orders, isEmpty);
       expect(pending?.status, PendingBetStatus.failed);
     }
   });
 
-  test('prefunded Max sizes against fresh spendable cash', () async {
+  test('funded Max sizes against fresh spendable cash', () async {
     final (_, prepared, trading) = await run(
         const PendingBetIntent(tokenId: _token, amount: 20, spendAllBudgetUsd: 20,
             slippagePct: 5, marketQuestion: 'Bitcoin Up or Down',
@@ -231,7 +231,7 @@ void main() {
 
   test('account generation change during fresh read refuses before placement',
       () async {
-    final (pending, _, trading) = await run(prefunded,
+    final (pending, _, trading) = await run(funded,
         fresh: true, reads: cash(20), changeAccountOnRead: true);
     expect(trading.orders, isEmpty);
     expect(pending?.status, PendingBetStatus.failed);

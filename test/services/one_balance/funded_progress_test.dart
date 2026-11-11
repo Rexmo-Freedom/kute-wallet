@@ -16,7 +16,7 @@ import 'package:kute/screens/shared/slip_shortfall.dart' show fundedStopLine;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
-import 'package:kute/services/polymarket/bet_prefund.dart';
+import 'package:kute/services/polymarket/predictions_funding_window.dart';
 
 const _bet = FundedOrderLabel(
   venue: OneBalanceVenue.predictions,

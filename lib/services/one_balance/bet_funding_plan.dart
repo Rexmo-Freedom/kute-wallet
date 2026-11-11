@@ -9,6 +9,10 @@
 // Anything the order does not spend stays on Predictions as part of the
 // one balance. "Add $X" shows only when Dollars cannot cover this move.
 //
+// A plan is a read: it moves nothing. The move it describes starts only
+// at Confirm, under the approval asked there (founder decision, 11
+// November 2026: pre-funding removed, money moves only after Confirm).
+//
 // Example: Predictions holds $2, a $3.50 minimum bet needs about $3.58
 // with fees, so about $1.85 moves (not the whole $3.50).
 //

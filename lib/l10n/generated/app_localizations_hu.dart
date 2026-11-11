@@ -11119,11 +11119,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Nyitott nyereség';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return '$amount előrejelzés előkészítése';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return '$amount küldése';
   }

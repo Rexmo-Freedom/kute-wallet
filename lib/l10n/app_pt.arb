@@ -3333,7 +3333,6 @@
   "depositFromSpendingWalletWithBalance": "A sua carteira de despesas · {amount}",
   "depositFromAnotherWalletSubtitle": "Obtenha um endereço para enviar dólares",
   "portfolioStatOpenPnl": "Lucros em aberto",
-  "stepUpReasonBetReady": "Preparar uma previsão de {amount}",
   "multiMoveSendTitle": "Enviar {amount}",
   "multiMoveTitle": "Mover {amount} para {destination}",
   "multiMoveDeliveredRemaining": "{delivered} entregues · {remaining} em falta",

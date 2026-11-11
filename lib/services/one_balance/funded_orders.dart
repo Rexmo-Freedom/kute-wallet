@@ -71,7 +71,9 @@ enum FundedMoneyAt {
 /// margin the margin sheet adds to an isolated Investing position. Both
 /// run the same funding chain; the screens name them differently.
 // Keep transfer only to decode/display records from the retired separate
-// Bitcoin five-minute prefund flow. New predictions always create order runs.
+// Bitcoin five-minute "transfer first" flow. New predictions always create
+// order runs, from Confirm (founder decision, 11 November 2026: money
+// moves only after Confirm).
 enum FundedOrderKind { order, margin, transfer }
 
 /// What the order is, in the words the screens show.

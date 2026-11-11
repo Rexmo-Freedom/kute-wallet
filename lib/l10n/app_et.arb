@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Sinu kulutamise rahakott · {amount}",
   "depositFromAnotherWalletSubtitle": "Saa aadress, kuhu dollareid saata",
   "portfolioStatOpenPnl": "Avatud kasum",
-  "stepUpReasonBetReady": "Valmista ette ennustus {amount}",
   "multiMoveSendTitle": "Saada {amount}",
   "multiMoveTitle": "Liiguta {amount} sihtkohta {destination}",
   "multiMoveDeliveredRemaining": "{delivered} kohale jõudnud · {remaining} jäänud",

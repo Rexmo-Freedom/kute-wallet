@@ -10678,11 +10678,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioStatOpenPnl => '含み益';
 
   @override
-  String stepUpReasonBetReady(String amount) {
-    return '$amountの予測を準備';
-  }
-
-  @override
   String multiMoveSendTitle(String amount) {
     return '$amountを送金';
   }

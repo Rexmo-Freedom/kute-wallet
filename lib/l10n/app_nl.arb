@@ -3067,7 +3067,6 @@
   "depositFromSpendingWalletWithBalance": "Je bestedingswallet · {amount}",
   "depositFromAnotherWalletSubtitle": "Krijg een adres om dollars naartoe te sturen",
   "portfolioStatOpenPnl": "Open winst",
-  "stepUpReasonBetReady": "Zet een voorspelling van {amount} klaar",
   "multiMoveSendTitle": "{amount} versturen",
   "multiMoveTitle": "{amount} naar {destination} verplaatsen",
   "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend",
