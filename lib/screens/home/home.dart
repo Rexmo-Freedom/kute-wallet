@@ -430,9 +430,10 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     // soon as they turn redeemable (user decision: auto-claim is back,
     // the Claim tap is no longer required).
     ref.read(claimAutoFireProvider);
-    // The swap-back sweeper — brings idle venue cash home to Dollars on
-    // every close, claim, cancel, resume and heartbeat, under the
-    // never-sweep rules; and the once-per-session balance snapshot.
+    // The venue sweeper — reads and classifies venue cash on close,
+    // claim, cancel, resume and heartbeat so the Portfolio follows it;
+    // nothing moves on its own (cash comes home only from Rebalance,
+    // since 2026-10-15). And the once-per-session balance snapshot.
     ref.read(venueSweeperProvider);
     ref.read(balanceSnapshotReporterProvider);
 

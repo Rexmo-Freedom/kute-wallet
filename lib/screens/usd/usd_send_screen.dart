@@ -189,6 +189,13 @@ final usdSendEstimatorProvider = Provider<UsdSendEstimator>(
       ),
 );
 
+/// Test seam: stands in for the send's one step-up prompt, whichever
+/// moment asks it (before venue cash comes home, or at the send itself).
+/// Receives the intent and answers with a grant for it, or null
+/// (declined).
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugUsdSendApproval;
+
 /// The live limits the send's minimum is read from (a test seam).
 final usdSendRouteLimitsProvider = Provider<RouteLimitsFetcher>(
     (ref) => (route) => OrchestraService.getRouteLimits(route));
@@ -1914,17 +1921,48 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         });
 
     // Dollars first: when they do not hold the amount, the shortfall
-    // comes home from venue cash before the send asks for its one
-    // approval. Nothing is sent until Dollars hold the whole amount.
+    // comes home from venue cash. The send's ONE approval comes before
+    // any of it moves (founder rule: money moves only after the person
+    // accepts): declined, nothing is pulled and nothing is sent; accepted,
+    // the pull and then the send run under that same grant, never a
+    // second prompt. Nothing is sent until Dollars hold the whole amount.
     if (_retryPull && _error != null && _moveId != null) {
       trackMultiSourceMoveRetry(
           MultiSourceMoveStore.get(_moveId!)?.remainingUsd ?? 0);
     }
     _retryPull = false;
+    AuthGrant? approved;
     if (!_drain && amountBaseUnits > _availableBaseUnits) {
-      final ready =
-          await _pullVenueCash(usdForDisplay, amountBaseUnits, destination);
-      if (!ready) return;
+      var declined = false;
+      final ready = await _pullVenueCash(
+          usdForDisplay, amountBaseUnits, destination, approve: () async {
+        approved = await _approveBeforeVenueCash(
+            destination, recipient, amountBaseUnits, usdForDisplay);
+        declined = approved == null;
+        return !declined;
+      });
+      if (!ready) {
+        approved?.revoke();
+        if (declined) {
+          // As a step-up declined at the send: nothing moved, no tap.
+          TrackingService.sendFailed(
+            flow: 'usd_send',
+            network: destination.chain.toLowerCase(),
+            asset: destination.assetCode.toLowerCase(),
+            error: 'declined',
+            walletKind: _walletKind(),
+            provider: 'orchestra',
+            amountUsd: usdForDisplay,
+            amount: usdForDisplay,
+            currency: 'USD',
+            amountFiat: usdForDisplay,
+            stage: 'sign',
+          );
+          TrackingService.moneyFlowError('usd_send',
+              const SettlementStopped(SettlementStopReason.declined));
+        }
+        return;
+      }
     } else if (_moveUsd != usdForDisplay) {
       _moveId = null;
     }
@@ -1992,6 +2030,14 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           idempotencyKey: key,
         ),
         stepUp: (auth) async {
+          // Venue cash came home for this send under its one approval:
+          // the send goes under that same grant, with no second prompt,
+          // only within what was approved (else nothing is sent).
+          final held = approved;
+          if (held != null) {
+            return OrchestraGrants.takeSend(held, auth,
+                asset: kOrchestraUsdAssetCode);
+          }
           if (!mounted) return false;
           // The person decided on Review and the step-up prompt below is
           // the confirmation. The runner's own drift check still refuses
@@ -2001,24 +2047,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             action: SensitiveAction.send,
             asset: kOrchestraUsdAssetCode,
           );
-          if (mounted) setState(() => _approving = true);
-          final AuthGrant? grant;
-          try {
-            grant = await requireFreshAuthGrant(
-              context,
-              ref,
-              intent: intent,
-              reason: context.l10n.stepUpReasonSend(
-                  '\$${(auth.amountIn.toDouble() / 1e6).toStringAsFixed(2)}'),
-              amountUsd: auth.amountIn.toDouble() / 1e6,
-            );
-          } finally {
-            if (mounted) {
-              setState(() => _approving = false);
-            } else {
-              _approving = false;
-            }
-          }
+          final grant =
+              await _askApproval(intent, auth.amountIn.toDouble() / 1e6);
           if (grant == null) return false;
           try {
             AuthGrants.consume(grant, intent);
@@ -2185,6 +2215,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         );
         TrackingService.moneyFlowError('usd_send', e);
       }
+      // An approval the send never used dies with it.
+      approved?.revoke();
       if (!mounted) return;
       if (e is SettlementStopped && e.reason == SettlementStopReason.declined) {
         setState(() {
@@ -2208,10 +2240,62 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   void _sendFailedFeedback() =>
       moneyFailureFeedbackAfterBand(() => mounted && _processing);
 
+  /// The send's one step-up prompt for [intent] ([usd] in its reason).
+  /// Null when declined.
+  Future<AuthGrant?> _askApproval(SensitiveIntent intent, double usd) async {
+    if (mounted) setState(() => _approving = true);
+    try {
+      final seam = debugUsdSendApproval;
+      if (seam != null) return await seam(intent);
+      if (!mounted) return null;
+      return await requireFreshAuthGrant(
+        context,
+        ref,
+        intent: intent,
+        reason: context.l10n.stepUpReasonSend('\$${usd.toStringAsFixed(2)}'),
+        amountUsd: usd,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _approving = false);
+      } else {
+        _approving = false;
+      }
+    }
+  }
+
+  /// The send's ONE approval when venue cash must come home for it, asked
+  /// before any of that cash moves ([OrchestraGrants.sendWithVenueCash]):
+  /// this wallet, [recipient], the route to [destination] and at most
+  /// [units]. The send then runs under it with no second prompt. Null
+  /// when declined (or no spending wallet): nothing moves.
+  Future<AuthGrant?> _approveBeforeVenueCash(UsdSendDestination destination,
+      String recipient, BigInt units, double usd) async {
+    final String walletId;
+    try {
+      walletId = HotSettlement.spendingWalletId(ref.read);
+    } catch (_) {
+      return null;
+    }
+    return _askApproval(
+        OrchestraGrants.sendWithVenueCash(
+          walletId: walletId,
+          recipient: recipient,
+          routeLabel: usdSendRouteKey(destination).label,
+          asset: kOrchestraUsdAssetCode,
+          amountMax: units,
+        ),
+        usd);
+  }
+
   /// Brings the shortfall of [usd] home from venue cash and waits,
   /// bounded, for Dollars to hold it. True to go on with the send; false
   /// when it stopped (the reason is on screen, and whatever was pulled
   /// stays in Dollars: the send never goes twice).
+  ///
+  /// [approve] asks the send's one approval BEFORE any leg goes (after the
+  /// minimum below, so a send that would be refused asks nothing). False
+  /// (declined): nothing moved, the sheet goes back quietly.
   ///
   /// The send is the last stage, so it is held to its route's minimum
   /// ([units] against [destination]'s) before any leg goes: venue cash is
@@ -2221,7 +2305,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// comes home to Dollars, the line under the card says where it is,
   /// and Retry takes only what is missing.
   Future<bool> _pullVenueCash(
-      double usd, BigInt units, UsdSendDestination destination) async {
+      double usd, BigInt units, UsdSendDestination destination,
+      {required Future<bool> Function() approve}) async {
     final pull = ++_pullSeq;
     setState(() {
       _processing = true;
@@ -2237,6 +2322,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         _error = context.l10n.usdSendMinimum(_formatMinimum(minimum));
       });
       _sendFailedFeedback();
+      return false;
+    }
+    // The send's one approval, before any venue cash moves.
+    final approved = await approve();
+    if (!mounted) return false;
+    if (!approved) {
+      setState(() {
+        _processing = false;
+        _pullProgress = null;
+      });
       return false;
     }
     VenueCashPlan? planned;

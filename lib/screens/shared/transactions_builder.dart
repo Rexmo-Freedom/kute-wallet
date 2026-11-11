@@ -6949,10 +6949,10 @@ class _MultiSourceMoveDetailSheetState
       if (!mounted || plan == null || !plan.covers || plan.pulls.isEmpty) {
         return;
       }
-      if (move.destination != VenueCashDestination.dollars) {
-        approval = await _approveRetry(move, plan);
-        if (approval == null || !mounted) return;
-      }
+      // Every Retry asks its one approval before any leg moves, a move
+      // home to Dollars too: declined, nothing moves.
+      approval = await _approveRetry(move, plan);
+      if (approval == null || !mounted) return;
       if (move.isParallelPurchase &&
           pickSpendingWallet(ref.read(settingsProvider))?.id != move.walletId) {
         return;
@@ -6983,9 +6983,9 @@ class _MultiSourceMoveDetailSheetState
     }
   }
 
-  /// The one approval a Retry of [move]'s remainder to a destination
-  /// other than Dollars asks first: the legs it would run, a cap per venue
-  /// and the total. Null when declined or when nothing would move.
+  /// The one approval a Retry of [move]'s remainder asks first: the legs
+  /// it would run, a cap per venue and the total (a move home to Dollars
+  /// binds no direct leg). Null when declined or when nothing would move.
   Future<AuthGrant?> _approveRetry(
       MultiSourceMove move, VenueCashPlan plan) async {
     final puller = ref.read(venueCashPullerProvider);
@@ -7013,9 +7013,12 @@ class _MultiSourceMoveDetailSheetState
       context,
       ref,
       intent: intent,
-      reason: move.destination == VenueCashDestination.bitcoin
-          ? context.l10n.stepUpReasonSend(amount)
-          : context.l10n.stepUpReasonDeposit(amount),
+      reason: switch (move.destination) {
+        VenueCashDestination.bitcoin => context.l10n.stepUpReasonSend(amount),
+        VenueCashDestination.dollars =>
+          context.l10n.stepUpReasonWithdraw(amount),
+        _ => context.l10n.stepUpReasonDeposit(amount),
+      },
       amountUsd: total,
     );
   }

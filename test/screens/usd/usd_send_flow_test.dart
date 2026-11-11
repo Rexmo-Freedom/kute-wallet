@@ -18,6 +18,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -51,6 +52,9 @@ import 'package:kute/screens/usd/usd_withdraw_screen.dart'
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCircleBackButton, KuteCloseButton;
 import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/funding/hot_settlement.dart';
+import 'package:kute/services/funding/settlement_runner.dart';
+import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart';
@@ -187,6 +191,60 @@ class _Venue implements VenueCashSource {
     return VenueMoveResult(
         quoteId: 'q', sentUsd: usd, arrivingUsdEstimate: usd * 0.99);
   }
+}
+
+/// The send's step-up prompts (debugUsdSendApproval), with what had been
+/// pulled from [venue] when each was asked. [accept] false declines.
+class _Prompts {
+  final intents = <SensitiveIntent>[];
+  final pulledAt = <int>[];
+  _Venue? venue;
+  bool accept = true;
+
+  Future<AuthGrant?> call(SensitiveIntent intent) async {
+    intents.add(intent);
+    pulledAt.add(venue?.pulls.length ?? 0);
+    return accept
+        ? AuthGrants.issue(intent, method: AuthGrantMethod.biometric)
+        : null;
+  }
+}
+
+/// The settlement runner: asks the send's step-up hook for a settlement
+/// of [amountIn] to [recipient] and records its answer with what had been
+/// pulled by then; the send then stops before paying (nothing to pay).
+class _Runner extends SettlementRunner {
+  _Runner(this.venue, {required this.recipient, required this.amountIn})
+      : super(store: SettlementStore(box: _NoBox(), quarantine: _NoBox()));
+
+  final _Venue venue;
+  final String recipient;
+  final BigInt amountIn;
+  final approvals = <bool>[];
+  final pulledAtStepUp = <int>[];
+
+  @override
+  Future<SettlementRunResult> run(SettlementPlan plan) async {
+    pulledAtStepUp.add(venue.pulls.length);
+    final ok = await plan.stepUp!(SettlementAuthorizationIntent(
+      flow: plan.flow,
+      walletId: plan.walletId,
+      destination: '$recipient|',
+      routeLabel: plan.route.label,
+      amountIn: amountIn,
+      minReceive: BigInt.one,
+      maxFeeBps: 100,
+    ));
+    approvals.add(ok);
+    if (!ok) throw const SettlementStopped(SettlementStopReason.declined);
+    throw const SettlementStopped(SettlementStopReason.routeUnavailable);
+  }
+}
+
+class _NoBox implements Box<String> {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('no store in this test');
 }
 
 /// Opens the dollar send as the send sheet, the way the dock does.
@@ -416,6 +474,8 @@ void main() {
   });
 
   setUp(() async {
+    // The send's step-up, accepted unless a test says otherwise.
+    debugUsdSendApproval = _Prompts().call;
     GoogleFonts.config.allowRuntimeFetching = false;
     // No sprite sheets: a decoded loop would tick for ever under
     // pumpAndSettle; the glyphs fall back to their icons.
@@ -434,6 +494,8 @@ void main() {
   });
 
   tearDown(() {
+    debugUsdSendApproval = null;
+    HotSettlement.debugRunner = null;
     RuntimeCapabilitiesService.debugInstance = null;
     SalSpriteCache.debugReset();
     AffiliateService.debugSessionToken = null;
@@ -1462,6 +1524,92 @@ void main() {
     await _type(tester, '0');
     expect(find.text(_l10n.usdSendMinimum('\$25.00')), findsNothing);
     expect(_continueEnabled(tester), isTrue);
+  });
+
+  testWidgets(
+      'Send past Dollars asks the one step-up BEFORE any venue cash moves; '
+      'declined, nothing is pulled and nothing is sent', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final venue = _Venue(OneBalanceVenue.predictions, 100);
+    final prompts = _Prompts()
+      ..venue = venue
+      ..accept = false;
+    debugUsdSendApproval = prompts.call;
+    var now = DateTime(2026, 11, 11, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => 100,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '150');
+
+    await tester.tap(find.text(_l10n.withdraw));
+    await tester.pumpAndSettle();
+
+    expect(prompts.intents, hasLength(1));
+    expect(prompts.pulledAt, [0], reason: 'asked before anything moved');
+    final intent = prompts.intents.single;
+    expect(intent.action, SensitiveAction.send);
+    expect(intent.amountMax, BigInt.from(150000000));
+    expect(intent.destination, _evm);
+    expect(venue.pulls, isEmpty, reason: 'declined: no leg went');
+    expect(events.map((e) => e.$1), isNot(contains('usd_send_initiated')));
+    expect(events.map((e) => e.$1), isNot(contains('multi_source_move_started')));
+    final failed = events.where((e) => e.$1 == 'send_failed').single.$2!;
+    expect(failed['stage'], 'sign');
+    // Back on Review, quietly: no error line, Send there again.
+    expect(_step(_l10n.sendReview), findsOneWidget);
+    expect(find.text(_l10n.usdSendFailed), findsNothing);
+    expect(sendEnabled(tester), isTrue);
+  });
+
+  testWidgets(
+      'Send past Dollars, accepted: exactly one prompt, the pull, then the '
+      'send under that same grant (no second prompt)', (tester) async {
+    final venue = _Venue(OneBalanceVenue.predictions, 100)
+      ..gate = Completer<void>();
+    final prompts = _Prompts()..venue = venue;
+    debugUsdSendApproval = prompts.call;
+    var dollars = 100.0;
+    var now = DateTime(2026, 11, 11, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => dollars,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    final runner = _Runner(venue,
+        recipient: _evm, amountIn: BigInt.from(150000000));
+    HotSettlement.debugRunner = runner;
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '150');
+
+    await tester.tap(find.text(_l10n.withdraw));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(prompts.intents, hasLength(1));
+    expect(prompts.pulledAt, [0]);
+    expect(venue.pulls, hasLength(1), reason: 'the pull after the approval');
+    expect(runner.approvals, isEmpty, reason: 'no send before Dollars hold it');
+
+    // The leg lands: Dollars hold the whole amount, the send goes.
+    dollars = 160;
+    venue.gate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(runner.pulledAtStepUp, [1], reason: 'pull, then send');
+    expect(runner.approvals, [true],
+        reason: 'the send ran under the one approval');
+    expect(prompts.intents, hasLength(1), reason: 'never a second prompt');
   });
 
   testWidgets(

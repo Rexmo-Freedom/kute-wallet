@@ -476,8 +476,9 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                 .read(polymarketTradingProvider.notifier)
                 .wrapIdleUsdcE(trigger: 'resume'));
           }
-          // Idle venue cash that freed while the app was away: one
-          // sweeper pass now (its own rules decide what moves).
+          // The venues read again after the app was away, so the
+          // Portfolio follows them. Nothing moves: venue cash comes home
+          // only from Rebalance (no automatic sweeps since 2026-10-15).
           if (ref.exists(venueSweeperProvider)) {
             unawaited(ref.read(venueSweeperProvider.notifier).trigger('resume'));
           }
