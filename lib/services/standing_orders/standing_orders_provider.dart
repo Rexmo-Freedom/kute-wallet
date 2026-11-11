@@ -311,6 +311,15 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     }
     final id = next.standingOrderId;
     if (id != null) {
+      // A limit the venue took and holds on its book, nothing bought yet:
+      // the standing order's part is over, said once ([rested]).
+      if (next.status == PendingBetStatus.done &&
+          next.isLimit &&
+          (next.filledShares ?? 0) <= 0 &&
+          prev?.status != PendingBetStatus.done) {
+        unawaited(rested(id));
+        return;
+      }
       final mapped = standingStateForBet(next.status,
           readiness: next.readiness, isLimit: next.isLimit);
       // A stop for a price past the approval is the person's to settle
@@ -409,6 +418,28 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     } catch (_) {}
   }
 
+  /// A prediction limit the venue took and holds on its book, nothing
+  /// bought yet: placed, and said ONCE, calmly (founder, 11 November
+  /// 2026): [outcomes] hears it in [StandingOrderState.posted] (the
+  /// shell's "Order placed", resting on the book, a tap opens the
+  /// orders). Then it is off the list with its record and approval, as
+  /// [_forget] does: no Overview card (no position exists), never resumed,
+  /// never counted as a failure. If it fills later, its position lists as
+  /// any other; cancelled or expired unfilled, nothing more is said.
+  Future<void> rested(String id) async {
+    final order = byId(id);
+    if (order == null ||
+        !order.isOpen ||
+        order.venue != StandingOrderVenue.predictions) {
+      return;
+    }
+    if (!_outcomes.isClosed) {
+      _outcomes.add(order.copyWith(
+          state: StandingOrderState.posted, updatedAt: clock()));
+    }
+    await _forget(order);
+  }
+
   /// The predictions whose end is being read from the venue.
   final Set<String> _settling = {};
 
@@ -459,10 +490,8 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
           if (order.orderKind != 'limit') continue;
           final bet = ref.read(pendingPolymarketBetProvider);
           if (bet != null && bet.standingOrderId == id) continue;
-          // Resting on the book: its part is over, quietly (as an
-          // Investing order the venue holds), never "not placed".
-          final now = byId(id);
-          if (now != null) await _forget(now);
+          // Resting on the book: its part is over, never "not placed".
+          await rested(id);
           return;
         }
         _endQueuedBet(id, settled.state);

@@ -47,10 +47,13 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 
 abstract final class StandingOrderToasts {
@@ -183,6 +186,29 @@ abstract final class StandingOrderToasts {
       detail: order.marketTitle,
       tone: SalToastTone.success,
       closable: false,
+    );
+  }
+
+  /// A prediction limit the venue holds on its book, nothing bought yet
+  /// (founder, 11 November 2026: the person knows what happened, calmly):
+  /// "Order placed", resting on the book, the one success beat; a tap
+  /// opens the Portfolio where open orders are listed.
+  static void resting(BuildContext? context, AppLocalizations l10n,
+      StandingOrder order) {
+    markSaid(order);
+    SalToast.show(
+      context,
+      tag: tag,
+      message: l10n.ledgerOrderPlaced,
+      detail: l10n.betRestingBuyNote,
+      tone: SalToastTone.success,
+      closable: false,
+      onTap: () {
+        final root = kuteRootContext(context);
+        if (root == null) return;
+        openInvestmentsOrders(root,
+            product: 'predictions', orderKind: 'limit_buy');
+      },
     );
   }
 

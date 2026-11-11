@@ -614,18 +614,32 @@ void main() {
         lookup = (hash) => {'id': hash, 'status': 'LIVE', 'size_matched': '0'};
         r.notifier.updateStatus(PendingBetStatus.done);
         await settle();
-        expect(r.c.read(standingOrdersProvider).single.state,
-            StandingOrderState.posted);
+        // Said once, calmly: resting on the book (founder, 11 November
+        // 2026), never a failure, never a position card.
+        expect(r.outcomes.single.state, StandingOrderState.posted);
+        expect(r.c.read(standingOrdersProvider), isEmpty);
         // The autofire clears the placed bet 600 ms after `done`.
         r.notifier.clear();
         await settle();
-        expect(r.outcomes.where((o) => o.state == StandingOrderState.failed),
-            isEmpty,
-            reason: 'the order rests on the book: no "wasn\'t placed" toast');
+        expect(r.outcomes, hasLength(1),
+            reason: 'one order, one outcome: nothing more is said');
         // Its part is over: no "Placing" card left behind, never resumed.
         expect(r.c.read(standingOrdersProvider).where((o) => o.isOpen),
             isEmpty);
         expect((await store.load('w1')).where((o) => o.isOpen), isEmpty);
+      });
+
+      test(
+          'a limit found resting by the venue\'s record (its answer lost): '
+          'the same one calm "resting", never a failure', () async {
+        final r = await posted(limit: true);
+        lookup = (hash) => {'id': hash, 'status': 'LIVE', 'size_matched': '0'};
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        r.notifier.clear();
+        await settle();
+        expect(r.outcomes.single.state, StandingOrderState.posted);
+        expect(r.c.read(standingOrdersProvider), isEmpty);
+        expect((await store.load('w1')), isEmpty);
       });
 
       test(

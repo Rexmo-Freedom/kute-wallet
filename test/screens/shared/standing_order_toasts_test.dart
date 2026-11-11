@@ -243,6 +243,51 @@ void main() {
     expect(beats, 1);
   });
 
+  testWidgets(
+      'a funded limit resting on the book: one calm "Order placed", resting '
+      'on the book, the success haptic, a tap opens the orders; no card',
+      (tester) async {
+    var beats = 0;
+    var fails = 0;
+    SalToast.debugSuccessFeedbackOverride = () async => beats++;
+    SalToast.debugFailureFeedbackOverride = () async => fails++;
+    final c = await pump(tester);
+    final limit = StandingOrder(
+      id: 'so_l',
+      walletId: 'w1',
+      venue: StandingOrderVenue.predictions,
+      marketKey: '111',
+      marketTitle: 'Will it rain tomorrow?',
+      sideLabel: 'Yes',
+      isBuy: true,
+      size: 25,
+      approvedPrice: 0.4,
+      amountUsd: 10,
+      orderKind: 'limit',
+      state: StandingOrderState.posting,
+      createdAt: _at,
+      updatedAt: _at,
+      fundUsd: 10.3,
+    );
+    await running(tester, c, limit);
+    await c.read(standingOrdersProvider.notifier).rested('so_l');
+    await tester.pump();
+    await tester.pump(_arrive);
+    expect(find.text('Order placed'), findsOneWidget);
+    expect(
+        find.text(
+            "Resting on the book. It won't show in your positions until it fills."),
+        findsOneWidget);
+    expect(shown(tester).tone, SalToastTone.success);
+    expect(shown(tester).onTap, isNotNull);
+    expect(find.textContaining("wasn't placed"), findsNothing);
+    expect(beats, 1);
+    expect(fails, 0);
+    expect(c.read(standingOrdersProvider), isEmpty,
+        reason: 'no Overview card: no position exists');
+    await drain(tester);
+  });
+
   testWidgets('it fails: Sal says the money is in Predictions',
       (tester) async {
     final c = await pump(tester);
