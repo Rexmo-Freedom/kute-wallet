@@ -82,6 +82,15 @@ class _StandingOrdersShellState extends ConsumerState<StandingOrdersShell> {
     if (!mounted) return;
     final before = {for (final o in prev ?? const <StandingOrder>[]) o.id: o};
     final l10n = context.l10n;
+    // One that ended with nothing to say (an Investing order the exchange
+    // holds: off the list): its slip is forgotten and its placing toast,
+    // if still up, goes.
+    final now = {for (final o in next) o.id};
+    for (final gone in before.values) {
+      if (now.contains(gone.id) || !gone.isOpen) continue;
+      StandingOrderSlips.forget(gone);
+      Timer(Duration.zero, () => StandingOrderToasts.endQuietly(gone));
+    }
     for (final o in next) {
       final was = before[o.id];
       if (o.state == StandingOrderState.needsApproval &&

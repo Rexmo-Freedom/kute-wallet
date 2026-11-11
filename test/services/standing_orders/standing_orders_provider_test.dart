@@ -21,6 +21,8 @@ import 'package:kute/providers/pending_bet_autofire.dart'
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show HlOrderResult, HlOrderResultKind;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/polymarket_order_v2.dart';
 import 'package:kute/services/standing_orders/polymarket_signed_order.dart';
@@ -398,6 +400,130 @@ void main() {
       expect(noted.filledUsd, 9.8);
       expect(noted.placedUsd, 9.8);
       expect((await store.load('w1')).single.filledUsd, 9.8);
+    });
+
+    // One order, one outcome: an order the venue TOOK is never said
+    // "wasn't placed" afterwards because its queued intent was cleared.
+    PendingHlOrderIntent hlOrder({String orderKind = 'limit'}) =>
+        PendingHlOrderIntent(
+          coin: 'BTC',
+          market: _market('BTC'),
+          kind: HlMarketKind.perp,
+          isLong: true,
+          marginUsd: 10,
+          leverage: 2,
+          slippagePct: 1,
+          expectedPx: 180,
+          marketLabel: 'BTC · Perp',
+          status: PendingHlOrderStatus.awaitingBalance,
+          fundUsd: 10.3,
+          requiredUsd: 10.2,
+          arrivingUsd: 10.2,
+          orderKind: orderKind,
+          createdAt: _now,
+        );
+
+    Future<(ProviderContainer, String, List<StandingOrder>)> standHl(
+        PendingHlOrderIntent intent) async {
+      final c = container();
+      addTearDown(() => AuthGrantRegistry.instance
+          .cancelAutofire(kPendingHlOrderAutofireId));
+      AuthGrantRegistry.instance.issueAutofire(
+        kPendingHlOrderAutofireId,
+        pendingHlOrderAutofireIntent(intent, intent.market!, walletId: 'w1'),
+        method: AuthGrantMethod.biometric,
+      );
+      c.read(pendingHyperliquidOrderProvider.notifier).setIntent(intent);
+      await settle();
+      final id = c.read(standingOrdersProvider).single.id;
+      expect(c.read(pendingHyperliquidOrderProvider)!.standingOrderId, id);
+      final outcomes = <StandingOrder>[];
+      c.read(standingOrdersProvider.notifier).outcomes.listen(outcomes.add);
+      return (c, id, outcomes);
+    }
+
+    test(
+        'an Investing order the exchange took and holds (a resting limit): '
+        'its queued intent ending is not a failure, nothing says "not placed"',
+        () async {
+      final (c, id, outcomes) = await standHl(hlOrder());
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      notifier.updateStatus(PendingHlOrderStatus.placing);
+      // Done clears the queued intent right away (the notifier settles a
+      // finished order): the standing order must not read that as dropped.
+      notifier.setIntent(c.read(pendingHyperliquidOrderProvider)!.copyWith(
+          status: PendingHlOrderStatus.done,
+          result: const HlOrderResult(kind: HlOrderResultKind.resting, oid: 7)));
+      await settle();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
+      expect(outcomes.where((o) => o.state == StandingOrderState.failed), isEmpty,
+          reason: 'the exchange holds the order: never "wasn\'t placed"');
+      expect(
+          c.read(standingOrdersProvider).where((o) => o.isOpen), isEmpty,
+          reason: 'nothing left to place: no "Placing" card stays');
+      expect(
+          c.read(standingOrdersProvider)
+              .where((o) => o.state == StandingOrderState.failed),
+          isEmpty);
+      expect(await store.hasSecret(id), isFalse);
+      expect((await store.load('w1')).where((o) => o.isOpen), isEmpty,
+          reason: 'never resumed after a restart');
+    });
+
+    test(
+        'an Investing order sent whose answer never came (unconfirmed): '
+        'never said failed', () async {
+      final (c, id, outcomes) = await standHl(hlOrder(orderKind: 'market'));
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      notifier.updateStatus(PendingHlOrderStatus.placing);
+      notifier.updateStatus(PendingHlOrderStatus.unconfirmed);
+      await settle();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
+      expect(outcomes, isEmpty);
+      expect(
+          c.read(standingOrdersProvider)
+              .where((o) => o.state == StandingOrderState.failed),
+          isEmpty);
+      expect(await store.hasSecret(id), isFalse);
+      expect((await store.load('w1')).where((o) => o.isOpen), isEmpty);
+    });
+
+    test(
+        'a prediction the venue took and holds (posted): its queued bet '
+        'cleared is not a failure', () async {
+      final c = container();
+      final intent = _bet();
+      approve(intent);
+      final notifier = c.read(pendingPolymarketBetProvider.notifier);
+      notifier.setIntent(intent);
+      await settle();
+      final id = c.read(standingOrdersProvider).single.id;
+      // The venue took it and holds it (posted): as a resting limit or an
+      // order awaiting the venue's confirmation reads.
+      await c
+          .read(standingOrdersProvider.notifier)
+          .advance(id, StandingOrderState.posting);
+      await c
+          .read(standingOrdersProvider.notifier)
+          .advance(id, StandingOrderState.posted);
+      final outcomes = <StandingOrder>[];
+      c.read(standingOrdersProvider.notifier).outcomes.listen(outcomes.add);
+      notifier.clear();
+      await settle();
+      expect(outcomes, isEmpty);
+      expect(c.read(standingOrdersProvider).single.state,
+          StandingOrderState.posted);
+    });
+
+    test('a queued order cleared before it left for the venue is dropped',
+        () async {
+      final (c, id, outcomes) = await standHl(hlOrder(orderKind: 'market'));
+      c.read(pendingHyperliquidOrderProvider.notifier).clear();
+      await settle();
+      final o = c.read(standingOrdersProvider.notifier).byId(id)!;
+      expect(o.state, StandingOrderState.failed);
+      expect(o.failureCode, 'dropped');
+      expect(outcomes.single.state, StandingOrderState.failed);
     });
 
     test('a failure is reported once, with its code', () async {

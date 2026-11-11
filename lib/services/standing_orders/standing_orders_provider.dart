@@ -345,10 +345,38 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   /// A queued intent cleared while its standing order was still open and
   /// nobody cancelled it (the funding runner dropped it before any money
   /// moved): nothing will be placed, said so.
+  ///
+  /// One that already left for the venue (posting, or posted: a resting
+  /// limit, an order whose answer never came) is not dropped: its queued
+  /// intent ending is the pending provider's normal end (the Investing
+  /// notifier clears a finished order at once, the bet's autofire 600 ms
+  /// after `done`), and saying "wasn't placed" then was a second, false
+  /// outcome for an order the venue holds. A prediction stays posted (its
+  /// hash settles it from the venue's record on the next resume); an
+  /// Investing order has nothing to be looked up by, so its standing
+  /// order ends there, quietly: the account's own orders and positions
+  /// say the rest, and nothing is left to place or to resume.
   void _dropped(String id) {
     final order = byId(id);
     if (order == null || !order.isOpen || _cancelling.contains(id)) return;
+    if (order.state == StandingOrderState.posting ||
+        order.state == StandingOrderState.posted) {
+      if (order.venue == StandingOrderVenue.investing) {
+        unawaited(_forget(order));
+      }
+      return;
+    }
     unawaited(advance(id, StandingOrderState.failed, failureCode: 'dropped'));
+  }
+
+  /// [order] is over with nothing to say (see [_dropped]): off the list,
+  /// its approval and its record gone, so a restart never queues it again.
+  Future<void> _forget(StandingOrder order) async {
+    _publish([for (final o in state) if (o.id != order.id) o]);
+    try {
+      await _store.deleteSecret(order.id);
+      await _store.remove(order);
+    } catch (_) {}
   }
 
   final Set<String> _cancelling = {};
