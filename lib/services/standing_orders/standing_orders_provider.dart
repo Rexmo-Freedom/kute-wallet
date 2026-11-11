@@ -233,12 +233,32 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   /// Test seam: the clock.
   static DateTime Function() clock = DateTime.now;
 
+  /// When a prediction that went to the venue with no end known here is
+  /// looked up there ([_settleSent]): at once, then spaced out, a little
+  /// over a minute in all. Past it, the next resume looks again.
+  static const List<Duration> defaultSettleLooks = [
+    Duration.zero,
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+    Duration(seconds: 15),
+    Duration(seconds: 30),
+  ];
+
+  /// Test seam: [defaultSettleLooks].
+  @visibleForTesting
+  static List<Duration> settleLooks = defaultSettleLooks;
+
   /// The ids whose standing order is being created right now (its secret
   /// not written yet): the autofire waits for it.
   final Set<String> _creating = {};
 
+  bool _disposed = false;
+
   @override
   List<StandingOrder> build() {
+    _disposed = false;
+    ref.onDispose(() => _disposed = true);
     ref.onDispose(_outcomes.close);
     ref.listen<PendingBetIntent?>(pendingPolymarketBetProvider, _onBet);
     ref.listen<PendingHlOrderIntent?>(
@@ -303,6 +323,12 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
             filledSize: next.filledShares,
             filledUsd: next.filledCost));
       }
+      // Sent, and its answer proved nothing: the slip that settled it may
+      // be gone (the person may leave it now), so the venue's own record
+      // of the order is read here.
+      if (next.status == PendingBetStatus.awaitingConfirmation) {
+        unawaited(_settleSent(id, atOnce: false));
+      }
       return;
     }
     // The accept: queued behind its own funding, no standing order yet.
@@ -351,8 +377,8 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   /// intent ending is the pending provider's normal end (the Investing
   /// notifier clears a finished order at once, the bet's autofire 600 ms
   /// after `done`), and saying "wasn't placed" then was a second, false
-  /// outcome for an order the venue holds. A prediction stays posted (its
-  /// hash settles it from the venue's record on the next resume); an
+  /// outcome for an order the venue holds. A prediction is settled from
+  /// the venue's record of it, by its hash ([_settleSent]); an
   /// Investing order has nothing to be looked up by, so its standing
   /// order ends there, quietly: the account's own orders and positions
   /// say the rest, and nothing is left to place or to resume.
@@ -363,6 +389,10 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
         order.state == StandingOrderState.posted) {
       if (order.venue == StandingOrderVenue.investing) {
         unawaited(_forget(order));
+      } else {
+        // A prediction: the venue's own record of the order, by its hash,
+        // says how it ended (matched, killed, or resting on the book).
+        unawaited(_settleSent(id));
       }
       return;
     }
@@ -377,6 +407,104 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       await _store.deleteSecret(order.id);
       await _store.remove(order);
     } catch (_) {}
+  }
+
+  /// The predictions whose end is being read from the venue.
+  final Set<String> _settling = {};
+
+  /// A prediction that went to the venue ([StandingOrderState.posting] or
+  /// [StandingOrderState.posted]) with no end known here: its end is the
+  /// venue's own record of the order, by its hash ([settleFromVenue], as
+  /// a resume reads it), looked up at [settleLooks]. Matched is filled;
+  /// ended with nothing matched is failed; a limit resting on the book
+  /// has done its part and ends quietly (it is in Open orders); held or
+  /// unknown is looked up again, and left as it is past the last look
+  /// (the next resume reads it). A queued bet still waiting for this
+  /// confirmation ends with it, so it never holds the next bet back
+  /// ("a previous prediction is still being confirmed") with no slip
+  /// left to settle it. Not [atOnce]: the first look is left out, so a
+  /// slip still up settles its own order first. One run per order; never
+  /// throws.
+  Future<void> _settleSent(String id, {bool atOnce = true}) async {
+    if (!_settling.add(id)) return;
+    try {
+      for (final wait in settleLooks.skip(atOnce ? 0 : 1)) {
+        await Future<void>.delayed(wait);
+        if (_disposed) return;
+        final order = byId(id);
+        final hash = order?.orderHash;
+        if (order == null ||
+            hash == null ||
+            (order.state != StandingOrderState.posting &&
+                order.state != StandingOrderState.posted)) {
+          return;
+        }
+        // Still being placed by its queued bet: that path owns the end.
+        final queued = ref.read(pendingPolymarketBetProvider);
+        if (queued != null &&
+            queued.standingOrderId == id &&
+            queued.status == PendingBetStatus.placing) {
+          continue;
+        }
+        Map<String, dynamic>? found;
+        try {
+          found = await ref.read(standingOrderLookupProvider)(hash);
+        } catch (_) {
+          continue;
+        }
+        if (_disposed) return;
+        final settled = settleFromVenue(byId(id) ?? order, found);
+        if (settled == null) continue;
+        if (settled.state == StandingOrderState.posted) {
+          if (order.orderKind != 'limit') continue;
+          final bet = ref.read(pendingPolymarketBetProvider);
+          if (bet != null && bet.standingOrderId == id) continue;
+          // Resting on the book: its part is over, quietly (as an
+          // Investing order the venue holds), never "not placed".
+          final now = byId(id);
+          if (now != null) await _forget(now);
+          return;
+        }
+        _endQueuedBet(id, settled.state);
+        await advance(id, settled.state, failureCode: settled.code);
+        return;
+      }
+    } catch (_) {
+      // Left as it is: the next resume reads it.
+    } finally {
+      _settling.remove(id);
+    }
+  }
+
+  /// The queued bet of [id], still waiting for its order's confirmation,
+  /// ends as the venue's record says ([to]): placed, or nothing bought.
+  void _endQueuedBet(String id, StandingOrderState to) {
+    final current = ref.read(pendingPolymarketBetProvider);
+    if (current == null ||
+        current.standingOrderId != id ||
+        current.status != PendingBetStatus.awaitingConfirmation) {
+      return;
+    }
+    final notifier = ref.read(pendingPolymarketBetProvider.notifier);
+    if (to == StandingOrderState.filled) {
+      notifier.updateStatus(PendingBetStatus.done);
+      Future<void>.delayed(const Duration(milliseconds: 600), () {
+        try {
+          if (_disposed) return;
+          final now = ref.read(pendingPolymarketBetProvider);
+          if (now != null &&
+              now.standingOrderId == id &&
+              now.status == PendingBetStatus.done) {
+            notifier.clear();
+          }
+        } catch (_) {}
+      });
+    } else if (to == StandingOrderState.failed) {
+      notifier.updateStatus(PendingBetStatus.failed,
+          errorMessage: l10nForLanguage(ref.read(settingsProvider).language)
+              .betBuyNotMatched,
+          failureCode: StandingOrderFailure.notFilled);
+    }
   }
 
   final Set<String> _cancelling = {};

@@ -544,6 +544,173 @@ void main() {
       expect(outcomes, hasLength(1));
     });
 
+    group('one order, one outcome: a queued bet going away after its order '
+        'went to the venue', () {
+      Future<
+          ({
+            ProviderContainer c,
+            PendingPolymarketBetNotifier notifier,
+            String id,
+            List<StandingOrder> outcomes
+          })> posted({bool limit = false}) async {
+        final c = container();
+        final intent = limit
+            ? PendingBetIntent(
+                tokenId: '111',
+                amount: 10,
+                slippagePct: 5,
+                marketQuestion: 'Will it rain?',
+                outcomeName: 'Yes',
+                expectedPrice: 0.5,
+                isLimit: true,
+                limitPrice: 0.4,
+                status: PendingBetStatus.awaitingBalance,
+                fundUsd: 10.3,
+                fundArrivingUsd: 10.1,
+                fundReadyUsd: 0,
+                queuedAt: _now)
+            : _bet();
+        if (limit) {
+          AuthGrantRegistry.instance.issueAutofire(
+            kPendingBetAutofireId,
+            PmGrants.fundedBetReview(
+              PmGrants.betReview(
+                  walletId: 'w1',
+                  tokenId: intent.tokenId,
+                  maxCostUsd: intent.amount + 0.02,
+                  worstPrice: 0.4,
+                  orderType: OrderType.gtc.name),
+              fundUsd: intent.fundUsd!,
+              venue: IntentVenue.polymarket,
+            ),
+            method: AuthGrantMethod.biometric,
+          );
+        } else {
+          approve(intent);
+        }
+        final notifier = c.read(pendingPolymarketBetProvider.notifier);
+        notifier.setIntent(intent);
+        await settle();
+        final id = c.read(standingOrdersProvider).single.id;
+        final outcomes = <StandingOrder>[];
+        c.read(standingOrdersProvider.notifier).outcomes.listen(outcomes.add);
+        notifier.updateStatus(PendingBetStatus.placing);
+        await settle();
+        return (c: c, notifier: notifier, id: id, outcomes: outcomes);
+      }
+
+      setUp(() => StandingOrdersNotifier.settleLooks = const [
+            Duration.zero,
+            Duration(milliseconds: 40),
+            Duration(milliseconds: 40),
+          ]);
+      tearDown(() => StandingOrdersNotifier.settleLooks =
+          StandingOrdersNotifier.defaultSettleLooks);
+
+      test(
+          'a limit resting on the book, its queued bet cleared: never "not '
+          'placed"', () async {
+        final r = await posted(limit: true);
+        lookup = (hash) => {'id': hash, 'status': 'LIVE', 'size_matched': '0'};
+        r.notifier.updateStatus(PendingBetStatus.done);
+        await settle();
+        expect(r.c.read(standingOrdersProvider).single.state,
+            StandingOrderState.posted);
+        // The autofire clears the placed bet 600 ms after `done`.
+        r.notifier.clear();
+        await settle();
+        expect(r.outcomes.where((o) => o.state == StandingOrderState.failed),
+            isEmpty,
+            reason: 'the order rests on the book: no "wasn\'t placed" toast');
+        // Its part is over: no "Placing" card left behind, never resumed.
+        expect(r.c.read(standingOrdersProvider).where((o) => o.isOpen),
+            isEmpty);
+        expect((await store.load('w1')).where((o) => o.isOpen), isEmpty);
+      });
+
+      test(
+          'a market order the venue took with no answer, the slip dismissed: '
+          'settled by the venue\'s own record, matched is placed', () async {
+        final r = await posted();
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await settle();
+        expect(r.c.read(standingOrdersProvider).single.state,
+            StandingOrderState.posted);
+        lookup = (hash) => {'id': hash, 'status': 'MATCHED'};
+        r.notifier.clear();
+        await settle();
+        expect(r.c.read(standingOrdersProvider).single.state,
+            StandingOrderState.filled);
+        expect(r.outcomes.single.state, StandingOrderState.filled);
+      });
+
+      test(
+          'awaiting its confirmation with the slip gone: the venue\'s record '
+          'ends the order AND the queued bet, so the next bet is not refused',
+          () async {
+        final r = await posted();
+        // Unknown at first (the venue has not filed it yet).
+        lookup = (hash) => null;
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(r.c.read(pendingPolymarketBetProvider)!.status,
+            PendingBetStatus.awaitingConfirmation);
+        lookup = (hash) => {'id': hash, 'status': 'MATCHED'};
+        await settle();
+        expect(r.c.read(standingOrdersProvider).single.state,
+            StandingOrderState.filled);
+        expect(r.outcomes.single.state, StandingOrderState.filled);
+        final bet = r.c.read(pendingPolymarketBetProvider);
+        expect(
+            bet == null || bet.status == PendingBetStatus.done, isTrue,
+            reason: 'no bet left "still being confirmed"');
+      });
+
+      test(
+          'killed unfilled by the venue\'s record: not placed, said once, '
+          'the queued bet failed with it', () async {
+        final r = await posted();
+        lookup = (hash) =>
+            {'id': hash, 'status': 'CANCELED', 'size_matched': '0'};
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await settle();
+        final o = r.c.read(standingOrdersProvider).single;
+        expect(o.state, StandingOrderState.failed);
+        expect(o.failureCode, StandingOrderFailure.notFilled);
+        expect(r.outcomes, hasLength(1));
+        expect(r.c.read(pendingPolymarketBetProvider)!.status,
+            PendingBetStatus.failed);
+      });
+
+      test('the venue unreadable: left as it is, never guessed', () async {
+        final r = await posted();
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        r.notifier.clear();
+        await settle();
+        expect(r.c.read(standingOrdersProvider).single.state,
+            StandingOrderState.posted);
+        expect(r.outcomes, isEmpty);
+      });
+
+      test('cleared before anything was posted: still "not placed", as before',
+          () async {
+        final c = container();
+        final intent = _bet();
+        approve(intent);
+        final notifier = c.read(pendingPolymarketBetProvider.notifier);
+        notifier.setIntent(intent);
+        await settle();
+        final outcomes = <StandingOrder>[];
+        c.read(standingOrdersProvider.notifier).outcomes.listen(outcomes.add);
+        notifier.clear();
+        await settle();
+        final o = c.read(standingOrdersProvider).single;
+        expect(o.state, StandingOrderState.failed);
+        expect(o.failureCode, 'dropped');
+        expect(outcomes.single.state, StandingOrderState.failed);
+      });
+    });
+
     test('the price past the approval waits for the person, never a failure by itself',
         () async {
       final c = container();
