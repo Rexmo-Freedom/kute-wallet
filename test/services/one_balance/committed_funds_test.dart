@@ -360,6 +360,68 @@ void main() {
       expect(w.forNewOrder, 10);
     });
 
+    test(
+        'Dollars that left and showed it are gone for good: money landing '
+        'in Dollars seconds later (the next bet\'s Bitcoin, home from '
+        'Investing) is never counted against the bet before it', () async {
+      // Dollars held exactly the first bet's move.
+      final w = _World(5);
+      addTearDown(w.c.dispose);
+      expect(await w.fund(OneBalanceVenue.predictions, 5),
+          isA<OrderFundingFunded>());
+      await _settle();
+      // The reading shows the debit: nothing is held any more.
+      expect(w.read, 0);
+      expect(w.forNewOrder, 0);
+      // The first bet is placed. Seconds later the next bet's Bitcoin
+      // lands in Dollars, on its way into Predictions.
+      now = now.add(const Duration(seconds: 12));
+      w.set(5.12);
+      await _settle();
+      expect(w.forNewOrder, closeTo(5.12, 1e-9),
+          reason: 'the first bet\'s dollars left long ago');
+      expect(
+          w.ledger.availableFor(OneBalanceVenue.predictions, dollarsUsd: 5.12),
+          closeTo(5.12, 1e-9));
+      // Its move into Predictions goes: never "needs dollars".
+      expect(await w.fund(OneBalanceVenue.predictions, 5.12),
+          isA<OrderFundingFunded>());
+      expect(w.predictions.sent, [5, 5.12]);
+    });
+
+    test(
+        'a reading that has not shown the debit yet still holds it, as '
+        'before', () async {
+      final w = _World(10);
+      addTearDown(w.c.dispose);
+      final funder = _GatedFunder((_) {});
+      final controller = OrderFundingController(
+        funderFor: (_) => funder,
+        dollarsUsd: () => w.c.read(usdBalanceProvider),
+        commitments: () => w.ledger,
+      );
+      await controller.fundAndQueue(
+        venue: OneBalanceVenue.predictions,
+        orderUsd: 6,
+        requiredUsd: 6,
+        readyUsd: 0,
+        auth: UserGrantAuthorization(_grant()),
+        fundUsd: 6,
+      );
+      // Money comes in before the debit shows: 6 of the 13 are still the
+      // move's.
+      w.set(13);
+      await _settle();
+      expect(w.forNewOrder, closeTo(7, 1e-9));
+      // The debit shows: gone, and it stays gone.
+      w.set(7);
+      await _settle();
+      expect(w.forNewOrder, 7);
+      w.set(11);
+      await _settle();
+      expect(w.forNewOrder, 11);
+    });
+
     test('nothing outlives the longest wait, bound or not', () {
       final w = _World(10);
       addTearDown(w.c.dispose);

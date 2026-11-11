@@ -193,10 +193,40 @@ class CommittedFundsNotifier extends Notifier<List<FundsCommitment>>
 
   Timer? _expiry;
 
+  /// The Dollars reading, followed while Dollars that left are still
+  /// held: the moment it shows their debit they are gone for good.
+  ProviderSubscription<double>? _dollarsSub;
+
+  /// The Dollars reading when each venue's move was claimed, right before
+  /// it left: what the reading drops from once the debit shows.
+  final Map<OneBalanceVenue, double> _shownAtClaim = {};
+
   @override
   List<FundsCommitment> build() {
+    _dollarsSub = null;
+    _shownAtClaim.clear();
     ref.onDispose(() => _expiry?.cancel());
     return const [];
+  }
+
+  /// Follows the Dollars reading from now (idempotent). A sent commitment
+  /// counts "until the reading shows the debit", and that has to be
+  /// noticed when it happens: judged only against the reading of the
+  /// moment, Dollars that had left and shown it were counted AGAIN when
+  /// other money landed in Dollars inside the send hold (the next bet's
+  /// Bitcoin on its way through, cash home from Investing), and that
+  /// money's own move was refused for lack of Dollars.
+  void _followDollars() {
+    if (_dollarsSub != null) return;
+    try {
+      _dollarsSub = ref.listen<double>(usdBalanceProvider, (_, next) {
+        if (state.any((c) => c.sent && c.from == MoneyPlace.dollars)) {
+          _set(state, dollarsUsd: next);
+        }
+      }, onError: (_, __) {});
+    } catch (_) {
+      // No reading to follow: the send hold alone bounds them.
+    }
   }
 
   bool _runLive(String runId) {
@@ -363,6 +393,7 @@ class CommittedFundsNotifier extends Notifier<List<FundsCommitment>>
       releaseDollars(venue);
       return;
     }
+    _shownAtClaim[venue] = _dollarsNow();
     _put(MoneyPlace.dollars, venue, want, runId: own?.runId);
   }
 
@@ -371,6 +402,16 @@ class CommittedFundsNotifier extends Notifier<List<FundsCommitment>>
     final own = heldOn(MoneyPlace.dollars, venue);
     if (own == null) return;
     final now = clock();
+    final shownBefore = _shownAtClaim.remove(venue);
+    // The reading already fell by the move while it was being sent: the
+    // debit shows, nothing is held for it.
+    if (shownBefore != null && shownBefore - _dollarsNow() >= own.usd / 2) {
+      _set([
+        for (final c in state)
+          if (!identical(c, own)) c,
+      ]);
+      return;
+    }
     _set([
       for (final c in state)
         if (identical(c, own))
@@ -378,6 +419,7 @@ class CommittedFundsNotifier extends Notifier<List<FundsCommitment>>
         else
           c,
     ], dollarsUsd: fromUsd);
+    _followDollars();
   }
 
   @override
