@@ -6,12 +6,21 @@
 // 'moving_now' as its entry source; no squares under four movers or on an
 // empty list, and none on a category the person picks (the full plain
 // list). The list under them keeps its own (volume) order. A square: logo
-// and change, then the name over the price, no sparkline.
+// and change, then the name over the price, no sparkline. Only markets
+// with a logo of their own (founder, 11 November 2026: "don't show Moving
+// now without svg"): one without is skipped for the next; the squares'
+// skeleton while logos that could fill them are unknown, never letter
+// tiles.
+
+import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_candles_provider.dart';
@@ -30,9 +39,11 @@ import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 import '../usd/investments_harness.dart';
 
@@ -118,6 +129,10 @@ Future<void> _pump(WidgetTester tester, List<HlMarket> universe,
 }
 
 void main() {
+  // The Investing squares list only markets with a logo of their own:
+  // here every market has one.
+  setUp(() => HlIconAvailability.debugEveryLogoKnown = true);
+  tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   test('the movers: largest absolute change first, ties by volume, thin '
@@ -330,5 +345,122 @@ void main() {
     expect(perpsRows, hasLength(24));
     expect(perpsRows.toSet().containsAll(onStrip), isTrue);
     expect(tester.takeException(), isNull);
+  });
+
+  group('only markets with a logo of their own', () {
+    HlLogoStatus Function(HlMarket) statuses(Map<String, HlLogoStatus> s) =>
+        (m) => s[m.coin] ?? HlLogoStatus.hit;
+    List<String> coins(List<HlMarket> ms) => [for (final m in ms) m.coin];
+
+    test('a mover with no logo is skipped; the next with one takes its place',
+        () {
+      final pick = hlStripWithLogos(
+          (keep) => hlMovingNow(_universe, keep: keep),
+          status: statuses({'HYPE': HlLogoStatus.miss}));
+      expect(coins(pick.shown), ['ZEC', 'DOGE', 'NEAR', 'SOL']);
+      expect(pick.pending, isEmpty);
+      expect(pick.loading, isFalse);
+    });
+
+    test('the liquidity floor still applies to markets with a logo', () {
+      final thin = _market('MU', px: 150, prev: 100, vlm: 100);
+      final pick = hlStripWithLogos(
+          (keep) => hlMovingNow([..._universe, thin], keep: keep),
+          status: (_) => HlLogoStatus.hit);
+      expect(coins(pick.shown), ['ZEC', 'HYPE', 'DOGE', 'NEAR']);
+    });
+
+    test('a higher logo not known yet: the four known show meanwhile', () {
+      final pick = hlStripWithLogos(
+          (keep) => hlMovingNow(_universe, keep: keep),
+          status: statuses({'ZEC': HlLogoStatus.unknown}));
+      expect(coins(pick.shown), ['HYPE', 'DOGE', 'NEAR', 'SOL']);
+      expect(coins(pick.best), ['ZEC', 'HYPE', 'DOGE', 'NEAR']);
+      expect(coins(pick.pending), ['ZEC']);
+      expect(pick.loading, isFalse);
+    });
+
+    test('unknown logos that could fill the squares: loading; a miss among '
+        'four: no squares (no hole)', () {
+      // Four movers: HYPE, SOL, XRP, BTC.
+      final four = _universe.take(5).toList();
+      final unknown = hlStripWithLogos(
+          (keep) => hlMovingNow(four, keep: keep),
+          status: statuses({'HYPE': HlLogoStatus.unknown}));
+      expect(unknown.shown, isEmpty);
+      expect(unknown.loading, isTrue);
+      expect(coins(unknown.pending), ['HYPE']);
+      final miss = hlStripWithLogos(
+          (keep) => hlMovingNow(four, keep: keep),
+          status: statuses({'HYPE': HlLogoStatus.miss}));
+      expect(miss.shown, isEmpty);
+      expect(miss.loading, isFalse);
+    });
+
+    testWidgets('on the screen: HYPE has no logo, SOL takes its square',
+        (tester) async {
+      HlIconAvailability.debugEveryLogoKnown = false;
+      HlIconPrefetch.debugReset();
+      addTearDown(HlIconPrefetch.debugReset);
+      for (final m in _universe) {
+        HlIconAvailability.debugSeed(m, hit: m.coin != 'HYPE');
+      }
+      await _pump(tester, _universe);
+      expect(_cards(tester), ['ZEC', 'DOGE', 'NEAR', 'SOL']);
+      expect(find.descendant(of: _strip(), matching: find.byType(HlLetterBadge)),
+          findsNothing);
+      final rows = tester.widgetList<HlMarketCard>(find.byType(HlMarketCard));
+      expect(rows.map((r) => r.market.coin), isNot(contains('SOL')));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'on the screen: the skeleton while logos are unknown, never letter '
+        'tiles; settled, the squares; HYPE, whose only logo is CoinCap\'s, '
+        'is not on them', (tester) async {
+      HlIconAvailability.debugEveryLogoKnown = false;
+      HlIconPrefetch.debugReset();
+      addTearDown(HlIconPrefetch.debugReset);
+      final png = base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGP4PlnqPwgzwBgAX8AKjR/k5lsAAAAASUVORK5CYII=');
+      final asked = <String>[];
+      final venue = Completer<void>();
+      SharedHttpClient.debugOverride = MockClient((req) async {
+        final url = req.url.toString();
+        asked.add(url);
+        await venue.future;
+        if (url.endsWith('/HYPE.svg')) {
+          return http.Response('<!doctype html><html></html>', 200,
+              headers: {'content-type': 'text/html'});
+        }
+        return http.Response.bytes(png, 200,
+            headers: {'content-type': 'image/png'});
+      });
+      addTearDown(() => SharedHttpClient.debugOverride = null);
+
+      await _pump(tester, _universe);
+      expect(find.byType(HlMovingNowStripSkeleton), findsOneWidget);
+      expect(find.byType(HlMovingNowCard), findsNothing);
+      // The strip asks only for the markets' own logos.
+      expect(asked.where((u) => u.contains('coincap')), isEmpty);
+      expect(
+          find.descendant(
+              of: find.byType(HlMovingNowStripSkeleton),
+              matching: find.byType(HlLetterBadge)),
+          findsNothing);
+
+      venue.complete();
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(HlMovingNowStripSkeleton), findsNothing);
+      expect(_cards(tester), ['ZEC', 'DOGE', 'NEAR', 'SOL']);
+      // HYPE's row in the list draws CoinCap's PNG (the icon's last
+      // resort); that is no logo of its own, so no square.
+      expect(asked,
+          contains('https://assets.coincap.io/assets/icons/hype@2x.png'));
+      expect(HlIconAvailability.of(_universe[3]), HlLogoStatus.miss);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

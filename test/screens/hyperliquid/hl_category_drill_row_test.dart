@@ -19,6 +19,7 @@ import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 import '../usd/investments_harness.dart';
 
@@ -80,6 +81,10 @@ Future<void> _settle(WidgetTester tester) async {
 }
 
 void main() {
+  // The Investing squares list only markets with a logo of their own:
+  // here every market has one.
+  setUp(() => HlIconAvailability.debugEveryLogoKnown = true);
+  tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets(

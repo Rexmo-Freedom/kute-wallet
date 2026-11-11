@@ -21,6 +21,7 @@ import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 import '../usd/investments_harness.dart';
 import 'hl_trending_strip_fixture.dart';
@@ -49,6 +50,10 @@ List<HlMarket> _strip(List<HlMarket> universe) =>
     hlTrendingStrip(universe, _trendingList(universe));
 
 void main() {
+  // The Investing squares list only markets with a logo of their own:
+  // here every market has one.
+  setUp(() => HlIconAvailability.debugEveryLogoKnown = true);
+  tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   test('hype: volume raised by the move, a 10% move doubles it', () {

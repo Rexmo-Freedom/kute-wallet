@@ -733,6 +733,7 @@ abstract final class HlIconAvailability {
   /// the ones before it are settled), a miss when every one is a known
   /// miss, else unknown. Never asks the network.
   static HlLogoStatus of(HlMarket m) {
+    if (debugEveryLogoKnown) return HlLogoStatus.hit;
     final disk = _hlDiskNow();
     var unknown = false;
     for (final u in logoUrlsFor(m)) {
@@ -786,8 +787,13 @@ abstract final class HlIconAvailability {
     }
   }
 
+  /// Tests about something else than logos: every market has one.
+  @visibleForTesting
+  static bool debugEveryLogoKnown = false;
+
   @visibleForTesting
   static void debugReset() {
+    debugEveryLogoKnown = false;
     _asked.clear();
     _hlDiskFuture = null;
     _hlDiskValue = null;

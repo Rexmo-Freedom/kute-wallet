@@ -48,6 +48,7 @@ import 'package:kute/services/polymarket/crypto_live_odds.dart';
 import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 
 import '../../helpers/portfolio_overrides.dart';
 import '../hyperliquid/hl_trending_strip_fixture.dart';
@@ -378,6 +379,10 @@ Future<void> _still(WidgetTester tester, String source,
 }
 
 void main() {
+  // The Investing squares list only markets with a logo of their own:
+  // here every market has one.
+  setUp(() => HlIconAvailability.debugEveryLogoKnown = true);
+  tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   for (final scrolled in [false, true]) {

@@ -40,6 +40,14 @@
 //
 // The squares are only shown when [kHlMoverCardMin] (four) markets
 // qualify: a grid with a hole reads as a mistake.
+//
+// Only markets with a logo of their own are on it (founder, 11 November
+// 2026: "don't show Moving now without svg, means that they have low
+// liquidity"): [hlStripWithLogos] keeps the ranking and its rules and
+// leaves out a market whose logo is a known miss (CoinCap's guess at a
+// ticker, a glyph or a letter tile is no logo); while logos that could
+// still fill the squares are unknown, the squares' skeleton stands
+// ([HlMovingNowStripSkeleton]), never letter tiles.
 
 import 'dart:math' as math;
 
@@ -63,6 +71,8 @@ import 'package:kute/screens/shared/all_activity.dart'
     show ActivitySquareGrid;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
+import 'package:kute/screens/shared/kute_skeleton.dart'
+    show KuteSkeleton, SkeletonBar, SkeletonCircle;
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
     show kActivitySquareHeight;
@@ -107,10 +117,15 @@ List<HlMarket> _onePerUnderlying(List<HlMarket> ranked) =>
 /// with no change to show (no previous-day price) or thinly traded
 /// ([HlMarket.isLowLiquidity]) is left out. Empty, so no strip, under
 /// [min] candidates.
+///
+/// [keep], when given, is asked of each market after the ranking (one per
+/// underlying): one it refuses is left out and the next takes its place
+/// ([hlStripWithLogos]).
 List<HlMarket> hlMovingNow(
   List<HlMarket> markets, {
   int min = kHlMoverCardMin,
   int max = kHlMoverCardMax,
+  bool Function(HlMarket market)? keep,
 }) {
   final ranked = <({HlMarket m, double change, int index})>[];
   for (var i = 0; i < markets.length; i++) {
@@ -126,7 +141,9 @@ List<HlMarket> hlMovingNow(
     final v = b.m.dayNtlVlm.compareTo(a.m.dayNtlVlm);
     return v != 0 ? v : a.index.compareTo(b.index);
   });
-  final unique = _onePerUnderlying([for (final r in ranked) r.m]);
+  final unique = _onePerUnderlying([for (final r in ranked) r.m])
+      .where(keep ?? (_) => true)
+      .toList();
   if (unique.length < min) return const [];
   return unique.take(max).toList(growable: false);
 }
@@ -171,12 +188,14 @@ bool hlHypeCandidate(HlMarket m) =>
 /// dexes not read), the movers of [trending] (the Trending list)
 /// instead, as every other category ([hlMovingNow]); or, with
 /// [fallback] false (the builder dexes still on their way), no strip.
+/// [keep] as [hlMovingNow]'s.
 List<HlMarket> hlTrendingStrip(
   List<HlMarket> universe,
   List<HlMarket> trending, {
   int min = kHlMoverCardMin,
   int max = kHlHypeCardMax,
   bool fallback = true,
+  bool Function(HlMarket market)? keep,
 }) {
   final scored = <({HlMarket m, double hype, int index})>[];
   for (var i = 0; i < universe.length; i++) {
@@ -190,9 +209,11 @@ List<HlMarket> hlTrendingStrip(
     final v = b.m.dayNtlVlm.compareTo(a.m.dayNtlVlm);
     return v != 0 ? v : a.index.compareTo(b.index);
   });
-  final unique = _onePerUnderlying([for (final s in scored) s.m]);
+  final unique = _onePerUnderlying([for (final s in scored) s.m])
+      .where(keep ?? (_) => true)
+      .toList();
   if (unique.length < min) {
-    return fallback ? hlMovingNow(trending, min: min) : const [];
+    return fallback ? hlMovingNow(trending, min: min, keep: keep) : const [];
   }
 
   bool isCommodity(HlMarket m) => m.category == 'commodities';
@@ -215,6 +236,45 @@ List<HlMarket> hlTrendingStrip(
   final rank = {for (var i = 0; i < unique.length; i++) unique[i]: i};
   picked.sort((a, b) => rank[a]!.compareTo(rank[b]!));
   return picked;
+}
+
+/// The strip [choose] makes ([hlTrendingStrip] or [hlMovingNow], given
+/// its `keep`) with only markets that have a logo of their own
+/// ([HlIconAvailability.of]):
+///   * [best]: the strip if every logo not known yet turned out to be
+///     one, the most it could be;
+///   * [pending]: the markets of [best] whose logo is not known yet,
+///     settled with [HlIconAvailability.ensure];
+///   * [shown]: the strip of the known logos alone, drawn meanwhile when
+///     it has its four;
+///   * [loading]: no strip of known logos yet, but [best] could be one:
+///     the squares' skeleton stands, never letter tiles.
+/// Every logo known: [shown] is the strip, or nothing under four.
+({
+  List<HlMarket> shown,
+  List<HlMarket> best,
+  List<HlMarket> pending,
+  bool loading,
+}) hlStripWithLogos(
+  List<HlMarket> Function(bool Function(HlMarket market) keep) choose, {
+  HlLogoStatus Function(HlMarket market) status = HlIconAvailability.of,
+}) {
+  final known = <HlMarket, HlLogoStatus>{};
+  HlLogoStatus of(HlMarket m) => known.putIfAbsent(m, () => status(m));
+  final best = choose((m) => of(m) != HlLogoStatus.miss);
+  final pending = [
+    for (final m in best)
+      if (of(m) == HlLogoStatus.unknown) m,
+  ];
+  final shown = pending.isEmpty
+      ? best
+      : choose((m) => of(m) == HlLogoStatus.hit);
+  return (
+    shown: shown,
+    best: best,
+    pending: pending,
+    loading: shown.isEmpty && best.isNotEmpty,
+  );
 }
 
 /// Rows the default view (Trending) lists under its
@@ -329,6 +389,42 @@ class HlMovingNowStrip extends StatelessWidget {
   }
 }
 
+/// The four squares while their logos are still unknown
+/// ([hlStripWithLogos]): each square's ground at its height, the logo's
+/// circle and the name and price bars where they will land, shimmering.
+class HlMovingNowStripSkeleton extends StatelessWidget {
+  const HlMovingNowStripSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    final height = hlMovingNowCardHeight(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
+      child: KuteSkeleton(
+        child: ActivitySquareGrid(children: [
+          for (var i = 0; i < kHlMoverCardMax; i++)
+            Container(
+              height: height,
+              decoration: decoration,
+              padding: EdgeInsets.all(_kPad.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonCircle(kHlMoverCardIcon.w),
+                  const Spacer(),
+                  SkeletonBar(64.w, 12.h),
+                  SizedBox(height: 8.h),
+                  SkeletonBar(96.w, 20.h),
+                ],
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+}
+
 /// One square of the grid. Consumer-stateful like the row, so it can
 /// watch its coin's live mid and register the coin with the live-prices
 /// watch-set on mount (released wholesale by the screen; never unwatched
@@ -407,12 +503,20 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ClipOval(
+                        // A blank plate until the logo paints, never the
+                        // letter tile or a glyph (only markets with a
+                        // logo are on the strip).
                         child: HlCoinIcon(
                           coin: m.coin,
                           wireCoin: m.wireCoin,
                           category: m.category,
                           iconUrl: m.iconUrl,
                           size: kHlMoverCardIcon,
+                          placeholder: Container(
+                            width: kHlMoverCardIcon.w,
+                            height: kHlMoverCardIcon.w,
+                            color: c.surfaceElevated,
+                          ),
                         ),
                       ),
                       SizedBox(width: 8.w),

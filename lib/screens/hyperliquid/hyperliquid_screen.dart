@@ -31,7 +31,7 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
-    show HlIconPrefetch;
+    show HlIconAvailability, HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
@@ -154,10 +154,15 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// default view (Trending, no subcategory) has a strip: the hyped
   /// stocks and commodities of the whole [universe] ([hlTrendingStrip]).
   /// A category or subcategory the person picks is the full plain list,
-  /// nothing excluded (founder, 1 November 2026).
+  /// nothing excluded (founder, 1 November 2026). Only markets with a
+  /// logo of their own ([hlStripWithLogos]); chosen again when logos are
+  /// settled ([HlIconAvailability.revision]), and while ones that could
+  /// fill it are unknown the squares' skeleton stands ([_moversLoading]).
   List<HlMarket>? _moversListed;
   bool _moversPerpsLanded = false;
   bool _moversDefault = false;
+  int _moversLogos = -1;
+  bool _moversLoading = false;
   List<HlMarket> _movers = const [];
   List<HlMarket> _rest = const [];
   List<HlMarket> _moversFor(HlBrowseTab tab, HlBrowseSub sub,
@@ -167,20 +172,37 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     final perpsLanded =
         ref.read(hyperliquidPerpMarketsProvider).valueOrNull != null;
     final defaultView = hlBrowseIsDefaultView(tab, sub);
+    final logos = HlIconAvailability.revision.value;
     if (!identical(markets, _moversListed) ||
         perpsLanded != _moversPerpsLanded ||
-        defaultView != _moversDefault) {
+        defaultView != _moversDefault ||
+        logos != _moversLogos) {
       _moversListed = markets;
       _moversPerpsLanded = perpsLanded;
       _moversDefault = defaultView;
-      final strip = defaultView
-          ? _trendingStrip(markets, universe)
-          : const <HlMarket>[];
+      _moversLogos = logos;
+      final pick = defaultView
+          ? hlStripWithLogos(
+              (keep) => _trendingStrip(markets, universe, keep: keep))
+          : null;
+      if (pick != null && pick.pending.isNotEmpty) {
+        unawaited(HlIconAvailability.ensure(pick.pending));
+      }
+      final loading = pick?.loading ?? false;
+      // While loading, the list already leaves out the markets the
+      // squares would most likely hold, so it does not shift when they
+      // land.
+      final strip = pick == null
+          ? const <HlMarket>[]
+          : loading
+              ? pick.best
+              : pick.shown;
       // A market on the strip is not repeated in the list under it
       // (founder, 1 November 2026); and the strip never empties the
       // list: with fewer than [kHlMoverListKeeps] rows left, no strip.
       final rest = hlListUnderStrip(markets, strip);
-      _movers = rest == null ? const [] : strip;
+      _moversLoading = loading && rest != null;
+      _movers = rest == null || loading ? const [] : strip;
       _rest = rest ?? markets;
     }
     return _movers;
@@ -195,15 +217,17 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// policy; with none, no strip until they arrive, never the movers. The
   /// movers are for a full list that still has too few.
   List<HlMarket> _trendingStrip(
-      List<HlMarket> markets, List<HlMarket> universe) {
+      List<HlMarket> markets, List<HlMarket> universe,
+      {bool Function(HlMarket market)? keep}) {
     final pending =
         !_moversPerpsLanded && !universe.any((m) => m.isHip3);
-    if (!pending) return hlTrendingStrip(universe, markets);
+    if (!pending) return hlTrendingStrip(universe, markets, keep: keep);
     final lastSeen = HlMarketsDiskCache.instance.perps ?? const <HlMarket>[];
     final lent = hlMarketsOfferedUnderPolicy(
         [for (final m in lastSeen) if (m.isHip3) m],
         ref.read(runtimeCapabilitiesProvider));
-    return hlTrendingStrip([...universe, ...lent], markets, fallback: false);
+    return hlTrendingStrip([...universe, ...lent], markets,
+        fallback: false, keep: keep);
   }
 
   /// The list under the strip: [markets] less the strip's; on the
@@ -284,6 +308,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     // scroll. Embedded, the list scrolls inside the Investments page,
     // which drives the bar from its own scroll notifications.
     if (!widget.embedded) _scrollController.addListener(_onScrollNavBar);
+    HlIconAvailability.revision.addListener(_onLogosSettled);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Warm the builder settings now so a slow connection has already
@@ -321,8 +346,14 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     });
   }
 
+  /// Logos were settled: the strip chooses again ([_moversFor]).
+  void _onLogosSettled() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    HlIconAvailability.revision.removeListener(_onLogosSettled);
     _scrollController.removeListener(_onScrollNavBar);
     _scrollController.dispose();
     // Release the allMids socket + watch-set — uses the notifier
@@ -631,6 +662,15 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             // search is its own screen, so the list here
                             // is never a search result.
                             if (_moversFor(tab, sub, markets, universe)
+                                    .isEmpty &&
+                                _moversLoading)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 8.h),
+                                  child: const HlMovingNowStripSkeleton(),
+                                ),
+                              )
+                            else if (_moversFor(tab, sub, markets, universe)
                                 .isNotEmpty)
                               SliverToBoxAdapter(
                                 child: Padding(
