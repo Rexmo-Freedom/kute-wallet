@@ -4,13 +4,19 @@
 // order and the money visibly landed short, never when it is a limit
 // order; and gone with its grant when the move was refused.
 
+import 'dart:io';
+
 import 'package:fake_async/fake_async.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidTradingModelProvider;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -57,6 +63,34 @@ class _Account extends HlAccountNotifier {
   final double Function() read;
   @override
   Future<HlAccountSnapshot> build() async => _snapshot(read());
+}
+
+/// The venue as the real account notifier reads it: counts every read,
+/// each answering after [latency]; [fail] throws a 429.
+class _Venue extends HyperliquidModel {
+  _Venue(this.figure);
+  final double Function() figure;
+  final reads = <String>[];
+  Duration latency = Duration.zero;
+  bool fail = false;
+
+  Future<HlAccountSnapshot> _read(String kind) async {
+    reads.add(kind);
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+    if (fail) {
+      throw HyperliquidInfoException('info clearinghouseState failed',
+          statusCode: 429);
+    }
+    return _snapshot(figure());
+  }
+
+  @override
+  Future<HlAccountSnapshot> getPortfolioSnapshot(String address) =>
+      _read('full');
+
+  @override
+  Future<HlAccountSnapshot> getCreditSnapshot(String address) =>
+      _read('credit');
 }
 
 /// A controller that answers what the test says, after recording the ask.
@@ -962,6 +996,142 @@ void main() {
               c.read(pendingHyperliquidOrderProvider),
               c.read(fundedOrdersProvider)),
           isFalse);
+    });
+  });
+
+  group('fresh account reads while an order waits for its credit', () {
+    late _Venue venue;
+    late Directory hiveDir;
+    setUpAll(() {
+      hiveDir = Directory.systemTemp.createTempSync('hl_fresh_read_test');
+      Hive.init(hiveDir.path);
+    });
+    tearDownAll(() async {
+      await Hive.close();
+      hiveDir.deleteSync(recursive: true);
+    });
+
+    ProviderContainer live(_Controller controller) {
+      venue = _Venue(() => withdrawable);
+      final c = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+        sessionUnlockedProvider.overrideWith((_) => true),
+        hyperliquidAddressProvider.overrideWith(
+            (_) async => '0x1111111111111111111111111111111111111111'),
+        hyperliquidTradingModelProvider.overrideWithValue(venue),
+        hyperliquidMoveRailProvider.overrideWithValue(rail),
+        orderFundingControllerProvider.overrideWithValue(controller),
+      ]);
+      addTearDown(c.dispose);
+      c.read(pendingHlOrderAutoFireProvider);
+      history = [];
+      c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
+      // On screen: the account stays alive between reads.
+      c.listen(hyperliquidAccountProvider, (_, __) {});
+      return c;
+    }
+
+    void queue(ProviderContainer c, _Controller controller,
+        _Placement placement) {
+      OrderFundingJourney.reset();
+      OrderFundingJourney.instance.start(OneBalanceVenue.investing,
+          orderUsd: 20, fundUsd: 20.03, readyUsd: 0, dollarsUsd: 20.03);
+      final intent = _intent(placement);
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: intent.requiredUsd,
+          readyUsd: 0);
+    }
+
+    test(
+        'every 1 s tick reads the venue (not the cached snapshot); the '
+        'credit places within a second, credited_by fresh_read', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        final start = venue.reads.length;
+        async.elapse(const Duration(seconds: 5));
+        // One light read a second, never two in the same second.
+        final reads = venue.reads.length - start;
+        expect(reads, inInclusiveRange(4, 5));
+        expect(venue.reads.skip(start).every((k) => k == 'credit'), isTrue);
+        expect(placement.placed, isEmpty);
+        withdrawable = 21;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final done = events
+            .lastWhere((e) => e.$1 == 'order_funding_completed')
+            .$2!;
+        expect(done['credited_by'], 'fresh_read');
+        expect(done['ms_funded_to_account_shows'], isA<int>());
+        expect(done['account_reads'] as int, greaterThanOrEqualTo(5));
+        expect(done['account_read_errors'], 0);
+      });
+    });
+
+    test('one read in flight: the ledger push joins the tick\'s read', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        venue.latency = const Duration(milliseconds: 600);
+        async.elapse(const Duration(milliseconds: 1100));
+        // The 1 s tick's read is out (until 1.6 s).
+        final before = venue.reads.length;
+        withdrawable = 21;
+        c.read(pendingHlOrderAutoFireProvider).accountMoved(credited: true);
+        async.elapse(const Duration(milliseconds: 100));
+        expect(venue.reads.length, before,
+            reason: 'joined the read in flight, no second request');
+        async.elapse(const Duration(milliseconds: 600));
+        async.flushMicrotasks();
+        final done = events
+            .lastWhere((e) => e.$1 == 'order_funding_completed')
+            .$2!;
+        expect(done['ms_funded_to_ledger_push'], isA<int>());
+        // The tick and the push shared one read: placed once, never a
+        // second placement that finds the approval spent.
+        expect(placement.placed, [20]);
+        expect(events.where((e) => e.$1 == 'order_funding_failed'), isEmpty);
+      });
+    });
+
+    test('a 429 backs the fresh reads off (1, 2, 4, 8 s), the order waits',
+        () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        venue.fail = true;
+        final start = venue.reads.length;
+        async.elapse(const Duration(seconds: 16));
+        // Without backoff: 16 reads. With it: ticks at 1, 2 (after 1 s),
+        // 4 (after 2 s), 8 (after 4 s), 16 (after 8 s).
+        expect(venue.reads.length - start, lessThanOrEqualTo(6));
+        expect(placement.placed, isEmpty);
+        venue.fail = false;
+        withdrawable = 21;
+        async.elapse(const Duration(seconds: 16));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final done = events
+            .lastWhere((e) => e.$1 == 'order_funding_completed')
+            .$2!;
+        expect(done['account_read_errors'] as int, greaterThan(0));
+      });
     });
   });
 }

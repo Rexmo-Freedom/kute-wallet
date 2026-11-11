@@ -201,8 +201,103 @@ const int kHlIdleIntervalSecs = 15;
 /// separate and stays.
 const int kHlNoPollIntervalSecs = 0;
 
+/// One Investing account read at a time per account, shared by every
+/// reader of [hyperliquidAccountProvider] (one per notifier, which
+/// Riverpod keeps across the provider's rebuilds): the account's own build (a
+/// websocket ledger push, a fill or a credit invalidates it), its 4 s /
+/// 5 s / 15 s poll and the queued order's fresh credit read
+/// ([HlAccountNotifier.freshRead]). A read asked while one is in flight
+/// joins it; the poll and the fresh read also take a read sent less than
+/// [reuseWithin] (950 ms) ago instead of sending another, so these never
+/// read the account twice within the same second. The fresh read backs off
+/// after a failure (a 429 included): 1, 2, 4, 8, then 15 s at most,
+/// answering the last snapshot meanwhile without a request.
+///
+/// Hyperliquid info API weight (1200 per minute per IP): a fresh read is
+/// `clearinghouseState` + `spotClearinghouseState` (2 + 2 = 4; the
+/// builder DEXs' part is reused from the last full read,
+/// [HyperliquidModel.getCreditSnapshot]); a full read adds 2 per USDC
+/// builder DEX. At one fresh read a second for the first 30 s after a
+/// funding: 4 weight/s, ≤ 240 per minute (20% of the budget), ≤ 120 over
+/// the 30 s, and the 4 s poll's reads in that window are absorbed by it.
+class HlAccountReads {
+  final Map<String, Future<HlAccountSnapshot>> _inFlight = {};
+  final Map<String, HlAccountSnapshot> _last = {};
+
+  /// Accounts read within the last [reuseWithin] (a timer clears each).
+  final Map<String, Timer> _recent = {};
+
+  /// The fresh read's backoff per account, and the timer ending it.
+  final Map<String, Duration> _backoff = {};
+  final Map<String, Timer> _backingOff = {};
+
+  /// A read SENT less than this ago answers the poll and the fresh read
+  /// without a request (just under a second, so the 1 s tick still
+  /// reads every second while nothing reads twice within it).
+  static const Duration reuseWithin = Duration(milliseconds: 950);
+  static const Duration backoffStart = Duration(seconds: 1);
+  static const Duration backoffCap = Duration(seconds: 15);
+
+  /// Requests sent and failed (diagnostics, tests).
+  int sent = 0;
+  int failed = 0;
+
+  /// [fetch] for [address], joined with one in flight; with [reuse], a
+  /// read completed within [reuseWithin] answers instead.
+  Future<HlAccountSnapshot> read(
+      String address, Future<HlAccountSnapshot> Function() fetch,
+      {bool reuse = false}) {
+    final key = address.toLowerCase();
+    final running = _inFlight[key];
+    if (running != null) return running;
+    final last = _last[key];
+    if (reuse && last != null && _recent.containsKey(key)) {
+      return Future.value(last);
+    }
+    sent++;
+    final future = fetch();
+    _inFlight[key] = future;
+    _recent.remove(key)?.cancel();
+    _recent[key] = Timer(reuseWithin, () => _recent.remove(key));
+    future.then((snap) {
+      _last[key] = snap;
+      _backoff.remove(key);
+      _backingOff.remove(key)?.cancel();
+    }, onError: (Object _) {
+      failed++;
+      final before = _backoff[key] ?? Duration.zero;
+      final next = before == Duration.zero
+          ? backoffStart
+          : (before * 2 > backoffCap ? backoffCap : before * 2);
+      _backoff[key] = next;
+      _backingOff.remove(key)?.cancel();
+      _backingOff[key] = Timer(next, () => _backingOff.remove(key));
+    }).whenComplete(() {
+      if (identical(_inFlight[key], future)) _inFlight.remove(key);
+    });
+    return future;
+  }
+
+  /// Whether the fresh read for [address] is backing off now.
+  bool backingOff(String address) =>
+      _backingOff.containsKey(address.toLowerCase());
+
+  /// The backoff the next failure of [address] would extend (tests).
+  @visibleForTesting
+  Duration backoffOf(String address) =>
+      _backoff[address.toLowerCase()] ?? Duration.zero;
+
+  /// The last completed read of [address], if any.
+  HlAccountSnapshot? lastOf(String address) =>
+      _last[address.toLowerCase()];
+}
+
 class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   Timer? _timer;
+
+  /// This account's shared reads ([HlAccountReads]).
+  @visibleForTesting
+  final HlAccountReads reads = HlAccountReads();
   int _currentIntervalSecs = kHlIdleIntervalSecs;
 
   /// Test-only: the cadence currently in force, seconds.
@@ -251,7 +346,8 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     // sticking until something re-watches the provider.
     _startTimer();
     final model = ref.read(hyperliquidTradingModelProvider);
-    final snap = await model.getPortfolioSnapshot(address);
+    final snap = await reads.read(
+        address, () => model.getPortfolioSnapshot(address));
     _reconcilePlacements(snap);
     _publishPositions(snap);
     _noteCredit(address, snap);
@@ -310,19 +406,64 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     if (address == null) return;
     try {
       final model = ref.read(hyperliquidTradingModelProvider);
-      final snap = await model.getPortfolioSnapshot(address);
+      final snap = await reads.read(
+          address, () => model.getPortfolioSnapshot(address),
+          reuse: true);
       if (_disposed) return;
-      _reconcilePlacements(snap);
-      _publishPositions(snap);
-      _noteCredit(address, snap);
-      final current = state.valueOrNull;
-      // Value-equality short-circuit: identical snapshots don't notify.
-      if (current == null || !hlAccountSnapshotEquals(current, snap)) {
-        state = AsyncData(snap);
-      }
+      _take(address, snap);
       _applyCadence();
     } catch (_) {
       // Silent — keep the last snapshot on a background refresh failure.
+    }
+  }
+
+  void _take(String address, HlAccountSnapshot snap) {
+    _reconcilePlacements(snap);
+    _publishPositions(snap);
+    _noteCredit(address, snap);
+    final current = state.valueOrNull;
+    // Value-equality short-circuit: identical snapshots don't notify.
+    if (current == null || !hlAccountSnapshotEquals(current, snap)) {
+      state = AsyncData(snap);
+    }
+  }
+
+  /// A FRESH read of the account for a queued order waiting on its credit
+  /// (the autofire's 1 s tick for the first 30 s after funding), not the
+  /// cached snapshot: shared through [HlAccountReads] (joins a read in
+  /// flight, takes one completed within the last second, never two in the
+  /// same second with the ledger push or the poll), the builder DEXs'
+  /// part reused ([HyperliquidModel.getCreditSnapshot], weight 4). While
+  /// it backs off after a failure (a 429 included) no request goes: the
+  /// last snapshot answers and `sent` is false. Throws only when nothing
+  /// was ever read.
+  ///
+  /// [reuse] false (a ledger push or a credit just said the money moved):
+  /// a read completed before it does not answer; one in flight still is
+  /// joined.
+  Future<({HlAccountSnapshot snap, bool sent, bool failed})> freshRead(
+      {bool reuse = true}) async {
+    final address = _address;
+    final current = state.valueOrNull;
+    if (address == null) {
+      // Not built yet (or rebuilding): its own build is the read.
+      return (snap: await future, sent: false, failed: false);
+    }
+    if (reads.backingOff(address)) {
+      final last = current ?? reads.lastOf(address);
+      if (last != null) return (snap: last, sent: false, failed: false);
+    }
+    final model = ref.read(hyperliquidTradingModelProvider);
+    try {
+      final snap = await reads.read(
+          address, () => model.getCreditSnapshot(address),
+          reuse: reuse);
+      if (!_disposed) _take(address, snap);
+      return (snap: snap, sent: true, failed: false);
+    } catch (_) {
+      final last = current ?? reads.lastOf(address);
+      if (last == null) rethrow;
+      return (snap: last, sent: true, failed: true);
     }
   }
 

@@ -784,7 +784,7 @@ class PendingHlOrderAutoFire {
       _credited = ref
           .read(hyperliquidMoveRailProvider)
           .credited
-          .listen((_) => creditLanded());
+          .listen((_) => creditLanded(source: HlCreditedBy.status));
     } catch (_) {
       // No rail bound (a test container): the poll alone watches.
     }
@@ -814,10 +814,10 @@ class PendingHlOrderAutoFire {
   /// times ([kCreditFollowUps]) in case the venue's read lags the credit.
   /// Without a queued order the read alone runs (the balances on screen).
   /// Safe to call at any time.
-  void creditLanded() {
+  void creditLanded({String source = HlCreditedBy.status}) {
     final awaiting = _awaiting;
     if (awaiting) _creditSeen = true;
-    _readAgain();
+    _readAgain(source: source);
     if (!awaiting) return;
     _cancelCreditFollowUps();
     var at = Duration.zero;
@@ -825,7 +825,7 @@ class PendingHlOrderAutoFire {
       at += gap;
       _creditFollowUps.add(Timer(at, () {
         if (!_awaiting) return _cancelCreditFollowUps();
-        _readAgain();
+        _readAgain(source: source);
       }));
     }
   }
@@ -839,19 +839,73 @@ class PendingHlOrderAutoFire {
   /// next poll tick (up to 4 s on after the first 30 s). Safe to call at
   /// any time.
   void accountMoved({bool credited = false}) {
-    if (credited) return creditLanded();
-    _readAgain();
+    if (credited) {
+      final intent = ref.read(pendingHyperliquidOrderProvider);
+      final fundedAt = intent?.fundedAt;
+      if (_awaiting && fundedAt != null) {
+        OrderFundingJourney.instance.timing(
+            OneBalanceVenue.investing,
+            HlCreditTiming.fundedToLedgerPush,
+            DateTime.now().difference(fundedAt).inMilliseconds);
+      }
+      return creditLanded(source: HlCreditedBy.ledgerPush);
+    }
+    _readAgain(source: HlCreditedBy.ledgerPush);
   }
 
   /// One fresh account read now (when something holds the account, or an
   /// order waits on it), and the queued order checked against it.
-  void _readAgain() {
+  void _readAgain({String source = HlCreditedBy.accountPoll}) {
     try {
       if (ref.exists(hyperliquidAccountProvider)) {
         ref.invalidate(hyperliquidAccountProvider);
       }
     } catch (_) {}
-    if (_awaiting) unawaited(_maybeFire());
+    if (_awaiting) unawaited(_maybeFire(source: source));
+  }
+
+  /// How long after funding the queued order's tick reads the account
+  /// fresh ([HlAccountNotifier.freshRead]) instead of taking the cached
+  /// snapshot; then today's cadence (the 4 s account poll).
+  static const Duration kFreshReadFor = Duration(seconds: 30);
+
+  /// Fresh reads asked and failed for the current order (`account_reads`,
+  /// `account_read_errors` on its funding outcome).
+  int _freshReads = 0;
+  int _freshReadErrors = 0;
+  DateTime? _freshCountedFor;
+
+  bool _inFreshWindow(PendingHlOrderIntent intent) {
+    final fundedAt = intent.fundedAt;
+    return fundedAt != null &&
+        DateTime.now().difference(fundedAt) < kFreshReadFor;
+  }
+
+  /// The account as the queued order reads it: within [kFreshReadFor]
+  /// after funding a FRESH read, one in flight at a time and shared with
+  /// the ledger push and the account poll ([HlAccountReads]); otherwise
+  /// the provider's snapshot, as before.
+  Future<HlAccountSnapshot> _readAccount(
+      PendingHlOrderIntent intent, String source) async {
+    if (!_inFreshWindow(intent) || !ref.exists(hyperliquidAccountProvider)) {
+      return ref.read(hyperliquidAccountProvider.future);
+    }
+    if (_freshCountedFor != intent.fundedAt) {
+      _freshCountedFor = intent.fundedAt;
+      _freshReads = 0;
+      _freshReadErrors = 0;
+    }
+    final read = await ref.read(hyperliquidAccountProvider.notifier).freshRead(
+        reuse: source != HlCreditedBy.ledgerPush &&
+            source != HlCreditedBy.status);
+    if (read.sent) _freshReads++;
+    if (read.failed) _freshReadErrors++;
+    final journey = OrderFundingJourney.instance;
+    journey.count(
+        OneBalanceVenue.investing, HlCreditCount.accountReads, _freshReads);
+    journey.count(OneBalanceVenue.investing, HlCreditCount.accountReadErrors,
+        _freshReadErrors);
+    return read.snap;
   }
 
   void _cancelCreditFollowUps() {
@@ -996,7 +1050,7 @@ class PendingHlOrderAutoFire {
     return margin;
   }
 
-  Future<void> _maybeFire() async {
+  Future<void> _maybeFire({String source = HlCreditedBy.accountPoll}) async {
     if (_firing) return;
     final intent = ref.read(pendingHyperliquidOrderProvider);
     if (intent == null) {
@@ -1021,11 +1075,21 @@ class PendingHlOrderAutoFire {
     // place.
     double withdrawable = 0;
     try {
-      final snap = await ref.read(hyperliquidAccountProvider.future);
+      final snap = await _readAccount(intent, source);
       withdrawable =
           hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
     } catch (_) {
       // Transient read failure — the poll below retries.
+    }
+    // Two looks can share one read (the tick and a ledger push join the
+    // same request): only the first that resumes may place; the other
+    // finds the order firing, or no longer waiting, and stops.
+    if (_firing) return;
+    final still = ref.read(pendingHyperliquidOrderProvider);
+    if (still == null ||
+        !identical(still.placement, intent.placement) ||
+        still.status != PendingHlOrderStatus.awaitingBalance) {
+      return;
     }
 
     // The account must cover what the order needs (balances are
@@ -1040,6 +1104,14 @@ class PendingHlOrderAutoFire {
     }
 
     _stopAwaitPolling();
+    // The account shows the order's money: when, and which read saw it.
+    final fundedAt = intent.fundedAt;
+    if (fundedAt != null) {
+      final journey = OrderFundingJourney.instance;
+      journey.timing(OneBalanceVenue.investing, HlCreditTiming.fundedToAccountShows,
+          DateTime.now().difference(fundedAt).inMilliseconds);
+      journey.creditedBy(OneBalanceVenue.investing, source);
+    }
     // Consent staleness guard: only fire orders confirmed RECENTLY.
     // In-session flows (deposit sheet → funds land in minutes) pass;
     // a fiat bank-transfer continuation settling days later must NOT
@@ -1542,7 +1614,10 @@ class PendingHlOrderAutoFire {
       return;
     }
     _scheduleTick();
-    unawaited(_maybeFire());
+    unawaited(_maybeFire(
+        source: _inFreshWindow(intent)
+            ? HlCreditedBy.freshRead
+            : HlCreditedBy.accountPoll));
   }
 
   void _stopAwaitPolling() {
@@ -1551,4 +1626,27 @@ class PendingHlOrderAutoFire {
     _awaitStart = null;
     _cancelCreditFollowUps();
   }
+}
+
+/// Which read showed a queued Investing order's credit (`credited_by` on
+/// its funding outcome): the venue's websocket ledger push, Orchestra's
+/// status (the rail's credit), the autofire's fresh 1 s read in the first
+/// 30 s after funding, or the account's own poll / snapshot.
+abstract final class HlCreditedBy {
+  static const String ledgerPush = 'ledger_push';
+  static const String status = 'status';
+  static const String freshRead = 'fresh_read';
+  static const String accountPoll = 'account_poll';
+}
+
+/// The exact credit timings of a funded Investing order (milliseconds).
+abstract final class HlCreditTiming {
+  static const String fundedToLedgerPush = 'ms_funded_to_ledger_push';
+  static const String fundedToAccountShows = 'ms_funded_to_account_shows';
+}
+
+/// The funded Investing order's fresh account reads, and the failed ones.
+abstract final class HlCreditCount {
+  static const String accountReads = 'account_reads';
+  static const String accountReadErrors = 'account_read_errors';
 }
