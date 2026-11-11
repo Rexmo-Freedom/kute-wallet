@@ -2179,7 +2179,10 @@ class _FundedChain {
     final plan = await _decide();
     _plan = plan;
     _route = plan.direct ? MoneyRoute.direct : MoneyRoute.viaDollars;
-    journey.setRoute(venue, _route, reason: plan.reason);
+    journey.setRoute(venue, _route,
+        reason: plan.reason,
+        decision: plan.decision,
+        costDiffUsd: plan.costDiffUsd);
 
     final other = plan.direct
         ? plan.otherUsd

@@ -928,7 +928,12 @@ class OrderFundingJourney {
 
   /// The route an order that needs Bitcoin took (`direct` or
   /// `via_dollars`) and, for the chain, why ([reason], a fixed code).
-  void setRoute(OneBalanceVenue venue, String route, {String? reason}) {
+  ///
+  /// [decision] (a fixed code: the chain's reason, or why direct) and
+  /// [costDiffUsd] (direct minus via, exact dollars) ride on this event
+  /// only, when the planner priced both.
+  void setRoute(OneBalanceVenue venue, String route,
+      {String? reason, String? decision, double? costDiffUsd}) {
     final run = _runs[venue];
     if (run == null) return;
     if (run.route == route && run.routeReason == reason) return;
@@ -939,6 +944,9 @@ class OrderFundingJourney {
       'duration_ms': clock().difference(run.startedAt).inMilliseconds.clamp(0, 1 << 31),
       ..._legParams(run),
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      if (decision != null) 'route_decision': decision,
+      if (costDiffUsd != null && costDiffUsd.isFinite)
+        'route_cost_diff_usd': costDiffUsd,
     });
   }
 

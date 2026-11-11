@@ -130,6 +130,22 @@ void main() {
     OrderFundingJourney.reset();
   });
 
+  test('the route event carries the decision and the exact cost difference',
+      () {
+    final journey = OrderFundingJourney.instance;
+    journey.start(OneBalanceVenue.predictions,
+        orderUsd: 5, fundUsd: 5.1, readyUsd: 0, dollarsUsd: 0);
+    journey.setRoute(OneBalanceVenue.predictions, 'direct',
+        decision: 'within_tolerance', costDiffUsd: 0.0175);
+    final p = events
+        .singleWhere((e) => e.$1 == 'order_funding_route_selected')
+        .$2!;
+    expect(p['route'], 'direct');
+    expect(p['route_decision'], 'within_tolerance');
+    expect(p['route_cost_diff_usd'], 0.0175);
+    expect(p.containsKey('route_reason'), isFalse);
+  });
+
   OrderFundingController controller(_Funder funder, {double dollars = 100}) =>
       OrderFundingController(
           funderFor: (_) => funder, dollarsUsd: () => dollars);
