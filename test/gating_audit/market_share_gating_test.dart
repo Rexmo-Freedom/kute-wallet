@@ -553,6 +553,12 @@ void main() {
         for (final f in dartFiles('lib'))
           if (!f.path.endsWith('order_slip_sheet.dart') &&
               !f.path.endsWith('bet_slip_sheet.dart') &&
+              // Rebuilds the slip of an order already accepted on the
+              // spending wallet, opened LOCKED on it through
+              // reopenStanding (never a new trade, never a Ledger's);
+              // the price-moved path opens through show() (founder,
+              // 11 November 2026: every way back is the locked slip).
+              !f.path.endsWith('standing_order_slips.dart') &&
               RegExp(r'(^|[^A-Za-z_.])(HlOrderSlipSheet|BetSlipSheet)\(')
                   .hasMatch(source(f.path)))
             f.path,
