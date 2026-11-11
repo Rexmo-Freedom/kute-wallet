@@ -983,12 +983,13 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       // listed before its entry is priced): no P&L, never
                       // the whole value as a profit, as on its card; the
                       // value alone, as the tile's figure. While the
-                      // needle is dragged, the same look twice: the
-                      // what-if profit with "Worth then" under it, beside
-                      // the profit now with "Worth now" under it, so the
-                      // header's what-if value is never the tile's large
-                      // figure (founder, 11 November 2026). Balances
-                      // hidden: every sum masked, no colour.
+                      // needle is dragged only the first tile changes, to
+                      // the what-if profit with "Worth then" under it, so
+                      // the header's what-if value is never a tile's large
+                      // figure; the payout tile stays as it is (founder,
+                      // 11 November 2026: two profit tiles side by side
+                      // read the same). Balances hidden: every sum masked,
+                      // no colour.
                       ValueListenableBuilder<double?>(
                         valueListenable: _whatIf,
                         builder: (context, whatIf, _) {
@@ -1052,45 +1053,29 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               );
 
                           const nowKey = ValueKey('poly-position-value');
-                          if (whatIf != null && showGauge) {
-                            const thenKey =
-                                ValueKey('poly-position-worth-then');
-                            final then = pos.size * whatIf;
-                            if (costBasis <= 0) {
-                              return PositionStatTiles(
-                                left: worthTile(thenKey,
-                                    context.l10n.polyPosWorthThen, then),
-                                right: worthTile(nowKey,
-                                    context.l10n.polyPosNow, currentValue),
-                              );
-                            }
-                            return PositionStatTiles(
-                              left: profitTile(
-                                key: thenKey,
-                                label: context.l10n.portfolioProfitLoss,
-                                change: then - costBasis,
-                                worthLabel: context.l10n.polyPosWorthThen,
-                                worth: then,
-                                figureKey:
-                                    PositionDetailSheet.thenPnlFigureKey,
-                                captionKey:
-                                    PositionDetailSheet.thenWorthCaptionKey,
-                                duration: const Duration(milliseconds: 120),
-                              ),
-                              right: profitTile(
-                                key: nowKey,
-                                label: context.l10n.polyPosNow,
-                                change: pnl,
-                                worthLabel: worthLabel,
-                                worth: currentValue,
-                                figureKey: PositionDetailSheet.pnlFigureKey,
-                                captionKey:
-                                    PositionDetailSheet.worthCaptionKey,
-                              ),
-                            );
-                          }
-                          return PositionStatTiles(
-                            left: costBasis > 0
+                          const thenKey = ValueKey('poly-position-worth-then');
+                          final dragging = whatIf != null && showGauge;
+                          final then = dragging ? pos.size * whatIf : 0.0;
+                          final PositionStatTile left;
+                          if (dragging) {
+                            left = costBasis > 0
+                                ? profitTile(
+                                    key: thenKey,
+                                    label: context.l10n.portfolioProfitLoss,
+                                    change: then - costBasis,
+                                    worthLabel: context.l10n.polyPosWorthThen,
+                                    worth: then,
+                                    figureKey:
+                                        PositionDetailSheet.thenPnlFigureKey,
+                                    captionKey: PositionDetailSheet
+                                        .thenWorthCaptionKey,
+                                    duration:
+                                        const Duration(milliseconds: 120),
+                                  )
+                                : worthTile(thenKey,
+                                    context.l10n.polyPosWorthThen, then);
+                          } else {
+                            left = costBasis > 0
                                 ? profitTile(
                                     key: nowKey,
                                     label: context.l10n.portfolioProfitLoss,
@@ -1102,7 +1087,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                     captionKey:
                                         PositionDetailSheet.worthCaptionKey,
                                   )
-                                : worthTile(nowKey, worthLabel, currentValue),
+                                : worthTile(nowKey, worthLabel, currentValue);
+                          }
+                          return PositionStatTiles(
+                            left: left,
                             right: PositionStatTile(
                               key: const ValueKey('poly-position-payout'),
                               label: pos.isResolved

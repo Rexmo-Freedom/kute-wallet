@@ -391,8 +391,8 @@ void main() {
   });
 
   testWidgets(r'drag to 85%: "If No reaches", the what-if profit +$13.20 '
-      r'large over "Worth then $17.00", beside "Now" +$9.40 over "Worth now '
-      r'$13.20"; the sell offer; on release the tiles come back, the '
+      r'large over "Worth then $17.00" in the first tile, the payout tile '
+      r'beside it as at rest; the sell offer; on release the tiles come back, the '
       'offer stays 3 s, then one what-if event', (tester) async {
     await _pump(tester, _no);
     final d = _dial(tester);
@@ -418,25 +418,39 @@ void main() {
     expect(thenWorth.text, r'Worth then $17.00');
     expect(thenWorth.style,
         positionTileCaptionStyle(AppColorsExtension.light()));
-    final now = find.byKey(const ValueKey('poly-position-value'));
-    expect(find.descendant(of: now, matching: find.text('Now')),
+    // The second tile is the payout tile, exactly as at rest (founder,
+    // 11 November 2026: two profit tiles read the same); no "Now" tile,
+    // the profit now not on screen while dragging.
+    expect(find.byKey(const ValueKey('poly-position-value')), findsNothing);
+    expect(find.text('Now'), findsNothing);
+    expect(find.byKey(PositionDetailSheet.pnlFigureKey), findsNothing);
+    final payout = find.byKey(const ValueKey('poly-position-payout'));
+    expect(find.descendant(of: payout, matching: find.text('If No wins')),
         findsOneWidget);
     expect(
-        tester
-            .widget<RollingNumberText>(
-                find.byKey(PositionDetailSheet.pnlFigureKey))
-            .text,
-        r'+$9.40');
+        tester.widget<Text>(find.byKey(PositionDetailSheet.payoutFigureKey))
+            .data,
+        r'$20.00');
     expect(
-        tester
-            .widget<RollingNumberText>(
-                find.byKey(PositionDetailSheet.worthCaptionKey))
-            .text,
-        r'Worth now $13.20');
-    // The header's what-if value is no tile's large figure.
+        tester.widget<Text>(find.byKey(PositionDetailSheet.paidCaptionKey))
+            .data,
+        r'Paid $3.80');
+    expect(
+        tester.getRect(payout).left,
+        greaterThan(tester
+            .getRect(find.byKey(const ValueKey('poly-position-worth-then')))
+            .right));
+    // Nothing said twice at the same size: the header's what-if value is
+    // no tile's large figure, and the large figures differ.
     expect(_rolling(r'$17.00'), findsNothing);
     expect(_rolling(r'$13.20'), findsNothing);
-    expect(find.byKey(const ValueKey('poly-position-payout')), findsNothing);
+    final large = {
+      tester.widget<Text>(find.byKey(PolyPositionResultLine.figureKey)).data,
+      thenPnl.text,
+      tester.widget<Text>(find.byKey(PositionDetailSheet.payoutFigureKey))
+          .data,
+    };
+    expect(large, hasLength(3));
     expect(find.text('Set a sell at 85%'), findsOneWidget);
     // The top left reads the what-if: worth $17.00, +347% since 19¢.
     expect(
@@ -580,7 +594,9 @@ void main() {
         );
     final expiry = find.byKey(const ValueKey('poly-position-expiry'));
     final figure = find.byKey(PolyPositionSpeedometer.figureKey);
-    final value = find.byKey(const ValueKey('poly-position-value'));
+    // The payout tile: the same row as the value tile, on screen while
+    // dragging too.
+    final value = find.byKey(const ValueKey('poly-position-payout'));
 
     testWidgets('a quiet centred line right under the big %, no pill, over '
         'the drag hint; the sell offer takes the slot while dragging and '
@@ -1157,18 +1173,18 @@ void main() {
                   find.byKey(PositionDetailSheet.thenWorthCaptionKey))
               .text,
           'Worth then ••••••');
+      // The payout tile beside it, masked as at rest.
       expect(
           tester
-              .widget<RollingNumberText>(
-                  find.byKey(PositionDetailSheet.pnlFigureKey))
-              .text,
+              .widget<Text>(find.byKey(PositionDetailSheet.payoutFigureKey))
+              .data,
           '••••••');
       expect(
           tester
-              .widget<RollingNumberText>(
-                  find.byKey(PositionDetailSheet.worthCaptionKey))
-              .text,
-          'Worth now ••••••');
+              .widget<Text>(find.byKey(PositionDetailSheet.paidCaptionKey))
+              .data,
+          'Paid ••••••');
+      expect(find.textContaining(r'$'), findsNothing);
       for (final w in tester.widgetList<RollingNumberText>(
           find.byType(RollingNumberText))) {
         expect(w.text, isNot(contains(r'$')));
@@ -1204,12 +1220,12 @@ void main() {
           await tester.pump(const Duration(milliseconds: 16));
         }
         final thenTile = find.byKey(const ValueKey('poly-position-worth-then'));
-        final nowTile = find.byKey(const ValueKey('poly-position-value'));
+        final nowTile = find.byKey(const ValueKey('poly-position-payout'));
         for (final (f, tile) in [
           (find.byKey(PositionDetailSheet.thenPnlFigureKey), thenTile),
           (find.byKey(PositionDetailSheet.thenWorthCaptionKey), thenTile),
-          (find.byKey(PositionDetailSheet.pnlFigureKey), nowTile),
-          (find.byKey(PositionDetailSheet.worthCaptionKey), nowTile),
+          (find.byKey(PositionDetailSheet.payoutFigureKey), nowTile),
+          (find.byKey(PositionDetailSheet.paidCaptionKey), nowTile),
         ]) {
           final r = tester.getRect(f);
           final t = tester.getRect(tile);
