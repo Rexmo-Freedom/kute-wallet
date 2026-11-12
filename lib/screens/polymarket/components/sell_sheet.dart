@@ -1533,6 +1533,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       ),
       reason: context.l10n.stepUpReasonSell,
       amountUsd: shares * pos.currentPrice,
+      // The proceeds: at least shares x the lowest price it may fill at.
+      smallAction: SmallActionContext.usd(
+          shares * math.max(pos.currentPrice, worstPrice)),
       fastBet: FastBetRequest(eventSlug: pos.eventSlug, hot: true),
     );
     _approval =

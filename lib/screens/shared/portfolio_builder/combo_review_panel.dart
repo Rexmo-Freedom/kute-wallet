@@ -272,6 +272,8 @@ class _ComboReviewPanelState extends ConsumerState<ComboReviewPanel> {
         intent: intent,
         reason: context.l10n.stepUpReasonCombo(widget.legs.length),
         amountUsd: e6ToDouble(quote.requestedE6),
+        smallAction: SmallActionContext(
+            amountUsdCents: PmGrants.usdCentsCeil(quote.requestedE6)),
       );
       if (!mounted) return;
       if (grant == null) {

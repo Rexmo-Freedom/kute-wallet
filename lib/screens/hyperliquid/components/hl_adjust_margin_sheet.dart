@@ -562,6 +562,8 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       intent: change,
       reason: l10n.hlMarginStepUp(_market.coin),
       amountUsd: amount,
+      // Only an Add qualifies (SmallActionAllowance.inScope).
+      smallAction: SmallActionContext.usd(amount),
     );
     if (grant == null || !mounted) return;
     _submitted = true;
@@ -750,6 +752,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
             intent: approved,
             reason: reason,
             amountUsd: amount,
+            smallAction: SmallActionContext.usd(amount),
           );
         }
         declined = grant == null;

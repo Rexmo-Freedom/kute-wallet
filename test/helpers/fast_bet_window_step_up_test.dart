@@ -154,11 +154,8 @@ void main() {
       wref,
       intent: i,
       reason: 'Confirm',
-      smallAction: SmallActionContext(
-        amountUsdCents: PmGrants.usdCentsCeil(i.amountMax),
-        paidFromVenueBalance: true,
-        hasFundingLeg: false,
-      ),
+      smallAction:
+          SmallActionContext(amountUsdCents: PmGrants.usdCentsCeil(i.amountMax)),
       fastBet: FastBetRequest(eventSlug: slug, hot: hot),
     );
   }

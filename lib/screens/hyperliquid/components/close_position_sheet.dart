@@ -850,6 +850,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       reason: context.l10n.stepUpReasonOrder(
           '${pos.coin} · ${hlKindLabel(context.l10n, isSpot: false)}'),
       amountUsd: _closeSize * _markNow(),
+      smallAction: SmallActionContext.usd(_closeSize * _markNow()),
     );
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');

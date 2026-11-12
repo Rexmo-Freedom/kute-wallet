@@ -552,6 +552,7 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
         ),
         reason: context.l10n.stepUpReasonComboClose,
         amountUsd: q.proceedsUsd,
+        smallAction: SmallActionContext.usd(q.proceedsUsd),
       );
       if (!mounted) return;
       if (grant == null) {

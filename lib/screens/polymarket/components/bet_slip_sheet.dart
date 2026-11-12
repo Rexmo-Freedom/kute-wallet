@@ -2965,6 +2965,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               intent: fundedIntent,
               reason: context.l10n.stepUpReasonBet(stake),
               amountUsd: pending.amount,
+              smallAction: SmallActionContext(
+                  amountUsdCents:
+                      PmGrants.usdCentsCeil(fundedIntent.amountMax)),
               autofireIntentId: kPendingBetAutofireId,
             );
       if (grant == null) return _decline('approval_not_granted');
@@ -2978,10 +2981,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           .stepUpReasonBet('\$${pending.amount.toStringAsFixed(2)}'),
       amountUsd: pending.amount,
       smallAction: SmallActionContext(
-        amountUsdCents: PmGrants.usdCentsCeil(review.amountMax),
-        paidFromVenueBalance: true,
-        hasFundingLeg: false,
-      ),
+          amountUsdCents: PmGrants.usdCentsCeil(review.amountMax)),
       fastBet: FastBetRequest(eventSlug: widget.marketSlug, hot: !_isLedger),
     );
     if (grant == null) return _decline('approval_not_granted');

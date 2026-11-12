@@ -2039,13 +2039,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final grant = await _approve(
       _marketOrder(walletId, cloid).intent,
       amountUsd: _marginUsd,
-      smallAction: isSpot && _isLong
-          ? SmallActionContext(
-              amountUsdCents: (_marginUsd * 100).ceil(),
-              paidFromVenueBalance: true,
-              hasFundingLeg: false,
-            )
-          : null,
+      smallAction: SmallActionContext.usd(_marginUsd),
     );
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');
@@ -2183,6 +2177,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         slippagePct: slippagePct,
       ),
       amountUsd: _marginUsd,
+      // What the close takes off: the position's value for that share.
+      smallAction:
+          SmallActionContext.usd(pos.positionValue.abs() * fraction),
     );
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');
@@ -2274,7 +2271,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     _trackStep('approval');
-    final grant = await _approve(approved.intent, amountUsd: _marginUsd);
+    final grant = await _approve(approved.intent,
+        amountUsd: _marginUsd,
+        smallAction: SmallActionContext.usd(_marginUsd));
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');
       return;
@@ -2909,6 +2908,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             intent: approved,
             reason: context.l10n.stepUpReasonOrder(pending.marketLabel),
             amountUsd: marginUsd,
+            smallAction: SmallActionContext.usd(marginUsd),
             autofireIntentId: kPendingHlOrderAutofireId,
           );
     if (grant == null || !mounted) {
@@ -3415,6 +3415,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 intent: approved,
                 reason: context.l10n.stepUpReasonOrder(pending.marketLabel),
                 amountUsd: marginUsd,
+                smallAction: SmallActionContext.usd(marginUsd),
                 autofireIntentId: kPendingHlOrderAutofireId,
               );
         declined = grant == null;
