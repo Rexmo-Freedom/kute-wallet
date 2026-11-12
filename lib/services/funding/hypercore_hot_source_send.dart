@@ -159,27 +159,19 @@ class HypercoreHotSourceSendNative implements HypercoreHotSourceSend {
 
       var internalMove = BigInt.zero;
       try {
-        await collectOwnDexCash(
+        // Builder dex and spot cash home to perpetuals, each move waited
+        // for until the main account's read shows it (gatherOwnPerpCash).
+        await gatherOwnPerpCash(
             model: model,
             exchange: exchange,
-            requiredDefaultUsd: requiredDefault.toDouble() / 1e8,
-            beforeSend: () {
-              beforeDispatch();
-              internalPostPending = true;
-            });
-        internalPostPending = false;
-        internalMove = await requiredInternalMove();
-        if (internalMove > BigInt.zero) {
-          await exchange.usdClassTransfer(
-            amount: internalMove.toDouble() / 1e8,
-            toPerp: true,
+            requiredBaseUnits: reserve,
+            requiredDefaultBaseUnits: requiredDefault,
+            spotMove: () async => internalMove = await requiredInternalMove(),
             beforeSend: () {
               beforeDispatch();
               internalPostPending = true;
             },
-          );
-          internalPostPending = false;
-        }
+            afterSend: () => internalPostPending = false);
       } on HyperliquidRejectedException {
         internalPostPending = false;
         rethrow;

@@ -2131,19 +2131,15 @@ class LiveCctpSender implements CctpSender {
         },
       );
       try {
-        await collectOwnDexCash(
+        // Builder dex and spot cash home to perpetuals, each move waited
+        // for until the main account's read shows it.
+        await gatherOwnPerpCash(
             model: model,
             exchange: exchange,
-            requiredDefaultUsd: requiredDefault.toDouble() / 1e8,
+            requiredBaseUnits: reserve,
+            requiredDefaultBaseUnits: requiredDefault,
+            spotMove: perpShortfall,
             beforeSend: ensureWallet);
-        final move = await perpShortfall();
-        if (move > BigInt.zero) {
-          await exchange.usdClassTransfer(
-            amount: move.toDouble() / 1e8,
-            toPerp: true,
-            beforeSend: ensureWallet,
-          );
-        }
       } on HyperliquidRejectedException catch (e) {
         throw SettlementFundingRefused(e);
       }
