@@ -132,6 +132,17 @@ String hlFillHeadline(HlFill fill, String size, AppLocalizations l) {
   };
 }
 
+/// [hlFillHeadline] without the size: the action alone ("Closed long",
+/// "Opened short", "Added to short", "Liquidated", "Bought"), in the same
+/// translated words. A locale that puts the size first or after a colon
+/// ("{size} gekocht", "Vétel: {size}") reads "Gekocht", "Vétel".
+String hlFillActionTitle(HlFill fill, AppLocalizations l) {
+  var s = hlFillHeadline(fill, '', l).replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (s.endsWith(':')) s = s.substring(0, s.length - 1).trimRight();
+  if (s.isEmpty) return s;
+  return s[0].toUpperCase() + s.substring(1);
+}
+
 /// An order's side in the position's words. A perpetual order that only
 /// closes ([reduceOnly]: a take profit, a stop, a close) reads "Close
 /// short" for a buy and "Close long" for a sell; one that opens reads

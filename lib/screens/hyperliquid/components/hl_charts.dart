@@ -60,7 +60,12 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kute/services/device_performance.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/helpers/hyperliquid_activity.dart'
-    show HlFillEffect, HlFillKind, hlFillEffect, hlFillHeadline, hlFillTone;
+    show
+        HlFillEffect,
+        HlFillKind,
+        hlFillActionTitle,
+        hlFillEffect,
+        hlFillTone;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_advanced_layers.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
@@ -2101,9 +2106,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   }
 
   /// The tooltip's rows, formatted once per build (never in a paint pass):
-  /// "Bought 0.012 BTC" over "Open Long · 29 Sep, 14:32", with the price
-  /// "$64,120.00" over its value "$769.44" on the right. One entry per
-  /// fill on the tapped bar, oldest first.
+  /// the action alone ("Closed long") over the size and time ("0.057 NVDA
+  /// · 10 Nov, 15:37"), with the price "$171.41" over its value "$9.77"
+  /// on the right, or, for a fill that realised a profit or loss, that
+  /// result coloured in the value's place (as the Activity row shows it).
+  /// One entry per fill on the tapped bar, oldest first.
   List<HlFillTooltipEntry> _fillTipEntries(AppColorsExtension c) {
     if (_fillTip.isEmpty) return const [];
     final picked = [
@@ -2111,30 +2118,44 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         if (_fillTip.contains(hlFillIdentity(f))) f
     ]..sort((a, b) => a.time.compareTo(b.time));
     final timeFmt = DateFormat('d MMM, HH:mm');
+    final l = context.l10n;
     return [
       for (final f in picked)
-        HlFillTooltipEntry(
-          identity: hlFillIdentity(f),
-          isBuy: f.isBuy,
-          effect: hlFillEffect(f),
-          color: hlFillTone(f, up: AppColors.marketUp, down: AppColors.marketDown, neutral: c.textSecondary),
-          // In the position's own words ("Closed short 0.008 OAI"): a
-          // short that buys is closing, and "Bought" would read as the
-          // opposite of what it did. The display symbol ('SP500', never
-          // the wire 'xyz:SP500').
-          title: hlFillHeadline(
-              f,
+        () {
+          final pnl = f.closedPnl;
+          final realised = pnl.isFinite && pnl.abs() >= 0.005;
+          return HlFillTooltipEntry(
+            identity: hlFillIdentity(f),
+            isBuy: f.isBuy,
+            effect: hlFillEffect(f),
+            color: hlFillTone(f,
+                up: AppColors.marketUp,
+                down: AppColors.marketDown,
+                neutral: c.textSecondary),
+            // In the position's own words ("Closed short"): a short that
+            // buys is closing, and "Bought" would read as the opposite of
+            // what it did.
+            title: hlFillActionTitle(f, l),
+            // The size with the display symbol ('SP500', never the wire
+            // 'xyz:SP500'), then when.
+            details: [
               [
                 formatHlSize(f.sz),
                 if (f.coin.isNotEmpty) HlMarket.baseCoin(f.coin),
               ].join(' '),
-              context.l10n),
-          detail: timeFmt.format(DateTime.fromMillisecondsSinceEpoch(f.time)),
-          value: formatHlPrice(f.px, decimalCap: widget.decimalCap),
-          subValue: formatHlUsd(f.px * f.sz),
-          textColor: c.textPrimary,
-          detailColor: c.textSecondary,
-        ),
+              timeFmt.format(DateTime.fromMillisecondsSinceEpoch(f.time)),
+            ],
+            value: formatHlPrice(f.px, decimalCap: widget.decimalCap),
+            subValue: realised
+                ? '${pnl > 0 ? '+' : '\u2212'}${formatHlUsd(pnl.abs())}'
+                : formatHlUsd(f.px * f.sz),
+            subValueColor: realised
+                ? (pnl > 0 ? AppColors.marketUp : AppColors.marketDown)
+                : null,
+            textColor: c.textPrimary,
+            detailColor: c.textSecondary,
+          );
+        }(),
     ];
   }
 
@@ -3799,12 +3820,15 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // as a clamped card anchored to the marker,
                             // above the trade lines and below the
                             // crosshair. Mounted only while one is open.
+                            // It spans the tag column too, so the card can
+                            // grow to the chart's full width before a line
+                            // wraps.
                             if (_fillTip.isNotEmpty && morphSeries == null)
                               Positioned(
                                 left: 0,
                                 top: 0,
                                 bottom: 0,
-                                width: plotW,
+                                width: w,
                                 child: IgnorePointer(
                                   child: RepaintBoundary(
                                     child: CustomPaint(
@@ -3812,9 +3836,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                       painter: HlFillTooltipPainter(
                                         entries: _fillTipEntries(c),
                                         resolve: (size) => (
+                                          // Markers live on the plot,
+                                          // which ends where the tag
+                                          // column starts.
                                           markers: [
                                             for (final m in _fillMarkers(
-                                                size, candles))
+                                                Size(plotW, size.height),
+                                                candles))
                                               if (_fillTip.contains(
                                                   hlFillIdentity(m.fill)))
                                                 m
@@ -3828,6 +3856,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           ).priceH,
                                         ),
                                         isDark: isDark,
+                                        textScaler:
+                                            MediaQuery.textScalerOf(context),
                                         // A raised card: one step above
                                         // the chart in dark, white in light.
                                         surface: isDark
@@ -5354,11 +5384,14 @@ class _HlCandlePainter extends CustomPainter {
 // ───────────────────────── fill-marker tooltip ──────────────────────────
 
 /// One row of the fill tooltip, laid out like a statement line in a
-/// banking app: a round side badge (an up arrow for a buy, down for a
-/// sell), then [title] ("Bought 0.002 SP500") over [detail] ("Open Long ·
-/// 26 Oct, 14:24"), and on the right [value] (the fill price) over
-/// [subValue] (what it was worth). Text is formatted by the host in
-/// build, never in paint.
+/// banking app: a round side badge (an up arrow for going long, down for
+/// going short, a check for closing), then [title], the action alone
+/// ("Closed long"), over [details] ("0.057 NVDA" and "10 Nov, 15:37",
+/// shown "0.057 NVDA · 10 Nov, 15:37" when the line fits, one under the
+/// other when it does not), and on the right [value] (the fill price)
+/// over [subValue] (what it was worth, or what it realised in
+/// [subValueColor]). Text is formatted by the host in build, never in
+/// paint.
 class HlFillTooltipEntry {
   final Object identity;
   final bool isBuy;
@@ -5366,7 +5399,7 @@ class HlFillTooltipEntry {
   /// What the fill did to the position; drives the badge glyph.
   final HlFillEffect effect;
   final String title;
-  final String detail;
+  final List<String> details;
   final String value;
   final String subValue;
 
@@ -5375,18 +5408,26 @@ class HlFillTooltipEntry {
   final Color textColor;
   final Color detailColor;
 
+  /// [subValue]'s colour when it is a realised result (up or down);
+  /// [detailColor] when null.
+  final Color? subValueColor;
+
   const HlFillTooltipEntry({
     required this.identity,
     required this.isBuy,
     required this.effect,
     required this.title,
-    required this.detail,
+    required this.details,
     required this.value,
     required this.subValue,
     required this.color,
     required this.textColor,
     required this.detailColor,
+    this.subValueColor,
   });
+
+  /// [details] on one line.
+  String get detail => details.join(' · ');
 }
 
 /// The resolved anchor frame for one canvas size: the selected markers'
@@ -5394,21 +5435,40 @@ class HlFillTooltipEntry {
 /// the volume strip).
 typedef HlFillTooltipFrame = ({List<HlFillMarker> markers, double plotBottom});
 
+/// One laid-out tooltip row: its badge centre (null when the card has no
+/// room for badges) and every text with where it is painted.
+typedef HlFillTooltipRowLayout = ({
+  Offset? badgeCenter,
+  List<({TextPainter painter, Offset offset})> texts,
+});
+
+/// The tooltip card laid out for one canvas: its rectangle, the x where
+/// the text column starts, the y of each hairline between rows, and the
+/// rows. Every text is laid out whole (no line limit, no ellipsis).
+typedef HlFillTooltipLayout = ({
+  Rect card,
+  double textLeft,
+  List<double> dividers,
+  List<HlFillTooltipRowLayout> rows,
+});
+
 /// The fill-marker tooltip layer: a soft ring on each selected marker plus
 /// one elevated card listing the fills on that bar, one statement-style
 /// row each (see [HlFillTooltipEntry]): a raised [surface], a large
 /// radius and a soft shadow instead of a coloured outline, white or ink
-/// text with the side carried by the badge alone. The card prefers to
-/// sit above the marker, drops below when there is no room, and is
-/// clamped inside the plot on every side so it can never be cut at an
-/// edge. Colours are passed in by the host; this painter never reads
-/// Theme.
+/// text with the side carried by the badge alone. The card is as wide as
+/// its rows, up to the canvas less a small inset; past that the left
+/// column wraps (the size and time go one under the other first), so no
+/// word is ever cut. It prefers to sit above the marker, drops below when
+/// there is no room, and is clamped inside the canvas on every side.
+/// Colours are passed in by the host; this painter never reads Theme.
 class HlFillTooltipPainter extends CustomPainter {
   final List<HlFillTooltipEntry> entries;
   final HlFillTooltipFrame Function(Size size) resolve;
   final bool isDark;
   final Color surface;
   final Color dividerColor;
+  final TextScaler textScaler;
 
   /// Value-compared token that changes whenever the resolved output
   /// would (selection, tape identity, theme) — drives shouldRepaint.
@@ -5421,6 +5481,7 @@ class HlFillTooltipPainter extends CustomPainter {
     required this.surface,
     required this.dividerColor,
     required this.repaintKey,
+    this.textScaler = TextScaler.noScaling,
   });
 
   static const double _padH = 14.0;
@@ -5441,10 +5502,11 @@ class HlFillTooltipPainter extends CustomPainter {
   static final Map<(String, int, double, int, double), TextPainter> _tpCache =
       {};
 
+  /// [text] laid out whole: it wraps at [maxWidth] and is never cut.
   static TextPainter _tp(String text, Color color, double fontSize,
       FontWeight weight,
       {double maxWidth = double.infinity}) {
-    if (_tpCache.length > 96) _tpCache.clear();
+    if (_tpCache.length > 160) _tpCache.clear();
     return _tpCache.putIfAbsent(
       (text, color.toARGB32(), fontSize, weight.value, maxWidth),
       () => TextPainter(
@@ -5459,64 +5521,141 @@ class HlFillTooltipPainter extends CustomPainter {
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-        maxLines: 1,
-        ellipsis: '…',
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: maxWidth),
     );
   }
 
-  static TextPainter _title(HlFillTooltipEntry e, {double? maxWidth}) =>
-      _tp(e.title, e.textColor, _titleSize, FontWeight.w600,
-          maxWidth: maxWidth ?? double.infinity);
-  static TextPainter _detail(HlFillTooltipEntry e, {double? maxWidth}) =>
-      _tp(e.detail, e.detailColor, _detailSize, FontWeight.w500,
-          maxWidth: maxWidth ?? double.infinity);
-  static TextPainter _value(HlFillTooltipEntry e) =>
-      _tp(e.value, e.textColor, _titleSize, FontWeight.w600);
-  static TextPainter _subValue(HlFillTooltipEntry e) =>
-      _tp(e.subValue, e.detailColor, _detailSize, FontWeight.w500);
-
-  static double _rowHeight(HlFillTooltipEntry e) => math.max(
-        _badge,
-        math.max(
-          _title(e).height + _lineGap + _detail(e).height,
-          _value(e).height + _lineGap + _subValue(e).height,
-        ),
-      );
-
-  /// The widths of the middle and right columns before any clamping.
-  static ({double left, double right}) _columns(
-      List<HlFillTooltipEntry> entries) {
-    var left = 0.0;
-    var right = 0.0;
-    for (final e in entries) {
-      left = math.max(left, math.max(_title(e).width, _detail(e).width));
-      right = math.max(right, math.max(_value(e).width, _subValue(e).width));
-    }
-    return (left: left, right: right);
-  }
-
-  /// The card rectangle for [entries] anchored to [markers] inside a
+  /// Lays the card out for [entries] anchored to [markers] inside a
   /// [size] canvas whose price area ends at [plotBottom]. Exposed so the
-  /// clamping is unit-testable without rasterising.
-  static Rect layoutCard({
+  /// fitting and clamping are unit-testable without rasterising.
+  static HlFillTooltipLayout layout({
     required List<HlFillTooltipEntry> entries,
     required List<HlFillMarker> markers,
     required Size size,
     required double plotBottom,
+    TextScaler textScaler = TextScaler.noScaling,
   }) {
-    final cols = _columns(entries);
-    var contentH = 0.0;
-    for (var i = 0; i < entries.length; i++) {
-      contentH += _rowHeight(entries[i]);
-      if (i > 0) contentH += _rowGap;
+    final titleSize = textScaler.scale(_titleSize);
+    final detailSize = textScaler.scale(_detailSize);
+    final maxCardW = math.max(0.0, size.width - _edgeInset * 2);
+    final maxTextW = math.max(1.0, maxCardW - _padH * 2);
+
+    TextPainter title(HlFillTooltipEntry e, double w) =>
+        _tp(e.title, e.textColor, titleSize, FontWeight.w600, maxWidth: w);
+    TextPainter detail(HlFillTooltipEntry e, String text, double w) =>
+        _tp(text, e.detailColor, detailSize, FontWeight.w500, maxWidth: w);
+    TextPainter value(HlFillTooltipEntry e) =>
+        _tp(e.value, e.textColor, titleSize, FontWeight.w600,
+            maxWidth: maxTextW);
+    TextPainter subValue(HlFillTooltipEntry e) => _tp(e.subValue,
+        e.subValueColor ?? e.detailColor, detailSize, FontWeight.w500,
+        maxWidth: maxTextW);
+
+    // The columns' natural widths: every line on one line.
+    var left = 0.0;
+    var right = 0.0;
+    for (final e in entries) {
+      left = math.max(
+          left,
+          math.max(title(e, double.infinity).width,
+              detail(e, e.detail, double.infinity).width));
+      right = math.max(right, math.max(value(e).width, subValue(e).width));
     }
-    final contentW =
-        _badge + _badgeGap + cols.left + _columnGap + cols.right;
-    final cardW = math.min(contentW + _padH * 2, size.width - _edgeInset * 2);
-    final cardH = contentH + _padV * 2;
-    final bottom = plotBottom.clamp(0.0, size.height).toDouble();
+
+    // One fitting of the rows at the card's origin (shifted once the card
+    // is placed), with the given spacing; with no badge the text starts
+    // at the padding.
+    ({
+      double cardW,
+      double cardH,
+      double lead,
+      List<HlFillTooltipRowLayout> rows,
+      List<double> dividers,
+    }) fit({
+      required double padV,
+      required double rowGap,
+      required double columnGap,
+      required bool badge,
+    }) {
+      final lead = badge ? _badge + _badgeGap : 0.0;
+      final naturalW = lead + left + columnGap + right + _padH * 2;
+      final cardW = math.min(naturalW, maxCardW);
+      // The figures on the right always show whole; when the card is at
+      // its widest the left column gives way by wrapping, never by
+      // cutting.
+      final leftW = naturalW <= maxCardW
+          ? left
+          : math.max(1.0, cardW - _padH * 2 - lead - columnGap - right);
+      final rows = <HlFillTooltipRowLayout>[];
+      final dividers = <double>[];
+      var y = padV;
+      for (var i = 0; i < entries.length; i++) {
+        final e = entries[i];
+        if (i > 0) dividers.add(y - rowGap / 2);
+        final t = title(e, leftW);
+        // One line when it fits; otherwise the size over the time.
+        final oneLine = detail(e, e.detail, double.infinity);
+        final d = oneLine.width <= leftW
+            ? oneLine
+            : detail(e, e.details.join('\n'), leftW);
+        final v = value(e);
+        final sv = subValue(e);
+        final leftH = t.height + _lineGap + d.height;
+        final rightH = v.height + _lineGap + sv.height;
+        final rowH =
+            math.max(badge ? _badge : 0.0, math.max(leftH, rightH));
+        final ly = y + (rowH - leftH) / 2;
+        final ry = y + (rowH - rightH) / 2;
+        final rightEdge = cardW - _padH;
+        rows.add((
+          badgeCenter: badge ? Offset(_padH + _badge / 2, y + rowH / 2) : null,
+          texts: [
+            (painter: t, offset: Offset(_padH + lead, ly)),
+            (
+              painter: d,
+              offset: Offset(_padH + lead, ly + t.height + _lineGap)
+            ),
+            (painter: v, offset: Offset(rightEdge - v.width, ry)),
+            (
+              painter: sv,
+              offset: Offset(rightEdge - sv.width, ry + v.height + _lineGap)
+            ),
+          ],
+        ));
+        y += rowH + rowGap;
+      }
+      return (
+        cardW: cardW,
+        cardH: y - rowGap + padV,
+        lead: lead,
+        rows: rows,
+        dividers: dividers,
+      );
+    }
+
+    // The designed spacing; when the card would be taller than the chart
+    // (a narrow phone, large text, several fills), tighter gaps, then no
+    // badge, so the words keep the room. The words never shrink.
+    final roomH = size.height - _edgeInset * 2;
+    var f = fit(
+        padV: _padV, rowGap: _rowGap, columnGap: _columnGap, badge: true);
+    if (f.cardH > roomH) {
+      f = fit(padV: 8, rowGap: 10, columnGap: 12, badge: true);
+    }
+    if (f.cardH > roomH) {
+      f = fit(padV: 8, rowGap: 10, columnGap: 12, badge: false);
+    }
+    final cardW = f.cardW;
+    final cardH = f.cardH;
+    final lead = f.lead;
+    final rows = f.rows;
+    final dividers = f.dividers;
+
+    // Within the price area when it fits there, over the volume strip
+    // when it does not.
+    var bottom = plotBottom.clamp(0.0, size.height).toDouble();
+    if (cardH > bottom - _edgeInset * 2) bottom = size.height;
 
     var anchorX = size.width / 2;
     var topY = 0.0;
@@ -5540,13 +5679,45 @@ class HlFillTooltipPainter extends CustomPainter {
             _edgeInset, math.max(_edgeInset, size.width - cardW - _edgeInset))
         .toDouble();
     // Above the marker by default; below when the top would be cut off.
-    var y = topY - _gapFromMarker - cardH;
-    if (y < _edgeInset) y = lowY + _gapFromMarker;
-    y = y
+    var top = topY - _gapFromMarker - cardH;
+    if (top < _edgeInset) top = lowY + _gapFromMarker;
+    top = top
         .clamp(_edgeInset, math.max(_edgeInset, bottom - cardH - _edgeInset))
         .toDouble();
-    return Rect.fromLTWH(x, y, cardW, cardH);
+    final shift = Offset(x, top);
+    return (
+      card: Rect.fromLTWH(x, top, cardW, cardH),
+      textLeft: x + _padH + lead,
+      dividers: [for (final d in dividers) d + top],
+      rows: [
+        for (final r in rows)
+          (
+            badgeCenter:
+                r.badgeCenter == null ? null : r.badgeCenter! + shift,
+            texts: [
+              for (final t in r.texts)
+                (painter: t.painter, offset: t.offset + shift)
+            ],
+          ),
+      ],
+    );
   }
+
+  /// The card rectangle of [layout].
+  static Rect layoutCard({
+    required List<HlFillTooltipEntry> entries,
+    required List<HlFillMarker> markers,
+    required Size size,
+    required double plotBottom,
+    TextScaler textScaler = TextScaler.noScaling,
+  }) =>
+      layout(
+        entries: entries,
+        markers: markers,
+        size: size,
+        plotBottom: plotBottom,
+        textScaler: textScaler,
+      ).card;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -5574,12 +5745,14 @@ class HlFillTooltipPainter extends CustomPainter {
       );
     }
 
-    final card = layoutCard(
+    final l = layout(
       entries: entries,
       markers: markers,
       size: size,
       plotBottom: frame.plotBottom,
+      textScaler: textScaler,
     );
+    final card = l.card;
     final rrect =
         RRect.fromRectAndRadius(card, const Radius.circular(_radius));
     // Lifted off the chart by a shadow, not an outline.
@@ -5600,45 +5773,21 @@ class HlFillTooltipPainter extends CustomPainter {
 
     canvas.save();
     canvas.clipRRect(rrect);
-    final cols = _columns(entries);
-    final textLeft = card.left + _padH + _badge + _badgeGap;
-    final right = card.right - _padH;
-    // When the card is clamped to the plot, the middle column gives way
-    // (ellipsised); prices and values always show whole.
-    final leftMax = math.max(0.0, right - cols.right - _columnGap - textLeft);
-    var y = card.top + _padV;
+    // A hairline between rows, from where the text starts.
+    final divider = Paint()
+      ..color = dividerColor
+      ..strokeWidth = 0.5;
+    for (final y in l.dividers) {
+      canvas.drawLine(Offset(l.textLeft, y),
+          Offset(card.right - _padH, y), divider);
+    }
     for (var i = 0; i < entries.length; i++) {
-      final e = entries[i];
-      if (i > 0) {
-        // A hairline between rows, from where the text starts.
-        final lineY = y - _rowGap / 2;
-        canvas.drawLine(
-          Offset(textLeft, lineY),
-          Offset(right, lineY),
-          Paint()
-            ..color = dividerColor
-            ..strokeWidth = 0.5,
-        );
+      final row = l.rows[i];
+      final badge = row.badgeCenter;
+      if (badge != null) _paintBadge(canvas, badge, entries[i]);
+      for (final t in row.texts) {
+        t.painter.paint(canvas, t.offset);
       }
-      final rowH = _rowHeight(e);
-      _paintBadge(canvas,
-          Offset(card.left + _padH + _badge / 2, y + rowH / 2), e);
-
-      final t = _title(e, maxWidth: leftMax);
-      final d = _detail(e, maxWidth: leftMax);
-      final leftH = t.height + _lineGap + d.height;
-      var ty = y + (rowH - leftH) / 2;
-      t.paint(canvas, Offset(textLeft, ty));
-      d.paint(canvas, Offset(textLeft, ty + t.height + _lineGap));
-
-      final v = _value(e);
-      final sv = _subValue(e);
-      final rightH = v.height + _lineGap + sv.height;
-      ty = y + (rowH - rightH) / 2;
-      v.paint(canvas, Offset(right - v.width, ty));
-      sv.paint(canvas, Offset(right - sv.width, ty + v.height + _lineGap));
-
-      y += rowH + _rowGap;
     }
     canvas.restore();
   }
@@ -5701,6 +5850,7 @@ class HlFillTooltipPainter extends CustomPainter {
   bool shouldRepaint(covariant HlFillTooltipPainter old) =>
       old.repaintKey != repaintKey ||
       old.isDark != isDark ||
+      old.textScaler != textScaler ||
       old.surface != surface ||
       old.dividerColor != dividerColor ||
       old.entries.length != entries.length;

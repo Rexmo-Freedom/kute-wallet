@@ -220,4 +220,69 @@ void tradingStatsTests() {
       expect(const TradingBook(fills: []).statsSince(null)!.count, 0);
     });
   });
+  test('the chart card\'s title is the action alone, in every language',
+      () {
+    final en = l10nForLanguage('en');
+    expect(hlFillActionTitle(fill('1', -0.008, 0.008, 'B', 1), en),
+        'Closed short');
+    expect(hlFillActionTitle(fill('2', 0, 1, 'A', 2), en), 'Opened short');
+    expect(hlFillActionTitle(fill('4', -1, 1, 'A', 4), en), 'Added to short');
+    expect(hlFillActionTitle(fill('6', 1, 1, 'A', 6), en), 'Closed long');
+    final liquidated = HlFill.fromJson({
+      'coin': 'BTC',
+      'tid': '9',
+      'oid': 9,
+      'hash': 'h',
+      'time': 9,
+      'startPosition': '1',
+      'sz': '1',
+      'px': '1',
+      'side': 'A',
+      'closedPnl': '0',
+      'fee': '0',
+      'liquidation': {'method': 'market'},
+    });
+    expect(hlFillActionTitle(liquidated, en), 'Liquidated');
+    final spot = HlFill.fromJson({
+      'coin': '@142',
+      'tid': '10',
+      'oid': 10,
+      'hash': 'h',
+      'time': 10,
+      'sz': '3',
+      'px': '40',
+      'side': 'B',
+      'closedPnl': '0',
+      'fee': '0',
+    });
+    final cases = [
+      for (final (id, before, sz, side) in [
+        ('a', 0.0, 1.0, 'B'),
+        ('b', 0.0, 1.0, 'A'),
+        ('c', 1.0, 1.0, 'B'),
+        ('d', -1.0, 1.0, 'A'),
+        ('e', 2.0, 1.0, 'A'),
+        ('f', -2.0, 1.0, 'B'),
+        ('g', 1.0, 1.0, 'A'),
+        ('h', -1.0, 1.0, 'B'),
+        ('i', 1.0, 2.0, 'A'),
+        ('j', -1.0, 2.0, 'B'),
+      ])
+        fill(id, before, sz, side, 1),
+      spot,
+    ];
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = l10nForLanguage(locale.languageCode);
+      for (final f in cases) {
+        final t = hlFillActionTitle(f, l);
+        expect(t, isNotEmpty, reason: locale.languageCode);
+        expect(t, t.trim(), reason: locale.languageCode);
+        expect(t, isNot(contains('  ')), reason: locale.languageCode);
+        expect(t.endsWith(':'), isFalse, reason: '${locale.languageCode} $t');
+        expect(t[0], t[0].toUpperCase(), reason: '${locale.languageCode} $t');
+      }
+    }
+    expect(hlFillActionTitle(spot, l10nForLanguage('nl')), 'Gekocht');
+    expect(hlFillActionTitle(spot, l10nForLanguage('hu')), 'Vétel');
+  });
 }
