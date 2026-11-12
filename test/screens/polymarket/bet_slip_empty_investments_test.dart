@@ -242,6 +242,9 @@ class _StoredFunded extends FundedOrdersNotifier {
   final List<FundedOrderRecord> records;
   @override
   List<FundedOrderRecord> build() => records;
+
+  /// The records move on while the slip is open.
+  void put(List<FundedOrderRecord> next) => state = next;
 }
 
 /// On demand: the locked slip saying OK and Sal's placing toast written
@@ -951,6 +954,39 @@ void main() {
               .color,
           AppColors.marketDown);
       StandingOrderSlips.debugReset();
+      await release(tester);
+    });
+
+    testWidgets(
+        'its money journey over (past the done window) while its order is '
+        'still on its way: the slip stays locked, the placing line in the '
+        'journey\'s place, OK; never the keypad', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          standingStore: store('standing_slip_journey_over'),
+          funded: const []);
+      await _tapDoor(tester);
+      await _frames(tester, 10);
+      final c = _container(tester);
+      c
+          .read(standingOrdersProvider.notifier)
+          .debugReplace([_standing(state: StandingOrderState.posting)]);
+      await _frames(tester, 2);
+      expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
+          findsOneWidget);
+      // The journey's record is gone (its done window over).
+      (c.read(fundedOrdersProvider.notifier) as _StoredFunded).put(const []);
+      await _frames(tester, 6);
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      expect(find.byType(AmountKeypad), findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-payout-tile')), findsNothing);
+      expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-standing-placing')),
+          findsOneWidget);
+      expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
+      expect(barPrimaryLabel(tester), 'OK');
+      SalToast.debugReset();
+      StandingOrderToasts.debugReset();
       await release(tester);
     });
 
