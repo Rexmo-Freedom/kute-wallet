@@ -49,6 +49,7 @@ import 'package:kute/services/polymarket/shown_price.dart';
 import 'package:kute/screens/polymarket/components/game_winner_lines.dart';
 import 'package:kute/screens/polymarket/components/game_more_markets.dart';
 import 'package:kute/screens/polymarket/components/game_side_button.dart';
+import 'package:kute/screens/polymarket/components/line_ladder.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -708,9 +709,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         // buttons below carry both chances.
                         if (!event.isBinary)
                           Consumer(
-                            builder: (context, priceRef, _) => _showsGameLines
-                                ? _buildGameMarkets(priceRef, c)
-                                : _buildMultiOutcomeList(priceRef, c),
+                            builder: (context, priceRef, _) => _ladder != null
+                                ? _buildLadder(priceRef, c)
+                                : _showsGameLines
+                                    ? _buildGameMarkets(priceRef, c)
+                                    : _buildMultiOutcomeList(priceRef, c),
                           ),
                         SliverToBoxAdapter(
                           child: Column(
@@ -850,6 +853,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               event.displayTitle,
               key: const ValueKey('poly-detail-title'),
               style: titleStyle,
+              // Never cut: a third line only for a title too long for two
+              // at the smallest size (320 pt, a large text size).
+              longMaxLines: 3,
             ),
           ),
           SizedBox(width: 8.w),
@@ -1064,6 +1070,233 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             ),
         ],
       ),
+    );
+  }
+
+  // ── Line ladder (line_ladder.dart) ──────────────────────────────────
+
+  /// The ladder this event is ([polyLineLadder]), worked out once per
+  /// event; null for any other event.
+  PolyLineLadder? get _ladder {
+    final e = event;
+    if (!identical(e, _ladderMemoEvent)) {
+      _ladderMemoEvent = e;
+      _ladderMemo = polyLineLadder(e);
+    }
+    return _ladderMemo;
+  }
+
+  PolymarketEvent? _ladderMemoEvent;
+  PolyLineLadder? _ladderMemo;
+
+  /// The line picked on the stepper, by its market's Over token; null
+  /// until one is picked (the line nearest 50% then).
+  String? _ladderPick;
+
+  /// The lines the stepper offers and the one selected, at the live
+  /// prices ([polyLadderShownLines], [polyLadderDefaultIndex]).
+  ({List<PolyLadderLine> lines, int index}) _ladderState(WidgetRef ref) {
+    final ladder = _ladder!;
+    final live = ref.watch(
+        livePriceProvider.select((s) => (s.prices, s.unpriced)));
+    final lines = polyLadderShownLines(ladder, live.$1, live.$2);
+    var index = _ladderPick == null
+        ? -1
+        : lines.indexWhere((l) => l.outcome.tokenId == _ladderPick);
+    if (index < 0) index = polyLadderDefaultIndex(lines, live.$1, live.$2);
+    return (lines: lines, index: index);
+  }
+
+  /// The chance of [line]'s first side as a list would show it
+  /// ([polyShownChanceOf]); null when its book has none.
+  double? _ladderChance(WidgetRef ref, PolyLadderLine line) =>
+      _shownChanceFor(ref, line.outcome);
+
+  /// The two sides of a ladder's line by name, in the app's language:
+  /// "Over 8.5" / "Under 8.5", else "Yes" / "No" (the line is the
+  /// stepper's).
+  ({String a, String b}) _ladderSideNames(PolyLadderLine line) {
+    final ladder = _ladder!;
+    final l10n = context.l10n;
+    String word(String side) => switch (side.trim().toLowerCase()) {
+          'over' => l10n.polySideOver,
+          'under' => l10n.polySideUnder,
+          'yes' => l10n.yes,
+          'no' => l10n.betNo,
+          _ => side,
+        };
+    if (ladder.overUnder) {
+      return (
+        a: '${word(ladder.sideA)} ${line.lineText}',
+        b: '${word(ladder.sideB)} ${line.lineText}',
+      );
+    }
+    return (a: word(ladder.sideA), b: word(ladder.sideB));
+  }
+
+  /// The colours of a ladder's two sides: their chart lines' and their
+  /// buttons' alike (the game palette's first two, never up and down).
+  (Color, Color) get _ladderColors => (kGameSideColors[0], kGameSideColors[1]);
+
+  /// A ladder's headline: the selected line's question ("O/U 8.5 Total
+  /// Corners") and its first side's chance, as the leading-outcome
+  /// headline writes them. A line with no chance to show says it awaits
+  /// liquidity rather than write a figure nobody traded.
+  Widget _buildLadderHero(WidgetRef ref, AppColorsExtension c) {
+    final state = _ladderState(ref);
+    if (state.lines.isEmpty) return _buildAwaitingLiquidityHeroPill(c);
+    final line = state.lines[state.index];
+    final chance = _ladderChance(ref, line);
+    if (chance == null) return _buildAwaitingLiquidityHeroPill(c);
+    return Column(
+      key: const ValueKey('ladder-hero'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          line.question,
+          maxLines: 2,
+          style: TextStyle(
+            color: c.textTertiary,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          _formatPctShort(chance),
+          style: TextStyle(
+            color: _kPolyPurple,
+            fontSize: 56.sp,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.6,
+            height: 1.0,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A ladder's chart: the selected line's two sides, each in its
+  /// button's colour and tagged by its side and line.
+  MarketChart? _buildLadderChart(WidgetRef ref) {
+    final state = _ladderState(ref);
+    if (state.lines.isEmpty) return null;
+    final line = state.lines[state.index];
+    final o = line.outcome;
+    final names = _ladderSideNames(line);
+    final colors = _ladderColors;
+    final over = _livePriceFor(ref, o.tokenId, o.price).clamp(0.0, 1.0);
+    final lines = <MarketChartLine>[
+      MarketChartLine(
+        tokenId: o.tokenId!,
+        color: colors.$1,
+        label: names.a,
+        livePrice: over,
+        thin: polyTokenIsThin(event, o.tokenId),
+      ),
+      if (o.noTokenId != null && o.noTokenId!.isNotEmpty)
+        MarketChartLine(
+          tokenId: o.noTokenId!,
+          color: colors.$2,
+          label: names.b,
+          livePrice: 1 - over,
+          thin: polyTokenIsThin(event, o.noTokenId),
+        ),
+    ];
+    return MarketChart(
+      // A new line is a new chart: its history, its tags.
+      key: ValueKey('ladder-chart-${o.tokenId}'),
+      lines: lines,
+      height: _chartHeight,
+      accentColor: colors.$1,
+      bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
+      shortMarket: _isShortRound,
+      resolved: _isOverFor(ref),
+      openedAt: polyChartOpenedAt(event),
+      inPlay: event.isInPlay,
+      kindIds: [event.id],
+    );
+  }
+
+  /// A ladder's stepper and the selected line's two sides as the game
+  /// page's side buttons ("Over 8.5 · 53.5%", "Under 8.5 · 46.5%"), each
+  /// in its chart line's colour; a side opens the slip on it.
+  Widget _buildLadder(WidgetRef ref, AppColorsExtension c) {
+    final state = _ladderState(ref);
+    if (state.lines.isEmpty) return const SliverToBoxAdapter();
+    final line = state.lines[state.index];
+    final names = _ladderSideNames(line);
+    final colors = _ladderColors;
+    final chance = _ladderChance(ref, line);
+    final pair = chance == null ? null : formatPolyChancePair(chance);
+    Widget side(bool a) => Expanded(
+          child: PolyGameSideButton(
+            key: ValueKey('ladder-side-${a ? 'a' : 'b'}'),
+            label: a ? names.a : names.b,
+            pctText: pair == null ? '—' : (a ? pair.first : pair.second),
+            lineColor: pair == null ? null : (a ? colors.$1 : colors.$2),
+            muted: pair == null,
+            onTap: () => _openLadderSide(line, second: !a),
+          ),
+        );
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: 8.h),
+          if (state.lines.length > 1)
+            PolyLineStepper(
+              key: const ValueKey('ladder-stepper'),
+              lines: [for (final l in state.lines) l.lineText],
+              selected: state.index,
+              semanticPrefix: line.question,
+              onSelect: (i) =>
+                  setState(() => _ladderPick = state.lines[i].outcome.tokenId),
+            ),
+          SizedBox(height: 8.h),
+          Row(children: [side(true), SizedBox(width: 8.w), side(false)]),
+          _buildInPlayDelayNote(c),
+        ],
+      ),
+    );
+  }
+
+  /// One side of a ladder's line, tapped: the slip on that side at the
+  /// live price, its sides named as the buttons name them and wearing
+  /// their colours, titled by the market's question.
+  void _openLadderSide(PolyLadderLine line, {required bool second}) {
+    TrackingService.track('prediction_outcome_tapped', params: {
+      'outcome_type': second ? 'no' : 'yes',
+      if (event.category.isNotEmpty) 'category': event.category.toLowerCase(),
+    });
+    final o = line.outcome;
+    final live =
+        o.tokenId == null ? null : ref.read(livePriceProvider).prices[o.tokenId];
+    final names = _ladderSideNames(line);
+    final colors = _ladderColors;
+    _openLineBetSlip(
+      live == null
+          ? o
+          : PolymarketOutcome(
+              name: o.name,
+              price: live,
+              tokenId: o.tokenId,
+              noTokenId: o.noTokenId,
+              imageUrl: o.imageUrl,
+              conditionId: o.conditionId,
+              gammaMarketId: o.gammaMarketId,
+              marketLine: o.marketLine,
+              question: o.question,
+            ),
+      second: second,
+      pos: names.a,
+      neg: names.b,
+      // The slip has no teams header: the market's whole question.
+      question: o.question ?? o.name,
+      colors: [colors.$1, colors.$2],
     );
   }
 
@@ -1612,7 +1845,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           // A game has no headline: its header carries the score and the
           // clock and its board the chances. (The most likely of its many
           // markets, an over/under at 99%, said nothing about the game.)
-          if (!_isGameSheet) ...[
+          // A ladder is one question: it has its headline, game or not.
+          if (!_isGameSheet || _ladder != null) ...[
             if (sportsTeams != null) SizedBox(height: 22.h),
             // Own Consumer: the hero percentage is the only thing in the
             // hero card that has to follow a price tick.
@@ -1651,6 +1885,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     if (_allOutcomesStubFor(ref)) {
       return _buildAwaitingLiquidityHeroPill(c);
     }
+    if (_ladder != null) return _buildLadderHero(ref, c);
     if (_isLargeMultiOutcome) {
       return _buildMarketCountHero(ref, c);
     }
@@ -1722,7 +1957,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          leader.name,
+          // The fixture is the header's: "O/U 8.5 Total Corners", never
+          // "Sabah FK vs. FC Barcelona: O/U 8.5 Total Corners".
+          _rowName(leader),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -2160,8 +2397,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final short = gameShortSideNames(wdl.teamAName, wdl.teamBName,
         teams: event.teams.isNotEmpty ? event.teams : _fetchedTeams);
     final teams = (teamA: short.$1, teamB: short.$2);
-    // Solid slabs, each in its outcome's chart-line colour (the draw's
-    // too) with white text, so the buttons read as the chart's traces
+    // Solid slabs, each in exactly its outcome's chart-line colour (the
+    // draw's too) in the ink that reads on it, so the buttons read as the
+    // chart's traces
     // (never green and red, which read as up and down). Each card shows
     // the team/outcome name on top and its live percentage big
     // underneath. Tapping opens the match's three-way slip on it.
@@ -2223,6 +2461,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// Builds the chart against [ref] — the chart Consumer's ref, NOT the
   /// sheet's — so everything watched in here repaints the chart alone.
   MarketChart? _buildChartBody(WidgetRef ref) {
+    // A ladder charts its selected line alone, Over and Under, each tag
+    // naming its side and line ("Over 8.5"): never six lines whose tags
+    // all read "Total Corners".
+    if (_ladder != null) return _buildLadderChart(ref);
     if (event.isBinary) {
       final yesIdx =
           event.outcomes.indexWhere((o) => o.name.toLowerCase() == 'yes');
