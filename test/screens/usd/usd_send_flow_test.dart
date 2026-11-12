@@ -558,7 +558,7 @@ void main() {
     debugResetSalJourneyWarm();
     await _pump(tester);
     final asked = SalSpriteCache.debugRequestLog!;
-    expect(asked, containsAll(['happy', 'sad', 'blink']),
+    expect(asked, containsAll(['happy', 'nod', 'shake_no', 'blink']),
         reason: 'the result sheet\'s clips');
     // Of the journey, only the clip it opens on: the rest are read one
     // ahead of when he needs them (24 body sheets are 648 MiB at @3x).
