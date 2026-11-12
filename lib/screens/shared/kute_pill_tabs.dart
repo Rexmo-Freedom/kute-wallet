@@ -181,6 +181,13 @@ class KutePill extends StatelessWidget {
   /// [KutePillTabs]): the label still reads selected or not.
   final bool flat;
 
+  /// The fill of the pill while it is not the picked one; null leaves it
+  /// transparent (every strip on the page's own ground). On a card, where
+  /// words alone would float, a row of rounds gives each its quiet fill so
+  /// every one reads as a pill (the live round card's strip, founder, 12
+  /// November 2026: "each a proper pill").
+  final Color? restingFill;
+
   const KutePill({
     super.key,
     required this.label,
@@ -195,6 +202,7 @@ class KutePill extends StatelessWidget {
     this.detail,
     this.menu = false,
     this.flat = false,
+    this.restingFill,
   });
 
   /// The selected pill's card chrome, shared with the sliding indicator.
@@ -330,7 +338,10 @@ class KutePill extends StatelessWidget {
           EdgeInsets.symmetric(horizontal: size.hPad.w, vertical: size.vPad.h),
       // Flat: the border still takes its room, so the label sits where it
       // does in a pill with chrome.
-      decoration: KutePill.chrome(context, selected: selected && !flat),
+      decoration: selected || flat || restingFill == null
+          ? KutePill.chrome(context, selected: selected && !flat)
+          : KutePill.chrome(context, selected: false)
+              .copyWith(color: restingFill),
       child: Row(
         mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment:

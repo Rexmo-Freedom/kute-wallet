@@ -28,6 +28,7 @@ import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/providers/crypto_next_round_provider.dart';
 import 'package:kute/screens/polymarket/components/crypto_round_card.dart';
+import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
 import 'package:kute/screens/polymarket/components/crypto_round_strip.dart';
 import 'package:kute/services/polymarket/crypto_round_strip.dart';
 import 'package:kute/services/polymarket/crypto_live_odds.dart'
@@ -61,6 +62,8 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/btc_predict_chart.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,7 +71,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 
@@ -1743,6 +1745,28 @@ class CryptoPredictBanner extends ConsumerWidget {
         ? selectedUpToken
         : null;
 
+    // A round without prices carries no words on its pill (nothing on the
+    // strip is cut; founder, 12 November 2026): the card says "7:25 · No
+    // prices yet" on the line over its buttons while the buttons stand on
+    // such a round (the round in play without Gamma's event), and for a
+    // moment after a tap on one. Never while the line names the round the
+    // buttons bet on.
+    final notedStart =
+        hasStrip ? ref.watch(cryptoRoundNoteProvider(pickKey)) : null;
+    final PolyStripRound? noted = rounds == null
+        ? null
+        : rounds
+                .where((r) =>
+                    r.slot != PolyRoundSlot.past &&
+                    !r.selectable &&
+                    r.start == notedStart)
+                .firstOrNull ??
+            (selected != null && !selected.selectable ? selected : null);
+    final String? roundNote = noted == null || nextLabel != null
+        ? null
+        : '${clock(noted.startTime)} · '
+            '${context.l10n.predictRoundNoPricesYet}';
+
     void pick(PolyStripRound picked) {
       TrackingService.track('predictions_instant_round_picked', params: {
         'which': polyRoundPickWhich(picked),
@@ -1750,6 +1774,7 @@ class CryptoPredictBanner extends ConsumerWidget {
         'seconds_to_start':
             picked.start - now.toUtc().millisecondsSinceEpoch ~/ 1000,
       });
+      ref.read(cryptoRoundNoteProvider(pickKey).notifier).clear();
       ref.read(cryptoPickedRoundProvider(pickKey).notifier).state =
           picked.start;
     }
@@ -1764,6 +1789,9 @@ class CryptoPredictBanner extends ConsumerWidget {
                 ? null
                 : _stripCountdown(predictState.secondsRemaining, minutes),
             onPick: pick,
+            onUnavailable: (r) => ref
+                .read(cryptoRoundNoteProvider(pickKey).notifier)
+                .show(r.start),
           );
 
     final String? feedName = switch (predictState?.feed) {
@@ -1771,9 +1799,6 @@ class CryptoPredictBanner extends ConsumerWidget {
       CryptoPriceFeed.coingecko => 'CoinGecko',
       _ => null,
     };
-    // Per-asset brand color — was hard-coded to BTC orange for every
-    // banner, which made ETH/SOL/XRP cards visually misread as BTC.
-    final brandColor = config.brandColor;
     // Banner shows "Loading prices…" ONLY while we don't even have an
     // event slug yet. Previously the gate also required `currentPrice`
     // and `priceToBeat` — both fed by CoinGecko polling. When CoinGecko
@@ -1873,6 +1898,7 @@ class CryptoPredictBanner extends ConsumerWidget {
             roundStart: event?.windowStartTime,
             upFrac: buttonsUpFrac,
             nextLabel: nextLabel,
+            note: roundNote,
             onUp: () => openSide('up'),
             onDown: () => openSide('down'),
             strip: strip,
@@ -1919,31 +1945,8 @@ class CryptoPredictBanner extends ConsumerWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                config.isSvg
-                    ? SizedBox(
-                        width: 44.sp,
-                        height: 44.sp,
-                        child: SvgPicture.asset(
-                          config.logoPath,
-                          width: 40.sp,
-                          height: 40.sp,
-                          fit: BoxFit.contain,
-                        ),
-                      )
-                    : Container(
-                        width: 44.sp,
-                        height: 44.sp,
-                        decoration: BoxDecoration(
-                          color: brandColor,
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        alignment: Alignment.center,
-                        child: Image.asset(
-                          config.logoPath,
-                          width: 30.sp,
-                          height: 30.sp,
-                        ),
-                      ),
+                // Every coin the same circle (crypto_asset_logo.dart).
+                CryptoAssetLogo(config: config, size: 44.sp),
                 SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
@@ -2129,9 +2132,10 @@ class CryptoPredictBanner extends ConsumerWidget {
               SizedBox(height: 10.h),
             ],
 
-            // Once the buttons have rolled: which window they bet.
-            if (nextLabel != null) ...[
-              CryptoNextWindowLine(label: nextLabel),
+            // Once the buttons have rolled: which window they bet. Else a
+            // round without prices, named here and not on its pill.
+            if (nextLabel ?? roundNote case final line?) ...[
+              CryptoNextWindowLine(label: line),
               SizedBox(height: 8.h),
             ],
 
@@ -2339,12 +2343,25 @@ class _MoreCryptoMarketsCard extends StatelessWidget {
     final c = context.colors;
     final others = kCryptoPredictAssets.skip(1).toList(growable: false);
     if (others.isEmpty) return const SizedBox.shrink();
+    // The hero's own card (CompactCryptoCard) and its 14 inset, so the
+    // rows' logos stand under the hero's (founder, 12 November 2026:
+    // consistent spacing).
     return Container(
-      padding: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 4.h),
+      key: const ValueKey('crypto-more-rounds'),
+      padding: EdgeInsets.fromLTRB(14.w, 4.h, 14.w, 4.h),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: c.border.withValues(alpha: 0.5), width: 0.5),
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2485,27 +2502,17 @@ class _FiveMinTile extends ConsumerWidget {
     final countdown = st?.countdownText ?? '--:--';
     final spot = _formatSpot(st?.currentPrice);
 
-    Widget logo(double size) => config.isSvg
-        ? SvgPicture.asset(
-            config.logoPath,
-            width: size,
-            height: size,
-            fit: BoxFit.contain,
-          )
-        : Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: config.brandColor,
-              borderRadius: BorderRadius.circular(9.r),
-            ),
-            alignment: Alignment.center,
-            child: Image.asset(
-              config.logoPath,
-              width: size * 0.68,
-              height: size * 0.68,
-            ),
-          );
+    // Every coin the same circle (crypto_asset_logo.dart; founder, 12
+    // November 2026: XRP's bare X stood oversized beside the discs).
+    Widget logo(double size) => CryptoAssetLogo(config: config, size: size);
+
+    final countdownStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
     // Time left as a plain figure (no chip): the red live dot is the only
     // colour, the clock in the primary text colour.
@@ -2523,18 +2530,17 @@ class _FiveMinTile extends ConsumerWidget {
                 ),
               ),
               SizedBox(width: 5.w),
-              Text(
-                countdown,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
+              Text(countdown, maxLines: 1, style: countdownStyle),
             ],
           ),
+        );
+
+    TextStyle oddsStyle(Color color) => TextStyle(
+          color: color,
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
+          fontFeatures: const [FontFeature.tabularFigures()],
         );
 
     // Direction entry buttons: solid market colors, no pastel tint
@@ -2543,82 +2549,159 @@ class _FiveMinTile extends ConsumerWidget {
       final accent = isUp ? _kPolyGreen : _kPolyRed;
       final onColor = contrastingOnColor(accent);
       return Container(
-        padding: EdgeInsets.symmetric(vertical: 6.h),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: accent,
           borderRadius: BorderRadius.circular(10.r),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-              size: 14.sp,
-              color: onColor,
-            ),
-            SizedBox(width: 3.w),
-            RollingNumberText(
-              text: text,
-              style: TextStyle(
+        padding: EdgeInsets.symmetric(vertical: 6.h, horizontal: 6.w),
+        // Whole at any text size: the arrow and the figure shrink together
+        // rather than run past the chip.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isUp
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded,
+                size: 14.sp,
                 color: onColor,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-            ),
-          ],
+              SizedBox(width: 3.w),
+              RollingNumberText(text: text, style: oddsStyle(onColor)),
+            ],
+          ),
         ),
       );
     }
 
+    final nameStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.3,
+    );
+    final spotStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final spotText = spot.isEmpty ? '${minutes}m' : '${minutes}m · $spot';
+    // The name and the price under it. In the row (wide) neither is ever
+    // cut: a line too long for its room wraps (founder, 12 November 2026).
     final nameBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           config.displayName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: c.textPrimary,
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
-          ),
+          maxLines: wide ? null : 1,
+          overflow: wide ? null : TextOverflow.ellipsis,
+          style: nameStyle,
         ),
         SizedBox(height: 2.h),
         Text(
-          spot.isEmpty ? '${minutes}m' : '${minutes}m · $spot',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: c.textTertiary,
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+          spotText,
+          maxLines: wide ? null : 1,
+          overflow: wide ? null : TextOverflow.ellipsis,
+          style: spotStyle,
         ),
       ],
     );
 
     final Widget body;
     if (wide) {
-      body = Row(
-        children: [
-          logo(34.sp),
-          SizedBox(width: 12.w),
-          Expanded(child: nameBlock),
-          SizedBox(width: 8.w),
-          countdownPill(),
-          SizedBox(width: 10.w),
-          SizedBox(width: 74.w, child: oddsChip(isUp: true, text: odds.first)),
-          SizedBox(width: 6.w),
-          SizedBox(width: 74.w, child: oddsChip(isUp: false, text: odds.second)),
-        ],
-      );
+      // One row while everything fits whole on it: the coin (the hero's
+      // 32 logo, under it), its name and price, the time left, Up and
+      // Down. Where it does not (a narrow phone, large text) the row
+      // wraps, never cuts: the coin, its name and the time left on the
+      // first line, Up and Down across the second. Measured with every
+      // digit as wide as the widest, so a tick never flips the shape.
+      body = LayoutBuilder(builder: (context, box) {
+        double widthOf(String text, TextStyle style) {
+          final painter = TextPainter(
+            text: TextSpan(
+                text: text.replaceAll(RegExp(r'\d'), '0'),
+                style: DefaultTextStyle.of(context).style.merge(style)),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        }
+
+        final logoSize = 32.sp;
+        final names = math.max(widthOf(config.displayName, nameStyle),
+            widthOf(spotText, spotStyle));
+        final clock = 10.w + widthOf(countdown, countdownStyle);
+        // A chip holds its arrow and "100.0%" whole.
+        final chip = math.max(
+            74.w,
+            14.sp +
+                3.w +
+                widthOf('100.0%', oddsStyle(c.textPrimary)) +
+                12.w +
+                2);
+        final oneRow = logoSize +
+                12.w +
+                names +
+                8.w +
+                clock +
+                10.w +
+                chip * 2 +
+                6.w +
+                1 <=
+            box.maxWidth;
+        if (oneRow) {
+          return Row(
+            children: [
+              logo(logoSize),
+              SizedBox(width: 12.w),
+              Expanded(child: nameBlock),
+              SizedBox(width: 8.w),
+              countdownPill(),
+              SizedBox(width: 10.w),
+              SizedBox(
+                  width: chip, child: oddsChip(isUp: true, text: odds.first)),
+              SizedBox(width: 6.w),
+              SizedBox(
+                  width: chip,
+                  child: oddsChip(isUp: false, text: odds.second)),
+            ],
+          );
+        }
+        return Column(
+          key: const ValueKey('five-min-row-wrapped'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                logo(logoSize),
+                SizedBox(width: 12.w),
+                Expanded(child: nameBlock),
+                SizedBox(width: 8.w),
+                countdownPill(),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            Row(
+              children: [
+                Expanded(child: oddsChip(isUp: true, text: odds.first)),
+                SizedBox(width: 6.w),
+                Expanded(child: oddsChip(isUp: false, text: odds.second)),
+              ],
+            ),
+          ],
+        );
+      });
     } else {
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2656,7 +2739,8 @@ class _FiveMinTile extends ConsumerWidget {
             behavior: HitTestBehavior.opaque,
             onTap: () => _openDetail(context, ev, minutes),
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
+              key: ValueKey('five-min-row-${config.asset}'),
+              padding: EdgeInsets.symmetric(vertical: 10.h),
               child: body,
             ),
           ),

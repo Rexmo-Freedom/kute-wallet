@@ -153,6 +153,7 @@ class CompactCryptoCard extends StatelessWidget {
     required this.roundStart,
     required this.upFrac,
     this.nextLabel,
+    this.note,
     required this.onUp,
     required this.onDown,
     this.strip,
@@ -187,6 +188,12 @@ class CompactCryptoCard extends StatelessWidget {
   /// of one length: the name of the round the buttons bet on when it is
   /// not the one on show.
   final String? nextLabel;
+
+  /// A word about the strip on the same line while [nextLabel] is null: a
+  /// round without prices, named here and never on its pill ("7:25 · No
+  /// prices yet"; crypto_round_strip.dart). The buttons do not read it out
+  /// as their window.
+  final String? note;
   final VoidCallback onUp;
   final VoidCallback onDown;
 
@@ -234,6 +241,34 @@ class CompactCryptoCard extends StatelessWidget {
       )..layout())
           .height;
 
+  /// The width [text] takes on one line in [style], at the person's text
+  /// size, every digit counted as wide as the widest (the row's shape then
+  /// holds from tick to tick); [perChar] as [RollingNumberText] lays a
+  /// figure out, one cell per character.
+  static double _textWidth(BuildContext context, String text, TextStyle style,
+      {bool perChar = false}) {
+    final merged = DefaultTextStyle.of(context).style.merge(style);
+    final steady = text.replaceAll(RegExp(r'\d'), '0');
+    double measure(String part) {
+      final painter = TextPainter(
+        text: TextSpan(text: part, style: merged),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        maxLines: 1,
+      )..layout();
+      final width = painter.width;
+      painter.dispose();
+      return width;
+    }
+
+    if (!perChar) return measure(steady);
+    var width = 0.0;
+    for (final ch in steady.characters) {
+      width += measure(ch);
+    }
+    return width;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -242,7 +277,9 @@ class CompactCryptoCard extends StatelessWidget {
     // alone, never 50% and 50%.
     final pair = upFrac == null ? null : formatPolyChancePair(upFrac!);
     final seeded = (history?.length ?? 0) >= 2;
-    final rolled = nextLabel != null;
+    // The line over the buttons: the round they bet on, else the note.
+    final lineLabel = nextLabel ?? note;
+    final rolled = lineLabel != null;
     // 10 over the buttons either way; rolled, 6 and the line and 6.
     final sparkHeight = rolled
         ? this.sparkHeight + 10.h - 12.h - _nextLine
@@ -281,19 +318,21 @@ class CompactCryptoCard extends StatelessWidget {
             children: [
               SizedBox(width: _logo.sp, height: _logo.sp, child: logo),
               SizedBox(width: 10.w),
+              // The title is never cut: on a narrow phone at a large text
+              // size it takes a second line beside the countdown.
               Expanded(
                 child: Text(
                   title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: c.textPrimary,
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
+                    height: 1.2,
                   ),
                 ),
               ),
+              SizedBox(width: 8.w),
               if (pastResults.isNotEmpty) ...[
                 PastRoundDots(results: pastResults),
                 SizedBox(width: 8.w),
@@ -340,63 +379,99 @@ class CompactCryptoCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 10.h),
-          // The live price, its move against the target, the target.
-          // One fixed line, skeleton or figures: a price scaled down to
-          // fit beside a wider move, or the skeleton giving way to the
-          // digits, never changes the card's height (the list under it
-          // would move with every tick).
-          SizedBox(
-            height: _priceLine(context, priceStyle),
-            child: loading
-                ? KuteSkeleton(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: SkeletonBar(150.w, 24.h, radius: 6.r),
-                    ),
-                  )
-                : Row(
+          // The live price, its move against the target, the target at
+          // the right. One fixed line, skeleton or figures: a price scaled
+          // down to fit beside a wider move, or the skeleton giving way to
+          // the digits, never changes the card's height (the list under it
+          // would move with every tick). Where the three do not fit one
+          // line (a narrow phone, large text) the target goes under the
+          // price, whole, never cut (founder, 12 November 2026); the widths
+          // are measured with every digit as wide as the widest, so a tick
+          // never flips the row between its two shapes.
+          LayoutBuilder(builder: (context, box) {
+            final line = _priceLine(context, priceStyle);
+            if (loading) {
+              return SizedBox(
+                height: line,
+                child: KuteSkeleton(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SkeletonBar(150.w, 24.h, radius: 6.r),
+                  ),
+                ),
+              );
+            }
+            final diffStyle = TextStyle(
+              color: diffUp ? AppColors.marketUp : AppColors.marketDown,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            );
+            final targetStyle = TextStyle(
+              color: c.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            );
+            final oneLine = _textWidth(context, priceText, priceStyle,
+                        perChar: true) +
+                    (diffText == null
+                        ? 0
+                        : 6.w + _textWidth(context, diffText!, diffStyle)) +
+                    8.w +
+                    _textWidth(context, targetText, targetStyle) +
+                    1 <=
+                box.maxWidth;
+            final figures = <Widget>[
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: RollingNumberText(text: priceText, style: priceStyle),
+                ),
+              ),
+              if (diffText != null) ...[
+                SizedBox(width: 6.w),
+                Text(diffText!, maxLines: 1, style: diffStyle),
+              ],
+            ];
+            final target = Text(
+              targetText,
+              key: const ValueKey('crypto-round-target'),
+              style: targetStyle,
+            );
+            if (oneLine) {
+              return SizedBox(
+                height: line,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    ...figures,
+                    SizedBox(width: 8.w),
+                    const Spacer(),
+                    target,
+                  ],
+                ),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: line,
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: RollingNumberText(
-                              text: priceText, style: priceStyle),
-                        ),
-                      ),
-                      if (diffText != null) ...[
-                        SizedBox(width: 6.w),
-                        Text(
-                          diffText!,
-                          maxLines: 1,
-                          style: TextStyle(
-                            color: diffUp
-                                ? AppColors.marketUp
-                                : AppColors.marketDown,
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w700,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                      SizedBox(width: 8.w),
-                      const Spacer(),
-                      Text(
-                        targetText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
+                    children: figures,
                   ),
-          ),
+                ),
+                SizedBox(height: 4.h),
+                target,
+              ],
+            );
+          }),
           SizedBox(height: 8.h),
           // The sparkline with the dashed target line, no in-chart
           // "Target" badge: the target is printed just above.
@@ -432,7 +507,7 @@ class CompactCryptoCard extends StatelessWidget {
             SizedBox(height: 6.h),
             SizedBox(
                 height: _nextLine,
-                child: CryptoNextWindowLine(label: nextLabel!)),
+                child: CryptoNextWindowLine(label: lineLabel)),
             SizedBox(height: 6.h),
           ] else
             SizedBox(height: 10.h),
@@ -549,6 +624,10 @@ class PastRoundDots extends StatelessWidget {
   const PastRoundDots({super.key, required this.results});
 
   final List<CryptoWindowResult> results;
+
+  /// The row's width for [count] dots, as it lays them out.
+  static double widthOf(int count) =>
+      count <= 0 ? 0 : count * 7.sp + (count - 1) * 3.w;
 
   @override
   Widget build(BuildContext context) {

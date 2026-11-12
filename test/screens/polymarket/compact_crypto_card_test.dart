@@ -18,6 +18,7 @@
 // crypto_next_round_card_test.dart.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -106,6 +107,16 @@ Widget compactCardApp({bool dark = false}) => ProviderScope(
     );
 
 void main() {
+  // Inter, as on a phone: the price row and the strip of rounds lay
+  // themselves out by the width of their words (the target goes under the
+  // price, the dots leave the strip, only where they would not fit).
+  setUpAll(() async {
+    final inter = FontLoader('Inter');
+    for (final f in ['Regular', 'SemiBold', 'Bold']) {
+      inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+    }
+    await inter.load();
+  });
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets('compact: about 200 px, every piece of the round on it',

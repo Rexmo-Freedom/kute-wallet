@@ -19,6 +19,8 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
+import 'package:kute/providers/crypto_next_round_provider.dart'
+    show kCryptoRoundNoteFor;
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
@@ -50,9 +52,9 @@ int epoch(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
 
 /// Gamma's event of the [minutes] round starting at [start].
 Btc5MinEvent roundEvent(DateTime start, String tokens,
-        {int minutes = 5, double up = 0.6}) =>
+        {int minutes = 5, double up = 0.6, String asset = 'btc'}) =>
     Btc5MinEvent(
-      slug: polyCryptoRoundSlug('btc', minutes, epoch(start)),
+      slug: polyCryptoRoundSlug(asset, minutes, epoch(start)),
       title: 'Bitcoin Up or Down - November 8',
       windowStartTime: start,
       endDate: start.add(Duration(minutes: minutes)),
@@ -62,6 +64,14 @@ Btc5MinEvent roundEvent(DateTime start, String tokens,
       downTokenId: '$tokens-down',
       conditionId: '$tokens-cond',
     );
+
+/// Each coin's live price and target on the test's clock.
+const Map<String, (double, double)> kSpot = {
+  'BTC': (75965, 75987),
+  'ETH': (3471.12, 3470.02),
+  'SOL': (182.44, 182.31),
+  'XRP': (2.4312, 2.4305),
+};
 
 /// The card's round, at the chips' length, on the test's clock; [bump]
 /// repaints as the notifier's one-second countdown does, [rollTo] moves to
@@ -77,11 +87,15 @@ class StripRoundState extends CryptoPredictNotifier {
         polyRoundStartAt(world.now, minutes) * 1000,
         isUtc: true);
     final span = minutes * 60;
+    // Bitcoin's figures as they always were; another coin (the rows under
+    // the card on the 5 Min page) its own price, tokens and round.
+    final (price, target) = kSpot[arg] ?? kSpot['BTC']!;
+    final scale = target / 75987;
     final history = [
       for (var t = -60; t <= world.now.difference(start).inSeconds; t += 4)
         BtcPriceSnapshot(
             timestamp: start.add(Duration(seconds: t)),
-            price: 75987 + (t % 7) * 6.0 - 12 - t / 20),
+            price: (75987 + (t % 7) * 6.0 - 12 - t / 20) * scale),
     ];
     if (world.eventless) {
       return CryptoPredictState(
@@ -89,11 +103,14 @@ class StripRoundState extends CryptoPredictNotifier {
     }
     return CryptoPredictState(
       asset: arg,
-      currentPrice: 75965,
-      priceToBeat: 75987,
+      currentPrice: price,
+      priceToBeat: target,
       secondsRemaining: span - world.now.difference(start).inSeconds,
       priceHistory: history,
-      event: roundEvent(start, 'cur', minutes: minutes),
+      event: arg == 'BTC'
+          ? roundEvent(start, 'cur', minutes: minutes)
+          : roundEvent(start, 'cur-${arg.toLowerCase()}',
+              minutes: minutes, asset: arg.toLowerCase()),
     );
   }
 
@@ -330,6 +347,33 @@ KutePill pillOf(WidgetTester tester, int start) =>
 bool pillSelected(WidgetTester tester, int start) =>
     pillOf(tester, start).selected;
 
+/// A round without prices: the same pill, dimmed, with no words added to
+/// it (a screen reader still hears why), and no tap.
+void expectUnpriced(WidgetTester tester, int start) {
+  final pill = pillOf(tester, start);
+  expect(pill.detail, isNull, reason: 'no "No prices yet" on the pill');
+  expect(pill.semanticLabel, '${pill.label}, No prices yet');
+  final dim = tester.widget<Opacity>(find
+      .ancestor(
+          of: find.byKey(CryptoRoundStrip.pillKey(start)),
+          matching: find.byType(Opacity))
+      .first);
+  expect(dim.opacity, lessThan(1));
+  expect(
+      find.descendant(
+          of: find.byKey(const ValueKey('crypto-round-strip')),
+          matching: find.textContaining('No prices yet', findRichText: true)),
+      findsNothing);
+}
+
+/// The line over the buttons.
+String? lineOverButtons(WidgetTester tester) {
+  final line = find.descendant(
+      of: find.byKey(const ValueKey('crypto-round-next')),
+      matching: find.byType(Text));
+  return line.evaluate().isEmpty ? null : tester.widget<Text>(line).data;
+}
+
 void main() {
   late CardWorld world;
   late List<(String, Map<String, Object>?)> events;
@@ -410,11 +454,18 @@ void main() {
     expect(find.byKey(_next), findsNothing, reason: 'the round on show');
     // The one after is listed by nobody: no prices, dimmed, no tap.
     final later = find.byKey(CryptoRoundStrip.pillKey(epoch(laterStart)));
-    expect(tester.widget<KutePill>(later).detail, 'No prices yet');
+    expectUnpriced(tester, epoch(laterStart));
+    expect(lineOverButtons(tester), isNull);
     await tester.tap(later);
     await settle(tester);
     expect(pillSelected(tester, epoch(laterStart)), isFalse);
     expect(picks(), isEmpty);
+    // The tap is answered on the line over the buttons, for a moment; the
+    // buttons stay on the round in play.
+    expect(lineOverButtons(tester), '${clockOf(laterStart)} · No prices yet');
+    await tester.pump(kCryptoRoundNoteFor);
+    await settle(tester);
+    expect(lineOverButtons(tester), isNull);
     final slip = await openUp(tester);
     expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(roundStart)));
     expect(slip.outcomes.map((o) => o.tokenId), ['cur-up', 'cur-down']);
@@ -465,7 +516,7 @@ void main() {
     world.silence();
     await moveTo(tester, world, moment.add(const Duration(seconds: 1)));
     expect(pillSelected(tester, epoch(roundStart)), isTrue);
-    expect(pillOf(tester, epoch(nextStart)).detail, 'No prices yet');
+    expectUnpriced(tester, epoch(nextStart));
     await tearCardDown(tester);
   });
 
@@ -624,9 +675,11 @@ void main() {
     world.eventless = true;
     await pumpCard(tester);
     final live = find.byKey(CryptoRoundStrip.pillKey(epoch(roundStart)));
-    expect(tester.widget<KutePill>(live).detail, 'No prices yet');
+    expectUnpriced(tester, epoch(roundStart));
     expect(tester.widget<KutePill>(live).label, clockOf(roundStart));
     expect(find.textContaining('Now ·', findRichText: true), findsNothing);
+    // The buttons stand on it: the line over them says so while they do.
+    expect(lineOverButtons(tester), '${clockOf(roundStart)} · No prices yet');
     await tearCardDown(tester);
   });
 }

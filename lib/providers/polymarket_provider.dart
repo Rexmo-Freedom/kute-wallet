@@ -82,6 +82,12 @@ class CryptoAssetConfig {
   /// logo of ([logoPath] empty).
   final String? logoUrl;
 
+  /// Set when the bundled logo is a bare mark with no disc of its own
+  /// (XRP's X): the disc it is drawn on, white, so the coin is the same
+  /// circle as the others (crypto_asset_logo.dart). Null for a logo that
+  /// brings its disc.
+  final Color? markDisc;
+
   const CryptoAssetConfig({
     required this.asset,
     required this.priceSymbol,
@@ -90,6 +96,7 @@ class CryptoAssetConfig {
     required this.brandColor,
     this.isSvg = true,
     this.logoUrl,
+    this.markDisc,
   });
 }
 
@@ -122,6 +129,8 @@ const kCryptoPredictAssets = [
     displayName: 'XRP',
     logoPath: 'lib/assets/xrp-xrp-logo.svg',
     brandColor: Color(0xFF25A768),
+    // The file is the bare X in XRP's own near-black.
+    markDisc: Color(0xFF23292F),
   ),
 ];
 

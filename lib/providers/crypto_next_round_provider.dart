@@ -53,3 +53,38 @@ typedef CryptoRoundPickKey = ({String asset, int minutes});
 /// with the card (the strip's rules decide how long a pick stands).
 final cryptoPickedRoundProvider =
     StateProvider.autoDispose.family<int?, CryptoRoundPickKey>((_, __) => null);
+
+/// How long the card says a tapped round has no prices yet.
+const Duration kCryptoRoundNoteFor = Duration(seconds: 3);
+
+/// The start (UTC seconds) of the round WITHOUT PRICES the person just
+/// tapped on the strip (a dimmed pill, which takes no pick): the card says
+/// "7:25 · No prices yet" on the line over its buttons for
+/// [kCryptoRoundNoteFor], the pill itself carrying no such words (founder,
+/// 12 November 2026: nothing on the strip is cut). Null otherwise. Per
+/// asset and length, gone with the card.
+class CryptoRoundNoteNotifier
+    extends AutoDisposeFamilyNotifier<int?, CryptoRoundPickKey> {
+  Timer? _timer;
+
+  @override
+  int? build(CryptoRoundPickKey arg) {
+    ref.onDispose(() => _timer?.cancel());
+    return null;
+  }
+
+  void show(int start) {
+    _timer?.cancel();
+    state = start;
+    _timer = Timer(kCryptoRoundNoteFor, () => state = null);
+  }
+
+  void clear() {
+    _timer?.cancel();
+    if (state != null) state = null;
+  }
+}
+
+final cryptoRoundNoteProvider = NotifierProvider.autoDispose
+    .family<CryptoRoundNoteNotifier, int?, CryptoRoundPickKey>(
+        CryptoRoundNoteNotifier.new);
