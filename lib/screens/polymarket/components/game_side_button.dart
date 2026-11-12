@@ -10,9 +10,13 @@
 //     secondary colour and the chance in [accent] (the primary text
 //     colour unless a team's own colour is asked for). No tints: the app
 //     has no tinted chips (founder, 1 November 2026).
-//   * On a line the chart draws ([lineColor]): a solid slab of that
-//     line's colour ([polyOutcomeFill]) with white text, the weight of
-//     the Up / Down buttons, so the side reads as its line.
+//   * On a line the chart draws ([lineColor]): a solid slab of EXACTLY
+//     that line's colour, lettered in the ink that reads on it
+//     ([contrastingOnColor]: dark on the palette's soft sky blue,
+//     lavender and orange), so the side reads as its line (founder, 12
+//     November 2026, on a football match's Winner board: the buttons a
+//     darker blue, brown and purple than their lines were "cringe";
+//     "same colors as the lines would be good").
 //   * [dense]: a "More markets" row's pair, a step down from the board's
 //     tiles (46 high against 62, 12 corners against 16, 11.5 / 15 sp
 //     against 13 / 18).
@@ -26,8 +30,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import 'package:kute/screens/polymarket/components/outcome_leading.dart'
-    show polyOutcomeFill;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -44,7 +46,7 @@ class PolyGameSideButton extends StatefulWidget {
   final Color? accent;
 
   /// The colour of this side's line on the chart above. When set the
-  /// button is a solid slab of it ([polyOutcomeFill]) with white text.
+  /// button is a solid slab of it, lettered in [contrastingOnColor].
   final Color? lineColor;
 
   /// A "More markets" row's pair: smaller than the board's tiles.
@@ -87,19 +89,13 @@ class _PolyGameSideButtonState extends State<PolyGameSideButton> {
     final c = context.colors;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final line = widget.lineColor;
-    final fill = line == null ? null : polyOutcomeFill(line);
+    final fill = line;
+    final ink = fill == null ? null : contrastingOnColor(fill);
     final dense = widget.dense;
     final radius = BorderRadius.circular((dense ? 12 : 16).r);
-    final labelColor = fill != null
-        ? Colors.white
-        : widget.muted
-            ? c.textTertiary
-            : c.textSecondary;
-    final figureColor = fill != null
-        ? Colors.white
-        : widget.muted
-            ? c.textTertiary
-            : (widget.accent ?? c.textPrimary);
+    final labelColor = ink ?? (widget.muted ? c.textTertiary : c.textSecondary);
+    final figureColor = ink ??
+        (widget.muted ? c.textTertiary : (widget.accent ?? c.textPrimary));
     return Semantics(
       button: true,
       label: widget.semanticLabel ?? '${widget.label} ${widget.pctText}',
@@ -167,8 +163,7 @@ class _PolyGameSideButtonState extends State<PolyGameSideButton> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            // Full white on a slab: the fill is set for
-                            // 4.5:1 on it.
+                            // The slab's own ink: dark on a light line.
                             color: labelColor,
                             fontSize: (dense ? 11.5 : 13).sp,
                             fontWeight: FontWeight.w600,
@@ -176,29 +171,33 @@ class _PolyGameSideButtonState extends State<PolyGameSideButton> {
                             height: 1.15,
                           ),
                         );
-                        // A row's button is narrow: a long name ("Hull
-                        // City +1.5") shrinks a little rather than lose
-                        // its line.
-                        return dense
-                            ? FittedBox(fit: BoxFit.scaleDown, child: text)
-                            : text;
+                        // A button is narrow (a third of a 320 pt row on
+                        // a Winner board of three): a long name ("Hull
+                        // City +1.5", "Fenerbahçe") shrinks a little
+                        // rather than lose its end. Never cut.
+                        return FittedBox(fit: BoxFit.scaleDown, child: text);
                       }(),
                     ),
                   ],
                 ),
                 SizedBox(height: (dense ? 2 : 3).h),
-                RollingNumberText(
-                  text: widget.pctText,
-                  duration: reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 250),
-                  style: TextStyle(
-                    color: figureColor,
-                    fontSize: (dense ? 15 : 18).sp,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: dense ? -0.2 : -0.4,
-                    height: 1.0,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                // The chance shrinks too rather than spill out of a narrow
+                // button under a large text size.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: RollingNumberText(
+                    text: widget.pctText,
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 250),
+                    style: TextStyle(
+                      color: figureColor,
+                      fontSize: (dense ? 15 : 18).sp,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: dense ? -0.2 : -0.4,
+                      height: 1.0,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ],

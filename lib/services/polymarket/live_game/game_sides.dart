@@ -258,7 +258,13 @@ String _gameShortName(String name, List<PolymarketTeam> teams) {
   final words = bare.split(RegExp(r'\s+'));
   if (words.length < 2) return bare;
   final club = bare != name.trim();
-  if (!club) return words.last;
+  // A franchise's nickname, a player's surname; never a bare tag-like
+  // abbreviation ("SK"), which names no one: the first word then.
+  if (!club) {
+    final last = words.last;
+    final tagLike = last.length <= 3 && last == last.toUpperCase();
+    return tagLike ? words.first : last;
+  }
   while (words.length > 1 &&
       words.join(' ').length > kGameShortNameMax &&
       _kGenericClubWords.contains(words.last.toLowerCase())) {

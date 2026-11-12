@@ -184,8 +184,16 @@ class PolymarketTopMarket {
 /// the real crest logo so the vs-header shows actual badges instead of
 /// initial placeholders.
 /// Words a club's name carries that say what it is, not which one
-/// ("Leeds United FC", "AFC Bournemouth").
-const Set<String> kPolyClubTags = {'fc', 'afc', 'cf', 'sc', 'club'};
+/// ("Leeds United FC", "AFC Bournemouth", "FK Shakhtar Donetsk",
+/// "Fenerbahçe SK", "AC Milan", "SL Benfica", "VfB Stuttgart"): the
+/// football club abbreviations of England, Spain, Italy, Portugal,
+/// Germany, Turkey, Eastern Europe and Scandinavia.
+const Set<String> kPolyClubTags = {
+  'fc', 'afc', 'cf', 'sc', 'club', //
+  'fk', 'sk', 'pfc', 'nk', 'hnk', 'gnk', 'bk', //
+  'ac', 'ssc', 'ss', 'cd', 'ud', 'rc', 'rcd', 'sl', //
+  'sv', 'vfb', 'vfl', 'tsg', 'fsv', 'kv', 'krc',
+};
 
 /// Whether [side] reads as one side of a match title rather than part of
 /// a question that mentions one: at most four words and 30 characters.

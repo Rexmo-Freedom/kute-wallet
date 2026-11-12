@@ -100,12 +100,23 @@ class FittedTitle extends StatelessWidget {
     required this.style,
     this.maxLines = 2,
     this.minScale = 0.7,
+    this.textAlign,
+    this.longMaxLines,
   });
 
   final String text;
   final TextStyle style;
   final int maxLines;
   final double minScale;
+
+  /// How the lines sit in the width (a team's name under its crest is
+  /// centred); the ambient alignment when null.
+  final TextAlign? textAlign;
+
+  /// The lines a title still too long at the floor may take before it is
+  /// cut (a fixture and its market at 320 pt under a large text size);
+  /// [maxLines] stays the limit when null.
+  final int? longMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -128,9 +139,26 @@ class FittedTitle extends StatelessWidget {
         locale: locale,
         textHeightBehavior: heightBehavior,
       );
+      var lines = maxLines;
+      final long = longMaxLines;
+      if (long != null &&
+          long > maxLines &&
+          !fittedTitleFitsWhole(
+            text: text,
+            style: effective.copyWith(fontSize: size),
+            maxWidth: constraints.maxWidth,
+            maxLines: maxLines,
+            textScaler: textScaler,
+            textDirection: direction,
+            locale: locale,
+            textHeightBehavior: heightBehavior,
+          )) {
+        lines = long;
+      }
       return Text(
         text,
-        maxLines: maxLines,
+        maxLines: lines,
+        textAlign: textAlign,
         overflow: TextOverflow.ellipsis,
         style: style.copyWith(fontSize: size),
       );

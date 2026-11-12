@@ -39,7 +39,8 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarContextScope;
 import 'package:kute/screens/shared/side_tint_palette.dart';
-import 'package:kute/screens/polymarket/components/slip_chrome.dart' show PolySlipCta;
+import 'package:kute/screens/polymarket/components/slip_chrome.dart'
+    show PolySlipCta;
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_swap_orders.dart';
@@ -289,22 +290,21 @@ void main() {
           expect(find.text('WINNER'), findsOneWidget);
           // The chart's two lines, in its order (title's first team first).
           final colts = kGameSideColors[0], commanders = kGameSideColors[1];
-          expect(_buttonOf(tester, 'Colts').color, polyOutcomeFill(colts));
-          expect(_buttonOf(tester, 'Commanders').color,
-              polyOutcomeFill(commanders));
+          expect(_buttonOf(tester, 'Colts').color, colts);
+          expect(_buttonOf(tester, 'Commanders').color, commanders);
           // A spread's sides are the teams: their lines' colours.
-          expect(_buttonOf(tester, 'IND -4.5').color, polyOutcomeFill(colts));
-          expect(
-              _buttonOf(tester, 'WAS +4.5').color, polyOutcomeFill(commanders));
+          expect(_buttonOf(tester, 'IND -4.5').color, colts);
+          expect(_buttonOf(tester, 'WAS +4.5').color, commanders);
           // The chart draws no Over/Under: neutral cards, as before.
           final surface =
               (dark ? AppColorsExtension.dark() : AppColorsExtension.light())
                   .surface;
           expect(_buttonOf(tester, 'Over 46.5').color, surface);
           expect(_buttonOf(tester, 'Under 46.5').color, surface);
-          // White label and figure on the filled ones.
+          // Exactly the line's colour (founder, 12 November 2026: "same
+          // colors as the lines"), lettered in the ink that reads on it.
           final label = tester.widget<Text>(find.text('Colts').last);
-          expect(label.style?.color, Colors.white);
+          expect(label.style?.color, contrastingOnColor(colts));
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
         }, () => MockClient((_) async => http.Response('{}', 404)));
@@ -316,12 +316,9 @@ void main() {
       await http.runWithClient(() async {
         await _pump(tester, MarketDetailSheet(event: _threeWay(gameId: 42)));
         expect(find.text('WINNER'), findsOneWidget);
-        expect(_buttonOf(tester, 'Arsenal').color,
-            polyOutcomeFill(kGameSideColors[0]));
-        expect(_buttonOf(tester, 'Draw').color,
-            polyOutcomeFill(kGameSideColors[2]));
-        expect(_buttonOf(tester, 'Chelsea').color,
-            polyOutcomeFill(kGameSideColors[1]));
+        expect(_buttonOf(tester, 'Arsenal').color, kGameSideColors[0]);
+        expect(_buttonOf(tester, 'Draw').color, kGameSideColors[2]);
+        expect(_buttonOf(tester, 'Chelsea').color, kGameSideColors[1]);
         await tester.pumpWidget(const SizedBox());
       }, () => MockClient((_) async => http.Response('{}', 404)));
     });
@@ -330,12 +327,9 @@ void main() {
         (tester) async {
       await http.runWithClient(() async {
         await _pump(tester, MarketDetailSheet(event: _threeWay()));
-        expect(_buttonOf(tester, 'Arsenal').color,
-            polyOutcomeFill(kGameSideColors[0]));
-        expect(_buttonOf(tester, 'Draw').color,
-            polyOutcomeFill(kPolyOutcomeColors[2]));
-        expect(_buttonOf(tester, 'Chelsea').color,
-            polyOutcomeFill(kGameSideColors[1]));
+        expect(_buttonOf(tester, 'Arsenal').color, kGameSideColors[0]);
+        expect(_buttonOf(tester, 'Draw').color, kPolyOutcomeColors[2]);
+        expect(_buttonOf(tester, 'Chelsea').color, kGameSideColors[1]);
         await tester.pumpWidget(const SizedBox());
       }, () => MockClient((_) async => http.Response('{}', 404)));
     });
@@ -472,8 +466,8 @@ void main() {
               .side,
           AppColors.marketDown);
       // White buttons take dark letters, never the side colour.
-      expect(tester.widget<PolySlipCta>(find.byType(PolySlipCta)).neutral,
-          isTrue);
+      expect(
+          tester.widget<PolySlipCta>(find.byType(PolySlipCta)).neutral, isTrue);
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
     });
