@@ -90,14 +90,27 @@
 // when it is next asked for. Giving one up only drops the cache's hold:
 // a sprite still showing it keeps its own, and nothing is disposed.
 //
-// [SalIdleDirector] is the hero loop with a life: `body_hero`, and every
-// 6–12 s one `hero` one-shot (never the same twice in a row), then the
-// loop again; after 60 s without a touch anywhere in the app he sleeps
-// (`hero_sleep`), and the next pointer wakes him (`hero_wake`, then
-// hero). The one-shot waits for the loop to come round to frame 0, and
-// the loop resumes at frame 0 after it. A clip the manifest lacks, or
-// that fails to read, is skipped; nothing ever crashes for a missing
-// clip. Reduce Motion: `body_hero`'s first frame, nothing else.
+// [SalIdleDirector] is the empty states' Sal, calm (founder, 12 November
+// 2026: "an occasional blink/stretch on a slow random cadence, not
+// constant motion"): he stands still in the hero pose, and every 8–15 s
+// plays ONE beat ([kSalIdleBeats]: one pass of `body_hero`, which is his
+// blink, `hero_look_around` or `hero_stretch`; never the same twice in a
+// row) and holds its last frame, which is the hero pose again. After 60 s
+// without a touch anywhere in the app he sleeps (`hero_sleep`), and the
+// next pointer wakes him (`hero_wake`, then still). The beats stop while
+// he is off screen (an ancestor TickerMode off: a covered route, a tab
+// away) or the app is in the background, and when he is gone. A clip the
+// manifest lacks, or that fails to read, is skipped; nothing ever
+// crashes for a missing clip. Reduce Motion: `body_hero`'s first frame,
+// nothing else.
+//
+// ONE SAL AT A TIME (founder, 12 November 2026: "never two Sals animating
+// at once in the same view"). [SalSpotlight] is who is performing now: a
+// Sal toast on screen, a result sheet up, the money journey while the
+// money moves, and an empty state's Sal during his beat hold it; while it
+// is held the bar's Sals finish the pass they are in and hold its last
+// frame, a bar reaction is not played, the busy button's waiting Sal
+// starts no new pass and an empty state's beat waits for its next turn.
 
 import 'dart:async';
 import 'dart:convert';
@@ -1160,8 +1173,7 @@ class _SalSpriteState extends State<SalSprite>
 }
 
 
-/// The hero clips the contract promises (see the file header); the
-/// manifest's `hero` group wins when it names any.
+/// The hero clips the contract promises (the manifest's `hero` group).
 const List<String> kSalHeroOneShots = [
   'hero_stretch',
   'hero_look_around',
@@ -1172,19 +1184,29 @@ const String kSalHeroLoop = 'body_hero';
 const String kSalHeroSleep = 'hero_sleep';
 const String kSalHeroWake = 'hero_wake';
 
-/// The hero loop with a life (see the file header): `body_hero`, a `hero`
-/// one-shot every [minGap]–[maxGap], sleep after [sleepAfter] without a
-/// pointer anywhere, wake on the next one. Every empty state that shows
-/// `body_hero` uses this. One [SalSprite] for all of it: a one-shot cuts
-/// in as the loop comes back to frame 0, the loop resumes at frame 0
-/// after it, and the whole group is decoded once on mount.
+/// An empty state's beats (founder, 12 November 2026: "an occasional
+/// blink/stretch"), each played once and held: one pass of the hero
+/// loop (his blink), a look around, a stretch. The scratch and the tail
+/// chase stay out: calm, not busy.
+const List<String> kSalIdleBeats = [
+  kSalHeroLoop,
+  'hero_look_around',
+  'hero_stretch',
+];
+
+/// The empty states' Sal (see the file header): still in the hero pose, a
+/// beat every [minGap]–[maxGap], sleep after [sleepAfter] without a
+/// pointer anywhere, wake on the next one. One [SalSprite] for all of it:
+/// a beat takes the screen from the held pose with the 120 ms dissolve and
+/// holds its own last frame (the hero pose again), and the beats are
+/// decoded once on mount.
 class SalIdleDirector extends StatefulWidget {
   const SalIdleDirector({
     super.key,
     required this.size,
     required this.fallback,
-    this.minGap = const Duration(seconds: 6),
-    this.maxGap = const Duration(seconds: 12),
+    this.minGap = const Duration(seconds: 8),
+    this.maxGap = const Duration(seconds: 15),
     this.sleepAfter = const Duration(seconds: 60),
     this.random,
   });
@@ -1208,26 +1230,35 @@ class SalIdleDirector extends StatefulWidget {
   State<SalIdleDirector> createState() => _SalIdleDirectorState();
 }
 
-enum _DirectorPhase { hero, oneShot, sleeping, waking }
+enum _DirectorPhase { rest, beat, sleeping, waking }
 
-class _SalIdleDirectorState extends State<SalIdleDirector> {
+class _SalIdleDirectorState extends State<SalIdleDirector>
+    with WidgetsBindingObserver {
   late final math.Random _random = widget.random ?? math.Random();
   List<String> _pool = const [];
   bool _hasSleep = false;
   bool _hasWake = false;
-  _DirectorPhase _phase = _DirectorPhase.hero;
+  _DirectorPhase _phase = _DirectorPhase.rest;
   String _clip = kSalHeroLoop;
   String? _last;
   Timer? _timer;
   Timer? _sleepTimer;
   bool _reduce = false;
   bool _started = false;
+  bool _onScreen = true;
+  bool _foreground = true;
   int _density = 2;
   int _cue = 0;
+
+  /// Whether the beats run: on screen, the app in front, motion on.
+  bool get _live => _onScreen && _foreground && !_reduce;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _foreground = state == null || state == AppLifecycleState.resumed;
     GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
   }
 
@@ -1241,45 +1272,67 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
       unawaited(_loadPool());
     }
     final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    if (reduce != _reduce) {
+    final onScreen = TickerMode.valuesOf(context).enabled;
+    if (reduce != _reduce || onScreen != _onScreen) {
+      final wasLive = _live;
       _reduce = reduce;
+      _onScreen = onScreen;
       if (reduce) {
-        _timer?.cancel();
-        _sleepTimer?.cancel();
-        _phase = _DirectorPhase.hero;
+        _phase = _DirectorPhase.rest;
         _clip = kSalHeroLoop;
-      } else {
-        _armNext();
-        _armSleep();
+        SalSpotlight.release(this);
       }
+      _liveChanged(wasLive);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final wasLive = _live;
+    _foreground = state == AppLifecycleState.resumed;
+    _liveChanged(wasLive);
+  }
+
+  /// Off screen, in the background or under Reduce Motion nothing is
+  /// armed; back, the next beat and the sleep are timed from now.
+  void _liveChanged(bool wasLive) {
+    if (_live == wasLive) return;
+    if (_live) {
+      // A beat cut short by going away plays on from where it froze.
+      if (_phase == _DirectorPhase.beat) SalSpotlight.hold(this);
+      _armNext();
+      _armSleep();
+    } else {
+      _timer?.cancel();
+      _sleepTimer?.cancel();
+      // Nothing of his moves now: the spotlight is free for the others.
+      SalSpotlight.release(this);
     }
   }
 
   Future<void> _loadPool() async {
-    final pool = await SalSpriteCache.group('hero', defaults: kSalHeroOneShots);
+    final names = <String>[];
+    for (final c in kSalIdleBeats) {
+      if (await SalSpriteCache.exists(c)) names.add(c);
+    }
     final sleep = await SalSpriteCache.exists(kSalHeroSleep);
     final wake = await SalSpriteCache.exists(kSalHeroWake);
     if (!mounted) return;
     setState(() {
-      // The loop clips are not one-shots to cut in.
-      _pool = [
-        for (final c in pool)
-          if (c != kSalHeroLoop && c != kSalHeroSleep && c != kSalHeroWake) c
-      ];
+      _pool = names;
       _hasSleep = sleep;
       _hasWake = wake;
     });
     _armNext();
     _armSleep();
-    // The whole group decoded once, now, so no cut ever waits on a read;
-    // a clip that cannot be read leaves the pool here and now.
-    final names = <String>[
+    // The beats decoded once, now, so no beat ever waits on a read; a
+    // clip that cannot be read leaves the pool here and now.
+    unawaited(SalSpriteCache.warm([
       kSalHeroLoop,
-      ..._pool,
+      ...names,
       if (sleep) kSalHeroSleep,
       if (wake) kSalHeroWake,
-    ];
-    unawaited(SalSpriteCache.warm(names, _density).then((missing) {
+    ], _density).then((missing) {
       if (!mounted) return;
       for (final m in missing) {
         if (m != kSalHeroLoop) _unavailable(m);
@@ -1294,7 +1347,7 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
       return;
     }
     SalIdleDirector.lastInput = DateTime.now();
-    if (!mounted || _reduce) return;
+    if (!mounted || !_live) return;
     if (_phase == _DirectorPhase.sleeping) {
       _wake();
     } else {
@@ -1302,24 +1355,32 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
     }
   }
 
-  /// The next one-shot, [minGap]–[maxGap] from now.
+  /// The next beat, [minGap]–[maxGap] from now.
   void _armNext() {
     _timer?.cancel();
-    if (_reduce || _pool.isEmpty || _phase != _DirectorPhase.hero) return;
+    if (!_live || _pool.isEmpty || _phase != _DirectorPhase.rest) return;
     final span = widget.maxGap.inMilliseconds - widget.minGap.inMilliseconds;
     final wait = widget.minGap.inMilliseconds +
         (span > 0 ? _random.nextInt(span + 1) : 0);
-    _timer = Timer(Duration(milliseconds: wait), _playOneShot);
+    _timer = Timer(Duration(milliseconds: wait), _playBeat);
   }
 
   void _armSleep() {
     _sleepTimer?.cancel();
-    if (_reduce || !_hasSleep) return;
+    if (!_live || !_hasSleep) return;
     _sleepTimer = Timer(widget.sleepAfter, _sleep);
   }
 
-  void _playOneShot() {
-    if (!mounted || _phase != _DirectorPhase.hero || _pool.isEmpty) return;
+  void _playBeat() {
+    if (!mounted || !_live || _phase != _DirectorPhase.rest || _pool.isEmpty) {
+      return;
+    }
+    // Another Sal is performing (a toast, a sheet, another empty state's
+    // beat): this one waits for its next turn.
+    if (SalSpotlight.heldByOther(this)) {
+      _armNext();
+      return;
+    }
     // Never the same twice in a row (one clip alone repeats, there is
     // nothing else); a clip already decoded over one still reading.
     final choices = _pool.length > 1
@@ -1331,8 +1392,9 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
     ];
     final from = decoded.isNotEmpty ? decoded : choices;
     final pick = from[_random.nextInt(from.length)];
+    SalSpotlight.hold(this);
     setState(() {
-      _phase = _DirectorPhase.oneShot;
+      _phase = _DirectorPhase.beat;
       _clip = pick;
       _last = pick;
       _cue++;
@@ -1342,6 +1404,7 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
   void _sleep() {
     if (!mounted || !_hasSleep || _phase == _DirectorPhase.sleeping) return;
     _timer?.cancel();
+    SalSpotlight.release(this);
     setState(() {
       _phase = _DirectorPhase.sleeping;
       _clip = kSalHeroSleep;
@@ -1358,28 +1421,35 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
         _cue++;
       });
     } else {
-      _backToHero();
+      _rest(back: true);
     }
     _armSleep();
   }
 
-  void _backToHero() {
+  /// The beat played through: he holds its last frame (the hero pose)
+  /// and the next one is timed from here. [back]: from a clip he cannot
+  /// hold (asleep without a wake, a beat that cannot be read), the hero
+  /// pose itself.
+  void _rest({bool back = false}) {
     if (!mounted) return;
+    SalSpotlight.release(this);
     setState(() {
-      _phase = _DirectorPhase.hero;
-      _clip = kSalHeroLoop;
-      _cue++;
+      _phase = _DirectorPhase.rest;
+      if (back) {
+        _clip = kSalHeroLoop;
+        _cue++;
+      }
     });
     _armNext();
   }
 
-  /// A clip that cannot be read leaves the pool, and the loop goes on.
+  /// A clip that cannot be read leaves the pool, and he rests.
   void _unavailable(String clip) {
     if (!mounted) return;
     if (clip == kSalHeroSleep) _hasSleep = false;
     if (clip == kSalHeroWake) _hasWake = false;
     _pool = [for (final c in _pool) if (c != clip) c];
-    if (_clip == clip) _backToHero();
+    if (_clip == clip) _rest(back: true);
   }
 
   /// The clip on screen now (tests).
@@ -1389,6 +1459,8 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
   void dispose() {
     _timer?.cancel();
     _sleepTimer?.cancel();
+    SalSpotlight.release(this);
+    WidgetsBinding.instance.removeObserver(this);
     GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
     super.dispose();
   }
@@ -1396,16 +1468,19 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
   @override
   Widget build(BuildContext context) {
     final clip = _clip;
-    final oneShot =
-        _phase == _DirectorPhase.oneShot || _phase == _DirectorPhase.waking;
-    // One sprite for the whole performance: the clip and a new cue ask
-    // it to switch in place, at the loop's boundary, with a dissolve.
+    final playing =
+        _phase == _DirectorPhase.beat || _phase == _DirectorPhase.waking;
+    // One sprite for the whole performance: a beat asks it to switch in
+    // place (a new cue), it plays once and holds its last frame; at rest
+    // the frame on screen is held (the hero pose, frame 0 before any
+    // beat); asleep, the sleep loop.
     return SalSprite(
       clip: clip,
       cue: _cue,
       size: widget.size,
-      loop: oneShot ? false : null,
-      onComplete: oneShot ? _backToHero : null,
+      loop: _phase == _DirectorPhase.sleeping ? null : false,
+      paused: _phase == _DirectorPhase.rest,
+      onComplete: playing ? _rest : null,
       onUnavailable: () => _unavailable(clip),
       fallback: widget.fallback,
     );

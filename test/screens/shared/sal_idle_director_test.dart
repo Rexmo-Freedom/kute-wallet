@@ -1,11 +1,12 @@
-// The hero loop with a life (SalIdleDirector, sal_sprite.dart): body_hero,
-// a `hero` one-shot cut in every 6–12 s and never the same twice in a row,
-// sleep after a minute without a pointer anywhere, wake on the next one;
-// a clip that cannot be read is skipped and the loop goes on; under Reduce
-// Motion the loop alone. The cut waits for the loop's boundary (the loop
-// is 2 s here), the one-shot plays through, and the loop is back: the
-// timelines below count in those 2 s beats (sal_seamless_switch_test.dart
-// checks the frames themselves).
+// The empty states' Sal (SalIdleDirector, sal_sprite.dart; founder, 12
+// November 2026: "an occasional blink/stretch on a slow random cadence,
+// not constant motion"): still in the hero pose, one beat every 8–15 s
+// (a pass of body_hero, his blink; a look around; a stretch), played once
+// and held, never the same twice in a row; nothing moves between beats;
+// the beats stop off screen, in the background and once he is gone; sleep
+// after a minute without a pointer, wake on the next one; a clip that
+// cannot be read is skipped; under Reduce Motion the hero's first frame
+// alone. The clock is the test's fake one: every beat is timed by it.
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -14,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 
-/// A manifest entry: 48 frames at 24 fps (2 s), in [group].
+/// A manifest entry: 48 frames at 24 fps (2 s).
 Map<String, dynamic> _entry({bool loop = true, String group = 'hero'}) => {
       'framing': 'body',
       'fps': 24,
@@ -46,13 +47,18 @@ SalClip _sheet({bool loop = true}) {
       body: true);
 }
 
-/// Registers [names] as decoded clips (those in [oneShots] as one-shots)
-/// under a manifest that lists them (and [missing], which no sheet backs).
-void _stage(List<String> names,
-    {Set<String> oneShots = const {}, List<String> missing = const []}) {
+/// The beats, the sleep and the wake, decoded (the hero loop and the
+/// sleep loop; the rest one-shots), plus [missing], which no sheet backs.
+void _stage(
+    {List<String> names = const [
+      'body_hero',
+      'hero_look_around',
+      'hero_stretch',
+    ],
+    List<String> missing = const []}) {
+  const oneShots = {'hero_stretch', 'hero_wake'};
   SalSpriteCache.debugSetManifest({
-    for (final n in names)
-      n: _entry(loop: !oneShots.contains(n), group: n == 'body_hero' ? 'loop' : 'hero'),
+    for (final n in names) n: _entry(loop: !oneShots.contains(n)),
     for (final n in missing) n: _entry(loop: false),
   });
   for (final n in names) {
@@ -63,87 +69,200 @@ void _stage(List<String> names,
 String _clip(WidgetTester tester) =>
     tester.widget<SalSprite>(find.byType(SalSprite).first).clip;
 
-Widget _app(Widget child, {bool reduce = false}) => MaterialApp(
+/// What the sprite draws now.
+SalSpriteFrame? _drawn(WidgetTester tester) =>
+    // ignore: avoid_dynamic_calls
+    (tester.state(find.byType(SalSprite)) as dynamic).debugFrame
+        as SalSpriteFrame?;
+
+Widget _app(Widget child, {bool reduce = false, bool ticking = true}) =>
+    MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: reduce, devicePixelRatio: 1),
-        child: Center(child: child),
+        child: TickerMode(enabled: ticking, child: Center(child: child)),
       ),
     );
+
+SalIdleDirector _director({
+  Duration minGap = const Duration(seconds: 8),
+  Duration maxGap = const Duration(seconds: 15),
+  Duration sleepAfter = const Duration(minutes: 5),
+  int seed = 3,
+}) =>
+    SalIdleDirector(
+      size: 120,
+      fallback: const SizedBox(),
+      minGap: minGap,
+      maxGap: maxGap,
+      sleepAfter: sleepAfter,
+      random: math.Random(seed),
+    );
+
+/// Pumps 100 ms at a time for [span]; returns when (ms from the start)
+/// each new beat began (a new cue: the clip asked for from frame 0).
+Future<List<(int, String)>> _watch(WidgetTester tester, Duration span) async {
+  final beats = <(int, String)>[];
+  var cue = tester.widget<SalSprite>(find.byType(SalSprite)).cue;
+  for (var ms = 100; ms <= span.inMilliseconds; ms += 100) {
+    await tester.pump(const Duration(milliseconds: 100));
+    final sprite = tester.widget<SalSprite>(find.byType(SalSprite));
+    if (sprite.cue != cue) {
+      cue = sprite.cue;
+      beats.add((ms, sprite.clip));
+    }
+  }
+  return beats;
+}
 
 void main() {
   tearDown(SalSpriteCache.debugReset);
 
-  testWidgets('cuts a hero one-shot into the loop, never the same twice',
-      (tester) async {
-    _stage(['body_hero', 'hero_stretch', 'hero_scratch'],
-        oneShots: {'hero_stretch', 'hero_scratch'});
-    await tester.pumpWidget(_app(SalIdleDirector(
-      size: 120,
-      fallback: const SizedBox(),
-      minGap: const Duration(seconds: 1),
-      maxGap: const Duration(seconds: 1),
-      sleepAfter: const Duration(minutes: 5),
-      random: math.Random(3),
-    )));
-    await tester.pump();
+  testWidgets(
+      'still in the hero pose: nothing moves until the first beat, 8–15 s '
+      'in', (tester) async {
+    _stage();
+    SalSprite.debugPaintLog = [];
+    addTearDown(() => SalSprite.debugPaintLog = null);
+    await tester.pumpWidget(_app(_director()));
     await tester.pump();
     expect(_clip(tester), 'body_hero');
-
-    final seen = <String>[];
-    for (var i = 0; i < 4; i++) {
-      // Each beat: the loop from 0, the cue at 1 s (the one-shot asked
-      // for, the loop still on screen), the cut at the loop's boundary
-      // (2 s), the one-shot through (48 frames at 24 fps) at 4 s, the
-      // loop again and the next cue a second later.
-      await tester.pump(const Duration(milliseconds: 1050));
-      final clip = _clip(tester);
-      expect(clip, isNot('body_hero'), reason: 'cut $i');
-      expect(clip, anyOf('hero_stretch', 'hero_scratch'));
-      seen.add(clip);
-      await tester.pump(const Duration(milliseconds: 950));
-      await tester.pump(const Duration(milliseconds: 2000));
-      expect(_clip(tester), 'body_hero', reason: 'back after cut $i');
+    for (var i = 0; i < 7; i++) {
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.hasRunningAnimations, isFalse,
+          reason: 'no ticker between beats (${i + 1} s)');
     }
-    for (var i = 1; i < seen.length; i++) {
-      expect(seen[i], isNot(seen[i - 1]), reason: 'never twice in a row');
-    }
+    expect(SalSprite.debugPaintLog!.map((f) => (f.name, f.frame)).toSet(),
+        {('body_hero', 0)},
+        reason: 'one still frame, the hero pose');
+    final beats = await _watch(tester, const Duration(seconds: 9));
+    expect(beats, isNotEmpty, reason: 'a beat by 15 s');
+    expect(beats.first.$1 + 7000, inInclusiveRange(8000, 15200));
   });
 
-  testWidgets('a clip that cannot be read is skipped; the loop goes on',
+  testWidgets(
+      'the cadence on the fake clock: every beat 8–15 s after the last one '
+      'came to rest, played once and held, never the same twice in a row',
       (tester) async {
-    _stage(['body_hero'], missing: ['hero_missing']);
-    await tester.pumpWidget(_app(SalIdleDirector(
-      size: 120,
-      fallback: const SizedBox(),
-      minGap: const Duration(seconds: 1),
-      maxGap: const Duration(seconds: 1),
-      sleepAfter: const Duration(minutes: 5),
-      random: math.Random(1),
-    )));
+    _stage();
+    await tester.pumpWidget(_app(_director(seed: 7)));
     await tester.pump();
+    final beats = await _watch(tester, const Duration(seconds: 90));
+    expect(beats.length, greaterThanOrEqualTo(5));
+    // Each beat plays 2 s and rests; the next comes 8–15 s after that.
+    var restAt = 0;
+    for (final (at, clip) in beats) {
+      expect(at - restAt, inInclusiveRange(7800, 15200),
+          reason: '$clip at $at ms, rest from $restAt ms');
+      restAt = at + 2000;
+    }
+    for (var i = 1; i < beats.length; i++) {
+      expect(beats[i].$2, isNot(beats[i - 1].$2), reason: 'never twice');
+    }
+    expect({for (final b in beats) b.$2},
+        everyElement(anyOf('body_hero', 'hero_look_around', 'hero_stretch')));
+  });
+
+  testWidgets(
+      'a beat plays once and holds its last frame: nothing moves after it',
+      (tester) async {
+    _stage();
+    await tester.pumpWidget(_app(_director(
+        minGap: const Duration(seconds: 8),
+        maxGap: const Duration(seconds: 8))));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1050));
-    // The read fails (real I/O), and the director is told.
-    await tester.runAsync(() => Future<void>.delayed(
-        const Duration(milliseconds: 200)));
+    await tester.pump(const Duration(seconds: 8));
     await tester.pump();
-    expect(_clip(tester), 'body_hero');
-    // Dropped from the pool: the next cue finds nothing to cut in.
-    await tester.pump(const Duration(milliseconds: 1050));
+    expect(tester.hasRunningAnimations, isTrue, reason: 'the beat plays');
+    final clip = _clip(tester);
+    expect(SalSpotlight.held, isTrue, reason: 'his beat holds the spotlight');
+    await tester.pump(const Duration(milliseconds: 2100));
     await tester.pump();
+    expect(_clip(tester), clip);
+    expect(_drawn(tester)?.frame, 47, reason: 'the last frame, held');
+    expect(tester.hasRunningAnimations, isFalse);
+    expect(SalSpotlight.held, isFalse, reason: 'given back at rest');
+    await tester.pump(const Duration(seconds: 5));
+    expect(_drawn(tester)?.frame, 47);
+  });
+
+  testWidgets('another Sal performing: the beat waits for its next turn',
+      (tester) async {
+    _stage();
+    final toast = Object();
+    SalSpotlight.hold(toast);
+    await tester.pumpWidget(_app(_director()));
+    await tester.pump();
+    final beats = await _watch(tester, const Duration(seconds: 40));
+    expect(beats, isEmpty);
+    SalSpotlight.release(toast);
+    final after = await _watch(tester, const Duration(seconds: 16));
+    expect(after, isNotEmpty, reason: 'free again: the next turn plays');
+  });
+
+  testWidgets(
+      'off screen (TickerMode off) and in the background nothing is timed; '
+      'back, the beats come again', (tester) async {
+    _stage();
+    final director = _director();
+    await tester.pumpWidget(_app(director, ticking: false));
+    await tester.pump();
+    expect(await _watch(tester, const Duration(seconds: 40)), isEmpty,
+        reason: 'off screen');
+
+    await tester.pumpWidget(_app(director));
+    expect(await _watch(tester, const Duration(seconds: 16)), isNotEmpty,
+        reason: 'on screen again');
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(seconds: 3));
+    expect(await _watch(tester, const Duration(seconds: 40)), isEmpty,
+        reason: 'in the background');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    expect(await _watch(tester, const Duration(seconds: 16)), isNotEmpty,
+        reason: 'in front again');
+  });
+
+  testWidgets('gone: no timer outlives him, the spotlight is free',
+      (tester) async {
+    _stage();
+    await tester.pumpWidget(_app(_director(
+        minGap: const Duration(seconds: 8),
+        maxGap: const Duration(seconds: 8))));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 8));
+    await tester.pump();
+    expect(SalSpotlight.held, isTrue, reason: 'mid-beat');
+    await tester.pumpWidget(_app(const SizedBox()));
+    await tester.pump();
+    expect(SalSpotlight.held, isFalse);
+    // The fake clock runs on: nothing fires (a pending timer would fail
+    // the test at its end).
+    await tester.pump(const Duration(minutes: 3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a clip that cannot be read is skipped; he stays still',
+      (tester) async {
+    _stage(names: ['body_hero'], missing: ['hero_look_around']);
+    await tester.pumpWidget(_app(_director(seed: 1)));
+    await tester.pump();
+    // The warm-up's read fails (real I/O), and the director is told.
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pump();
+    final beats = await _watch(tester, const Duration(seconds: 40));
+    expect(beats.map((b) => b.$2), everyElement('body_hero'));
     expect(_clip(tester), 'body_hero');
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('sleeps after a while without a pointer, wakes on the next',
       (tester) async {
-    _stage(['body_hero', 'hero_sleep', 'hero_wake'], oneShots: {'hero_wake'});
-    await tester.pumpWidget(_app(SalIdleDirector(
-      size: 120,
-      fallback: const SizedBox(),
-      sleepAfter: const Duration(seconds: 3),
-      random: math.Random(1),
-    )));
+    _stage(names: ['body_hero', 'hero_sleep', 'hero_wake']);
+    await tester.pumpWidget(_app(_director(
+        minGap: const Duration(minutes: 5),
+        maxGap: const Duration(minutes: 5),
+        sleepAfter: const Duration(seconds: 3))));
     await tester.pump();
     await tester.pump();
     expect(_clip(tester), 'body_hero');
@@ -152,37 +271,34 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1100));
     expect(_clip(tester), 'hero_sleep');
     // Still asleep until something touches the screen (anywhere).
-    await tester.pump(const Duration(seconds: 5));
+    await _watch(tester, const Duration(seconds: 2));
     expect(_clip(tester), 'hero_sleep');
     await tester.tapAt(const Offset(10, 10));
     await tester.pump();
     expect(_clip(tester), 'hero_wake');
-    // The sleep loop took over at the hero's boundary (4 s) and comes
-    // round at 10 s: the wake cuts in there, plays through (2 s), and the
-    // hero is back at 12 s.
-    await tester.pump(const Duration(milliseconds: 1900));
+    // The sleep loop comes round (its 2 s beat), the wake plays through
+    // (2 s) and he holds its last frame, still.
+    await _watch(tester, const Duration(milliseconds: 2900));
     expect(_clip(tester), 'hero_wake');
-    await tester.pump(const Duration(milliseconds: 2000));
-    expect(_clip(tester), 'body_hero');
+    expect(_drawn(tester)?.frame, 47);
+    expect(tester.hasRunningAnimations, isFalse);
   });
 
-  testWidgets('Reduce Motion: the loop alone, no cuts, no sleep',
+  testWidgets('Reduce Motion: the hero\'s first frame, no beats, no sleep',
       (tester) async {
-    _stage(['body_hero', 'hero_stretch', 'hero_sleep'],
-        oneShots: {'hero_stretch'});
+    _stage(names: ['body_hero', 'hero_stretch', 'hero_sleep']);
     await tester.pumpWidget(_app(
-        SalIdleDirector(
-          size: 120,
-          fallback: const SizedBox(),
-          minGap: const Duration(seconds: 1),
-          maxGap: const Duration(seconds: 1),
-          sleepAfter: const Duration(seconds: 2),
-          random: math.Random(1),
-        ),
+        _director(
+            minGap: const Duration(seconds: 1),
+            maxGap: const Duration(seconds: 1),
+            sleepAfter: const Duration(seconds: 2)),
         reduce: true));
     await tester.pump();
     await tester.pump();
-    await tester.pump(const Duration(seconds: 4));
+    final beats = await _watch(tester, const Duration(seconds: 20));
+    expect(beats, isEmpty);
     expect(_clip(tester), 'body_hero');
+    expect(_drawn(tester)?.frame, 0);
+    expect(tester.hasRunningAnimations, isFalse);
   });
 }

@@ -136,9 +136,9 @@ void main() {
   });
 
   testWidgets(
-      'the hero loop and its one-shot are one performance: a cell on every '
-      'tick, the cut at the loop boundary, a dissolve, the loop back at 0',
-      (tester) async {
+      'the empty state\'s Sal is one performance: still, a beat from the '
+      'held pose, played once and held on its last frame, the next beat '
+      'dissolving in from there; a cell on every tick', (tester) async {
     _stage({
       'body_hero': (frames: 40, loop: true, group: 'loop'),
       'hero_stretch': (frames: 40, loop: false, group: 'hero'),
@@ -155,47 +155,32 @@ void main() {
     expect(_drawn(tester)?.name, 'body_hero');
     expect(_drawn(tester)?.frame, 0);
     await tester.pump();
-    expect(_drawn(tester)?.frame, 0);
 
-    final beats = await _play(tester, 0, 6000);
+    final beats = await _play(tester, 0, 7000);
 
-    // The loop runs on after the cue at 1 s: the one-shot waits.
-    _expectRun(beats, 'body_hero', from: 50, to: 1950, start: 0);
-    expect(_at(beats, 1500).pending, 'hero_stretch',
-        reason: 'asked for, not on until the loop comes round');
-    for (final b in beats.where((b) => b.ms > 1000 && b.ms < 2000)) {
-      expect(b.frame.dissolving, isFalse, reason: 'no dissolve at ${b.ms} ms');
+    // Still until the first beat (1 s): the hero pose, frame 0.
+    for (final b in beats.where((b) => b.ms < 1000)) {
+      expect((b.frame.name, b.frame.frame), ('body_hero', 0),
+          reason: 'still at ${b.ms} ms');
     }
-
-    // The cut lands as the loop comes back to frame 0: the one-shot's
-    // frame 0, dissolving over the loop frozen at frame 0 for 120 ms.
-    final first = beats.firstWhere((b) => b.frame.name == 'hero_stretch');
-    expect(first.ms, 2000, reason: 'the loop boundary');
-    expect(first.frame.frame, 0);
-    expect(first.frame.dissolving, isTrue);
-    expect(first.frame.outgoingName, 'body_hero');
-    expect(first.frame.outgoingFrame, 0);
-    expect(_at(beats, 2100).frame.dissolving, isTrue);
-    expect(_at(beats, 2150).frame.dissolving, isFalse,
-        reason: '120 ms and the dissolve is done');
-    _expectRun(beats, 'hero_stretch', from: 2000, to: 3950, start: 2000);
-    expect(_at(beats, 3950).pending, 'body_hero',
-        reason: 'the one-shot said it is complete; the loop waits its turn');
-
-    // The one-shot through (its last frame given its time): the loop
-    // resumes at frame 0, dissolving from the one-shot's last frame.
-    final back = _at(beats, 4000);
-    expect(back.frame.name, 'body_hero');
-    expect(back.frame.frame, 0);
-    expect(back.frame.dissolving, isTrue);
-    expect(back.frame.outgoingName, 'hero_stretch');
-    expect(back.frame.outgoingFrame, 39);
-    _expectRun(beats, 'body_hero', from: 4000, to: 5950, start: 4000);
-
-    // The next cue (5 s) cuts in at the next boundary (6 s): the beat
-    // never drifts.
-    expect(_at(beats, 6000).frame.name, 'hero_stretch');
-    expect(_at(beats, 6000).frame.frame, 0);
+    // The beat: from frame 0, a frame a tick, through its 40 frames.
+    final start = beats.firstWhere((b) => b.frame.frame > 0).ms - 50;
+    expect(start, inInclusiveRange(1000, 1100));
+    final first = _at(beats, start + 50).frame.name;
+    _expectRun(beats, first, from: start + 50, to: start + 1950, start: start);
+    // Held on its last frame for the gap (1 s), nothing else drawn.
+    for (final b in beats.where((b) => b.ms >= start + 1950 && b.ms <= start + 2900)) {
+      expect((b.frame.name, b.frame.frame), (first, 39),
+          reason: 'held at ${b.ms} ms');
+      expect(b.frame.dissolving, isFalse);
+    }
+    // The next beat takes the screen from the held frame: its frame 0
+    // dissolving over the last one's frame 39 for 120 ms.
+    final next = beats.firstWhere((b) => b.ms > start + 2000 && b.frame.dissolving);
+    expect(next.frame.frame, 0);
+    expect(next.frame.outgoingName, first);
+    expect(next.frame.outgoingFrame, 39);
+    expect(next.frame.name, isNot(first), reason: 'never twice in a row');
 
     // Every frame the painter drew was a cell of its clip.
     final log = SalSprite.debugPaintLog!;

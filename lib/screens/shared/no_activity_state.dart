@@ -3,8 +3,9 @@
 // Portfolio view (Open, Orders, Activity, Statistics), each with its own
 // headline. Kept in one place so every surface stays identical.
 //
-// Sal is the 3D hero here (founder, 31 October 2026): `body_hero` with a
-// life ([SalIdleDirector], sal_sprite.dart): a hero one-shot every 6–12 s,
+// Sal is the 3D hero here (founder, 31 October 2026), calm (12 November
+// 2026; [SalIdleDirector], sal_sprite.dart): still in the hero pose, one
+// beat (a blink, a look around, a stretch) every 8–15 s while on screen,
 // asleep after a minute without a touch, awake on the next one. Until that
 // sheet exists he sits down and sits (`body_sit_down` → `body_sit`), and
 // the painted rig idles until any sheet exists. Quiet under Reduce
