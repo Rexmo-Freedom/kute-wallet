@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Päättyi",
   "polyRulesAndResolution": "Säännöt ja ratkaisu",
   "polyCardMoveToday": "{move} tänään",
+  "polyCardPointsToday": "{move} %-yks. tänään",
   "polyCardMoreOutcomes": "+{count} lisää",
   "polyCardMarkets": "{count} markkinaa",
   "polyCardVolume": "{amount} vol.",

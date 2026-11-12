@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Skončilo",
   "polyRulesAndResolution": "Pravidla a vyhodnocení",
   "polyCardMoveToday": "{move} dnes",
+  "polyCardPointsToday": "{move} p. b. dnes",
   "polyCardMoreOutcomes": "+{count} dalších",
   "polyCardMarkets": "Trhy: {count}",
   "polyCardVolume": "Objem {amount}",

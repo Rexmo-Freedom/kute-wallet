@@ -106,8 +106,8 @@ void main() {
     expect(find.textContaining('today'), findsNothing);
   });
 
-  testWidgets('a many-outcomes card caps a long title at two lines, and an '
-      'outcome name at one, both with an ellipsis', (tester) async {
+  testWidgets('a many-outcomes card caps a long title at two lines with an '
+      'ellipsis, and writes an outcome name whole', (tester) async {
     const first = 'Luiz Inácio Lula da Silva and Flávio Bolsonaro';
     await _pump(tester, [
       for (final q in _longest)
@@ -128,16 +128,16 @@ void main() {
       expect(text.maxLines, 2, reason: q);
       expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
-    // An outcome row is "Name ▬▬▬ 41%": the name keeps to its one line.
+    // An outcome row is "Name ▬▬▬ 41%": a name too long for the row
+    // takes its own line over the bar, never an ellipsis.
     for (final e in find.text(first).evaluate()) {
-      final text = e.widget as Text;
-      expect(text.maxLines, 1);
-      expect(text.overflow, TextOverflow.ellipsis);
+      expect((e.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
+      expect((e.widget as Text).overflow, isNot(TextOverflow.ellipsis));
     }
   });
 
-  testWidgets('a meta line that cannot hold everything ellipsizes; the '
-      'markets link stays whole', (tester) async {
+  testWidgets('a meta line that cannot hold everything wraps; the markets '
+      'link stays whole', (tester) async {
     await _pump(tester, [
       MarketCard(
         title: 'Arsenal vs Chelsea',
@@ -154,12 +154,12 @@ void main() {
       ),
     ]);
     expect(tester.takeException(), isNull);
-    // One line: the volume and "Starts Sep 28, 2031" share it with the
-    // link to the match's other markets; the line gives way, the link
-    // never does.
-    final meta = tester.widget<Text>(find.textContaining('Starts Sep 28'));
-    expect(meta.maxLines, 1);
-    expect(meta.overflow, TextOverflow.ellipsis);
+    // The volume and "Starts Sep 28, 2031" share the line with the link
+    // to the match's other markets; when they cannot, the link goes to
+    // the next line. Nothing is cut.
+    final meta = find.textContaining('Starts Sep 28');
+    expect(tester.renderObject<RenderParagraph>(meta).didExceedMaxLines,
+        isFalse);
     final link = find.textContaining('markets');
     expect(link, findsOneWidget);
     expect(tester.renderObject<RenderParagraph>(link).didExceedMaxLines,

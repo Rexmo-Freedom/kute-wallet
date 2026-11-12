@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Baigėsi",
   "polyRulesAndResolution": "Taisyklės ir išsprendimas",
   "polyCardMoveToday": "{move} šiandien",
+  "polyCardPointsToday": "{move} proc. p. šiandien",
   "polyCardMoreOutcomes": "Dar +{count}",
   "polyCardMarkets": "Rinkų: {count}",
   "polyCardVolume": "{amount} apyv.",

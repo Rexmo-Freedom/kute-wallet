@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Končano",
   "polyRulesAndResolution": "Pravila in razrešitev",
   "polyCardMoveToday": "{move} danes",
+  "polyCardPointsToday": "{move} o. t. danes",
   "polyCardMoreOutcomes": "+{count} več",
   "polyCardMarkets": "Trgi: {count}",
   "polyCardVolume": "{amount} obseg",

@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Încheiat",
   "polyRulesAndResolution": "Reguli și rezoluție",
   "polyCardMoveToday": "{move} azi",
+  "polyCardPointsToday": "{move} pp azi",
   "polyCardMoreOutcomes": "+{count} în plus",
   "polyCardMarkets": "{count} piețe",
   "polyCardVolume": "{amount} vol.",

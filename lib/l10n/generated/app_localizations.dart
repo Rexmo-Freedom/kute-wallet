@@ -17110,6 +17110,12 @@ abstract class AppLocalizations {
   /// **'{move} today'**
   String polyCardMoveToday(String move);
 
+  /// Predictions list card: how far a chance moved in the last 24 hours, in percentage points (pts abbreviated). {move} is an arrow and a whole number, e.g. '▲ 6' (reads '▲ 6 pts today'); a game card puts the team before it ('Arsenal ▲ 9 pts today').
+  ///
+  /// In en, this message translates to:
+  /// **'{move} pts today'**
+  String polyCardPointsToday(String move);
+
   /// No description provided for @polyCardMoreOutcomes.
   ///
   /// In en, this message translates to:

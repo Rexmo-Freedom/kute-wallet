@@ -126,7 +126,11 @@ void main() {
     // Both scores end on the same edge.
     expect(tester.getTopRight(_score('0')).dx,
         tester.getTopRight(_score('3')).dx);
-    expect(find.text('Q2 10:28'), findsOneWidget);
+    // In play the card leads with the live dot and the clock.
+    expect(find.text('Live · Q2 10:28'), findsOneWidget);
+    expect(
+        tester.getTopLeft(find.text('Live · Q2 10:28')).dy,
+        lessThan(broncos));
     expect(_rolled('36%'), findsOneWidget);
   });
 
@@ -254,7 +258,7 @@ void main() {
         .map((b) => b.fraction)
         .toList();
     expect(bars, [0.84, 0.16, 0.05]);
-    expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height, 4);
+    expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height, 6);
     // No token, so no line on the chart: the neutral fill.
     expect(
         tester
@@ -364,7 +368,7 @@ void main() {
       for (var i = 0; i < bars.length; i++) {
         expect(painted(i).first, c.border);
       }
-      expect(tester.getSize(barFinder.first).height, 4);
+      expect(tester.getSize(barFinder.first).height, 6);
       final name = tester.widget<Text>(find.text('25 bps increase'));
       expect(name.style?.color, c.textPrimary);
       final second = tester.widget<Text>(find.text('50+ bps increase'));

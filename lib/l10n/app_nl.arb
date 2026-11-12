@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Afgelopen",
   "polyRulesAndResolution": "Regels en uitslag",
   "polyCardMoveToday": "{move} vandaag",
+  "polyCardPointsToday": "{move} pnt vandaag",
   "polyCardMoreOutcomes": "+{count} meer",
   "polyCardMarkets": "{count} markten",
   "polyCardVolume": "{amount} vol.",

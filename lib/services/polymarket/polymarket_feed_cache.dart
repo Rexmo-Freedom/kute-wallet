@@ -327,6 +327,7 @@ class PolymarketFeedCache {
         'conditionId': o.conditionId,
         if (o.unpriced) 'unpriced': true,
         if (o.question != null) 'question': o.question,
+        if (o.dayMove != null) 'dayMove': o.dayMove,
       };
 
   static PolymarketOutcome _outcomeFromJson(Map<String, dynamic> j) =>
@@ -341,6 +342,7 @@ class PolymarketFeedCache {
         conditionId: j['conditionId'] as String?,
         unpriced: j['unpriced'] == true,
         question: j['question'] as String?,
+        dayMove: (j['dayMove'] as num?)?.toDouble(),
       );
 
   static Map<String, dynamic> _teamToJson(PolymarketTeam t) => {

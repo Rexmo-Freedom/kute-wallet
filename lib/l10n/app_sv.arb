@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Avslutad",
   "polyRulesAndResolution": "Regler och avgörande",
   "polyCardMoveToday": "{move} idag",
+  "polyCardPointsToday": "{move} p idag",
   "polyCardMoreOutcomes": "+{count} till",
   "polyCardMarkets": "{count} marknader",
   "polyCardVolume": "{amount} vol.",

@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Приключил",
   "polyRulesAndResolution": "Правила и резултат",
   "polyCardMoveToday": "{move} днес",
+  "polyCardPointsToday": "{move} пр. п. днес",
   "polyCardMoreOutcomes": "+{count} още",
   "polyCardMarkets": "{count} пазара",
   "polyCardVolume": "{amount} обем",

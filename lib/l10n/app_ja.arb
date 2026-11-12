@@ -2834,6 +2834,7 @@
   "polyStatEnded": "終了済み",
   "polyRulesAndResolution": "ルールと確定条件",
   "polyCardMoveToday": "今日 {move}",
+  "polyCardPointsToday": "今日 {move}pt",
   "polyCardMoreOutcomes": "他{count}件",
   "polyCardMarkets": "{count}マーケット",
   "polyCardVolume": "出来高 {amount}",

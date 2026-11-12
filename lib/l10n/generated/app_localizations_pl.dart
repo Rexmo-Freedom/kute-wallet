@@ -9984,6 +9984,11 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String polyCardPointsToday(String move) {
+    return '$move pkt dziś';
+  }
+
+  @override
   String polyCardMoreOutcomes(int count) {
     return '+$count więcej';
   }

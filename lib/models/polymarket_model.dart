@@ -139,6 +139,11 @@ class PolymarketOutcome {
   /// slip's starting point only.
   final bool unpriced;
 
+  /// This outcome's own 24 h move, a fraction (0.06 is 6 points): Gamma's
+  /// `oneDayPriceChange` of its market (the other side of a two-sided
+  /// market takes it negated). Null when the read did not carry it.
+  final double? dayMove;
+
   const PolymarketOutcome({
     this.gammaMarketId,
     required this.name,
@@ -151,6 +156,7 @@ class PolymarketOutcome {
     this.marketLine,
     this.unpriced = false,
     this.question,
+    this.dayMove,
   });
 
   /// True when this outcome came from a binary YES/NO sub-market (i.e. a
@@ -2053,6 +2059,9 @@ class PolymarketModel {
       final names = _jsonListStrings(m['outcomes']);
       final prices = _jsonListDoubles(m['outcomePrices']);
       final tokens = PolyMarketProtocol.outcomeIds(m);
+      // The market's move is its first side's; a pair's other side moved
+      // the other way.
+      final move = _dayMoveOf(m);
       return List.generate(names.length, (i) {
         return PolymarketOutcome(
           name: names[i],
@@ -2060,6 +2069,13 @@ class PolymarketModel {
           tokenId: i < tokens.length ? tokens[i] : null,
           conditionId: m['conditionId'] as String?,
           gammaMarketId: m['id']?.toString(),
+          dayMove: move == null
+              ? null
+              : i == 0
+                  ? move
+                  : names.length == 2
+                      ? -move
+                      : null,
         );
       });
     }
@@ -2122,6 +2138,7 @@ class PolymarketModel {
       conditionId: m['conditionId'] as String?,
       gammaMarketId: m['id']?.toString(),
       question: question == 'Unknown' ? null : question,
+      dayMove: _dayMoveOf(m),
       marketLine: kind.isEmpty
           ? null
           : PolymarketMarketLine(
@@ -2142,6 +2159,12 @@ class PolymarketModel {
     r'\b(winner|total|over|under|o/u|odd/even|odd|even|spread|moneyline|first|last|exact|map\s*\d|game\s*\d|round\s*\d|set\s*\d|period|half|quarter|inning)\b',
     caseSensitive: false,
   );
+
+  /// A market's `oneDayPriceChange` (a fraction), or null.
+  static double? _dayMoveOf(Map<String, dynamic> m) {
+    final v = _jsonNum(m['oneDayPriceChange']);
+    return v == null || !v.isFinite ? null : v;
+  }
 
   static double? _jsonNum(dynamic v) =>
       v is num ? v.toDouble() : double.tryParse('${v ?? ''}');

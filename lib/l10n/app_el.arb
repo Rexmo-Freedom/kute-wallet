@@ -2834,6 +2834,7 @@
   "polyStatEnded": "Έληξε",
   "polyRulesAndResolution": "Κανόνες και επίλυση",
   "polyCardMoveToday": "{move} σήμερα",
+  "polyCardPointsToday": "{move} μον. σήμερα",
   "polyCardMoreOutcomes": "+{count} ακόμα",
   "polyCardMarkets": "{count} αγορές",
   "polyCardVolume": "Όγκος {amount}",

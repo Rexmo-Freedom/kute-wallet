@@ -9968,6 +9968,11 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String polyCardPointsToday(String move) {
+    return '$move p. b. danas';
+  }
+
+  @override
   String polyCardMoreOutcomes(int count) {
     return '+$count više';
   }

@@ -36,6 +36,15 @@ class PolyCardGame {
   final PolymarketOutcome outcomeA;
   final PolymarketOutcome outcomeB;
 
+  /// A three-way market's draw outcome (its own market's Yes).
+  final PolymarketOutcome? drawOutcome;
+
+  /// The side is its outcome's No: on a game priced by the one market
+  /// named for the match ("A vs B", Yes for its first team), the team it
+  /// names second.
+  final bool aOnNo;
+  final bool bOnNo;
+
   const PolyCardGame({
     required this.nameA,
     required this.nameB,
@@ -44,7 +53,22 @@ class PolyCardGame {
     this.draw,
     required this.outcomeA,
     required this.outcomeB,
+    this.drawOutcome,
+    this.aOnNo = false,
+    this.bOnNo = false,
   });
+
+  /// The token each side's chance is read from: its outcome's Yes, or its
+  /// No when the side is the market's second team.
+  String? get tokenA => aOnNo ? outcomeA.noTokenId : outcomeA.tokenId;
+  String? get tokenB => bOnNo ? outcomeB.noTokenId : outcomeB.tokenId;
+
+  /// Each side's own 24 h move (a fraction), where the feed carried it.
+  double? get dayMoveA => _side(outcomeA.dayMove, aOnNo);
+  double? get dayMoveB => _side(outcomeB.dayMove, bOnNo);
+
+  static double? _side(double? move, bool no) =>
+      move == null ? null : (no ? -move : move);
 }
 
 bool _isYesOrNo(String name) {
@@ -117,6 +141,7 @@ PolyCardGame? polyCardGame(
       draw: _price(outcomes[sides.draw], live),
       outcomeA: oa,
       outcomeB: ob,
+      drawOutcome: outcomes[sides.draw],
     );
   }
 
@@ -140,6 +165,8 @@ PolyCardGame? polyCardGame(
       chanceB: straight ? second : first.toDouble(),
       outcomeA: o,
       outcomeB: o,
+      aOnNo: !straight,
+      bOnNo: straight,
     );
   }
   return null;
