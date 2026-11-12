@@ -1,20 +1,27 @@
-// The card's buttons roll to the next window partway through this one
-// (founder, 8 November 2026), the strip's Next pill picked by the roll
-// (crypto_round_strip_card_test.dart for the strip itself), with a fake
-// clock and fake books: before and
-// after the moment, the next window without prices (to the very end), a tap
-// at the moment, a slip open across it, the rollover, someone holding this
-// window, the name on the slip, the gate. The chart, target and countdown
-// stay on this window throughout, and the card never changes height.
-
-import 'dart:async';
+// THE LIVE CRYPTO ROUND CARD BETS ONLY ON THE NEXT ROUND (founder, 12
+// November 2026: late in a round one side is ~98%, and funding takes 20 to
+// 60 s, so a bet on the round in play is unfair or lands too late).
+// CryptoPredictBanner (polymarket_screen.dart: Predictions › Crypto › 5 Min
+// and pinned under Crypto › All, the compact card; the round's own sheet
+// FiveMinMarketDetailSheet and Ledger Predictions, the full card) on a fake
+// clock, fake Gamma reads and fake books: the round in play stays on show
+// (chart, price, target, countdown) and the line over the buttons says the
+// bet is on the next round, counting down to its start ("Next · Starts in
+// 02:16"); the buttons, the slip, the receipt and the position are the next
+// round's (tokens, slug, end, live book odds). No real prices yet: the
+// buttons disabled, "No prices yet" on the line, never the round in play;
+// enabled as soon as prices come. No strip of rounds: nothing to pick. The
+// longer lengths, the rollover, the sockets, holding the round in play, the
+// gate, and a round in play opened from another door (a list's pill).
+//
+// The world (CardWorld) is shared with the 5 Min page's test
+// (test/screens/usd/five_min_page_test.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/settings_model.dart';
@@ -31,34 +38,43 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
-import 'package:kute/screens/polymarket/components/round_heartbeat.dart';
+import 'package:kute/screens/polymarket/components/crypto_round_card.dart'
+    show CompactSidePill;
+import 'package:kute/screens/polymarket/components/market_card.dart'
+    show polyCardOpenSlip;
+import 'package:kute/screens/polymarket/market_detail_sheet.dart'
+    show MarketDetailSheet;
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
-import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show polyPositionRowTitle;
-import 'package:kute/services/polymarket/crypto_next_round.dart';
+import 'package:kute/screens/shared/market_pair_button.dart';
+import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/services/polymarket/current_round.dart';
 import 'package:kute/services/polymarket_clob_websocket.dart';
-import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:money2/money2.dart';
+
+import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/screens/polymarket/components/round_heartbeat.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show polyPositionRowTitle;
+import 'package:kute/services/runtime_capabilities_service.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/shell_bar_harness.dart';
 
 final roundStart = DateTime.utc(2026, 11, 8, 12, 0);
-final nextStart = roundStart.add(const Duration(minutes: 5));
-int _epoch(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
-String slugAt(DateTime t) => 'btc-updown-5m-${_epoch(t)}';
+int epoch(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
 
-Btc5MinEvent windowEvent(DateTime start, String tokens, {double up = 0.905}) =>
+/// Gamma's event of the [minutes] round starting at [start].
+Btc5MinEvent roundEvent(DateTime start, String tokens,
+        {int minutes = 5, double up = 0.6, String asset = 'btc'}) =>
     Btc5MinEvent(
-      slug: slugAt(start),
-      title: 'Bitcoin Up or Down - November 8, 7:00AM-7:05AM ET',
+      slug: polyCryptoRoundSlug(asset, minutes, epoch(start)),
+      title: 'Bitcoin Up or Down - November 8',
       windowStartTime: start,
-      endDate: start.add(const Duration(minutes: 5)),
+      endDate: start.add(Duration(minutes: minutes)),
       upPrice: up,
       downPrice: 1 - up,
       upTokenId: '$tokens-up',
@@ -66,27 +82,62 @@ Btc5MinEvent windowEvent(DateTime start, String tokens, {double up = 0.905}) =>
       conditionId: '$tokens-cond',
     );
 
-/// The card's window, on a clock the test moves ([bump] repaints as the
-/// provider's one-second countdown does).
-class RoundState extends CryptoPredictNotifier {
+/// Each coin's live price and target on the test's clock.
+const Map<String, (double, double)> kSpot = {
+  'BTC': (75965, 75987),
+  'ETH': (3471.12, 3470.02),
+  'SOL': (182.44, 182.31),
+  'XRP': (2.4312, 2.4305),
+};
+
+/// The card's round, at the chips' length, on the test's clock; [bump]
+/// repaints as the notifier's one-second countdown does, [rollTo] moves to
+/// a new window.
+class StripRoundState extends CryptoPredictNotifier {
+  StripRoundState(this.world);
+  final CardWorld world;
+
   @override
-  Future<CryptoPredictState> build(String arg) async => CryptoPredictState(
-        asset: arg,
-        currentPrice: 75965,
-        priceToBeat: 75987,
-        secondsRemaining: 179,
-        priceHistory: [
-          for (var i = 0; i < 30; i++)
-            BtcPriceSnapshot(
-                timestamp: roundStart.add(Duration(seconds: i * 4)),
-                price: 75987 + (i % 7) * 6.0 - 12 - i),
-        ],
-        event: windowEvent(roundStart, 'cur'),
-      );
+  Future<CryptoPredictState> build(String arg) async {
+    final minutes = ref.watch(cryptoPredictWindowProvider);
+    final start = DateTime.fromMillisecondsSinceEpoch(
+        polyRoundStartAt(world.now, minutes) * 1000,
+        isUtc: true);
+    final span = minutes * 60;
+    // Bitcoin's figures as they always were; another coin (the rows under
+    // the card on the 5 Min page) its own price, tokens and round.
+    final (price, target) = kSpot[arg] ?? kSpot['BTC']!;
+    final scale = target / 75987;
+    final history = [
+      for (var t = -60; t <= world.now.difference(start).inSeconds; t += 4)
+        BtcPriceSnapshot(
+            timestamp: start.add(Duration(seconds: t)),
+            price: (75987 + (t % 7) * 6.0 - 12 - t / 20) * scale),
+    ];
+    if (world.eventless) {
+      return CryptoPredictState(
+          asset: arg, secondsRemaining: span, priceHistory: history);
+    }
+    return CryptoPredictState(
+      asset: arg,
+      currentPrice: price,
+      priceToBeat: target,
+      secondsRemaining: span - world.now.difference(start).inSeconds,
+      priceHistory: history,
+      event: arg == 'BTC'
+          ? roundEvent(start, 'cur', minutes: minutes)
+          : roundEvent(start, 'cur-${arg.toLowerCase()}',
+              minutes: minutes, asset: arg.toLowerCase()),
+    );
+  }
 
   void bump() {
     final prev = state.requireValue;
-    state = AsyncData(prev.copyWith(secondsRemaining: prev.secondsRemaining));
+    final end = prev.event?.endDate;
+    final left = end == null
+        ? prev.secondsRemaining
+        : end.difference(world.now).inSeconds;
+    state = AsyncData(prev.copyWith(secondsRemaining: left < 0 ? 0 : left));
   }
 
   void rollTo(Btc5MinEvent event) {
@@ -96,6 +147,8 @@ class RoundState extends CryptoPredictNotifier {
 }
 
 class _Prices extends LivePriceNotifier {
+  _Prices(this.world);
+  final CardWorld world;
   @override
   LivePriceState build() => const LivePriceState();
   @override
@@ -104,6 +157,27 @@ class _Prices extends LivePriceNotifier {
   void release() {}
   @override
   void addTokens(List<String> tokenIds, {bool pin = true}) {}
+  @override
+  void registerCardTokens(List<String> tokens) {
+    for (final t in tokens) {
+      world.socketTokens[t] = (world.socketTokens[t] ?? 0) + 1;
+    }
+  }
+
+  @override
+  void unregisterCardTokens(List<String> tokens) {
+    for (final t in tokens) {
+      final n = (world.socketTokens[t] ?? 0) - 1;
+      if (n <= 0) {
+        world.socketTokens.remove(t);
+      } else {
+        world.socketTokens[t] = n;
+      }
+    }
+  }
+
+  @override
+  void unsubscribeAll() {}
 }
 
 class _Trading extends PolymarketTradingNotifier {
@@ -119,42 +193,89 @@ class _Currency extends StateNotifier<CurrencyState>
   Future<void> updateRates() async {}
 }
 
-/// The test's world: what time it is, whether Gamma lists the next window,
-/// and the live feed's books.
+/// The test's world: the clock, the chips' length, what Gamma lists ahead,
+/// the books, and what the card has asked for.
 class CardWorld {
   DateTime now = roundStart.add(const Duration(minutes: 1));
-  bool listed = true;
+  int minutes = 5;
+
+  /// Gamma has no event for the round in play.
+  bool eventless = false;
+
+  /// Gamma's rounds ahead by slug.
+  final Map<String, Btc5MinEvent> listed = {};
+
+  /// How many times Gamma was asked for a round.
   int reads = 0;
-  double currentUp = 0.905;
+  final Map<String, int> socketTokens = {};
+  List<PolymarketPosition> positions = const [];
 
-  void seedBook(String token, double bid, double ask) =>
-      PolymarketLiveBooks.instance.debugSeed(PolymarketBookMessage(
-        assetId: token,
-        market: 'm',
-        timestamp: 0,
-        hash: '',
-        bids: [PolymarketOrderSummary(price: bid, size: 500)],
-        asks: [PolymarketOrderSummary(price: ask, size: 500)],
-      ));
+  /// The feed's quotes; a real feed streams them, so every move of the
+  /// clock seeds them again ([requote]).
+  final Map<String, (double, double)> quotes = {};
 
-  /// The next window quoted 50/51, the founder's 50.5% / 49.5%.
-  void quoteNext() {
-    seedBook('next-up', 0.50, 0.51);
-    seedBook('next-down', 0.49, 0.50);
+  void seedBook(String token, double bid, double ask) {
+    quotes[token] = (bid, ask);
+    PolymarketLiveBooks.instance.debugSeed(PolymarketBookMessage(
+      assetId: token,
+      market: 'm',
+      timestamp: 0,
+      hash: '',
+      bids: [PolymarketOrderSummary(price: bid, size: 500)],
+      asks: [PolymarketOrderSummary(price: ask, size: 500)],
+    ));
+  }
+
+  void requote() {
+    for (final e in quotes.entries) {
+      seedBook(e.key, e.value.$1, e.value.$2);
+    }
+  }
+
+  /// The books go silent: nothing is quoted any more.
+  void silence() {
+    quotes.clear();
+    PolymarketLiveBooks.instance.reset();
+    install();
+  }
+
+  /// The next round listed and, unless [quoted] is false, quoted 50/51,
+  /// after [live] (the round in play's start, [roundStart] by default):
+  /// Bitcoin's, or [coin]'s ('eth') for the rows.
+  void listNext({DateTime? live, String coin = 'btc', bool quoted = true}) {
+    final start = (live ?? roundStart).add(Duration(minutes: minutes));
+    final tokens = coin == 'btc' ? 'next' : 'next-$coin';
+    final event =
+        roundEvent(start, tokens, minutes: minutes, up: 0.5, asset: coin);
+    listed[event.slug] = event;
+    if (!quoted) return;
+    seedBook('$tokens-up', 0.50, 0.51);
+    seedBook('$tokens-down', 0.49, 0.50);
+  }
+
+  /// The one after listed and quoted too.
+  void listLater() {
+    final start = roundStart.add(Duration(minutes: 2 * minutes));
+    final event = roundEvent(start, 'later', minutes: minutes, up: 0.5);
+    listed[event.slug] = event;
+    seedBook('later-up', 0.50, 0.51);
+    seedBook('later-down', 0.49, 0.50);
   }
 
   void quoteCurrent() {
-    seedBook('cur-up', currentUp - 0.005, currentUp + 0.005);
-    seedBook('cur-down', 1 - currentUp - 0.005, 1 - currentUp + 0.005);
+    seedBook('cur-up', 0.595, 0.605);
+    seedBook('cur-down', 0.395, 0.405);
   }
 
-  List<Override> overrides({List<PolymarketPosition> positions = const []}) => [
-        cryptoPredictProvider.overrideWith(RoundState.new),
-        cryptoRecentResultsProvider.overrideWith((ref, key) async => const [
-              CryptoWindowResult(1, true),
-              CryptoWindowResult(2, false),
-              CryptoWindowResult(3, true),
-              CryptoWindowResult(4, false),
+  List<Override> overrides() => [
+        cryptoPredictWindowProvider.overrideWith((ref) => minutes),
+        cryptoPredictProvider.overrideWith(() => StripRoundState(this)),
+        cryptoRecentResultsProvider.overrideWith((ref, key) async => [
+              CryptoWindowResult(key.currentStart - 4 * key.minutes * 60, true),
+              CryptoWindowResult(
+                  key.currentStart - 3 * key.minutes * 60, false),
+              CryptoWindowResult(key.currentStart - 2 * key.minutes * 60, true),
+              CryptoWindowResult(key.currentStart - key.minutes * 60, null),
             ]),
         cryptoOddsClockProvider.overrideWithValue(() => now),
         cryptoOddsForegroundProvider.overrideWithValue(() => true),
@@ -162,11 +283,7 @@ class CardWorld {
         polyRoundWindowReaderProvider
             .overrideWithValue((asset, start, minutes) async {
           reads++;
-          expect(asset, 'btc');
-          expect(minutes, 5);
-          return listed && start == _epoch(nextStart)
-              ? windowEvent(nextStart, 'next', up: 0.5)
-              : null;
+          return listed[polyCryptoRoundSlug(asset, minutes, start)];
         }),
         polymarketActivePositionsProvider.overrideWithValue(positions),
         settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -181,7 +298,7 @@ class CardWorld {
             ))),
         polymarketTradingProvider.overrideWith(_Trading.new),
         swapOrdersProvider.overrideWith((ref) => FakeSwapOrders()),
-        livePriceProvider.overrideWith(_Prices.new),
+        livePriceProvider.overrideWith(() => _Prices(this)),
         polymarketOpenOrdersProvider
             .overrideWith((ref) => Stream.value(const [])),
         aiEnabledProvider.overrideWith((ref) async => false),
@@ -196,13 +313,12 @@ class CardWorld {
   }
 }
 
+const cardKey = ValueKey('card');
+
 Widget cardApp(CardWorld world,
-        {bool compact = true,
-        bool dark = false,
-        Locale? locale,
-        List<PolymarketPosition> positions = const []}) =>
+        {bool compact = true, bool dark = false, Locale? locale}) =>
     ProviderScope(
-      overrides: world.overrides(positions: positions),
+      overrides: world.overrides(),
       child: shellBarApp(
         dark: dark,
         locale: locale,
@@ -213,7 +329,7 @@ Widget cardApp(CardWorld world,
               alignment: Alignment.topCenter,
               child: SingleChildScrollView(
                 child: CryptoPredictBanner(
-                  key: const ValueKey('card'),
+                  key: cardKey,
                   config: kCryptoPredictAssets.first,
                   compact: compact,
                 ),
@@ -224,17 +340,20 @@ Widget cardApp(CardWorld world,
       ),
     );
 
-const _next = ValueKey('crypto-round-next');
-const _upPill = ValueKey('crypto-round-up');
-const _downPill = ValueKey('crypto-round-down');
-const _compact = ValueKey('crypto-round-compact');
+const upPill = ValueKey('crypto-round-up');
+const downPill = ValueKey('crypto-round-down');
 
-/// The clock labels the test runner's zone gives this window.
-String nextClock() => polyRoundClock(nextStart, locale: 'en');
-String windowName(DateTime start) =>
-    'BTC up or down · ${polyRoundClock(start, locale: 'en')}'
+String clockOf(DateTime t) => polyRoundClock(t, locale: 'en');
+String windowName(DateTime start, {int minutes = 5}) =>
+    'BTC up or down · ${clockOf(start)}–'
+    '${clockOf(start.add(Duration(minutes: minutes)))}';
+
+/// The window's name on the slip, the receipt and the position: the range
+/// held whole by its joiners.
+String slipWindowName(DateTime start, {int minutes = 5}) =>
+    'BTC up or down · ${clockOf(start)}'
     '$kPolyRoundRangeJoin–$kPolyRoundRangeJoin'
-    '${polyRoundClock(start.add(const Duration(minutes: 5)), locale: 'en')}';
+    '${clockOf(start.add(Duration(minutes: minutes)))}';
 
 Future<void> settle(WidgetTester tester) async {
   for (var i = 0; i < 5; i++) {
@@ -242,47 +361,54 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
+StripRoundState roundOf(WidgetTester tester) {
+  final container = ProviderScope.containerOf(
+      tester.element(find.byKey(cardKey, skipOffstage: false)));
+  return container.read(cryptoPredictProvider('BTC').notifier)
+      as StripRoundState;
+}
+
 /// The clock moves to [at] and the card repaints on its one-second tick.
 Future<void> moveTo(WidgetTester tester, CardWorld world, DateTime at) async {
   world.now = at;
-  final container = ProviderScope.containerOf(tester
-      .element(find.byKey(const ValueKey('card'), skipOffstage: false)));
-  (container.read(cryptoPredictProvider('BTC').notifier) as RoundState).bump();
+  world.requote();
+  roundOf(tester).bump();
   await settle(tester);
 }
 
-/// What the pill says to a screen reader, its side, chance and window: the
-/// digits on screen roll, this is the figure they roll to.
-bool pillSays(WidgetTester tester, Key key, String label) => tester
+/// Whether the card's [key] button bets: enabled and inert alike read off
+/// the pill (compact) or the pair button (full card).
+bool buttonEnabled(WidgetTester tester, Key key) {
+  final w = tester.widget(find.byKey(key));
+  if (w is MarketPairButton) return w.enabled;
+  return (w as CompactSidePill).enabled;
+}
+
+/// What the button says to a screen reader: the round it bets on, its
+/// side and chance (the digits on screen roll; this is the figure they
+/// roll to).
+bool buttonSays(WidgetTester tester, Key key, String label) => tester
     .widgetList<Semantics>(find.descendant(
-        of: find.byKey(key, skipOffstage: false),
-        matching: find.byType(Semantics, skipOffstage: false)))
-    .followedBy(tester.widgetList<Semantics>(find.ancestor(
-        of: find.byKey(key, skipOffstage: false),
-        matching: find.byType(Semantics, skipOffstage: false))))
+        of: find.byKey(key), matching: find.byType(Semantics)))
+    .followedBy(tester.widgetList<Semantics>(
+        find.ancestor(of: find.byKey(key), matching: find.byType(Semantics))))
     .any((w) => w.properties.label == label);
 
-/// The card's own line over the buttons once they bet on a round ahead
-/// (the strip's line, crypto_round_strip.dart).
-String cardWindowName(DateTime start) =>
-    'BTC up or down · ${polyRoundClock(start, locale: 'en')}–'
-    '${polyRoundClock(start.add(const Duration(minutes: 5)), locale: 'en')}';
-
-void _expectThisWindowOnShow() {
-  expect(find.text(r'Target $75,987'), findsOneWidget);
-  expect(find.text('02:59'), findsOneWidget);
-  expect(find.textContaining(r'$75,965'), findsNothing,
-      reason: 'the price rolls digit by digit');
+/// The line over the buttons.
+String? lineOverButtons(WidgetTester tester) {
+  final line = find.descendant(
+      of: find.byKey(const ValueKey('crypto-round-next')),
+      matching: find.byType(Text));
+  return line.evaluate().isEmpty ? null : tester.widget<Text>(line).data;
 }
 
 void main() {
   late CardWorld world;
   late List<(String, Map<String, Object>?)> events;
-  final moment = roundStart.add(kCryptoRoundButtonsStayFor);
+  final nextStart = roundStart.add(const Duration(minutes: 5));
+  final laterStart = roundStart.add(const Duration(minutes: 10));
 
   setUpAll(() async {
-    // The real face: the test font's square glyphs overflow the full
-    // card's buttons with or without this feature.
     final inter = FontLoader('Inter');
     for (final f in ['Regular', 'SemiBold', 'Bold']) {
       inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
@@ -305,15 +431,12 @@ void main() {
     PolymarketLiveBooks.instance.reset();
   });
 
-  Future<void> pumpCard(WidgetTester tester,
-      {bool compact = true,
-      List<PolymarketPosition> positions = const []}) async {
+  Future<void> pumpCard(WidgetTester tester, {bool compact = true}) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-        cardApp(world, compact: compact, positions: positions));
+    await tester.pumpWidget(cardApp(world, compact: compact));
     await settle(tester);
   }
 
@@ -322,358 +445,421 @@ void main() {
     await tester.pump(const Duration(seconds: 31));
   }
 
+  /// A tap on [key]: the slip it opened, or null when nothing opened.
+  Future<BetSlipSheet?> tapSide(WidgetTester tester, Key key) async {
+    await tester.tap(find.byKey(key), warnIfMissed: false);
+    await tester.pump();
+    await settle(tester);
+    final slips = find.byType(BetSlipSheet);
+    return slips.evaluate().isEmpty
+        ? null
+        : tester.widget<BetSlipSheet>(slips.last);
+  }
+
   Map<String, Object> slipOpened() =>
       events.lastWhere((e) => e.$1 == 'polymarket_bet_slip_opened').$2!;
 
-  group('before the moment', () {
-    testWidgets('the buttons bet on this window, as today', (tester) async {
-      world.now = moment.subtract(const Duration(seconds: 1));
-      world.quoteNext();
-      world.quoteCurrent();
-      await pumpCard(tester);
-      expect(find.byKey(_next), findsNothing);
-      await tester.tap(find.byKey(_upPill));
-      await tester.pump();
-      await settle(tester);
-      final slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
-      expect(slip.marketSlug, slugAt(roundStart));
-      expect(slip.outcomes.map((o) => o.tokenId), ['cur-up', 'cur-down']);
-      expect(slipOpened()['window'], 'current');
-      expect(slipOpened()['seconds_to_window_end'], isA<int>());
-      await tearCardDown(tester);
-    });
-  });
-
-  group('after the moment', () {
+  for (final compact in [true, false]) {
+    final shape = compact ? 'compact card' : 'full card (the round sheet)';
     testWidgets(
-        'the buttons read as the next window, this window stays on show, '
-        'the card keeps its height', (tester) async {
-      world.quoteNext();
-      await pumpCard(tester);
-      final before = tester.getSize(find.byKey(_compact)).height;
-      await moveTo(tester, world, moment);
-      world.quoteNext();
-      await moveTo(tester, world, moment);
-      // The strip's Next pill is the one picked; over the buttons, the
-      // round they bet on by name.
-      expect(find.text('Next · ${nextClock()}'), findsOneWidget);
-      expect(find.text('Up'), findsOneWidget);
-      final next = cardWindowName(nextStart);
-      expect(find.text(next), findsOneWidget);
-      expect(pillSays(tester, _upPill, '$next, Up 50.5%'), isTrue);
-      expect(pillSays(tester, _downPill, '$next, Down 49.5%'), isTrue);
-      _expectThisWindowOnShow();
-      expect(tester.getSize(find.byKey(_compact)).height, before,
-          reason: 'the list under the card never jumps');
-      expect(tester.takeException(), isNull);
-      await tearCardDown(tester);
-    });
-
-    testWidgets('a tap bets the next window, named on the slip, on its live '
-        'odds and answering to the same gate', (tester) async {
-      world.quoteNext();
-      await pumpCard(tester);
-      await moveTo(tester, world, moment);
-      world.quoteNext();
-      await moveTo(tester, world, moment);
-      await tester.tap(find.byKey(_downPill));
-      await tester.pump();
-      await settle(tester);
-      final slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
-      expect(slip.marketSlug, slugAt(nextStart));
+        '$shape: the bet is on the next round, "Next · Starts in" over the '
+        'buttons, its tokens, end and live odds; the round in play stays '
+        'on show; no strip', (tester) async {
+      world.listNext();
+      world.quoteCurrent();
+      await pumpCard(tester, compact: compact);
+      expect(lineOverButtons(tester), 'Next · Starts in 04:00');
+      expect(find.byKey(const ValueKey('crypto-round-strip')), findsNothing,
+          reason: 'nothing to pick');
+      expect(find.textContaining('Now · '), findsNothing);
+      // The round in play is the context: its target and its clock.
+      expect(find.text(r'Target $75,987'), findsOneWidget);
+      expect(find.text('04:00'), findsOneWidget);
+      expect(buttonEnabled(tester, upPill), isTrue);
+      expect(buttonEnabled(tester, downPill), isTrue);
+      final name = windowName(nextStart);
+      expect(buttonSays(tester, upPill, compact ? '$name, Up 50.5%' : name),
+          isTrue);
+      if (!compact) {
+        final bar = tester.widget<LinearProgressIndicator>(
+            find.byType(LinearProgressIndicator));
+        expect(bar.value, closeTo(0.505, 1e-9));
+      }
+      final slip = (await tapSide(tester, downPill))!;
+      expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(nextStart)));
       expect(slip.outcomes.map((o) => o.tokenId), ['next-up', 'next-down']);
       expect(slip.outcomes.map((o) => o.conditionId),
           ['next-cond', 'next-cond']);
-      expect(slip.outcomes[0].price, closeTo(0.505, 1e-9));
+      expect(slip.outcomes[0].price, closeTo(0.505, 1e-9),
+          reason: 'the live odds on the button, never Gamma\'s');
       expect(slip.outcomes[1].price, closeTo(0.495, 1e-9));
       expect(slip.initialOutcomeIndex, 1);
       expect(slip.marketEndAt, nextStart.add(const Duration(minutes: 5)));
       expect(slip.marketCategory, 'crypto');
       expect(slip.source, 'crypto_banner');
-      expect(find.text(windowName(nextStart)), findsOneWidget);
-      final opened = slipOpened();
-      expect(opened['window'], 'next');
-      expect(opened['entry_source'], 'crypto_banner');
-      await tearCardDown(tester);
-    });
-
-    testWidgets('the full card rolls the same, its split bar with it',
-        (tester) async {
-      world.quoteNext();
-      await pumpCard(tester, compact: false);
-      await moveTo(tester, world, moment);
-      world.quoteNext();
-      await moveTo(tester, world, moment);
-      expect(find.text('Next · ${nextClock()}'), findsOneWidget);
-      final bar = tester.widget<LinearProgressIndicator>(
-          find.byType(LinearProgressIndicator));
-      expect(bar.value, closeTo(0.505, 1e-9));
-      expect(find.text(r'Target $75,987'), findsOneWidget);
+      // The slip names the window, as the receipt and the position will.
+      expect(find.text(slipWindowName(nextStart)), findsOneWidget);
+      expect(slipOpened()['window'], 'next');
+      expect(events.where((e) => e.$1 == 'predictions_instant_round_picked'),
+          isEmpty);
       expect(tester.takeException(), isNull);
       await tearCardDown(tester);
     });
-  });
+  }
 
-  group('no real prices for the next window', () {
-    final veryEnd = roundStart.add(const Duration(minutes: 4, seconds: 58));
-
-    testWidgets('not listed: stays on this window to the very end, and '
-        'asks again', (tester) async {
-      world.listed = false;
-      world.now = moment;
-      await pumpCard(tester);
-      // The strip reads the next round and the one after.
-      expect(world.reads, 2);
-      await moveTo(tester, world, veryEnd);
-      expect(find.byKey(_next), findsNothing);
-      await tester.tap(find.byKey(_upPill));
-      await tester.pump();
-      await settle(tester);
-      expect(tester.widget<BetSlipSheet>(find.byType(BetSlipSheet)).marketSlug,
-          slugAt(roundStart));
-      await tearCardDown(tester);
-    });
-
-    testWidgets('listed with no book: stays; the book arrives: rolls',
-        (tester) async {
-      world.now = moment;
-      await pumpCard(tester);
-      expect(find.byKey(_next), findsNothing);
-      expect(find.textContaining('50.5%'), findsNothing,
-          reason: 'never Gamma\'s price standing in');
-      world.quoteNext();
-      await moveTo(tester, world, moment.add(const Duration(seconds: 1)));
-      expect(find.byKey(_next), findsOneWidget);
-      await tearCardDown(tester);
-    });
-
-    testWidgets('a wide book is no price', (tester) async {
-      world.now = moment;
-      world.seedBook('next-up', 0.01, 0.99);
-      world.seedBook('next-down', 0.01, 0.99);
-      await pumpCard(tester);
-      await moveTo(tester, world, veryEnd);
-      world.seedBook('next-up', 0.01, 0.99);
-      world.seedBook('next-down', 0.01, 0.99);
-      await moveTo(tester, world, veryEnd);
-      expect(find.byKey(_next), findsNothing);
-      await tearCardDown(tester);
-    });
-
-    testWidgets('a feed gone quiet is no price: back on this window, and '
-        'rolled again once it answers', (tester) async {
-      world.now = moment;
-      world.quoteNext();
-      await pumpCard(tester);
-      expect(find.byKey(_next), findsOneWidget);
-      await moveTo(tester, world, moment.add(const Duration(seconds: 6)));
-      expect(find.byKey(_next), findsNothing,
-          reason: 'a book older than the feed\'s own limit is stale');
-      world.quoteNext();
-      await moveTo(tester, world, moment.add(const Duration(seconds: 7)));
-      expect(find.byKey(_next), findsOneWidget);
-      await tearCardDown(tester);
-    });
-  });
-
-  testWidgets('a tap at the moment bets what the buttons showed',
+  testWidgets('the line counts down to the next round\'s start',
       (tester) async {
-    world.now = moment.subtract(const Duration(milliseconds: 100));
+    world.listNext();
     await pumpCard(tester);
-    // The next window read and quoted, the moment passed, no repaint yet:
-    // the finger lands on what is on screen.
-    await moveTo(tester, world, moment.subtract(const Duration(milliseconds: 50)));
-    world.quoteNext();
-    world.now = moment.add(const Duration(milliseconds: 1));
-    expect(find.byKey(_next), findsNothing);
-    await tester.tap(find.byKey(_upPill));
-    await tester.pump();
-    await settle(tester);
-    expect(tester.widget<BetSlipSheet>(find.byType(BetSlipSheet)).marketSlug,
-        slugAt(roundStart));
+    await moveTo(tester, world,
+        roundStart.add(const Duration(minutes: 2, seconds: 44)));
+    expect(lineOverButtons(tester), 'Next · Starts in 02:16');
+    await moveTo(tester, world,
+        roundStart.add(const Duration(minutes: 4, seconds: 59)));
+    expect(lineOverButtons(tester), 'Next · Starts in 00:01');
+    // To the last second, still the next round: never the one in play.
+    final slip = (await tapSide(tester, upPill))!;
+    expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(nextStart)));
     await tearCardDown(tester);
   });
 
-  testWidgets('a slip open across the moment and the rollover stays on the '
-      'window it opened for', (tester) async {
-    world.quoteNext();
-    await pumpCard(tester);
-    await tester.tap(find.byKey(_upPill));
-    await tester.pump();
-    await settle(tester);
-    final opened = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
-    expect(opened.marketSlug, slugAt(roundStart));
-    final shownName = windowName(roundStart);
-    expect(find.text(shownName), findsOneWidget);
+  group('no prices for the next round yet', () {
+    for (final compact in [true, false]) {
+      final shape = compact ? 'compact' : 'full';
+      testWidgets(
+          '$shape: listed without a book: disabled, "No prices yet" on the '
+          'line, no odds, no slip and never the round in play; the book '
+          'arrives: enabled', (tester) async {
+        world.listNext(quoted: false);
+        world.quoteCurrent();
+        await pumpCard(tester, compact: compact);
+        expect(lineOverButtons(tester),
+            'Next · Starts in 04:00 · No prices yet');
+        expect(buttonEnabled(tester, upPill), isFalse);
+        expect(buttonEnabled(tester, downPill), isFalse);
+        expect(find.textContaining('%'), findsNothing,
+            reason: 'no odds, never Gamma\'s 50% standing in');
+        expect(await tapSide(tester, upPill), isNull);
+        expect(await tapSide(tester, downPill), isNull);
+        // The book arrives: the buttons bet the next round at once.
+        world.seedBook('next-up', 0.50, 0.51);
+        world.seedBook('next-down', 0.49, 0.50);
+        await moveTo(tester, world, world.now.add(const Duration(seconds: 1)));
+        expect(lineOverButtons(tester), 'Next · Starts in 03:59');
+        expect(buttonEnabled(tester, upPill), isTrue);
+        final slip = (await tapSide(tester, upPill))!;
+        expect(slip.outcomes.map((o) => o.tokenId), ['next-up', 'next-down']);
+        expect(tester.takeException(), isNull);
+        await tearCardDown(tester);
+      });
+    }
 
-    await moveTo(tester, world, moment);
-    world.quoteNext();
-    await moveTo(tester, world, moment);
-    // The card behind has rolled; the slip has not.
-    expect(find.text('Next · ${nextClock()}', skipOffstage: false),
-        findsOneWidget);
+    testWidgets('not listed: disabled, and Gamma is asked again',
+        (tester) async {
+      world.quoteCurrent();
+      await pumpCard(tester);
+      expect(buttonEnabled(tester, upPill), isFalse);
+      final asked = world.reads;
+      expect(asked, greaterThan(0));
+      world.listNext();
+      await tester.pump(const Duration(seconds: 11));
+      await moveTo(tester, world, world.now.add(const Duration(seconds: 11)));
+      expect(world.reads, greaterThan(asked));
+      expect(buttonEnabled(tester, upPill), isTrue);
+      await tearCardDown(tester);
+    });
+
+    testWidgets('a book wider than 10¢ is no price', (tester) async {
+      world.listNext(quoted: false);
+      world.seedBook('next-up', 0.01, 0.99);
+      world.seedBook('next-down', 0.01, 0.99);
+      await pumpCard(tester);
+      expect(buttonEnabled(tester, upPill), isFalse);
+      await tearCardDown(tester);
+    });
+
+    testWidgets('a feed gone quiet is no price; it answers: enabled again',
+        (tester) async {
+      world.listNext();
+      await pumpCard(tester);
+      expect(buttonEnabled(tester, upPill), isTrue);
+      world.quotes.clear();
+      world.now = world.now.add(const Duration(seconds: 6));
+      roundOf(tester).bump();
+      await settle(tester);
+      expect(buttonEnabled(tester, upPill), isFalse,
+          reason: 'a book older than the feed\'s own limit is stale');
+      world.listNext();
+      await moveTo(tester, world, world.now.add(const Duration(seconds: 1)));
+      expect(buttonEnabled(tester, upPill), isTrue);
+      await tearCardDown(tester);
+    });
+  });
+
+  testWidgets(
+      'the round in play is never bettable: at its end, before the card '
+      'rolls, the buttons are disabled; rolled, they bet the round after',
+      (tester) async {
+    world.listNext();
+    world.listLater();
+    world.quoteCurrent();
+    await pumpCard(tester);
+    // The next round has started; the card still shows the old one.
+    await moveTo(tester, world, nextStart);
+    expect(buttonEnabled(tester, upPill), isFalse);
+    expect(lineOverButtons(tester), 'Next · Starts in 00:00 · No prices yet');
+    expect(await tapSide(tester, upPill), isNull);
+    // The card rolls on: the next round is the one in play, the buttons
+    // bet the one after.
+    world.now = nextStart.add(const Duration(seconds: 2));
+    world.requote();
+    roundOf(tester).rollTo(roundEvent(nextStart, 'next'));
+    await settle(tester);
+    expect(lineOverButtons(tester), startsWith('Next · Starts in 04:5'));
+    final slip = (await tapSide(tester, upPill))!;
+    expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(laterStart)));
+    expect(slip.outcomes.map((o) => o.tokenId), ['later-up', 'later-down']);
+    await tearCardDown(tester);
+  });
+
+  testWidgets('a slip open across the start stays on the round it opened for',
+      (tester) async {
+    world.listNext();
+    world.listLater();
+    await pumpCard(tester);
+    final opened = (await tapSide(tester, upPill))!;
+    expect(opened.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(nextStart)));
+    world.now = nextStart.add(const Duration(seconds: 2));
+    roundOf(tester).rollTo(roundEvent(nextStart, 'next'));
+    await settle(tester);
     final still = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
-    expect(still.marketSlug, slugAt(roundStart));
-    expect(still.outcomes.map((o) => o.tokenId), ['cur-up', 'cur-down']);
-    expect(find.text(shownName), findsOneWidget);
-    expect(find.text(windowName(nextStart)), findsNothing);
-
-    final container = ProviderScope.containerOf(
-        tester.element(find.byKey(const ValueKey('card'), skipOffstage: false)));
-    (container.read(cryptoPredictProvider('BTC').notifier) as RoundState)
-        .rollTo(windowEvent(nextStart, 'next', up: 0.5));
-    world.now = nextStart.add(const Duration(seconds: 1));
-    await settle(tester);
-    expect(tester.widget<BetSlipSheet>(find.byType(BetSlipSheet)).marketSlug,
-        slugAt(roundStart));
-    expect(find.text(shownName), findsOneWidget);
+    expect(still.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(nextStart)));
     await tearCardDown(tester);
   });
 
-  group('the rollover', () {
-    testWidgets('past the end the buttons hold the next window, then the '
-        'card rolls forward onto it as today', (tester) async {
-      world.quoteNext();
+  for (final minutes in [15, 60]) {
+    testWidgets('$minutes-minute rounds: the same, the next round of that '
+        'length', (tester) async {
+      world.minutes = minutes;
+      world.listNext();
       await pumpCard(tester);
-      await moveTo(tester, world, moment);
-      world.quoteNext();
-      // The window's end: the card has not read the new one yet.
-      await moveTo(tester, world, nextStart);
-      world.quoteNext();
-      await moveTo(tester, world, nextStart);
-      expect(find.byKey(_next), findsOneWidget);
-      expect(pillSays(tester, _upPill, '${cardWindowName(nextStart)}, Up 50.5%'),
-          isTrue);
-
-      final container = ProviderScope.containerOf(
-          tester.element(find.byKey(const ValueKey('card'))));
-      (container.read(cryptoPredictProvider('BTC').notifier) as RoundState)
-          .rollTo(windowEvent(nextStart, 'next', up: 0.5));
-      world.now = nextStart.add(const Duration(seconds: 1));
-      await settle(tester);
-      expect(find.byKey(_next), findsNothing,
-          reason: 'it is this window now');
-      await tester.tap(find.byKey(_upPill));
-      await tester.pump();
-      await settle(tester);
-      final slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
-      expect(slip.marketSlug, slugAt(nextStart));
-      expect(slipOpened()['window'], 'current');
+      expect(
+          lineOverButtons(tester),
+          minutes == 60
+              ? 'Next · Starts in 0:59:00'
+              : 'Next · Starts in 14:00');
+      final slip = (await tapSide(tester, upPill))!;
+      final next = roundStart.add(Duration(minutes: minutes));
+      expect(slip.marketSlug, polyCryptoRoundSlug('btc', minutes, epoch(next)));
+      expect(slip.marketEndAt, next.add(Duration(minutes: minutes)));
       await tearCardDown(tester);
     });
+  }
 
-    testWidgets('the next window\'s own first minutes do not roll on to the '
-        'one after', (tester) async {
-      world.quoteNext();
-      await pumpCard(tester);
-      final container = ProviderScope.containerOf(
-          tester.element(find.byKey(const ValueKey('card'))));
-      (container.read(cryptoPredictProvider('BTC').notifier) as RoundState)
-          .rollTo(windowEvent(nextStart, 'next', up: 0.5));
-      world.now = nextStart.add(const Duration(minutes: 1));
-      await settle(tester);
-      expect(find.byKey(_next), findsNothing);
-      await tearCardDown(tester);
-    });
+  testWidgets(
+      'the sockets: the round in play\'s and the next round\'s tokens, gone '
+      'with the card', (tester) async {
+    world.listNext();
+    await pumpCard(tester);
+    expect(world.socketTokens.keys.toSet(),
+        {'cur-up', 'cur-down', 'next-up', 'next-down'});
+    await tearCardDown(tester);
+    expect(world.socketTokens, isEmpty);
   });
 
-  group('holding this window', () {
-    PolymarketPosition held() => PolymarketPosition(
-          marketId: 'cur-cond',
-          marketQuestion: 'Bitcoin Up or Down - November 8, 7:00AM-7:05AM ET',
-          outcome: 'Up',
-          size: 20,
-          avgPrice: 0.5,
-          currentPrice: 0.905,
-          pnl: 8.1,
-          pnlPercent: 81,
-          isResolved: false,
-          tokenId: 'cur-up',
-          eventSlug: slugAt(roundStart),
-        );
+  testWidgets(
+      'holding the round in play: the position names its own window, the '
+      'heartbeat reads it, the buttons bet the next', (tester) async {
+    final held = PolymarketPosition(
+      marketId: 'cur-cond',
+      marketQuestion: 'Bitcoin Up or Down - November 8, 7:00AM-7:05AM ET',
+      outcome: 'Up',
+      size: 20,
+      avgPrice: 0.5,
+      currentPrice: 0.905,
+      pnl: 8.1,
+      pnlPercent: 81,
+      isResolved: false,
+      tokenId: 'cur-up',
+      eventSlug: polyCryptoRoundSlug('btc', 5, epoch(roundStart)),
+    );
+    world.positions = [held];
+    world.listNext();
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(ProviderScope(
+      overrides: world.overrides(),
+      child: shellBarApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: RoundHeartbeat(
+              asset: 'BTC',
+              child: CryptoPredictBanner(
+                key: cardKey,
+                config: kCryptoPredictAssets.first,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await settle(tester);
+    final context = tester.element(find.byKey(cardKey));
+    expect(polyPositionRowTitle(context, held, null),
+        slipWindowName(roundStart));
+    expect(lineOverButtons(tester), 'Next · Starts in 04:00');
+    final container = ProviderScope.containerOf(context);
+    expect(
+        container
+            .read(cryptoPredictProvider('BTC'))
+            .requireValue
+            .event!
+            .upTokenId,
+        'cur-up',
+        reason: 'the card\'s own round is the held one');
+    final slip = (await tapSide(tester, upPill))!;
+    expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(nextStart)));
+    expect(tester.takeException(), isNull);
+    await tearCardDown(tester);
+  });
 
-    testWidgets('the position names its own window, the card\'s buttons the '
-        'next', (tester) async {
-      world.quoteNext();
-      await pumpCard(tester);
-      await moveTo(tester, world, moment);
-      world.quoteNext();
-      await moveTo(tester, world, moment);
-      final context = tester.element(find.byKey(const ValueKey('card')));
-      expect(polyPositionRowTitle(context, held(), null),
-          windowName(roundStart));
-      expect(find.text('Next · ${nextClock()}'), findsOneWidget);
-      await tearCardDown(tester);
+  testWidgets('the next round answers to the same capabilities',
+      (tester) async {
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture(blocked: const {'polymarket.trade'});
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(() async {
+      expect(await policy.refresh(), isTrue);
+    });
+    world.listNext();
+    await pumpCard(tester);
+    final slip = (await tapSide(tester, upPill))!;
+    expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(nextStart)));
+    expect(find.text('This feature is currently unavailable in Kute.'),
+        findsOneWidget);
+    await tearCardDown(tester);
+    policy.dispose();
+  });
+
+  group('the round in play from any other door', () {
+    PolymarketEvent inPlay(DateTime now, {int minutes = 15}) {
+      final start = DateTime.fromMillisecondsSinceEpoch(
+          polyRoundStartAt(now, minutes) * 1000,
+          isUtc: true);
+      final ev = roundEvent(start, 'cur15', minutes: minutes);
+      return PolymarketEvent(
+        id: ev.slug,
+        slug: ev.slug,
+        title: ev.title,
+        volume: 0,
+        volume24hr: 0,
+        liquidity: 1000,
+        category: 'crypto',
+        endDate: ev.endDate,
+        conditionId: 'cur15-cond',
+        outcomes: const [
+          PolymarketOutcome(name: 'Up', price: 0.97, tokenId: 'cur15-up'),
+          PolymarketOutcome(name: 'Down', price: 0.03, tokenId: 'cur15-down'),
+        ],
+      );
+    }
+
+    test('a buy on a round in play is closed, of any length; a round ahead '
+        'and any other market are not', () {
+      final now = DateTime.now();
+      for (final minutes in [5, 15, 240]) {
+        final start = polyRoundStartAt(now, minutes);
+        expect(
+            polyRoundBuyClosed(polyCryptoRoundSlug('btc', minutes, start),
+                now: now),
+            isTrue,
+            reason: '$minutes');
+        expect(
+            polyRoundBuyClosed(
+                polyCryptoRoundSlug('btc', minutes, start + minutes * 60),
+                now: now),
+            isFalse,
+            reason: '$minutes ahead');
+      }
+      final hour = polyRoundStartAt(now, 60);
+      expect(
+          polyRoundBuyClosed(polyCryptoRoundSlug('btc', 60, hour),
+              endDate: DateTime.fromMillisecondsSinceEpoch(
+                  (hour + 3600) * 1000,
+                  isUtc: true),
+              now: now),
+          isTrue);
+      expect(polyRoundBuyClosed('will-it-rain', now: now), isFalse);
+      expect(polyRoundBuyClosed(null, now: now), isFalse);
     });
 
-    testWidgets('the heartbeat still reads this window; its chart and target '
-        'stay, whichever window the buttons offer', (tester) async {
-      world.quoteNext();
+    testWidgets(
+        'a list\'s pill on a 15-minute round in play opens no slip: its page '
+        'opens read-only, its one pill the next round', (tester) async {
+      final now = DateTime.now();
+      world.now = now;
+      BetSlipSheet.debugClock = () => now;
+      final event = inPlay(now);
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(ProviderScope(
-        overrides: world.overrides(positions: [held()]),
+        overrides: world.overrides(),
         child: shellBarApp(
           home: Scaffold(
-            body: SingleChildScrollView(
-              child: RoundHeartbeat(
-                asset: 'BTC',
-                child: CryptoPredictBanner(
-                  key: const ValueKey('card'),
-                  config: kCryptoPredictAssets.first,
+            body: Builder(
+              builder: (context) => Center(
+                child: TextButton(
+                  onPressed: () => polyCardOpenSlip(context,
+                      event: event, side: 'up', source: 'feed_card'),
+                  child: const Text('pill'),
                 ),
               ),
             ),
           ),
         ),
       ));
-      await settle(tester);
-      await moveTo(tester, world, moment);
-      world.quoteNext();
-      await moveTo(tester, world, moment);
-      expect(find.byKey(_next), findsOneWidget);
-      expect(find.text(r'Target $75,987'), findsOneWidget);
-      final container = ProviderScope.containerOf(
-          tester.element(find.byKey(const ValueKey('card'))));
-      final shownEvent =
-          container.read(cryptoPredictProvider('BTC')).requireValue.event!;
-      expect(shownEvent.upTokenId, 'cur-up',
-          reason: 'the card\'s own window is the held one');
-      expect(tester.takeException(), isNull);
-      await tearCardDown(tester);
-    });
-  });
-
-  group('the gate', () {
-    testWidgets('the next window answers to the same capabilities',
-        (tester) async {
-      AffiliateService.debugSessionToken = 'test-session';
-      final policy = runtimePolicyFixture(blocked: const {'polymarket.trade'});
-      RuntimeCapabilitiesService.debugInstance = policy;
-      addTearDown(() {
-        RuntimeCapabilitiesService.debugInstance = null;
-        AffiliateService.debugSessionToken = null;
-      });
-      await tester.runAsync(() async {
-        expect(await policy.refresh(), isTrue);
-      });
-      world.quoteNext();
-      await pumpCard(tester);
-      await moveTo(tester, world, moment);
-      world.quoteNext();
-      await moveTo(tester, world, moment);
-      await tester.tap(find.byKey(_upPill));
-      await tester.pump();
-      await settle(tester);
-      expect(tester.widget<BetSlipSheet>(find.byType(BetSlipSheet)).marketSlug,
-          slugAt(nextStart));
-      expect(find.text('This feature is currently unavailable in Kute.'),
-          findsOneWidget,
-          reason: 'blocked on the next window exactly as on this one');
-      await tearCardDown(tester);
-      policy.dispose();
+      await tester.tap(find.text('pill'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(BetSlipSheet), findsNothing);
+      expect(find.byType(MarketDetailSheet), findsOneWidget);
+      // Read-only: the bar's trade row is the one pill to the next round,
+      // no Up or Down on the round in play.
+      final round = polyCryptoRoundOf(event.slug)!;
+      expect(find.byKey(const ValueKey('kute-bar-trade-next-round')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('kute-bar-trade-next-round')),
+              matching: find.text('Next · ${clockOf(round.end)}')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('kute-bar-trade-yes')), findsNothing);
+      expect(find.byKey(const ValueKey('kute-bar-trade-no')), findsNothing);
+      // The pill opens the next round as its own market, where it is bet.
+      final next = roundEvent(round.end, 'next15', minutes: 15);
+      world.listed[next.slug] = next;
+      await tester.tap(find.byKey(const ValueKey('kute-bar-trade-next-round')));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final sheets =
+          tester.widgetList<MarketDetailSheet>(find.byType(MarketDetailSheet));
+      expect(sheets.last.event.slug, next.slug);
+      expect(sheets.last.event.outcomes.map((o) => o.tokenId),
+          ['next15-up', 'next15-down']);
+      expect(
+          events.where((e) => e.$1 == 'polymarket_bet_slip_opened'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 31));
     });
   });
 }

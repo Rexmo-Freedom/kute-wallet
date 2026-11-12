@@ -1,6 +1,6 @@
-// Where a 5-minute card's buttons bet: this window for its first two
-// minutes, then the next one once it has real prices, never before and
-// never on an old or invented price (crypto_next_round.dart). The window's
+// Where a live round card's buttons bet: ONLY the next round, once it has
+// real prices, never the round in play and never on an old or invented
+// price (crypto_next_round.dart; founder, 12 November 2026). The window's
 // name and the `window` analytics values are read off the slug.
 
 import 'package:flutter/painting.dart';
@@ -18,8 +18,6 @@ import 'package:kute/services/venue_analytics.dart';
 
 final _start = DateTime.utc(2026, 11, 8, 12, 0);
 int _epoch(DateTime t) => t.millisecondsSinceEpoch ~/ 1000;
-final _round = PolyCryptoRound(
-    asset: 'btc', window: const Duration(minutes: 5), start: _start);
 final _nextStart = _start.add(const Duration(minutes: 5));
 
 Btc5MinEvent _next({
@@ -63,18 +61,17 @@ void main() {
   setUp(PolymarketLiveBooks.instance.reset);
   tearDown(PolymarketLiveBooks.instance.reset);
 
-  PolyNextRoundButtons? at(
+  double? at(
     DateTime now, {
-    PolyCryptoRound? round,
     Btc5MinEvent? next,
     bool noNext = false,
     PolymarketLiveBook? up,
     PolymarketLiveBook? down,
     bool noBooks = false,
   }) =>
-      polyNextRoundButtons(
-        round: round ?? _round,
+      polyNextRoundUp(
         next: noNext ? null : next ?? _next(),
+        start: _epoch(_nextStart),
         upBook: noBooks
             ? null
             : up ?? _book('next-up', bids: [0.50], asks: [0.51]),
@@ -84,49 +81,21 @@ void main() {
         now: now,
       );
 
-  group('the moment', () {
-    test('before the constant: this window, at it: the next', () {
-      final moment = _start.add(kCryptoRoundButtonsStayFor);
-      expect(at(moment.subtract(const Duration(seconds: 1))), isNull);
-      final rolled = at(moment)!;
-      expect(rolled.up, closeTo(0.505, 1e-9));
-      expect(rolled.start, _nextStart);
-      expect(rolled.event.upTokenId, 'next-up');
+  group('the next round, from the start of the one in play', () {
+    test('its live chance from the first second to the last', () {
+      expect(at(_start)!, closeTo(0.505, 1e-9));
+      expect(at(_start.add(const Duration(minutes: 2)))!, closeTo(0.505, 1e-9));
+      expect(at(_nextStart.subtract(const Duration(seconds: 1)))!,
+          closeTo(0.505, 1e-9));
     });
 
-    test('the two minutes are one constant', () {
-      expect(kCryptoRoundButtonsStayFor, const Duration(minutes: 2));
-    });
-
-    test('past the window\'s end it holds: never back to a finished window',
-        () {
-      expect(at(_nextStart.add(const Duration(seconds: 2))), isNotNull);
-    });
-
-    test('the next window is read a little before the moment, not earlier',
-        () {
-      final moment = _start.add(kCryptoRoundButtonsStayFor);
-      expect(
-          polyNextRoundWanted(
-              _round, moment.subtract(kCryptoNextRoundReadAhead)),
-          isTrue);
-      expect(
-          polyNextRoundWanted(_round,
-              moment.subtract(kCryptoNextRoundReadAhead + const Duration(seconds: 1))),
-          isFalse);
-    });
-
-    test('a 15-minute window and no window never roll', () {
-      final fifteen = PolyCryptoRound(
-          asset: 'btc', window: const Duration(minutes: 15), start: _start);
-      final late = _start.add(const Duration(minutes: 13));
-      expect(polyNextRoundWanted(fifteen, late), isFalse);
-      expect(polyNextRoundWanted(null, late), isFalse);
-      expect(at(late, round: fifteen), isNull);
+    test('never once it has started: then it is the round in play', () {
+      expect(at(_nextStart), isNull);
+      expect(at(_nextStart.add(const Duration(seconds: 2))), isNull);
     });
   });
 
-  group('no real prices: stays on this window', () {
+  group('no real prices: the buttons disabled', () {
     final late = _start.add(const Duration(minutes: 4, seconds: 55));
 
     test('not listed', () => expect(at(late, noNext: true), isNull));
@@ -166,7 +135,7 @@ void main() {
           isNotNull);
     });
 
-    test('Gamma\'s own 50/50 alone never rolls the buttons', () {
+    test('Gamma\'s own 50/50 alone never prices the buttons', () {
       expect(at(late, next: _next(), noBooks: true), isNull);
     });
   });

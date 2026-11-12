@@ -29,12 +29,6 @@ import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/providers/crypto_next_round_provider.dart';
 import 'package:kute/screens/polymarket/components/crypto_round_card.dart';
 import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
-import 'package:kute/screens/polymarket/components/crypto_round_strip.dart';
-import 'package:kute/services/polymarket/crypto_round_strip.dart';
-import 'package:kute/services/polymarket/crypto_live_odds.dart'
-    show cryptoShownUp, cryptoOddsSane;
-import 'package:kute/providers/placing_polymarket_bet_provider.dart'
-    show placingPolymarketBetProvider;
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
@@ -1435,12 +1429,10 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// countdown pill), one price row (live price, its move against the
   /// target, the target), a 40 px sparkline with the dashed target line,
   /// and the Up / Down pills with their odds ([CompactCryptoCard]). The
-  /// market page keeps the full card. Both carry the strip of rounds under
-  /// the chart (crypto_round_strip.dart: the past rounds, Now, Next and
-  /// the one after) that picks which round the buttons bet on, and roll
-  /// them to the next window partway through this one by themselves, this
-  /// window staying on show (crypto_next_round.dart); the round they bet
-  /// on is named over them ("BTC up or down · 7:20–7:25").
+  /// market page keeps the full card. On both the round on show is the one
+  /// in play, as context, and the buttons bet ONLY on the next round
+  /// (founder, 12 November 2026; crypto_next_round.dart), the line over
+  /// them saying so and when it starts ("Next · Starts in 02:16").
   final bool compact;
 
   /// Where the slip says it was opened from (`polymarket_bet_slip_opened`'s
@@ -1458,33 +1450,12 @@ class CryptoPredictBanner extends ConsumerWidget {
     this.slipSource = 'crypto_banner',
   });
 
-  List<PolymarketOutcome> _eventOutcomes(Btc5MinEvent? event) {
-    if (event == null) {
-      return [
-        const PolymarketOutcome(name: 'Up', price: 0.50),
-        const PolymarketOutcome(name: 'Down', price: 0.50),
-      ];
-    }
-    return [
-      PolymarketOutcome(
-          name: 'Up',
-          price: event.upPrice,
-          tokenId: event.upTokenId,
-          conditionId: event.conditionId),
-      PolymarketOutcome(
-          name: 'Down',
-          price: event.downPrice,
-          tokenId: event.downTokenId,
-          conditionId: event.conditionId),
-    ];
-  }
-
   static String _formatDiff(double diff) => formatCryptoRoundDiff(diff);
 
-  /// The time left as the strip's "Now" pill writes it: "04:00" for the
-  /// minutes-long rounds, "3:59:59" once a round is an hour or longer,
-  /// never "239:59".
-  static String _stripCountdown(int seconds, int minutes) {
+  /// The time until the next round starts, as the card's countdown writes
+  /// it: "02:16" for the minutes-long rounds, "3:59:59" once a round is an
+  /// hour or longer, never "239:59".
+  static String _startsInText(int seconds, int minutes) {
     final s = seconds < 0 ? 0 : seconds;
     String two(int n) => n.toString().padLeft(2, '0');
     if (minutes < 60) return '${two(s ~/ 60)}:${two(s % 60)}';
@@ -1511,7 +1482,6 @@ class CryptoPredictBanner extends ConsumerWidget {
     final minutes = targetWindowEpoch == null
         ? ref.watch(cryptoPredictWindowProvider)
         : 5;
-    final upPctPolled = predictState?.upPct ?? 50;
     final countdown = predictState?.countdownText ??
         '${minutes.toString().padLeft(2, '0')}:00';
     final priceStr = _formatPrice(predictState?.currentPrice);
@@ -1551,27 +1521,14 @@ class CryptoPredictBanner extends ConsumerWidget {
 
     // --- LIVE odds wiring ---
     // The [LiveTokenScope] wrapping this banner (see the return below)
-    // keeps the event's up/down CLOB tokens on the order-book socket,
-    // re-registering them when the window rolls to new tokens; the
-    // [CryptoOddsScope] inside it registers the Up token with
-    // [cryptoLiveOddsProvider], which reads the live book raw (midpoint,
-    // or last trade on a book wider than 10¢), with no smoothing window
-    // or band, and the CLOB's REST midpoint every 1.5 s while the socket
-    // has no current book. It drops a chance nobody confirmed for 10 s,
-    // and then the market list's price (Gamma, polled every 10 s) shows.
+    // keeps the round on show's up/down CLOB tokens and the next round's
+    // on the order-book socket, re-registering them when the window rolls
+    // to new tokens; the [CryptoOddsScope] inside it registers the next
+    // round's Up token with [cryptoLiveOddsProvider], whose change
+    // repaints the buttons. Their odds are the next round's live book
+    // ([polyNextRoundUp]), never Gamma's price.
     final upTokenId = predictState?.event?.upTokenId;
     final downTokenId = predictState?.event?.downTokenId;
-    final liveUpPriceRaw = ref.watch(
-      cryptoLiveOddsProvider
-          .select((s) => upTokenId == null ? null : s[upTokenId]?.up),
-    );
-
-    // Resolve "up" probability (0..1):
-    //   1. the live book, raw, else the REST midpoint (1.5 s)
-    //   2. polled state from the 10s notifier
-    //   3. 0.50 fallback
-    final livePctUp = liveUpPriceRaw ?? (upPctPolled / 100.0);
-    final livePctUpClamped = livePctUp.clamp(0.0, 1.0);
 
     // Round window text — "May 21, 10:10-10:15AM ET" style. Falls back to
     // a generic "Live round" when the event isn't loaded yet.
@@ -1617,22 +1574,19 @@ class CryptoPredictBanner extends ConsumerWidget {
         : ref.watch(cryptoRecentResultsProvider(resultsKey)).valueOrNull ??
             carriedCryptoResults(
                 resultsKey.asset, resultsKey.minutes, resultsKey.currentStart);
-    // Where the buttons bet (crypto_round_strip.dart, the Instant card's
-    // strip of 8 November 2026, back on this card after build 2.2.0 (101):
-    // "we also don't have the 'next' tab we can choose on the bottom"):
-    // under the chart, the past rounds as dots, the round in play, the next
-    // and the one after; the buttons bet on the one picked there, else on
-    // the roll's (partway through a 5-minute window they roll to the next
-    // one by themselves once it has real prices, crypto_next_round.dart),
-    // else on this one. The chart, target and countdown keep playing the
-    // round on show. A card of one given window has no strip and no roll.
-    // The tap below bets the round this very build painted.
+    // Where the buttons bet (founder, 12 November 2026): ONLY on the NEXT
+    // round, never the one in play (late in a round one side is ~98%, and
+    // funding takes 20 to 60 s; crypto_next_round.dart). The chart, price,
+    // target and countdown keep playing the round on show, as context; the
+    // line over the buttons says the bet is on the next round and when it
+    // starts ("Next · Starts in 02:16"), and the buttons are priced and
+    // wired to it: its tokens, slug, end time and live book odds. While it
+    // has no real prices they are disabled, "No prices yet" on the line;
+    // never the round in play instead. The tap below bets the round this
+    // very build painted.
     final now = ref.read(cryptoOddsClockProvider)();
-    final hasStrip = targetWindowEpoch == null;
+    final nowEpoch = now.toUtc().millisecondsSinceEpoch ~/ 1000;
     final showing = predictState?.event;
-    final round = !hasStrip || showing == null
-        ? null
-        : polyCryptoRoundOf(showing.slug);
     // The round on show: the card's own event while it is one of this
     // length (it rolls forward a second or two after the clock), else the
     // clock's.
@@ -1643,156 +1597,44 @@ class CryptoPredictBanner extends ConsumerWidget {
             shownTo.difference(shownFrom).inMinutes == minutes
         ? shownFrom.millisecondsSinceEpoch ~/ 1000
         : polyRoundStartAt(now, minutes);
-    final aheadStarts =
-        hasStrip ? polyStripAheadStarts(liveStart, minutes) : const <int>[];
-    final slugAsset = config.asset.toLowerCase();
-    final ahead = <int, Btc5MinEvent?>{
-      for (final start in aheadStarts)
-        start: ref
-            .watch(cryptoNextRoundProvider(
-                (asset: slugAsset, minutes: minutes, start: start)))
-            .valueOrNull,
-    };
-    // A new chance of a round ahead repaints; the books are read here.
-    for (final e in ahead.values) {
-      final t = e?.upTokenId;
-      ref.watch(
-          cryptoLiveOddsProvider.select((s) => t == null ? null : s[t]?.up));
-    }
-    final books = ref.read(cryptoOddsBooksProvider);
-    final nextEvent = aheadStarts.isEmpty ? null : ahead[aheadStarts.first];
+    final nextStart = liveStart + minutes * 60;
+    final nextEvent = ref
+        .watch(cryptoNextRoundProvider((
+          asset: config.asset.toLowerCase(),
+          minutes: minutes,
+          start: nextStart,
+        )))
+        .valueOrNull;
     final nextUpToken = nextEvent?.upTokenId;
     final nextDownToken = nextEvent?.downTokenId;
-    final rolled = polyNextRoundButtons(
-      round: round,
+    // A new chance of the next round repaints; the books are read here.
+    ref.watch(cryptoLiveOddsProvider
+        .select((s) => nextUpToken == null ? null : s[nextUpToken]?.up));
+    final books = ref.read(cryptoOddsBooksProvider);
+    final nextUp = polyNextRoundUp(
       next: nextEvent,
+      start: nextStart,
       upBook: nextUpToken == null ? null : books.snapshot(nextUpToken),
       downBook: nextDownToken == null ? null : books.snapshot(nextDownToken),
       now: now,
     );
-    // The round in play can be picked only while it runs: Gamma answers
-    // with the round that just ended until the next one is listed.
-    final liveEvent = switch (showing) {
-      final e? when e.endDate?.isAfter(now) ?? false => e,
-      _ => null,
-    };
-    // The rounds the person holds or is buying, marked on the strip: the
-    // spending wallet's, so a Ledger's card marks none.
-    final held = hasStrip && ledgerWalletId == null
-        ? <String>{
-            for (final b in ref.watch(placingPolymarketBetProvider))
-              if (b.eventSlug case final s?) s.toLowerCase(),
-            for (final p in ref.watch(polymarketActivePositionsProvider))
-              if (p.eventSlug case final s?) s.toLowerCase(),
-          }
-        : const <String>{};
-    final rounds = hasStrip
-        ? polyRoundStrip(
-            asset: config.asset,
-            minutes: minutes,
-            now: now,
-            past: pastResults,
-            live: liveEvent,
-            ahead: ahead,
-            books: books.snapshot,
-            heldSlugs: held,
-            shownStart: liveStart,
-          )
-        : null;
-    final pickKey = (asset: config.asset, minutes: minutes);
-    final picked =
-        hasStrip ? ref.watch(cryptoPickedRoundProvider(pickKey)) : null;
-    final selected = rounds == null
-        ? null
-        : (() {
-            final start = polyRoundSelectedStart(
-              rounds: rounds,
-              now: now,
-              picked: picked,
-              rolledStart: rolled == null
-                  ? null
-                  : rolled.start.millisecondsSinceEpoch ~/ 1000,
-            );
-            return rounds.firstWhere((r) => r.start == start);
-          })();
-    // A round ahead on the buttons, with its live odds from the feed's
-    // book, never Gamma's; null while they bet on the round on show.
-    Btc5MinEvent? aheadEvent;
-    double? aheadUp;
-    if (selected != null &&
-        selected.slot != PolyRoundSlot.live &&
-        selected.event != null) {
-      final t = selected.event!.upTokenId;
-      final up = cryptoShownUp(t == null ? null : books.snapshot(t));
-      if (cryptoOddsSane(up)) {
-        aheadEvent = selected.event;
-        aheadUp = up;
-      }
-    }
-    final double buttonsUpFrac = aheadUp ?? livePctUpClamped;
+    final canBet = nextUp != null;
+    final double buttonsUpFrac = nextUp ?? 0.5;
     final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
     String clock(DateTime t) =>
         polyRoundClock(t, locale: context.l10n.localeName, use24h: use24h);
-    // Which round the buttons bet on, when it is not the one on show: the
-    // same name the slip, the receipt and the position carry.
-    final String? nextLabel = aheadEvent == null
-        ? null
-        : context.l10n.predictRoundWindow(config.asset,
-            clock(selected!.startTime), clock(selected.endTime));
-    final selectedUpToken = aheadEvent?.upTokenId;
-    // The later round's chance is read only while the buttons offer it.
-    final laterUpToken = selected?.slot == PolyRoundSlot.later
-        ? selectedUpToken
-        : null;
-
-    // A round without prices carries no words on its pill (nothing on the
-    // strip is cut; founder, 12 November 2026): the card says "7:25 · No
-    // prices yet" on the line over its buttons while the buttons stand on
-    // such a round (the round in play without Gamma's event), and for a
-    // moment after a tap on one. Never while the line names the round the
-    // buttons bet on.
-    final notedStart =
-        hasStrip ? ref.watch(cryptoRoundNoteProvider(pickKey)) : null;
-    final PolyStripRound? noted = rounds == null
-        ? null
-        : rounds
-                .where((r) =>
-                    r.slot != PolyRoundSlot.past &&
-                    !r.selectable &&
-                    r.start == notedStart)
-                .firstOrNull ??
-            (selected != null && !selected.selectable ? selected : null);
-    final String? roundNote = noted == null || nextLabel != null
-        ? null
-        : '${clock(noted.startTime)} · '
-            '${context.l10n.predictRoundNoPricesYet}';
-
-    void pick(PolyStripRound picked) {
-      TrackingService.track('predictions_instant_round_picked', params: {
-        'which': polyRoundPickWhich(picked),
-        'length': minutes % 60 == 0 ? '${minutes ~/ 60}h' : '${minutes}m',
-        'seconds_to_start':
-            picked.start - now.toUtc().millisecondsSinceEpoch ~/ 1000,
-      });
-      ref.read(cryptoRoundNoteProvider(pickKey).notifier).clear();
-      ref.read(cryptoPickedRoundProvider(pickKey).notifier).state =
-          picked.start;
-    }
-
-    final Widget? strip = rounds == null
-        ? null
-        : CryptoRoundStrip(
-            rounds: rounds,
-            selectedStart: selected!.start,
-            // The time left only while the round on show runs.
-            countdown: liveEvent == null || predictState == null
-                ? null
-                : _stripCountdown(predictState.secondsRemaining, minutes),
-            onPick: pick,
-            onUnavailable: (r) => ref
-                .read(cryptoRoundNoteProvider(pickKey).notifier)
-                .show(r.start),
-          );
+    DateTime at(int epoch) =>
+        DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true);
+    // The round the buttons bet on, by the same name the slip, the receipt
+    // and the position carry; read out with each button.
+    final String roundName = context.l10n.predictRoundWindow(config.asset,
+        clock(at(nextStart)), clock(at(nextStart + minutes * 60)));
+    // "Next · Starts in 02:16", "· No prices yet" while it has none.
+    final startsIn = context.l10n.predictNextWindow(context.l10n
+        .predictStartsIn(_startsInText(nextStart - nowEpoch, minutes)));
+    final String nextLine = canBet
+        ? startsIn
+        : '$startsIn · ${context.l10n.predictRoundNoPricesYet}';
 
     final String? feedName = switch (predictState?.feed) {
       CryptoPriceFeed.binance => 'Binance',
@@ -1814,58 +1656,52 @@ class CryptoPredictBanner extends ConsumerWidget {
     // (PendingBetIntent.isShortMarket) keys off marketEndAt, so the
     // slip MUST receive it or a BTC→USDC swap could be offered on a
     // market that resolves before the swap lands. Fall back to the
-    // slug-derived window start + 5 min when Gamma omitted endDate.
+    // next round's start + its length when Gamma omitted endDate.
     //
-    // One slip door for both layouts, on the window the buttons showed
+    // One slip door for both layouts, on the next round the buttons showed
     // when they were painted: the slip stays on it whatever the card does
-    // while it is open. A rolled window's odds are the live ones on the
-    // button, never Gamma's.
+    // while it is open, at the live odds on the button, never Gamma's.
     void openSide(String side) {
-      final target = aheadEvent ?? event;
-      final outcomes = aheadEvent == null || aheadUp == null
-          ? _eventOutcomes(event)
-          : [
-              PolymarketOutcome(
-                  name: 'Up',
-                  price: aheadUp,
-                  tokenId: target?.upTokenId,
-                  conditionId: target?.conditionId),
-              PolymarketOutcome(
-                  name: 'Down',
-                  price: 1 - aheadUp,
-                  tokenId: target?.downTokenId,
-                  conditionId: target?.conditionId),
-            ];
-      final idx = outcomes.indexWhere((o) => o.name.toLowerCase() == side);
+      final up = nextUp;
+      final target = nextEvent;
+      if (up == null || target == null) return;
+      final outcomes = [
+        PolymarketOutcome(
+            name: 'Up',
+            price: up,
+            tokenId: target.upTokenId,
+            conditionId: target.conditionId),
+        PolymarketOutcome(
+            name: 'Down',
+            price: 1 - up,
+            tokenId: target.downTokenId,
+            conditionId: target.conditionId),
+      ];
       BetSlipSheet.show(context,
-          marketQuestion: target?.title ??
-              context.l10n.predictUpOrDown(config.asset, minutes),
-          marketSlug: target?.slug,
-          marketImage: target?.image,
+          marketQuestion: target.title.isNotEmpty
+              ? target.title
+              : context.l10n.predictUpOrDown(config.asset, minutes),
+          marketSlug: target.slug,
+          marketImage: target.image,
           outcomes: outcomes,
-          initialOutcomeIndex: idx >= 0 ? idx : 0,
+          initialOutcomeIndex: side == 'down' ? 1 : 0,
           // Required for the 5-minute USDC-only funding gate
           // (isShortMarket): without it the slip offers a BTC swap
           // that can't land before the window resolves.
-          marketEndAt: target?.endDate ??
-              target?.windowStartTime?.add(Duration(minutes: minutes)),
+          marketEndAt: target.endDate ?? at(nextStart + minutes * 60),
           marketCategory: 'crypto',
           onDeposit: onDeposit,
           ledgerWalletId: ledgerWalletId,
           source: slipSource);
     }
 
-    // Every round's tokens on the strip stay on the feed while the buttons
-    // may offer any of them (the strip knows from their books which have
-    // real prices); the second scope reads the next window's chance, the
-    // third a later round's while the buttons offer it.
+    // The round on show's tokens and the next round's stay on the feed;
+    // the scope reads the next round's chance.
     final liveTokens = [
       if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
       if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
-      for (final e in ahead.values) ...[
-        if (e?.upTokenId case final t? when t.isNotEmpty) t,
-        if (e?.downTokenId case final t? when t.isNotEmpty) t,
-      ],
+      if (nextUpToken case final t? when t.isNotEmpty) t,
+      if (nextDownToken case final t? when t.isNotEmpty) t,
     ];
 
     if (compact) {
@@ -1873,18 +1709,13 @@ class CryptoPredictBanner extends ConsumerWidget {
           child: LiveTokenScope(
         tokens: liveTokens,
         child: CryptoOddsScope(
-          token: upTokenId,
-          child: CryptoOddsScope(
           token: nextUpToken,
-          child: CryptoOddsScope(
-          token: laterUpToken,
           child: CompactCryptoCard(
             config: config,
             title: context.l10n
                 .predictUpOrDownCompact(config.asset, minutes),
             countdown: countdown,
-            // The strip under the chart carries the past rounds.
-            pastResults: strip == null ? pastResults : const [],
+            pastResults: pastResults,
             loading: isInitialLoading,
             priceText: priceStr,
             diffText: diffToBeat == null
@@ -1897,14 +1728,12 @@ class CryptoPredictBanner extends ConsumerWidget {
             priceToBeat: priceToBeat,
             roundStart: event?.windowStartTime,
             upFrac: buttonsUpFrac,
-            nextLabel: nextLabel,
-            note: roundNote,
+            nextLabel: nextLine,
+            window: roundName,
+            buttonsEnabled: canBet,
             onUp: () => openSide('up'),
             onDown: () => openSide('down'),
-            strip: strip,
           ),
-        ),
-        ),
         ),
       ));
     }
@@ -1916,11 +1745,7 @@ class CryptoPredictBanner extends ConsumerWidget {
         child: LiveTokenScope(
       tokens: liveTokens,
       child: CryptoOddsScope(
-      token: upTokenId,
-      child: CryptoOddsScope(
       token: nextUpToken,
-      child: CryptoOddsScope(
-      token: laterUpToken,
       child: Container(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
         decoration: BoxDecoration(
@@ -2122,28 +1947,23 @@ class CryptoPredictBanner extends ConsumerWidget {
                 showHeader: false,
               ),
             SizedBox(height: 10.h),
-            // The strip of rounds (it carries the past rounds), or the past
-            // rounds alone on a card of one given window.
-            if (strip != null) ...[
-              strip,
-              SizedBox(height: 10.h),
-            ] else if (pastResults.isNotEmpty) ...[
+            // The past rounds under the chart.
+            if (pastResults.isNotEmpty) ...[
               _CryptoPastRounds(results: pastResults),
               SizedBox(height: 10.h),
             ],
 
-            // Once the buttons have rolled: which window they bet. Else a
-            // round without prices, named here and not on its pill.
-            if (nextLabel ?? roundNote case final line?) ...[
-              CryptoNextWindowLine(label: line),
-              SizedBox(height: 8.h),
-            ],
+            // The round the buttons bet on: the next one, and when it
+            // starts ("No prices yet" while it has none).
+            CryptoNextWindowLine(label: nextLine),
+            SizedBox(height: 8.h),
 
             // De-emphasized probability split below the chart. The Up /
             // Down CTAs now carry the live odds as their labels, so the
             // bar here is just a 3px supporting strip — no number
             // labels (those moved onto the buttons). It reads as the
-            // buttons do: the next window's split once they have rolled.
+            // buttons do: the next round's split (even while it has no
+            // prices).
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: buttonsUpFrac, end: buttonsUpFrac),
               duration: const Duration(milliseconds: 250),
@@ -2173,13 +1993,17 @@ class CryptoPredictBanner extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Semantics(
-                    label: nextLabel,
+                    label: roundName,
                     child: MarketPairButton(
+                      key: const ValueKey('crypto-round-up'),
                       label: context.l10n.upLabel,
-                      value: formatPolyChancePair(buttonsUpFrac).first,
+                      value: canBet
+                          ? formatPolyChancePair(buttonsUpFrac).first
+                          : null,
                       icon: Icons.arrow_upward_rounded,
                       iconDisc: true,
                       glow: true,
+                      enabled: canBet,
                       color: AppColors.marketUp,
                       // MarketPairButton fires its own haptic.
                       onTap: () => openSide('up'),
@@ -2189,13 +2013,17 @@ class CryptoPredictBanner extends ConsumerWidget {
                 SizedBox(width: 12.w),
                 Expanded(
                   child: Semantics(
-                    label: nextLabel,
+                    label: roundName,
                     child: MarketPairButton(
+                      key: const ValueKey('crypto-round-down'),
                       label: context.l10n.downLabel,
-                      value: formatPolyChancePair(buttonsUpFrac).second,
+                      value: canBet
+                          ? formatPolyChancePair(buttonsUpFrac).second
+                          : null,
                       icon: Icons.arrow_downward_rounded,
                       iconDisc: true,
                       glow: true,
+                      enabled: canBet,
                       color: AppColors.marketDown,
                       // MarketPairButton fires its own haptic.
                       onTap: () => openSide('down'),
@@ -2207,7 +2035,7 @@ class CryptoPredictBanner extends ConsumerWidget {
           ],
         ),
       ),
-    )))));
+    )));
   }
 }
 
@@ -2489,16 +2317,42 @@ class _FiveMinTile extends ConsumerWidget {
 
     final upToken = ev.upTokenId;
     final downToken = ev.downTokenId;
-    // Live odds, raw from the book (see [cryptoLiveOddsProvider]), via a
-    // narrowed select — the tile only repaints when ITS Up chance moves.
-    final liveUp = ref.watch(
-      cryptoLiveOddsProvider.select(
-        (s) => upToken != null ? s[upToken]?.up : null,
-      ),
+    // The chips are the NEXT round's, never the one in play (founder, 12
+    // November 2026; crypto_next_round.dart): its live book odds once it
+    // has real prices, the chips dimmed with no figure until then. The
+    // clock is the round in play's time left, which is when the next one
+    // starts.
+    final now = ref.read(cryptoOddsClockProvider)();
+    final shownFrom = ev.windowStartTime;
+    final shownTo = ev.endDate;
+    final liveStart = shownFrom != null &&
+            shownTo != null &&
+            shownTo.difference(shownFrom).inMinutes == minutes
+        ? shownFrom.millisecondsSinceEpoch ~/ 1000
+        : polyRoundStartAt(now, minutes);
+    final nextStart = liveStart + minutes * 60;
+    final next = ref
+        .watch(cryptoNextRoundProvider((
+          asset: config.asset.toLowerCase(),
+          minutes: minutes,
+          start: nextStart,
+        )))
+        .valueOrNull;
+    final nextUpToken = next?.upTokenId;
+    final nextDownToken = next?.downTokenId;
+    // Narrowed select: the row repaints only when ITS next Up chance moves.
+    ref.watch(cryptoLiveOddsProvider
+        .select((s) => nextUpToken == null ? null : s[nextUpToken]?.up));
+    final books = ref.read(cryptoOddsBooksProvider);
+    final nextUp = polyNextRoundUp(
+      next: next,
+      start: nextStart,
+      upBook: nextUpToken == null ? null : books.snapshot(nextUpToken),
+      downBook: nextDownToken == null ? null : books.snapshot(nextDownToken),
+      now: now,
     );
-    final upFrac = (liveUp ?? ev.upPrice).clamp(0.0, 1.0).toDouble();
     // Up and Down written off the one price, so they add up to 100.
-    final odds = formatPolyChancePair(upFrac);
+    final odds = nextUp == null ? null : formatPolyChancePair(nextUp);
     final countdown = st?.countdownText ?? '--:--';
     final spot = _formatSpot(st?.currentPrice);
 
@@ -2544,11 +2398,15 @@ class _FiveMinTile extends ConsumerWidget {
         );
 
     // Direction entry buttons: solid market colors, no pastel tint
-    // (app-wide rule).
-    Widget oddsChip({required bool isUp, required String text}) {
+    // (app-wide rule). Without the next round's prices: the arrow alone,
+    // dimmed as a disabled pair button is (0.35).
+    Widget oddsChip({required bool isUp, required String? text}) {
       final accent = isUp ? _kPolyGreen : _kPolyRed;
       final onColor = contrastingOnColor(accent);
-      return Container(
+      return Opacity(
+        key: ValueKey('five-min-chip-${config.asset}-${isUp ? 'up' : 'down'}'),
+        opacity: text == null ? 0.35 : 1,
+        child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: accent,
@@ -2570,11 +2428,14 @@ class _FiveMinTile extends ConsumerWidget {
                 size: 14.sp,
                 color: onColor,
               ),
-              SizedBox(width: 3.w),
-              RollingNumberText(text: text, style: oddsStyle(onColor)),
+              if (text != null) ...[
+                SizedBox(width: 3.w),
+                RollingNumberText(text: text, style: oddsStyle(onColor)),
+              ],
             ],
           ),
         ),
+      ),
       );
     }
 
@@ -2669,11 +2530,11 @@ class _FiveMinTile extends ConsumerWidget {
               countdownPill(),
               SizedBox(width: 10.w),
               SizedBox(
-                  width: chip, child: oddsChip(isUp: true, text: odds.first)),
+                  width: chip, child: oddsChip(isUp: true, text: odds?.first)),
               SizedBox(width: 6.w),
               SizedBox(
                   width: chip,
-                  child: oddsChip(isUp: false, text: odds.second)),
+                  child: oddsChip(isUp: false, text: odds?.second)),
             ],
           );
         }
@@ -2694,9 +2555,9 @@ class _FiveMinTile extends ConsumerWidget {
             SizedBox(height: 8.h),
             Row(
               children: [
-                Expanded(child: oddsChip(isUp: true, text: odds.first)),
+                Expanded(child: oddsChip(isUp: true, text: odds?.first)),
                 SizedBox(width: 6.w),
-                Expanded(child: oddsChip(isUp: false, text: odds.second)),
+                Expanded(child: oddsChip(isUp: false, text: odds?.second)),
               ],
             ),
           ],
@@ -2718,23 +2579,26 @@ class _FiveMinTile extends ConsumerWidget {
           SizedBox(height: 10.h),
           Row(
             children: [
-              Expanded(child: oddsChip(isUp: true, text: odds.first)),
+              Expanded(child: oddsChip(isUp: true, text: odds?.first)),
               SizedBox(width: 6.w),
-              Expanded(child: oddsChip(isUp: false, text: odds.second)),
+              Expanded(child: oddsChip(isUp: false, text: odds?.second)),
             ],
           ),
         ],
       );
     }
 
+    final tokens = [
+      if (upToken != null && upToken.isNotEmpty) upToken,
+      if (downToken != null && downToken.isNotEmpty) downToken,
+      if (nextUpToken case final t? when t.isNotEmpty) t,
+      if (nextDownToken case final t? when t.isNotEmpty) t,
+    ];
     if (bare) {
       return LiveTokenScope(
-        tokens: [
-          if (upToken != null && upToken.isNotEmpty) upToken,
-          if (downToken != null && downToken.isNotEmpty) downToken,
-        ],
+        tokens: tokens,
         child: CryptoOddsScope(
-          token: upToken,
+          token: nextUpToken,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => _openDetail(context, ev, minutes),
@@ -2771,12 +2635,9 @@ class _FiveMinTile extends ConsumerWidget {
     );
 
     return LiveTokenScope(
-      tokens: [
-        if (upToken != null && upToken.isNotEmpty) upToken,
-        if (downToken != null && downToken.isNotEmpty) downToken,
-      ],
+      tokens: tokens,
       child: CryptoOddsScope(
-        token: upToken,
+        token: nextUpToken,
         child: RepaintBoundary(
           child: wide ? card : AspectRatio(aspectRatio: 1.15, child: card),
         ),

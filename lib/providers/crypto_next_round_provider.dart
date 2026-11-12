@@ -1,7 +1,7 @@
 // lib/providers/crypto_next_round_provider.dart
 //
-// Gamma's read of the next window of a live 5-minute crypto card, for its
-// rolling buttons (lib/services/polymarket/crypto_next_round.dart). Only
+// Gamma's read of the next round of a live crypto round card or row, the
+// one its Up and Down buttons bet on (crypto_next_round.dart). Only
 // the event: its tokens, title and times. Its odds come from the live feed
 // alone. A window Gamma does not have yet, or not open for orders, reads
 // null and is asked again every 10 s while the card wants it.
@@ -41,50 +41,3 @@ final cryptoNextRoundProvider = FutureProvider.autoDispose
   ref.onDispose(again.cancel);
   return null;
 });
-
-/// One asset's rounds of one length, for the strip's pick: the asset as the
-/// card's config names it ('BTC'), the length in minutes.
-typedef CryptoRoundPickKey = ({String asset, int minutes});
-
-/// The start (UTC seconds) of the round the person tapped on the strip of
-/// the live round card showing this asset at this length
-/// (crypto_round_strip.dart); null while the buttons follow the roll. Per
-/// asset and length, so another length on the chips starts clean; gone
-/// with the card (the strip's rules decide how long a pick stands).
-final cryptoPickedRoundProvider =
-    StateProvider.autoDispose.family<int?, CryptoRoundPickKey>((_, __) => null);
-
-/// How long the card says a tapped round has no prices yet.
-const Duration kCryptoRoundNoteFor = Duration(seconds: 3);
-
-/// The start (UTC seconds) of the round WITHOUT PRICES the person just
-/// tapped on the strip (a dimmed pill, which takes no pick): the card says
-/// "7:25 · No prices yet" on the line over its buttons for
-/// [kCryptoRoundNoteFor], the pill itself carrying no such words (founder,
-/// 12 November 2026: nothing on the strip is cut). Null otherwise. Per
-/// asset and length, gone with the card.
-class CryptoRoundNoteNotifier
-    extends AutoDisposeFamilyNotifier<int?, CryptoRoundPickKey> {
-  Timer? _timer;
-
-  @override
-  int? build(CryptoRoundPickKey arg) {
-    ref.onDispose(() => _timer?.cancel());
-    return null;
-  }
-
-  void show(int start) {
-    _timer?.cancel();
-    state = start;
-    _timer = Timer(kCryptoRoundNoteFor, () => state = null);
-  }
-
-  void clear() {
-    _timer?.cancel();
-    if (state != null) state = null;
-  }
-}
-
-final cryptoRoundNoteProvider = NotifierProvider.autoDispose
-    .family<CryptoRoundNoteNotifier, int?, CryptoRoundPickKey>(
-        CryptoRoundNoteNotifier.new);

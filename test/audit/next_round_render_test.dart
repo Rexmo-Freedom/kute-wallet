@@ -1,7 +1,8 @@
-// Render harness for a 5-minute card whose buttons roll to the next window
-// (founder, 8 November 2026): the compact and full card in both states,
-// light and dark, at 320 and 375 wide, a long locale, and the slip on the
-// next window, in the app's real themes and Inter. Writes PNGs.
+// Render harness for the live round card, whose buttons bet only on the
+// next round (founder, 12 November 2026): the compact and full card with
+// the next round priced and without prices yet, light and dark, at 320 and
+// 375 wide, long locales, and the slip on the next round, in the app's
+// real themes and Inter. Writes PNGs.
 //
 // Not part of the normal suite; it only runs when asked:
 //
@@ -20,7 +21,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/providers/polymarket_provider.dart';
-import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/services/polymarket_clob_websocket.dart';
 
 import '../helpers/shell_bar_harness.dart';
@@ -35,16 +35,14 @@ Future<void> _shot(WidgetTester tester, String name,
     bool compact = true,
     bool dark = false,
     Locale? locale,
-    bool rolled = false,
+    bool priced = true,
     bool slip = false}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  world.now = rolled
-      ? card.roundStart.add(kCryptoRoundButtonsStayFor)
-      : card.roundStart.add(const Duration(minutes: 1));
-  world.quoteNext();
+  world.now = card.roundStart.add(const Duration(minutes: 2, seconds: 44));
+  world.listNext(quoted: priced);
   world.quoteCurrent();
   await tester.pumpWidget(RepaintBoundary(
     key: _key,
@@ -142,17 +140,17 @@ void main() {
   for (final (w, h) in [(320.0, 568.0), (375.0, 812.0)]) {
     for (final dark in [false, true]) {
       final theme = dark ? 'dark' : 'light';
-      for (final rolled in [false, true]) {
-        final state = rolled ? 'next' : 'early';
+      for (final priced in [false, true]) {
+        final state = priced ? 'next' : 'no-prices';
         testWidgets('compact $state $theme ${w.toInt()}', (tester) => _shot(
             tester, 'compact-$state-$theme-${w.toInt()}',
-            world: world, size: Size(w, h), dark: dark, rolled: rolled));
+            world: world, size: Size(w, h), dark: dark, priced: priced));
         testWidgets('full $state $theme ${w.toInt()}', (tester) => _shot(
             tester, 'full-$state-$theme-${w.toInt()}',
             world: world,
             size: Size(w, h),
             dark: dark,
-            rolled: rolled,
+            priced: priced,
             compact: false));
       }
     }
@@ -162,13 +160,11 @@ void main() {
         tester, 'compact-next-$code-320',
         world: world,
         size: const Size(320, 568),
-        rolled: true,
         locale: Locale(code)));
   }
   testWidgets('full next hu 320', (tester) => _shot(tester, 'full-next-hu-320',
       world: world,
       size: const Size(320, 568),
-      rolled: true,
       compact: false,
       locale: const Locale('hu')));
   for (final dark in [false, true]) {
@@ -177,13 +173,11 @@ void main() {
         world: world,
         size: const Size(375, 812),
         dark: dark,
-        rolled: true,
         slip: true));
   }
   testWidgets('slip on next hu 320', (tester) => _shot(tester, 'slip-next-hu-320',
       world: world,
       size: const Size(320, 568),
-      rolled: true,
       slip: true,
       locale: const Locale('hu')));
 }

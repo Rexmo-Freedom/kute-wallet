@@ -1228,9 +1228,16 @@ void main() {
       expect(pending.retryMaxPrice, isNotNull);
       expect(pending.errorMessage,
           'Price changed to 70% while your money was moving.');
-      // The round is still open: the retry is on it, at the price now.
-      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+      // The round not started yet: the retry is on it, at the price now.
+      final before = DateTime.fromMillisecondsSinceEpoch(
+          (1791152100 - 60) * 1000,
+          isUtc: true);
+      expect(betSlipStopAction(l10nForLanguage('en'), pending, now: before),
           (label: 'Retry at 70%', nextRound: false));
+      // In play by now: never on it (founder, 12 November 2026), the retry
+      // opens the series' next round.
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry', nextRound: true));
       // Once it has ended, the retry opens the series' round in play.
       expect(
           betSlipStopAction(l10nForLanguage('en'), pending,
@@ -1456,8 +1463,10 @@ void main() {
       expect(pending.failureCode, 'round_price_moved');
       expect(pending.errorMessage,
           'Price changed to 81% while your money was moving.');
+      // The round is in play by now: the retry is on the series' next
+      // round, never this one (founder, 12 November 2026).
       expect(betSlipStopAction(l10nForLanguage('en'), pending),
-          (label: 'Retry at 81%', nextRound: false));
+          (label: 'Retry', nextRound: true));
       final failed = failedEvent();
       expect(failed['window'], 'next',
           reason: 'still the window the slip opened on');

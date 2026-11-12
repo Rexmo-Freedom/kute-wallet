@@ -1,17 +1,20 @@
-// PREDICTIONS › CRYPTO › 5 MIN, THE WHOLE PAGE (founder, 12 November 2026,
-// the strip of rounds running off the card at "10:25 · No…": "text is cut
-// here. Make it good this 5 min screen"). The Dollars home on Predictions ·
-// 5 Min over a fake clock, fake Gamma reads and fake books
-// (crypto_round_strip_card_test.dart's world): the live card with its strip
-// of rounds, the one pair of buttons, and the other coins' rows.
+// PREDICTIONS › CRYPTO › 5 MIN, THE WHOLE PAGE. The Dollars home on
+// Predictions · 5 Min over a fake clock, fake Gamma reads and fake books
+// (crypto_next_round_card_test.dart's world): the live card and the other
+// coins' rows, which bet ONLY on each coin's NEXT round (founder, 12
+// November 2026; late in a round one side is ~98%).
 //
-//   * the strip is ONE ROW of three equal pills after the dots (Now, Next,
-//     the one after), all on the card, none cut, none ellipsized, at 320 pt
-//     and text ×1.5 as at 393 pt, light and dark; where the row is too
-//     narrow the dots go first and the pills shrink together;
-//   * a round without prices is the same pill, dimmed, with no words on it;
-//   * nothing on the page is cut: the card's title, price and target, the
-//     rows' names, prices, clocks and odds;
+//   * the card keeps the round in play on show and says the bet is on the
+//     next round ("Next · Starts in 02:16"); no strip of rounds;
+//   * the next round without prices: the buttons disabled, "No prices
+//     yet" on the line; the rows' chips dimmed with no figure; never the
+//     round in play's 98.5%; with prices: enabled, the next round's odds;
+//   * a row opens its coin's round sheet, whose buttons bet that coin's
+//     next round (the slip itself: crypto_next_round_card_test.dart);
+//   * nothing on the page is cut, at 320 pt and text ×1.5 as at 393 pt,
+//     light and dark: the card's title, line, price and target, the rows'
+//     names, prices, clocks and chips; the past rounds' dots stand in the
+//     header only where the title still fits beside them;
 //   * every coin's logo is the same circle, at the card's own inset.
 //
 // The page is written as PNGs, light and dark, when asked:
@@ -31,14 +34,16 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
-import 'package:kute/screens/polymarket/components/crypto_round_strip.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/market_pair_button.dart';
+import 'package:kute/screens/polymarket/market_detail_sheet.dart'
+    show FiveMinMarketDetailSheet;
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/polymarket_clob_websocket.dart';
 
 import '../../helpers/offline_venue_overrides.dart';
 import '../../helpers/render_png.dart';
-import '../polymarket/crypto_round_strip_card_test.dart' as card;
+import '../polymarket/crypto_next_round_card_test.dart' as card;
 import 'investments_harness.dart';
 
 final _renderOut = Platform.environment['FIVE_MIN_RENDER'] ?? '';
@@ -65,8 +70,8 @@ class _Sports extends SportsLiveNotifier {
   void connect() {}
 }
 
-/// The founder's screen: 2:16 left of the round in play, the next round
-/// listed with no prices yet, the one after not listed, Up at 98.5%.
+/// The founder's screen: 2:16 left of the round in play, Up at 98.5% on
+/// it (never offered); the next rounds as each test lists them.
 card.CardWorld founderWorld() {
   final world = card.CardWorld()
     ..now = card.roundStart.add(const Duration(minutes: 2, seconds: 44))
@@ -131,9 +136,9 @@ Future<void> unmountPage(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 31));
 }
 
-const _strip = ValueKey('crypto-round-strip');
 const roundCardKey = ValueKey('crypto-round-compact');
 const _rows = ValueKey('crypto-more-rounds');
+const _coins = ['eth', 'sol', 'xrp'];
 
 /// Every text painted under [root] that is cut: past its lines (an
 /// ellipsis), clipped on one line, or set to ellipsise
@@ -165,60 +170,27 @@ List<String> cutTexts(WidgetTester tester, Finder root) {
   return out;
 }
 
-/// The three pills ahead, in order, by the world's clock.
-List<Finder> _pills() => [
-      for (final k in [0, 1, 2])
-        find.byKey(CryptoRoundStrip.pillKey(
-            card.epoch(card.roundStart.add(Duration(minutes: 5 * k))))),
-    ];
+/// Every coin's next round listed; [quoted] gives each real prices.
+void listAll(card.CardWorld world, {required bool quoted}) {
+  world.listNext(quoted: quoted);
+  for (final coin in _coins) {
+    world.listNext(coin: coin, quoted: quoted);
+  }
+}
 
-/// The pills are one row of three equal pills, whole, on the card.
-void _expectStripWhole(WidgetTester tester, {required String at}) {
-  final strip = tester.getRect(find.byKey(_strip));
-  final cardRect = tester.getRect(find.byKey(roundCardKey));
-  expect(strip.left, greaterThanOrEqualTo(cardRect.left), reason: at);
-  expect(strip.right, lessThanOrEqualTo(cardRect.right), reason: at);
-  expect(
-      find.descendant(
-          of: find.byKey(_strip), matching: find.byType(Scrollable)),
-      findsNothing,
-      reason: '$at: the strip never scrolls sideways');
-  final rects = [for (final p in _pills()) tester.getRect(p)];
-  expect(rects, hasLength(3));
-  for (final (i, r) in rects.indexed) {
-    expect(_pills()[i].hitTestable(), findsOneWidget,
-        reason: '$at: pill $i can be seen and tapped');
-    expect(r.left, greaterThanOrEqualTo(strip.left - 0.5), reason: '$at $i');
-    expect(r.right, lessThanOrEqualTo(strip.right + 0.5), reason: '$at $i');
-    expect(r.width, closeTo(rects.first.width, 0.5),
-        reason: '$at: three equal pills');
-    expect(r.center.dy, closeTo(rects.first.center.dy, 0.5),
-        reason: '$at: one row');
-    if (i > 0) {
-      expect(r.left, greaterThan(rects[i - 1].right), reason: '$at: apart');
-    }
-  }
-  final labels = [for (final p in _pills()) tester.widget<KutePill>(p).label];
-  expect(labels[0], startsWith('Now · '), reason: at);
-  expect(labels[1],
-      'Next · ${card.clockOf(card.roundStart.add(const Duration(minutes: 5)))}');
-  expect(labels[2],
-      card.clockOf(card.roundStart.add(const Duration(minutes: 10))));
-  for (final p in _pills()) {
-    expect(tester.widget<KutePill>(p).detail, isNull,
-        reason: '$at: no words added to a pill');
-  }
-  // One scale for the three: a pill's own words never shrink alone.
-  for (final p in _pills()) {
-    for (final e
-        in find.descendant(of: p, matching: find.byType(RichText)).evaluate()) {
-      final para = e.renderObject! as RenderParagraph;
-      expect(para.getMaxIntrinsicWidth(double.infinity),
-          lessThanOrEqualTo(para.size.width + 0.5),
-          reason: '$at: "${para.text.toPlainText()}" laid out whole');
-    }
-  }
-  expect(cutTexts(tester, find.byKey(_strip)), isEmpty, reason: at);
+/// A row's chip: its opacity and the figure on it, if any.
+({double opacity, String? figure}) chipOf(
+    WidgetTester tester, String asset, bool up) {
+  final key = ValueKey('five-min-chip-$asset-${up ? 'up' : 'down'}');
+  final chip = tester.widget<Opacity>(find.byKey(key));
+  final figures = find.descendant(
+      of: find.byKey(key), matching: find.byType(RollingNumberText));
+  return (
+    opacity: chip.opacity,
+    figure: figures.evaluate().isEmpty
+        ? null
+        : tester.widget<RollingNumberText>(figures).text,
+  );
 }
 
 void main() {
@@ -232,42 +204,51 @@ void main() {
   for (final dark in [false, true]) {
     final theme = dark ? 'dark' : 'light';
     testWidgets(
-        'at 320 pt and text ×1.5 ($theme): the strip is three whole pills on '
-        'the card, the dots gone first, and nothing on the page is cut',
-        (tester) async {
-      final world = founderWorld()..listNext();
-      // Listed, with no real prices yet: the founder's "No prices yet".
-      world.quotes
-        ..remove('next-up')
-        ..remove('next-down');
-      PolymarketLiveBooks.instance.reset();
-      world.install();
-      world.requote();
+        'at 320 pt and text ×1.5 ($theme): no prices yet, the card says so '
+        'over its disabled buttons, the rows\' chips dimmed, and nothing on '
+        'the page is cut', (tester) async {
+      final world = founderWorld();
+      listAll(world, quoted: false);
       await pumpPredictionsPage(tester, world,
           size: const Size(320, 1500), textScale: 1.5, dark: dark);
       expect(find.byKey(roundCardKey), findsOneWidget);
-      _expectStripWhole(tester, at: '320 ×1.5 $theme');
-      // Too narrow for the dots and the pills: the dots go, and the pills
-      // shrink as one row.
+      expect(find.byKey(const ValueKey('crypto-round-strip')), findsNothing);
+      expect(card.lineOverButtons(tester),
+          'Next · Starts in 02:16 · No prices yet');
+      expect(card.buttonEnabled(tester, card.upPill), isFalse);
+      expect(card.buttonEnabled(tester, card.downPill), isFalse);
       expect(
           find.descendant(
-              of: find.byKey(_strip),
-              matching: find.byKey(const ValueKey('crypto-round-past-dots'))),
-          findsNothing);
-      card.expectUnpriced(
-          tester, card.epoch(card.roundStart.add(const Duration(minutes: 5))));
-      card.expectUnpriced(
-          tester, card.epoch(card.roundStart.add(const Duration(minutes: 10))));
+              of: find.byKey(roundCardKey),
+              matching: find.textContaining('%')),
+          findsNothing,
+          reason: 'never the round in play\'s 98.5%');
+      for (final asset in ['ETH', 'SOL', 'XRP']) {
+        for (final up in [true, false]) {
+          final chip = chipOf(tester, asset, up);
+          expect(chip.opacity, lessThan(1), reason: asset);
+          expect(chip.figure, isNull, reason: asset);
+        }
+      }
       // The whole page: the card and the other coins' rows.
       expect(cutTexts(tester, find.byKey(roundCardKey)), isEmpty);
       expect(cutTexts(tester, find.byKey(_rows)), isEmpty);
+      // The line over the buttons is laid out whole, on the card.
+      final line =
+          tester.getRect(find.byKey(const ValueKey('crypto-round-next')));
+      final cardRect = tester.getRect(find.byKey(roundCardKey));
+      expect(line.left, greaterThanOrEqualTo(cardRect.left));
+      expect(line.right, lessThanOrEqualTo(cardRect.right));
+      // Too narrow for the dots beside the title: they go first.
+      expect(find.byKey(const ValueKey('crypto-round-past-dots')),
+          findsNothing);
       // The target went under the price rather than be cut beside it.
       final price = tester.getRect(find.descendant(
           of: find.byKey(roundCardKey), matching: find.text('▼ \$22.00')));
       final target =
           tester.getRect(find.byKey(const ValueKey('crypto-round-target')));
       expect(target.top, greaterThanOrEqualTo(price.bottom - 1));
-      // The rows wrapped: the odds under the name, whole.
+      // The rows wrapped: the chips under the name, whole.
       expect(
           find.byKey(const ValueKey('five-min-row-wrapped')), findsNWidgets(3));
       for (final asset in ['ETH', 'SOL', 'XRP']) {
@@ -279,48 +260,53 @@ void main() {
       expect(tester.takeException(), isNull);
       await unmountPage(tester);
     });
+
+    testWidgets(
+        'at 320 pt and text ×1.5 ($theme), with prices: the buttons enabled '
+        'on the next round\'s odds, nothing cut', (tester) async {
+      final world = founderWorld();
+      listAll(world, quoted: true);
+      await pumpPredictionsPage(tester, world,
+          size: const Size(320, 1500), textScale: 1.5, dark: dark);
+      expect(card.lineOverButtons(tester), 'Next · Starts in 02:16');
+      expect(card.buttonEnabled(tester, card.upPill), isTrue);
+      expect(cutTexts(tester, find.byKey(roundCardKey)), isEmpty);
+      expect(cutTexts(tester, find.byKey(_rows)), isEmpty);
+      expect(tester.takeException(), isNull);
+      await unmountPage(tester);
+    });
   }
 
   testWidgets(
-      'at 393 pt: the dots, then three equal pills across the card; the '
-      'price row on one line with the target at the right; every coin the '
-      'same circle under the card\'s own', (tester) async {
-    final world = founderWorld()..listNext();
+      'at 393 pt: the card bets the next round on its odds, the rows\' chips '
+      'are each coin\'s next round, the dots in the header, nothing cut, '
+      'every coin the same circle', (tester) async {
+    final world = founderWorld();
+    listAll(world, quoted: true);
     await pumpPredictionsPage(tester, world, size: const Size(393, 1100));
-    _expectStripWhole(tester, at: '393');
-    final strip = tester.getRect(find.byKey(_strip));
-    final dots = tester.getRect(find.descendant(
-        of: find.byKey(_strip),
-        matching: find.byKey(const ValueKey('crypto-round-past-dots'))));
-    final pills = [for (final p in _pills()) tester.getRect(p)];
-    expect(dots.left, closeTo(strip.left, 0.5));
-    expect(pills.first.left, greaterThan(dots.right));
-    expect(pills.last.right, closeTo(strip.right, 0.5),
-        reason: 'the pills take the rest of the row');
+    expect(card.lineOverButtons(tester), 'Next · Starts in 02:16');
+    expect(card.buttonEnabled(tester, card.upPill), isTrue);
+    expect(find.byKey(const ValueKey('crypto-round-strip')), findsNothing);
     expect(
-        find.byKey(const ValueKey('crypto-round-strip-fitted')), findsNothing,
-        reason: 'room for all: nothing shrinks');
-    // Next has real prices: a pill at full strength; the one after none.
-    final next = card.epoch(card.roundStart.add(const Duration(minutes: 5)));
-    expect(
-        find.ancestor(
-            of: find.byKey(CryptoRoundStrip.pillKey(next)),
-            matching: find.descendant(
-                of: find.byKey(_strip), matching: find.byType(Opacity))),
-        findsNothing);
-    card.expectUnpriced(
-        tester, card.epoch(card.roundStart.add(const Duration(minutes: 10))));
-    // The picked pill wears the pill's chrome, the others its quiet fill.
-    for (final p in _pills()) {
-      expect(tester.widget<KutePill>(p).restingFill, isNotNull);
+        find.descendant(
+            of: find.byKey(roundCardKey),
+            matching: find.byKey(const ValueKey('crypto-round-past-dots'))),
+        findsOneWidget);
+    for (final asset in ['ETH', 'SOL', 'XRP']) {
+      final up = chipOf(tester, asset, true);
+      final down = chipOf(tester, asset, false);
+      expect(up.opacity, 1, reason: asset);
+      expect(up.figure, '50.5%', reason: '$asset: the next round\'s book');
+      expect(down.figure, '49.5%', reason: asset);
     }
+    expect(find.textContaining('98.5%'), findsNothing,
+        reason: 'the round in play is never offered');
     // One line: the price, its move, the target at the card's right inset.
     final target =
         tester.getRect(find.byKey(const ValueKey('crypto-round-target')));
     final move = tester.getRect(find.descendant(
         of: find.byKey(roundCardKey), matching: find.text('▼ \$22.00')));
     expect(target.left, greaterThan(move.right));
-    expect(target.right, closeTo(strip.right, 0.5));
     expect(find.text(_l10n.predictTargetPrice('\$75,987')), findsOneWidget);
     // The rows: one line each, nothing wrapped, nothing cut.
     expect(find.byKey(const ValueKey('five-min-row-wrapped')), findsNothing);
@@ -338,46 +324,84 @@ void main() {
           reason: 'one left edge down the page');
     }
     expect(find.byType(CryptoAssetLogo), findsNWidgets(4));
+    // The card's Up bets the next round, by name (the slip itself:
+    // crypto_next_round_card_test.dart).
+    final next = card.roundStart.add(const Duration(minutes: 5));
+    expect(
+        card.buttonSays(
+            tester, card.upPill, '${card.windowName(next)}, Up 50.5%'),
+        isTrue);
+    expect(tester.takeException(), isNull);
+    await unmountPage(tester);
+  });
+
+  testWidgets(
+      'a row opens its coin\'s round sheet, whose buttons bet that coin\'s '
+      'next round', (tester) async {
+    final world = founderWorld();
+    listAll(world, quoted: true);
+    await pumpPredictionsPage(tester, world, size: const Size(393, 1100));
+    await tester.tap(find.byKey(const ValueKey('five-min-row-ETH')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(FiveMinMarketDetailSheet), findsOneWidget);
+    final sheetUp = find.descendant(
+        of: find.byType(FiveMinMarketDetailSheet),
+        matching: find.byKey(card.upPill));
+    expect(
+        find.descendant(
+            of: find.byType(FiveMinMarketDetailSheet),
+            matching: find.text('Next · Starts in 02:16')),
+        findsOneWidget);
+    // Its Up: enabled on ETH's next round, by name, never the one in play.
+    expect(tester.widget<MarketPairButton>(sheetUp).enabled, isTrue);
+    final next = card.roundStart.add(const Duration(minutes: 5));
+    final ethName = card
+        .windowName(next)
+        .replaceFirst('BTC', 'ETH');
+    expect(
+        find.ancestor(
+            of: sheetUp,
+            matching: find.byWidgetPredicate(
+                (w) => w is Semantics && w.properties.label == ethName)),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await unmountPage(tester);
   });
 
   for (final dark in [false, true]) {
     final theme = dark ? 'dark' : 'light';
-    testWidgets('render: the 5 Min page at 393 pt ($theme)', (tester) async {
-      // The founder's screen: the next round listed with no prices yet.
-      final world = founderWorld()..listNext();
-      world.quotes
-        ..remove('next-up')
-        ..remove('next-down');
-      PolymarketLiveBooks.instance.reset();
-      world.install();
-      world.requote();
-      await pumpPredictionsPage(tester, world,
+    testWidgets('render: the 5 Min page ($theme)', (tester) async {
+      // The founder's screen with the next rounds priced.
+      final priced = founderWorld();
+      listAll(priced, quoted: true);
+      await pumpPredictionsPage(tester, priced,
           size: const Size(393, 852), dark: dark);
       await writeViewPng(tester, '$_renderOut/five_min_page_$theme.png');
-      // A tap on the dimmed pill: the line over the buttons says why.
-      await tester.tap(_pills()[1]);
-      for (var i = 0; i < 5; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      await writeViewPng(
-          tester, '$_renderOut/five_min_page_no_prices_tapped_$theme.png');
       await unmountPage(tester);
-      await pumpPredictionsPage(tester, world,
+      // The next rounds listed without prices yet: disabled.
+      final unpriced = founderWorld();
+      listAll(unpriced, quoted: false);
+      await pumpPredictionsPage(tester, unpriced,
+          size: const Size(393, 852), dark: dark);
+      await writeViewPng(
+          tester, '$_renderOut/five_min_page_no_prices_$theme.png');
+      await unmountPage(tester);
+      // 320 pt, text ×1.5, priced and not.
+      final small = founderWorld();
+      listAll(small, quoted: true);
+      await pumpPredictionsPage(tester, small,
           size: const Size(320, 1100), textScale: 1.5, dark: dark);
       await writeViewPng(
           tester, '$_renderOut/five_min_page_320x1.5_$theme.png');
       await unmountPage(tester);
-      // The next rounds with real prices: partway through this one the
-      // buttons have rolled to the next, named on the line over them.
-      final priced = founderWorld()
-        ..listNext()
-        ..listLater();
-      await pumpPredictionsPage(tester, priced,
-          size: const Size(393, 852), dark: dark);
-      await writeViewPng(
-          tester, '$_renderOut/five_min_page_next_priced_$theme.png');
+      final smallUnpriced = founderWorld();
+      listAll(smallUnpriced, quoted: false);
+      await pumpPredictionsPage(tester, smallUnpriced,
+          size: const Size(320, 1100), textScale: 1.5, dark: dark);
+      await writeViewPng(tester,
+          '$_renderOut/five_min_page_320x1.5_no_prices_$theme.png');
       await unmountPage(tester);
     }, skip: _renderOut.isEmpty);
   }

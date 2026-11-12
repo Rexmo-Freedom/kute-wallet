@@ -450,13 +450,14 @@ void main() {
 
   testWidgets(
       'a 5-minute round that ended with its bet not placed: Retry opens the '
-      'series\' round in play, the same side and stake, nothing placed',
+      'series\' next round (never the one in play), the same side and '
+      'stake, nothing placed',
       (tester) async {
     final policy = await _allowEverything();
     final now = DateTime.now().toUtc();
     final start = (now.millisecondsSinceEpoch ~/ 1000 ~/ 300) * 300;
     final endedSlug = 'btc-updown-5m-${start - 300}';
-    final liveSlug = 'btc-updown-5m-$start';
+    final nextSlug = 'btc-updown-5m-${start + 300}';
     final asked = <int>[];
     await _pumpSlip(tester,
         question: 'Bitcoin Up or Down - October 7, 8:45AM-8:50AM ET',
@@ -511,13 +512,14 @@ void main() {
     // The retry is the bar: it reads the same, and a tap on it runs it.
     expect(barPrimaryLabel(tester), startsWith('Try again · '));
     await tapBarPrimary(tester);
-    // Resolved from the series (the window in play), never the old id.
-    expect(asked, [start]);
+    // Resolved from the series (the window after the one in play), never
+    // the old id, never the round in play.
+    expect(asked, [start + 300]);
     final slips = tester.widgetList<BetSlipSheet>(find.byType(BetSlipSheet));
     final opened = slips.last;
-    expect(opened.marketSlug, liveSlug);
+    expect(opened.marketSlug, nextSlug);
     expect(opened.initialOutcomeIndex, 1);
-    expect(opened.outcomes[1].tokenId, 'down-$liveSlug');
+    expect(opened.outcomes[1].tokenId, 'down-$nextSlug');
     expect(opened.initialAmountUsd, 10);
     expect(opened.source, 'round_retry');
     // The stop gave way; nothing was placed (the controller would throw).

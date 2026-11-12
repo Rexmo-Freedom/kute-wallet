@@ -266,7 +266,7 @@ class _ApprovalLapsed implements Exception {
 /// money, or about to be placed, stops with "This round closed before
 /// your money arrived" instead of a generic refusal or a 12-minute wait.
 /// The slip reads it too: a stop on a round that ended retries on the
-/// series' round in play.
+/// series' next round.
 bool autofireRoundClosed(PendingBetIntent intent, {DateTime? now}) {
   final end = intent.marketEndAt;
   if (end == null) return false;
@@ -672,7 +672,7 @@ class PendingBetAutoFire {
     // is shut and nothing is signed, never on another round either. Said
     // once the money is Predictions cash (founder, 23 October 2026: fund
     // it anyway; if the bet cannot go in, the person retries), so the
-    // slip's Retry on the series' round in play finds it there and moves
+    // slip's Retry on the series' next round finds it there and moves
     // nothing twice. Money that never lands still meets the funds wait.
     if (arrived && autofireRoundClosed(intent)) {
       _stopAwaitPolling();
@@ -1765,8 +1765,8 @@ class PendingBetAutoFire {
   /// [intent]'s round closed before its money arrived (or before it could
   /// be placed): nothing is signed, on this round or any other, and the
   /// money stays as Predictions cash. The slip's Retry opens the series'
-  /// round in play with the same side and stake, for the person to
-  /// confirm (`resolveCurrentPolyRound`).
+  /// next round with the same side and stake, for the person to
+  /// confirm (`resolveNextPolyRound`).
   void _failRoundClosed(PendingBetIntent intent, {String? placementId}) {
     // A 5-minute crypto round says it ended while the money was moving,
     // and where the money is.
@@ -2508,7 +2508,7 @@ class PendingBetAutoFire {
       // A 5-minute round whose price moved past the approval while the
       // money was moving: the price now, and the slip's one tap tries
       // again under a new approval (never placed by itself): at it while
-      // the round is open, on the series' round in play once it ended.
+      // the round is open, on the series' next round once it ended.
       final moved = await _roundPriceMoved(intent, e,
           slippagePct:
               autofireSlippagePct(intent.expectedPrice, intent.slippagePct),

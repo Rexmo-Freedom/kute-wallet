@@ -186,6 +186,20 @@ int polyRoundStartAt(DateTime now, int minutes) {
   return (epoch + offset) ~/ span * span - offset;
 }
 
+/// Whether a BUY on the event with this [slug] (ending [endDate], read for
+/// the hourly rounds) would bet a crypto Up-or-Down round of any length
+/// (5m, 15m, 1h, 4h) that has already started at [now]. People bet only
+/// on the next round, never the one in play (founder, 12 November 2026:
+/// late in a round one side is ~98%, and funding takes 20 to 60 s). A
+/// sale is not a buy: exits always stay open. False for anything that is
+/// not a round.
+bool polyRoundBuyClosed(String? slug,
+    {DateTime? endDate, required DateTime now}) {
+  if (slug == null || slug.isEmpty) return false;
+  final round = polyCryptoRoundOf(slug, endDate: endDate);
+  return round != null && !now.isBefore(round.start);
+}
+
 final RegExp _kFiveMinuteSlug = RegExp(r'^([a-z0-9]+)-updown-5m(?:-|$)');
 
 /// Whether the event with this [slug] opens on the live round sheet

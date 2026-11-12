@@ -5,16 +5,17 @@
 // under Crypto › 5 Min and pinned under Crypto › All): the card itself
 // ([CompactCryptoCard]: logo, title, the past rounds as dots, the
 // countdown pill; the live price, its move and the target; the sparkline
-// against the dashed target; the one pair of Up and Down pills with their
-// odds), the pills ([CompactSidePill]), the dots ([PastRoundDots]), the
-// "Next · 7:20" line ([CryptoNextWindowLine]) and the on-screen counter
-// the shared Chainlink feed streams for ([CryptoCardOnScreen]). Moved here
-// from polymarket_screen.dart on 8 November 2026 unchanged. The strip
-// of rounds under the plot (crypto_round_strip.dart) is the live card's
-// again since build 2.2.0 (101); the other slots a taller card once used
-// (its own plot height, a card with no round or no odds) stay for the
-// next card that needs them (the Instant page that used them went on 9
-// November 2026; the rounds are Crypto's rows).
+// against the dashed target; the line naming the round the buttons bet
+// on; the one pair of Up and Down pills with their odds), the pills
+// ([CompactSidePill]), the dots ([PastRoundDots]), the line over the
+// buttons ([CryptoNextWindowLine]) and the on-screen counter the shared
+// Chainlink feed streams for ([CryptoCardOnScreen]). Moved here from
+// polymarket_screen.dart on 8 November 2026 unchanged. The round on show
+// is the one in play, as context; the buttons bet only on the NEXT round
+// (founder, 12 November 2026; crypto_next_round.dart), so the strip of
+// rounds that once picked one is gone. The other slots a taller card once
+// used (its own plot height, a card with no odds) stay for the next card
+// that needs them.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -106,8 +107,10 @@ class CryptoCardOnScreenState extends ConsumerState<CryptoCardOnScreen> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// "Next · 7:20" over the buttons of a card that have rolled to the next
-/// window: one line in the card's own target style, nothing around it.
+/// The line over the buttons of a live round card, naming the round they
+/// bet on ("Next · Starts in 02:16", and "· No prices yet" while it has
+/// none): one line in the card's own target style, nothing around it,
+/// scaled down whole rather than cut.
 class CryptoNextWindowLine extends StatelessWidget {
   const CryptoNextWindowLine({super.key, required this.label});
 
@@ -153,10 +156,10 @@ class CompactCryptoCard extends StatelessWidget {
     required this.roundStart,
     required this.upFrac,
     this.nextLabel,
-    this.note,
+    this.window,
+    this.buttonsEnabled = true,
     required this.onUp,
     required this.onDown,
-    this.strip,
     this.sparkHeight = CompactCryptoCard.kSparkHeight,
     this.chartWindow = kBtcPredictChartWindow,
   });
@@ -183,24 +186,20 @@ class CompactCryptoCard extends StatelessWidget {
   /// alone, never 50% and 50%.
   final double? upFrac;
 
-  /// "Next · 7:20" once the buttons have rolled to the next window
-  /// (crypto_next_round.dart); null while they bet on this one. On a card
-  /// of one length: the name of the round the buttons bet on when it is
-  /// not the one on show.
+  /// The line over the buttons: the round they bet on, the next one
+  /// ("Next · Starts in 02:16"; crypto_next_round.dart), with "No prices
+  /// yet" while it has none. Null for no line.
   final String? nextLabel;
 
-  /// A word about the strip on the same line while [nextLabel] is null: a
-  /// round without prices, named here and never on its pill ("7:25 · No
-  /// prices yet"; crypto_round_strip.dart). The buttons do not read it out
-  /// as their window.
-  final String? note;
+  /// The name of the round the buttons bet on ("BTC up or down ·
+  /// 7:20–7:25"), read out with each pill; null when it is not known.
+  final String? window;
+
+  /// Whether the buttons can bet: false while the next round has no real
+  /// prices (dimmed, inert, no odds), never on the round in play.
+  final bool buttonsEnabled;
   final VoidCallback onUp;
   final VoidCallback onDown;
-
-  /// A strip laid between the sparkline and the buttons: the live card's
-  /// strip of rounds (crypto_round_strip.dart); null on a card of one
-  /// given window.
-  final Widget? strip;
 
   /// The plot's height; the compact card's 54, a taller card more.
   final double sparkHeight;
@@ -277,8 +276,8 @@ class CompactCryptoCard extends StatelessWidget {
     // alone, never 50% and 50%.
     final pair = upFrac == null ? null : formatPolyChancePair(upFrac!);
     final seeded = (history?.length ?? 0) >= 2;
-    // The line over the buttons: the round they bet on, else the note.
-    final lineLabel = nextLabel ?? note;
+    // The line over the buttons: the round they bet on.
+    final lineLabel = nextLabel;
     final rolled = lineLabel != null;
     // 10 over the buttons either way; rolled, 6 and the line and 6.
     final sparkHeight = rolled
@@ -313,27 +312,46 @@ class CompactCryptoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Logo, title, past rounds as dots, the countdown pill.
-          Row(
+          // Logo, title, past rounds as dots, the countdown pill. The dots
+          // stand only where the title still fits one line beside them (a
+          // narrow phone, large text: the dots go first, calmly).
+          LayoutBuilder(builder: (context, box) {
+            final titleStyle = TextStyle(
+              color: c.textPrimary,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+              height: 1.2,
+            );
+            final pillStyle = TextStyle(
+              color: c.textPrimary,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            );
+            final dotsFit = pastResults.isNotEmpty &&
+                _logo.sp +
+                        10.w +
+                        _textWidth(context, title, titleStyle) +
+                        8.w +
+                        PastRoundDots.widthOf(pastResults.length) +
+                        8.w +
+                        16.w +
+                        11.w +
+                        _textWidth(context, countdown ?? '00:00', pillStyle) +
+                        1 <=
+                    box.maxWidth;
+            return Row(
             children: [
               SizedBox(width: _logo.sp, height: _logo.sp, child: logo),
               SizedBox(width: 10.w),
               // The title is never cut: on a narrow phone at a large text
               // size it takes a second line beside the countdown.
               Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    height: 1.2,
-                  ),
-                ),
+                child: Text(title, style: titleStyle),
               ),
               SizedBox(width: 8.w),
-              if (pastResults.isNotEmpty) ...[
+              if (dotsFit) ...[
                 PastRoundDots(results: pastResults),
                 SizedBox(width: 8.w),
               ],
@@ -359,15 +377,7 @@ class CompactCryptoCard extends StatelessWidget {
                     // The time left, or a skeleton bar while it is not
                     // known (no event): never a made-up "0:00:00".
                     if (countdown case final countdown?)
-                      Text(
-                        countdown,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      )
+                      Text(countdown, style: pillStyle)
                     else
                       KuteSkeleton(
                         key: const ValueKey('crypto-round-countdown-skeleton'),
@@ -377,7 +387,8 @@ class CompactCryptoCard extends StatelessWidget {
                 ),
               ),
             ],
-          ),
+          );
+          }),
           SizedBox(height: 10.h),
           // The live price, its move against the target, the target at
           // the right. One fixed line, skeleton or figures: a price scaled
@@ -498,11 +509,6 @@ class CompactCryptoCard extends StatelessWidget {
                     ),
                   ),
           ),
-          // The strip of rounds, 10 under the plot.
-          if (strip != null) ...[
-            SizedBox(height: 10.h),
-            strip!,
-          ],
           if (rolled) ...[
             SizedBox(height: 6.h),
             SizedBox(
@@ -518,9 +524,10 @@ class CompactCryptoCard extends StatelessWidget {
                 child: CompactSidePill(
                   key: const ValueKey('crypto-round-up'),
                   label: context.l10n.upLabel,
-                  odds: pair?.first ?? '',
-                  window: nextLabel,
+                  odds: buttonsEnabled ? pair?.first ?? '' : '',
+                  window: window,
                   up: true,
+                  enabled: buttonsEnabled,
                   onTap: onUp,
                 ),
               ),
@@ -529,9 +536,10 @@ class CompactCryptoCard extends StatelessWidget {
                 child: CompactSidePill(
                   key: const ValueKey('crypto-round-down'),
                   label: context.l10n.downLabel,
-                  odds: pair?.second ?? '',
-                  window: nextLabel,
+                  odds: buttonsEnabled ? pair?.second ?? '' : '',
+                  window: window,
                   up: false,
+                  enabled: buttonsEnabled,
                   onTap: onDown,
                 ),
               ),
@@ -557,15 +565,20 @@ class CompactSidePill extends StatelessWidget {
     required this.odds,
     this.window,
     required this.up,
+    this.enabled = true,
     required this.onTap,
   });
 
   final String label;
   final String odds;
 
-  /// "Next · 7:20" when the pill bets on the next window: read out with it.
+  /// The name of the round the pill bets on: read out with it.
   final String? window;
   final bool up;
+
+  /// False: dimmed and inert, the [MarketPairButton] disabled grammar
+  /// (0.35), while the round it would bet on has no real prices.
+  final bool enabled;
   final VoidCallback onTap;
 
   /// The corner radius: a rounded rectangle, the market page's outcome
@@ -585,18 +598,23 @@ class CompactSidePill extends StatelessWidget {
     );
     return Semantics(
       button: true,
+      enabled: enabled,
       label: '${window == null ? '' : '$window, '}$label $odds'.trim(),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
-        child: Container(
+        onTap: enabled
+            ? () {
+                HapticFeedback.lightImpact();
+                onTap();
+              }
+            : null,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.35,
+          child: Container(
           height: CompactCryptoCard.pillHeight,
           decoration: marketPairDecoration(color,
               borderRadius: BorderRadius.circular(radius.r),
-              glow: !context.isDark),
+              glow: !context.isDark && enabled),
           alignment: Alignment.center,
           padding: EdgeInsets.symmetric(horizontal: 10.w),
           child: FittedBox(
@@ -612,6 +630,7 @@ class CompactSidePill extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

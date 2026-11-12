@@ -16,6 +16,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -187,6 +188,40 @@ void main() {
     expect(tester.takeException(), isNull);
     await _close(tester);
     policy.dispose();
+  });
+
+  testWidgets(
+      'a position in a crypto round IN PLAY still sells: buys there are '
+      'closed (founder, 12 November 2026), exits always open',
+      (tester) async {
+    final now = DateTime.now();
+    final start = polyRoundStartAt(now, 5);
+    final slug = polyCryptoRoundSlug('btc', 5, start);
+    expect(polyRoundBuyClosed(slug, now: now), isTrue,
+        reason: 'the round is in play: no buy');
+    await _pump(
+        tester,
+        PolymarketPosition(
+          marketId: 'cur-cond',
+          marketQuestion: 'Bitcoin Up or Down - November 12, 7:00AM-7:05AM ET',
+          outcome: 'Up',
+          size: 18.6,
+          avgPrice: 0.15,
+          currentPrice: 0.15,
+          pnl: 0,
+          pnlPercent: 0,
+          isResolved: false,
+          tokenId: 'cur-up',
+          eventSlug: slug,
+        ));
+    await tester.tap(find.bySemanticsLabel('Use maximum'));
+    await tester.pump();
+    expect(_typed(tester), '2.79');
+    await pumpBar(tester);
+    expect(barPrimaryLabel(tester), 'Sell · \$2.79');
+    expect(barPrimaryEnabled(tester), isTrue);
+    expect(tester.takeException(), isNull);
+    await _close(tester);
   });
 
   testWidgets('nothing to sell, no Max', (tester) async {

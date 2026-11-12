@@ -78,8 +78,11 @@ import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
 import 'package:kute/screens/polymarket/components/price_format.dart';
+import 'package:kute/screens/polymarket/market_detail_sheet.dart'
+    show MarketDetailSheet;
 import 'package:kute/services/polymarket/crypto_round.dart'
     show
+        polyRoundBuyClosed,
         kCryptoUpDown5mKind,
         polyIsCryptoUpDown5m,
         polyRoundWindowParam,
@@ -335,21 +338,26 @@ class _BetSlipDraft extends ChangeNotifier {
 @visibleForTesting
 Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetFundingApproval;
 
-/// Whether [pending]'s stop retries on its series' round in play: a short
+/// Whether [pending]'s stop retries on its series' next round: a short
 /// round with a slug per window (`btc-updown-5m-…`) that has ended at
 /// [now] (it ended while its money was moving, or its price moved past
-/// the approval and the round is over since). Its own market can take
-/// nothing more; the money is Predictions cash.
+/// the approval and the round is over since), or that is in play by now:
+/// people bet only on the next round, never the one in play (founder, 12
+/// November 2026). Its own market takes no more from this person; the
+/// money is Predictions cash.
 bool betSlipRetriesNextRound(PendingBetIntent pending, {DateTime? now}) =>
     pending.status == PendingBetStatus.failed &&
     polyRoundSeriesOf(pending.eventSlug) != null &&
-    autofireRoundClosed(pending, now: now);
+    (autofireRoundClosed(pending, now: now) ||
+        polyRoundBuyClosed(pending.eventSlug,
+            endDate: pending.marketEndAt, now: now ?? DateTime.now()));
 
 /// The slip's button once a placement stopped ([pending] failed). A short
 /// round that has ended ([betSlipRetriesNextRound]): Retry on the series'
-/// round in play ([nextRound]: a new slip on it, the same side and stake,
-/// the money already in Predictions). "Retry at 81%" for a 5-minute round
-/// still open whose price moved past the approval meanwhile (the tap
+/// next round ([nextRound]: a new slip on it, the same side and stake,
+/// the money already in Predictions); a round in play by now retries
+/// there too. "Retry at 81%" for a 5-minute round not started yet whose
+/// price moved past the approval meanwhile (the tap
 /// approves again at the price now and places it); "Retry at 85¢" when
 /// the price moved past an approved maximum elsewhere; else Retry. A
 /// retry always asks for a new approval; nothing places by itself, and
@@ -566,6 +574,25 @@ class BetSlipSheet extends ConsumerStatefulWidget {
           context: context,
           message: context.l10n.builderMarketGone,
           error: true);
+      return;
+    }
+    // A crypto Up-or-Down round already in play is never bought, from any
+    // door (a list's pill, a shared pick, a standing order, a link):
+    // people bet only on the next round (founder, 12 November 2026). Its
+    // market opens instead, unless it is already on screen: the round
+    // sheet bets the next round, any other round's page is read-only with
+    // a way to the next one. Sales never come through here.
+    if (polyRoundBuyClosed(marketSlug,
+        endDate: marketEndAt, now: debugClock())) {
+      if (event != null &&
+          MarketDetailSheet.openRouteFor(event.slug) == null &&
+          context.mounted) {
+        MarketDetailSheet.show(context,
+            event: event,
+            onDeposit: onDeposit,
+            ledgerWalletId: ledgerWalletId,
+            source: source);
+      }
       return;
     }
     if (event != null) VenueAnalytics.rememberPolymarketEvent(event);
@@ -1539,7 +1566,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// has not ended. One that may end before the money lands is funded all
   /// the same: the standing order places nothing on a round that ended or
   /// a price past the approval, and the slip's Retry opens the series'
-  /// round in play (founder, 23 October 2026). An unread market does not
+  /// next round (founder, 23 October 2026). An unread market does not
   /// block.
   PredictionsFundingBlock? _fundingBlockFor(PolymarketMarketWindow? market) =>
       predictionsFundingBlock(
@@ -4468,19 +4495,19 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   /// Retry for a short round that ended with its bet not placed
-  /// ([betSlipRetriesNextRound]): the series' round in play now, resolved
+  /// ([betSlipRetriesNextRound]): the series' next round now, resolved
   /// from the series (every window is a new market with its own slug and
   /// tokens), opens on a fresh slip with the same side and stake. The
   /// money is already Predictions cash, so nothing moves twice; nothing
   /// is placed until the person confirms there, under a new approval.
-  Future<void> _retryOnCurrentRound() async {
+  Future<void> _retryOnNextRound() async {
     if (_buyInFlight) return;
     final stopped = ref.read(pendingPolymarketBetProvider);
     if (stopped == null) return;
     _updateState(() => _buyInFlight = true);
     Btc5MinEvent? round;
     try {
-      round = await resolveCurrentPolyRound(
+      round = await resolveNextPolyRound(
           ref.read(polyRoundWindowReaderProvider), stopped.eventSlug);
     } finally {
       if (mounted) _updateState(() => _buyInFlight = false);
@@ -6363,7 +6390,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           context.l10n, ref.watch(pendingPolymarketBetProvider));
       // A short round that ended with its bet not placed: nothing more
       // goes in on it. The line under the steps says where the money is;
-      // the button opens the series' round in play, the same side and
+      // the button opens the series' next round, the same side and
       // stake, for the person to confirm there.
       if (stop.nextRound) {
         return PolySlipCta(
@@ -6375,7 +6402,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           isBusy: _buyInFlight || busy,
           busyLabel: context.l10n.loading,
           enabled: !_buyInFlight && !busy,
-          onTap: _retryOnCurrentRound,
+          onTap: _retryOnNextRound,
           label: '${context.l10n.walletsTryAgain} · '
               '${_betCtaLabel(selected, _amount)}',
         );

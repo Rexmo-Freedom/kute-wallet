@@ -33,6 +33,12 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/current_round.dart'
+    show polyRoundWindowReaderProvider;
+import 'package:kute/screens/polymarket/components/round_window_label.dart'
+    show polyRoundClock;
+import 'package:kute/screens/shared/message_display.dart'
+    show showMessageSnackBar;
 import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
@@ -2768,6 +2774,34 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// pair: a candidate opens its own Yes / No page, and the bar is the
   /// page's Sal pill.
   Widget _buildTradeBar(KuteBarContext bar) {
+    // A crypto Up-or-Down round in play (15m, 1h, 4h, or a 5m round the
+    // round sheet does not draw) is read-only: people bet only on the next
+    // round (founder, 12 November 2026; a tap on its Up or Down opens no
+    // slip, BetSlipSheet.show). The bar's one pill opens the next round.
+    final round = polyCryptoRoundOf(event.slug, endDate: event.endDate);
+    if (round != null &&
+        widget.sendPick == null &&
+        polyRoundBuyClosed(event.slug,
+            endDate: event.endDate, now: DateTime.now())) {
+      final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
+      return KuteBarContextScope(
+        barContext: KuteBarContext.trade(
+          trades: [
+            KuteBarTrade(
+              id: 'next-round',
+              label: context.l10n.predictNextWindow(polyRoundClock(round.end,
+                  locale: context.l10n.localeName, use24h: use24h)),
+              onTap: () => _openNextRound(round),
+            ),
+          ],
+          share: KuteBarShare(barContext: bar),
+          category: SearchCategory.predictions,
+          searchHint: context.l10n.searchPredictionsHint,
+          source: 'predictions',
+        ),
+        child: const SizedBox.shrink(),
+      );
+    }
     if (!event.isBinary) {
       return const SizedBox.shrink();
     }
@@ -2833,6 +2867,30 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         child: const SizedBox.shrink(),
       );
     });
+  }
+
+  /// The round after [round] (the one in play this sheet shows read-only):
+  /// read from its series and opened as its own market, where it can be
+  /// bet. "No prices yet" while Polymarket does not list it.
+  Future<void> _openNextRound(PolyCryptoRound round) async {
+    HapticFeedback.selectionClick();
+    final next = await ref.read(polyRoundWindowReaderProvider)(
+        round.asset,
+        round.end.millisecondsSinceEpoch ~/ 1000,
+        round.window.inMinutes);
+    if (!mounted) return;
+    if (next == null || next.closed || !next.active) {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.predictRoundNoPricesYet,
+          error: false);
+      return;
+    }
+    MarketDetailSheet.show(context,
+        event: polyRoundAsEvent(next, fallbackTitle: event.title),
+        onDeposit: widget.onDeposit,
+        ledgerWalletId: widget.ledgerWalletId,
+        source: widget.source);
   }
 
   /// Tap a multi-outcome row. Only TRUE candidate-pickers — where the
@@ -3337,6 +3395,36 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
 
 // The Yes / No pair is the floating bar's trade row ([_buildTradeBar] above,
 // kute_bar_trade_row.dart).
+
+/// A crypto round Gamma read by its window ([Btc5MinEvent]) as the thin
+/// market the sheets open: its slug, title, end, image and the Up and
+/// Down outcomes with their tokens. The round sheet resolves the asset
+/// from the slug; the market sheet reads the rest by itself.
+PolymarketEvent polyRoundAsEvent(Btc5MinEvent ev, {String? fallbackTitle}) =>
+    PolymarketEvent(
+      id: ev.slug,
+      slug: ev.slug,
+      title: ev.title.isNotEmpty ? ev.title : fallbackTitle ?? ev.slug,
+      imageUrl: ev.image,
+      volume: 0,
+      volume24hr: 0,
+      liquidity: 100000,
+      category: 'crypto',
+      endDate: ev.endDate,
+      conditionId: ev.conditionId ?? '',
+      outcomes: [
+        PolymarketOutcome(
+            name: 'Up',
+            price: ev.upPrice,
+            tokenId: ev.upTokenId,
+            conditionId: ev.conditionId),
+        PolymarketOutcome(
+            name: 'Down',
+            price: ev.downPrice,
+            tokenId: ev.downTokenId,
+            conditionId: ev.conditionId),
+      ],
+    );
 
 /// Detail sheet for the 5-min Up/Down crypto markets. Mirrors the
 /// standard `MarketDetailSheet` chrome (close button, the Instant chip,
