@@ -40,6 +40,7 @@ const Map<String, bool> _clips = {
   'body_sniff': true,
   'body_jump': false,
   'body_shake_no': false,
+  'body_shake_off': false,
   'body_pace': true,
   'body_sniff_trail': true,
   'body_dig': true,
@@ -198,6 +199,26 @@ void main() {
     expect(samples.firstWhere((s) => s.$1 >= 25100).$3, SalMood.settle);
     // Settled, he sat down and sits or points: one of the settle clips.
     expect(samples.last.$2, anyOf('body_sit', 'body_point', 'body_sit_down'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a stop: he shakes it off once (body_shake_off) and stands still, '
+      'never sad (founder, 12 November 2026)', (tester) async {
+    await tester.pumpWidget(_app(_order()));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpWidget(
+        _app(_order(bitcoin: MoneyStepStatus.failed)));
+    final clips = <String?>[];
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      clips.add(_motion(tester).salClip);
+    }
+    expect(clips, contains('body_shake_off'));
+    expect(clips, isNot(contains('body_sad')));
+    // Once on, it stays: played once and held, not replayed or swapped.
+    final from = clips.indexOf('body_shake_off');
+    expect(clips.skip(from), everyElement('body_shake_off'));
     expect(tester.takeException(), isNull);
   });
 }

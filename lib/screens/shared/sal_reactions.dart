@@ -14,14 +14,20 @@
 //   * a deposit or payment arrived (Bitcoin or Dollars, the moment the
 //     money-in haptic plays)                               → `cheer`
 //   * an order filled, a bet placed (the venues' result paths) → `wink`
-//   * an error toast (showMessageSnackBar error: true)     → `shake_no`
-//   * a load that has lasted 2 s (the search, a primary action busy)
-//                                                           → `think`
+//   * a load that has lasted 2 s (the search)               → `think`
 //
+// An error no longer shakes the bar's head: the failure toast's own Sal
+// shrugs (sal_moments.dart, founder 12 November 2026: one Sal at a time).
 // The hooks only call [SalReactions.play]; the bar only subscribes
 // ([SalReactions.current]). A missing clip is skipped (the sprite says so
 // through onUnavailable and the bar goes back to its clip). Reactions
 // never queue: a new one replaces the one playing.
+//
+// ONE SAL AT A TIME: while another Sal holds the spotlight (a toast, a
+// result sheet, the money journey; SalSpotlight, sal_sprite.dart) a
+// reaction is not played, one asked for and not on screen yet is dropped,
+// and the bar's Sal plays out the pass it is in and holds its last frame
+// until the spotlight is free.
 
 import 'dart:async';
 

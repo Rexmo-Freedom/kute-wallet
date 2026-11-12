@@ -97,8 +97,9 @@
 // record replayed at rest has no moods. As the 3D Sal (31 October 2026)
 // each mood rotates the clips of the second batch's `waiting` group
 // (fetch: pace, sniff the trail, dig; sniff: sniff the trail, think;
-// settle: sit, point; a success jumps then wags; a failure shakes its
-// head then is sad), never the same twice in a row, on the same mood
+// settle: sit, point; a success jumps then wags; a failure shakes it off
+// once, body_shake_off, and stands still: never sad for money, 12
+// November 2026), never the same twice in a row, on the same mood
 // timing ([_paintSalSprite]). THE COIN IN THE RENDER (founder, "Sal
 // moving around and taking the actual thing and putting it in another
 // place"; 1 November 2026): once the coin clips are decoded and their
@@ -156,6 +157,7 @@
 // surface. Reduce Motion: the same states at once, no glide, walk,
 // breath, idle activity or replay; the haptics still play.
 
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:async' show Timer, unawaited;
 import 'dart:math' as math;
@@ -2757,8 +2759,9 @@ String? _waitKeyOf(_Scene s, double now) {
 /// group; sal_sprite.dart), by what Sal does while the money waits
 /// (founder, 31 October 2026): fetching he paces, sniffs the trail or
 /// digs; sniffing he sniffs the trail or thinks; settled he sits (sitting
-/// down first) or points; a success is a jump then the wag; a failure a
-/// shake of the head then sad. Never the same clip twice in a row; a clip
+/// down first) or points; a success is a jump then the wag; a failure
+/// shakes it off once and holds its last frame ([_salClipRun]'s `hold`).
+/// Never the same clip twice in a row; a clip
 /// not decoded (not rendered yet, not registered) is skipped, and with
 /// none of a pool there the mood's own clip from the first batch stands
 /// in. The mood timing ([_moodOf]) is untouched.
@@ -2801,10 +2804,9 @@ const List<String> _kSalJourneyClips = [
   'body_sit_down',
   'body_sit',
   'body_wag',
-  'body_sad',
   'body_sniff',
   'body_jump',
-  'body_shake_no',
+  SalMoments.shrugBody,
   ..._kFetchClips,
   ..._kSniffClips,
   ..._kSettleClips,
@@ -2826,8 +2828,8 @@ Offset? _salMuzzleOf(String? clip) => switch (clip) {
       'body_think' => const Offset(8.3, 10.4),
       'body_wag' => const Offset(7.7, 9.9),
       'body_pace' || 'body_dig' || 'body_sniff_trail' => null,
-      // body_idle, body_walk, body_sad, body_shake_no, body_jump,
-      // body_sniff: standing, the head up.
+      // body_idle, body_walk, body_shake_off, body_jump, body_sniff:
+      // standing, the head up.
       _ => const Offset(7.5, 10.2),
     };
 
@@ -2898,7 +2900,6 @@ List<String> _salAhead(
         if (current == 'body_sit_down') _kSettleClips.first,
       ],
     'success' => ['body_wag'],
-    'failure' => ['body_sad'],
     _ => const <String>[],
   };
   // The coin in the render needs the coin clips' anchors.
@@ -3146,10 +3147,11 @@ SalJourneyDraw _paintSalSprite(Canvas canvas, _Scene s, Offset origin,
     pool = const [_kSalCarry];
     standIn = _kSalCarry;
   } else if (s.outcome == _Outcome.failure) {
+    // A calm shrug, never sad for money (founder, 12 November 2026;
+    // sal_moments.dart): he shakes it off once and stands still.
     scene = 'failure';
-    opener = 'body_shake_no';
-    pool = const ['body_sad'];
-    standIn = 'body_sad';
+    pool = const [SalMoments.shrugBody];
+    standIn = SalMoments.shrugBody;
   } else if (s.outcome == _Outcome.success || _hopping(s, now)) {
     scene = 'success';
     opener = 'body_jump';
@@ -3178,12 +3180,29 @@ SalJourneyDraw _paintSalSprite(Canvas canvas, _Scene s, Offset origin,
     standIn = 'body_idle';
   }
 
+  // The shrug plays once and holds its last frame.
+  final hold = scene == 'failure';
   final name = _salClipRun(s, now,
-      scene: scene, pool: pool, opener: opener, standIn: standIn, peek: peek);
+      scene: scene,
+      pool: pool,
+      opener: opener,
+      standIn: standIn,
+      peek: peek,
+      hold: hold);
   // The clip he wears is read now; the one ahead of it next.
   final clip = SalSpriteCache.peek(name, density);
   _salReadAhead(s, scene, name, pool, density);
   final dst = Rect.fromLTWH(origin.dx, origin.dy, 16 * u, 16 * u);
+  if (hold) {
+    if (clip == null) {
+      // Its clock starts when its sheet is in: the whole shrug plays.
+      s.salClipAt = now;
+    } else {
+      // The clock runs until it has played through.
+      s.salBusyUntil = math.max(
+          s.salBusyUntil, s.salClipAt + _salClipLength(clip) + 100);
+    }
+  }
   if (clip == null) {
     // Not decoded. The rig only once its read came back empty (no
     // manifest, no sheet, a decode that failed); while the read is out,
@@ -3318,7 +3337,8 @@ String _salClipRun(_Scene s, double now,
     required List<String> pool,
     String? opener,
     required String standIn,
-    required SalClip? Function(String) peek}) {
+    required SalClip? Function(String) peek,
+    bool hold = false}) {
   final available = [for (final n in pool) if (peek(n) != null) n];
   String pick() {
     final choices = available.length > 1
@@ -3376,8 +3396,9 @@ String _salClipRun(_Scene s, double now,
   final next = pick();
   if (next == current) {
     // A loop alone goes on from where it is; a one-shot alone replays
-    // from its end (or from now, held longer than a frame).
-    if (!clip.loop) {
+    // from its end (or from now, held longer than a frame), unless it is
+    // to [hold] its last frame (the shrug).
+    if (!clip.loop && !hold) {
       s.salClipAt = elapsed - length < 1000 / clip.fps ? boundary : now;
     }
     return current;

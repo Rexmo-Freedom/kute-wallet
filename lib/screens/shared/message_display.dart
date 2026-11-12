@@ -5,16 +5,16 @@
 // modern Sal one") every one of them is the Sal toast (sal_toast.dart):
 // the three helpers here keep their signatures, so their call sites did
 // not change, and draw it in the tone they stand for: an error is a
-// failure (Sal sad, the "!", the failure tap; the bar's Sal shakes his
-// head too), information is information (Sal's calm blink, no mark), and
-// a plain success is a success (Sal happy, the check, the success beat).
+// failure (Sal shakes it off once, the "!", the failure tap; the bar's
+// Sal keeps still under it), information is information (Sal's calm
+// blink, no mark), and a plain success is a success (Sal nods once, the
+// check, the success beat; sal_moments.dart).
 //
 // [duration]: the old default (4 s) means the tone's own time
 // (SalToast.durationFor: 2.5 s for a success, 3 s for information, 6 s
 // for a failure); a caller that asks for a time of its own is honoured.
 
 import 'package:flutter/material.dart';
-import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -46,9 +46,9 @@ void showMessageSnackBar({
 }) {
   final SalToastTone tone;
   if (error) {
+    // The toast's own Sal shrugs (sal_moments.dart); the bar's keeps
+    // still under it: one Sal at a time.
     tone = SalToastTone.failure;
-    // Sal in the bar shakes his head with the toast (sal_reactions.dart).
-    SalReactions.play(SalReaction.shakeNo);
   } else if (info) {
     tone = SalToastTone.info;
   } else {

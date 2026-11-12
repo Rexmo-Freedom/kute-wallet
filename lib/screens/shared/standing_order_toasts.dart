@@ -33,12 +33,12 @@
 //    left while the first's placing toast is up takes its place: the
 //    newest one.
 //  * The END of any order, in place of whatever the toast says now, else
-//    as a new one: placed (Sal happy, the check, the one success haptic;
+//    as a new one: placed (Sal nods once, the check, the one success haptic;
 //    an Investing order the account already shows filled is placed too,
 //    standing_orders_provider.dart `settleInvestingFromFills`), a limit
 //    resting on the book (calmly, "Order placed"; Predictions and
 //    Investing alike),
-//    not placed (Sal sad, the "!", the failure tap; a tap opens its slip
+//    not placed (Sal shakes it off, the "!", the failure tap; a tap opens its slip
 //    where the slip still shows the stop) or cancelled (information). The
 //    haptic plays when the tone changes, so two results landing together
 //    are felt once. Once it has gone, an order still placing puts nothing
@@ -58,7 +58,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
@@ -243,7 +242,6 @@ abstract final class StandingOrderToasts {
   static void failed(BuildContext? context, AppLocalizations l10n,
       StandingOrder order) {
     markSaid(order);
-    SalReactions.play(SalReaction.shakeNo);
     SalToast.show(
       context,
       tag: tag,

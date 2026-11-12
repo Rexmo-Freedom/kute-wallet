@@ -402,7 +402,8 @@ void main() {
   });
 
   testWidgets(
-      'showMessageSnackBar: error is a failure (the bar\'s Sal shakes), '
+      'showMessageSnackBar: error is a failure (the toast\'s Sal shrugs, '
+      'the bar\'s plays nothing over it), '
       'info is information, plain is a success; the default time is the '
       'tone\'s, an own time is honoured', (tester) async {
     await pumpApp(tester);
@@ -411,7 +412,7 @@ void main() {
     await tester.pump();
     expect(_shown(tester).tone, SalToastTone.failure);
     expect(_shown(tester).resolvedDuration, SalToast.failureDuration);
-    expect(SalReactions.current.value?.reaction, SalReaction.shakeNo);
+    expect(SalReactions.current.value, isNull);
     expect(failure, 1);
 
     showMessageSnackBar(
@@ -492,7 +493,7 @@ void main() {
     await tester.pump();
     await tester.pump(_leave);
     expect(_shown(tester).tone, SalToastTone.failure);
-    expect(SalReactions.current.value?.reaction, SalReaction.shakeNo);
+    expect(SalReactions.current.value, isNull);
     expect(failure, 1);
 
     var taps = 0;

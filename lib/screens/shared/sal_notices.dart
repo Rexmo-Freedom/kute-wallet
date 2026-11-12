@@ -4,15 +4,14 @@
 // (sal_toast.dart; founder, 9 November 2026: "saying prediction placed and
 // a success Sal", "haptics when the bet is placed, with a little
 // confirmation of Sal on top"). Three verbs, one pill: [placed] for a
-// prediction or order that went through (Sal happy, the check, the
-// success beat), [failed] for one that did not (Sal sad, the "!", the
-// failure tap; the bar's Sal shakes his head as for every error), and
-// [pending] for one accepted and not finished (Sal's calm blink, the
-// clock, no haptic). [detail] is the quieter second line (the market, the
+// prediction or order that went through (Sal nods once, the check, the
+// success beat), [failed] for one that did not (Sal shakes it off once,
+// the "!", the failure tap; the bar's Sal keeps still under it), and
+// [pending] for one accepted and not finished (Sal waits, the clock, no
+// haptic; sal_moments.dart). [detail] is the quieter second line (the market, the
 // amount); [onTap] runs when the toast is tapped (open the position).
 
 import 'package:flutter/widgets.dart';
-import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
 
 abstract final class SalNotices {
@@ -38,7 +37,6 @@ abstract final class SalNotices {
     String? detail,
     VoidCallback? onTap,
   }) {
-    SalReactions.play(SalReaction.shakeNo);
     SalToast.show(
       context,
       message: message,

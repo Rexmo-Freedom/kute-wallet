@@ -1,7 +1,8 @@
 // Sal reacts in the bar (sal_reactions.dart): a hook asks for one face
 // one-shot, the bar's sprite plays it over its clip and comes back; a load
 // that lasts 2 s asks for `think`; a reaction whose clip cannot be read is
-// skipped; an error toast asks for `shake_no`.
+// skipped; an error toast asks for nothing (its own Sal shrugs), and no
+// reaction plays while another Sal holds the spotlight.
 
 import 'dart:ui' as ui;
 
@@ -137,7 +138,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an error toast asks for shake_no; success and info do not',
+  testWidgets('no toast asks the bar for a reaction: its own Sal plays it',
       (tester) async {
     late BuildContext ctx;
     await tester.pumpWidget(ScreenUtilInit(
@@ -158,7 +159,7 @@ void main() {
     expect(SalReactions.current.value, isNull);
     showMessageSnackBar(context: ctx, message: 'Failed', error: true);
     await tester.pump();
-    expect(SalReactions.current.value?.reaction, SalReaction.shakeNo);
+    expect(SalReactions.current.value, isNull);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
   });

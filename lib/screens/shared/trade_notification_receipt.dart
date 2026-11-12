@@ -19,11 +19,17 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/trade_notification_copy.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsPositions;
 import 'package:kute/services/trade_notification_store.dart';
+
+/// Whether [item] is a prediction that paid nothing (the store keeps the
+/// English title, trade_notifications_provider.dart).
+bool tradeNotificationLost(TradeNotification item) =>
+    item.title == 'Prediction lost';
 
 /// The market art of a results-inbox receipt: the prediction's crest or
 /// the Investing coin.
@@ -137,6 +143,11 @@ KuteConfirmation tradeNotificationConfirmation(
     tone: item.positive && !item.read
         ? KuteConfirmationTone.celebrate
         : KuteConfirmationTone.neutral,
+    // A prediction lost, seen for the first time: Sal shrugs it off once
+    // (sal_moments.dart), under the neutral mark; never sad for money.
+    salMoment: tradeNotificationLost(item) && !item.read
+        ? SalMoment.shrug
+        : null,
     amount: entries.isEmpty ? null : entries.first.value,
     contextLine: outcome == null || outcome.isEmpty
         ? receipt.title
