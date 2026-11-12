@@ -119,6 +119,10 @@ import 'package:kute/screens/shared/deposit_quick_claim.dart';
 import 'package:kute/models/breez/deposit_update.dart' show sparkOutpointKey;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show sendShortAddress;
+import 'package:kute/screens/shared/send/send_branta_payee.dart'
+    show BrantaPayeeLogo, SendVerifiedByBranta;
+import 'package:kute/services/branta/branta_payee_records.dart'
+    show BrantaPayeeRecord, watchBrantaPayeeRecord;
 import 'package:kute/services/orchestra/onetime_receive.dart'
     show isOneTimeReceiveRow;
 import 'package:kute/services/support_service.dart' show openSupportChat;
@@ -790,6 +794,11 @@ class _TransactionRow extends ConsumerWidget {
   /// Whether the balance privacy setting hides the figures.
   final bool maskValues;
 
+  /// The payee Branta verified when this send was confirmed, stored with
+  /// the payment (branta_payee_records.dart): the receipt adds "Verified
+  /// by Branta" under the title. Null for every other row.
+  final BrantaPayeeRecord? payee;
+
   const _TransactionRow({
     required this.leading,
     required this.title,
@@ -803,6 +812,7 @@ class _TransactionRow extends ConsumerWidget {
     this.status,
     this.amountIsBtc = false,
     this.maskValues = true,
+    this.payee,
   });
 
   /// [raw] with any sign the formatter put on it replaced by the row's.
@@ -1179,6 +1189,8 @@ class TransactionDetailHeader extends StatelessWidget {
       resultColor: face.secondaryColor,
       note: note,
       date: date,
+      // A payee Branta verified at send time: the line Send showed.
+      verified: face.payee == null ? null : const SendVerifiedByBranta(),
     );
   }
 }
@@ -2334,7 +2346,11 @@ Widget _buildBitcoinItem(
       : ref.watch(
           conversionToFiatProvider((tx.receivedSats - tx.sentSats).abs()));
 
-  Widget iconWidget = _AssetTxIcon(assetCode: 'BTC', isSend: !isReceive);
+  // The payee Branta verified when this send was confirmed (stored by
+  // its txid; never a lookup).
+  final payee = isReceive ? null : watchBrantaPayeeRecord(ref, [tx.id]);
+  Widget iconWidget =
+      _AssetTxIcon(assetCode: 'BTC', isSend: !isReceive, payee: payee);
   if (isPending) {
     iconWidget = _PendingIconWrapper(child: iconWidget);
   }
@@ -2342,7 +2358,12 @@ Widget _buildBitcoinItem(
   return _TransactionRow(
     onTap: () => _showBitcoinTxDetails(context, ref, tx),
     leading: iconWidget,
-    title: _RowTitle(isReceive ? context.l10n.received : context.l10n.sent),
+    payee: payee,
+    title: _RowTitle(isReceive
+        ? context.l10n.received
+        : payee != null
+            ? context.l10n.confirmationSentToWallet(payee.name)
+            : context.l10n.sent),
     // The payment label when there is one, otherwise just the time. The
     // rail is Nerd data on the detail sheet.
     subtitle: label ?? DateFormat('HH:mm').format(tx.timestamp),
@@ -2385,8 +2406,12 @@ Widget _buildSparkItem(
           ? 'Spark'
           : 'BTC';
   final isPending = tx.isPending;
+  // The payee Branta verified when this send was confirmed: its logo and
+  // name, from the payment's stored record (never a lookup).
+  final payee = isSend ? watchBrantaPayeeRecord(ref, [tx.id]) : null;
 
-  Widget iconWidget = _AssetTxIcon(assetCode: assetCode, isSend: isSend);
+  Widget iconWidget = _AssetTxIcon(
+      assetCode: assetCode, isSend: isSend, payee: payee);
   if (isPending) {
     iconWidget = _PendingIconWrapper(child: iconWidget);
   }
@@ -2394,7 +2419,10 @@ Widget _buildSparkItem(
   return _TransactionRow(
     onTap: () => _showSparkTxDetails(context, ref, tx),
     leading: iconWidget,
-    title: _RowTitle(direction),
+    payee: payee,
+    title: _RowTitle(payee != null
+        ? context.l10n.confirmationSentToWallet(payee.name)
+        : direction),
     // The rail (Lightning / Spark / on-chain) is Nerd data on the sheet.
     subtitle: DateFormat('HH:mm').format(tx.timestamp),
     status: isPending
@@ -3286,6 +3314,12 @@ Widget _buildSwapOrderItem(
       : isExternalSend
           ? details.coinTo
           : details.coinFrom;
+  // The payee Branta verified when this send was confirmed, stored by
+  // the order's ids (the q_ quote id becomes an ord_ id; the operation
+  // id stays). Never a lookup.
+  final payee = isExternal && isExternalSend
+      ? watchBrantaPayeeRecord(ref, [details.id, details.operationId])
+      : null;
 
   // Cash App deposit (Orchestra / Flashnet onramp). The row is
   // recorded with a Lightning deposit leg, but that is plumbing: the
@@ -3325,7 +3359,8 @@ Widget _buildSwapOrderItem(
       child: AssetIcon(assetCode: 'USD', size: 44.sp),
     );
   } else if (isExternal) {
-    iconWidget = _AssetTxIcon(assetCode: externalCoin, isSend: isExternalSend);
+    iconWidget = _AssetTxIcon(
+        assetCode: externalCoin, isSend: isExternalSend, payee: payee);
   } else {
     final fromIcon =
         details.coinFrom == 'BTC' && details.networkFrom == 'LIGHTNING'
@@ -3501,13 +3536,18 @@ Widget _buildSwapOrderItem(
         : context.l10n.activityRowFrom(venue);
   } else if (isExternal) {
     // A send paid from dollars is an Investments withdrawal, and
-    // Investments says Withdraw, never Send (founder, 2026-10-23).
-    title = isDollarSend
-        ? context.l10n.activityRowWithdraw
-        : isExternalSend
-            ? context.l10n.sent
-            : context.l10n.received;
-    where = isDollarSend
+    // Investments says Withdraw, never Send (founder, 2026-10-23). A
+    // payee Branta verified names it: "Sent to Strike" (founder,
+    // 12 November 2026).
+    title = payee != null
+        ? context.l10n.confirmationSentToWallet(payee.name)
+        : isDollarSend
+            ? context.l10n.activityRowWithdraw
+            : isExternalSend
+                ? context.l10n.sent
+                : context.l10n.received;
+    // The payee's name already says where it went.
+    where = isDollarSend && payee == null
         ? context.l10n.activityRowTo(
             details.coinTo == 'BTC' && details.networkTo == 'LIGHTNING'
                 ? 'Lightning'
@@ -3527,6 +3567,7 @@ Widget _buildSwapOrderItem(
   return _TransactionRow(
     onTap: onTap ?? () => _showSwapOrderDetails(context, ref, tx),
     leading: iconWidget,
+    payee: payee,
     title: _RowTitle(title),
     subtitle: _withTime(whereOverride ?? where, tx.timestamp),
     status: statusOverride ??
@@ -6340,19 +6381,30 @@ class _PolymarketTxIcon extends ConsumerWidget {
 class _AssetTxIcon extends ConsumerWidget {
   final String assetCode;
   final bool isSend;
-  const _AssetTxIcon({required this.assetCode, required this.isSend});
+
+  /// A send's payee Branta verified (branta_payee_records.dart): its logo
+  /// takes the asset mark's circle, the mark showing until it loads and
+  /// whenever it cannot; the direction badge stays.
+  final BrantaPayeeRecord? payee;
+  const _AssetTxIcon(
+      {required this.assetCode, required this.isSend, this.payee});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final mark = AssetIcon(assetCode: assetCode, size: 44.sp);
+    final logo = payee?.logoUrl;
     return SizedBox(
       width: 44.sp,
       height: 44.sp,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Main asset icon
-          AssetIcon(assetCode: assetCode, size: 44.sp),
+          // Main asset icon (a verified payee's logo in its circle)
+          if (logo == null)
+            mark
+          else
+            BrantaPayeeLogo(url: logo, size: 44.sp, fallback: mark),
           // Directional arrow overlay
           Positioned(
             right: -2,

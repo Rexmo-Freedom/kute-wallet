@@ -62,6 +62,7 @@ class ReceiptHero extends StatelessWidget {
     this.resultColor,
     this.note,
     this.date,
+    this.verified,
   });
 
   final Widget leading;
@@ -71,6 +72,10 @@ class ReceiptHero extends StatelessWidget {
   final Color? resultColor;
   final String? note;
   final String? date;
+
+  /// A quiet line under the title: "Verified by Branta" on a send whose
+  /// payee Branta verified (send_branta_payee.dart).
+  final Widget? verified;
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +101,10 @@ class ReceiptHero extends StatelessWidget {
           textAlign: TextAlign.center,
           child: title,
         ),
+        if (verified != null) ...[
+          SizedBox(height: 4.h),
+          verified!,
+        ],
         SizedBox(height: 6.h),
         FittedBox(
           fit: BoxFit.scaleDown,

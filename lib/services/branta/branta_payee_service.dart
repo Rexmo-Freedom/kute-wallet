@@ -47,8 +47,11 @@
 // never blocks the send; an answer is kept in memory for the session
 // (a failed one for a minute, so nothing retries in a loop); the same
 // lookup in flight is shared. Errors, timeouts and Branta being down all
-// read as "no badge". Nothing is persisted and nothing goes to analytics
-// but a yes/no (`verified_payee`).
+// read as "no badge". Lookups are never persisted and nothing goes to
+// analytics but a yes/no (`verified_payee`). A send the person confirms
+// with a verified payee on screen keeps that payee's name and logo with
+// the payment (branta_payee_records.dart), so the activity lists show it
+// without asking Branta again.
 
 import 'dart:async';
 
@@ -421,10 +424,18 @@ void brantaNoteInput(String raw) => BrantaPayeeService.shared.noteInput(raw);
 /// Whether Branta verified the payee of [destination] on [rail], from
 /// what is already in memory: the analytics `verified_payee` yes/no (never
 /// the payee, never the address; never a lookup of its own).
-bool brantaVerifiedPayee(String destination, BrantaRail? rail) {
-  if (rail == null || destination.trim().isEmpty) return false;
-  return BrantaPayeeService.shared.cached(destination.trim(), rail)?.verified ??
-      false;
+bool brantaVerifiedPayee(String destination, BrantaRail? rail) =>
+    brantaVerifiedPayeeShown(destination, rail) != null;
+
+/// The payee Branta verified for [destination] on [rail], from what is
+/// already in memory: the answer Send showed on its recipient card and
+/// Review (never a lookup of its own). Null when it was not verified
+/// (unknown, tampered, still loading, failed). The send stores it with
+/// the payment once the person confirms (branta_payee_records.dart).
+BrantaPayee? brantaVerifiedPayeeShown(String destination, BrantaRail? rail) {
+  if (rail == null || destination.trim().isEmpty) return null;
+  final payee = BrantaPayeeService.shared.cached(destination.trim(), rail);
+  return payee != null && payee.verified ? payee : null;
 }
 
 /// The app's [BrantaPayeeService].

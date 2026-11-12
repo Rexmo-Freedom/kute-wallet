@@ -509,7 +509,9 @@ final executeSparkTransactionProvider = FutureProvider.autoDispose.family<SendPa
 
 /// Uses an already-prepared response to avoid the double-prepare issue
 /// where preparing twice could cause the payment to stay pending.
-final executeLightningPaymentProvider = FutureProvider.autoDispose.family<void, dynamic>((ref, prepareResponse) async {
+/// Resolves to the Spark payment id (null when the SDK's reply carried
+/// none readable).
+final executeLightningPaymentProvider = FutureProvider.autoDispose.family<String?, dynamic>((ref, prepareResponse) async {
   LedgerOperationScope.assertHotAllowed(HotSigningAction.sparkTransaction);
   try {
     final binding = _preparedPaymentBinding(ref, prepareResponse);
@@ -529,13 +531,16 @@ final executeLightningPaymentProvider = FutureProvider.autoDispose.family<void, 
     }
     // The payment went out; reading its id for the balance hold must
     // never turn that into a reported failure.
+    String? id;
     try {
+      id = paymentId();
       reflectAcceptedSparkSend(cache, sdk,
           walletId: binding.walletId,
           prepared: prepareResponse,
-          paymentId: paymentId(),
+          paymentId: id,
           balanceBeforeSats: before);
     } catch (_) {}
+    return id;
   } catch (e) {
     handlePaymentException(e);
   }

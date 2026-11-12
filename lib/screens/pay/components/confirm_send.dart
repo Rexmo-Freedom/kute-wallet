@@ -3,6 +3,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/services/branta/branta_payee_service.dart';
+import 'package:kute/services/branta/branta_payee_records.dart';
 import 'package:kute/screens/pay/components/bitcoin_coin_selection_sheet.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
 import 'dart:async';
@@ -3523,6 +3524,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       ref
           .read(walletTransactionCacheProvider.notifier)
           .mergeSwapOrder(exchange);
+      _storeConfirmedPayee(ref, [orderId, settled.operation.operationId]);
 
       // Backend provider_events row for revenue attribution. Only the
       // REAL order (ord_…) — never the quote (q_…), which would create
@@ -4096,6 +4098,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final sendTxState = ref.read(sendTxProvider);
     final address = addressController.text;
     final amount = sendTxState.amount;
+    // The payee Branta verified on this Review, kept from the tap that
+    // confirmed it; stored with the payment once it goes out.
+    _keepConfirmedPayee(address);
     final confirmedWalletId = _resolveSourceWallet()?.id;
     final confirmedDestination = _selectedDestNetwork;
 
@@ -4528,7 +4533,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           }
 
           sendStage = 'broadcast';
-          await ref
+          sentPaymentId = await ref
               .read(executeLightningPaymentProvider(rawPrepareResp).future);
 
           // A Lightning address is a reusable destination: keep it as
@@ -4600,6 +4605,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         dedupeKey: sentPaymentId,
       );
       TrackingService.moneyFlowFinished('send');
+      _storeConfirmedPayee(ref, [sentPaymentId]);
 
       if (context.mounted) await _letSendBandSnap(context);
       if (mounted && context.mounted) {
@@ -4863,6 +4869,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         dedupeKey: result.txid,
       );
       TrackingService.moneyFlowFinished('send');
+      _storeConfirmedPayee(ref, [result.txid]);
       unawaited(BackgroundSyncService()
           .scanBdkScope(source: 'bitcoin_send')
           .catchError((_) {}));
@@ -6348,6 +6355,36 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           : brantaRailFor(assetCode: dest.code, chain: network.network);
     }
     return brantaRailForBitcoin(addr);
+  }
+
+  /// The payee Branta verified for the send being confirmed, and its rail
+  /// ([_keepConfirmedPayee]); null when Review showed none.
+  ({BrantaPayee payee, BrantaRail rail})? _confirmedPayee;
+
+  /// Keeps what Review showed for [address] (from memory, never a
+  /// lookup): a verified payee only, never a tampered or unknown answer.
+  void _keepConfirmedPayee(String address) {
+    final a = address.trim();
+    final rail = _brantaRail(a);
+    final payee = brantaVerifiedPayeeShown(a, rail);
+    _confirmedPayee =
+        payee == null || rail == null ? null : (payee: payee, rail: rail);
+  }
+
+  /// The send went out as [paymentIds]: its verified payee is stored with
+  /// it (services/branta/branta_payee_records.dart), once, so the activity
+  /// rows and the receipt show the logo and name without asking Branta
+  /// again. Best effort, never part of the send.
+  void _storeConfirmedPayee(WidgetRef ref, Iterable<String?> paymentIds) {
+    final kept = _confirmedPayee;
+    _confirmedPayee = null;
+    if (kept == null) return;
+    try {
+      unawaited(ref
+          .read(brantaPayeeRecordsProvider.notifier)
+          .record(paymentIds: paymentIds, payee: kept.payee, rail: kept.rail)
+          .then((_) {}, onError: (_) {}));
+    } catch (_) {}
   }
 
   /// The rail's mark inside a recipient's avatar [avatar] across, the Who

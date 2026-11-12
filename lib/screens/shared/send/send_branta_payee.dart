@@ -16,6 +16,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/services/branta/branta_payee_records.dart'
+    show brantaLogoCacheManager;
 import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -33,6 +35,8 @@ BrantaPayee? watchBrantaPayee(
 
 /// The payee's logo, [size] across, clipped to the avatar's circle;
 /// [fallback] (the rail's mark) until it loads and whenever it cannot.
+/// Drawn from [brantaLogoCacheManager]'s disk cache: Send's lookup and the
+/// activity rows of a stored payee (branta_payee_records.dart) share it.
 class BrantaPayeeLogo extends StatelessWidget {
   const BrantaPayeeLogo({
     super.key,
@@ -70,6 +74,9 @@ class BrantaPayeeLogo extends StatelessWidget {
       logo = ClipOval(
         child: CachedNetworkImage(
           imageUrl: u,
+          // On disk with the payment's stored payee, so the activity rows
+          // and the receipt draw it without a download (and offline).
+          cacheManager: brantaLogoCacheManager,
           width: size,
           height: size,
           fit: BoxFit.cover,

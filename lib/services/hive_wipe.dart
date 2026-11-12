@@ -72,6 +72,7 @@ const List<String> hiveBoxesWipedOnWipe = [
   'wallet_transaction_cache',
   'spark_address_ring',
   'runtime_policy_cache',
+  'branta_payees_v1',
   // Opened on demand.
   'currency_rates_v2',
   'hl_chart_preferences',

@@ -108,6 +108,7 @@ import 'package:kute/screens/shared/kute_action_cards.dart'
     show KuteActionCardIcon, kKuteActionCardVisualSize;
 import 'package:kute/screens/shared/send/send_contacts_list.dart'
     show SendBrantaPayeeVisual, SendReviewRoute;
+import 'package:kute/services/branta/branta_payee_records.dart';
 import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
@@ -1928,6 +1929,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       return;
     }
     final recipient = _address.text.trim();
+    // The payee Branta verified on this Review (from memory, never a
+    // lookup), stored with the payment once it goes out.
+    final payeeRail = _brantaRail(destination);
+    final confirmedPayee = brantaVerifiedPayeeShown(recipient, payeeRail);
     // Dollars only ever for the analytics bucket and the step-up sheet;
     // the money itself is the BigInt above.
     final usdForDisplay = amountBaseUnits.toDouble() / 1e6;
@@ -2131,6 +2136,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       ref
           .read(walletTransactionCacheProvider.notifier)
           .mergeSwapOrder(exchange);
+      // A payee Branta verified: kept with the order, so its row and
+      // receipt show the logo and name (branta_payee_records.dart).
+      if (confirmedPayee != null) {
+        unawaited(ref
+            .read(brantaPayeeRecordsProvider.notifier)
+            .record(
+                paymentIds: [orderId, settled.operation.operationId],
+                payee: confirmedPayee,
+                rail: payeeRail)
+            .then((_) {}, onError: (_) {}));
+      }
       // Backend attribution for the REAL order only — a quote id (q_…)
       // would create a row the completion can never reconcile with.
       if (orderId.startsWith('ord_')) {
