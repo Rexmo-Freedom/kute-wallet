@@ -1547,6 +1547,10 @@ class PendingBetAutoFire {
       final Map<String, dynamic> placed = response;
       venueTook = true;
       takenAnswer = placed;
+      // Its end is looked up by the venue's own id for it from now on.
+      unawaited(standing
+          .noteVenueOrderId(standingId, PmSellSettlementWatcher.orderIdOf(placed))
+          .catchError((_) {}));
       if (isLimit) {
         // Resting on the book: the order holds its own cash from now.
         unawaited(tradingNotifier.refresh().catchError((_) {}));

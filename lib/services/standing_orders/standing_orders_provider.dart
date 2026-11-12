@@ -45,6 +45,13 @@
 //    Overview settles the same way from the fills it already shows
 //    ([settleInvestingFromFills]). An order over quietly is never written
 //    back by a save still on its way ([_save]) nor loaded again.
+//    A prediction likewise (founder, 12 November 2026, on 2.2.0 (110): a
+//    live game's bet "got stuck here at placing"): looked up by the
+//    venue's own id for it ([noteVenueOrderId]) and read beside the
+//    account's own trades of it ([standingPmPlacedBy]); a trade of its own
+//    is placed; past the last look one the venue does not know with no
+//    trade is not placed (its money in Predictions), one still held is
+//    over quietly ([_settleSent]).
 //
 // Analytics (exact amounts, never ids or text): `standing_order_created`,
 // `standing_order_resumed`, `standing_order_cancelled`; the venues' own
@@ -209,6 +216,77 @@ List<HlFill> standingHlPlacedBy(StandingOrder order, List<HlFill> fills) {
               .isBefore(since))
         f,
   ];
+}
+
+/// This Predictions account's trades on a token since a moment (`GET
+/// /data/trades?asset_id=&after=`), for a prediction that went to the
+/// venue with no end known here: placed is a trade of its own order
+/// ([standingPmPlacedBy]). Throws when the account cannot be read. Tests
+/// fake it.
+typedef StandingPmTrades = Future<List<Map<String, dynamic>>> Function(
+    String tokenId, DateTime since);
+
+final standingPmTradesProvider = Provider<StandingPmTrades>((ref) =>
+    (tokenId, since) async {
+      final backend =
+          ref.read(polymarketTradingProvider.notifier).backendService;
+      if (backend == null) throw StateError('Predictions account not ready');
+      return backend.getTradesFor(assetId: tokenId, after: since);
+    });
+
+/// How early before a prediction's accept a trade may be stamped and still
+/// be read: the venue's clock against the phone's.
+const Duration kStandingPmTradeSkew = Duration(seconds: 30);
+
+bool _isOrder(Object? id, String hash) =>
+    '${id ?? ''}'.toLowerCase() == hash;
+
+/// The trades of [trades] that are [order]'s own fill (founder, 12
+/// November 2026, on 2.2.0 (110): a bet the venue matched must never stay
+/// "Placing"): its order (by its hash, the venue's own id for it) as the
+/// taker or among the makers, not failed on chain. Empty when none, or
+/// for an order with no hash. Pure for the tests.
+List<Map<String, dynamic>> standingPmPlacedBy(
+    StandingOrder order, List<Map<String, dynamic>> trades) {
+  final hash = order.orderHash?.toLowerCase();
+  if (order.venue != StandingOrderVenue.predictions || hash == null) {
+    return const [];
+  }
+  return [
+    for (final t in trades)
+      if ('${t['status'] ?? ''}'.toUpperCase() != 'FAILED' &&
+          (_isOrder(t['taker_order_id'], hash) ||
+              ((t['maker_orders'] as List?) ?? const [])
+                  .any((m) => m is Map && _isOrder(m['order_id'], hash))))
+        t,
+  ];
+}
+
+/// The shares [order]'s own trades ([own], [standingPmPlacedBy]) bought
+/// and what they cost, by the venue's own figures: as the taker, the
+/// trade's size at its price; as a maker, its matched amount at its price.
+({double shares, double usd}) standingPmTradeFigures(
+    StandingOrder order, List<Map<String, dynamic>> own) {
+  final hash = order.orderHash?.toLowerCase() ?? '';
+  double n(Object? v) =>
+      v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+  var shares = 0.0;
+  var usd = 0.0;
+  for (final t in own) {
+    if (_isOrder(t['taker_order_id'], hash)) {
+      final size = n(t['size']);
+      shares += size;
+      usd += size * n(t['price']);
+      continue;
+    }
+    for (final m in (t['maker_orders'] as List?) ?? const []) {
+      if (m is! Map || !_isOrder(m['order_id'], hash)) continue;
+      final size = n(m['matched_amount']);
+      shares += size;
+      usd += size * n(m['price']);
+    }
+  }
+  return (shares: shares, usd: usd);
 }
 
 /// What a resume wakes once it has queued a standing order again: the
@@ -729,17 +807,33 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
   /// venue's own record of the order, by its hash ([settleFromVenue], as
   /// a resume reads it), looked up at [settleLooks]. Matched is filled;
   /// ended with nothing matched is failed; a limit resting on the book
-  /// has done its part and ends quietly (it is in Open orders); held or
-  /// unknown is looked up again, and left as it is past the last look
-  /// (the next resume reads it). A queued bet still waiting for this
-  /// confirmation ends with it, so it never holds the next bet back
-  /// ("a previous prediction is still being confirmed") with no slip
-  /// left to settle it. Not [atOnce]: the first look is left out, so a
-  /// slip still up settles its own order first. One run per order; never
-  /// throws.
+  /// has done its part and ends quietly (it is in Open orders). Held or
+  /// unknown is looked up again, and the account's own trades of it are
+  /// read beside it ([standingPmPlacedBy]): a trade of its own is placed
+  /// with the trade's figures, whatever the order's record says yet.
+  ///
+  /// Past the last look (founder, 12 November 2026, on 2.2.0 (110): a
+  /// live game's bet stayed "Placing" for good) nothing stays "Placing":
+  /// an order the venue does not know with no trade of its own was never
+  /// placed (the venue keeps every order it took, matched or killed;
+  /// hot_order_guard.dart), said so with its money in Predictions; a
+  /// market order still held or open with no trade of its own ends
+  /// quietly (its toast and slip go, the Portfolio says the rest). Only a
+  /// venue that never answered leaves it as it is (the next resume reads
+  /// it). A queued bet still waiting for this confirmation ends with it,
+  /// so it never holds the next bet back ("a previous prediction is still
+  /// being confirmed") with no slip left to settle it. Not [atOnce]: the
+  /// first look is left out, so a slip still up settles its own order
+  /// first. One run per order; never throws.
   Future<void> _settleSent(String id, {bool atOnce = true}) async {
     if (!_settling.add(id)) return;
     try {
+      // What the venue said of it so far: it does not know it; it holds
+      // it (delayed, live or unmatched) with nothing traded.
+      var unknownToVenue = false;
+      var held = false;
+      // Whether the account's trades could be read, at least once.
+      var tradesRead = false;
       for (final wait in settleLooks.skip(atOnce ? 0 : 1)) {
         await Future<void>.delayed(wait);
         if (_disposed) return;
@@ -759,31 +853,131 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
           continue;
         }
         Map<String, dynamic>? found;
+        var answered = true;
         try {
           found = await ref.read(standingOrderLookupProvider)(hash);
         } catch (_) {
-          continue;
+          answered = false;
         }
         if (_disposed) return;
-        final settled = settleFromVenue(byId(id) ?? order, found);
-        if (settled == null) continue;
-        if (settled.state == StandingOrderState.posted) {
-          if (order.orderKind != 'limit') continue;
+        final settled =
+            answered ? settleFromVenue(byId(id) ?? order, found) : null;
+        if (settled != null && settled.state != StandingOrderState.posted) {
+          _endQueuedBet(id, settled.state);
+          await advance(id, settled.state, failureCode: settled.code);
+          return;
+        }
+        if (settled != null && order.orderKind == 'limit') {
           final bet = ref.read(pendingPolymarketBetProvider);
           if (bet != null && bet.standingOrderId == id) continue;
           // Resting on the book: its part is over, never "not placed".
           await rested(id);
           return;
         }
-        _endQueuedBet(id, settled.state);
-        await advance(id, settled.state, failureCode: settled.code);
+        if (answered && found == null) unknownToVenue = true;
+        if (settled != null) held = true;
+        // Nothing proven by its record: the account's own trades of it.
+        final own = await _ownTrades(order);
+        if (_disposed) return;
+        if (own != null) tradesRead = true;
+        if (own != null && own.isNotEmpty) {
+          await _placedFromTrades(id, own);
+          return;
+        }
+      }
+      if (_disposed) return;
+      final order = byId(id);
+      if (order == null ||
+          (order.state != StandingOrderState.posting &&
+              order.state != StandingOrderState.posted)) {
         return;
+      }
+      final queued = ref.read(pendingPolymarketBetProvider);
+      if (queued != null &&
+          queued.standingOrderId == id &&
+          queued.status == PendingBetStatus.placing) {
+        return;
+      }
+      if (held && order.orderKind != 'limit') {
+        // Still held or open past every look, nothing traded: over
+        // quietly, never "Placing" for good, never "not placed" for an
+        // order the venue holds.
+        _endQueuedBetQuietly(id);
+        await _forget(order);
+        return;
+      }
+      if (unknownToVenue && tradesRead) {
+        // The venue does not know it and nothing of it traded: it was
+        // never placed (a live game's order killed at the end of its
+        // in-play delay, the price gone past it). Its money is in
+        // Predictions.
+        _endQueuedBet(id, StandingOrderState.failed);
+        await advance(id, StandingOrderState.failed,
+            failureCode: StandingOrderFailure.notFilled);
       }
     } catch (_) {
       // Left as it is: the next resume reads it.
     } finally {
       _settling.remove(id);
     }
+  }
+
+  /// [order]'s own trades in the account since it was accepted
+  /// ([standingPmPlacedBy]); null when they cannot be read. Never throws.
+  Future<List<Map<String, dynamic>>?> _ownTrades(StandingOrder order) async {
+    try {
+      final trades = await ref.read(standingPmTradesProvider)(order.marketKey,
+          order.createdAt.subtract(kStandingPmTradeSkew));
+      return standingPmPlacedBy(order, trades);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// [id] placed, by its own trades ([own]): filled with their figures,
+  /// said once (Sal's "Prediction placed"), its queued bet placed with it.
+  Future<void> _placedFromTrades(
+      String id, List<Map<String, dynamic>> own) async {
+    final order = byId(id);
+    if (order == null) return;
+    final figures = standingPmTradeFigures(order, own);
+    await advance(id, StandingOrderState.filled,
+        filledSize: figures.shares > 0 ? figures.shares : null,
+        filledUsd: figures.usd > 0 ? figures.usd : null);
+    _endQueuedBet(id, StandingOrderState.filled);
+  }
+
+  /// The queued bet of [id], still waiting for its order's confirmation,
+  /// goes with no word of its own (its order ended quietly).
+  void _endQueuedBetQuietly(String id) {
+    final current = ref.read(pendingPolymarketBetProvider);
+    if (current == null ||
+        current.standingOrderId != id ||
+        current.status != PendingBetStatus.awaitingConfirmation) {
+      return;
+    }
+    ref.read(pendingPolymarketBetProvider.notifier).clear();
+  }
+
+  /// The venue's own id for [id]'s order, from its answer to the post
+  /// ([orderId]): the order is looked up by it from then on (it is the
+  /// hash the order was signed with; where they differ, the venue's word
+  /// is what its records and trades name).
+  Future<void> noteVenueOrderId(String id, String? orderId) async {
+    final order = byId(id);
+    final venueId = orderId?.toLowerCase();
+    if (order == null ||
+        !order.isOpen ||
+        venueId == null ||
+        !RegExp(r'^0x[0-9a-f]{64}$').hasMatch(venueId) ||
+        order.orderHash == venueId) {
+      return;
+    }
+    final next = order.copyWith(orderHash: venueId, updatedAt: clock());
+    _put(next);
+    try {
+      await _save(next);
+    } catch (_) {}
   }
 
   /// The queued bet of [id], still waiting for its order's confirmation,
@@ -1370,8 +1564,24 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
         return;
       }
       final settled = settleFromVenue(order, found);
+      if (settled != null &&
+          settled.state == StandingOrderState.posted &&
+          order.orderKind != 'limit') {
+        // A market order the venue still holds or lists open: its end is
+        // read as a sent one's ([_settleSent]), never "Placing" for good.
+        await advance(order.id, StandingOrderState.posted);
+        unawaited(_settleSent(order.id));
+        return;
+      }
       if (settled != null) {
         await advance(order.id, settled.state, failureCode: settled.code);
+        return;
+      }
+      // The venue does not know it: a trade of its own in the account
+      // says it was placed all the same.
+      final own = await _ownTrades(order);
+      if (own != null && own.isNotEmpty) {
+        await _placedFromTrades(order.id, own);
         return;
       }
       // Never reached the venue: posted again below when the money is

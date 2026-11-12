@@ -15,6 +15,7 @@ import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart'
     show HlFill, HlMarket, HlMarketKind;
+import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/pending_bet_autofire.dart'
     show kPendingBetAutofireId, polymarketFundedWorstPrice;
@@ -179,6 +180,10 @@ void main() {
   /// read.
   List<HlFill>? hlFills;
 
+  /// The Predictions account's trades on a token; null: the account
+  /// cannot be read.
+  List<Map<String, dynamic>>? pmTrades;
+
   setUpAll(() {
     dir = Directory.systemTemp.createTempSync('standing_provider_test');
     Hive.init(dir.path);
@@ -197,6 +202,7 @@ void main() {
     events = [];
     lookup = null;
     hlFills = null;
+    pmTrades = null;
     hlMarkets = [
       _market('BTC'),
       _market('xyz:NVDA', dex: 'xyz'),
@@ -238,6 +244,11 @@ void main() {
         final f = hlFills;
         if (f == null) throw StateError('no account');
         return f;
+      }),
+      standingPmTradesProvider.overrideWithValue((token, since) async {
+        final t = pmTrades;
+        if (t == null) throw StateError('no account');
+        return t;
       }),
     ]);
     addTearDown(() {
@@ -873,6 +884,120 @@ void main() {
             PendingBetStatus.failed);
       });
 
+      // Founder, 12 November 2026, on 2.2.0 (110): a funded bet on a live
+      // CS game ($4.83 on MOUZ) "after transfer got stuck here at
+      // placing". The venue holds a game in play's order for its in-play
+      // delay, then matches or kills it; an order whose end was not heard
+      // stayed "Placing" for good once the looks ran out.
+      test(
+          'a live game\'s order held for its in-play delay, then matched: '
+          'placed, its queued bet with it', () async {
+        final r = await posted();
+        var looks = 0;
+        lookup = (hash) => {
+              'id': hash,
+              'status': looks++ == 0 ? 'DELAYED' : 'MATCHED',
+              'size_matched': looks > 1 ? '19.23' : '0',
+            };
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await settle();
+        expect(r.c.read(standingOrdersProvider).single.state,
+            StandingOrderState.filled);
+        expect(r.outcomes.single.state, StandingOrderState.filled);
+        final bet = r.c.read(pendingPolymarketBetProvider);
+        expect(bet == null || bet.status == PendingBetStatus.done, isTrue);
+      });
+
+      test(
+          'held past every look, its own trade in the account: placed with '
+          'the trade\'s figures, whatever its record says yet', () async {
+        final r = await posted();
+        final hash = r.c.read(standingOrdersProvider).single.orderHash!;
+        lookup = (hash) => {'id': hash, 'status': 'DELAYED'};
+        pmTrades = [
+          // Another order's trade on the market: never this one's.
+          {
+            'taker_order_id': '0x${'ef' * 32}',
+            'size': '50',
+            'price': '0.5',
+            'status': 'CONFIRMED',
+          },
+          {
+            'taker_order_id': hash,
+            'size': '20.5',
+            'price': '0.48',
+            'status': 'MATCHED',
+          },
+        ];
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await settle();
+        final o = r.c.read(standingOrdersProvider).single;
+        expect(o.state, StandingOrderState.filled);
+        expect(o.filledSize, closeTo(20.5, 1e-9));
+        expect(o.filledUsd, closeTo(9.84, 1e-9));
+        expect(r.outcomes, hasLength(1));
+        final bet = r.c.read(pendingPolymarketBetProvider);
+        expect(bet == null || bet.status == PendingBetStatus.done, isTrue);
+      });
+
+      test(
+          'killed at the end of its in-play delay (the venue no longer knows '
+          'it, nothing of it traded): not placed, said once, the money in '
+          'Predictions, the queued bet failed with it', () async {
+        final r = await posted();
+        lookup = (hash) => null;
+        pmTrades = const [];
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await settle();
+        final o = r.c.read(standingOrdersProvider).single;
+        expect(o.state, StandingOrderState.failed);
+        expect(o.failureCode, StandingOrderFailure.notFilled);
+        expect(r.outcomes, hasLength(1));
+        final bet = r.c.read(pendingPolymarketBetProvider)!;
+        expect(bet.status, PendingBetStatus.failed);
+        expect(bet.errorMessage, l10nForLanguage('en').betBuyNotMatched);
+        // Nothing left to place or resume.
+        expect((await store.load('w1')).where((o) => o.isOpen), isEmpty);
+      });
+
+      test(
+          'held past every look with nothing traded: over quietly, never '
+          '"Placing" for good, never "not placed" for an order the venue '
+          'holds', () async {
+        final r = await posted();
+        lookup = (hash) => {'id': hash, 'status': 'DELAYED'};
+        pmTrades = const [];
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await settle();
+        expect(r.c.read(standingOrdersProvider), isEmpty);
+        expect(r.outcomes, isEmpty);
+        expect(r.c.read(pendingPolymarketBetProvider), isNull,
+            reason: 'no bet left "still being confirmed"');
+        expect((await store.load('w1')).where((o) => o.isOpen), isEmpty);
+      });
+
+      test(
+          'the venue\'s own id from its answer: looked up by it from then on',
+          () async {
+        final r = await posted();
+        final venueId = '0x${'9a' * 32}';
+        await r.c
+            .read(standingOrdersProvider.notifier)
+            .noteVenueOrderId(r.id, venueId.toUpperCase().replaceFirst('0X', '0x'));
+        expect(r.c.read(standingOrdersProvider).single.orderHash, venueId);
+        final asked = <String>[];
+        lookup = (hash) {
+          asked.add(hash);
+          return {'id': hash, 'status': 'MATCHED'};
+        };
+        r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+        await settle();
+        expect(asked, isNotEmpty);
+        expect(asked.toSet(), {venueId});
+        expect(r.c.read(standingOrdersProvider).single.state,
+            StandingOrderState.filled);
+      });
+
       test('the venue unreadable: left as it is, never guessed', () async {
         final r = await posted();
         r.notifier.updateStatus(PendingBetStatus.awaitingConfirmation);
@@ -1168,6 +1293,36 @@ void main() {
       expect(c.read(pendingPolymarketBetProvider)!.standingOrderId, 'so_restart');
     });
 
+    test(
+        'posting, the venue does not know it but the account shows its own '
+        'trade: placed with the trade\'s figures, never posted again',
+        () async {
+      await store.save(stored(state: StandingOrderState.posting));
+      await store.writeSecret('so_restart', {'venue': 'predictions'});
+      lookup = (hash) => null;
+      pmTrades = [
+        {
+          'maker_orders': [
+            {
+              'order_id': '0x${'ab' * 32}',
+              'matched_amount': '19.23',
+              'price': '0.52',
+            }
+          ],
+          'taker_order_id': '0x${'01' * 32}',
+          'size': '100',
+          'price': '0.48',
+          'status': 'CONFIRMED',
+        }
+      ];
+      final c = container();
+      await c.read(standingOrdersProvider.notifier).resume();
+      final o = c.read(standingOrdersProvider).single;
+      expect(o.state, StandingOrderState.filled);
+      expect(o.filledSize, closeTo(19.23, 1e-9));
+      expect(c.read(pendingPolymarketBetProvider), isNull);
+    });
+
     test('an Investing market order is queued again; a limit is settled honestly',
         () async {
       await store.save(stored(venue: StandingOrderVenue.investing));
@@ -1360,6 +1515,49 @@ void main() {
       expect(StandingOrdersNotifier.resumeMarketFor(spot, markets)?.coin,
           'NVDAX');
     });
+  });
+
+  test('standingPmPlacedBy: its own order as taker or maker, never another\'s '
+      'nor a trade failed on chain', () {
+    final order = StandingOrder(
+      id: 'so',
+      walletId: 'w1',
+      venue: StandingOrderVenue.predictions,
+      marketKey: '111',
+      marketTitle: 'Will it rain?',
+      sideLabel: 'Yes',
+      isBuy: true,
+      size: 10,
+      approvedPrice: 0.5,
+      amountUsd: 5,
+      orderKind: 'market',
+      state: StandingOrderState.posted,
+      createdAt: _now,
+      updatedAt: _now,
+      orderHash: '0x${'ab' * 32}',
+    );
+    final mine = {
+      'taker_order_id': '0x${'AB' * 32}',
+      'size': '10',
+      'price': '0.5',
+      'status': 'MATCHED'
+    };
+    final asMaker = {
+      'taker_order_id': '0x${'01' * 32}',
+      'maker_orders': [
+        {'order_id': '0x${'ab' * 32}', 'matched_amount': '2', 'price': '0.4'},
+        {'order_id': '0x${'02' * 32}', 'matched_amount': '9', 'price': '0.4'},
+      ],
+      'size': '11',
+      'price': '0.6',
+    };
+    final failed = {...mine, 'status': 'FAILED'};
+    final other = {...mine, 'taker_order_id': '0x${'cd' * 32}'};
+    final own = standingPmPlacedBy(order, [mine, asMaker, failed, other]);
+    expect(own, [mine, asMaker]);
+    final figures = standingPmTradeFigures(order, own);
+    expect(figures.shares, closeTo(12, 1e-9));
+    expect(figures.usd, closeTo(5.8, 1e-9));
   });
 
   test('settleFromVenue reads the venue\'s record, nothing else', () {

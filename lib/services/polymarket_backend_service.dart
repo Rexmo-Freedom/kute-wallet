@@ -870,6 +870,41 @@ class PolymarketBackendService {
     return null;
   }
 
+  /// This account's trades on the token [assetId] since [after] (`GET
+  /// /data/trades?asset_id=&after=`, the first page): each with its taker
+  /// order and the maker orders it matched, for an order whose end was
+  /// never heard (standing_orders_provider.dart `standingPmPlacedBy`).
+  /// The L2 signature covers the path only, as the reference client signs
+  /// it.
+  Future<List<Map<String, dynamic>>> getTradesFor(
+      {required String assetId, required DateTime after}) async {
+    if (assetId.isEmpty || assetId.length > 128) {
+      throw const FormatException('Invalid token ID.');
+    }
+    const path = '/data/trades';
+    final response = await http
+        .get(
+          Uri.parse('$_clobBaseUrl$path').replace(queryParameters: {
+            'asset_id': assetId,
+            'after': '${after.millisecondsSinceEpoch ~/ 1000}',
+          }),
+          headers: _authHeaders(method: 'GET', path: path),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 401) throw InvalidApiKeyException();
+    if (response.statusCode != 200) {
+      throw StateError(
+          'Could not read the trades (HTTP ${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    final list = decoded is Map ? decoded['data'] : decoded;
+    if (list is! List) throw StateError('Could not read the trades.');
+    return [
+      for (final t in list)
+        if (t is Map<String, dynamic>) t,
+    ];
+  }
+
   // No `/fee-rate` reader: V2 orders carry no feeRateBps (fees are set at
   // match time). The fee schedule the bet slip shows comes from the CLOB
   // market itself — see polymarket/polymarket_fee_terms.dart.
