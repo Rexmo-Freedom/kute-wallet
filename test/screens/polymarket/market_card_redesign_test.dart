@@ -19,6 +19,7 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/services/polymarket/poly_card_spark_store.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/services/polymarket/polymarket_feed_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -428,16 +429,15 @@ void main() {
 
   group('B · one tap to the slip', () {
     testWidgets(
-        'many outcomes: one quiet Yes pill per row hands its outcome to the '
-        'list; the rest of the card opens the market', (tester) async {
+        'many outcomes: no pill on a row (too small, founder 12 November '
+        "2026); a row is the card's tap and opens the market", (tester) async {
       final picks = <PolyCardPick>[];
       var opened = 0;
-      final outcomes = _dated();
       await _pump(
         tester,
         MarketCard(
           title: 'Jensen Huang announced resignation or removal?',
-          outcomes: outcomes,
+          outcomes: _dated(),
           volume: 20.2e6,
           category: 'tech',
           endDate: DateTime(2027, 4, 30),
@@ -445,31 +445,12 @@ void main() {
           onPickSide: picks.add,
         ),
       );
-      final c = AppColorsExtension.light();
-      for (final label in ['Yes 84¢', 'Yes 82.5¢', 'Yes 77.5¢']) {
-        final text = tester.widget<Text>(find.text(label));
-        expect(text.style!.color, AppColors.marketUp);
-        final pill = tester.widget<Container>(find
-            .ancestor(of: find.text(label), matching: find.byType(Container))
-            .first);
-        expect((pill.decoration! as BoxDecoration).color, c.surfaceLight);
-      }
-      // One per row, on its row, and the pills line up.
-      expect(find.byType(PolySidePill), findsNWidgets(3));
-      expect(tester.getCenter(find.text('Yes 82.5¢')).dy,
-          moreOrLessEquals(tester.getCenter(find.text('March 31, 2027')).dy,
-              epsilon: 2));
-      final rights = [
-        for (final p in tester.widgetList(find.byType(PolySidePill)))
-          tester.getTopRight(find.byWidget(p)).dx
-      ];
-      expect(rights.toSet(), hasLength(1));
-      await tester.tap(find.text('Yes 82.5¢'));
-      expect(picks.single.outcome, same(outcomes[1]));
-      expect(opened, 0);
-      await tester.tap(find.text('Jensen Huang announced resignation or removal?'));
-      expect(opened, 1);
-      expect(picks, hasLength(1));
+      expect(find.byType(PolySidePill), findsNothing);
+      expect(find.textContaining('¢'), findsNothing);
+      await tester.tap(find.text('March 31, 2027'));
+      await tester.tap(find.byType(PolyOutcomeChanceBar).at(2));
+      expect(opened, 2);
+      expect(picks, isEmpty);
     });
 
     testWidgets('Yes/No: two pills, full width and 36 tall, Yes and No',
@@ -781,6 +762,264 @@ void main() {
       await _pump(tester, yesNo('kept'), overrides: overrides);
       await tester.pump(const Duration(seconds: 1));
       expect(asked, [('kept', '1w')]);
+    });
+  });
+
+  group('the outcome grid (founder, 12 November 2026: "sizes are strange")',
+      () {
+    /// The three rows' geometry: each name, percent and bar.
+    ({List<Rect> bars, List<Rect> pcts, List<Rect> names, List<double> rows})
+        geometry(WidgetTester tester, List<String> names, List<String> pcts) {
+      final bars = [
+        for (var i = 0; i < 3; i++)
+          tester.getRect(find.byType(PolyOutcomeChanceBar).at(i)),
+      ];
+      final nameRects = [for (final n in names) tester.getRect(find.text(n))];
+      return (
+        bars: bars,
+        pcts: [for (final p in pcts) tester.getRect(find.text(p))],
+        names: nameRects,
+        // A row: from its name's top to its bar's bottom.
+        rows: [for (var i = 0; i < 3; i++) bars[i].bottom - nameRects[i].top],
+      );
+    }
+
+    const pcts = ['84%', '82.5%', '77.5%'];
+
+    for (final (width, scale) in [(393.0, 1.0), (320.0, 1.5)]) {
+      testWidgets(
+          'every row on one grid at $width pt ×$scale: one bar length, one '
+          'percent edge, the bars and the card edge', (tester) async {
+        await _pump(
+          tester,
+          MarketCard(
+            title: 'Jensen Huang announced resignation or removal?',
+            outcomes: _dated(leaderMove: 0.46),
+            volume: 20.2e6,
+            category: 'tech',
+            endDate: DateTime(2027, 4, 30),
+            onPickSide: (_) {},
+          ),
+          width: width,
+          textScale: scale,
+        );
+        expect(tester.takeException(), isNull);
+        final g = geometry(tester,
+            ['December 31, 2027', 'March 31, 2027', 'December 31, 2026'], pcts);
+        // One bar length, from where the names start to the card's edge.
+        for (final b in g.bars) {
+          expect(b.width, moreOrLessEquals(g.bars.first.width, epsilon: 0.5));
+          expect(b.left, moreOrLessEquals(g.bars.first.left, epsilon: 0.5));
+          expect(b.left, moreOrLessEquals(g.names.first.left, epsilon: 0.5));
+        }
+        final card = tester.getRect(find.byType(MarketCard));
+        expect(card.right - g.bars.first.right,
+            moreOrLessEquals(16.w, epsilon: 0.5));
+        // The percents end on one edge, the leader's move or not, in
+        // one column as wide on every row.
+        for (final p in g.pcts) {
+          expect(p.right, moreOrLessEquals(g.pcts.first.right, epsilon: 0.5));
+          expect(p.width, moreOrLessEquals(g.pcts.first.width, epsilon: 0.5));
+        }
+        // The move ("▲46") in its own column after the leader's percent.
+        final move = tester.getRect(find.text('▲46'));
+        expect(move.left, greaterThan(g.pcts.first.right));
+        expect(move.right, lessThanOrEqualTo(g.bars.first.right + 0.5));
+        // Each percent on its name's first line, over its own bar.
+        for (var i = 0; i < 3; i++) {
+          expect(g.pcts[i].bottom, lessThanOrEqualTo(g.bars[i].top));
+          expect(g.pcts[i].top,
+              moreOrLessEquals(g.names[i].top, epsilon: 2));
+        }
+        // One size for every name, the leader's only bolder.
+        final sizes = {
+          for (final n in ['December 31, 2027', 'March 31, 2027'])
+            tester.widget<Text>(find.text(n)).style!.fontSize
+        };
+        expect(sizes, hasLength(1));
+        // "+3 more" starts where the names do.
+        expect(tester.getTopLeft(find.text('+3 more')).dx,
+            moreOrLessEquals(g.names.first.left, epsilon: 0.5));
+        // The same gap between every pair of rows.
+        final gaps = [
+          for (var i = 1; i < 3; i++) g.names[i].top - g.bars[i - 1].bottom
+        ];
+        expect(gaps[1], moreOrLessEquals(gaps[0], epsilon: 0.5));
+      });
+    }
+
+    testWidgets('names that fit one line: rows of one height', (tester) async {
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Jensen Huang announced resignation or removal?',
+          outcomes: _dated(leaderMove: 0.06),
+          volume: 20.2e6,
+          category: 'tech',
+          endDate: DateTime(2027, 4, 30),
+        ),
+        width: 393,
+      );
+      final g = geometry(tester,
+          ['December 31, 2027', 'March 31, 2027', 'December 31, 2026'], pcts);
+      for (final n in g.names) {
+        expect(n.height, moreOrLessEquals(g.names.first.height, epsilon: 0.5));
+      }
+      for (final r in g.rows) {
+        expect(r, moreOrLessEquals(g.rows.first, epsilon: 0.5));
+      }
+    });
+
+    testWidgets(
+        'a long name wraps to a second line, whole, and leaves the bars and '
+        'percents where they were', (tester) async {
+      const long = 'Jensen Huang (No Change before the end of 2027)';
+      List<PolymarketOutcome> rows(String second) => [
+            const PolymarketOutcome(
+                name: 'December 31, 2027',
+                price: 0.84,
+                tokenId: 'd27',
+                noTokenId: 'd27n',
+                dayMove: 0.06),
+            PolymarketOutcome(
+                name: second, price: 0.825, tokenId: 'm27', noTokenId: 'm27n'),
+            const PolymarketOutcome(
+                name: 'December 31, 2026',
+                price: 0.775,
+                tokenId: 'd26',
+                noTokenId: 'd26n'),
+            const PolymarketOutcome(
+                name: 'June 30, 2026', price: 0.4, tokenId: 'j', noTokenId: 'x'),
+          ];
+      Future<({List<Rect> bars, List<Rect> pcts, List<Rect> names, List<double> rows})>
+          pumpWith(String second) async {
+        await _pump(
+          tester,
+          MarketCard(
+            title: 'Jensen Huang announced resignation or removal?',
+            outcomes: rows(second),
+            volume: 20.2e6,
+            category: 'tech',
+            endDate: DateTime(2027, 4, 30),
+          ),
+          width: 393,
+        );
+        expect(tester.takeException(), isNull);
+        return geometry(
+            tester, ['December 31, 2027', second, 'December 31, 2026'], pcts);
+      }
+
+      final short = await pumpWith('March 31, 2027');
+      final wrapped = await pumpWith(long);
+      final p = tester.renderObject<RenderParagraph>(find.text(long));
+      final lines = p.getBoxesForSelection(
+              TextSelection(baseOffset: 0, extentOffset: long.length))
+          .map((b) => b.top)
+          .toSet();
+      expect(lines, hasLength(2));
+      expect(p.didExceedMaxLines, isFalse);
+      for (var i = 0; i < 3; i++) {
+        expect(wrapped.bars[i].width,
+            moreOrLessEquals(short.bars[i].width, epsilon: 0.5));
+        expect(wrapped.bars[i].left,
+            moreOrLessEquals(short.bars[i].left, epsilon: 0.5));
+        expect(wrapped.pcts[i].right,
+            moreOrLessEquals(short.pcts[i].right, epsilon: 0.5));
+        expect(wrapped.pcts[i].width,
+            moreOrLessEquals(short.pcts[i].width, epsilon: 0.5));
+      }
+      // Only the wrapped row grows, by one line.
+      expect(wrapped.rows[1], greaterThan(short.rows[1]));
+      expect(wrapped.rows[0], moreOrLessEquals(short.rows[0], epsilon: 0.5));
+      expect(wrapped.rows[2], moreOrLessEquals(short.rows[2], epsilon: 0.5));
+      // The percent stays on the name's first line.
+      expect(wrapped.pcts[1].top,
+          moreOrLessEquals(wrapped.names[1].top, epsilon: 2));
+    });
+
+    testWidgets(
+        'one percent edge from card to card: with or without a move, a '
+        "game's chances too", (tester) async {
+      await _pump(
+        tester,
+        Column(children: [
+          MarketCard(
+            title: 'Jensen Huang announced resignation or removal?',
+            outcomes: _dated(leaderMove: 0.06),
+            volume: 20.2e6,
+            category: 'tech',
+          ),
+          MarketCard(
+            title: 'Jensen Huang out?',
+            outcomes: [
+              for (final o in _dated())
+                PolymarketOutcome(
+                    name: '${o.name} ', price: o.price, noTokenId: o.noTokenId),
+            ],
+            volume: 20.2e6,
+            category: 'tech',
+          ),
+        ]),
+        width: 393,
+      );
+      expect(find.text('84%'), findsNWidgets(2));
+      final rights = [
+        for (final e in find.text('84%').evaluate())
+          tester.getRect(find.byWidget(e.widget)).right
+      ];
+      expect(rights[1], moreOrLessEquals(rights[0], epsilon: 0.5));
+      // And the rows keep one height on both cards: an empty move slot
+      // adds nothing.
+      double rowHeight(int card, int row) {
+        final bar = find
+            .descendant(
+                of: find.byType(MarketCard).at(card),
+                matching: find.byType(PolyOutcomeChanceBar))
+            .at(row);
+        final names = card == 0
+            ? ['December 31, 2027', 'March 31, 2027']
+            : ['December 31, 2027 ', 'March 31, 2027 '];
+        return tester.getRect(bar).bottom -
+            tester.getRect(find.text(names[row])).top;
+      }
+
+      for (final row in [0, 1]) {
+        expect(rowHeight(1, row), moreOrLessEquals(rowHeight(0, row), epsilon: 0.5));
+      }
+
+      // A game: both chances on one edge, a move or not, on every card.
+      double edge(String pct) => tester
+          .getTopRight(find.byWidgetPredicate(
+              (w) => w is RollingFigure && w.text == pct))
+          .dx;
+      for (final moved in [true, false]) {
+        await _pump(
+          tester,
+          MarketCard(
+            title: 'Broncos vs. 49ers',
+            outcomes: [
+              const PolymarketOutcome(name: 'Broncos', price: 0.36, tokenId: 'b'),
+              PolymarketOutcome(
+                  name: '49ers',
+                  price: 0.64,
+                  tokenId: 'n',
+                  dayMove: moved ? 0.03 : null),
+            ],
+            volume: 6.2e6,
+            category: 'sports',
+            gameStart: DateTime(2030, 10, 5, 20, 30),
+            onPickSide: (_) {},
+          ),
+          width: 393,
+        );
+        expect(edge('36%'), moreOrLessEquals(edge('64%'), epsilon: 0.5));
+        rights.add(edge('64%'));
+        // The sides' pills: one width.
+        final pills = find.byType(PolySidePill);
+        expect(tester.getSize(pills.first).width,
+            moreOrLessEquals(tester.getSize(pills.last).width, epsilon: 0.5));
+      }
+      expect(rights[3], moreOrLessEquals(rights[2], epsilon: 0.5));
     });
   });
 

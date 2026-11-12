@@ -1,6 +1,7 @@
 // A look by eye at the Predictions list cards after the redesign (founder,
 // 12 November 2026, "do all 3": A what's moving, B one tap to the slip, C
-// a tiny chart), written only when asked:
+// a tiny chart; then the outcome rows as one grid with no row pills,
+// "sizes are strange"), written only when asked:
 //   FW183_RENDER=<dir> flutter test test/render/predictions_cards_render_test.dart
 // The real Inter face, light and dark, 393 wide (an iPhone) and 320 at
 // text ×1.5 (the tightest): many outcomes, a Yes/No market, a game in play
@@ -83,6 +84,29 @@ List<(String, Widget)> _cards() => [
           volume: 20.2e6,
           category: 'tech',
           endDate: DateTime(2027, 4, 30),
+          onTap: () {},
+          onPickSide: (_) {},
+        ),
+      ),
+      (
+        'many_outcomes_long_names',
+        MarketCard(
+          title: 'Who will be NVIDIA CEO at the end of 2026?',
+          outcomes: const [
+            PolymarketOutcome(
+                name: 'Jensen Huang (No Change)',
+                price: 0.93,
+                tokenId: 'jh',
+                noTokenId: 'jhn'),
+            PolymarketOutcome(
+                name: 'Colette Kress', price: 0.03, tokenId: 'ck', noTokenId: 'x'),
+            PolymarketOutcome(
+                name: 'Jay Puri', price: 0.02, tokenId: 'jp', noTokenId: 'y'),
+            PolymarketOutcome(
+                name: 'Another person', price: 0.01, tokenId: 'ap', noTokenId: 'z'),
+          ],
+          volume: 3.1e6,
+          category: 'tech',
           onTap: () {},
           onPickSide: (_) {},
         ),

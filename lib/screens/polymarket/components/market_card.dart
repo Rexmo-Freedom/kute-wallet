@@ -12,8 +12,6 @@ import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/game_time.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart'
     show gameSideColors, kGameSideColors;
-import 'package:kute/services/polymarket/market_display_title.dart'
-    show polyMarketDisplayTitle;
 import 'package:kute/providers/polymarket_card_spark_provider.dart'
     show polyCardSparkProvider;
 import 'package:kute/services/polymarket/poly_card_spark_store.dart'
@@ -90,35 +88,24 @@ Widget polyGroupRowDivider(BuildContext context, double indent) => Divider(
 
 /// What a card's pill opens the slip on (founder, 12 November 2026: one
 /// tap to the slip, money only after Confirm there): a side of a single
-/// market ('yes' / 'no'), one outcome of an event (its Yes), or one side
-/// of a game (0 the title's first team, 1 the draw, 2 the second).
+/// market ('yes' / 'no') or one side of a game (0 the title's first
+/// team, 1 the draw, 2 the second).
 @immutable
 class PolyCardPick {
   final String? side;
-  final PolymarketOutcome? outcome;
   final int? way;
-  const PolyCardPick.side(String this.side)
-      : outcome = null,
-        way = null;
-  const PolyCardPick.outcome(PolymarketOutcome this.outcome)
-      : side = null,
-        way = null;
-  const PolyCardPick.game(int this.way)
-      : side = null,
-        outcome = null;
+  const PolyCardPick.side(String this.side) : way = null;
+  const PolyCardPick.game(int this.way) : side = null;
 
   @override
   bool operator ==(Object other) =>
-      other is PolyCardPick &&
-      other.side == side &&
-      identical(other.outcome, outcome) &&
-      other.way == way;
+      other is PolyCardPick && other.side == side && other.way == way;
 
   @override
-  int get hashCode => Object.hash(side, outcome, way);
+  int get hashCode => Object.hash(side, way);
 
   @override
-  String toString() => 'PolyCardPick(${side ?? outcome?.name ?? way})';
+  String toString() => 'PolyCardPick(${side ?? way})';
 }
 
 /// Opens the bet slip on [side] ('yes' / 'no') of [event], or on [pick],
@@ -140,8 +127,6 @@ void polyCardOpenSlip(
   void open({
     required List<PolymarketOutcome> outcomes,
     required int index,
-    String? question,
-    String? image,
     String? pos,
     String? neg,
     List<Color?>? colors,
@@ -151,9 +136,9 @@ void polyCardOpenSlip(
         context,
         event: event,
         negRisk: event.negRisk,
-        marketQuestion: question ?? event.displayTitle,
+        marketQuestion: event.displayTitle,
         marketSlug: event.slug,
-        marketImage: image ?? event.imageUrl,
+        marketImage: event.imageUrl,
         outcomes: outcomes,
         initialOutcomeIndex: index,
         onDeposit: onDeposit,
@@ -187,26 +172,6 @@ void polyCardOpenSlip(
     ];
   }
 
-  final outcome = pick?.outcome;
-  if (outcome != null) {
-    if (outcome.hasYesNo) {
-      // One outcome of an event is its own Yes/No market: its Yes.
-      open(
-        outcomes: pair(outcome),
-        index: 0,
-        question: polyMarketDisplayTitle(event.title,
-            question: outcome.question, itemTitle: outcome.name),
-        image: outcome.imageUrl,
-      );
-    } else {
-      final idx = event.outcomes.indexWhere((o) =>
-          identical(o, outcome) ||
-          (o.tokenId != null && o.tokenId == outcome.tokenId) ||
-          o.name == outcome.name);
-      open(outcomes: event.outcomes, index: idx < 0 ? 0 : idx);
-    }
-    return;
-  }
   final way = pick?.way;
   if (way != null) {
     final game = polyCardGame(event.displayTitle, event.outcomes);
@@ -312,6 +277,19 @@ double _measureText(BuildContext context, String text, TextStyle style) =>
     )..layout())
         .width;
 
+/// The move column beside a chance: as wide as the widest move a card
+/// writes ("▲99"), or [delta] when it is wider, so it is one width on
+/// every card and the chances before it end on one edge.
+double _moveSlotWidth(BuildContext context, String? delta, double? move) {
+  final style = _moveStyle(move ?? 1);
+  var w = _measureText(context, '▲99', style);
+  if (delta != null) {
+    final d = _measureText(context, delta, style);
+    if (d > w) w = d;
+  }
+  return w.ceilToDouble() + 1;
+}
+
 /// One Predictions list card, in three shapes that share their frame:
 /// names on the left, the number that matters on the right.
 ///
@@ -328,12 +306,15 @@ double _measureText(BuildContext context, String text, TextStyle style) =>
 ///     number (founder, 12 November 2026: what's moving, on all three
 ///     cards);
 ///   * an event with many outcomes: the question, then its three most
-///     likely outcomes as rows of the name (14, the leader semibold), a
-///     chance bar (6 tall) and the percent ("Name ▬▬▬▬ 41%"), the
-///     leader's day move beside its percent ("84% ▲6"), and "+N more ›".
-///     Each bar is filled in its outcome's line colour on the market's
-///     chart (founder, 11 November 2026: "more colourful, not
-///     corporate").
+///     likely outcomes as rows on one grid (founder, 12 November 2026:
+///     "sizes are strange"): the name (14, the leader semibold, wrapping
+///     rather than cut) with the percent and the day's move in fixed
+///     columns at its right ("84% ▲6", the leader's move only, an empty
+///     slot on the other rows so every percent ends on one edge), and
+///     under them the chance bar (6 tall) at the row's whole width, the
+///     same length on every row; then "+N more ›". Each bar is filled in
+///     its outcome's line colour on the market's chart (founder, 11
+///     November 2026: "more colourful, not corporate").
 ///
 /// A game in play leads with a live dot and its clock, and every game draws one split bar of its chances in the teams'
 /// colours ([kGameSideColors], the draw grey), the leader's day move
@@ -357,12 +338,14 @@ double _measureText(BuildContext context, String text, TextStyle style) =>
 /// leader's win chance in its team's colour (since kickoff while it is
 /// played). It never holds the card up: nothing is drawn until it lands.
 ///
-/// Every open card has one tap to the slip ([onPickSide], founder, 12
-/// November 2026): a quiet "Yes 84¢" pill per outcome row, a Yes/No
-/// market's two answers full width and 36 tall, a game's sides as
-/// neutral pills (team · draw · team). A pill only opens the slip
-/// prefilled on its side; nothing is placed, funded or approved before
-/// Confirm there, and there are no amount chips.
+/// A Yes/No market and a game have one tap to the slip ([onPickSide],
+/// founder, 12 November 2026): a Yes/No market's two answers full width
+/// and 36 tall, a game's sides as neutral pills (team · draw · team). A
+/// pill only opens the slip prefilled on its side; nothing is placed,
+/// funded or approved before Confirm there, and there are no amount
+/// chips. An event with many outcomes has no pills (founder, 12 November
+/// 2026: a pill per row was too small): its rows are the card's tap,
+/// which opens the market.
 ///
 /// Which shape, and every number on it, comes from the event the feed
 /// already gave (market_card_shape.dart). The whole card is one tap
@@ -740,7 +723,6 @@ class MarketCard extends ConsumerWidget {
     final names = gameShortSideNames(game.nameA, game.nameB, teams: teams);
     Widget pill(String label, double price, int way) => Expanded(
           child: PolySidePill(
-            wide: true,
             text: '$label ${polymarketCentsLabel(price.clamp(0.0, 1.0))}',
             color: c.textPrimary,
             onTap: _pick(PolyCardPick.game(way)),
@@ -777,17 +759,16 @@ class MarketCard extends ConsumerWidget {
     final score = _scoreOf();
     final leader = polyCardLeader(
         score: score, chanceA: game.chanceA, chanceB: game.chanceB);
-    // The leader's day move beside its chance ("62% ▲9"), in a slot both
-    // rows keep so their chances end on one edge.
+    // The leader's day move beside its chance ("62% ▲9"), in the move
+    // column every card keeps (empty without one), so the chances end on
+    // one edge on both rows and from one game card to the next.
     final move = leader == 0
         ? null
         : leader > 0
             ? game.dayMoveA
             : game.dayMoveB;
     final delta = polyCardMoveDelta(move);
-    final deltaWidth = delta == null
-        ? 0.0
-        : _measureText(context, delta, _moveStyle(move!)).ceilToDouble() + 1;
+    final deltaWidth = _moveSlotWidth(context, delta, move);
     // Both scores sit in one column as wide as the longer of the two.
     final digits = score == null
         ? 0
@@ -841,16 +822,14 @@ class MarketCard extends ConsumerWidget {
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
           ),
-          if (delta != null) ...[
-            SizedBox(width: 4.w),
-            SizedBox(
-              width: deltaWidth,
-              child: leads && leader != 0
-                  ? Text(delta,
-                      maxLines: 1, softWrap: false, style: _moveStyle(move!))
-                  : null,
-            ),
-          ],
+          SizedBox(width: 4.w),
+          SizedBox(
+            width: deltaWidth,
+            child: delta != null && leads && leader != 0
+                ? Text(delta,
+                    maxLines: 1, softWrap: false, style: _moveStyle(move!))
+                : null,
+          ),
           if (points != null)
             SizedBox(
               width: scoreWidth + 14.w,
@@ -1018,8 +997,7 @@ class MarketCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: PolySidePill(
-                  wide: true,
-                  text: '${l10n.yes} ${polymarketCentsLabel(yesPrice)}',
+                        text: '${l10n.yes} ${polymarketCentsLabel(yesPrice)}',
                   color: AppColors.marketUp,
                   onTap: _pick(const PolyCardPick.side('yes')),
                 ),
@@ -1027,8 +1005,7 @@ class MarketCard extends ConsumerWidget {
               SizedBox(width: 8.w),
               Expanded(
                 child: PolySidePill(
-                  wide: true,
-                  text: '${l10n.betNo} ${polymarketCentsLabel(noPrice)}',
+                        text: '${l10n.betNo} ${polymarketCentsLabel(noPrice)}',
                   color: AppColors.marketDown,
                   onTap: _pick(const PolyCardPick.side('no')),
                 ),
@@ -1089,13 +1066,15 @@ class MarketCard extends ConsumerWidget {
   static const int _kOutcomeRows = 3;
 
   /// An event with many outcomes: the question over its meta line, then
-  /// its three most likely outcomes as rows of the name (the first in
-  /// the primary colour), a thin chance bar and the percent, and
-  /// "+N more ›" when there are more. A bar is filled in the colour of
-  /// its outcome's line on the market's chart ([polyChartedOutcomes], the
-  /// rule the chart and the sheet's row dots read), so an outcome keeps
-  /// one colour from the card to the sheet; an outcome the chart draws no
-  /// line for keeps the neutral fill.
+  /// its three most likely outcomes as rows on one grid ([_OutcomeLine]):
+  /// the name (the first in the primary colour) with the percent and the
+  /// day's move in fixed columns at its right, the chance bar under them
+  /// at the row's whole width, and "+N more ›" when there are more. A bar
+  /// is filled in the colour of its outcome's line on the market's chart
+  /// ([polyChartedOutcomes], the rule the chart and the sheet's row dots
+  /// read), so an outcome keeps one colour from the card to the sheet; an
+  /// outcome the chart draws no line for keeps the neutral fill. No pill
+  /// on a row: a row is the card's tap (the market page).
   Widget _buildOutcomes(BuildContext context, WidgetRef ref,
       AppColorsExtension c, String? image) {
     final top =
@@ -1119,81 +1098,41 @@ class MarketCard extends ConsumerWidget {
 
     // The rows start where the title does.
     final indent = EdgeInsets.only(left: kPolyCardImage.w + kPolyCardImageGap.w);
-    // One figure width for every row (the widest it writes, or "88.8%"),
-    // so the bars end on one edge.
-    final figureStyle = DefaultTextStyle.of(context).style.merge(TextStyle(
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.1,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ));
-    double measure(String text, TextStyle style) => (TextPainter(
-          text: TextSpan(text: text, style: style),
-          textDirection: TextDirection.ltr,
-          textScaler: MediaQuery.textScalerOf(context),
-          maxLines: 1,
-        )..layout())
-            .width;
-    var chanceWidth = measure('88.8%', figureStyle);
+    final figureStyle = TextStyle(
+      fontSize: 14.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    // One percent column for every card (the widest figure a chance
+    // writes, "88.8%", or a wider one this card has), so the percents of
+    // all rows end on one edge.
+    var chanceWidth = _measureText(context, '88.8%', figureStyle);
     for (final o in top) {
-      final w = measure(polyCardChance(_effectivePrice(o)), figureStyle);
-      if (w > chanceWidth) chanceWidth = w;
-    }
-    // The leader's day move beside its percent ("84% ▲6"), the two in the
-    // figure column: the column is as wide as the widest of them, so the
-    // bars still end on one edge.
-    final leadMove = top.firstOrNull?.dayMove;
-    final delta = polyCardMoveDelta(leadMove);
-    if (delta != null) {
-      final w = measure(polyCardChance(_effectivePrice(top.first)),
-              figureStyle) +
-          4.w +
-          _measureText(context, delta, _moveStyle(leadMove!));
+      final w =
+          _measureText(context, polyCardChance(_effectivePrice(o)), figureStyle);
       if (w > chanceWidth) chanceWidth = w;
     }
     chanceWidth = chanceWidth.ceilToDouble() + 1;
-    // One quiet pill per row while the market is open: an outcome's Yes
-    // ("Yes 84¢"), or the price of one side of a two-sided market. One
-    // width for the card's pills (the widest text), so they line up.
-    String? pillText(PolymarketOutcome o, double price) {
-      if (!_open || o.unpriced) return null;
-      final cents = polymarketCentsLabel(price.clamp(0.0, 1.0));
-      return o.hasYesNo ? '${context.l10n.yes} $cents' : cents;
-    }
+    // The leader's day move beside its percent ("84% ▲6") in the move
+    // column every row keeps (empty on the others).
+    final leadMove = top.firstOrNull?.dayMove;
+    final delta = polyCardMoveDelta(leadMove);
+    final moveWidth = _moveSlotWidth(context, delta, leadMove);
 
     double rowPrice(PolymarketOutcome o, bool first) => twoSided && !first
         ? 1 - _effectivePrice(top.first)
         : _effectivePrice(o);
-    var pillWidth = 0.0;
-    for (var i = 0; i < top.length; i++) {
-      final text = pillText(top[i], rowPrice(top[i], i == 0));
-      if (text == null) continue;
-      final w = measure(
-          text,
-          DefaultTextStyle.of(context)
-              .style
-              .merge(PolySidePill.smallStyle(c.textPrimary)));
-      if (w > pillWidth) pillWidth = w;
-    }
-    if (pillWidth > 0) {
-      pillWidth = (pillWidth + 20.w).ceilToDouble();
-      if (pillWidth < 56.w) pillWidth = 56.w;
-    }
     Widget row(PolymarketOutcome o, bool first) {
       final name = TextStyle(
         color: first ? c.textPrimary : c.textSecondary,
         fontSize: 14.sp,
         fontWeight: first ? FontWeight.w600 : FontWeight.w500,
         letterSpacing: -0.1,
-      );
-      final chance = name.copyWith(
-        color: c.textPrimary,
-        fontWeight: FontWeight.w600,
-        fontFeatures: const [FontFeature.tabularFigures()],
+        height: 1.25,
       );
       // The two sides of one market add up to 100.
       final price = rowPrice(o, first);
-      final pill = pillText(o, price);
       return _OutcomeLine(
         name: o.name,
         fraction: price.clamp(0.0, 1.0),
@@ -1202,18 +1141,11 @@ class MarketCard extends ConsumerWidget {
             ? polyCardOtherSideChance(_effectivePrice(top.first))
             : polyCardChance(_effectivePrice(o)),
         nameStyle: name,
-        chanceStyle: chance,
+        chanceStyle: figureStyle.copyWith(color: c.textPrimary, height: 1.25),
         chanceWidth: chanceWidth,
         delta: first ? delta : null,
         deltaStyle: delta == null ? null : _moveStyle(leadMove!),
-        trailing: pill == null
-            ? null
-            : PolySidePill(
-                text: pill,
-                color: o.hasYesNo ? AppColors.marketUp : c.textPrimary,
-                onTap: _pick(PolyCardPick.outcome(o)),
-              ),
-        trailingWidth: pillWidth,
+        moveWidth: moveWidth,
       );
     }
 
@@ -1229,8 +1161,9 @@ class MarketCard extends ConsumerWidget {
       children: [
         LayoutBuilder(builder: (context, constraints) {
           // The leader's 7-day line top right, in its chart colour (where
-          // the Yes/No card keeps its gauge); under the meta line when the
-          // title would be left too little room beside it.
+          // the Yes/No card keeps its gauge). It never squeezes the title:
+          // when the title would take more lines beside it than across
+          // the card, the line goes under the title instead.
           final leader = top.firstOrNull;
           final token = leader?.tokenId;
           final spark = token == null || token.isEmpty
@@ -1243,13 +1176,13 @@ class MarketCard extends ConsumerWidget {
                   width: 64,
                   height: 24,
                 );
-          final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
-          final room = constraints.maxWidth -
-              kPolyCardImage.w -
-              kPolyCardImageGap.w -
-              64.w -
-              10.w;
-          final beside = spark != null && room / scale >= 150;
+          final full =
+              constraints.maxWidth - kPolyCardImage.w - kPolyCardImageGap.w;
+          final narrow = full - 64.w - 10.w;
+          final beside = spark != null &&
+              narrow > 0 &&
+              _lineCount(context, title, _title(c), narrow) <=
+                  _lineCount(context, title, _title(c), full);
           return _buildHeading(
             c,
             image,
@@ -1263,11 +1196,11 @@ class MarketCard extends ConsumerWidget {
           );
         }),
         for (var i = 0; i < top.length; i++) ...[
-          SizedBox(height: i == 0 ? 10.h : 8.h),
+          SizedBox(height: i == 0 ? 12.h : 10.h),
           Padding(padding: indent, child: row(top[i], i == 0)),
         ],
         if (more > 0) ...[
-          SizedBox(height: 8.h),
+          SizedBox(height: 10.h),
           Padding(
             padding: indent,
             child: Row(
@@ -1282,6 +1215,18 @@ class MarketCard extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  /// The lines [text] takes in [style] at [width], as [context] draws it.
+  static int _lineCount(
+      BuildContext context, String text, TextStyle style, double width) {
+    final painter = TextPainter(
+      text: TextSpan(
+          text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: width);
+    return painter.computeLineMetrics().length;
   }
 
   /// When a market that is not a game starts or ends.
@@ -1530,10 +1475,9 @@ class _HalfRingPainter extends CustomPainter {
 /// in [color] on the neutral surface (founder, 1 November 2026: quiet
 /// pills, no solid green / red blocks on a list; no tinted chips anywhere
 /// in the app, so the ground is the surface colour, never a tint of the
-/// side's). Small (72 by 28, or the width its slot gives it) beside an
-/// outcome's row; [wide] fills its slot, 36 tall, for a Yes/No market's
-/// two answers and a game's sides, its text wrapping to a second line
-/// rather than cut. Taps [onTap]; with none it is part of the card.
+/// side's). It fills its slot, 36 tall, for a Yes/No market's two
+/// answers and a game's sides, its text wrapping to a second line rather
+/// than cut. Taps [onTap]; with none it is part of the card.
 class PolySidePill extends StatelessWidget {
   final String text;
 
@@ -1542,67 +1486,34 @@ class PolySidePill extends StatelessWidget {
   /// or down (a team, the draw).
   final Color color;
   final VoidCallback? onTap;
-  final bool wide;
   const PolySidePill(
-      {super.key,
-      required this.text,
-      required this.color,
-      this.onTap,
-      this.wide = false});
-
-  /// The small pill's text style, for a list that sizes its pills to the
-  /// widest one.
-  static TextStyle smallStyle(Color color) => TextStyle(
-        color: color,
-        fontSize: 11.sp,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.1,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      );
+      {super.key, required this.text, required this.color, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final surface = context.colors.surfaceLight;
-    final Widget pill = wide
-        ? Container(
-            // 36 on the design's phone, never a target under 32.
-            constraints: BoxConstraints(minHeight: math.max(36.h, 32)),
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: surface,
-              borderRadius: BorderRadius.circular(11.r),
-            ),
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              style: TextStyle(
-                color: color,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.1,
-                height: 1.15,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          )
-        : Container(
-            width: 72.w,
-            constraints: BoxConstraints(minHeight: 28.h),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: surface,
-              borderRadius: BorderRadius.circular(9.r),
-            ),
-            child: Text(
-              text,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.fade,
-              style: smallStyle(color),
-            ),
-          );
+    final Widget pill = Container(
+      // 36 on the design's phone, never a target under 32.
+      constraints: BoxConstraints(minHeight: math.max(36.h, 32)),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: context.colors.surfaceLight,
+        borderRadius: BorderRadius.circular(11.r),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        maxLines: 3,
+        style: TextStyle(
+          color: color,
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+          height: 1.15,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
     if (onTap == null) return pill;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1612,13 +1523,18 @@ class PolySidePill extends StatelessWidget {
   }
 }
 
-/// One outcome of an event's row: its name, a chance bar, its chance
-/// ("Name ▬▬▬▬ 41%") and, when the list can open the slip, a [trailing]
-/// pill [trailingWidth] wide. The name takes what it needs on one line
-/// while the bar keeps a little width; a name that cannot fit so sits on
-/// its own line (wrapping) over the bar, figure and pill. Never cut. The
-/// figure keeps one width per card ([chanceWidth]) so the bars of the
-/// rows end together.
+/// One outcome of an event's row, on the grid every row of every card
+/// keeps (founder, 12 November 2026: "sizes are strange"):
+///
+///   Name ……………………………… 84% ▲6
+///   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+///
+/// The name takes the room the columns leave and wraps rather than being
+/// cut; the percent sits in a column [chanceWidth] wide and the day's move
+/// ([delta], the leader's only) in one [moveWidth] wide, empty on the
+/// other rows, so every percent ends on one edge; both sit on the name's
+/// first line. The bar under them is the row's whole width, so every
+/// row's bar is the same length whatever its name.
 class _OutcomeLine extends StatelessWidget {
   final String name;
 
@@ -1632,12 +1548,10 @@ class _OutcomeLine extends StatelessWidget {
   final TextStyle chanceStyle;
   final double chanceWidth;
 
-  /// The day's move beside the percent ("▲6", the leader's row only),
-  /// the two right-aligned in the [chanceWidth] column.
+  /// The day's move after the percent ("▲6"), in the [moveWidth] column.
   final String? delta;
   final TextStyle? deltaStyle;
-  final Widget? trailing;
-  final double trailingWidth;
+  final double moveWidth;
   const _OutcomeLine({
     required this.name,
     required this.fraction,
@@ -1648,73 +1562,45 @@ class _OutcomeLine extends StatelessWidget {
     required this.chanceWidth,
     this.delta,
     this.deltaStyle,
-    this.trailing,
-    this.trailingWidth = 0,
+    required this.moveWidth,
   });
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final gap = 8.w;
-      final fixed = gap +
-          chanceWidth +
-          (trailing == null ? 0 : gap + trailingWidth);
-      final nameMax = constraints.maxWidth - fixed - gap - 16.w;
-      final drawn = DefaultTextStyle.of(context).style.merge(nameStyle);
-      final painter = TextPainter(
-        text: TextSpan(text: name, style: drawn),
-        textDirection: TextDirection.ltr,
-        textScaler: MediaQuery.textScalerOf(context),
-        maxLines: 1,
-      )..layout(maxWidth: nameMax > 0 ? nameMax : 0);
-      final inline = nameMax > 0 && !painter.didExceedMaxLines;
-      final tail = <Widget>[
-        Expanded(
-            child: PolyOutcomeChanceBar(fraction: fraction, color: color)),
-        SizedBox(width: gap),
-        SizedBox(
-          width: chanceWidth,
-          child: delta == null
-              ? Text(chance,
-                  textAlign: TextAlign.right, maxLines: 1, style: chanceStyle)
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(chance, maxLines: 1, style: chanceStyle),
-                    SizedBox(width: 4.w),
-                    Text(delta!,
-                        maxLines: 1, softWrap: false, style: deltaStyle),
-                  ],
-                ),
-        ),
-        if (trailing != null) ...[
-          SizedBox(width: gap),
-          SizedBox(width: trailingWidth, child: trailing),
-        ],
-      ];
-      if (inline) {
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
+            Expanded(child: Text(name, style: nameStyle)),
+            SizedBox(width: 12.w),
             SizedBox(
-              width: painter.width.ceilToDouble() + 1,
-              child: Text(name, maxLines: 1, style: nameStyle),
+              width: chanceWidth,
+              child: Text(chance,
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: chanceStyle),
             ),
-            SizedBox(width: gap),
-            ...tail,
+            SizedBox(width: 4.w),
+            SizedBox(
+              width: moveWidth,
+              // Empty on a row with no move: nothing in it sets the
+              // row's height.
+              child: delta == null
+                  ? null
+                  : Text(delta!,
+                      maxLines: 1, softWrap: false, style: deltaStyle),
+            ),
           ],
-        );
-      }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(name, style: nameStyle),
-          SizedBox(height: 4.h),
-          Row(children: tail),
-        ],
-      );
-    });
+        ),
+        SizedBox(height: 6.h),
+        PolyOutcomeChanceBar(fraction: fraction, color: color),
+      ],
+    );
   }
 }
 

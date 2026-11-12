@@ -1,7 +1,8 @@
 // B · one tap to the slip (founder, 12 November 2026; money only after
-// Confirm): each pill on a Predictions list card opens the bet slip
-// prefilled with its outcome or side, and places, funds or approves
-// nothing. The slip opens in the round card's test world (fake books,
+// Confirm): each pill on a Predictions list card (a Yes/No market's
+// answers, a game's sides; an event with many outcomes has none since
+// the founder found its row pills too small) opens the bet slip
+// prefilled with its side, and places, funds or approves nothing. The slip opens in the round card's test world (fake books,
 // trading and clock: crypto_next_round_card_test.dart).
 
 import 'package:flutter/material.dart';
@@ -18,8 +19,8 @@ import 'package:kute/services/tracking_service.dart';
 import '../../helpers/shell_bar_harness.dart';
 import 'crypto_next_round_card_test.dart' as card;
 
-PolymarketEvent _event(String slug, String title, List<PolymarketOutcome> o,
-        {bool negRisk = false}) =>
+PolymarketEvent _event(
+        String slug, String title, List<PolymarketOutcome> o) =>
     PolymarketEvent(
       id: slug,
       slug: slug,
@@ -29,35 +30,8 @@ PolymarketEvent _event(String slug, String title, List<PolymarketOutcome> o,
       category: slug.startsWith('g') ? 'sports' : 'politics',
       conditionId: slug,
       endDate: DateTime.utc(2030, 12, 31),
-      negRisk: negRisk,
       outcomes: o,
     );
-
-final _many = _event(
-    'many',
-    'Jensen Huang announced resignation or removal?',
-    const [
-      PolymarketOutcome(
-          name: 'December 31, 2027',
-          question: 'Jensen Huang out by December 31, 2027?',
-          price: 0.84,
-          tokenId: 'd27',
-          noTokenId: 'd27n',
-          conditionId: 'c27'),
-      PolymarketOutcome(
-          name: 'March 31, 2027',
-          price: 0.825,
-          tokenId: 'm27',
-          noTokenId: 'm27n',
-          conditionId: 'cm27'),
-      PolymarketOutcome(
-          name: 'December 31, 2026',
-          price: 0.775,
-          tokenId: 'd26',
-          noTokenId: 'd26n',
-          conditionId: 'c26'),
-    ],
-    negRisk: true);
 
 final _yesNo = _event('fed', 'Fed cuts rates in December?', const [
   PolymarketOutcome(name: 'Yes', price: 0.62, tokenId: 'y', conditionId: 'f'),
@@ -183,29 +157,6 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 31));
   }
-
-  testWidgets("many outcomes: a row's Yes pill opens that outcome's Yes",
-      (tester) async {
-    final slip = await tapPill(tester, _many, 'Yes 84¢');
-    expect(slip.outcomes.map((o) => o.tokenId), ['d27', 'd27n']);
-    expect(slip.outcomes.map((o) => o.name), ['Yes', 'No']);
-    expect(slip.initialOutcomeIndex, 0);
-    expect(slip.initialBuyNo, isFalse);
-    expect(slip.marketQuestion, contains('December 31, 2027'));
-    expect(slip.negRisk, isTrue);
-    expect(slip.initialAmountUsd, isNull);
-    placedNothing();
-    await close(tester);
-  });
-
-  testWidgets('many outcomes: the third row opens its own outcome',
-      (tester) async {
-    final slip = await tapPill(tester, _many, 'Yes 77.5¢');
-    expect(slip.outcomes.map((o) => o.tokenId), ['d26', 'd26n']);
-    expect(slip.initialOutcomeIndex, 0);
-    placedNothing();
-    await close(tester);
-  });
 
   testWidgets('Yes/No: the No pill opens the slip on No', (tester) async {
     final slip = await tapPill(tester, _yesNo, 'No 39¢');
