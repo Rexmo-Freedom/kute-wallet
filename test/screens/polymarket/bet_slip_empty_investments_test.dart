@@ -20,6 +20,7 @@ import 'package:kute/screens/shared/standing_order_slips.dart'
     show StandingOrderSlips;
 import 'package:kute/screens/shared/standing_order_toasts.dart'
     show StandingOrderToasts;
+import 'package:kute/screens/shared/amount_keypad_panel.dart' show AmountKeypad;
 import 'package:kute/screens/shared/rubber_band_progress.dart'
     show RubberBandProgress;
 import 'package:kute/services/continuous_haptics.dart';
@@ -949,6 +950,80 @@ void main() {
                   find.byKey(const ValueKey('bet-slip-standing-ok')))
               .color,
           AppColors.marketDown);
+      StandingOrderSlips.debugReset();
+      await release(tester);
+    });
+
+    // Founder, 12 November 2026, on 2.2.0 (110): a funded bet on a live
+    // game, its money moved, showed the slip with the keypad, the amount,
+    // "Payout if you win $4.83" (the stake) and an OK: "got stuck here at
+    // placing".
+    testWidgets(
+        'locked on its order with no money journey to show: the keypad '
+        'folded, the order\'s figure paying its own shares, the placing '
+        'line, OK; never the amount editor', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, standingStore: store('standing_slip_no_journey'));
+      Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+      await _frames(tester, 6);
+      final c = ProviderScope.containerOf(
+          tester.element(find.byKey(const ValueKey('open-slip'))));
+      // $1 at 50c: its signed order buys 2 shares, $2 if it wins.
+      c
+          .read(standingOrdersProvider.notifier)
+          .debugReplace([_standing(state: StandingOrderState.posting)]);
+      await _frames(tester, 2);
+      await reopen(tester);
+      expect(find.byType(BetSlipSheet), findsOneWidget);
+      expect(find.byType(AmountKeypad), findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-payout-tile')), findsNothing);
+      expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
+      expect(find.text(r'Yes · pays $2.00 if you win'), findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-standing-placing')),
+          findsOneWidget);
+      expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
+      expect(find.textContaining('Minimum'), findsNothing);
+      expect(barPrimaryLabel(tester), 'OK');
+      expect(barPrimaryBusy(tester), isTrue);
+      // Filled for more shares than it signed for (a better price): the
+      // figure is what it bought.
+      c.read(standingOrdersProvider.notifier).debugReplace([
+        _standing(state: StandingOrderState.posted)
+            .copyWith(filledSize: 2.4)
+      ]);
+      await _frames(tester, 2);
+      expect(find.text(r'Yes · pays $2.40 if you win'), findsOneWidget);
+      StandingOrderSlips.debugReset();
+      await release(tester);
+    });
+
+    testWidgets(
+        'a reopened slip goes on every end with nothing on it to show: not '
+        'placed, cancelled, the price past the approval, its record gone; '
+        'never left saying "Placing"', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, standingStore: store('standing_slip_ends'));
+      Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+      await _frames(tester, 6);
+      final c = ProviderScope.containerOf(
+          tester.element(find.byKey(const ValueKey('open-slip'))));
+      final standing = c.read(standingOrdersProvider.notifier);
+      for (final end in <List<StandingOrder>>[
+        [_standing(state: StandingOrderState.failed)],
+        [_standing(state: StandingOrderState.cancelled)],
+        [_standing(state: StandingOrderState.needsApproval)],
+        const [],
+      ]) {
+        standing.debugReplace([_standing(state: StandingOrderState.posted)]);
+        await _frames(tester, 2);
+        await reopen(tester);
+        expect(find.byType(BetSlipSheet), findsOneWidget);
+        expect(barPrimaryLabel(tester), 'OK');
+        standing.debugReplace(end);
+        await _frames(tester, 10);
+        expect(find.byType(BetSlipSheet), findsNothing,
+            reason: '${end.map((o) => o.state)}');
+      }
       StandingOrderSlips.debugReset();
       await release(tester);
     });

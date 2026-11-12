@@ -1107,6 +1107,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _standingAccepted = true;
       _standingTokenId = _selectedTokenId;
       _standingEndedBefore = ended;
+      // Reopened on an order on record: its record going is its end.
+      final token = _standingTokenId;
+      _standingSeen = token != null &&
+          _standingOrderIn(ref.read(standingOrdersProvider), token, ended) !=
+              null;
     }
     if (!_isLedger) _loadLiveDelay(widget.outcomes[_selectedIndex].conditionId);
     _venueCashPuller = ref.read(venueCashPullerProvider);
@@ -1349,6 +1354,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _standingAccepted = false;
     _standingTokenId = null;
     _standingEndedBefore = null;
+    _standingSeen = false;
   }
 
   /// Whether this slip's accepted order is still on its way: from the
@@ -1366,10 +1372,31 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           o.id,
     };
     // This accept's order (newest on the market that had not ended
-    // before it); null until its record exists, which is on its way too.
+    // before it); null until its record exists, which is on its way too
+    // while its queued bet is. A record seen and then gone ended quietly
+    // (resting on the book, or over with nothing to say): never "on its
+    // way" for good (founder, 12 November 2026, on 2.2.0 (110): a live
+    // game's bet "got stuck here at placing").
     final state = ref.watch(standingOrdersProvider
         .select((all) => _standingOrderIn(all, token, ended)?.state));
-    return state == null || !state.isTerminal;
+    if (state != null) {
+      _standingSeen = true;
+      return !state.isTerminal;
+    }
+    if (_standingSeen) return false;
+    return ref.watch(pendingPolymarketBetProvider.select((p) => p != null)) ||
+        _isPlacing;
+  }
+
+  /// This slip's accepted order has been on record ([_standingOnItsWay]).
+  bool _standingSeen = false;
+
+  /// This slip's accepted order, when on record.
+  StandingOrder? _standingOrder() {
+    final token = _standingTokenId;
+    final ended = _standingEndedBefore;
+    if (!_standingAccepted || token == null || ended == null) return null;
+    return _standingOrderIn(ref.read(standingOrdersProvider), token, ended);
   }
 
   /// This slip's accepted order among [all]: the newest on [token] not in
@@ -4602,9 +4629,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     // Reopened from Sal's placing toast: once its order is placed the
     // slip goes, and Sal's result toast says so (nothing is placed here,
-    // so there is no receipt of the slip's own). A stop stays on the slip
-    // as it does on the one that was left: the failed step, where the
-    // money is, the bet again.
+    // so there is no receipt of the slip's own). So does every other end
+    // with nothing on the slip to show, as the Investing ticket does
+    // (founder, 12 November 2026, on 2.2.0 (110): a live game's bet "got
+    // stuck here at placing"): resting on the book or over quietly (its
+    // record gone), cancelled, not placed with no funded stop to show, or
+    // the price past the approval (Sal's toast asks for it, one tap opens
+    // the slip at the new price; never the locked slip and the toast at
+    // once). A funded bet's stop stays on the slip as it does on the one
+    // that was left: the failed step, where the money is, the bet again.
     final followed = widget.standingEndedBefore;
     final followedToken = _standingTokenId;
     if (followed != null && followedToken != null) {
@@ -4612,8 +4645,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           standingOrdersProvider.select(
               (all) => _standingOrderIn(all, followedToken, followed)?.state),
           (prev, next) {
-        if (next != StandingOrderState.filled || _left || !mounted) return;
-        Navigator.of(context).maybePop();
+        if (_left || !mounted) return;
+        final ended = next == null
+            ? prev != null
+            : next == StandingOrderState.filled ||
+                next == StandingOrderState.cancelled ||
+                next == StandingOrderState.needsApproval ||
+                (next == StandingOrderState.failed &&
+                    !(_fundedProgress(ref.read(fundedOrdersProvider))
+                            ?.failed ??
+                        false));
+        if (ended) Navigator.of(context).maybePop();
       });
     }
     // Drive the placing panel's success → auto-close. When the engine
@@ -5255,6 +5297,53 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       final journey =
           fullscreen ? null : _fundingJourney(activelyPlacing, running: true);
       final journeyShown = journey != null;
+      // Locked on its accepted order with no money journey to show (its
+      // journey done, the bet funded from what Predictions held, or the
+      // slip reopened from the order's record): the same locked slip all
+      // the same, as the Investing ticket (founder, 12 November 2026, on
+      // 2.2.0 (110): a live game's bet showed the keypad, the amount and
+      // "Payout if you win" under an "OK"): the order's figure, the
+      // keypad folded, the journey's last line (the bet being placed) in
+      // its place. Never the editable form while its order is on its way.
+      final standingLocked = !fullscreen &&
+          !journeyShown &&
+          !_isLedger &&
+          widget.sendPick == null &&
+          !placementFailed &&
+          stoppedRecord == null &&
+          _standingOnItsWay();
+      final lockedShown = journeyShown || standingLocked;
+      // Its money already landed (or it never needed any): the journey's
+      // lines done, the bet's own line running.
+      final landed = standingLocked
+          ? FundedOrdersNotifier.progressOn(ref.watch(fundedOrdersProvider),
+              OneBalanceVenue.predictions, _selectedTokenId ?? '',
+              DateTime.now())
+          : null;
+      final placingSteps = landed != null
+          ? _fundingSteps(landed.record)
+          : [
+              context.l10n.slipStepPreparingPrediction,
+              context.l10n.slipStepPlacingBet(
+                  formatDollars(_amount), _sideDisplayName(selected)),
+            ];
+      final placingLine = standingLocked
+          ? SlipFundingSteps(
+              key: const ValueKey('bet-slip-standing-placing'),
+              steps: placingSteps,
+              active: placingSteps.length - 1,
+              from: landed?.record.fromBitcoin == true
+                  ? MoneyPlace.bitcoin
+                  : MoneyPlace.dollars,
+              to: MoneyPlace.predictions,
+              haptics: !_left,
+            )
+          : null;
+      // What the locked slip says it pays: the order's own figures (its
+      // fill, else the shares its signed order buys at the approved
+      // price), never the live slip's figure recomputed at a price read
+      // after the accept.
+      final lockedPayout = lockedShown ? _orderPayout(payout) : payout;
       // Advanced holds exactly the same controls as before, grouped into
       // four boxes instead of one long run: what you are buying, how much,
       // how the order rests, what it comes to — and the read-only rows
@@ -5338,7 +5427,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   // While the money moves the side is settled: it folds
                   // away with the rest, the order's line says it.
                   FoldAway(
-                    folded: journeyShown,
+                    folded: lockedShown,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -5356,15 +5445,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   // holds to the stake as each leg lands; a stop brings the
                   // amount back as it was typed.
                   ArrivalSwitcher(
-                    state: journeyShown,
-                    child: journeyShown
+                    state: lockedShown,
+                    child: lockedShown
                         ? SlipOrderFigure(
-                            record: journey.record,
+                            record: journey?.record,
                             orderUsd: _amount,
                             money: formatDollars,
                             orderLine: context.l10n.betSlipPaysIfYouWin(
                                 _sideDisplayName(selected),
-                                formatDollars(payout)),
+                                formatDollars(lockedPayout)),
                           )
                         : _buildAmountHero(
                             available,
@@ -5386,7 +5475,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   // the amount says what it is set to. They give their
                   // room to the money's journey while it runs.
                   FoldAway(
-                    folded: journeyShown,
+                    folded: lockedShown,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
@@ -5408,7 +5497,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       ],
                     ),
                   ),
-                  SlipJourney(steps: journey?.steps),
+                  SlipJourney(steps: journey?.steps ?? placingLine),
                   SlipGap(12.h),
                 ],
               ),
@@ -5453,7 +5542,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               // nothing is squeezed. A stop brings it back with the rest
               // of the slip.
               input: FoldAway(
-                folded: journeyShown,
+                folded: lockedShown,
                 child: _buildAmountKeypad(
                     _buyInFlight || ledgerLocked || activelyPlacing),
               ),
@@ -5816,6 +5905,27 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       if (method != 'min' && _maxBitcoinUsd > 0)
         ...TrackingService.exactUsd('bitcoin_usd', _maxBitcoinUsd),
     });
+  }
+
+  /// What the accepted bet pays if it wins, by its own order (founder, 12
+  /// November 2026, on 2.2.0 (110): the locked slip of a $4.83 bet said
+  /// "Payout if you win $4.83"): the shares it bought ($1 each), else the
+  /// shares its signed order buys at the approved price (it can only get
+  /// more at a better one), from the standing order's record, else the
+  /// queued bet's. [fallback]: none of them known yet.
+  double _orderPayout(double fallback) {
+    final order = _standingOrder();
+    final filled = order?.filledSize ?? 0;
+    if (filled > 0) return filled;
+    if (order != null && order.size > 0) return order.size;
+    final bet = _isLedger ? null : ref.read(pendingPolymarketBetProvider);
+    if (bet != null && bet.tokenId == _selectedTokenId) {
+      final bought = bet.filledShares ?? 0;
+      if (bought > 0) return bought;
+      final ordered = bet.orderedShares ?? 0;
+      if (ordered > 0) return ordered;
+    }
+    return fallback;
   }
 
   /// The plain slip's payout figure: what the bet pays if it wins; zero
@@ -6600,6 +6710,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         stage != PendingBetStage.delayed) {
       return null;
     }
+    // Only while the order is on its way to the book: never while its
+    // money is still moving, nor once the venue has answered (founder,
+    // 12 November 2026, on 2.2.0 (110): the line stayed up on a bet that
+    // was stuck).
+    final status = ref.read(pendingPolymarketBetProvider)?.status;
+    if (status != null && status != PendingBetStatus.placing) return null;
     if (_isLimitMode && stage != PendingBetStage.delayed) return null;
     final delay =
         _liveDelays[widget.outcomes[_selectedIndex].conditionId ?? ''] ?? 0;
