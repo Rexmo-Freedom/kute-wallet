@@ -52,9 +52,6 @@ import 'advisor_presentation.dart';
 import 'package:kute/services/advisor/advisor_service.dart'
     show AdvisorProgress;
 import 'package:kute/services/advisor/action_dispatcher.dart';
-import 'package:kute/services/polymarket/polymarket_category_gate.dart'
-    show polymarketEventOffered;
-import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -549,12 +546,9 @@ class AdvisorBlockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final card = block.card;
     if (card != null) {
-      // A market the policy withdraws in this region is not offered, even
-      // when the backend answered with it: the card simply does not render.
-      final gate = advisorMarketGateCapability(card, block.section);
-      if (gate != null && !RuntimeCapabilitiesService.instance.allows(gate)) {
-        return const SizedBox.shrink();
-      }
+      // A market the policy refuses in this region still shows (founder,
+      // 12 November 2026): its ticket or bet slip opens shut under the
+      // policy's reason.
       return _VenueMarketCard(
           block: block,
           action: advisorMarketAction(block, context.l10n),
@@ -663,9 +657,6 @@ class _VenueMarketCard extends ConsumerWidget {
     final event = async.valueOrNull;
     if (event == null || event.slug != slug || event.closed || !event.active) {
       return ('plate', _MarketPlate(block: block));
-    }
-    if (!polymarketEventOffered(event, RuntimeCapabilitiesService.instance)) {
-      return ('hidden', const SizedBox.shrink());
     }
     return (
       'card',

@@ -6,24 +6,28 @@
 // and under the swap cascade (a region block on swaps reaching the
 // venues' trading and deposits).
 //
-//   * The market map and Investing's moving-now strip are drawn from
-//     the browse universe, which the stock gate filters: no stock-linked
-//     perpetual is a tile or a big card while `hyperliquid.stocks` denies.
-//     The swap cascade withholds trading, not browsing: the map stays
-//     whole and every new position is refused at the order slip.
+//   * SHOWN, NOT BOUGHT (founder decision, 12 November 2026: "we should
+//     not hide, we can show, just not allow to purchase"). The market map
+//     and Investing's moving-now strip are drawn from the browse universe,
+//     which no gate filters: stock-linked perpetuals stay tiles and big
+//     cards while `hyperliquid.stocks` denies, and every new position on
+//     one is refused at the order slip. The swap cascade likewise
+//     withholds trading, not browsing.
 //   * The category sheets: Sports (with Live and Esports) and Politics
-//     (with Elections) go with their gates; with browsing withheld the
-//     sheet lists nothing and shows the venue page's own notice, the
-//     named-region copy carrying only the VPN sentence. A pick the policy
-//     no longer offers reads as Trending on the page's pill.
+//     (with Elections) stay whatever their gates say, and so does a pick
+//     of one; their bets are refused at the bet slip. With browsing
+//     itself withheld (`….browse`) the sheet lists nothing and shows the
+//     venue page's own notice, the named-region copy carrying only the
+//     VPN sentence.
 //   * The Dollars page opens on Overview whatever the policy withholds
 //     (founder, 8 November 2026), which holds what is open and the P&L, no
 //     market map. With `hyperliquid.browse` withheld, nothing held reads Sal
 //     over "No open positions" (Overview's own, true either way), and the
 //     Investing tab has no squares, only its notice.
-//   * Special US election events (the maps) and game markets reach the
-//     market page only through the feeds the category gates filter, and
-//     a bet on any of their lines still asks the category gate.
+//   * Special US election events (the maps) and game markets stay in the
+//     feeds whatever the category gates say; a bet on any of their lines
+//     asks the category gate, and the Portfolio Builder offers none of
+//     them as a pick while it denies.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -276,21 +280,25 @@ void main() {
 
     for (final denial in AuditDenial.values) {
       test(
-          'hyperliquid.stocks ${denial.name}: no stock-linked perpetual on '
-          'the map, the strip or the list; the rest stays', () async {
+          'hyperliquid.stocks ${denial.name}: stock-linked perpetuals stay '
+          'on the map, the strip and the list; only a new position on one '
+          'is refused', () async {
         final policy =
             await _loaded(auditDenying(const ['hyperliquid.stocks'], denial));
         expect(policy.allows('hyperliquid.stocks'), isFalse);
+        final open = await _browseUniverse(await _loaded(auditPolicy()));
         final universe = await _browseUniverse(policy);
-        expect(universe.where(isHlStockPerp), isEmpty);
-        // The spot token is a share, not a perpetual: it stays listed.
-        expect(universe.where((m) => m.isSpot && m.coin == 'TSLA'), isNotEmpty);
-        final entries = hlMarketMapEntries(universe);
-        expect(entries.where((e) => isHlStockPerp(e.market)), isEmpty);
-        expect(entries.map((e) => e.market.coin),
-            containsAll(['BTC', 'ETH', 'XYZ100']));
-        expect(
-            hlTrendingStrip(universe, universe).where(isHlStockPerp), isEmpty);
+        expect(universe.map((m) => m.wireCoin), open.map((m) => m.wireCoin));
+        expect(universe.where(isHlStockPerp), isNotEmpty);
+        expect(hlMarketMapEntries(universe).map((e) => e.id),
+            hlMarketMapEntries(open).map((e) => e.id));
+        expect(hlTrendingStrip(universe, universe).map((m) => m.wireCoin),
+            hlTrendingStrip(open, open).map((m) => m.wireCoin));
+        final stock = universe.firstWhere(isHlStockPerp);
+        await expectLater(
+            policy.ensureAllAllowed(hlOpenCapabilities(stock)),
+            throwsA(isA<CapabilityUnavailableException>().having(
+                (e) => e.capability, 'capability', 'hyperliquid.stocks')));
         // A held stock perp is still closable: the exit is not the gate.
         expect(policy.allows('hyperliquid.close'), isTrue);
       });
@@ -316,13 +324,16 @@ void main() {
       }
     });
 
-    test('no policy at all: the stock gate fails closed, browsing stays',
-        () async {
+    test(
+        'no policy at all: the stock gate fails closed for buying, every '
+        'market stays listed', () async {
       final unread = auditPolicy();
       addTearDown(unread.dispose);
       final universe = await _browseUniverse(unread);
-      expect(universe.where(isHlStockPerp), isEmpty);
+      expect(universe.where(isHlStockPerp), isNotEmpty);
       expect(hlMarketMapEntries(universe), isNotEmpty);
+      expect(unread.allows('hyperliquid.stocks'), isFalse);
+      expect(unread.allows('hyperliquid.trade'), isFalse);
       for (final exit in kAuditExits) {
         expect(unread.allows(exit), isTrue, reason: '$exit offline');
       }
@@ -419,14 +430,14 @@ void main() {
   group('category sheets', () {
     for (final denial in AuditDenial.values) {
       testWidgets(
-          'polymarket.sports ${denial.name}: no Sports, Live or Esports '
-          'tile; Politics stays', (tester) async {
+          'polymarket.sports ${denial.name}: Sports, Live and Esports stay '
+          'tiles; Politics stays', (tester) async {
         final policy = auditDenying(const ['polymarket.sports'], denial);
         expect(await policy.refresh(), isTrue);
         await _pumpSheet(tester, InvestmentsTab.predictions, policy);
         await _openSheet(tester);
         for (final p in [PolyPill.sports, PolyPill.live, PolyPill.esports]) {
-          expect(_tile(p.key), findsNothing, reason: p.key);
+          expect(_tile(p.key), findsOneWidget, reason: p.key);
         }
         expect(_tile(PolyPill.politics.key), findsOneWidget);
         await unmountInvestments(tester);
@@ -434,14 +445,14 @@ void main() {
       });
 
       testWidgets(
-          'polymarket.politics ${denial.name}: no Politics or Elections '
-          'tile; Sports stays', (tester) async {
+          'polymarket.politics ${denial.name}: Politics and Elections stay '
+          'tiles; Sports stays', (tester) async {
         final policy = auditDenying(const ['polymarket.politics'], denial);
         expect(await policy.refresh(), isTrue);
         await _pumpSheet(tester, InvestmentsTab.predictions, policy);
         await _openSheet(tester);
-        expect(_tile(PolyPill.politics.key), findsNothing);
-        expect(_tile(PolyPill.elections.key), findsNothing);
+        expect(_tile(PolyPill.politics.key), findsOneWidget);
+        expect(_tile(PolyPill.elections.key), findsOneWidget);
         expect(_tile(PolyPill.sports.key), findsOneWidget);
         await unmountInvestments(tester);
         policy.dispose();
@@ -478,8 +489,8 @@ void main() {
     }
 
     testWidgets(
-        'Investing, hyperliquid.stocks denied: no stock perp logo on any '
-        'tile; the categories stay', (tester) async {
+        'Investing, hyperliquid.stocks denied: stock perp logos stay on the '
+        'tiles; the categories stay', (tester) async {
       final policy =
           auditDenying(const ['hyperliquid.stocks'], AuditDenial.country);
       expect(await policy.refresh(), isTrue);
@@ -494,10 +505,13 @@ void main() {
           .widgetList<HlCoinIcon>(find.byType(HlCoinIcon))
           .map((w) => w.wireCoin ?? w.coin);
       expect(logos, isNotEmpty);
-      for (final m in _universe.where(isHlStockPerp)) {
-        expect(logos, isNot(contains(m.wireCoin)), reason: m.wireCoin);
-      }
       expect(stockCoins, isNotEmpty);
+      expect(
+          logos.any((l) => _universe
+              .where(isHlStockPerp)
+              .any((m) => m.wireCoin == l || m.coin == l)),
+          isTrue,
+          reason: 'a stock perp is still drawn on a tile');
       await unmountInvestments(tester);
       policy.dispose();
     });
@@ -524,17 +538,17 @@ void main() {
     });
 
     testWidgets(
-        'a Sports pick the policy withdraws reads as the browser shows it: '
-        'Filter (Trending), never "Sports"', (tester) async {
+        'a Sports pick the policy withdraws stays Sports: shown, not '
+        'bought', (tester) async {
       final policy =
           auditDenying(const ['polymarket.sports'], AuditDenial.masterOff);
       expect(await policy.refresh(), isTrue);
       await _pumpSheet(tester, InvestmentsTab.predictions, policy,
           selection: const PolyBrowseSelection(pill: PolyPill.sports));
       expect(tester.widget<Text>(find.byKey(const ValueKey('pill-label'))).data,
-          _en.categoryFilterPrompt);
+          _en.polyPillSports);
       await _openSheet(tester);
-      expect(_tile(PolyPill.sports.key), findsNothing);
+      expect(_tile(PolyPill.sports.key), findsOneWidget);
       await unmountInvestments(tester);
       policy.dispose();
 
@@ -572,11 +586,12 @@ void main() {
 
     for (final denial in AuditDenial.values) {
       test(
-          'polymarket.politics ${denial.name}: no special map reaches a '
-          'feed; a bet on any of its states is refused', () async {
+          'polymarket.politics ${denial.name}: the special maps stay listed; '
+          'the Builder offers none as a pick and a bet on any of its states '
+          'is refused', () async {
         final policy =
             await _loaded(auditDenying(const ['polymarket.politics'], denial));
-        expect(polymarketEventsOffered([...specials, game, crypto], policy),
+        expect(polymarketEventsBettable([...specials, game, crypto], policy),
             [game, crypto]);
         for (final e in specials) {
           await expectLater(
@@ -593,14 +608,15 @@ void main() {
       });
 
       test(
-          'polymarket.sports ${denial.name}: no game reaches a feed or a '
-          'pill; its lines\' bets are refused', () async {
+          'polymarket.sports ${denial.name}: games stay listed; the Builder '
+          'offers no game or sports pill as a pick and its lines\' bets are '
+          'refused', () async {
         final policy =
             await _loaded(auditDenying(const ['polymarket.sports'], denial));
-        expect(polymarketEventsOffered([game, crypto, ...specials], policy),
+        expect(polymarketEventsBettable([game, crypto, ...specials], policy),
             [crypto, ...specials]);
         for (final p in [PolyPill.sports, PolyPill.live, PolyPill.esports]) {
-          expect(polyPillOffered(p, policy), isFalse, reason: p.key);
+          expect(polyPillBettable(p, policy), isFalse, reason: p.key);
         }
         // A "More markets" line keeps the game's category on its slip.
         await expectLater(
@@ -615,7 +631,7 @@ void main() {
         'swap country block: maps and games stay browsable; every bet is '
         'refused with the named regions; sells stay open', () async {
       final policy = await _loaded(auditSwapCountryBlock());
-      expect(polymarketEventsOffered([...specials, game], policy),
+      expect(polymarketEventsBettable([...specials, game], policy),
           [...specials, game]);
       for (final e in [...specials, game]) {
         await expectLater(

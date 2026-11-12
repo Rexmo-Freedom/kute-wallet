@@ -822,16 +822,14 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // A query that names a category ("soccer", "nfl", "art") leads the
     // Predictions group with that category, a row that opens the browse on
     // it (search_category_match.dart). The leagues are known under the
-    // Predictions scope, where their list is read for the topic row.
-    final policy = ref.watch(runtimeCapabilitiesProvider);
+    // Predictions scope, where their list is read for the topic row. Every
+    // category, whatever the policy refuses here (founder, 12 November
+    // 2026): a refused category's bet slip opens shut.
     final categoryHit = showPredictions && query.isNotEmpty
         ? polySearchCategoryHit(
             query,
             context.l10n,
-            pills: [
-              for (final p in PolyPill.values)
-                if (polyPillOffered(p, policy)) p
-            ],
+            pills: PolyPill.values,
             leagues: category == SearchCategory.predictions
                 ? ref.watch(polySportsLeaguesProvider)
                 : const [],
@@ -1681,7 +1679,7 @@ class _CategoryHitRow extends ConsumerWidget {
 
 /// The Predictions topics under the composer while the Predictions scope
 /// is on: All, then the categories as the browse's own pills (Politics,
-/// Sports, Crypto … Art, the ones the policy offers), one row that scrolls
+/// Sports, Crypto … Art, every one whatever the policy refuses), one row that scrolls
 /// sideways and keeps the picked one in view ([PolyAutoScrollRow]).
 /// Picking one scopes the venue search to that category
 /// ([searchPredictionsTopicProvider]) and says so to PostHog as the scope
@@ -1694,11 +1692,10 @@ class _PredictionTopicsRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final policy = ref.watch(runtimeCapabilitiesProvider);
     final picked = ref.watch(searchPredictionsTopicProvider);
     final topics = [
       for (final p in PolyPill.values)
-        if (p.isTopic && polyPillOffered(p, policy)) p,
+        if (p.isTopic) p,
     ];
     void pick(PolyPill? topic) {
       if (topic == picked) return;

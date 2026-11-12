@@ -203,53 +203,6 @@ void main() {
         'Predictions market');
   });
 
-  test('a Sal card names the jurisdiction gate it answers to', () {
-    expect(advisorMarketGateCapability(stock, null), 'hyperliquid.stocks');
-    expect(
-        advisorMarketGateCapability(
-            const AdvisorCard(
-                venue: 'hyperliquid',
-                id: 'xyz:TSLA',
-                instrument: 'crypto_perp'),
-            'stocks'),
-        'hyperliquid.stocks');
-    expect(
-        advisorMarketGateCapability(
-            const AdvisorCard(
-                venue: 'hyperliquid',
-                id: 'xyz:TSLA',
-                instrument: 'crypto_perp',
-                category: 'stocks'),
-            null),
-        'hyperliquid.stocks');
-    expect(
-        advisorMarketGateCapability(
-            const AdvisorCard(
-                venue: 'hyperliquid', id: 'BTC', instrument: 'crypto_perp'),
-            'crypto_perps'),
-        isNull);
-    expect(
-        advisorMarketGateCapability(
-            const AdvisorCard(
-                venue: 'hyperliquid', id: 'TSLA', instrument: 'stock_spot'),
-            'stocks'),
-        isNull,
-        reason: 'a spot token is not a perpetual');
-    expect(advisorMarketGateCapability(prediction, 'predictions'), isNull);
-    expect(
-        advisorMarketGateCapability(
-            const AdvisorCard(
-                venue: 'polymarket', id: 'nba-finals', category: 'sports'),
-            'predictions'),
-        'polymarket.sports');
-    expect(
-        advisorMarketGateCapability(
-            const AdvisorCard(
-                venue: 'polymarket', id: 'midterms', category: 'politics'),
-            'predictions'),
-        'polymarket.politics');
-  });
-
   test('source links are HTTPS public hostnames without embedded credentials',
       () {
     expect(advisorSourceUri('https://disclosures-clerk.house.gov/'), isNotNull);

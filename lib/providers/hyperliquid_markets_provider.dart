@@ -17,6 +17,15 @@
 // [hyperliquidMarketProvider] (display coin → full descriptor) for
 // everything else. Getting this wrong is silent (empty charts/books).
 //
+// Policy (founder decision, 12 November 2026): the browse universe is
+// never filtered by the runtime policy. A market the policy refuses for
+// the person's region (`hyperliquid.stocks` for stock-linked perps,
+// `hyperliquid.trade` for every new position) stays listed everywhere,
+// with its live price, chart and details; only buying is refused, at the
+// order ticket, before Face ID and before any money moves. Closing,
+// reducing, selling and withdrawing stay open. When the policy cannot be
+// read, the markets still show and buying stays refused (fail closed).
+//
 // The legacy hyperliquidSpotTickersProvider (hyperliquid_provider.dart)
 // is untouched. The cards' sparklines come from
 // hyperliquid_sparkline_provider.dart.
@@ -123,24 +132,25 @@ List<String> hlOpenCapabilities(HlMarket market) => [
       if (isHlStockPerp(market)) 'hyperliquid.stocks',
     ];
 
-/// Whether [market] may be offered as somewhere to open a position under
-/// the current policy. A stock-linked perp disappears from browse, search
-/// and Sal while `hyperliquid.stocks` denies, including when the policy
-/// cannot be read at all (the gate fails closed). Positions already held
-/// are looked up by their own providers and never pass through here.
-bool hlMarketOfferedUnderPolicy(
-        HlMarket market, RuntimeCapabilitiesService policy) =>
+/// Whether the stock gate lets a NEW position on [market] be composed
+/// here: false for a stock-linked perp while `hyperliquid.stocks` denies,
+/// including when the policy cannot be read (the gate fails closed).
+///
+/// This is NOT a browse filter. Founder decision, 12 November 2026: where
+/// the policy refuses `hyperliquid.stocks` (and/or `hyperliquid.trade`)
+/// for the person's region (the UK today, `country_blocked`) the markets
+/// stay listed: browse, Trending, the strip, search, Sal and the market
+/// page keep the live price, chart and details ("we should not hide, we
+/// can show, just not allow to purchase"). Only the buy / open paths are
+/// shut, before Face ID and before any money moves: the order ticket
+/// opens disabled under the policy's own reason (`_resolveOpenGate` in
+/// order_slip_sheet.dart, [CapabilityBlockNote]) and every placement
+/// re-checks [hlOpenCapabilities]. Closing, reducing, selling and
+/// withdrawing never pass through here. The one caller left is the
+/// Portfolio Builder's pick list, which is a purchase composer, not
+/// browse: a pick there is already a buy.
+bool hlStockGateAllows(HlMarket market, RuntimeCapabilitiesService policy) =>
     !isHlStockPerp(market) || policy.allows('hyperliquid.stocks');
-
-/// [markets] minus the ones the policy hides; see [hlMarketOfferedUnderPolicy].
-List<HlMarket> hlMarketsOfferedUnderPolicy(
-    List<HlMarket> markets, RuntimeCapabilitiesService policy) {
-  if (policy.allows('hyperliquid.stocks')) return markets;
-  return [
-    for (final m in markets)
-      if (!isHlStockPerp(m)) m
-  ];
-}
 
 /// True when [market] should surface under the Commodities pill (tokenized
 /// gold/silver trackers).
@@ -844,13 +854,11 @@ final hyperliquidBrowseUniverseProvider =
     return const AsyncValue.loading();
   }
 
-  // Re-evaluated whenever the policy changes, so a stock-perp block or
-  // its lifting reaches every list built from the universe.
-  final policy = ref.watch(runtimeCapabilitiesProvider);
-  return AsyncValue.data(hlMarketsOfferedUnderPolicy(
-      resolveHlBrowseUniverse(
-          perpList ?? const <HlMarket>[], spotList ?? const <HlMarket>[]),
-      policy));
+  // The whole universe whatever the policy says (founder, 12 November
+  // 2026): a market the policy refuses here stays listed with its price;
+  // only its ticket is shut ([hlStockGateAllows]).
+  return AsyncValue.data(resolveHlBrowseUniverse(
+      perpList ?? const <HlMarket>[], spotList ?? const <HlMarket>[]));
 });
 
 /// Resolve browse metadata over a combined perp + spot universe: spot pairs

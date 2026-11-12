@@ -234,22 +234,21 @@ void main() {
       expect(tsla.single.alternatives, isEmpty);
     });
 
-    test('the stock gate closed: no stock perp, the tokens are Nvidia',
+    test(
+        'the stock gate closed (founder, 12 November 2026): Nvidia still '
+        'leads with xyz:NVDA, the tokens under it; only its ticket shuts',
         () async {
       AffiliateService.debugSessionToken = 'test-session';
       addTearDown(() => AffiliateService.debugSessionToken = null);
       final blocked = runtimePolicyFixture(blocked: {'hyperliquid.stocks'});
       addTearDown(blocked.dispose);
       expect(await blocked.refresh(), isTrue);
-      final offered = hlMarketsOfferedUnderPolicy(_universe(), blocked);
-      final results = await hlSearchMarkets(offered, 'nv');
-      final all = [
-        for (final r in results) ...[r, ...r.alternatives]
-      ];
-      expect(all.where((r) => r.isPerp), isEmpty);
-      expect(_wires(results), ['@702']);
-      expect(_wires(results.single.alternatives), ['@1155']);
-      expect(results.single.groupTicker, 'NVDA');
+      final results = await hlSearchMarkets(_universe(), 'nv');
+      expect(results.first.wireCoin, 'xyz:NVDA');
+      expect(_wires(results.first.alternatives), ['io:NVDA', '@702', '@1155']);
+      expect(results.first.groupTicker, 'NVDA');
+      final perp = _universe().firstWhere((m) => m.wireCoin == 'xyz:NVDA');
+      expect(hlStockGateAllows(perp, blocked), isFalse);
     });
   });
 

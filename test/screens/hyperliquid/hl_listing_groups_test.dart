@@ -166,20 +166,6 @@ void main() {
         ['io:NVDA', 'xyz:NVDA']);
   });
 
-  test('the stock gate: the perps go, the tokens stay, one Nvidia row', () {
-    // hlMarketsOfferedUnderPolicy with hyperliquid.stocks denied keeps
-    // exactly the markets that are not stock perps.
-    final universe = [
-      for (final m in nvidiaUniverse())
-        if (!isHlStockPerp(m)) m
-    ];
-    expect(universe.where((m) => !m.isSpot), isEmpty);
-    expect(
-        _wires(hlBrowseListForTab(HlBrowseTab.tradfi, universe,
-            sub: HlBrowseSub.stocks)),
-        ['@702']);
-  });
-
   test('the market map and the big squares show the same primary', () {
     final universe = nvidiaUniverse();
     final tiles = [for (final e in hlMarketMapEntries(universe)) e.market];

@@ -58,6 +58,18 @@ import 'package:kute/screens/shared/kute_motion.dart';
 // The policy helper below refreshes the relevant operation capability.
 // Existing-position exits use a separate permission from new exposure.
 //
+// Shown, not bought (founder decision, 12 November 2026): every market
+// stays browsable whatever the policy refuses for the person's region,
+// so this ticket is where a refused buy stops. A market whose new
+// positions the policy refuses (`hyperliquid.trade`, or
+// `hyperliquid.stocks` on a stock-linked perp; [hlOpenCapabilities])
+// opens with its confirm disabled under the policy's own reason
+// ([CapabilityBlockNote], "Check connection" for a region refusal),
+// adding to a held position included, before Face ID and before any
+// money moves. Closing, reducing and selling answer to
+// `hyperliquid.close` and stay open. A policy that cannot be read
+// refuses the open (fail closed) while the market stays on screen.
+//
 // Step-up (Wallet Hardening Phase 1b.3): confirm builds the order once as a
 // [_SlipOrder] (intent plus the exact notifier call) and asks for a fresh
 // approval bound to that intent before the placing tile or any state
@@ -5053,9 +5065,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // stays on screen, disabled, with the reason above it. Exits never,
     // but a slip in send mode places nothing: its refusal stands whatever
     // the ticket shows.
+    // A Ledger ticket asks no open gate; on a stock-linked perp the stock
+    // gate is watched here instead, so it too opens shut under the reason
+    // (founder, 12 November 2026: shown, not bought).
     final openBlock = (_isExitOrder || exitPlan) && widget.sendPick == null
         ? null
-        : _openGateMessage;
+        : _openGateMessage ??
+            (_isLedger && isHlStockPerp(market)
+                ? ref
+                    .watch(runtimeCapabilitiesProvider)
+                    .blockReason('hyperliquid.stocks')
+                : null);
     // The venue may refuse growing a position on a market at its
     // open-interest cap: say so before the order, not after.
     final oiCapped = !isSpot &&

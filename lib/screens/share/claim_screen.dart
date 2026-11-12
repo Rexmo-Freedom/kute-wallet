@@ -92,8 +92,6 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_mascot.dart';
 import 'package:kute/services/api/share_links_api.dart';
-import 'package:kute/services/polymarket/polymarket_category_gate.dart';
-import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -406,11 +404,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     }
     final event = await _resolveEvent(link);
     if (!mounted) return;
-    if (event == null ||
-        event.outcomes.isEmpty ||
-        !polymarketEventOffered(event, RuntimeCapabilitiesService.instance)) {
-      return _openMarket();
-    }
+    // A category the policy refuses here still opens its slip, shut under
+    // the policy's reason (founder, 12 November 2026).
+    if (event == null || event.outcomes.isEmpty) return _openMarket();
     final pick = _pickIndex(link, event);
     final index = _challenge && otherSide
         ? challengeOtherSideIndex(event.outcomes, pick)
@@ -438,7 +434,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  /// The one Investing market whose wire coin is [slug], offered here.
+  /// The one Investing market whose wire coin is [slug].
   Future<HlMarket?> _resolveHlMarket(String? slug) async {
     final coin = slug?.trim() ?? '';
     if (coin.isEmpty) return null;
@@ -451,12 +447,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     final matches = markets
         .where((m) => m.wireCoin.toUpperCase() == coin.toUpperCase())
         .toList();
-    if (matches.length == 1 &&
-        hlMarketOfferedUnderPolicy(
-            matches.single, RuntimeCapabilitiesService.instance)) {
-      return matches.single;
-    }
-    return null;
+    // Offered whatever the policy refuses here (founder, 12 November
+    // 2026): a refused market's ticket opens shut under the reason.
+    return matches.length == 1 ? matches.single : null;
   }
 
   Future<void> _openMarket() async {
@@ -483,9 +476,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       event = null;
     }
     if (!mounted) return;
-    if (event != null &&
-        event.slug == slug &&
-        polymarketEventOffered(event, RuntimeCapabilitiesService.instance)) {
+    if (event != null && event.slug == slug) {
       context.go('/polymarket');
       MarketDetailSheet.show(context, event: event, source: 'share_claim');
       return;

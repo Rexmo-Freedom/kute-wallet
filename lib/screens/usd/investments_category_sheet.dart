@@ -232,25 +232,17 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn, kuteReduceMotion;
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
-import 'package:kute/services/polymarket/polymarket_category_gate.dart'
-    show polymarketCategoryGates;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 
-/// The Predictions selection as the browser shows it: a pick whose
-/// category the policy no longer offers (`polymarket.sports`,
-/// `polymarket.politics`; [polyPillOffered]) reads as Trending, the list
-/// the browser falls back to, so the pill never names a hidden category.
-/// Listens to the two category gates only.
-PolyBrowseSelection polyShownSelection(WidgetRef ref) {
-  final sel = ref.watch(polyBrowseSelectionProvider);
-  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
-  return polyPillOffered(sel.pill, ref.read(runtimeCapabilitiesProvider))
-      ? sel
-      : sel.copyWith(pill: PolyPill.trending);
-}
+/// The Predictions selection as the browser shows it: the pick itself.
+/// Every category stays offered whatever the policy refuses here (founder,
+/// 12 November 2026), so a pick never falls back; a refused category's bet
+/// slip opens shut instead.
+PolyBrowseSelection polyShownSelection(WidgetRef ref) =>
+    ref.watch(polyBrowseSelectionProvider);
 
 /// The picked pill's sub-context, for its label: the category on screen
 /// (and its subcategory when one is picked), or the Portfolio section.
@@ -1053,12 +1045,10 @@ class _InvestmentsCategorySheetState
     final l10n = context.l10n;
     final c = context.colors;
     final sel = polyShownSelection(ref);
-    final policy = ref.watch(runtimeCapabilitiesProvider);
     final watchlist = ref.watch(polyWatchlistProvider);
     final pills = [
       for (final p in PolyPill.values)
-        if (polyPillOffered(p, policy) &&
-            (p != PolyPill.watchlist || watchlist.isNotEmpty))
+        if (p != PolyPill.watchlist || watchlist.isNotEmpty)
           p,
     ];
 

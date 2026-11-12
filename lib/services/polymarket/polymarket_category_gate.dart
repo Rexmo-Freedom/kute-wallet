@@ -8,11 +8,17 @@ import 'package:kute/services/venue_analytics.dart';
 /// tag classifier analytics uses, so what the operator sees under
 /// `market_category` is exactly what the gate acts on.
 ///
-/// Where a gate denies, the app hides the category and its markets from
-/// browse, search and Sal and refuses NEW bets on them. Positions already
-/// held are looked up by their own providers, stay visible, and sell or
-/// claim under `polymarket.close` as before. Both gates fail closed: a
-/// policy the app cannot read hides the categories.
+/// Where a gate denies, the app refuses NEW bets on the category's markets
+/// and hides nothing (founder decision, 12 November 2026: "we should not
+/// hide, we can show, just not allow to purchase. Showing the price is
+/// ok."). The category, its pills and its markets stay in browse, search,
+/// Sal and shared links with their prices; the bet slip opens shut under
+/// the policy's own reason (`_resolveOpenGate` in bet_slip_sheet.dart,
+/// [CapabilityBlockNote]) before Face ID and before any money moves, and
+/// every placement re-checks [polymarketBetCapabilities]. Positions already
+/// held stay visible and sell or claim under `polymarket.close` as before.
+/// Both gates fail closed: a policy the app cannot read refuses the bets
+/// while the markets still show.
 const kPolymarketSportsCapability = 'polymarket.sports';
 const kPolymarketPoliticsCapability = 'polymarket.politics';
 
@@ -47,30 +53,23 @@ List<String> polymarketBetCapabilitiesFor(Iterable<String?> ids,
   return polymarketBetCapabilities(category, const []);
 }
 
-/// Whether a market of this category may be offered under the policy.
-bool polymarketCategoryOffered(
+/// Whether the category gate lets a NEW bet on a market of this category
+/// be composed under the policy. Never a browse filter (see the header).
+bool polymarketCategoryBettable(
     String? category, List<String> tags, RuntimeCapabilitiesService policy) {
   final gate = polymarketCategoryCapability(category, tags);
   return gate == null || policy.allows(gate);
 }
 
-/// Whether [event] may be offered under the policy.
-bool polymarketEventOffered(
+/// [polymarketCategoryBettable] for [event].
+bool polymarketEventBettable(
         PolymarketEvent event, RuntimeCapabilitiesService policy) =>
-    polymarketCategoryOffered(event.category, event.tags, policy);
+    polymarketCategoryBettable(event.category, event.tags, policy);
 
-/// What the policy says of the two category gates, as one comparable
-/// value: a list filtered by them listens to this (a `select`), so it is
-/// rebuilt when a gate opens or closes and at no other policy change.
-({bool sports, bool politics}) polymarketCategoryGates(
-        RuntimeCapabilitiesService policy) =>
-    (
-      sports: policy.allows(kPolymarketSportsCapability),
-      politics: policy.allows(kPolymarketPoliticsCapability),
-    );
-
-/// [events] minus the ones the policy hides.
-List<PolymarketEvent> polymarketEventsOffered(
+/// [events] a bet may be composed on under the policy: for the Portfolio
+/// Builder's pick list only, whose picks are bets. Browse, search and Sal
+/// list every event.
+List<PolymarketEvent> polymarketEventsBettable(
     List<PolymarketEvent> events, RuntimeCapabilitiesService policy) {
   if (policy.allows(kPolymarketSportsCapability) &&
       policy.allows(kPolymarketPoliticsCapability)) {
@@ -78,11 +77,10 @@ List<PolymarketEvent> polymarketEventsOffered(
   }
   return [
     for (final e in events)
-      if (polymarketEventOffered(e, policy)) e
+      if (polymarketEventBettable(e, policy)) e
   ];
 }
 
-/// Whether a browse pill for the tag [slug] may be shown: a pill whose
-/// tag alone classifies as a hidden category disappears with its markets.
-bool polymarketTagOffered(String slug, RuntimeCapabilitiesService policy) =>
-    polymarketCategoryOffered(null, [slug], policy);
+/// [polymarketCategoryBettable] for a tag [slug] alone.
+bool polymarketTagBettable(String slug, RuntimeCapabilitiesService policy) =>
+    polymarketCategoryBettable(null, [slug], policy);

@@ -213,9 +213,10 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// builder-dex stock or commodity in it, and the strip would open on the
   /// crypto movers and swap to the hyped names seconds later. Meanwhile
   /// the builder markets this device last saw stand in (as the universe
-  /// itself paints the last lists before the live ones), under the same
-  /// policy; with none, no strip until they arrive, never the movers. The
-  /// movers are for a full list that still has too few.
+  /// itself paints the last lists before the live ones), unfiltered like
+  /// the universe (founder, 12 November 2026); with none, no strip until
+  /// they arrive, never the movers. The movers are for a full list that
+  /// still has too few.
   List<HlMarket> _trendingStrip(
       List<HlMarket> markets, List<HlMarket> universe,
       {bool Function(HlMarket market)? keep}) {
@@ -223,9 +224,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
         !_moversPerpsLanded && !universe.any((m) => m.isHip3);
     if (!pending) return hlTrendingStrip(universe, markets, keep: keep);
     final lastSeen = HlMarketsDiskCache.instance.perps ?? const <HlMarket>[];
-    final lent = hlMarketsOfferedUnderPolicy(
-        [for (final m in lastSeen) if (m.isHip3) m],
-        ref.read(runtimeCapabilitiesProvider));
+    final lent = [for (final m in lastSeen) if (m.isHip3) m];
     return hlTrendingStrip([...universe, ...lent], markets,
         fallback: false, keep: keep);
   }

@@ -564,8 +564,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final hasWatchlist = ref.watch(polyWatchlistProvider).isNotEmpty;
     final pills = [
       for (final p in PolyPill.values)
-        if (polyPillOffered(p, policy) &&
-            (p != PolyPill.watchlist || hasWatchlist))
+        if (p != PolyPill.watchlist || hasWatchlist)
           p
     ];
     var selection = ref.watch(polyBrowseSelectionProvider);

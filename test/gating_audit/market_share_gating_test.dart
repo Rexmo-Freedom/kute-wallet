@@ -13,8 +13,10 @@
 //     you are, check your VPN settings.";
 //   * a swap block cascades to Investing and Predictions trading and
 //     deposits; exits (close, sell, cancel, withdraw) stay open;
-//   * hiding markets by category (sports, politics, stock perps) is the
-//     browse gates' intended job;
+//   * shown, not bought (founder decision, 12 November 2026): the category
+//     gates (sports, politics, stock perps) hide nothing; a market they
+//     refuse stays listed, opens its page and its slip, and the slip
+//     refuses the new position under the policy's reason;
 //   * the trade row's doors always open the slip, whose own gate explains
 //     and re-checks at confirm (slip_entry_gating_test.dart);
 //   * a share never carries money except Send to anyone; the gift lists
@@ -225,25 +227,35 @@ void main() {
     });
   });
 
-  group('the browse gates hide by category (intended), never by the swap block',
-      () {
+  group('the category gates hide nothing (founder, 12 November 2026)', () {
     for (final how in MarketDenial.values
         .where((h) => h != MarketDenial.swapCountryBlock)) {
-      test('${how.label} on the category gates: those markets go', () async {
+      test(
+          '${how.label} on the category gates: those markets stay offered, '
+          'their new positions are refused', () async {
         final policy = await installMarketGatingPolicy(how, targets: {
           'hyperliquid.stocks',
           kPolymarketSportsCapability,
           kPolymarketPoliticsCapability,
         });
-        expect(hlMarketOfferedUnderPolicy(_stockPerp, policy), isFalse);
-        expect(hlMarketOfferedUnderPolicy(_perp, policy), isTrue);
-        expect(polymarketEventOffered(_sports, policy), isFalse);
-        expect(polymarketEventOffered(_politics, policy), isFalse);
-        expect(polymarketEventOffered(_crypto, policy), isTrue);
-        expect(polymarketEventsOffered([_crypto, _sports, _politics], policy),
-            [_crypto]);
-        expect(
-            hlMarketsOfferedUnderPolicy([_perp, _stockPerp], policy), [_perp]);
+        expect(policy.allows('hyperliquid.browse'), isTrue);
+        expect(policy.allows('polymarket.browse'), isTrue);
+        // What a pick in the Portfolio Builder (a bet, not browse) reads.
+        expect(hlStockGateAllows(_stockPerp, policy), isFalse);
+        expect(hlStockGateAllows(_perp, policy), isTrue);
+        expect(polymarketEventBettable(_sports, policy), isFalse);
+        expect(polymarketEventBettable(_politics, policy), isFalse);
+        expect(polymarketEventBettable(_crypto, policy), isTrue);
+        await expectLater(
+            policy.ensureAllAllowed(hlOpenCapabilities(_stockPerp)),
+            throwsA(isA<CapabilityUnavailableException>()));
+        await expectLater(
+            policy.ensureAllAllowed(
+                polymarketBetCapabilities(_sports.category, _sports.tags)),
+            throwsA(isA<CapabilityUnavailableException>()));
+        for (final exit in kVenueExits) {
+          await policy.ensureAllowed(exit);
+        }
       });
     }
 
@@ -252,8 +264,8 @@ void main() {
         'explains instead', () async {
       final policy =
           await installMarketGatingPolicy(MarketDenial.swapCountryBlock);
-      expect(hlMarketOfferedUnderPolicy(_stockPerp, policy), isTrue);
-      expect(polymarketEventOffered(_sports, policy), isTrue);
+      expect(hlStockGateAllows(_stockPerp, policy), isTrue);
+      expect(polymarketEventBettable(_sports, policy), isTrue);
       expect(policy.allows('hyperliquid.browse'), isTrue);
       expect(policy.allows('polymarket.browse'), isTrue);
     });
@@ -474,8 +486,8 @@ void main() {
     for (final how in MarketDenial.values
         .where((h) => h != MarketDenial.swapCountryBlock)) {
       testWidgets(
-          '${how.label} on sports: a sports pick opens no slip, the market '
-          'route decides', (tester) async {
+          '${how.label} on sports: a sports pick still opens its slip, whose '
+          'gate explains (shown, not bought)', (tester) async {
         await tester.runAsync(() => installMarketGatingPolicy(how,
             targets: {kPolymarketSportsCapability}));
         env.fake.seed(link(_sports.slug, challenge: true));
@@ -484,7 +496,9 @@ void main() {
             link(_sports.slug, status: ShareLinkStatus.paid, challenge: true));
         await tester.tap(kuteBarPrimaryWithText('Take the other side'));
         await settle(tester);
-        expect(opened.single, (outcomeIndex: null, market: true));
+        // The other side of the sender's Yes: the slip on No, never a
+        // placement; BetSlipSheet.show runs the category gate.
+        expect(opened.single, (outcomeIndex: 1, market: false));
       });
     }
   });

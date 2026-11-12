@@ -399,6 +399,23 @@ class _PortfolioBuilderScreenState
         for (final l in _readPredictionLegs())
           ...polymarketBetCapabilitiesFor([l.tokenId, l.conditionId, l.slug]),
       }.toList();
+  /// Every policy gate the draft's orders need: opening investments, plus
+  /// the stock-perp gate when a leg is a stock-linked perpetual (the list
+  /// the order ticket checks for one market, [hlOpenCapabilities]).
+  List<String> _tradeDraftCapabilities() => [
+        'hyperliquid.trade',
+        if (ref.read(builderTradeLegsProvider).any(_isStockPerpLeg))
+          'hyperliquid.stocks',
+      ];
+
+  static bool _isStockPerpLeg(TradeBuilderLeg leg) =>
+      !leg.isSpot &&
+      (leg.category == 'stocks' ||
+          kHlStockSymbols.contains(leg.coin.split(':').last.toUpperCase()));
+
+  static bool _isStockPerpHit(HlMarketSearchResult r) =>
+      r.isPerp && (r.category == 'stocks' || r.isStock);
+
   String get _poolLabel =>
       _isPredictions ? context.l10n.predictions : context.l10n.trading;
   String get _poolParam => _isPredictions ? 'predictions' : 'trading';
@@ -815,7 +832,8 @@ class _PortfolioBuilderScreenState
     if (_isPredictions
         ? await checkPolymarketGeoblock(context,
             capabilities: _draftCapabilities())
-        : await checkHyperliquidGeoblock(context, ref)) {
+        : await checkHyperliquidGeoblock(context, ref,
+            capabilities: _tradeDraftCapabilities())) {
       return;
     }
     if (!mounted) return;
@@ -1368,7 +1386,7 @@ class _PortfolioBuilderScreenState
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final pills = [
       for (final p in _pickCategories)
-        if (polyPillOffered(p, policy)) p,
+        if (polyPillBettable(p, policy)) p,
     ];
     final selected = pills.contains(_pill) ? _pill : PolyPill.breaking;
     return PolyAutoScrollRow(
@@ -1439,7 +1457,7 @@ class _PortfolioBuilderScreenState
   Widget _predictionPickList(AppColorsExtension c) {
     final q = _query.trim();
     final policy = ref.watch(runtimeCapabilitiesProvider);
-    final pill = polyPillOffered(_pill, policy) ? _pill : PolyPill.breaking;
+    final pill = polyPillBettable(_pill, policy) ? _pill : PolyPill.breaking;
     // The search sends only text the guard let through ([_searchQuery]):
     // while it checks, or for a phrase, key or address, nothing is asked.
     final async = q.isEmpty
@@ -1452,9 +1470,10 @@ class _PortfolioBuilderScreenState
     final legs = {for (final l in _watchPredictionLegs()) l.key: l};
     return async.when(
       data: (events) {
-        // The providers already leave out the categories the policy
-        // hides; filtered again here so no card of one can be picked.
-        final list = polymarketEventsOffered(events, policy)
+        // The feeds list every category (founder, 12 November 2026); a
+        // pick here is a bet, so a category the policy refuses here is
+        // not offered as one.
+        final list = polymarketEventsBettable(events, policy)
             .where((e) => e.outcomes.isNotEmpty && !e.closed)
             .toList();
         if (list.isEmpty) {
@@ -1503,8 +1522,15 @@ class _PortfolioBuilderScreenState
       return async.when(
         data: (universe) {
           // The idle state mirrors the Trading tab's browse universe
-          // (volume-sorted). Capped to keep the toggle list snappy.
-          final list = universe.take(100).toList();
+          // (volume-sorted). Capped to keep the toggle list snappy. A pick
+          // here is a buy, so a stock-linked perp the policy refuses here
+          // is not offered (browse still lists it: founder, 12 November
+          // 2026).
+          final policy = ref.watch(runtimeCapabilitiesProvider);
+          final list = [
+            for (final m in universe)
+              if (hlStockGateAllows(m, policy)) m
+          ].take(100).toList();
           if (list.isEmpty) {
             return _pickEmpty(c, context.l10n.builderNoMarketsNow);
           }
@@ -1553,8 +1579,16 @@ class _PortfolioBuilderScreenState
     }
 
     final async = ref.watch(hyperliquidMarketSearchProvider(q));
+    final stocksAllowed =
+        ref.watch(runtimeCapabilitiesProvider).allows('hyperliquid.stocks');
     return async.when(
-      data: (results) {
+      data: (found) {
+        // Search lists every market; a pick is a buy, so a stock-linked
+        // perp the policy refuses here is not offered as one.
+        final results = [
+          for (final r in found)
+            if (stocksAllowed || !_isStockPerpHit(r)) r
+        ];
         if (results.isEmpty) {
           return _pickEmpty(c, context.l10n.builderNoMarketsFound);
         }

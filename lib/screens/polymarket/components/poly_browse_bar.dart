@@ -22,9 +22,6 @@ import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
-import 'package:kute/services/polymarket/polymarket_category_gate.dart'
-    show polymarketTagOffered;
-import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 String polyPillLabel(AppLocalizations l10n, PolyPill pill) => switch (pill) {
@@ -458,7 +455,6 @@ class PolySubRow extends StatelessWidget {
 /// row of them. Trending's row is the site's themes (the home page's chip
 /// row, [polyTrendingThemesProvider]) after All.
 List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
-  final policy = ref.watch(runtimeCapabilitiesProvider);
   switch (pill) {
     case PolyPill.trending:
       return [
@@ -475,10 +471,7 @@ List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
       return ref.watch(polyEsportsSubsProvider).valueOrNull ??
           polyEsportsSubsFrom();
     case PolyPill.breaking:
-      return [
-        for (final key in kPolyBreakingTopics)
-          if (key == 'all' || polymarketTagOffered(key, policy)) PolySub(key),
-      ];
+      return [for (final key in kPolyBreakingTopics) PolySub(key)];
     case PolyPill.finance:
       return [for (final key in kPolyFinanceSubs) PolySub(key)];
     case PolyPill.weather:

@@ -31,6 +31,11 @@
 // ride along as [HlMarketSearchResult.alternatives], which the row offers
 // behind "2 more ways to trade NVDA". So "nv" shows Nvidia once, and
 // "nvdax" shows the NVDAX token itself, with the rest under it.
+//
+// NOTHING IS HIDDEN BY THE POLICY (founder decision, 12 November 2026:
+// "we should not hide, we can show, just not allow to purchase"). Where
+// `hyperliquid.stocks` is refused (the UK today) "nv" still leads with
+// xyz:NVDA; its ticket opens shut under the policy's reason.
 
 import 'dart:async';
 
@@ -41,7 +46,6 @@ import 'package:kute/helpers/search_debounce.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show HlListingGroup, hlListingGroups, hlUnderlyingKey;
-import 'package:kute/services/runtime_capabilities_service.dart';
 
 /// A lightweight Hyperliquid market hit for the search surface. Carries
 /// only what the result row needs — the full [HlMarket] (order-wire ids,
@@ -194,9 +198,7 @@ Future<List<HlMarketSearchResult>> _fallbackResults(
         ref.read(hyperliquidPerpMarketsProvider.future),
         ref.read(hyperliquidSpotMarketsProvider.future),
       ]);
-      all = hlMarketsOfferedUnderPolicy(
-          resolveHlBrowseUniverse(legs[0], legs[1]),
-          ref.read(runtimeCapabilitiesProvider));
+      all = resolveHlBrowseUniverse(legs[0], legs[1]);
     } catch (_) {
       return const [];
     }
@@ -206,8 +208,8 @@ Future<List<HlMarketSearchResult>> _fallbackResults(
   return hlSearchMarkets(all, q, isDisposed: isDisposed);
 }
 
-/// The Investing search over [all] (the browse universe, already under
-/// the policy): FUZZY, alias-aware, ranked exact → alias → prefix →
+/// The Investing search over [all] (the whole browse universe, whatever
+/// the policy refuses: founder, 12 November 2026): FUZZY, alias-aware, ranked exact → alias → prefix →
 /// substring → subsequence → volume desc, ONE RESULT PER UNDERLYING (see
 /// the file header), at most [_kHlSearchCap]. Yields every 64 markets and
 /// stops, empty, once [isDisposed] says the query was superseded.

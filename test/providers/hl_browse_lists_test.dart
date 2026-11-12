@@ -235,28 +235,26 @@ void main() {
   });
 
   test(
-      'the stock gate is what clears Tradfi of stock perps: closed, none '
-      'is offered', () async {
-    final open = runtimePolicyFixture();
-    addTearDown(open.dispose);
-    expect(await open.refresh(), isTrue);
-    expect(
-        wires(hlBrowseListForTab(HlBrowseTab.tradfi,
-            hlMarketsOfferedUnderPolicy(universe, open),
-            sub: HlBrowseSub.stocks)),
-        ['xyz:TSLA', 'km:NVDA', '@590']);
+      'the stock gate never clears Tradfi (founder, 12 November 2026): '
+      'closed, the stock perps stay listed and only their tickets shut',
+      () async {
     final blocked = runtimePolicyFixture(blocked: {'hyperliquid.stocks'});
     addTearDown(blocked.dispose);
     expect(await blocked.refresh(), isTrue);
-    final offered = hlMarketsOfferedUnderPolicy(universe, blocked);
-    // The stock's spot token is not a perp: it is what Stocks still lists,
-    // and it stays under Spot too.
     expect(
-        wires(hlBrowseListForTab(HlBrowseTab.tradfi, offered,
+        wires(hlBrowseListForTab(HlBrowseTab.tradfi, universe,
             sub: HlBrowseSub.stocks)),
-        ['@590']);
-    expect(wires(hlBrowseListForTab(HlBrowseTab.spot, offered)),
+        ['xyz:TSLA', 'km:NVDA', '@590']);
+    expect(wires(hlBrowseListForTab(HlBrowseTab.spot, universe)),
         ['@107', '@590']);
+    // What the gate refuses is a new position on a stock perp, never the
+    // stock's spot token.
+    expect(
+        [
+          for (final m in universe)
+            if (!hlStockGateAllows(m, blocked)) m.wireCoin
+        ],
+        ['xyz:TSLA', 'flx:TSLA', 'km:NVDA']);
   });
 
   test('icon candidates: dex-qualified perp, spot token, default dex', () {

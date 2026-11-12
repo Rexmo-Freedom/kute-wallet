@@ -8,8 +8,6 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/services/advisor/advisor_capability_manifest.dart';
-import 'package:kute/services/polymarket/polymarket_category_gate.dart';
-import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/support_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -50,18 +48,9 @@ class AdvisorActionDispatcher {
           if (event == null || event.slug != slug) {
             _result(actionId, 'unavailable');
             _toast(context, context.l10n.salPredictionMarketUnavailable);
-          } else if (!polymarketEventOffered(
-              event, RuntimeCapabilitiesService.instance)) {
-            // A category the policy hides here: Sal's card came from the
-            // backend, so the block is applied when it is acted on.
-            _result(actionId, 'unavailable');
-            _toast(
-                context,
-                RuntimeCapabilitiesService.instance.blockReason(
-                        polymarketCategoryCapability(
-                            event.category, event.tags)!) ??
-                    context.l10n.salPredictionMarketUnavailable);
           } else {
+            // Opened whatever the policy refuses here (founder, 12 November
+            // 2026): a refused category's bet slip opens shut.
             // entry_source for the market-view funnel: opened from Sal.
             MarketDetailSheet.show(context, event: event, source: 'sal');
             _result(actionId, 'opened');
@@ -88,17 +77,10 @@ class AdvisorActionDispatcher {
           if (matches.length != 1) {
             _result(actionId, 'unavailable');
             _toast(context, context.l10n.salMarketUnavailable);
-          } else if (!hlMarketOfferedUnderPolicy(
-              matches.single, RuntimeCapabilitiesService.instance)) {
-            // A stock-linked perp the policy hides here: Sal's card came
-            // from the backend, so the block is applied when it is acted on.
-            _result(actionId, 'unavailable');
-            _toast(
-                context,
-                RuntimeCapabilitiesService.instance
-                        .blockReason('hyperliquid.stocks') ??
-                    context.l10n.salMarketUnavailable);
           } else {
+            // Opened whatever the policy refuses here (founder, 12 November
+            // 2026): the page shows the price; a refused market's ticket
+            // opens shut under the policy's reason.
             HlMarketDetailSheet.show(context, market: matches.single);
             _result(actionId, 'opened');
           }

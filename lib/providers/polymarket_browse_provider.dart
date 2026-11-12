@@ -238,9 +238,9 @@ final polymarketEventsProvider = FutureProvider.autoDispose
   // market already settled at ~0/1 (Gamma keeps `closed:false` for a while
   // after the outcome is effectively decided). Resolved markets reject new
   // orders, so surfacing them as something to bet on makes no sense.
-  events = events.where((e) => !_isEventResolved(e)).toList();
-
-  return _offeredUnderPolicy(ref, events);
+  // Every category stays listed whatever the policy refuses here (founder,
+  // 12 November 2026): a refused category's bet slip opens shut instead.
+  return events.where((e) => !_isEventResolved(e)).toList();
 });
 
 /// How many rows the one live read asks for (Gamma's keyset page cap).
@@ -306,20 +306,6 @@ Future<List<PolymarketEvent>> readPolyLiveStreams() async {
   return live;
 }
 
-/// [events] minus the categories the runtime policy withdraws here
-/// (`polymarket.sports`, `polymarket.politics`); watched so the feed
-/// re-evaluates when the policy changes. Held positions never come through
-/// these feeds and keep their own providers.
-///
-/// Listens to the two category gates only ([polymarketCategoryGates]), not
-/// to the whole policy: anything else the policy says changing (or a
-/// notification that changed nothing) must not rebuild a list, which reads
-/// it again and swaps the rows on screen.
-List<PolymarketEvent> _offeredUnderPolicy(
-    Ref ref, List<PolymarketEvent> events) {
-  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
-  return polymarketEventsOffered(events, ref.read(runtimeCapabilitiesProvider));
-}
 
 /// The liquidity floor of the hot lists (Trending, the home mix; Breaking
 /// keeps its lighter 100 USD with a never-empty fallback). polymarket.com
@@ -428,35 +414,30 @@ final polymarketSearchProvider = FutureProvider.autoDispose
   final model = PolymarketModel();
   ref.onDispose(() => model.dispose());
   final events = await model.searchEvents(query.trim());
-  return _offeredUnderPolicy(
-      ref,
-      // No liquidity floor: search shows what polymarket.com shows, most
-      // traded first (the model orders the page by event volume).
-      events
-          .where((e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
-          // `_serverSearch` hits /public-search with events_status:'active',
-          // and a settled market stays active:true for a while, so the server
-          // filter lets it through — this client-side `_isEventResolved`
-          // (the parsed `closed` / `ended` / `marketsClosed` flags) is what
-          // removes it so a resolved market never opens a slip the CLOB
-          // rejects.
-          .where((e) => !_isEventResolved(e))
-          .toList());
+  // No liquidity floor: search shows what polymarket.com shows, most
+  // traded first (the model orders the page by event volume).
+  return events
+      .where((e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
+      // `_serverSearch` hits /public-search with events_status:'active',
+      // and a settled market stays active:true for a while, so the server
+      // filter lets it through — this client-side `_isEventResolved`
+      // (the parsed `closed` / `ended` / `marketsClosed` flags) is what
+      // removes it so a resolved market never opens a slip the CLOB
+      // rejects.
+      .where((e) => !_isEventResolved(e))
+      .toList();
 });
 
 /// The filter every venue search result passes: no 5-minute rounds, and
 /// no market whose trading is over (`public-search`'s `events_status`
-/// lets a settled market through for a while), then the policy's
-/// category gates.
+/// lets a settled market through for a while). The policy's category
+/// gates filter nothing (founder, 12 November 2026).
 List<PolymarketEvent> _searchResultsOffered(
         Ref ref, List<PolymarketEvent> events) =>
-    _offeredUnderPolicy(
-        ref,
-        events
-            .where(
-                (e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
-            .where((e) => !_isEventResolved(e))
-            .toList());
+    events
+        .where((e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
+        .where((e) => !_isEventResolved(e))
+        .toList();
 
 /// One venue search as the search sheet runs it: the words, and the Gamma
 /// tag slug the results are scoped to (`events_tag`; null searches
@@ -598,18 +579,15 @@ final polymarketEventsByTagIdProvider = FutureProvider.autoDispose
     final model = PolymarketModel();
     ref.onDispose(() => model.dispose());
     final parsed = model.parseEventsRaw(body);
-    return _offeredUnderPolicy(
-        ref,
-        parsed
-            .where(
-                (e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
-            // Apply the same resolved-market filter the hardcoded-category feed
-            // uses (polymarketEventsProvider). Without it, dynamic-tag tabs and
-            // their See-all landing pages surfaced binary markets already settled
-            // at ~0/1 (Gamma keeps closed:false for a while), so tapping Yes/No
-            // opened a slip the CLOB would reject. Keeps both feed types consistent.
-            .where((e) => !_isEventResolved(e))
-            .toList());
+    return parsed
+        .where((e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
+        // Apply the same resolved-market filter the hardcoded-category feed
+        // uses (polymarketEventsProvider). Without it, dynamic-tag tabs and
+        // their See-all landing pages surfaced binary markets already settled
+        // at ~0/1 (Gamma keeps closed:false for a while), so tapping Yes/No
+        // opened a slip the CLOB would reject. Keeps both feed types consistent.
+        .where((e) => !_isEventResolved(e))
+        .toList();
   } catch (_) {
     return const [];
   }
@@ -692,7 +670,7 @@ final polymarketParentTagsProvider =
   // The last tag list paints at once; the live one replaces it.
   final cached = PolymarketFeedCache.instance.readTagRows(_kParentTagsKey);
   if (cached != null) {
-    yield _tagsOfferedUnderPolicy(ref, cached.map(Tag.fromJson).toList());
+    yield cached.map(Tag.fromJson).toList();
   }
   // Gamma's `/tags` endpoint returns only `id/label/slug/createdAt/
   // updatedAt/requiresTranslation` — there is NO `eventCount` field
@@ -748,25 +726,13 @@ final polymarketParentTagsProvider =
     final top = ranked.take(30).toList();
     unawaited(PolymarketFeedCache.instance
         .writeTagRows(_kParentTagsKey, top.map((r) => r.raw).toList()));
-    yield _tagsOfferedUnderPolicy(ref, top.map((r) => r.tag).toList());
+    yield top.map((r) => r.tag).toList();
   } catch (_) {
     if (cached == null) yield const [];
   }
 });
 
 const String _kParentTagsKey = 'parent_tags';
-
-/// The browse pills minus the ones whose tag names a category the policy
-/// withdraws (Sports, Politics, Elections and every league), so a hidden
-/// category has no empty pill left behind.
-List<Tag> _tagsOfferedUnderPolicy(Ref ref, List<Tag> tags) {
-  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
-  final policy = ref.read(runtimeCapabilitiesProvider);
-  return [
-    for (final t in tags)
-      if (polymarketTagOffered(t.slug ?? '', policy)) t
-  ];
-}
 
 /// Heuristic: does this tag look like a top-level CATEGORY (Politics,
 /// Sports, Iran, Geopolitics) versus a specific entity tag (a player
@@ -1724,17 +1690,22 @@ extension PolyPillX on PolyPill {
   }
 }
 
-/// Whether [pill] may be offered under [policy]: a pill whose capability
-/// is withdrawn (polymarket.sports / polymarket.politics) is hidden.
-/// Esports rows carry the `sports` tag, so they go with Sports.
-bool polyPillOffered(PolyPill pill, RuntimeCapabilitiesService policy) =>
+/// Whether a bet on [pill]'s markets may be composed under [policy]: false
+/// for a pill whose category gate (polymarket.sports / polymarket.politics)
+/// denies. Esports rows carry the `sports` tag, so they go with Sports.
+///
+/// NOT a browse filter (founder, 12 November 2026): every pill stays on
+/// the Predictions page, search and the category sheet whatever the
+/// policy refuses, and a refused category's bet slip opens shut. Only the
+/// Portfolio Builder, whose picks are bets, reads this.
+bool polyPillBettable(PolyPill pill, RuntimeCapabilitiesService policy) =>
     switch (pill) {
-      PolyPill.politics => polymarketTagOffered('politics', policy),
-      PolyPill.elections => polymarketTagOffered('elections', policy),
+      PolyPill.politics => polymarketTagBettable('politics', policy),
+      PolyPill.elections => polymarketTagBettable('elections', policy),
       PolyPill.sports ||
       PolyPill.live ||
       PolyPill.esports =>
-        polymarketTagOffered('sports', policy),
+        polymarketTagBettable('sports', policy),
       _ => true,
     };
 
@@ -2615,9 +2586,6 @@ class PolyFeedNotifier
       if (identical(prev?.events, next.events)) return;
       unawaited(PolyCrestImage.prefetch(polyFeedArtworkUrls(next.events)));
     });
-    // The category gates the rows are filtered by, and nothing else of
-    // the policy (see [_offeredUnderPolicy]).
-    ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
     _spec = _specFor(arg);
     // The watchlist reads again whenever a star changes.
     if (_spec.kind == _FeedKind.watchlist) ref.watch(polyWatchlistProvider);
@@ -2658,8 +2626,7 @@ class PolyFeedNotifier
   List<PolymarketEvent>? _cached() {
     final rows = PolymarketFeedCache.instance.readEvents(arg.cacheKey);
     if (rows == null) return null;
-    final open = _offeredUnderPolicy(
-        ref, rows.where((e) => !_isEventResolved(e)).toList());
+    final open = rows.where((e) => !_isEventResolved(e)).toList();
     return open.isEmpty ? null : open;
   }
 
@@ -2679,7 +2646,7 @@ class PolyFeedNotifier
       if (!_seen.add(e.id)) continue;
       out.add(e);
     }
-    return _offeredUnderPolicy(ref, out);
+    return out;
   }
 
   Future<void> _loadFirst(int gen, {required bool hasCache}) async {
@@ -2794,8 +2761,8 @@ class PolyFeedNotifier
   /// gives the order, read directly since the Kute feed proxies Gamma only,
   /// and one read of those slugs gives the cards what every list's card has
   /// (through the Kute feed, as the Watchlist's). Only the 5-minute rounds
-  /// (Crypto › 5 Min is their home, [polyDropFiveMinute]) and what the
-  /// policy denies ([_keep]) leave the site's list. The home view also
+  /// (Crypto › 5 Min is their home, [polyDropFiveMinute]) leave the
+  /// site's list ([_keep]); what the policy refuses here stays on it. The home view also
   /// carries Trending's themes; they go to disk here so the theme row
   /// ([polyTrendingThemesProvider]) needs no read of its own.
   Future<({List<PolymarketEvent> rows, bool done})> _readSiteTrending(
@@ -2962,13 +2929,10 @@ final polyTopicSubsProvider = StreamProvider.autoDispose
     return;
   }
   final key = 'related_${pill.key}';
-  // The category gates only: another policy change reads nothing again.
-  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
-  final policy = ref.read(runtimeCapabilitiesProvider);
   final cache = PolymarketFeedCache.instance;
   final cached = cache.readTagRows(key);
   yield polyTopicSubsFromRows(
-      cached ?? kPolySiteTopicRowsSnapshot[pill.key] ?? const [], policy);
+      cached ?? kPolySiteTopicRowsSnapshot[pill.key] ?? const []);
   final savedAt = cache.tagRowsSavedAt(key);
   if (cached != null &&
       savedAt != null &&
@@ -2981,20 +2945,19 @@ final polyTopicSubsProvider = StreamProvider.autoDispose
         '/internal/view/category/${pill.tagSlugs.first}'));
     if (rows.isEmpty) return;
     unawaited(cache.writeTagRows(key, rows));
-    yield polyTopicSubsFromRows(rows, policy);
+    yield polyTopicSubsFromRows(rows);
   } catch (_) {}
 });
 
 /// A topic's rows as chips, in the rows' order: every tag with open events
-/// (a row of the dated list has no count) that the policy offers, once.
-List<PolySub> polyTopicSubsFromRows(
-    List<Map<String, dynamic>> rows, RuntimeCapabilitiesService policy) {
+/// (a row of the dated list has no count), once. A category the policy
+/// refuses keeps its chip (founder, 12 November 2026).
+List<PolySub> polyTopicSubsFromRows(List<Map<String, dynamic>> rows) {
   final seen = <String>{};
   return [
     for (final r in rows)
       if (r['id'] != null &&
           ((r['activeEventsCount'] as num?)?.toInt() ?? 1) > 0 &&
-          polymarketTagOffered('${r['slug'] ?? ''}', policy) &&
           seen.add('${r['id']}'))
         PolySub('tag:${r['id']}',
             route: '${r['slug'] ?? r['id']}',
@@ -3019,12 +2982,9 @@ const String kPolyTrendingThemesCacheKey = 'trending_themes';
 final polyTrendingThemesProvider =
     StreamProvider.autoDispose<List<PolySub>>((ref) async* {
   _cacheFor(ref, _kSubsCacheWindow);
-  ref.watch(runtimeCapabilitiesProvider.select(polymarketCategoryGates));
-  final policy = ref.read(runtimeCapabilitiesProvider);
   final cache = PolymarketFeedCache.instance;
   var cached = cache.readTagRows(kPolyTrendingThemesCacheKey);
-  yield polyTopicSubsFromRows(
-      cached ?? kPolySiteTrendingThemesSnapshot, policy);
+  yield polyTopicSubsFromRows(cached ?? kPolySiteTrendingThemesSnapshot);
   bool fresh() {
     final savedAt = cache.tagRowsSavedAt(kPolyTrendingThemesCacheKey);
     return cached != null &&
@@ -3036,7 +2996,7 @@ final polyTrendingThemesProvider =
   // The Trending list may have written the row meanwhile.
   cached = cache.readTagRows(kPolyTrendingThemesCacheKey);
   if (fresh()) {
-    yield polyTopicSubsFromRows(cached!, policy);
+    yield polyTopicSubsFromRows(cached!);
     return;
   }
   try {
@@ -3044,7 +3004,7 @@ final polyTrendingThemesProvider =
         await PolymarketModel.readSiteView('/internal/view/home'));
     if (rows.isEmpty) return;
     unawaited(cache.writeTagRows(kPolyTrendingThemesCacheKey, rows));
-    yield polyTopicSubsFromRows(rows, policy);
+    yield polyTopicSubsFromRows(rows);
   } catch (_) {}
 });
 

@@ -102,18 +102,21 @@ void main() {
       expect(selection.copyWith(sub: 'soccer').sub, 'soccer');
     });
 
-    test('a withdrawn category takes its pills with it', () async {
+    test(
+        'a withdrawn category refuses bets on its pills (the Builder\'s '
+        'picks); browse keeps every pill (founder, 12 November 2026)',
+        () async {
       final open = await policy({});
-      expect(PolyPill.values.every((p) => polyPillOffered(p, open)), isTrue);
+      expect(PolyPill.values.every((p) => polyPillBettable(p, open)), isTrue);
       final noSports = await policy({'polymarket.sports'});
       expect([
         for (final p in PolyPill.values)
-          if (!polyPillOffered(p, noSports)) p
+          if (!polyPillBettable(p, noSports)) p
       ], [PolyPill.live, PolyPill.sports, PolyPill.esports]);
       final noPolitics = await policy({'polymarket.politics'});
       expect([
         for (final p in PolyPill.values)
-          if (!polyPillOffered(p, noPolitics)) p
+          if (!polyPillBettable(p, noPolitics)) p
       ], [PolyPill.politics, PolyPill.elections]);
     });
   });
@@ -411,19 +414,21 @@ void main() {
         {'id': 1, 'slug': 'empty', 'label': 'Empty', 'activeEventsCount': 0},
         {'id': 439, 'slug': 'ai', 'label': 'AI', 'activeEventsCount': 290},
         {'id': 101999, 'slug': 'big-tech', 'label': 'Big Tech', 'activeEventsCount': 146},
-      ], await policy({}));
+      ]);
       expect([for (final s in subs) s.label], ['AI', 'Science', 'Big Tech']);
       expect(subs[1].key, 'tag:74');
       expect(subs[1].route, 'science');
       expect(subs[1].count, 40);
     });
 
-    test('related tags of a withdrawn category are left out', () async {
+    test(
+        'related tags of a withdrawn category stay (founder, 12 November '
+        '2026: shown, not bought)', () {
       final subs = polyTopicSubsFromRows(const [
         {'id': 5, 'slug': 'oil', 'label': 'Oil', 'activeEventsCount': 51},
         {'id': 6, 'slug': 'elections', 'label': 'Elections', 'activeEventsCount': 9},
-      ], await policy({'polymarket.politics'}));
-      expect([for (final s in subs) s.label], ['Oil']);
+      ]);
+      expect([for (final s in subs) s.label], ['Oil', 'Elections']);
     });
   });
 
@@ -473,12 +478,6 @@ void main() {
 
     test('every other row is one group, as on the site', () async {
       expect(kPolySubGroupTails.keys, [PolyPill.crypto, PolyPill.finance]);
-      final policy = await (() async {
-        final s = runtimePolicyFixture(blocked: {});
-        addTearDown(s.dispose);
-        await s.refresh();
-        return s;
-      })();
       final one = {
         PolyPill.weather: [for (final k in kPolyWeatherSubs) PolySub(k)],
         PolyPill.breaking: [for (final k in kPolyBreakingTopics) PolySub(k)],
@@ -491,9 +490,9 @@ void main() {
           PolyPill.culture,
           PolyPill.economy,
         ])
-          p: polyTopicSubsFromRows(kPolySiteTopicRowsSnapshot[p.key]!, policy),
+          p: polyTopicSubsFromRows(kPolySiteTopicRowsSnapshot[p.key]!),
         PolyPill.trending:
-            polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot, policy),
+            polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot),
       };
       for (final e in one.entries) {
         final groups = polySubGroups(e.key, e.value);
@@ -562,13 +561,7 @@ void main() {
         'spain-elections', 'astra', 'israel-election', 'ai',
         'lol-worlds-2026', 'derivatives', //
       ]);
-      final policy = await (() async {
-        final s = runtimePolicyFixture(blocked: {});
-        addTearDown(s.dispose);
-        await s.refresh();
-        return s;
-      })();
-      final subs = polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot, policy);
+      final subs = polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot);
       expect(subs, hasLength(kPolySiteTrendingThemesSnapshot.length));
       expect(subs[1].key, 'tag:102289');
       expect(subs[1].route, 'midterms');

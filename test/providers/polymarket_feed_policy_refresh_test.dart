@@ -8,8 +8,10 @@
 // rows and the skeleton) with `loading` set, the pages read since
 // dropped, then the live first page again. On screen, the rows under the
 // person's finger were swapped out and the list jumped. Now an unchanged
-// refetch does not notify, and the list only listens to the two category
-// gates it filters by: a real change (sports withdrawn) still reaches it.
+// refetch does not notify, and the list does not listen to the policy at
+// all: since the founder decision of 12 November 2026 no category gate
+// filters a list (shown, not bought), so even withdrawing sports leaves
+// the list as it is; the bet slip is where a sports bet is refused.
 
 import 'dart:convert';
 
@@ -138,8 +140,8 @@ void main() {
   });
 
   test(
-      'a notification that changes neither category gate leaves the list '
-      'alone; withdrawing sports filters it', () async {
+      'no policy change touches the list: withdrawing sports keeps its '
+      'games listed', () async {
     await http.runWithClient(() async {
       final c = container();
       final states = <PolyFeedState>[];
@@ -158,15 +160,17 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(states, isEmpty);
 
-      // Sports withdrawn: the list is read again under the new gate.
+      // Sports withdrawn: still listed, not read again.
+      final readsBefore = reads;
       blocked.add(kPolymarketSportsCapability);
       expect(await policy.refresh(), isTrue);
-      await c.read(polyBrowseFeedProvider(query).notifier).firstRead;
       await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(policy.allows(kPolymarketSportsCapability), isFalse);
+      expect(states, isEmpty);
+      expect(reads, readsBefore);
       final now = c.read(polyBrowseFeedProvider(query));
       expect(now.loading, isFalse);
-      expect(now.events.map((e) => e.slug), isNot(contains('nfl-game')));
-      expect(now.events, isNotEmpty);
+      expect(now.events.map((e) => e.slug), contains('nfl-game'));
     }, backend);
   });
 }

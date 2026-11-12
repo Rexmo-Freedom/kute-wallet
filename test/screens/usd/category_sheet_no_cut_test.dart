@@ -139,7 +139,7 @@ List<PolySub> _topicRows(PolyPill pill) => [
     ];
 
 List<PolySub> _themes(RuntimeCapabilitiesService policy) =>
-    polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot, policy);
+    polyTopicSubsFromRows(kPolySiteTrendingThemesSnapshot);
 
 List<Override> _overrides() {
   final directory = _directory();
