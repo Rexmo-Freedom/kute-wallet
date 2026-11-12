@@ -44,6 +44,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 
@@ -70,12 +71,19 @@ double kuteNavTitleLift(BuildContext context, double fontSize,
             2);
 
 /// The circle's tint at rest: the ink at 6% in light mode, 10% in dark.
-Color kuteNavFill(BuildContext context) => context.colors.textPrimary
-    .withValues(alpha: context.isDark ? 0.10 : 0.06);
+/// On a side-tinted sheet it is the sheet's 10% step ([SheetTint.pane]),
+/// so the circle on a light sheet in dark ink stands off it as quietly as
+/// the white one on green.
+Color kuteNavFill(BuildContext context) =>
+    SheetTint.maybeOf(context)?.pane(0.10) ??
+    context.colors.textPrimary
+        .withValues(alpha: context.isDark ? 0.10 : 0.06);
 
 /// The circle's tint while held.
-Color kuteNavPressedFill(BuildContext context) => context.colors.textPrimary
-    .withValues(alpha: context.isDark ? 0.18 : 0.12);
+Color kuteNavPressedFill(BuildContext context) =>
+    SheetTint.maybeOf(context)?.pane(0.18) ??
+    context.colors.textPrimary
+        .withValues(alpha: context.isDark ? 0.18 : 0.12);
 
 /// The glyph a navigation circle draws.
 enum KuteNavGlyph { back, close }

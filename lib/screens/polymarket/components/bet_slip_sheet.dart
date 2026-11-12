@@ -7361,9 +7361,11 @@ class _BinaryToggleButton extends StatelessWidget {
     final discIcon = selected
         ? (tintOn ?? onSide)
         : (tintOn?.withValues(alpha: 0.82) ?? c.textSecondary);
+    // The outline is a step of the sheet's ink over its pane: in dark ink
+    // as quiet against a light sheet as white's is on green.
     final borderColor = selected
-        ? tintOn?.withValues(alpha: 0.62)
-        : (tintOn?.withValues(alpha: 0.24) ?? c.border);
+        ? tint?.edge(0.62, over: 0.32)
+        : (tint?.edge(0.24, over: 0.10) ?? c.border);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -7574,9 +7576,11 @@ class _IconDiscButton extends StatelessWidget {
     final discIcon = selected
         ? (tintOn ?? onSide)
         : (tintOn?.withValues(alpha: 0.82) ?? c.textSecondary);
+    // The outline is a step of the sheet's ink over its pane: in dark ink
+    // as quiet against a light sheet as white's is on green.
     final borderColor = selected
-        ? tintOn?.withValues(alpha: 0.62)
-        : (tintOn?.withValues(alpha: 0.24) ?? c.border);
+        ? tint?.edge(0.62, over: 0.32)
+        : (tint?.edge(0.24, over: 0.10) ?? c.border);
     return Material(
       color: Colors.transparent,
       child: InkWell(

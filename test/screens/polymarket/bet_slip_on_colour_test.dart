@@ -10,8 +10,14 @@
 // Yes / No and Up / Down slips are as they were: white on the same green
 // and red.
 //
-// The PNGs (the Draw slip and a Yes slip, light and dark) are written only
-// when asked:
+// A light sheet's panes and outlines are as quiet as a green one's (founder,
+// 12 November 2026, on the Draw slip: "they look like they have bigger
+// borders?"): the Draw and Yes slips are laid out at 393 pt with the same
+// boxes, corners and outline widths, and each pane and outline stands off
+// its sheet as far on Draw as on Yes.
+//
+// The PNGs (the Draw slip and a Yes slip, light and dark, and both at 393
+// pt) are written only when asked:
 //
 //   BET_SLIP_ON_COLOUR_RENDER=<dir> flutter test \
 //     test/screens/polymarket/bet_slip_on_colour_test.dart
@@ -40,7 +46,9 @@ import 'package:kute/screens/polymarket/components/game_chart_section.dart'
     show kGameSideColors;
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
-import 'package:kute/screens/shared/amount_keypad_panel.dart' show AmountKeypad;
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountKeypad, AmountMaxChip, BigAmountDisplay;
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -148,8 +156,10 @@ Future<void> _frames(WidgetTester tester, [int n = 12]) async {
 }
 
 Future<void> _pump(WidgetTester tester, BetSlipSheet slip,
-    {bool dark = false, List<StandingOrder> standing = const []}) async {
-  tester.view.physicalSize = const Size(390, 844);
+    {bool dark = false,
+    List<StandingOrder> standing = const [],
+    Size size = const Size(390, 844)}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   installShellBar();
@@ -367,7 +377,10 @@ void main() {
         expect(c.dragHandle, on.withValues(alpha: 0.45));
         expect(isSideTinted(c), isTrue);
       }
-      expect(tintPane(Colors.white, 0.32), Colors.white.withValues(alpha: 0.32));
+      expect(tintPane(Colors.white, AppColors.marketUp, 0.32),
+          Colors.white.withValues(alpha: 0.32));
+      expect(tintEdge(Colors.white, AppColors.marketDown, 0.62, over: 0.32),
+          Colors.white.withValues(alpha: 0.62));
       expect(slipCtaFill(Colors.white), Colors.white);
       expect(
           slipCtaLabelColor(
@@ -395,7 +408,7 @@ void main() {
         }
         // On a pane: the full ink on the strongest, the second on the
         // tappable one.
-        final picked = over(tintPane(Colors.black, 0.32), side);
+        final picked = over(tintPane(Colors.black, side, 0.32), side);
         expect(contrastRatio(Colors.black, picked), greaterThanOrEqualTo(4.5),
             reason: 'ink on the picked pane of $side');
         final tappable = over(c.surfaceLight, side);
@@ -411,6 +424,68 @@ void main() {
               side: kGameSideColors[0],
               neutral: true),
           Colors.white);
+    });
+  });
+
+  group(
+      'dark ink\'s panes and borders stand off the sheet as white\'s do '
+      'on the Yes slip\'s green', () {
+    final light = AppColorsExtension.light();
+    final fills = [
+      for (final line in {...kPolyOutcomeColors, ...kGameSideColors})
+        if (contrastingOnColor(line) == Colors.black) line,
+    ];
+    double white(double alpha) => tintStepContrast(
+        Colors.white.withValues(alpha: alpha), AppColors.marketUp);
+
+    test(
+        'every step of the palette, every pane and outline of the side '
+        'buttons, the close circle', () {
+      expect(fills, isNotEmpty);
+      for (final side in fills) {
+        final c = sideTintPalette(light, side);
+        for (final (name, step, alpha) in [
+          ('surface', c.surface, 0.16),
+          ('surfaceLight', c.surfaceLight, 0.24),
+          ('surfaceElevated', c.surfaceElevated, 0.32),
+          ('border', c.border, 0.34),
+          ('borderSubtle', c.borderSubtle, 0.22),
+          ('dragHandle', c.dragHandle, 0.45),
+          for (final a in [0.10, 0.18, 0.32, 0.40, 0.62])
+            ('pane $a', tintPane(Colors.black, side, a), a),
+        ]) {
+          expect(tintStepContrast(step, side), closeTo(white(alpha), 0.002),
+              reason: '$name on $side');
+        }
+        // An outline over its own pane: the two together, as the eye
+        // meets the rim.
+        for (final (border, pane) in [(0.62, 0.32), (0.24, 0.10)]) {
+          final rim = Color.alphaBlend(
+              tintEdge(Colors.black, side, border, over: pane),
+              Color.alphaBlend(tintPane(Colors.black, side, pane), side));
+          final whiteRim = Color.alphaBlend(
+              Colors.white.withValues(alpha: border),
+              Color.alphaBlend(
+                  Colors.white.withValues(alpha: pane), AppColors.marketUp));
+          expect(contrastRatio(rim, side),
+              closeTo(contrastRatio(whiteRim, AppColors.marketUp), 0.002),
+              reason: 'outline $border over pane $pane on $side');
+        }
+      }
+    });
+
+    test(
+        'the same alpha in black was far heavier: the borders the founder '
+        'saw', () {
+      const draw = Color(0xFFFFB74D);
+      // Before: black at white's 0.62 and 0.34 on the Draw slip.
+      expect(tintStepContrast(Colors.black.withValues(alpha: 0.62), draw),
+          greaterThan(2 * white(0.62)));
+      expect(tintStepContrast(Colors.black.withValues(alpha: 0.34), draw),
+          greaterThan(1.4 * white(0.34)));
+      // Now: the same.
+      expect(tintStepContrast(sideTintPalette(light, draw).border, draw),
+          closeTo(white(0.34), 0.002));
     });
   });
 
@@ -643,6 +718,92 @@ void main() {
       });
     });
 
+    testWidgets(
+        'Draw and Yes at 393 pt: one geometry, the same quiet '
+        'outlines ($theme)', (tester) async {
+      const size = Size(393, 852);
+      await _pump(tester, _matchSlip(1), dark: dark, size: size);
+      final draw = _slipChrome(tester);
+      if (_dir case final dir?) {
+        await writeViewPng(tester, '$dir/draw_393_$theme.png');
+      }
+      await _close(tester);
+      await _pump(
+          tester,
+          BetSlipSheet(
+            marketQuestion: 'Will it rain in Lisbon tomorrow?',
+            outcomes: _yesNo,
+            initialOutcomeIndex: 0,
+            initialAmountUsd: 10,
+          ),
+          dark: dark,
+          size: size);
+      final yes = _slipChrome(tester);
+      if (_dir case final dir?) {
+        await writeViewPng(tester, '$dir/yes_393_$theme.png');
+      }
+      await _close(tester);
+
+      expect(draw.sheet.fill, kGameSideColors[2]);
+      expect(yes.sheet.fill, AppColors.marketUp);
+      expect(draw.toggles, hasLength(3));
+      expect(yes.toggles, hasLength(2));
+      // Geometry: every control the same box, corner, outline width and
+      // padding. The side buttons share one row, so only their width
+      // follows how many there are.
+      for (final (name, a, b) in [
+        ('max', draw.max, yes.max),
+        ('advanced', draw.advanced, yes.advanced),
+        ('key', draw.key, yes.key),
+        ('close', draw.close, yes.close),
+        ('amount', draw.amount, yes.amount),
+        ('sheet edge', draw.sheet, yes.sheet),
+      ]) {
+        expect(a.shape, b.shape, reason: '$name ($theme)');
+      }
+      for (final t in [...draw.toggles, ...yes.toggles]) {
+        expect(t.rowShape, yes.toggles.first.rowShape,
+            reason: 'side button ($theme)');
+      }
+      for (final (i, t) in draw.toggles.indexed) {
+        expect(t.size.width, closeTo(draw.toggles.first.size.width, 0.5),
+            reason: 'Draw side $i width');
+      }
+      // Contrast: each pane and each outline stands off its sheet as far
+      // on Draw as on Yes.
+      final dSheet = draw.sheet.fill!, ySheet = yes.sheet.fill!;
+      void same(String name, Color? d, Color? y,
+          {Color? dUnder, Color? yUnder}) {
+        expect(d, isNotNull, reason: name);
+        expect(y, isNotNull, reason: name);
+        final dc =
+            contrastRatio(Color.alphaBlend(d!, dUnder ?? dSheet), dSheet);
+        final yc =
+            contrastRatio(Color.alphaBlend(y!, yUnder ?? ySheet), ySheet);
+        expect(dc, closeTo(yc, 0.01), reason: '$name ($theme): $dc vs $yc');
+      }
+
+      final dPicked = draw.toggles.firstWhere((t) => t.picked);
+      final yPicked = yes.toggles.firstWhere((t) => t.picked);
+      final dOther = draw.toggles.firstWhere((t) => !t.picked);
+      final yOther = yes.toggles.firstWhere((t) => !t.picked);
+      same('picked side pane', dPicked.fill, yPicked.fill);
+      same('other side pane', dOther.fill, yOther.fill);
+      same('picked side outline', dPicked.border, yPicked.border,
+          dUnder: Color.alphaBlend(dPicked.fill!, dSheet),
+          yUnder: Color.alphaBlend(yPicked.fill!, ySheet));
+      same('other side outline', dOther.border, yOther.border,
+          dUnder: Color.alphaBlend(dOther.fill!, dSheet),
+          yUnder: Color.alphaBlend(yOther.fill!, ySheet));
+      same('max pane', draw.max.fill, yes.max.fill);
+      same('max outline', draw.max.border, yes.max.border);
+      same('advanced pane', draw.advanced.fill, yes.advanced.fill);
+      same('advanced outline', draw.advanced.border, yes.advanced.border);
+      same('key', draw.key.fill, yes.key.fill);
+      same('close circle', draw.close.fill, yes.close.fill);
+      same('sheet edge', draw.sheet.border, yes.sheet.border);
+    });
+
     testWidgets('renders: the Draw slip ($theme)', (tester) async {
       await _pump(tester, _matchSlip(1), dark: dark);
       expect(tester.takeException(), isNull);
@@ -703,4 +864,120 @@ void _expectWhiteSlip(WidgetTester tester, Color fill) {
   final button = barPrimaryContext(tester).style!;
   expect(button.fill, Colors.white);
   expect(button.foreground, Colors.black);
+}
+
+/// One painted control on the slip: its box, corner, outline width and
+/// padding ([shape], compared between slips), and its two colours.
+class _Chrome {
+  _Chrome(this.size, this.corner, this.borderWidth, this.padding, this.fill,
+      this.border);
+
+  final Size size;
+  final String corner;
+  final double borderWidth;
+  final EdgeInsetsGeometry? padding;
+  final Color? fill;
+  final Color? border;
+
+  /// The picked side of a row: the strongest pane.
+  bool picked = false;
+
+  String get shape => '$size $corner $borderWidth $padding';
+
+  /// A side button's shape apart from its width (the row shares it out).
+  String get rowShape => '${size.height} $corner $borderWidth $padding';
+}
+
+_Chrome _chromeOf(WidgetTester tester, Finder f) {
+  final w = tester.widget(f);
+  final (decoration, padding) = switch (w) {
+    AnimatedContainer(:final decoration, :final padding) => (
+        decoration,
+        padding
+      ),
+    Container(:final decoration, :final padding) => (decoration, padding),
+    _ => throw StateError('$w'),
+  };
+  final size = tester.getSize(f);
+  switch (decoration) {
+    case BoxDecoration(:final color, :final borderRadius, :final border):
+      final side = switch (border) {
+        Border(:final top) => top,
+        _ => BorderSide.none,
+      };
+      return _Chrome(size, '$borderRadius', side.width, padding, color,
+          side.style == BorderStyle.none ? null : side.color);
+    case ShapeDecoration(:final color, :final shape):
+      final side = (shape as OutlinedBorder).side;
+      return _Chrome(size, '${shape.runtimeType}', side.width, padding, color,
+          side.style == BorderStyle.none ? null : side.color);
+  }
+  throw StateError('$decoration');
+}
+
+typedef _SlipChrome = ({
+  _Chrome sheet,
+  List<_Chrome> toggles,
+  _Chrome max,
+  _Chrome advanced,
+  _Chrome key,
+  _Chrome close,
+  _Chrome amount,
+});
+
+bool _boxed(Widget w) =>
+    (w is Container && w.decoration is BoxDecoration) ||
+    (w is AnimatedContainer && w.decoration is BoxDecoration);
+
+/// The slip's chrome as laid out: the sheet, its side buttons, the Max
+/// and Advanced pills, a keypad key, the close circle and the amount.
+_SlipChrome _slipChrome(WidgetTester tester) {
+  final slip = find.byType(BetSlipSheet);
+  final sheet = _chromeOf(
+      tester,
+      find
+          .descendant(of: slip, matching: find.byType(AnimatedContainer))
+          .first);
+  final toggles = [
+    for (final e in find
+        .descendant(
+            of: slip,
+            matching: find.byWidgetPredicate((w) =>
+                w is AnimatedContainer &&
+                w.constraints != null &&
+                w.decoration is BoxDecoration &&
+                ((w.decoration as BoxDecoration).border?.isUniform ?? false)))
+        .evaluate())
+      _chromeOf(tester, find.byWidget(e.widget)),
+  ];
+  final strongest =
+      toggles.map((t) => t.fill!.a).reduce((a, b) => a > b ? a : b);
+  for (final t in toggles) {
+    t.picked = t.fill!.a == strongest;
+  }
+  Finder face(Finder of) =>
+      find.descendant(of: of, matching: find.byWidgetPredicate(_boxed)).first;
+  final key = find
+      .ancestor(
+          of: find.descendant(
+              of: find.byType(AmountKeypad), matching: find.text('5')),
+          matching: find.byWidgetPredicate(_boxed))
+      .first;
+  return (
+    sheet: sheet,
+    toggles: toggles,
+    max: _chromeOf(tester, face(find.byType(AmountMaxChip))),
+    advanced: _chromeOf(tester, face(find.byType(SlipAdvancedButton))),
+    key: _chromeOf(tester, key),
+    close: _chromeOf(
+        tester,
+        find
+            .descendant(
+                of: find.descendant(
+                    of: slip, matching: find.byType(KuteCloseButton)),
+                matching: find.byType(AnimatedContainer))
+            .first),
+    amount: _Chrome(tester.getSize(find.byType(BigAmountDisplay)), '-', 0, null,
+        null, null),
+  );
 }
