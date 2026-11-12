@@ -186,18 +186,57 @@ int polyRoundStartAt(DateTime now, int minutes) {
   return (epoch + offset) ~/ span * span - offset;
 }
 
+/// How long into a five-minute round it is still bet: two minutes, then
+/// the card's buttons roll to the next round by themselves (founder, 8
+/// November 2026, restored 12 November 2026: "the current bet until some
+/// time and then it's the next one").
+const Duration kCryptoRoundButtonsStayFor = Duration(minutes: 2);
+
+/// The time left in a 15-minute round when it stops being bet and the
+/// buttons roll to the next one.
+const Duration kCryptoRound15mBetCutoff = Duration(minutes: 3);
+
+/// The time left in an hourly round when it stops being bet.
+const Duration kCryptoRound1hBetCutoff = Duration(minutes: 5);
+
+/// The time left in a four-hour round when it stops being bet.
+const Duration kCryptoRound4hBetCutoff = Duration(minutes: 10);
+
+/// The time left in a round of [minutes] when it stops being bet (late in
+/// a round one side is ~98%, and funding takes 20 to 60 s, so a bet then
+/// is unfair or lands too late): three minutes of a five-minute round
+/// ([kCryptoRoundButtonsStayFor] into it), 3, 5 and 10 minutes of the
+/// 15-minute, hourly and four-hour rounds. Null for any other length,
+/// which is never bet once it has started.
+Duration? polyRoundBetCutoff(int minutes) => switch (minutes) {
+      5 => const Duration(minutes: 5) - kCryptoRoundButtonsStayFor,
+      15 => kCryptoRound15mBetCutoff,
+      60 => kCryptoRound1hBetCutoff,
+      240 => kCryptoRound4hBetCutoff,
+      _ => null,
+    };
+
+/// Whether [round] no longer takes a bet at [now]: in its last stretch
+/// ([polyRoundBetCutoff]), or started, for a length with no cutoff. A
+/// round still to start always does.
+bool polyRoundBetsClosedAt(PolyCryptoRound round, DateTime now) {
+  if (now.isBefore(round.start)) return false;
+  final cutoff = polyRoundBetCutoff(round.window.inMinutes);
+  if (cutoff == null) return true;
+  return !now.isBefore(round.end.subtract(cutoff));
+}
+
 /// Whether a BUY on the event with this [slug] (ending [endDate], read for
-/// the hourly rounds) would bet a crypto Up-or-Down round of any length
-/// (5m, 15m, 1h, 4h) that has already started at [now]. People bet only
-/// on the next round, never the one in play (founder, 12 November 2026:
-/// late in a round one side is ~98%, and funding takes 20 to 60 s). A
-/// sale is not a buy: exits always stay open. False for anything that is
-/// not a round.
+/// the hourly rounds) would bet a crypto Up-or-Down round that no longer
+/// takes one at [now] ([polyRoundBetsClosedAt]): the round in play is bet
+/// until its cutoff, then only the next one (founder, 12 November 2026).
+/// A sale is not a buy: exits always stay open. False for anything that
+/// is not a round.
 bool polyRoundBuyClosed(String? slug,
     {DateTime? endDate, required DateTime now}) {
   if (slug == null || slug.isEmpty) return false;
   final round = polyCryptoRoundOf(slug, endDate: endDate);
-  return round != null && !now.isBefore(round.start);
+  return round != null && polyRoundBetsClosedAt(round, now);
 }
 
 final RegExp _kFiveMinuteSlug = RegExp(r'^([a-z0-9]+)-updown-5m(?:-|$)');

@@ -14482,6 +14482,11 @@ class AppLocalizationsIt extends AppLocalizations {
   String get predictRoundNoPricesYet => 'Ancora senza prezzi';
 
   @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · vinci $payout';
+  }
+
+  @override
   String predictUpOrDownLength(String asset, String length) {
     return '$asset Sale o Scende · $length';
   }

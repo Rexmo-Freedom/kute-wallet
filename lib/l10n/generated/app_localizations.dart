@@ -24285,6 +24285,12 @@ abstract class AppLocalizations {
   /// **'No prices yet'**
   String get predictRoundNoPricesYet;
 
+  /// Quick amount chip under the Up and Down buttons of the live crypto round card (Predictions › Crypto › 5 Min, 15 Min, 1 Hour, 4 Hours): the stake and what it pays if the side wins at the odds shown, e.g. '$5 · win $12'. A tap opens the bet slip with that stake filled in. Very short: three sit side by side.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} · win {payout}'**
+  String predictQuickWin(String amount, String payout);
+
   /// Title of the Instant card (Predictions › Instant on the Dollars home), e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).
   ///
   /// In en, this message translates to:

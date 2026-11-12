@@ -14451,6 +14451,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get predictRoundNoPricesYet => 'Még nincs ár';
 
   @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · nyeremény $payout';
+  }
+
+  @override
   String predictUpOrDownLength(String asset, String length) {
     return '$asset fel vagy le · $length';
   }

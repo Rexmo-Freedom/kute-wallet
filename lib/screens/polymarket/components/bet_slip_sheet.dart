@@ -341,10 +341,10 @@ Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetFundingApproval;
 /// Whether [pending]'s stop retries on its series' next round: a short
 /// round with a slug per window (`btc-updown-5m-…`) that has ended at
 /// [now] (it ended while its money was moving, or its price moved past
-/// the approval and the round is over since), or that is in play by now:
-/// people bet only on the next round, never the one in play (founder, 12
-/// November 2026). Its own market takes no more from this person; the
-/// money is Predictions cash.
+/// the approval and the round is over since), or that is past its cutoff
+/// by now ([polyRoundBuyClosed]: from then on only the next round is bet;
+/// founder, 12 November 2026). Its own market takes no more from this
+/// person; the money is Predictions cash.
 bool betSlipRetriesNextRound(PendingBetIntent pending, {DateTime? now}) =>
     pending.status == PendingBetStatus.failed &&
     polyRoundSeriesOf(pending.eventSlug) != null &&
@@ -577,12 +577,16 @@ class BetSlipSheet extends ConsumerStatefulWidget {
           error: true);
       return;
     }
-    // A crypto Up-or-Down round already in play is never bought, from any
-    // door (a list's pill, a shared pick, a standing order, a link):
-    // people bet only on the next round (founder, 12 November 2026). Its
-    // market opens instead, unless it is already on screen: the round
-    // sheet bets the next round, any other round's page is read-only with
-    // a way to the next one. Sales never come through here.
+    // A crypto Up-or-Down round past its cutoff (two minutes into a
+    // five-minute round, the last 3, 5 and 10 minutes of a 15-minute,
+    // hourly and four-hour one: crypto_round.dart's polyRoundBetCutoff) is
+    // never bought, from any door (a list's pill, a shared pick, a
+    // standing order, a link): from then on only the next round is bet
+    // (founder, 12 November 2026). Its market opens instead, unless it is
+    // already on screen: the round card has rolled to the next round, any
+    // other round's page is read-only with a way to the next one. Before
+    // the cutoff the round in play is bet as any market. Sales never come
+    // through here.
     if (polyRoundBuyClosed(marketSlug,
         endDate: marketEndAt, now: debugClock())) {
       if (event != null &&
@@ -1569,6 +1573,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// a price past the approval, and the slip's Retry opens the series'
   /// next round (founder, 23 October 2026). An unread market does not
   /// block.
+  /// A crypto round that reached its cutoff while the slip was open
+  /// ([polyRoundBuyClosed]) is over for this bet too: nothing moves for it.
   PredictionsFundingBlock? _fundingBlockFor(PolymarketMarketWindow? market) =>
       predictionsFundingBlock(
         market: market,
@@ -1577,7 +1583,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             slug: widget.marketSlug,
             question: widget.marketQuestion,
             endAt: widget.marketEndAt),
-      );
+      ) ??
+      (polyRoundBuyClosed(widget.marketSlug,
+              endDate: widget.marketEndAt, now: BetSlipSheet.debugClock())
+          ? PredictionsFundingBlock.ended
+          : null);
 
   /// Says why nothing was funded: the market is over.
   void _showFundingBlock(PredictionsFundingBlock block) {

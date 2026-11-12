@@ -14461,6 +14461,11 @@ class AppLocalizationsPl extends AppLocalizations {
   String get predictRoundNoPricesYet => 'Brak cen';
 
   @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · wygrana $payout';
+  }
+
+  @override
   String predictUpOrDownLength(String asset, String length) {
     return '$asset w górę czy w dół · $length';
   }

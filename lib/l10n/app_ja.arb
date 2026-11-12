@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5分マーケット",
   "predictRoundNow": "今 · {time}",
   "predictRoundNoPricesYet": "まだ価格なし",
+  "predictQuickWin": "{amount} · 獲得 {payout}",
   "predictUpOrDownLength": "{asset} 上昇か下落か · {length}",
   "standingPlacingPrediction": "予測を発注しています",
   "standingPlacingOrder": "注文を発注しています",

@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5-минутни пазари",
   "predictRoundNow": "Сега · {time}",
   "predictRoundNoPricesYet": "Още няма цени",
+  "predictQuickWin": "{amount} · печалба {payout}",
   "predictUpOrDownLength": "{asset} нагоре или надолу · {length}",
   "standingPlacingPrediction": "Поставяме прогнозата ти",
   "standingPlacingOrder": "Поставяме поръчката ти",

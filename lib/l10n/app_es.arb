@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "Mercados de 5 minutos",
   "predictRoundNow": "Ahora · {time}",
   "predictRoundNoPricesYet": "Aún sin precios",
+  "predictQuickWin": "{amount} · ganas {payout}",
   "predictUpOrDownLength": "{asset} sube o baja · {length}",
   "standingPlacingPrediction": "Colocando tu predicción",
   "standingPlacingOrder": "Colocando tu orden",

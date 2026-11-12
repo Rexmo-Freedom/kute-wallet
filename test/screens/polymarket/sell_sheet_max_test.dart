@@ -191,14 +191,15 @@ void main() {
   });
 
   testWidgets(
-      'a position in a crypto round IN PLAY still sells: buys there are '
-      'closed (founder, 12 November 2026), exits always open',
+      'a position in a crypto round IN PLAY past its cutoff still sells: '
+      'buys there are closed (founder, 12 November 2026), exits always open',
       (tester) async {
     final now = DateTime.now();
-    final start = polyRoundStartAt(now, 5);
+    // Four minutes into a five-minute round: past its two-minute cutoff.
+    final start = now.millisecondsSinceEpoch ~/ 1000 - 240;
     final slug = polyCryptoRoundSlug('btc', 5, start);
     expect(polyRoundBuyClosed(slug, now: now), isTrue,
-        reason: 'the round is in play: no buy');
+        reason: 'the round is past its cutoff: no buy');
     await _pump(
         tester,
         PolymarketPosition(

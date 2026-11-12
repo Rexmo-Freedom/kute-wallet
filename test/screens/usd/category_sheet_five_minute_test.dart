@@ -304,12 +304,12 @@ void main() {
       'subcategory': '5m',
       'surface': 'five_minute_card',
     });
-    // The page in A: the live card, betting the next round (no strip of
-    // rounds), and the other coins' rows.
+    // The page in A: the live card with its round row and the line naming
+    // the round its buttons bet, and the other coins' rows.
     expect(find.byKey(page.roundCardKey), findsOneWidget);
     expect(find.text('BTC up or down · 5m'), findsOneWidget);
     expect(find.byKey(const ValueKey('crypto-round-next')), findsOneWidget);
-    expect(find.byKey(const ValueKey('crypto-round-strip')), findsNothing);
+    expect(find.byKey(const ValueKey('crypto-round-strip')), findsOneWidget);
     expect(find.byKey(const ValueKey('crypto-more-rounds')), findsOneWidget);
     final l10n = _l10nOf('en');
     expect(

@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5 minuutin markkinat",
   "predictRoundNow": "Nyt · {time}",
   "predictRoundNoPricesYet": "Ei vielä hintoja",
+  "predictQuickWin": "{amount} · voitto {payout}",
   "predictUpOrDownLength": "{asset} ylös vai alas · {length}",
   "standingPlacingPrediction": "Ennustettasi asetetaan",
   "standingPlacingOrder": "Toimeksiantoasi asetetaan",

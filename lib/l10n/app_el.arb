@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "Αγορές 5 λεπτών",
   "predictRoundNow": "Τώρα · {time}",
   "predictRoundNoPricesYet": "Χωρίς τιμές ακόμα",
+  "predictQuickWin": "{amount} · κέρδος {payout}",
   "predictUpOrDownLength": "{asset} Πάνω ή Κάτω · {length}",
   "standingPlacingPrediction": "Τοποθετούμε την πρόβλεψή σου",
   "standingPlacingOrder": "Τοποθετούμε την εντολή σου",

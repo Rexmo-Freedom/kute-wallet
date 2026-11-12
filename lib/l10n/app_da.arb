@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5-minutters markeder",
   "predictRoundNow": "Nu · {time}",
   "predictRoundNoPricesYet": "Ingen priser endnu",
+  "predictQuickWin": "{amount} · gevinst {payout}",
   "predictUpOrDownLength": "{asset} op eller ned · {length}",
   "standingPlacingPrediction": "Placerer din forudsigelse",
   "standingPlacingOrder": "Placerer din ordre",

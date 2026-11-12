@@ -46,7 +46,9 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
+import 'package:kute/screens/polymarket/components/crypto_round_strip.dart';
 import 'package:kute/screens/shared/market_pair_button.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/services/polymarket/current_round.dart';
@@ -98,8 +100,47 @@ class StripRoundState extends CryptoPredictNotifier {
   final CardWorld world;
 
   @override
-  Future<CryptoPredictState> build(String arg) async {
-    final minutes = ref.watch(cryptoPredictWindowProvider);
+  Future<CryptoPredictState> build(String arg) async =>
+      fakeRoundState(world, arg, ref.watch(cryptoPredictWindowProvider));
+
+  void bump() => state = AsyncData(bumped(world, state.requireValue));
+
+  void rollTo(Btc5MinEvent event) {
+    final prev = state.requireValue;
+    state = AsyncData(prev.copyWith(event: event, secondsRemaining: 299));
+  }
+}
+
+/// The same round at a fixed length: the Crypto length pages' card, the
+/// coins' rows and the round sheet opened from them ([cryptoRoundProvider]).
+class FixedRoundState extends CryptoRoundNotifier {
+  FixedRoundState(this.world);
+  final CardWorld world;
+
+  @override
+  Future<CryptoPredictState> build(CryptoRoundKey arg) async =>
+      fakeRoundState(world, arg.asset, arg.minutes);
+
+  void bump() => state = AsyncData(bumped(world, state.requireValue));
+
+  void rollTo(Btc5MinEvent event) {
+    final prev = state.requireValue;
+    state = AsyncData(prev.copyWith(
+        event: event,
+        secondsRemaining: event.endDate!.difference(world.now).inSeconds));
+  }
+}
+
+/// [prev] repainted on the test's clock, as the one-second countdown does.
+CryptoPredictState bumped(CardWorld world, CryptoPredictState prev) {
+  final end = prev.event?.endDate;
+  final left =
+      end == null ? prev.secondsRemaining : end.difference(world.now).inSeconds;
+  return prev.copyWith(secondsRemaining: left < 0 ? 0 : left);
+}
+
+/// [arg]'s round in play of [minutes] on the test's clock.
+CryptoPredictState fakeRoundState(CardWorld world, String arg, int minutes) {
     final start = DateTime.fromMillisecondsSinceEpoch(
         polyRoundStartAt(world.now, minutes) * 1000,
         isUtc: true);
@@ -129,21 +170,6 @@ class StripRoundState extends CryptoPredictNotifier {
           : roundEvent(start, 'cur-${arg.toLowerCase()}',
               minutes: minutes, asset: arg.toLowerCase()),
     );
-  }
-
-  void bump() {
-    final prev = state.requireValue;
-    final end = prev.event?.endDate;
-    final left = end == null
-        ? prev.secondsRemaining
-        : end.difference(world.now).inSeconds;
-    state = AsyncData(prev.copyWith(secondsRemaining: left < 0 ? 0 : left));
-  }
-
-  void rollTo(Btc5MinEvent event) {
-    final prev = state.requireValue;
-    state = AsyncData(prev.copyWith(event: event, secondsRemaining: 299));
-  }
 }
 
 class _Prices extends LivePriceNotifier {
@@ -196,7 +222,9 @@ class _Currency extends StateNotifier<CurrencyState>
 /// The test's world: the clock, the chips' length, what Gamma lists ahead,
 /// the books, and what the card has asked for.
 class CardWorld {
-  DateTime now = roundStart.add(const Duration(minutes: 1));
+  /// Two minutes 44 into the round in play: a five-minute card has rolled
+  /// to the next round (kCryptoRoundButtonsStayFor).
+  DateTime now = roundStart.add(const Duration(minutes: 2, seconds: 44));
   int minutes = 5;
 
   /// Gamma has no event for the round in play.
@@ -270,6 +298,7 @@ class CardWorld {
   List<Override> overrides() => [
         cryptoPredictWindowProvider.overrideWith((ref) => minutes),
         cryptoPredictProvider.overrideWith(() => StripRoundState(this)),
+        cryptoRoundProvider.overrideWith(() => FixedRoundState(this)),
         cryptoRecentResultsProvider.overrideWith((ref, key) async => [
               CryptoWindowResult(key.currentStart - 4 * key.minutes * 60, true),
               CryptoWindowResult(
@@ -462,29 +491,28 @@ void main() {
   for (final compact in [true, false]) {
     final shape = compact ? 'compact card' : 'full card (the round sheet)';
     testWidgets(
-        '$shape: the bet is on the next round, "Next · Starts in" over the '
-        'buttons, its tokens, end and live odds; the round in play stays '
-        'on show; no strip', (tester) async {
+        '$shape: past the five-minute cutoff (2:44 in) the bet is on the '
+        'next round, "Next · Starts in" over the buttons, its tokens, end '
+        'and live odds; the round in play stays on show', (tester) async {
       world.listNext();
       world.quoteCurrent();
       await pumpCard(tester, compact: compact);
-      expect(lineOverButtons(tester), 'Next · Starts in 04:00');
-      expect(find.byKey(const ValueKey('crypto-round-strip')), findsNothing,
-          reason: 'nothing to pick');
-      expect(find.textContaining('Now · '), findsNothing);
-      // The round in play is the context: its target and its clock.
-      expect(find.text(r'Target $75,987'), findsOneWidget);
-      expect(find.text('04:00'), findsOneWidget);
+      expect(lineOverButtons(tester), 'Next · Starts in 02:16');
+      // The full card carries the round row; the list's compact card none.
+      expect(find.byKey(const ValueKey('crypto-round-strip')),
+          compact ? findsNothing : findsOneWidget);
+      // The round in play is on show: its target and its clock.
+      expect(
+          compact
+              ? find.text(r'Target $75,987')
+              : find.byWidgetPredicate(
+                  (w) => w is RollingNumberText && w.text == r'$75,987'),
+          findsOneWidget);
+      expect(find.text('02:16'), findsOneWidget);
       expect(buttonEnabled(tester, upPill), isTrue);
       expect(buttonEnabled(tester, downPill), isTrue);
       final name = windowName(nextStart);
-      expect(buttonSays(tester, upPill, compact ? '$name, Up 50.5%' : name),
-          isTrue);
-      if (!compact) {
-        final bar = tester.widget<LinearProgressIndicator>(
-            find.byType(LinearProgressIndicator));
-        expect(bar.value, closeTo(0.505, 1e-9));
-      }
+      expect(buttonSays(tester, upPill, '$name, Up 50.5%'), isTrue);
       final slip = (await tapSide(tester, downPill))!;
       expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(nextStart)));
       expect(slip.outcomes.map((o) => o.tokenId), ['next-up', 'next-down']);
@@ -533,8 +561,8 @@ void main() {
         world.listNext(quoted: false);
         world.quoteCurrent();
         await pumpCard(tester, compact: compact);
-        expect(lineOverButtons(tester),
-            'Next · Starts in 04:00 · No prices yet');
+        expect(
+            lineOverButtons(tester), 'Next · Starts in 02:16 · No prices yet');
         expect(buttonEnabled(tester, upPill), isFalse);
         expect(buttonEnabled(tester, downPill), isFalse);
         expect(find.textContaining('%'), findsNothing,
@@ -545,7 +573,7 @@ void main() {
         world.seedBook('next-up', 0.50, 0.51);
         world.seedBook('next-down', 0.49, 0.50);
         await moveTo(tester, world, world.now.add(const Duration(seconds: 1)));
-        expect(lineOverButtons(tester), 'Next · Starts in 03:59');
+        expect(lineOverButtons(tester), 'Next · Starts in 02:15');
         expect(buttonEnabled(tester, upPill), isTrue);
         final slip = (await tapSide(tester, upPill))!;
         expect(slip.outcomes.map((o) => o.tokenId), ['next-up', 'next-down']);
@@ -597,28 +625,155 @@ void main() {
   });
 
   testWidgets(
-      'the round in play is never bettable: at its end, before the card '
-      'rolls, the buttons are disabled; rolled, they bet the round after',
-      (tester) async {
+      'the roll: a five-minute round is bet in play for its first two '
+      'minutes, never after; the card rolls on and the new round in play '
+      'is bet, then the one after', (tester) async {
+    world.now = roundStart.add(const Duration(minutes: 1));
     world.listNext();
     world.listLater();
     world.quoteCurrent();
     await pumpCard(tester);
-    // The next round has started; the card still shows the old one.
-    await moveTo(tester, world, nextStart);
-    expect(buttonEnabled(tester, upPill), isFalse);
-    expect(lineOverButtons(tester), 'Next · Starts in 00:00 · No prices yet');
-    expect(await tapSide(tester, upPill), isNull);
-    // The card rolls on: the next round is the one in play, the buttons
-    // bet the one after.
+    // A minute in: the round in play, at its live odds.
+    expect(lineOverButtons(tester), 'Now · Ends in 04:00');
+    expect(buttonSays(tester, upPill, '${windowName(roundStart)}, Up 60%'),
+        isTrue);
+    var slip = (await tapSide(tester, upPill))!;
+    expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(roundStart)));
+    expect(slip.outcomes.map((o) => o.tokenId), ['cur-up', 'cur-down']);
+    expect(slip.marketEndAt, nextStart);
+    expect(slipOpened()['window'], 'current');
+    Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+    await settle(tester);
+    // 1:59 in: still the round in play.
+    await moveTo(
+        tester, world, roundStart.add(const Duration(minutes: 1, seconds: 59)));
+    expect(lineOverButtons(tester), 'Now · Ends in 03:01');
+    // Two minutes in: the cutoff, the buttons roll to the next round.
+    await moveTo(tester, world, roundStart.add(const Duration(minutes: 2)));
+    expect(lineOverButtons(tester), 'Next · Starts in 03:00');
+    expect(
+        polyRoundBuyClosed(polyCryptoRoundSlug('btc', 5, epoch(roundStart)),
+            now: world.now),
+        isTrue);
+    // The next round starts; the card rolls on: it is the round in play,
+    // bet for its first two minutes, then the one after.
     world.now = nextStart.add(const Duration(seconds: 2));
     world.requote();
     roundOf(tester).rollTo(roundEvent(nextStart, 'next'));
     await settle(tester);
-    expect(lineOverButtons(tester), startsWith('Next · Starts in 04:5'));
+    expect(lineOverButtons(tester), 'Now · Ends in 04:58');
+    slip = (await tapSide(tester, upPill))!;
+    expect(slip.outcomes.map((o) => o.tokenId), ['next-up', 'next-down']);
+    Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+    await settle(tester);
+    await moveTo(tester, world, nextStart.add(const Duration(minutes: 2)));
+    slip = (await tapSide(tester, upPill))!;
+    expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(laterStart)));
+    expect(slip.outcomes.map((o) => o.tokenId), ['later-up', 'later-down']);
+    await tearCardDown(tester);
+  });
+
+  testWidgets(
+      'the round row: the round in play, the next and the one after by their '
+      'starts; a tap on the one after overrides the roll; the round in play '
+      'past its cutoff is dimmed and takes no tap', (tester) async {
+    world.listNext();
+    world.listLater();
+    world.quoteCurrent();
+    await pumpCard(tester, compact: false);
+    final strip = find.byKey(const ValueKey('crypto-round-strip'));
+    for (final label in [
+      '● ${clockOf(roundStart)}',
+      clockOf(nextStart),
+      clockOf(laterStart),
+    ]) {
+      expect(find.descendant(of: strip, matching: find.text(label)),
+          findsOneWidget);
+    }
+    // Rolled (2:44 in): the next round; the round in play takes no tap.
+    expect(lineOverButtons(tester), 'Next · Starts in 02:16');
+    await tester.tap(find.byKey(CryptoRoundStrip.pillKey(epoch(roundStart))));
+    await settle(tester);
+    expect(lineOverButtons(tester), 'Next · Starts in 02:16');
+    // The one after, picked.
+    await tester.tap(find.byKey(CryptoRoundStrip.pillKey(epoch(laterStart))));
+    await settle(tester);
+    expect(lineOverButtons(tester), '${clockOf(laterStart)} · Starts in 07:16');
+    expect(events.last.$1, 'predictions_instant_round_picked');
+    expect(events.last.$2!['which'], 'later');
     final slip = (await tapSide(tester, upPill))!;
     expect(slip.marketSlug, polyCryptoRoundSlug('btc', 5, epoch(laterStart)));
     expect(slip.outcomes.map((o) => o.tokenId), ['later-up', 'later-down']);
+    await tearCardDown(tester);
+  });
+
+  testWidgets(
+      'before the cutoff a tap on the next round bets it; a round ahead '
+      'without prices can be picked and says so', (tester) async {
+    world.now = roundStart.add(const Duration(minutes: 1));
+    world.listNext();
+    world.listLater();
+    world.quoteCurrent();
+    world.quotes.remove('later-up');
+    world.quotes.remove('later-down');
+    PolymarketLiveBooks.instance.reset();
+    world.install();
+    world.requote();
+    await pumpCard(tester, compact: false);
+    expect(lineOverButtons(tester), 'Now · Ends in 04:00');
+    await tester.tap(find.byKey(CryptoRoundStrip.pillKey(epoch(nextStart))));
+    await settle(tester);
+    expect(lineOverButtons(tester), 'Next · Starts in 04:00');
+    expect(buttonEnabled(tester, upPill), isTrue);
+    await tester.tap(find.byKey(CryptoRoundStrip.pillKey(epoch(laterStart))));
+    await settle(tester);
+    expect(lineOverButtons(tester),
+        '${clockOf(laterStart)} · Starts in 09:00 · No prices yet');
+    expect(buttonEnabled(tester, upPill), isFalse);
+    await tearCardDown(tester);
+  });
+
+  testWidgets(
+      'quick amounts: "\$5 · win \$9" for Up until Down is tapped; a tap opens '
+      'the slip with that amount and side, and nothing is placed or funded',
+      (tester) async {
+    world.listNext();
+    await pumpCard(tester, compact: false);
+    String quickLabel(int amount) => tester
+        .widget<Text>(find.descendant(
+            of: find.byKey(ValueKey('crypto-round-quick-$amount')),
+            matching: find.byType(Text)))
+        .data!;
+    // Up at 50.5%: 5 ÷ 0.505 = 9.90, to the dollar below.
+    expect(quickLabel(5), r'$5 · win $9');
+    expect(quickLabel(25), r'$25 · win $49');
+    expect(quickLabel(100), r'$100 · win $198');
+    await tester.tap(find.byKey(const ValueKey('crypto-round-quick-25')));
+    await settle(tester);
+    var slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
+    expect(slip.initialAmountUsd, 25);
+    expect(slip.initialOutcomeIndex, 0);
+    expect(slip.outcomes.map((o) => o.tokenId), ['next-up', 'next-down']);
+    expect(
+        events.where((e) =>
+            e.$1 == 'polymarket_bet_placed' ||
+            e.$1.contains('funding') ||
+            e.$1.contains('approv')),
+        isEmpty,
+        reason: 'a quick amount only fills the slip in');
+    expect(find.byType(BetSlipSheet), findsOneWidget);
+    Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+    await settle(tester);
+    // Down tapped: the quick amounts are Down's.
+    await tapSide(tester, downPill);
+    Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+    await settle(tester);
+    expect(quickLabel(25), r'$25 · win $50');
+    await tester.tap(find.byKey(const ValueKey('crypto-round-quick-100')));
+    await settle(tester);
+    slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
+    expect(slip.initialAmountUsd, 100);
+    expect(slip.initialOutcomeIndex, 1);
     await tearCardDown(tester);
   });
 
@@ -637,21 +792,48 @@ void main() {
     await tearCardDown(tester);
   });
 
-  for (final minutes in [15, 60]) {
-    testWidgets('$minutes-minute rounds: the same, the next round of that '
-        'length', (tester) async {
+  for (final (minutes, cutoff) in [(15, 3), (60, 5), (240, 10)]) {
+    testWidgets(
+        '$minutes-minute rounds: the round in play is bet until $cutoff '
+        'minutes are left, then the next round of that length', (tester) async {
       world.minutes = minutes;
-      world.listNext();
+      final start = DateTime.fromMillisecondsSinceEpoch(
+          polyRoundStartAt(world.now, minutes) * 1000,
+          isUtc: true);
+      final end = start.add(Duration(minutes: minutes));
+      world.listNext(live: start);
       await pumpCard(tester);
+      String two(int n) => n.toString().padLeft(2, '0');
+      String left(Duration d) => minutes >= 60
+          ? '${d.inHours}:${two(d.inMinutes % 60)}:${two(d.inSeconds % 60)}'
+          : '${two(d.inMinutes)}:${two(d.inSeconds % 60)}';
+      expect(lineOverButtons(tester),
+          'Now · Ends in ${left(end.difference(world.now))}');
+      var slip = (await tapSide(tester, upPill))!;
       expect(
-          lineOverButtons(tester),
-          minutes == 60
-              ? 'Next · Starts in 0:59:00'
-              : 'Next · Starts in 14:00');
-      final slip = (await tapSide(tester, upPill))!;
-      final next = roundStart.add(Duration(minutes: minutes));
-      expect(slip.marketSlug, polyCryptoRoundSlug('btc', minutes, epoch(next)));
-      expect(slip.marketEndAt, next.add(Duration(minutes: minutes)));
+          slip.marketSlug, polyCryptoRoundSlug('btc', minutes, epoch(start)));
+      expect(slip.outcomes.map((o) => o.tokenId), ['cur-up', 'cur-down']);
+      Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
+      await settle(tester);
+      // One second before the cutoff: still the round in play.
+      final cut = end.subtract(Duration(minutes: cutoff));
+      await moveTo(tester, world, cut.subtract(const Duration(seconds: 1)));
+      expect(lineOverButtons(tester), startsWith('Now · Ends in '));
+      expect(
+          polyRoundBuyClosed(polyCryptoRoundSlug('btc', minutes, epoch(start)),
+              endDate: end, now: world.now),
+          isFalse);
+      // The cutoff: the next round.
+      await moveTo(tester, world, cut);
+      expect(lineOverButtons(tester),
+          'Next · Starts in ${left(Duration(minutes: cutoff))}');
+      expect(
+          polyRoundBuyClosed(polyCryptoRoundSlug('btc', minutes, epoch(start)),
+              endDate: end, now: world.now),
+          isTrue);
+      slip = (await tapSide(tester, upPill))!;
+      expect(slip.marketSlug, polyCryptoRoundSlug('btc', minutes, epoch(end)));
+      expect(slip.marketEndAt, end.add(Duration(minutes: minutes)));
       await tearCardDown(tester);
     });
   }
@@ -707,9 +889,9 @@ void main() {
     ));
     await settle(tester);
     final context = tester.element(find.byKey(cardKey));
-    expect(polyPositionRowTitle(context, held, null),
-        slipWindowName(roundStart));
-    expect(lineOverButtons(tester), 'Next · Starts in 04:00');
+    expect(
+        polyPositionRowTitle(context, held, null), slipWindowName(roundStart));
+    expect(lineOverButtons(tester), 'Next · Starts in 02:16');
     final container = ProviderScope.containerOf(context);
     expect(
         container
@@ -748,9 +930,12 @@ void main() {
   });
 
   group('the round in play from any other door', () {
-    PolymarketEvent inPlay(DateTime now, {int minutes = 15}) {
+    /// A 15-minute round [elapsed] into its play at [now] (the market page
+    /// reads the wall clock, so the round is placed around it).
+    PolymarketEvent inPlay(DateTime now,
+        {int minutes = 15, required Duration elapsed}) {
       final start = DateTime.fromMillisecondsSinceEpoch(
-          polyRoundStartAt(now, minutes) * 1000,
+          (now.millisecondsSinceEpoch ~/ 1000 - elapsed.inSeconds) * 1000,
           isUtc: true);
       final ev = roundEvent(start, 'cur15', minutes: minutes);
       return PolymarketEvent(
@@ -770,42 +955,45 @@ void main() {
       );
     }
 
-    test('a buy on a round in play is closed, of any length; a round ahead '
-        'and any other market are not', () {
-      final now = DateTime.now();
-      for (final minutes in [5, 15, 240]) {
-        final start = polyRoundStartAt(now, minutes);
-        expect(
-            polyRoundBuyClosed(polyCryptoRoundSlug('btc', minutes, start),
-                now: now),
-            isTrue,
-            reason: '$minutes');
-        expect(
-            polyRoundBuyClosed(
-                polyCryptoRoundSlug('btc', minutes, start + minutes * 60),
-                now: now),
-            isFalse,
+    test(
+        'a buy on a round in play is open until its cutoff (two minutes into '
+        'a 5m round, the last 3, 5 and 10 minutes of a 15m, 1h and 4h one) '
+        'and closed after; a round ahead and any other market are open', () {
+      for (final (minutes, cutoff) in [(5, 3), (15, 3), (60, 5), (240, 10)]) {
+        final start = DateTime.utc(2026, 11, 8, 13);
+        final end = start.add(Duration(minutes: minutes));
+        final slug = polyCryptoRoundSlug(
+            'btc', minutes, start.millisecondsSinceEpoch ~/ 1000);
+        bool closedAt(DateTime t) =>
+            polyRoundBuyClosed(slug, endDate: end, now: t);
+        expect(closedAt(start.subtract(const Duration(seconds: 1))), isFalse,
             reason: '$minutes ahead');
+        expect(closedAt(start), isFalse, reason: '$minutes at its start');
+        final cut = end.subtract(Duration(minutes: cutoff));
+        expect(closedAt(cut.subtract(const Duration(seconds: 1))), isFalse,
+            reason: '$minutes before its cutoff');
+        expect(closedAt(cut), isTrue, reason: '$minutes at its cutoff');
+        expect(closedAt(end), isTrue, reason: '$minutes at its end');
       }
-      final hour = polyRoundStartAt(now, 60);
-      expect(
-          polyRoundBuyClosed(polyCryptoRoundSlug('btc', 60, hour),
-              endDate: DateTime.fromMillisecondsSinceEpoch(
-                  (hour + 3600) * 1000,
-                  isUtc: true),
-              now: now),
-          isTrue);
+      expect(polyRoundBetCutoff(5),
+          const Duration(minutes: 5) - kCryptoRoundButtonsStayFor);
+      expect(kCryptoRoundButtonsStayFor, const Duration(minutes: 2));
+      expect(polyRoundBetCutoff(15), kCryptoRound15mBetCutoff);
+      expect(polyRoundBetCutoff(60), kCryptoRound1hBetCutoff);
+      expect(polyRoundBetCutoff(240), kCryptoRound4hBetCutoff);
+      final now = DateTime.now();
       expect(polyRoundBuyClosed('will-it-rain', now: now), isFalse);
       expect(polyRoundBuyClosed(null, now: now), isFalse);
     });
 
     testWidgets(
-        'a list\'s pill on a 15-minute round in play opens no slip: its page '
-        'opens read-only, its one pill the next round', (tester) async {
+        'a list\'s pill on a 15-minute round in its last three minutes opens '
+        'no slip: its page opens read-only, its one pill the next round',
+        (tester) async {
       final now = DateTime.now();
       world.now = now;
       BetSlipSheet.debugClock = () => now;
-      final event = inPlay(now);
+      final event = inPlay(now, elapsed: const Duration(minutes: 13));
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -858,6 +1046,44 @@ void main() {
           ['next15-up', 'next15-down']);
       expect(
           events.where((e) => e.$1 == 'polymarket_bet_slip_opened'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 31));
+    });
+
+    testWidgets(
+        'a list\'s pill on a 15-minute round in play before its cutoff opens '
+        'its slip on that round, as any market', (tester) async {
+      final now = DateTime.now();
+      world.now = now;
+      BetSlipSheet.debugClock = () => now;
+      final event = inPlay(now, elapsed: const Duration(minutes: 5));
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(ProviderScope(
+        overrides: world.overrides(),
+        child: shellBarApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Center(
+                child: TextButton(
+                  onPressed: () => polyCardOpenSlip(context,
+                      event: event, side: 'up', source: 'feed_card'),
+                  child: const Text('pill'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('pill'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(MarketDetailSheet), findsNothing);
+      final slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
+      expect(slip.marketSlug, event.slug);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 31));
     });

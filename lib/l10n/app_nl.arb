@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5-minutenmarkten",
   "predictRoundNow": "Nu · {time}",
   "predictRoundNoPricesYet": "Nog geen prijzen",
+  "predictQuickWin": "{amount} · winst {payout}",
   "predictUpOrDownLength": "{asset} omhoog of omlaag · {length}",
   "standingPlacingPrediction": "Je voorspelling wordt geplaatst",
   "standingPlacingOrder": "Je order wordt geplaatst",

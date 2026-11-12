@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5-minútové trhy",
   "predictRoundNow": "Teraz · {time}",
   "predictRoundNoPricesYet": "Zatiaľ bez cien",
+  "predictQuickWin": "{amount} · výhra {payout}",
   "predictUpOrDownLength": "{asset} Hore alebo Dole · {length}",
   "standingPlacingPrediction": "Zadávame vašu predpoveď",
   "standingPlacingOrder": "Zadávame váš príkaz",

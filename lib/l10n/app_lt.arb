@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5 minučių rinkos",
   "predictRoundNow": "Dabar · {time}",
   "predictRoundNoPricesYet": "Kainų dar nėra",
+  "predictQuickWin": "{amount} · laimėjimas {payout}",
   "predictUpOrDownLength": "{asset} kils ar kris · {length}",
   "standingPlacingPrediction": "Teikiame tavo prognozę",
   "standingPlacingOrder": "Teikiame tavo pavedimą",

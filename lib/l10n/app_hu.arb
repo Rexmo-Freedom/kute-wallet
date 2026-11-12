@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5 perces piacok",
   "predictRoundNow": "Most · {time}",
   "predictRoundNoPricesYet": "Még nincs ár",
+  "predictQuickWin": "{amount} · nyeremény {payout}",
   "predictUpOrDownLength": "{asset} fel vagy le · {length}",
   "standingPlacingPrediction": "Előrejelzésed leadása folyamatban",
   "standingPlacingOrder": "Megbízásod leadása folyamatban",

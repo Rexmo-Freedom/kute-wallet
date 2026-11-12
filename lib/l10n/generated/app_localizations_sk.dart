@@ -14433,6 +14433,11 @@ class AppLocalizationsSk extends AppLocalizations {
   String get predictRoundNoPricesYet => 'Zatiaľ bez cien';
 
   @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · výhra $payout';
+  }
+
+  @override
   String predictUpOrDownLength(String asset, String length) {
     return '$asset Hore alebo Dole · $length';
   }

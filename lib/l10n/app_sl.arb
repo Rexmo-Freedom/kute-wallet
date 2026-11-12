@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5-minutni trgi",
   "predictRoundNow": "Zdaj · {time}",
   "predictRoundNoPricesYet": "Še ni cen",
+  "predictQuickWin": "{amount} · dobitek {payout}",
   "predictUpOrDownLength": "{asset} gor ali dol · {length}",
   "standingPlacingPrediction": "Oddajamo tvojo napoved",
   "standingPlacingOrder": "Oddajamo tvoje naročilo",

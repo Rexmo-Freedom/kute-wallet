@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5minutové trhy",
   "predictRoundNow": "Teď · {time}",
   "predictRoundNoPricesYet": "Zatím bez cen",
+  "predictQuickWin": "{amount} · výhra {payout}",
   "predictUpOrDownLength": "{asset} nahoru, nebo dolů · {length}",
   "standingPlacingPrediction": "Zadáváme vaši předpověď",
   "standingPlacingOrder": "Zadáváme váš příkaz",

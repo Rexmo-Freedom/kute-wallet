@@ -41,3 +41,20 @@ final cryptoNextRoundProvider = FutureProvider.autoDispose
   ref.onDispose(again.cancel);
   return null;
 });
+
+/// One asset's rounds of one length, for the strip's pick: the asset as the
+/// card's config names it ('BTC'), the length in minutes.
+typedef CryptoRoundPickKey = ({String asset, int minutes});
+
+/// The start (UTC seconds) of the round the person tapped on the strip of
+/// the live round card showing this asset at this length
+/// (crypto_round_strip.dart); null while the buttons follow the roll. Per
+/// asset and length, so another length starts clean; gone with the card
+/// (the strip's rules decide how long a pick stands).
+final cryptoPickedRoundProvider =
+    StateProvider.autoDispose.family<int?, CryptoRoundPickKey>((_, __) => null);
+
+/// The side the round card's quick amounts are for: the one last tapped
+/// on the card, Up until then ('up' or 'down'). Per asset and length.
+final cryptoQuickSideProvider = StateProvider.autoDispose
+    .family<String, CryptoRoundPickKey>((_, __) => 'up');

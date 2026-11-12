@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "Tržišta od 5 minuta",
   "predictRoundNow": "Sada · {time}",
   "predictRoundNoPricesYet": "Još nema cijena",
+  "predictQuickWin": "{amount} · dobitak {payout}",
   "predictUpOrDownLength": "{asset} gore ili dolje · {length}",
   "standingPlacingPrediction": "Postavljamo tvoju prognozu",
   "standingPlacingOrder": "Postavljamo tvoj nalog",

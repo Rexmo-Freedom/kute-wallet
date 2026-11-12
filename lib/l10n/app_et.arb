@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5-minutilised turud",
   "predictRoundNow": "Praegu · {time}",
   "predictRoundNoPricesYet": "Hindu veel pole",
+  "predictQuickWin": "{amount} · võit {payout}",
   "predictUpOrDownLength": "{asset} üles või alla · {length}",
   "standingPlacingPrediction": "Paneme su ennustust",
   "standingPlacingOrder": "Paneme su korraldust",

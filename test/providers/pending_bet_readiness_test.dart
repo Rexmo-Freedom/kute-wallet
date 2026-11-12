@@ -1485,10 +1485,11 @@ void main() {
       expect(pending.failureCode, 'round_price_moved');
       expect(pending.errorMessage,
           'Price changed to 81% while your money was moving.');
-      // The round is in play by now: the retry is on the series' next
-      // round, never this one (founder, 12 November 2026).
+      // The round is in play by now, still before its two-minute cutoff
+      // (founder, 12 November 2026: the round in play is bet until then):
+      // the retry asks again on this round, at the price now.
       expect(betSlipStopAction(l10nForLanguage('en'), pending),
-          (label: 'Retry', nextRound: true));
+          (label: 'Retry at 81%', nextRound: false));
       final failed = failedEvent();
       expect(failed['window'], 'next',
           reason: 'still the window the slip opened on');

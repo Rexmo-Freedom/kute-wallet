@@ -14404,6 +14404,11 @@ class AppLocalizationsEt extends AppLocalizations {
   String get predictRoundNoPricesYet => 'Hindu veel pole';
 
   @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · võit $payout';
+  }
+
+  @override
   String predictUpOrDownLength(String asset, String length) {
     return '$asset üles või alla · $length';
   }

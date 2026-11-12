@@ -14518,6 +14518,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get predictRoundNoPricesYet => 'Noch keine Kurse';
 
   @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · Gewinn $payout';
+  }
+
+  @override
   String predictUpOrDownLength(String asset, String length) {
     return '$asset hoch oder runter · $length';
   }

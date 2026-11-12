@@ -12587,6 +12587,18 @@
   "@predictRoundNoPricesYet": {
     "description": "On the live crypto round card (Predictions › Crypto › 5 Min and the round's own sheet), on the line over the Up and Down buttons, after the start time of a round that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'; also read out after that round's pill. Short."
   },
+  "predictQuickWin": "{amount} · win {payout}",
+  "@predictQuickWin": {
+    "description": "Quick amount chip under the Up and Down buttons of the live crypto round card (Predictions › Crypto › 5 Min, 15 Min, 1 Hour, 4 Hours): the stake and what it pays if the side wins at the odds shown, e.g. '$5 · win $12'. A tap opens the bet slip with that stake filled in. Very short: three sit side by side.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "payout": {
+        "type": "String"
+      }
+    }
+  },
   "predictUpOrDownLength": "{asset} up or down · {length}",
   "@predictUpOrDownLength": {
     "description": "Title of the Instant card (Predictions › Instant on the Dollars home), e.g. 'BTC up or down · 15m'. asset is a ticker, length the round length written short (5m, 15m, 1h, 4h).",

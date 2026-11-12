@@ -108,6 +108,12 @@ CryptoAssetConfig _resolveCryptoConfig(PolymarketEvent event) {
   String? sym;
   final match = _kFiveMinSlugRegex.firstMatch(event.slug);
   if (match != null) sym = match.group(1)?.toUpperCase();
+  // A round of any length names its coin in its slug (the hourly rounds by
+  // name: `ethereum-up-or-down-…`).
+  if (sym == null) {
+    final round = polyCryptoRoundOf(event.slug, endDate: event.endDate);
+    if (round != null) sym = polyRoundTicker(round.asset);
+  }
   sym ??= () {
     final upper = event.title.toUpperCase();
     for (final cfg in kCryptoPredictAssets) {
@@ -504,8 +510,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     }
   }
 
+  /// Repaints the bar when a round on screen reaches its cutoff, so it
+  /// turns read-only then ([_buildTradeBar]).
+  Timer? _roundCutoffTimer;
+
   @override
   void dispose() {
+    _roundCutoffTimer?.cancel();
     final entry = _onScreenEntry;
     if (entry != null) MarketDetailSheet._onScreen.remove(entry);
     // Release the live-feed hold exactly once (nulled to guard a double
@@ -2907,15 +2918,28 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// pair: a candidate opens its own Yes / No page, and the bar is the
   /// page's Sal pill.
   Widget _buildTradeBar(KuteBarContext bar) {
-    // A crypto Up-or-Down round in play (15m, 1h, 4h, or a 5m round the
-    // round sheet does not draw) is read-only: people bet only on the next
-    // round (founder, 12 November 2026; a tap on its Up or Down opens no
-    // slip, BetSlipSheet.show). The bar's one pill opens the next round.
+    // A crypto Up-or-Down round in play past its cutoff (crypto_round.dart's
+    // polyRoundBetCutoff: two minutes into a 5m round, the last 3, 5 and
+    // 10 minutes of a 15m, 1h and 4h one) is read-only: from then on only
+    // the next round is bet (founder, 12 November 2026; a tap on its Up or
+    // Down opens no slip, BetSlipSheet.show). The bar's one pill opens the
+    // next round. Before the cutoff the round is bet here as any market.
     final round = polyCryptoRoundOf(event.slug, endDate: event.endDate);
+    final roundNow = DateTime.now();
+    final cutoff =
+        round == null ? null : polyRoundBetCutoff(round.window.inMinutes);
+    if (round != null && cutoff != null && _roundCutoffTimer == null) {
+      final closesAt = round.end.subtract(cutoff);
+      if (closesAt.isAfter(roundNow)) {
+        _roundCutoffTimer = Timer(closesAt.difference(roundNow), () {
+          if (mounted) setState(() {});
+        });
+      }
+    }
     if (round != null &&
         widget.sendPick == null &&
         polyRoundBuyClosed(event.slug,
-            endDate: event.endDate, now: DateTime.now())) {
+            endDate: event.endDate, now: roundNow)) {
       final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
       return KuteBarContextScope(
         barContext: KuteBarContext.trade(
@@ -3571,11 +3595,17 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
   final VoidCallback? onDeposit;
   final String? ledgerWalletId;
 
+  /// The round length the sheet shows (a coin's row on Predictions ›
+  /// Crypto › 5 Min, 15 Min, 1 Hour or 4 Hours opens its round at the
+  /// page's length); null follows the shared choice.
+  final int? minutes;
+
   const FiveMinMarketDetailSheet({
     super.key,
     required this.event,
     this.onDeposit,
     this.ledgerWalletId,
+    this.minutes,
   });
 
   static const routeName = 'polymarket-5min-market-detail-sheet';
@@ -3585,6 +3615,7 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
     required PolymarketEvent event,
     VoidCallback? onDeposit,
     String? ledgerWalletId,
+    int? minutes,
   }) {
     // Skip the slide-up transition entirely when the OS asks to reduce
     // motion (the route still appears, just without the animated slide).
@@ -3600,6 +3631,7 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
             event: event,
             onDeposit: onDeposit,
             ledgerWalletId: ledgerWalletId,
+            minutes: minutes,
           ),
         ),
       ),
@@ -3664,6 +3696,7 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
                           child: CryptoPredictBanner(
                             config: config,
                             onDeposit: onDeposit,
+                            roundMinutes: minutes,
                           ),
                         )
                       else
@@ -3671,6 +3704,7 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
                           config: config,
                           onDeposit: onDeposit,
                           ledgerWalletId: ledgerWalletId,
+                          roundMinutes: minutes,
                         ),
                     ],
                   ),

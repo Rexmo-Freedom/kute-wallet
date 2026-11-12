@@ -14443,6 +14443,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get predictRoundNoPricesYet => 'Ei vielä hintoja';
 
   @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · voitto $payout';
+  }
+
+  @override
   String predictUpOrDownLength(String asset, String length) {
     return '$asset ylös vai alas · $length';
   }

@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "Piețe de 5 minute",
   "predictRoundNow": "Acum · {time}",
   "predictRoundNoPricesYet": "Încă fără prețuri",
+  "predictQuickWin": "{amount} · câștig {payout}",
   "predictUpOrDownLength": "{asset} Sus sau Jos · {length}",
   "standingPlacingPrediction": "Îți plasăm predicția",
   "standingPlacingOrder": "Îți plasăm ordinul",

@@ -11,9 +11,10 @@
 // buttons ([CryptoNextWindowLine]) and the on-screen counter the shared
 // Chainlink feed streams for ([CryptoCardOnScreen]). Moved here from
 // polymarket_screen.dart on 8 November 2026 unchanged. The round on show
-// is the one in play, as context; the buttons bet only on the NEXT round
-// (founder, 12 November 2026; crypto_next_round.dart), so the strip of
-// rounds that once picked one is gone. The other slots a taller card once
+// is the one in play; the buttons bet it until its cutoff, then roll to the
+// NEXT round by themselves (founder, 12 November 2026;
+// crypto_next_round.dart), so the strip of rounds that once picked one is
+// gone. The other slots a taller card once
 // used (its own plot height, a card with no odds) stay for the next card
 // that needs them.
 
@@ -54,6 +55,16 @@ String formatCryptoRoundDiff(double diff) {
     return '\$${NumberFormat('#,##0.00', 'en_US').format(diff)}';
   }
   return '\$${diff.toStringAsFixed(4)}';
+}
+
+/// A round's time as its card and rows write it: "02:16" for the rounds
+/// shorter than an hour, "0:37:55" for the hourly and four-hour ones (never
+/// "239:59").
+String cryptoRoundClockText(int seconds, int minutes) {
+  final s = seconds < 0 ? 0 : seconds;
+  String two(int n) => n.toString().padLeft(2, '0');
+  if (minutes < 60) return '${two(s ~/ 60)}:${two(s % 60)}';
+  return '${s ~/ 3600}:${two(s % 3600 ~/ 60)}:${two(s % 60)}';
 }
 
 /// Registers its subtree in [cryptoCardsOnScreenProvider] while
@@ -108,8 +119,8 @@ class CryptoCardOnScreenState extends ConsumerState<CryptoCardOnScreen> {
 }
 
 /// The line over the buttons of a live round card, naming the round they
-/// bet on ("Next · Starts in 02:16", and "· No prices yet" while it has
-/// none): one line in the card's own target style, nothing around it,
+/// bet on ("Now · Ends in 02:16", then "Next · Starts in 01:12", and "· No
+/// prices yet" while it has none): one line in the card's own target style, nothing around it,
 /// scaled down whole rather than cut.
 class CryptoNextWindowLine extends StatelessWidget {
   const CryptoNextWindowLine({super.key, required this.label});
@@ -186,17 +197,18 @@ class CompactCryptoCard extends StatelessWidget {
   /// alone, never 50% and 50%.
   final double? upFrac;
 
-  /// The line over the buttons: the round they bet on, the next one
-  /// ("Next · Starts in 02:16"; crypto_next_round.dart), with "No prices
-  /// yet" while it has none. Null for no line.
+  /// The line over the buttons: the round they bet on, the one in play
+  /// ("Now · Ends in 02:16") until its cutoff, then the next one ("Next ·
+  /// Starts in 01:12"; crypto_next_round.dart), with "No prices yet"
+  /// while it has none. Null for no line.
   final String? nextLabel;
 
   /// The name of the round the buttons bet on ("BTC up or down ·
   /// 7:20–7:25"), read out with each pill; null when it is not known.
   final String? window;
 
-  /// Whether the buttons can bet: false while the next round has no real
-  /// prices (dimmed, inert, no odds), never on the round in play.
+  /// Whether the buttons can bet: false while the round they stand on has
+  /// no price (dimmed, inert, no odds).
   final bool buttonsEnabled;
   final VoidCallback onUp;
   final VoidCallback onDown;
@@ -244,7 +256,7 @@ class CompactCryptoCard extends StatelessWidget {
   /// size, every digit counted as wide as the widest (the row's shape then
   /// holds from tick to tick); [perChar] as [RollingNumberText] lays a
   /// figure out, one cell per character.
-  static double _textWidth(BuildContext context, String text, TextStyle style,
+  static double textWidth(BuildContext context, String text, TextStyle style,
       {bool perChar = false}) {
     final merged = DefaultTextStyle.of(context).style.merge(style);
     final steady = text.replaceAll(RegExp(r'\d'), '0');
@@ -332,13 +344,13 @@ class CompactCryptoCard extends StatelessWidget {
             final dotsFit = pastResults.isNotEmpty &&
                 _logo.sp +
                         10.w +
-                        _textWidth(context, title, titleStyle) +
+                        textWidth(context, title, titleStyle) +
                         8.w +
                         PastRoundDots.widthOf(pastResults.length) +
                         8.w +
                         16.w +
                         11.w +
-                        _textWidth(context, countdown ?? '00:00', pillStyle) +
+                        textWidth(context, countdown ?? '00:00', pillStyle) +
                         1 <=
                     box.maxWidth;
             return Row(
@@ -424,13 +436,13 @@ class CompactCryptoCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
               fontFeatures: const [FontFeature.tabularFigures()],
             );
-            final oneLine = _textWidth(context, priceText, priceStyle,
-                        perChar: true) +
+            final oneLine =
+                textWidth(context, priceText, priceStyle, perChar: true) +
                     (diffText == null
                         ? 0
-                        : 6.w + _textWidth(context, diffText!, diffStyle)) +
+                            : 6.w + textWidth(context, diffText!, diffStyle)) +
                     8.w +
-                    _textWidth(context, targetText, targetStyle) +
+                        textWidth(context, targetText, targetStyle) +
                     1 <=
                 box.maxWidth;
             final figures = <Widget>[
@@ -682,3 +694,418 @@ class PastRoundDots extends StatelessWidget {
   }
 }
 
+/// One quick amount under the round card's buttons: what it says ("$5 ·
+/// win $12") and what a tap does (opens the slip with that amount; null
+/// while the buttons take no bet).
+typedef CryptoQuickAmount = ({
+  double amount,
+  String label,
+  VoidCallback? onTap
+});
+
+/// The live crypto round card, full size ([CryptoPredictBanner] without
+/// `compact`: Predictions › Crypto › 5 Min, 15 Min, 1 Hour and 4 Hours, the
+/// round's own sheet, Ledger Predictions), polymarket.com's own round page
+/// made for a phone (founder, 12 November 2026: "look at how it is on the
+/// polymarket website, make it better please"):
+///
+///   * the coin, "BTC up or down · 5m" and the window on show ("7:15–7:20");
+///   * the figures: "Price to beat" and its figure, "Current price" with its
+///     move against the target ("▼ $22.00", in the market colours) and its
+///     figure, the time left large in the live red at the right; on two
+///     rows where one does not hold them whole;
+///   * the chart of the round on show against the dashed target;
+///   * the round row ([strip]: the past results as dots, the round in play,
+///     the next and the one after);
+///   * the line naming the round the buttons bet on ([line]);
+///   * Up and Down, full width, at that round's odds;
+///   * the quick amounts ([quick]) for the side last tapped: a tap opens the
+///     slip with that amount filled in, nothing more (money moves only after
+///     Confirm, in the slip).
+///
+/// Nothing on it is cut: a text too long for its room wraps.
+class CryptoRoundHeroCard extends StatelessWidget {
+  const CryptoRoundHeroCard({
+    super.key,
+    required this.config,
+    required this.title,
+    required this.window,
+    required this.loading,
+    required this.beatText,
+    required this.currentText,
+    required this.diffText,
+    required this.diffUp,
+    required this.countdown,
+    required this.feedName,
+    required this.history,
+    required this.priceToBeat,
+    required this.roundStart,
+    required this.chartHeight,
+    required this.chartWindow,
+    required this.strip,
+    required this.line,
+    required this.upFrac,
+    required this.roundName,
+    required this.buttonsEnabled,
+    required this.onUp,
+    required this.onDown,
+    required this.quick,
+    required this.quickUp,
+  });
+
+  final CryptoAssetConfig config;
+  final String title;
+
+  /// The window on show, "7:15–7:20"; null while it is not known.
+  final String? window;
+  final bool loading;
+  final String beatText;
+  final String currentText;
+  final String? diffText;
+  final bool diffUp;
+
+  /// The round on show's time left; null while it is not known.
+  final String? countdown;
+  final String? feedName;
+  final List<BtcPriceSnapshot>? history;
+  final double? priceToBeat;
+  final DateTime? roundStart;
+  final double chartHeight;
+  final Duration chartWindow;
+
+  /// The round row; null for a card of one given window.
+  final Widget? strip;
+
+  /// The line over the buttons, naming the round they bet on.
+  final String line;
+  final double? upFrac;
+  final String roundName;
+  final bool buttonsEnabled;
+  final VoidCallback onUp;
+  final VoidCallback onDown;
+  final List<CryptoQuickAmount> quick;
+
+  /// The side the quick amounts are for: Up when true.
+  final bool quickUp;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final pair = upFrac == null ? null : formatPolyChancePair(upFrac!);
+    final seeded = (history?.length ?? 0) >= 2;
+    return Container(
+      key: const ValueKey('crypto-round-full'),
+      // The rows' 14 inset, so the coins' logos stand in one column.
+      padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 14.h),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The coin, the title, the window on show.
+          Row(
+            children: [
+              CryptoAssetLogo(config: config, size: 36.sp),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        height: 1.15,
+                      ),
+                    ),
+                    if (window case final w?) ...[
+                      SizedBox(height: 2.h),
+                      Text(
+                        w,
+                        key: const ValueKey('crypto-round-window'),
+                        style: TextStyle(
+                          color: c.textTertiary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          _figures(context),
+          SizedBox(height: 10.h),
+          // The chart of the round on show, the dashed target with its tag.
+          // The chart's own bottom margin (18 px, time labels off) is
+          // clipped away beneath the plot, as on the list's card.
+          SizedBox(
+            height: chartHeight,
+            child: !seeded
+                ? SkeletonLineChart(
+                    height: chartHeight, padding: EdgeInsets.zero)
+                : ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minHeight: 0,
+                      maxHeight: chartHeight + 18,
+                      child: BtcPredictChart(
+                        height: chartHeight + 18,
+                        externalHistory: history,
+                        externalPriceToBeat: priceToBeat,
+                        roundStart: roundStart,
+                        maxWindow: chartWindow,
+                        showLiveIndicator: false,
+                        showHeader: false,
+                      ),
+                    ),
+                  ),
+          ),
+          if (strip case final s?) ...[
+            SizedBox(height: 8.h),
+            s,
+          ],
+          SizedBox(height: 8.h),
+          CryptoNextWindowLine(label: line),
+          SizedBox(height: 8.h),
+          // Up and Down, full width, "Up 50.5%" on one line, the round
+          // they bet on read out with each.
+          Row(
+            children: [
+              Expanded(
+                child: CompactSidePill(
+                  key: const ValueKey('crypto-round-up'),
+                  label: context.l10n.upLabel,
+                  odds: buttonsEnabled ? pair?.first ?? '' : '',
+                  window: roundName,
+                  up: true,
+                  enabled: buttonsEnabled,
+                  onTap: onUp,
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: CompactSidePill(
+                  key: const ValueKey('crypto-round-down'),
+                  label: context.l10n.downLabel,
+                  odds: buttonsEnabled ? pair?.second ?? '' : '',
+                  window: roundName,
+                  up: false,
+                  enabled: buttonsEnabled,
+                  onTap: onDown,
+                ),
+              ),
+            ],
+          ),
+          if (quick.isNotEmpty) ...[
+            SizedBox(height: 8.h),
+            _quickRow(context),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Price to beat, the current price and its move, the time left: one
+  /// row where all three fit whole, else the two prices on one row and the
+  /// time left under them, else each on its own.
+  Widget _figures(BuildContext context) {
+    final c = context.colors;
+    final labelStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w600,
+    );
+    final figureStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 22.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final moveColor = diffUp ? AppColors.marketUp : AppColors.marketDown;
+    final diffStyle = TextStyle(
+      color: moveColor,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final clockStyle = figureStyle.copyWith(color: const Color(0xFFFF4444));
+    return LayoutBuilder(builder: (context, box) {
+      double w(String text, TextStyle style, {bool perChar = false}) =>
+          CompactCryptoCard.textWidth(context, text, style, perChar: perChar);
+      final beatLabel = context.l10n.btcPredictPriceToBeat;
+      final currentLabel = context.l10n.investingCurrentPrice;
+      final gap = 16.w;
+      final beatW = [
+        w(beatLabel, labelStyle),
+        w(beatText, figureStyle, perChar: true),
+      ].reduce((a, b) => a > b ? a : b);
+      final currentW = [
+        w(currentLabel, labelStyle) +
+            (diffText == null ? 0 : 6.w + w(diffText!, diffStyle)),
+        w(currentText, figureStyle, perChar: true) +
+            (feedName == null ? 0 : 6.w + w(feedName!, labelStyle)),
+      ].reduce((a, b) => a > b ? a : b);
+      final clockW = countdown == null ? 0.0 : w(countdown!, clockStyle);
+
+      Widget block(String label, Widget labelSide, Widget figure, {Key? key}) =>
+          Column(
+            key: key,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6.w,
+                children: [Text(label, style: labelStyle), labelSide],
+              ),
+              SizedBox(height: 4.h),
+              figure,
+            ],
+          );
+      Widget figureText(String text, TextStyle style) => loading
+          ? KuteSkeleton(child: SkeletonBar(84.w, 20.h, radius: 6.r))
+          : RollingNumberText(text: text, style: style);
+      final beat = block(
+        beatLabel,
+        const SizedBox.shrink(),
+        figureText(beatText, figureStyle.copyWith(color: c.textSecondary)),
+        key: const ValueKey('crypto-round-target'),
+      );
+      final current = block(
+        currentLabel,
+        diffText == null
+            ? const SizedBox.shrink()
+            : Text(diffText!,
+                key: const ValueKey('crypto-round-move'), style: diffStyle),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.end,
+          spacing: 6.w,
+          children: [
+            figureText(currentText, figureStyle),
+            if (feedName case final f?) Text(f, style: labelStyle),
+          ],
+        ),
+        key: const ValueKey('crypto-round-current'),
+      );
+      final clock = countdown == null
+          ? KuteSkeleton(
+              key: const ValueKey('crypto-round-countdown-skeleton'),
+              child: SkeletonBar(56.w, 20.h, radius: 6.r))
+          : Text(countdown!,
+              key: const ValueKey('crypto-round-countdown'), style: clockStyle);
+      final max = box.maxWidth;
+      if (beatW + gap + currentW + gap + clockW + 1 <= max) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            beat,
+            SizedBox(width: gap),
+            current,
+            const Spacer(),
+            clock,
+          ],
+        );
+      }
+      return Column(
+        key: const ValueKey('crypto-round-figures-wrapped'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (beatW + gap + currentW + 1 <= max)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [beat, SizedBox(width: gap), current],
+            )
+          else ...[
+            beat,
+            SizedBox(height: 8.h),
+            current,
+          ],
+          SizedBox(height: 8.h),
+          clock,
+        ],
+      );
+    });
+  }
+
+  /// The quick amounts, three equal chips; a label too long for its chip
+  /// takes a second line rather than be cut.
+  Widget _quickRow(BuildContext context) {
+    final c = context.colors;
+    final color = quickUp ? AppColors.marketUp : AppColors.marketDown;
+    return IntrinsicHeight(
+      key: const ValueKey('crypto-round-quick'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < quick.length; i++) ...[
+            if (i > 0) SizedBox(width: 8.w),
+            Expanded(
+              child: Semantics(
+                button: true,
+                enabled: quick[i].onTap != null,
+                child: GestureDetector(
+                  key:
+                      ValueKey('crypto-round-quick-${quick[i].amount.round()}'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: quick[i].onTap == null
+                      ? null
+                      : () {
+                          HapticFeedback.lightImpact();
+                          quick[i].onTap!();
+                        },
+                  child: Opacity(
+                    opacity: quick[i].onTap == null ? 0.35 : 1,
+                    child: Container(
+                      alignment: Alignment.center,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 6.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: context.isDark ? c.background : c.surfaceLight,
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: c.borderSubtle, width: 0.5),
+                      ),
+                      child: Text(
+                        quick[i].label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

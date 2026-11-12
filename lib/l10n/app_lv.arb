@@ -4071,6 +4071,7 @@
   "categoryFiveMinuteMarkets": "5 minūšu tirgi",
   "predictRoundNow": "Tagad · {time}",
   "predictRoundNoPricesYet": "Cenu vēl nav",
+  "predictQuickWin": "{amount} · laimests {payout}",
   "predictUpOrDownLength": "{asset} augšup vai lejup · {length}",
   "standingPlacingPrediction": "Iesniedzam tavu prognozi",
   "standingPlacingOrder": "Iesniedzam tavu rīkojumu",
