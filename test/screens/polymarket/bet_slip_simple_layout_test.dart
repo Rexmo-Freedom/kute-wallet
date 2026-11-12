@@ -284,6 +284,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  // Founder, 12 November 2026, on 2.2.0 (110): "Payout if you win $4.83"
+  // on a $4.83 bet. A side over 95c capped at 99.9c by the slippage paid
+  // the stake back, whatever the odds.
+  testWidgets(
+      'the payout is what the stake buys at the side\'s price, never at the '
+      'slippage cap: a 97c side pays more than the stake', (tester) async {
+    await _pumpSlip(tester, outcomes: const [
+      PolymarketOutcome(name: 'Yes', price: 0.97),
+      PolymarketOutcome(name: 'No', price: 0.03),
+    ]);
+    final payout = find.byKey(const ValueKey('bet-slip-payout-tile'));
+    // $10 at 97c: 10.30 shares, $1 each if it wins (at the 99.9c cap it
+    // read $10.01).
+    expect(find.descendant(of: payout, matching: find.text(r'$10.30')),
+        findsOneWidget);
+    expect(find.descendant(of: payout, matching: find.text(r'$10.01')),
+        findsNothing);
+    // At 50c the stake doubles, as the odds say.
+    await _pumpSlip(tester);
+    expect(find.descendant(of: payout, matching: find.text(r'$20.00')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Advanced opens a full page and Back keeps the side and amount',
       (tester) async {
     final policy = await _allowEverything();

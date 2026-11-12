@@ -4960,7 +4960,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         ? _limitPrice
         : preparedPrice ?? _orderPriceFor(currentPrice);
     final double shares = _sharesFor(orderPrice);
-    final double payout = shares * 1.0;
+    // What it pays if it wins: the shares the stake buys at the price it
+    // is expected to fill at (the prepared book's own price, else the
+    // side's price now), never at the slippage cap (founder, 12 November
+    // 2026, on 2.2.0 (110): "Payout if you win $4.83" on a $4.83 bet). A
+    // game in play starts at 10% slippage, so the cap of any side over
+    // 90c is 99c, and 99.9c over 96c: the stake back, whatever the odds.
+    // A limit pays at its own price.
+    final preparedFill = preparedPrice != null ? prepared?.price : null;
+    final double fillPrice = _isLimitMode && _limitPrice > 0
+        ? _limitPrice
+        : preparedFill != null && preparedFill > 0
+            ? min(preparedFill, orderPrice)
+            : currentPrice > 0
+                ? min(currentPrice, orderPrice)
+                : orderPrice;
+    final double payout = _sharesFor(fillPrice);
 
     double? cash;
     double? spendable;
