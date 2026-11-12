@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Ob eine Prognose oder ein Auftrag, der platziert wurde, während Kute im Hintergrund war, durchgegangen ist.",
   "predictionsInstant": "Sofort",
   "categoryInstantLengths": "5 Min. · 15 Min. · 1 Stunde · 4 Stunden",
+  "categoryFiveMinuteMarkets": "5-Minuten-Märkte",
   "predictRoundNow": "Jetzt · {time}",
   "predictRoundNoPricesYet": "Noch keine Kurse",
   "predictUpOrDownLength": "{asset} hoch oder runter · {length}",

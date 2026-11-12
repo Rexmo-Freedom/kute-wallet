@@ -135,8 +135,9 @@ class CryptoRoundStrip extends StatelessWidget {
         },
       );
       if (!r.selectable) {
+        // Dimmed, its time still easy to read.
         chip = Opacity(
-          opacity: 0.55,
+          opacity: 0.65,
           child: ExcludeSemantics(
             excluding: false,
             child: Semantics(enabled: false, child: chip),

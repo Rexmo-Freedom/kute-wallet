@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Si una predicción u orden enviada mientras Kute estaba en segundo plano se completó.",
   "predictionsInstant": "Instantáneas",
   "categoryInstantLengths": "5 min · 15 min · 1 hora · 4 horas",
+  "categoryFiveMinuteMarkets": "Mercados de 5 minutos",
   "predictRoundNow": "Ahora · {time}",
   "predictRoundNoPricesYet": "Aún sin precios",
   "predictUpOrDownLength": "{asset} sube o baja · {length}",

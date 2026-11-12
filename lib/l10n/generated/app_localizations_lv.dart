@@ -14374,6 +14374,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get categoryInstantLengths => '5 min · 15 min · 1 stunda · 4 stundas';
 
   @override
+  String get categoryFiveMinuteMarkets => '5 minūšu tirgi';
+
+  @override
   String predictRoundNow(String time) {
     return 'Tagad · $time';
   }

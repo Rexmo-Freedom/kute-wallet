@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Ar prognozė arba pavedimas, pateikti Kute veikiant fone, pavyko.",
   "predictionsInstant": "Greitosios",
   "categoryInstantLengths": "5 min. · 15 min. · 1 val. · 4 val.",
+  "categoryFiveMinuteMarkets": "5 minučių rinkos",
   "predictRoundNow": "Dabar · {time}",
   "predictRoundNoPricesYet": "Kainų dar nėra",
   "predictUpOrDownLength": "{asset} kils ar kris · {length}",

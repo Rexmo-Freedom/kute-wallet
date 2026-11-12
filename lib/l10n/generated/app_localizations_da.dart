@@ -14406,6 +14406,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get categoryInstantLengths => '5 min · 15 min · 1 time · 4 timer';
 
   @override
+  String get categoryFiveMinuteMarkets => '5-minutters markeder';
+
+  @override
   String predictRoundNow(String time) {
     return 'Nu · $time';
   }

@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Αν μια πρόβλεψη ή εντολή που καταχωρίστηκε όσο το Kute ήταν στο παρασκήνιο πέρασε.",
   "predictionsInstant": "Άμεσες",
   "categoryInstantLengths": "5 λεπτά · 15 λεπτά · 1 ώρα · 4 ώρες",
+  "categoryFiveMinuteMarkets": "Αγορές 5 λεπτών",
   "predictRoundNow": "Τώρα · {time}",
   "predictRoundNoPricesYet": "Χωρίς τιμές ακόμα",
   "predictUpOrDownLength": "{asset} Πάνω ή Κάτω · {length}",

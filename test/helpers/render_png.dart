@@ -47,3 +47,32 @@ Future<void> writeRenderPng(
   // ignore: avoid_print
   print('RENDER wrote $path');
 }
+
+/// Writes the whole view to [path]: the page with every route over it (a
+/// sheet, a dialog), which a boundary inside the page does not hold. The
+/// cards' soft shadows are drawn as on a phone (flutter_test paints them
+/// flat), then flat again for the binding's check.
+Future<void> writeViewPng(WidgetTester tester, String path) async {
+  debugDisableShadows = false;
+  for (final o in tester.allRenderObjects) {
+    o.markNeedsPaint();
+  }
+  await tester.pump();
+  await tester.runAsync(() async {
+    final view = tester.binding.renderViews.first;
+    final layer = view.debugLayer! as OffsetLayer;
+    final image = await layer.toImage(Offset.zero & view.size, pixelRatio: 2);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    File(path)
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync(data!.buffer.asUint8List());
+    image.dispose();
+  });
+  debugDisableShadows = true;
+  for (final o in tester.allRenderObjects) {
+    o.markNeedsPaint();
+  }
+  await tester.pump();
+  // ignore: avoid_print
+  print('RENDER wrote $path');
+}

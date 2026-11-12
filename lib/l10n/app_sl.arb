@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Ali je napoved ali naročilo, oddano, medtem ko je bil Kute v ozadju, uspelo.",
   "predictionsInstant": "Takojšnje",
   "categoryInstantLengths": "5 min · 15 min · 1 ura · 4 ure",
+  "categoryFiveMinuteMarkets": "5-minutni trgi",
   "predictRoundNow": "Zdaj · {time}",
   "predictRoundNoPricesYet": "Še ni cen",
   "predictUpOrDownLength": "{asset} gor ali dol · {length}",

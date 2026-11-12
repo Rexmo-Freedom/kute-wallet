@@ -14440,6 +14440,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get categoryInstantLengths => '5 perc · 15 perc · 1 óra · 4 óra';
 
   @override
+  String get categoryFiveMinuteMarkets => '5 perces piacok';
+
+  @override
   String predictRoundNow(String time) {
     return 'Most · $time';
   }

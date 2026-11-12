@@ -70,14 +70,28 @@
 // (no more bare tinted dot: a wide tile wears its glyph until its images
 // land).
 //
-// TRENDING ALONE ON TOP, THE THEMES UNDER IT (founder, 9 November 2026:
-// "get rid of the instant, those are within crypto"; the Instant card and
-// its page went that day, the crypto rounds are Crypto's 5 Min, 15 Min, 1
-// Hour and 4 Hours rows). Trending is the lone card of its row, so it is
-// the one-card shape of kute_action_cards.dart: full width and compact,
-// its stack at the left, its name and numbers beside it, a chevron at its
-// right ([_Tile.wide] with [_Tile.chevron]). Under it (and the Watchlist's
-// row) the "Topics" label and the topics, and under the topics (founder, 9
+// TRENDING AND "5 MINUTE MARKETS" ON TOP, THE THEMES UNDER THEM. The
+// Instant card and its page went on 9 November 2026 (founder: "get rid of
+// the instant, those are within crypto"): the crypto rounds are Crypto's 5
+// Min, 15 Min, 1 Hour and 4 Hours rows. On 12 November 2026 the founder
+// asked for a way straight to them from the top of the sheet: a SECOND
+// CARD in Trending's row, to its right, "5 minute markets", Trending's own
+// card at half the width each ([_TilePair] of two [_Tile.wide], equal
+// heights, no chevron: the chevron is the lone card's). It wears the 5 Min
+// row's own glyph (poly_sport_icon.dart) and, under its name, the lengths
+// the page runs ("5 min · 15 min · 1 hour · 4 hours", wrapping at the
+// dots). A tap closes the sheet and opens Predictions › Crypto › 5 Min on
+// its five-minute rounds, as Crypto's 5 Min row does
+// (`category_pill_tapped`, section `crypto`, subcategory `5m`, plus
+// `surface: five_minute_card`). It is a way in, not a category: the Sal
+// grid lists the categories only, and the rounds' card never goes on the
+// Trending list. Neither card's text is ever cut: Trending's stack shows
+// as many of its three images as leave its name whole on one line
+// ([_Tile.fitLogos]), its numbers wrap to a second line, and a name too
+// long for its half wraps (the numbers then go, as on every card). Without
+// Crypto on offer Trending is the lone card again, full width with its
+// chevron ([_Tile.wide] with [_Tile.chevron]). Under them (and the
+// Watchlist's row) the "Topics" label and the topics, and under the topics (founder, 9
 // November 2026: "the trending now should be under topics") the site's
 // SECOND KIND OF CATEGORY (founder, same day: "there are 2 categories on
 // Polymarket, find a way to integrate both"): polymarket
@@ -194,6 +208,8 @@ import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
+import 'package:kute/providers/polymarket_provider.dart'
+    show cryptoPredictWindowProvider;
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -1005,17 +1021,33 @@ class _InvestmentsCategorySheetState
 
   /// A Predictions pick: the category at [s] (a topic's row, or one of
   /// Trending's themes), `category_pill_tapped` with the row's slug.
-  void _pickPoly(PolyPill p, PolySub s, {bool hold = true}) =>
+  ///
+  /// [surface] names a card that is a way in rather than the category's
+  /// own row (the "5 minute markets" card: `five_minute_card`); [also]
+  /// runs with the pick, whether or not the category changes.
+  void _pickPoly(PolyPill p, PolySub s,
+          {bool hold = true,
+          String? surface,
+          void Function(ProviderContainer)? also}) =>
       _pick((p, s.key), hold: hold, (c) {
+        also?.call(c);
         final current = c.read(polyBrowseSelectionProvider);
         if (p == current.pill && s.key == current.subOf(p)) return;
         TrackingService.track('category_pill_tapped', params: {
           'section': p.key,
           if (s.key != p.defaultSub) 'subcategory': s.route,
+          if (surface != null) 'surface': surface,
         });
         c.read(polyBrowseSelectionProvider.notifier).state =
             current.copyWith(pill: p).copyWith(sub: s.key);
       });
+
+  /// The "5 minute markets" card (see the file header): Predictions ›
+  /// Crypto › 5 Min, on its five-minute rounds whatever length the page's
+  /// chips were last left on.
+  void _pickFiveMinute() => _pickPoly(PolyPill.crypto, _kFiveMinuteSub,
+      surface: 'five_minute_card',
+      also: (c) => c.read(cryptoPredictWindowProvider.notifier).state = 5);
 
   List<Widget> _predictions(BuildContext context) {
     final l10n = context.l10n;
@@ -1035,17 +1067,21 @@ class _InvestmentsCategorySheetState
     // Trending, the lone card of its row, wears the one-card chevron (see
     // the file header); it reads picked at its own list, All, not at a
     // theme (whose card is ringed then).
-    Widget wide(PolyPill p, {String? lead, bool chevron = false}) =>
+    // [half]: one of the top row's two cards, its numbers on up to two
+    // lines and its stack giving way to its name.
+    Widget wide(PolyPill p,
+            {String? lead, bool chevron = false, bool half = false}) =>
         _Tile.wide(
           key: ValueKey('category-tile-${p.key}'),
           tint: _polyTint(c, p),
           name: p == PolyPill.watchlist
               ? l10n.polyPillWatchlist
               : polyPillLabel(l10n, p),
-          stat: _polyStat(p, lead: lead),
+          stat: _polyStat(p, lead: lead, wrap: half),
           logos: _polyLogos(_polyLoaded(p)),
           asset: _polyIconAsset(p),
           chevron: chevron,
+          fitLogos: half,
           picked: _picked(p, p.defaultSub,
               sel.pill == p && sel.subOf(p) == p.defaultSub),
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
@@ -1088,11 +1124,39 @@ class _InvestmentsCategorySheetState
       for (final p in pills)
         if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
     ];
+    // The way straight to the crypto rounds, beside Trending (see the file
+    // header); ringed while Crypto › 5 Min is the page.
+    final fiveMinute = _Tile.wide(
+      key: const ValueKey('category-tile-five-minute'),
+      tint: _polyTint(c, PolyPill.crypto),
+      name: l10n.categoryFiveMinuteMarkets,
+      stat: const _RoundLengths(),
+      plateIcon: polySubIcon(PolyPill.crypto, _kFiveMinuteSub, _kPlateIcon),
+      picked: _picked(
+          PolyPill.crypto,
+          _kFiveMinuteSub.key,
+          sel.pill == PolyPill.crypto &&
+              sel.subOf(PolyPill.crypto) == _kFiveMinuteSub.key),
+      onTap: _pickFiveMinute,
+    );
     return [
-      _rise(
-          0,
-          wide(PolyPill.trending,
-              lead: l10n.categoryStatMostActive, chevron: true)),
+      if (pills.contains(PolyPill.crypto))
+        _TilePair(
+          key: const ValueKey('category-top-pair'),
+          gap: 8,
+          children: [
+            _rise(
+                0,
+                wide(PolyPill.trending,
+                    lead: l10n.categoryStatMostActive, half: true)),
+            _rise(0, fiveMinute),
+          ],
+        )
+      else
+        _rise(
+            0,
+            wide(PolyPill.trending,
+                lead: l10n.categoryStatMostActive, chevron: true)),
       if (pills.contains(PolyPill.watchlist))
         _rise(1, wide(PolyPill.watchlist)),
       // The topics first, then the site's themes, Trending's rows, under
@@ -1385,6 +1449,9 @@ class _SheetHeader extends StatelessWidget {
 
 /// A logo in a tile's stack, and how many a stack holds; the glyph's
 /// square (a Predictions topic's visual).
+/// Crypto's 5 Min row, where the "5 minute markets" card leads.
+const PolySub _kFiveMinuteSub = PolySub('5m');
+
 const double _kLogo = 22;
 const int _kLogos = 3;
 const double _kGlyphArt = 28;
@@ -1515,6 +1582,34 @@ class _StatLine extends StatelessWidget {
   }
 }
 
+/// The line under "5 minute markets" (see the file header): the lengths
+/// the page runs, "5 min · 15 min · 1 hour · 4 hours", in the numbers
+/// line's own style. Never cut and never shrunk: on a half-width card it
+/// wraps, and only at a dot (a length is never split, a dot never starts
+/// a line).
+class _RoundLengths extends StatelessWidget {
+  const _RoundLengths();
+
+  @override
+  Widget build(BuildContext context) {
+    final lengths = context.l10n.categoryInstantLengths
+        .split(' · ')
+        .map((l) => l.replaceAll(' ', '\u00A0'))
+        .join('\u00A0· ');
+    return Text(
+      lengths,
+      key: const ValueKey('category-round-lengths'),
+      style: TextStyle(
+        color: context.colors.textSecondary,
+        fontSize: 12.5.sp,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.1,
+        height: 1.2,
+      ),
+    );
+  }
+}
+
 /// The shapes a tile takes: the compact grid card (at least 60 px) and the
 /// full-width row (at least 64 px), both with the art at the left and the
 /// name and numbers beside it (the row is also a grid's odd last card).
@@ -1564,7 +1659,7 @@ Widget _tileGrid(List<_Tile> tiles,
 /// then at the pair's: nothing is measured by hand, so no text size or
 /// name can make a card overflow.
 class _TilePair extends MultiChildRenderObjectWidget {
-  const _TilePair({required this.gap, required super.children});
+  const _TilePair({super.key, required this.gap, required super.children});
 
   final double gap;
 
@@ -1656,6 +1751,7 @@ class _Tile extends StatelessWidget {
     this.picked = false,
   })  : shape = _TileShape.grid,
         chevron = false,
+        fitLogos = false,
         lone = false;
 
   const _Tile.wide({
@@ -1669,6 +1765,7 @@ class _Tile extends StatelessWidget {
     this.stat,
     this.picked = false,
     this.chevron = false,
+    this.fitLogos = false,
   })  : shape = _TileShape.wide,
         glyph = null,
         lone = false;
@@ -1686,6 +1783,7 @@ class _Tile extends StatelessWidget {
     required this.picked,
   })  : shape = _TileShape.wide,
         chevron = false,
+        fitLogos = false,
         lone = true;
 
   /// This card as a grid's odd last one: full width, laid out as the wide
@@ -1722,6 +1820,11 @@ class _Tile extends StatelessWidget {
   /// A chevron at the row's right: the lone card of a row (the one-card
   /// rule, kute_action_cards.dart), Predictions' Trending.
   final bool chevron;
+
+  /// The stack gives way to the name (a half-width row, Predictions'
+  /// Trending beside "5 minute markets"): as many of the logos as leave
+  /// the name whole on one line beside them, never fewer than one.
+  final bool fitLogos;
   final _TileShape shape;
 
   /// A grid's odd last card ([asLone]): the wide row without the gap the
@@ -1796,7 +1899,7 @@ class _Tile extends StatelessWidget {
     // Both shapes: the art at the left, the name and numbers beside it
     // (the grid card is the wide row at half the width; see the file
     // header).
-    final Widget body = Row(
+    Widget row(Widget art) => Row(
             children: [
               art,
               SizedBox(width: 10.w),
@@ -1812,6 +1915,26 @@ class _Tile extends StatelessWidget {
               ],
             ],
           );
+    final Widget body = !fitLogos || logos.length < 2
+        ? row(art)
+        : LayoutBuilder(builder: (context, box) {
+            final painter = TextPainter(
+              text: TextSpan(
+                  text: name,
+                  style: DefaultTextStyle.of(context).style.merge(nameStyle)),
+              maxLines: 1,
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout();
+            final words = painter.width;
+            painter.dispose();
+            // What the stack may take: the row less the name and the gap.
+            final room = box.maxWidth - 10.w - words - 1;
+            final fit = ((room - _kLogo) / _LogoStack.step).floor() + 1;
+            final count =
+                fit.clamp(1, math.min(logos.length, _kLogos)).toInt();
+            return row(_LogoStack(logos: logos.take(count).toList()));
+          });
     // The app's one soft card, a smaller radius; picked, the CTA ring on
     // it (the chart pickers' squares), no check, no accent.
     final soft = KuteActionCard.surfaceOf(context)
@@ -1902,10 +2025,12 @@ class _LogoStack extends StatelessWidget {
 
   final List<Widget> logos;
 
+  /// How far each logo stands from the one before.
+  static const double step = _kLogo * 0.66;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    const step = _kLogo * 0.66;
     final n = logos.length.clamp(0, _kLogos);
     return SizedBox(
       width: _kLogo + step * (n - 1),

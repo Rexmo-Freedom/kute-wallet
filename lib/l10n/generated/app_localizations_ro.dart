@@ -14478,6 +14478,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get categoryInstantLengths => '5 min · 15 min · 1 oră · 4 ore';
 
   @override
+  String get categoryFiveMinuteMarkets => 'Piețe de 5 minute';
+
+  @override
   String predictRoundNow(String time) {
     return 'Acum · $time';
   }

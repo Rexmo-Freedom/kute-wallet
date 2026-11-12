@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Dacă o predicție sau un ordin plasat cât timp Kute era în fundal a reușit.",
   "predictionsInstant": "Instant",
   "categoryInstantLengths": "5 min · 15 min · 1 oră · 4 ore",
+  "categoryFiveMinuteMarkets": "Piețe de 5 minute",
   "predictRoundNow": "Acum · {time}",
   "predictRoundNoPricesYet": "Încă fără prețuri",
   "predictUpOrDownLength": "{asset} Sus sau Jos · {length}",

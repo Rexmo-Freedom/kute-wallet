@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Om en prognos eller order som lades medan Kute var i bakgrunden gick igenom.",
   "predictionsInstant": "Direkt",
   "categoryInstantLengths": "5 min · 15 min · 1 timme · 4 timmar",
+  "categoryFiveMinuteMarkets": "5-minutersmarknader",
   "predictRoundNow": "Nu · {time}",
   "predictRoundNoPricesYet": "Inga priser än",
   "predictUpOrDownLength": "{asset} upp eller ner · {length}",

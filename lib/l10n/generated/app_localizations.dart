@@ -24261,11 +24261,17 @@ abstract class AppLocalizations {
   /// **'Instant'**
   String get predictionsInstant;
 
-  /// Predictions sheet, the Instant card's one line under its name: the round lengths it runs, separated by middle dots. Shrinks to fit a half-width card at 320 px; keep it short.
+  /// Predictions sheet, the one line under the name of the '5 minute markets' card beside Trending: the round lengths the page runs, separated by middle dots (space, middle dot, space). It wraps at the dots on a half-width card; keep it short.
   ///
   /// In en, this message translates to:
   /// **'5 min · 15 min · 1 hour · 4 hours'**
   String get categoryInstantLengths;
+
+  /// Predictions sheet, the name of the half-width card beside Trending that opens Predictions › Crypto › 5 Min, the live crypto rounds (BTC up or down every 5 minutes). Sentence case; it may wrap to two lines, keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'5 minute markets'**
+  String get categoryFiveMinuteMarkets;
 
   /// On the live crypto round card's strip of rounds (Predictions › Crypto › 5 Min and the round's own sheet, under the chart), the round in play with its time left, e.g. 'Now · 1:49'.
   ///
@@ -24273,7 +24279,7 @@ abstract class AppLocalizations {
   /// **'Now · {time}'**
   String predictRoundNow(String time);
 
-  /// On the live crypto round card's strip of rounds (Predictions › Crypto › 5 Min and the round's own sheet, under the chart), after a round that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short.
+  /// On the live crypto round card (Predictions › Crypto › 5 Min and the round's own sheet), on the line over the Up and Down buttons, after the start time of a round that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'; also read out after that round's pill. Short.
   ///
   /// In en, this message translates to:
   /// **'No prices yet'**

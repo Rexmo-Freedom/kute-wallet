@@ -654,18 +654,21 @@ void main() {
         browse: true,
         size: const Size(390, 1800));
 
-    // Trending, the lone card of its row: full width, three images stacked,
-    // "Most active · $X vol today", never the bare dot, the one-card
-    // chevron at its right (kute_action_cards.dart).
+    // Trending, the left card of the top row, "5 minute markets" to its
+    // right (founder, 12 November 2026; category_sheet_five_minute_test
+    // .dart): half the width each, three images stacked, "Most active · $X
+    // vol today", never the bare dot, and no chevron (the lone card's:
+    // kute_action_cards.dart).
     final trending = _tile(PolyPill.trending.key);
+    final fiveMinute = _tile('five-minute');
     expect(tester.getSize(trending).height, greaterThanOrEqualTo(64));
-    expect(
-        find.descendant(
-            of: trending,
-            matching: find.byKey(const ValueKey('category-tile-chevron'))),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('category-tile-chevron')), findsOneWidget,
-        reason: 'no chevron on any other card');
+    expect(fiveMinute, findsOneWidget);
+    expect(tester.getSize(fiveMinute), tester.getSize(trending));
+    expect(tester.getTopLeft(fiveMinute).dy, tester.getTopLeft(trending).dy);
+    expect(tester.getTopLeft(fiveMinute).dx,
+        greaterThan(tester.getTopRight(trending).dx));
+    expect(find.byKey(const ValueKey('category-tile-chevron')), findsNothing,
+        reason: 'two cards in the row: no chevron on any card');
     expect(find.byKey(const ValueKey('category-tile-instant')), findsNothing);
     // The topics under Trending, then the site's themes under their label,
     // Trending's rows, after every topic (founder, 9 November 2026: "the
@@ -768,8 +771,12 @@ void main() {
           p.key,
     ];
     expect(keys.length, greaterThan(6));
-    // Trending is the full-width row on top.
-    final width = tester.getSize(trending).width;
+    // Trending and "5 minute markets" share the row on top: a topic's card
+    // is as wide as either, an odd last one as wide as the two and their
+    // gap.
+    final half = tester.getSize(trending).width;
+    final width = tester.getTopRight(fiveMinute).dx -
+        tester.getTopLeft(trending).dx;
     for (final (i, key) in keys.indexed) {
       final rect = tester.getRect(find
           .descendant(of: _tile(key), matching: find.byType(AnimatedContainer)));
@@ -778,7 +785,7 @@ void main() {
         expect(rect.width, closeTo(width, 0.5), reason: '$key: no orphan');
         expect(rect.height, closeTo(64, 0.01), reason: '$key: the wide row');
       } else {
-        expect(rect.width, lessThan(width / 2), reason: key);
+        expect(rect.width, closeTo(half, 0.5), reason: key);
         expect(rect.height, 60, reason: key);
       }
     }

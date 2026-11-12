@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Дали прогноза или поръчка, пуснати, докато Kute беше на заден план, са минали.",
   "predictionsInstant": "Моментални",
   "categoryInstantLengths": "5 мин · 15 мин · 1 час · 4 часа",
+  "categoryFiveMinuteMarkets": "5-минутни пазари",
   "predictRoundNow": "Сега · {time}",
   "predictRoundNoPricesYet": "Още няма цени",
   "predictUpOrDownLength": "{asset} нагоре или надолу · {length}",

@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Czy prognoza lub zlecenie złożone, gdy Kute działało w tle, przeszły.",
   "predictionsInstant": "Błyskawiczne",
   "categoryInstantLengths": "5 min · 15 min · 1 godzina · 4 godziny",
+  "categoryFiveMinuteMarkets": "Rynki 5-minutowe",
   "predictRoundNow": "Teraz · {time}",
   "predictRoundNoPricesYet": "Brak cen",
   "predictUpOrDownLength": "{asset} w górę czy w dół · {length}",

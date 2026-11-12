@@ -14398,6 +14398,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get categoryInstantLengths => '5 min · 15 min · 1 hodina · 4 hodiny';
 
   @override
+  String get categoryFiveMinuteMarkets => '5minutové trhy';
+
+  @override
   String predictRoundNow(String time) {
     return 'Teď · $time';
   }

@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Hogy a Kute háttérben léte alatt leadott előrejelzés vagy megbízás sikerült-e.",
   "predictionsInstant": "Azonnali",
   "categoryInstantLengths": "5 perc · 15 perc · 1 óra · 4 óra",
+  "categoryFiveMinuteMarkets": "5 perces piacok",
   "predictRoundNow": "Most · {time}",
   "predictRoundNoPricesYet": "Még nincs ár",
   "predictUpOrDownLength": "{asset} fel vagy le · {length}",

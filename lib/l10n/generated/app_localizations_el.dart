@@ -14504,6 +14504,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get categoryInstantLengths => '5 λεπτά · 15 λεπτά · 1 ώρα · 4 ώρες';
 
   @override
+  String get categoryFiveMinuteMarkets => 'Αγορές 5 λεπτών';
+
+  @override
   String predictRoundNow(String time) {
     return 'Τώρα · $time';
   }

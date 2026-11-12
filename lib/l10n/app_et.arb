@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Kas ennustus või tellimus, mis esitati ajal, kui Kute oli taustal, läks läbi.",
   "predictionsInstant": "Kiired",
   "categoryInstantLengths": "5 min · 15 min · 1 tund · 4 tundi",
+  "categoryFiveMinuteMarkets": "5-minutilised turud",
   "predictRoundNow": "Praegu · {time}",
   "predictRoundNoPricesYet": "Hindu veel pole",
   "predictUpOrDownLength": "{asset} üles või alla · {length}",

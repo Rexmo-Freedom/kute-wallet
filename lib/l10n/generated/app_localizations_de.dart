@@ -14507,6 +14507,9 @@ class AppLocalizationsDe extends AppLocalizations {
       '5 Min. · 15 Min. · 1 Stunde · 4 Stunden';
 
   @override
+  String get categoryFiveMinuteMarkets => '5-Minuten-Märkte';
+
+  @override
   String predictRoundNow(String time) {
     return 'Jetzt · $time';
   }

@@ -14450,6 +14450,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get categoryInstantLengths => '5 min · 15 min · 1 godzina · 4 godziny';
 
   @override
+  String get categoryFiveMinuteMarkets => 'Rynki 5-minutowe';
+
+  @override
   String predictRoundNow(String time) {
     return 'Teraz · $time';
   }

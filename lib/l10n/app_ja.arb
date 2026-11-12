@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Kuteがバックグラウンドにある間に出した予測や注文が通ったかどうか。",
   "predictionsInstant": "インスタント",
   "categoryInstantLengths": "5分 · 15分 · 1時間 · 4時間",
+  "categoryFiveMinuteMarkets": "5分マーケット",
   "predictRoundNow": "今 · {time}",
   "predictRoundNoPricesYet": "まだ価格なし",
   "predictUpOrDownLength": "{asset} 上昇か下落か · {length}",

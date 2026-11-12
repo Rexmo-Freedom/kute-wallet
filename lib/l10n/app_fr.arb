@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Si une prédiction ou un ordre passé pendant que Kute était en arrière-plan a abouti.",
   "predictionsInstant": "Instantanées",
   "categoryInstantLengths": "5 min · 15 min · 1 heure · 4 heures",
+  "categoryFiveMinuteMarkets": "Marchés 5 minutes",
   "predictRoundNow": "Maintenant · {time}",
   "predictRoundNoPricesYet": "Pas encore de prix",
   "predictUpOrDownLength": "{asset} Hausse ou Baisse · {length}",

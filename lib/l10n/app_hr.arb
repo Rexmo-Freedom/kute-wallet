@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Je li predviđanje ili nalog postavljen dok je Kute bio u pozadini prošao.",
   "predictionsInstant": "Trenutačne",
   "categoryInstantLengths": "5 min · 15 min · 1 sat · 4 sata",
+  "categoryFiveMinuteMarkets": "Tržišta od 5 minuta",
   "predictRoundNow": "Sada · {time}",
   "predictRoundNoPricesYet": "Još nema cijena",
   "predictUpOrDownLength": "{asset} gore ili dolje · {length}",

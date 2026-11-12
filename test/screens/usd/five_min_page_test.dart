@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
@@ -41,14 +42,20 @@ import '../polymarket/crypto_round_strip_card_test.dart' as card;
 import 'investments_harness.dart';
 
 final _renderOut = Platform.environment['FIVE_MIN_RENDER'] ?? '';
-final _shot = GlobalKey();
+
+/// The page, for a render.
+final pageShot = GlobalKey();
 
 AppLocalizations get _l10n => l10nForLanguage('en');
 
-class _NoFeed extends PolyFeedNotifier {
+/// What every Predictions list holds (none by default): a test of the
+/// category sheet gives Trending its markets.
+List<PolymarketEvent> pageFeed = const [];
+
+class _Feed extends PolyFeedNotifier {
   @override
   PolyFeedState build(PolyFeedQuery arg) =>
-      const PolyFeedState(done: true, events: []);
+      PolyFeedState(done: true, events: pageFeed);
 }
 
 class _Sports extends SportsLiveNotifier {
@@ -60,7 +67,7 @@ class _Sports extends SportsLiveNotifier {
 
 /// The founder's screen: 2:16 left of the round in play, the next round
 /// listed with no prices yet, the one after not listed, Up at 98.5%.
-card.CardWorld _world() {
+card.CardWorld founderWorld() {
   final world = card.CardWorld()
     ..now = card.roundStart.add(const Duration(minutes: 2, seconds: 44))
     ..install();
@@ -73,18 +80,24 @@ card.CardWorld _world() {
   return world;
 }
 
-/// The Dollars home on Predictions · 5 Min.
-Future<ProviderContainer> _pumpPage(WidgetTester tester, card.CardWorld world,
-    {required Size size, double textScale = 1, bool dark = false}) async {
+/// The Dollars home on Predictions · 5 Min, or on Predictions at [at].
+Future<ProviderContainer> pumpPredictionsPage(
+    WidgetTester tester, card.CardWorld world,
+    {required Size size,
+    double textScale = 1,
+    bool dark = false,
+    Locale? locale,
+    PolyBrowseSelection? at}) async {
   await pumpInvestments(
     tester,
     dark: dark,
     size: size,
     textScale: textScale,
+    locale: locale,
     browsePredictions: true,
     overrides: [
       ...offlineVenueOverrides,
-      polyBrowseFeedProvider.overrideWith(_NoFeed.new),
+      polyBrowseFeedProvider.overrideWith(_Feed.new),
       sportsLiveProvider.overrideWith(_Sports.new),
       polyTopicSubsProvider
           .overrideWith((ref, pill) => Stream.value(const <PolySub>[])),
@@ -96,14 +109,15 @@ Future<ProviderContainer> _pumpPage(WidgetTester tester, card.CardWorld world,
       ...world.overrides(),
     ],
     child: RepaintBoundary(
-        key: _shot, child: const Scaffold(body: UsdAccountScreen())),
+        key: pageShot, child: const Scaffold(body: UsdAccountScreen())),
   );
-  final container = ProviderScope.containerOf(
-      tester.element(find.byType(UsdAccountScreen)));
-  container.read(polyBrowseSelectionProvider.notifier).state = container
-      .read(polyBrowseSelectionProvider)
-      .copyWith(pill: PolyPill.crypto)
-      .copyWith(sub: '5m');
+  final container =
+      ProviderScope.containerOf(tester.element(find.byType(UsdAccountScreen)));
+  container.read(polyBrowseSelectionProvider.notifier).state = at ??
+      container
+          .read(polyBrowseSelectionProvider)
+          .copyWith(pill: PolyPill.crypto)
+          .copyWith(sub: '5m');
   container.read(investmentsTabProvider.notifier).state =
       InvestmentsTab.predictions;
   for (var i = 0; i < 12; i++) {
@@ -112,19 +126,19 @@ Future<ProviderContainer> _pumpPage(WidgetTester tester, card.CardWorld world,
   return container;
 }
 
-Future<void> _unmount(WidgetTester tester) async {
+Future<void> unmountPage(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(seconds: 31));
 }
 
 const _strip = ValueKey('crypto-round-strip');
-const _cardKey = ValueKey('crypto-round-compact');
+const roundCardKey = ValueKey('crypto-round-compact');
 const _rows = ValueKey('crypto-more-rounds');
 
 /// Every text painted under [root] that is cut: past its lines (an
 /// ellipsis), clipped on one line, or set to ellipsise
 /// (category_sheet_no_cut_test.dart's rule).
-List<String> _cut(WidgetTester tester, Finder root) {
+List<String> cutTexts(WidgetTester tester, Finder root) {
   final out = <String>[];
   for (final e in find
       .descendant(of: root, matching: find.byType(RichText))
@@ -154,14 +168,14 @@ List<String> _cut(WidgetTester tester, Finder root) {
 /// The three pills ahead, in order, by the world's clock.
 List<Finder> _pills() => [
       for (final k in [0, 1, 2])
-        find.byKey(CryptoRoundStrip.pillKey(card.epoch(
-            card.roundStart.add(Duration(minutes: 5 * k))))),
+        find.byKey(CryptoRoundStrip.pillKey(
+            card.epoch(card.roundStart.add(Duration(minutes: 5 * k))))),
     ];
 
 /// The pills are one row of three equal pills, whole, on the card.
 void _expectStripWhole(WidgetTester tester, {required String at}) {
   final strip = tester.getRect(find.byKey(_strip));
-  final cardRect = tester.getRect(find.byKey(_cardKey));
+  final cardRect = tester.getRect(find.byKey(roundCardKey));
   expect(strip.left, greaterThanOrEqualTo(cardRect.left), reason: at);
   expect(strip.right, lessThanOrEqualTo(cardRect.right), reason: at);
   expect(
@@ -186,24 +200,25 @@ void _expectStripWhole(WidgetTester tester, {required String at}) {
   }
   final labels = [for (final p in _pills()) tester.widget<KutePill>(p).label];
   expect(labels[0], startsWith('Now · '), reason: at);
-  expect(labels[1], 'Next · ${card.clockOf(card.roundStart.add(const Duration(minutes: 5)))}');
-  expect(labels[2], card.clockOf(card.roundStart.add(const Duration(minutes: 10))));
+  expect(labels[1],
+      'Next · ${card.clockOf(card.roundStart.add(const Duration(minutes: 5)))}');
+  expect(labels[2],
+      card.clockOf(card.roundStart.add(const Duration(minutes: 10))));
   for (final p in _pills()) {
     expect(tester.widget<KutePill>(p).detail, isNull,
         reason: '$at: no words added to a pill');
   }
   // One scale for the three: a pill's own words never shrink alone.
   for (final p in _pills()) {
-    for (final e in find
-        .descendant(of: p, matching: find.byType(RichText))
-        .evaluate()) {
+    for (final e
+        in find.descendant(of: p, matching: find.byType(RichText)).evaluate()) {
       final para = e.renderObject! as RenderParagraph;
       expect(para.getMaxIntrinsicWidth(double.infinity),
           lessThanOrEqualTo(para.size.width + 0.5),
           reason: '$at: "${para.text.toPlainText()}" laid out whole');
     }
   }
-  expect(_cut(tester, find.byKey(_strip)), isEmpty, reason: at);
+  expect(cutTexts(tester, find.byKey(_strip)), isEmpty, reason: at);
 }
 
 void main() {
@@ -220,7 +235,7 @@ void main() {
         'at 320 pt and text ×1.5 ($theme): the strip is three whole pills on '
         'the card, the dots gone first, and nothing on the page is cut',
         (tester) async {
-      final world = _world()..listNext();
+      final world = founderWorld()..listNext();
       // Listed, with no real prices yet: the founder's "No prices yet".
       world.quotes
         ..remove('next-up')
@@ -228,9 +243,9 @@ void main() {
       PolymarketLiveBooks.instance.reset();
       world.install();
       world.requote();
-      await _pumpPage(tester, world,
+      await pumpPredictionsPage(tester, world,
           size: const Size(320, 1500), textScale: 1.5, dark: dark);
-      expect(find.byKey(_cardKey), findsOneWidget);
+      expect(find.byKey(roundCardKey), findsOneWidget);
       _expectStripWhole(tester, at: '320 ×1.5 $theme');
       // Too narrow for the dots and the pills: the dots go, and the pills
       // shrink as one row.
@@ -244,17 +259,17 @@ void main() {
       card.expectUnpriced(
           tester, card.epoch(card.roundStart.add(const Duration(minutes: 10))));
       // The whole page: the card and the other coins' rows.
-      expect(_cut(tester, find.byKey(_cardKey)), isEmpty);
-      expect(_cut(tester, find.byKey(_rows)), isEmpty);
+      expect(cutTexts(tester, find.byKey(roundCardKey)), isEmpty);
+      expect(cutTexts(tester, find.byKey(_rows)), isEmpty);
       // The target went under the price rather than be cut beside it.
       final price = tester.getRect(find.descendant(
-          of: find.byKey(_cardKey), matching: find.text('▼ \$22.00')));
+          of: find.byKey(roundCardKey), matching: find.text('▼ \$22.00')));
       final target =
           tester.getRect(find.byKey(const ValueKey('crypto-round-target')));
       expect(target.top, greaterThanOrEqualTo(price.bottom - 1));
       // The rows wrapped: the odds under the name, whole.
-      expect(find.byKey(const ValueKey('five-min-row-wrapped')),
-          findsNWidgets(3));
+      expect(
+          find.byKey(const ValueKey('five-min-row-wrapped')), findsNWidgets(3));
       for (final asset in ['ETH', 'SOL', 'XRP']) {
         final row = tester.getRect(find.byKey(ValueKey('five-min-row-$asset')));
         final rows = tester.getRect(find.byKey(_rows));
@@ -262,7 +277,7 @@ void main() {
         expect(row.right, lessThanOrEqualTo(rows.right));
       }
       expect(tester.takeException(), isNull);
-      await _unmount(tester);
+      await unmountPage(tester);
     });
   }
 
@@ -270,8 +285,8 @@ void main() {
       'at 393 pt: the dots, then three equal pills across the card; the '
       'price row on one line with the target at the right; every coin the '
       'same circle under the card\'s own', (tester) async {
-    final world = _world()..listNext();
-    await _pumpPage(tester, world, size: const Size(393, 1100));
+    final world = founderWorld()..listNext();
+    await pumpPredictionsPage(tester, world, size: const Size(393, 1100));
     _expectStripWhole(tester, at: '393');
     final strip = tester.getRect(find.byKey(_strip));
     final dots = tester.getRect(find.descendant(
@@ -282,8 +297,8 @@ void main() {
     expect(pills.first.left, greaterThan(dots.right));
     expect(pills.last.right, closeTo(strip.right, 0.5),
         reason: 'the pills take the rest of the row');
-    expect(find.byKey(const ValueKey('crypto-round-strip-fitted')),
-        findsNothing,
+    expect(
+        find.byKey(const ValueKey('crypto-round-strip-fitted')), findsNothing,
         reason: 'room for all: nothing shrinks');
     // Next has real prices: a pill at full strength; the one after none.
     final next = card.epoch(card.roundStart.add(const Duration(minutes: 5)));
@@ -303,14 +318,14 @@ void main() {
     final target =
         tester.getRect(find.byKey(const ValueKey('crypto-round-target')));
     final move = tester.getRect(find.descendant(
-        of: find.byKey(_cardKey), matching: find.text('▼ \$22.00')));
+        of: find.byKey(roundCardKey), matching: find.text('▼ \$22.00')));
     expect(target.left, greaterThan(move.right));
     expect(target.right, closeTo(strip.right, 0.5));
     expect(find.text(_l10n.predictTargetPrice('\$75,987')), findsOneWidget);
     // The rows: one line each, nothing wrapped, nothing cut.
     expect(find.byKey(const ValueKey('five-min-row-wrapped')), findsNothing);
-    expect(_cut(tester, find.byKey(_cardKey)), isEmpty);
-    expect(_cut(tester, find.byKey(_rows)), isEmpty);
+    expect(cutTexts(tester, find.byKey(roundCardKey)), isEmpty);
+    expect(cutTexts(tester, find.byKey(_rows)), isEmpty);
     // Every coin the same circle, the rows' under the card's.
     final logos = [
       for (final asset in ['BTC', 'ETH', 'SOL', 'XRP'])
@@ -324,45 +339,46 @@ void main() {
     }
     expect(find.byType(CryptoAssetLogo), findsNWidgets(4));
     expect(tester.takeException(), isNull);
-    await _unmount(tester);
+    await unmountPage(tester);
   });
 
   for (final dark in [false, true]) {
     final theme = dark ? 'dark' : 'light';
     testWidgets('render: the 5 Min page at 393 pt ($theme)', (tester) async {
       // The founder's screen: the next round listed with no prices yet.
-      final world = _world()..listNext();
+      final world = founderWorld()..listNext();
       world.quotes
         ..remove('next-up')
         ..remove('next-down');
       PolymarketLiveBooks.instance.reset();
       world.install();
       world.requote();
-      await _pumpPage(tester, world, size: const Size(393, 852), dark: dark);
-      await writeRenderPng(
-          tester, _shot, '$_renderOut/five_min_page_$theme.png');
+      await pumpPredictionsPage(tester, world,
+          size: const Size(393, 852), dark: dark);
+      await writeViewPng(tester, '$_renderOut/five_min_page_$theme.png');
       // A tap on the dimmed pill: the line over the buttons says why.
       await tester.tap(_pills()[1]);
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      await writeRenderPng(tester, _shot,
-          '$_renderOut/five_min_page_no_prices_tapped_$theme.png');
-      await _unmount(tester);
-      await _pumpPage(tester, world,
+      await writeViewPng(
+          tester, '$_renderOut/five_min_page_no_prices_tapped_$theme.png');
+      await unmountPage(tester);
+      await pumpPredictionsPage(tester, world,
           size: const Size(320, 1100), textScale: 1.5, dark: dark);
-      await writeRenderPng(
-          tester, _shot, '$_renderOut/five_min_page_320x1.5_$theme.png');
-      await _unmount(tester);
+      await writeViewPng(
+          tester, '$_renderOut/five_min_page_320x1.5_$theme.png');
+      await unmountPage(tester);
       // The next rounds with real prices: partway through this one the
       // buttons have rolled to the next, named on the line over them.
-      final priced = _world()
+      final priced = founderWorld()
         ..listNext()
         ..listLater();
-      await _pumpPage(tester, priced, size: const Size(393, 852), dark: dark);
-      await writeRenderPng(
-          tester, _shot, '$_renderOut/five_min_page_next_priced_$theme.png');
-      await _unmount(tester);
+      await pumpPredictionsPage(tester, priced,
+          size: const Size(393, 852), dark: dark);
+      await writeViewPng(
+          tester, '$_renderOut/five_min_page_next_priced_$theme.png');
+      await unmountPage(tester);
     }, skip: _renderOut.isEmpty);
   }
 }

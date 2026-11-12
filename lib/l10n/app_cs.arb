@@ -4068,6 +4068,7 @@
   "orderNoticeResultChannelDescription": "Zda predikce nebo pokyn zadané, když byl Kute na pozadí, prošly.",
   "predictionsInstant": "Okamžité",
   "categoryInstantLengths": "5 min · 15 min · 1 hodina · 4 hodiny",
+  "categoryFiveMinuteMarkets": "5minutové trhy",
   "predictRoundNow": "Teď · {time}",
   "predictRoundNoPricesYet": "Zatím bez cen",
   "predictUpOrDownLength": "{asset} nahoru, nebo dolů · {length}",

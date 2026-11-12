@@ -12568,7 +12568,11 @@
   },
   "categoryInstantLengths": "5 min · 15 min · 1 hour · 4 hours",
   "@categoryInstantLengths": {
-    "description": "Predictions sheet, the Instant card's one line under its name: the round lengths it runs, separated by middle dots. Shrinks to fit a half-width card at 320 px; keep it short."
+    "description": "Predictions sheet, the one line under the name of the '5 minute markets' card beside Trending: the round lengths the page runs, separated by middle dots (space, middle dot, space). It wraps at the dots on a half-width card; keep it short."
+  },
+  "categoryFiveMinuteMarkets": "5 minute markets",
+  "@categoryFiveMinuteMarkets": {
+    "description": "Predictions sheet, the name of the half-width card beside Trending that opens Predictions › Crypto › 5 Min, the live crypto rounds (BTC up or down every 5 minutes). Sentence case; it may wrap to two lines, keep it short."
   },
   "predictRoundNow": "Now · {time}",
   "@predictRoundNow": {
@@ -12581,7 +12585,7 @@
   },
   "predictRoundNoPricesYet": "No prices yet",
   "@predictRoundNoPricesYet": {
-    "description": "On the live crypto round card's strip of rounds (Predictions › Crypto › 5 Min and the round's own sheet, under the chart), after a round that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'. Short."
+    "description": "On the live crypto round card (Predictions › Crypto › 5 Min and the round's own sheet), on the line over the Up and Down buttons, after the start time of a round that cannot be picked yet because Polymarket shows no real prices for it, e.g. '7:25 · No prices yet'; also read out after that round's pill. Short."
   },
   "predictUpOrDownLength": "{asset} up or down · {length}",
   "@predictUpOrDownLength": {
