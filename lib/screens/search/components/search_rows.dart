@@ -48,7 +48,8 @@ import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart'
     show HlDexNames, HlMarket, HlMarketKind, kHlLowLiquidityDayVolumeUsd;
-import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
+import 'package:kute/models/polymarket_model.dart'
+    show PolymarketEvent, PolymarketOutcome;
 import 'package:kute/providers/hyperliquid_search_provider.dart'
     show HlMarketSearchResult;
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
@@ -409,11 +410,17 @@ class SearchPredictionRow extends StatelessWidget {
     required this.onTap,
     this.titleLines = 2,
     this.padding,
+    this.outcome,
   });
 
   final PolymarketEvent event;
   final VoidCallback onTap;
   final int titleLines;
+
+  /// The one outcome among many a search named ("Porto" in "UEFA
+  /// Champions League: 2027 Champion"): its name under the title and its
+  /// chance at the right, never the leader's. Null shows the event's.
+  final PolymarketOutcome? outcome;
 
   /// The row's inset ([SearchListRow.padding]).
   final EdgeInsetsGeometry? padding;
@@ -423,26 +430,39 @@ class SearchPredictionRow extends StatelessWidget {
   /// (founder, 8 November 2026: "we should show the yes"; a row reading 85%
   /// over a market page saying Yes 15.5% was the No); otherwise the leading
   /// outcome.
-  static double? chanceFractionOf(PolymarketEvent event) {
+  /// With an [outcome], that outcome's chance (none while Polymarket
+  /// shows it none, [PolymarketOutcome.unpriced]).
+  static double? chanceFractionOf(PolymarketEvent event,
+      {PolymarketOutcome? outcome}) {
+    if (outcome != null) return outcome.unpriced ? null : outcome.price;
     if (event.outcomes.isEmpty) return null;
     if (event.isBinary) return event.yesPrice;
     return event.outcomes.map((o) => o.price).reduce(math.max);
   }
 
   /// The chance the row shows ("15%"), null without prices.
-  static String? chanceOf(PolymarketEvent event) {
-    final fraction = chanceFractionOf(event);
+  static String? chanceOf(PolymarketEvent event,
+      {PolymarketOutcome? outcome}) {
+    final fraction = chanceFractionOf(event, outcome: outcome);
     return fraction == null ? null : '${(fraction * 100).round()}%';
   }
 
   @override
   Widget build(BuildContext context) {
-    final fraction = chanceFractionOf(event);
-    final chance = chanceOf(event);
+    final fraction = chanceFractionOf(event, outcome: outcome);
+    final chance = chanceOf(event, outcome: outcome);
+    final named = outcome?.name.trim();
+    final subtitle = named == null || named.isEmpty ? null : named;
+    final label = [
+      event.displayTitle,
+      if (subtitle != null) subtitle,
+      if (chance != null) chance,
+    ].join(', ');
     return SearchListRow(
       leading: searchEventLogo(context, event.imageUrl),
       title: event.displayTitle,
       titleLines: titleLines,
+      subtitle: subtitle,
       padding: padding,
       trailing: fraction == null || chance == null
           ? null
@@ -454,9 +474,7 @@ class SearchPredictionRow extends StatelessWidget {
                 Text(chance, style: SearchListRow.figureStyle(context)),
               ],
             ),
-      semanticLabel: chance == null
-          ? event.displayTitle
-          : '${event.displayTitle}, $chance',
+      semanticLabel: label,
       onTap: onTap,
     );
   }

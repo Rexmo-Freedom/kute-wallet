@@ -2788,9 +2788,10 @@ class PolymarketModel {
 
   /// The events of one `public-search` page as the app lists them: most
   /// traded first (the event's total volume), Gamma's relevance order for
-  /// ties. No title re-ranking: Gamma already matched the title and the
-  /// candidate names. Games in play go first further up, where the live
-  /// feed is known (unified_search_provider.dart, search_result_order.dart).
+  /// ties. The events about the query (its title, a game's team) are put
+  /// ahead of the ones listing it among many outcomes further up, with the
+  /// games in play, where the query and the live feed are known
+  /// (unified_search_provider.dart, search_result_order.dart).
   /// With the page comes whether Gamma has another (`pagination.hasMore`;
   /// no pagination block reads as the last page).
   ///

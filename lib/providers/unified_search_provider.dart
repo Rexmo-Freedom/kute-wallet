@@ -39,6 +39,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
     show sportsLiveProvider, sportsUpdateFor, SportsMatchUpdate;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
+import 'package:kute/screens/search/search_result_order.dart'
+    show predictionMatchedOutcome, rankPredictionResults;
 
 /// Sealed union of everything the unified search can surface. The UI
 /// switches on the concrete subtype to render the row and to dispatch
@@ -68,10 +70,15 @@ class OwnedPositionSearchResult extends SearchResult {
 }
 
 /// A global Polymarket market from the remote Gamma search. Tapping
-/// opens `MarketDetailSheet.show(event:)`.
+/// opens `MarketDetailSheet.show(event:)`. [matchedOutcome] is the one
+/// outcome among many the query named ("porto" in "UEFA Champions League:
+/// 2027 Champion"), whose chance the row shows instead of the leader's;
+/// null when the event itself is about the query
+/// ([predictionMatchedOutcome]).
 class GlobalMarketSearchResult extends SearchResult {
   final PolymarketEvent event;
-  const GlobalMarketSearchResult(this.event);
+  final PolymarketOutcome? matchedOutcome;
+  const GlobalMarketSearchResult(this.event, {this.matchedOutcome});
 }
 
 /// Grouped synchronous results — everything except the remote
@@ -374,14 +381,12 @@ final unifiedSearchResultsProvider = FutureProvider.autoDispose<UnifiedSearchRes
 /// [kMaxGlobalMarketResults] under All, at [kMaxPredictionsFilterResults]
 /// under the Predictions filter.
 ///
-/// ONGOING / LIVE markets are surfaced FIRST: the feed's resolved filter
-/// already keeps genuinely in-play games (it returns false for a live,
-/// score/period-seeded, not-ended event), but the cap could otherwise drop
-/// a live market sitting below the first five Gamma hits. We stable-sort
-/// in-play markets ahead of the rest — using the live WS feed (keyed by
-/// slug, then `game:<gameId>`) and the event's own seeded in-play signal
-/// as a fallback — so a live game matching the query always makes the
-/// (capped) cut and leads the section, where the UI tags it "LIVE".
+/// The markets ABOUT the query lead, then the ones that only list it among
+/// many outcomes, a game in play first within each
+/// ([rankPredictionResults], search_result_order.dart), BEFORE the cap, so
+/// Porto's own games are never cut for the Champions League winner. In
+/// play is the live WS feed (keyed by slug, then `game:<gameId>`) or the
+/// event's own seeded in-play signal, where the UI tags it "LIVE".
 final globalMarketResultsProvider =
     Provider.autoDispose<AsyncValue<List<GlobalMarketSearchResult>>>((ref) {
   if (!ref.watch(runtimeCapabilitiesProvider).allows('polymarket.browse')) {
@@ -416,9 +421,9 @@ final globalMarketResultsProvider =
       if (liveMask[i] == '1') events[i],
   };
   List<GlobalMarketSearchResult> project(List<PolymarketEvent> events) {
-    // De-dup first (repeated conditionIds), then
-    // stable-sort live-first, then cap — so the cap is applied AFTER live
-    // markets are pulled to the top, never before.
+    // De-dup first (repeated conditionIds), then rank, then cap — so the
+    // cap is applied AFTER the markets about the query (and live games)
+    // are pulled to the top, never before.
     final deduped = <PolymarketEvent>[];
     final seen = <String>{};
     for (final e in events) {
@@ -429,18 +434,16 @@ final globalMarketResultsProvider =
 
     bool isLive(PolymarketEvent e) => live.contains(e) || e.isInPlay;
 
-    // Stable partition: in-play markets first, original (Gamma) order kept
-    // within each group.
-    final sorted = [
-      ...deduped.where(isLive),
-      ...deduped.where((e) => !isLive(e)),
-    ];
+    final sorted =
+        rankPredictionResults(deduped, (e) => e, query: query, isLive: isLive);
 
     final cap = category == SearchCategory.predictions
         ? kMaxPredictionsFilterResults
         : kMaxGlobalMarketResults;
     return [
-      for (final e in sorted.take(cap)) GlobalMarketSearchResult(e),
+      for (final e in sorted.take(cap))
+        GlobalMarketSearchResult(e,
+            matchedOutcome: predictionMatchedOutcome(query, e)),
     ];
   }
 

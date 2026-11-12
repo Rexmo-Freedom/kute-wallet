@@ -858,8 +858,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // unlabelled (the scope chip already names it).
     //
     // Within Investing the market the person named leads (exact ticker or
-    // name, then prefixes, then the rest); within Predictions a game in
-    // play leads, then the most traded (search_result_order.dart). The
+    // name, then prefixes, then the rest); within Predictions the markets
+    // about the query lead (its title, a game's team), the ones listing it
+    // among many outcomes after, a game in play first within each
+    // (search_result_order.dart). The
     // groups themselves always read Predictions, Investing, Transactions,
     // so a group never jumps when the remote results land.
     final sportsLive = ref.read(sportsLiveProvider);
@@ -867,6 +869,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final rankedGlobal = rankPredictionResults(
       globalResults,
       (r) => r.event,
+      query: query,
       isLive: (r) =>
           r.event.isInPlay ||
           (_liveUpdateFor(r.event, sportsLive)?.isInPlay ?? false),
@@ -1585,7 +1588,7 @@ class _OwnedPositionRow extends ConsumerWidget {
 
 /// A Polymarket market from the remote search, in the sheet's row
 /// ([SearchPredictionRow]): the picture, the question, the leading
-/// chance. Search stays open — the market detail stacks on top (root
+/// chance, or the outcome the query named and its chance. Search stays open — the market detail stacks on top (root
 /// navigator) and closing it returns to the results.
 class _GlobalMarketRow extends ConsumerWidget {
   final GlobalMarketSearchResult result;
@@ -1597,6 +1600,7 @@ class _GlobalMarketRow extends ConsumerWidget {
     final e = result.event;
     return SearchPredictionRow(
       event: e,
+      outcome: result.matchedOutcome,
       onTap: () {
         // A Ledger account search opens the market on that wallet's
         // Ledger bet target (MarketDetailSheet forwards ledgerWalletId).
