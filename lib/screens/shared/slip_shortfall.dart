@@ -787,9 +787,15 @@ class SlipFundingSteps extends StatelessWidget {
     final g = graph;
     final format = money;
     if (g != null && !g.isEmpty && format != null && steps.length >= 2) {
+      final lines = moneyStepLines(context.l10n, g, format,
+          readyLabel: steps[steps.length - 2], placeLine: steps.last);
+      final stage = lines.indexWhere((l) => l.id == 'ready');
       return MoneyStepsView(
-        lines: moneyStepLines(context.l10n, g, format,
-            readyLabel: steps[steps.length - 2], placeLine: steps.last),
+        lines: lines,
+        // The slip's look: the stage ("Getting your prediction ready") as
+        // the status, the step at work under it.
+        prominent: true,
+        stageLine: stage < 0 ? null : stage,
         graph: g,
         money: format,
         from: from,
@@ -804,6 +810,10 @@ class SlipFundingSteps extends StatelessWidget {
     // own names.
     return MoneyStepsView(
       keys: MoneyStepsKeys.slip,
+      prominent: true,
+      // The second-to-last stage is the getting-ready one; the last is
+      // the order itself.
+      stageLine: steps.length >= 2 ? steps.length - 2 : null,
       from: from ?? MoneyPlace.dollars,
       to: to,
       lines: [

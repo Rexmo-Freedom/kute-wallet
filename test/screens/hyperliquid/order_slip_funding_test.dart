@@ -7,9 +7,13 @@
 // minimum.
 
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/currency_conversions.dart';
@@ -35,6 +39,7 @@ import 'package:kute/screens/shared/market_side_toggle.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
+import 'package:kute/screens/shared/slip_stat_tiles.dart' show SlipJourney;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
     show
         fundedOrderGraph,
@@ -59,6 +64,8 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_hyperliquid_move_rail.dart';
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/ink_contrast.dart';
+import '../../helpers/render_png.dart';
 import '../../helpers/shell_bar_harness.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
@@ -251,8 +258,10 @@ Future<void> _pumpSlip(WidgetTester tester,
     required FakeHyperliquidMoveRail rail,
     bool dark = false,
     List<FundedOrderRecord>? funded,
-    bool withWallet = false}) async {
-  tester.view.physicalSize = const Size(390, 844);
+    bool withWallet = false,
+    double width = 390,
+    double textScale = 1}) async {
+  tester.view.physicalSize = Size(width, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -290,6 +299,13 @@ Future<void> _pumpSlip(WidgetTester tester,
     // The bar over the slip is the slip's button (shell_bar_harness.dart).
     child: shellBarApp(
       dark: dark,
+      wrap: textScale == 1
+          ? null
+          : (context, child) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(textScale)),
+                child: child!,
+              ),
       home: const Scaffold(
         body: Align(
           alignment: Alignment.bottomCenter,
@@ -348,6 +364,13 @@ Color? _buttonLabelColor(WidgetTester tester) => tester
 void main() {
   late FakeHyperliquidMoveRail rail;
   late List<(String, Map<String, Object?>?)> events;
+
+  // The renders (BET_SLIP_ON_COLOUR_RENDER=<dir>) draw the app's Inter.
+  setUpAll(() async {
+    if (Platform.environment['BET_SLIP_ON_COLOUR_RENDER'] != null) {
+      await loadRenderFonts();
+    }
+  });
 
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -820,6 +843,107 @@ void main() {
       expect(barPrimaryLabel(tester), startsWith('Try again · '));
       await tester.pumpWidget(const SizedBox.shrink());
     });
+
+    for (final (width, scale, dark) in [
+      (390.0, 1.0, false),
+      (390.0, 1.0, true),
+      (320.0, 1.5, false),
+      (320.0, 1.5, true),
+    ]) {
+      final mode = '${dark ? 'dark' : 'light'}, $width pt, text x$scale';
+      testWidgets(
+          'the locked ticket\'s journey reads like the bet slip\'s: the stage '
+          'over the step at work, nothing tiny, nothing cut ($mode)',
+          (tester) async {
+        await _pumpSlip(tester,
+            venueUsd: 8,
+            dollarsUsd: 0,
+            rail: rail,
+            funded: const [],
+            dark: dark,
+            width: width,
+            textScale: scale);
+        await _typeOnKeypad(tester, '20');
+        (ProviderScope.containerOf(
+                    tester.element(find.byType(HlOrderSlipSheet)))
+                .read(fundedOrdersProvider.notifier) as _Funded)
+            .put([_secondLeg()]);
+        await _frames(tester, 16);
+        final dir = Platform.environment['BET_SLIP_ON_COLOUR_RENDER'];
+        if (dir != null) {
+          await writeViewPng(tester,
+              '$dir/investing_journey_${width.round()}_x${scale}_${dark ? 'dark' : 'light'}.png');
+        }
+        final title = find.byKey(const ValueKey('money-steps-title'));
+        final detail = find.byKey(const ValueKey('money-steps-detail'));
+        expect(
+            find.descendant(of: title, matching: find.text('Preparing your order')),
+            findsOneWidget);
+        expect(
+            find.descendant(
+                of: detail, matching: find.text(r'Moving $12.00 from Dollars')),
+            findsOneWidget);
+        final style = tester
+            .widget<RichText>(
+                find.descendant(of: title, matching: find.byType(RichText)).last)
+            .text
+            .style!;
+        expect(style.fontSize, greaterThanOrEqualTo(16.sp - 0.01));
+        expect(style.fontWeight!.value, greaterThanOrEqualTo(600));
+        final page = (dark ? AppColorsExtension.dark() : AppColorsExtension.light())
+            .background;
+        // Everything there at 4.5:1, or on the Long ticket's green (white
+        // as ever) at all the full white gives: the sheet's own ink.
+        final c = tester.element(find.byType(SlipJourney)).colors;
+        final full = math.min(
+            4.5, contrastRatio(c.textPrimary, c.background) - 0.01);
+        expectInksRead(tester, find.byType(SlipJourney),
+            page: page, text: full, reason: mode);
+        for (final e in find
+            .descendant(
+                of: find.byType(SlipJourney), matching: find.byType(RichText))
+            .evaluate()) {
+          final p = e.renderObject! as RenderParagraph;
+          var seen = 1.0;
+          e.visitAncestorElements((a) {
+            if (a.widget case Opacity(:final opacity)) seen *= opacity;
+            return true;
+          });
+          if (seen < 0.05 || !p.hasSize || p.size.isEmpty) continue;
+          final text = p.text.toPlainText();
+          expect(p.text.style?.fontSize ?? 0, greaterThanOrEqualTo(13.sp - 0.01),
+              reason: '$mode: "$text"');
+        }
+        for (final e in find
+            .descendant(
+                of: find.byType(HlOrderSlipSheet), matching: find.byType(RichText))
+            .evaluate()) {
+          final p = e.renderObject! as RenderParagraph;
+          if (!p.attached || !p.hasSize || p.size.isEmpty) continue;
+          expect(p.didExceedMaxLines, isFalse,
+              reason: '$mode: "${p.text.toPlainText()}" cut');
+          final r = MatrixUtils.transformRect(
+              p.getTransformTo(null), Offset.zero & p.size);
+          expect(r.right, lessThanOrEqualTo(width + 0.5),
+              reason: '$mode: "${p.text.toPlainText()}"');
+        }
+        // No amounts under the stations, the order's line in the body size.
+        expect(
+            find.byWidgetPredicate((w) =>
+                w.key is ValueKey<String> &&
+                (w.key! as ValueKey<String>)
+                    .value
+                    .startsWith('money-steps-station-amount-')),
+            findsNothing);
+        expect(
+            tester
+                .widget<Text>(find.byKey(const ValueKey('slip-order-figure-line')))
+                .style!
+                .fontSize,
+            greaterThanOrEqualTo(16.sp - 0.01));
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
 
     testWidgets(
         'after a stop with the money in Investing: "Try again" is the same '

@@ -293,7 +293,11 @@ void _expectSlipReads(WidgetTester tester,
   final sheet = _sheetFill(tester)!;
   final inks = expectInksRead(tester, find.byType(BetSlipSheet),
       page: _page(dark), reason: reason);
-  expect(inks.length, greaterThan(4), reason: '$reason: the slip is lettered');
+  // (The locked slip: its title, close, figure, the order's line and the
+  // status; its journey names no amounts under the stations since 12
+  // November 2026.)
+  expect(inks.length, greaterThanOrEqualTo(4),
+      reason: '$reason: the slip is lettered');
   // A white button would not stand off a light sheet: the app's own
   // near-black button, white words.
   final button = barPrimaryContext(tester).style!;

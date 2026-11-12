@@ -360,6 +360,8 @@ class MoneyStepsView extends StatefulWidget {
     this.haptics = true,
     this.failureHaptic = true,
     this.keys = MoneyStepsKeys.money,
+    this.prominent = false,
+    this.stageLine,
   });
 
   final List<MoneyStepLine> lines;
@@ -373,6 +375,24 @@ class MoneyStepsView extends StatefulWidget {
   final bool haptics;
   final bool failureHaptic;
   final MoneyStepsKeys keys;
+
+  /// The slips' look (founder, 12 November 2026, on a locked green bet
+  /// slip: "this moving and small letters does not seem good"): the
+  /// status is what people read, so it is the stage in the slip's body
+  /// size, semibold, in the full ink, a small live dot before it while
+  /// the money is on its way, and the step at work as a quieter second
+  /// line under it ("Getting your prediction ready" over "Moving \$1.00
+  /// from Bitcoin"); nothing tiny on the row (no amounts under the
+  /// stations, they repeat the stake; no step dots under the destination,
+  /// they repeat the status); Sal smaller and calmer (he waits standing
+  /// or sitting, never pacing, digging or jumping), clear of the status.
+  final bool prominent;
+
+  /// With [prominent], the stage line among [lines] (the slip's "Getting
+  /// your prediction ready"): the title while the money moves and the
+  /// venue gets ready, the step at work under it. Without it the step at
+  /// work is the title.
+  final int? stageLine;
 
   /// Decodes the clip the journey's Sal opens on ([kSalJourneyFirstClip]):
   /// a send flow calls it as it opens, so the journey that comes after
@@ -468,6 +488,7 @@ class _Look {
     required this.dotsGap,
     required this.padX,
     required this.font,
+    this.checkpointDots = true,
   });
 
   /// The lines' hairline grey (the untravelled part, a waiting station's
@@ -546,6 +567,10 @@ class _Look {
 
   /// The surface's text style (the coin's "$" is written in its font).
   final TextStyle font;
+
+  /// The destination's sub-steps as small dots under it (not on a slip,
+  /// [MoneyStepsView.prominent]: its status says the step).
+  final bool checkpointDots;
 
   /// Where the coin rests above a station at [x].
   Offset restAbove(double x) => Offset(x, rowY - stationR - 2.5 - coinR);
@@ -972,6 +997,10 @@ class _Scene {
   List<String> keys = const [];
   bool live = false;
   bool still = false;
+
+  /// A slip's calmer Sal ([MoneyStepsView.prominent]): he waits standing
+  /// or sitting, never pacing, digging or jumping.
+  bool calm = false;
   late _Look look;
   _Geometry? geo;
 
@@ -1574,9 +1603,15 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     final plan = s.plan;
     final lines = plan.lines;
     final scaler = MediaQuery.textScalerOf(context);
+    final prominent = widget.prominent;
+    s.calm = prominent;
     final stationR = 14.r;
     final trackH = 2.5.r;
     final coinR = 9.r;
+    // A slip's Sal is smaller (his box 48 px, his clips' own bob smaller
+    // with it), the room above the line his size.
+    final salSize = prominent ? 48.r : 64.r;
+    final rowY = prominent ? 40.r : 52.r;
     s.look = _Look(
       // A hairline neutral grey that reads on white, on the dark surface
       // and on a slip's side colour alike (the theme's hairline token is
@@ -1605,17 +1640,20 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       // stand clear of the line above him (he is about 13/16 of his box
       // tall; the step between rows is 2 * stationR + rowGap, 72 px).
       rowGap: 44.r,
-      salSize: 64.r,
+      salSize: salSize,
       rigSize: 32.r,
       // Room above the line for Sal (his box top at the line's top edge
       // less 15/16 of his size: the cell's top is empty above his head)
       // and for the coin above a station.
-      rowY: 52.r,
-      nameTop: 52.r + stationR + 4.r,
-      nameH: scaler.scale(11.sp) * 1.2,
+      rowY: rowY,
+      // A slip names no amounts under its stations: the row ends at the
+      // discs.
+      nameTop: rowY + stationR + (prominent ? 0 : 4.r),
+      nameH: prominent ? 0 : scaler.scale(11.sp) * 1.2,
       dotsGap: 6.r,
       padX: 44.r,
       font: DefaultTextStyle.of(context).style,
+      checkpointDots: !prominent,
     );
 
     // ── The one status line ──
@@ -1666,7 +1704,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       return SizedBox.shrink(key: ValueKey('${keys.step}$word-$i'));
     }
 
-    Widget words(int i, {required bool visible}) {
+    Widget words(int i, {required bool visible, TextStyle? style}) {
       final line = lines[i];
       return Opacity(
         opacity: visible ? 1 : 0,
@@ -1681,7 +1719,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                 child: Text(line.text,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: statusStyle),
+                    style: style ?? statusStyle),
               ),
             ],
           ),
@@ -1701,8 +1739,9 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           if (plan.stations.isNotEmpty)
             LayoutBuilder(builder: (context, constraints) {
               final look = s.look;
-              final hasDots =
-                  plan.destination != null && _dots(plan).isNotEmpty;
+              final hasDots = look.checkpointDots &&
+                  plan.destination != null &&
+                  _dots(plan).isNotEmpty;
               final size = Size(constraints.maxWidth,
                   _Geometry.heightOf(plan, look, hasDots) + 2.r);
               final geo = s.geo = _Geometry.of(plan, size, look);
@@ -1722,7 +1761,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                               CustomPaint(painter: _MapPainter(s, _clock, geo)),
                         ),
                       ),
-                      ..._labels(context, geo, l10n, scaler),
+                      if (!prominent) ..._labels(context, geo, l10n, scaler),
                       // Right to left, so the left one of an overlapped
                       // column sits on top.
                       for (final i in [
@@ -1753,6 +1792,9 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
             }),
           // The status line, then, once the move runs longer than
           // expected, its own quiet line under it.
+          if (prominent)
+            _prominentStatus(context, words, shown: shown, status: status)
+          else
           Padding(
             padding: EdgeInsets.only(top: 6.h),
             child: SizedBox(
@@ -1794,11 +1836,188 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                 key: ValueKey(keys.slow),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: c.textTertiary, fontSize: 12.sp, height: 1.35),
+                style: prominent
+                    ? TextStyle(
+                        color: c.textPrimary, fontSize: 13.sp, height: 1.35)
+                    : TextStyle(
+                        color: c.textTertiary, fontSize: 12.sp, height: 1.35),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// A slip's status ([MoneyStepsView.prominent]): the stage as its title
+  /// (the slip's body size, semibold, the full ink) with a small live dot
+  /// before it while the money is on its way, and the step at work as a
+  /// quieter line under it: "Getting your prediction ready" over "Moving
+  /// \$1.00 from Bitcoin", then "Confirming balance"; the order itself
+  /// ("Placing \$1.00 on Yes"), "Placed!" or a stop says itself alone.
+  /// Each line is its own words, as ever: the others stay there unseen
+  /// for a screen reader.
+  Widget _prominentStatus(BuildContext context,
+      Widget Function(int i, {required bool visible, TextStyle? style}) words,
+      {required int? shown, required String? status}) {
+    final c = context.colors;
+    final s = _scene;
+    final lines = s.plan.lines;
+    final keys = widget.keys;
+    final scaler = MediaQuery.textScalerOf(context);
+    final working = widget.note == null && s.outcome == _Outcome.none;
+    final stage = widget.stageLine;
+    final last = lines.length - 1;
+    int? titleLine;
+    String? titleText;
+    int? detailLine;
+    String? detailText;
+    if (working &&
+        stage != null &&
+        stage >= 0 &&
+        stage < lines.length &&
+        shown != last) {
+      titleLine = stage;
+      if (shown != null && shown != stage) {
+        detailLine = shown;
+      } else if (shown == null) {
+        detailText = status;
+      }
+    } else {
+      titleLine = shown;
+      titleText = status;
+    }
+    final live =
+        working && s.plan.inProgress && !s.plan.anyFailed && lines.isNotEmpty;
+    final fontSize = 16.sp;
+    const height = 1.3;
+    final titleStyle = TextStyle(
+        color: c.textPrimary,
+        fontSize: fontSize,
+        fontWeight: widget.note != null ? FontWeight.w500 : FontWeight.w600,
+        letterSpacing: -0.1,
+        height: height);
+    // Quieter by its size and weight, never faded: on a white-ink slip's
+    // green the full ink is already the most the fill allows.
+    final detailStyle = TextStyle(
+        color: c.textPrimary,
+        fontSize: 14.sp,
+        fontWeight: FontWeight.w400,
+        height: 1.35);
+    // The live dot: the journey's running checkpoint (a ring, its centre
+    // breathing on the view's clock), steady under Reduce Motion.
+    final dot = 10.r;
+    final gap = 8.w;
+    final Widget title = titleLine != null
+        ? words(titleLine, visible: true, style: titleStyle)
+        : Text(
+            titleText ?? '',
+            key: ValueKey(
+                widget.note != null ? keys.note : 'money-steps-status'),
+            maxLines: widget.note != null ? 3 : 2,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          );
+    final Widget? detail = detailLine != null
+        ? words(detailLine, visible: true, style: detailStyle)
+        : detailText != null
+            ? Text(detailText,
+                key: const ValueKey('money-steps-status'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: detailStyle)
+            : null;
+    return Padding(
+      padding: EdgeInsets.only(top: 14.h),
+      child: SizedBox(
+        width: double.infinity,
+        child: Stack(
+          key: const ValueKey('money-steps-words'),
+          clipBehavior: Clip.none,
+          children: [
+            for (var i = 0; i < lines.length; i++)
+              if (i != titleLine && i != detailLine)
+                Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: words(i, visible: false)),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                KeyedSubtree(
+                  key: const ValueKey('money-steps-title'),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (live)
+                        Padding(
+                          padding: EdgeInsets.only(
+                              top: math.max(
+                                  0.0,
+                                  (scaler.scale(fontSize) * height - dot) /
+                                      2),
+                              right: gap),
+                          child: SizedBox(
+                            key: const ValueKey('money-steps-live'),
+                            width: dot,
+                            height: dot,
+                            child: Stack(children: [
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: c.textPrimary
+                                            .withValues(alpha: 0.55),
+                                        width: 1.2),
+                                  ),
+                                ),
+                              ),
+                              Center(
+                                child: _Fade(
+                                  clock: _clock,
+                                  opacity: () => s.still
+                                      ? 1.0
+                                      : 0.45 +
+                                          0.55 *
+                                              (0.5 +
+                                                  0.5 *
+                                                      math.sin(2 *
+                                                          math.pi *
+                                                          _now /
+                                                          _kBreath)),
+                                  child: SizedBox(
+                                    width: dot * 0.5,
+                                    height: dot * 0.5,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                          color: c.textPrimary,
+                                          shape: BoxShape.circle),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ]),
+                          ),
+                        ),
+                      Expanded(child: title),
+                    ],
+                  ),
+                ),
+                if (detail != null)
+                  KeyedSubtree(
+                    key: const ValueKey('money-steps-detail'),
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          top: 2.h, left: live ? dot + gap : 0),
+                      child: detail,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2769,6 +2988,14 @@ const List<String> _kFetchClips = ['body_pace', 'body_sniff_trail', 'body_dig'];
 const List<String> _kSniffClips = ['body_sniff_trail', 'body_think'];
 const List<String> _kSettleClips = ['body_sit', 'body_point'];
 
+/// A slip's calmer Sal ([MoneyStepsView.prominent]; founder, 12 November
+/// 2026: the pacing read busy under the status): waiting he stands by or
+/// thinks, settled he sits; a success wags without the jump. The mood
+/// timing is the same.
+const List<String> _kCalmFetchClips = ['body_idle', 'body_think'];
+const List<String> _kCalmSniffClips = ['body_think', 'body_idle'];
+const List<String> _kCalmSettleClips = ['body_sit'];
+
 /// The coin clips ([_salCarries]): he takes the coin up from the floor,
 /// carries it in his mouth, sets it down; the coin is in the render.
 const String _kSalPickup = 'body_pickup';
@@ -2891,8 +3118,8 @@ List<String> _salAhead(
     'idle' => ['body_walk', _kSalCarry],
     'walk' => [_kSalCarry, _kSalPickup],
     'pickup' => [_kSalCarry, _kSalDrop],
-    'carry' => [_kSalDrop, 'body_jump'],
-    'drop' => ['body_jump', 'body_wag'],
+    'carry' => [_kSalDrop, s.calm ? 'body_wag' : 'body_jump'],
+    'drop' => s.calm ? ['body_wag'] : ['body_jump', 'body_wag'],
     'fetch' => [if (other != null) other, _kSniffClips.last],
     'sniff' => [if (other != null) other, 'body_sit_down'],
     'settle' => [
@@ -3154,7 +3381,7 @@ SalJourneyDraw _paintSalSprite(Canvas canvas, _Scene s, Offset origin,
     standIn = SalMoments.shrugBody;
   } else if (s.outcome == _Outcome.success || _hopping(s, now)) {
     scene = 'success';
-    opener = 'body_jump';
+    opener = s.calm ? null : 'body_jump';
     pool = const ['body_wag'];
     standIn = 'body_wag';
   } else if (walking) {
@@ -3163,16 +3390,16 @@ SalJourneyDraw _paintSalSprite(Canvas canvas, _Scene s, Offset origin,
     standIn = 'body_walk';
   } else if (mood == SalMood.fetch) {
     scene = 'fetch';
-    pool = _kFetchClips;
-    standIn = 'body_walk';
+    pool = s.calm ? _kCalmFetchClips : _kFetchClips;
+    standIn = s.calm ? 'body_idle' : 'body_walk';
   } else if (mood == SalMood.sniff) {
     scene = 'sniff';
-    pool = _kSniffClips;
+    pool = s.calm ? _kCalmSniffClips : _kSniffClips;
     standIn = 'body_sniff';
   } else if (mood == SalMood.settle) {
     scene = 'settle';
     opener = 'body_sit_down';
-    pool = _kSettleClips;
+    pool = s.calm ? _kCalmSettleClips : _kSettleClips;
     standIn = 'body_sit';
   } else {
     scene = 'idle';
@@ -3797,7 +4024,7 @@ class _MapPainter extends CustomPainter {
     }
 
     // ── The destination's checkpoints ──
-    if (dest == null) return;
+    if (dest == null || !look.checkpointDots) return;
     final dots = _dots(plan);
     if (dots.isEmpty) return;
     final x = geo.stations[dest].dx - (dots.length - 1) * look.dotGap / 2;
