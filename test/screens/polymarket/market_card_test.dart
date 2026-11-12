@@ -87,8 +87,10 @@ void main() {
     // The teams are the rows: the title is not written again.
     expect(find.text('Broncos vs. 49ers'), findsNothing);
     expect(find.textContaining('outcomes'), findsNothing);
+    // The kickoff stays (nothing else says when it is played); no
+    // volume on a list card.
     expect(find.text('5 Oct 20:30'), findsOneWidget);
-    expect(find.textContaining('6.2M vol'), findsOneWidget);
+    expect(find.textContaining('6.2M'), findsNothing);
 
     // The likelier side reads in the primary colour, the other quieter.
     final c = AppColorsExtension.light();
@@ -177,11 +179,10 @@ void main() {
     expect(find.text('Will it rain in Lisbon?'), findsOneWidget);
     expect(_rolled('24%'), findsOneWidget);
     expect(_rolled('76%'), findsNothing);
-    // One quiet meta line, when it closes and then the volume, and the
-    // two side pills.
+    // No meta line (no closing date, no volume), and the two side pills.
     expect(find.textContaining('today'), findsNothing);
-    expect(find.text('Dec 31, 2030'), findsNothing);
-    expect(find.text(r'Closes Dec 2030 · $1.5K'), findsOneWidget);
+    expect(find.textContaining('2030'), findsNothing);
+    expect(find.textContaining(r'$1.5K'), findsNothing);
     expect(find.text('Yes ${polymarketCentsLabel(0.24)}'), findsOneWidget);
     expect(find.text('No ${polymarketCentsLabel(0.76)}'), findsOneWidget);
     // The pills are quiet: the side's market colour as ink on the

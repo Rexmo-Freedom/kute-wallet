@@ -8420,12 +8420,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get marketCardSoon => 'netrukus';
 
   @override
-  String get marketCardEsportsLive => 'E. sportas tiesiogiai';
-
-  @override
-  String get marketCardLiveStream => 'Tiesioginė transliacija';
-
-  @override
   String get pmOrdersConnectLedger =>
       'Prijunkite prekybą Prognozėmis šiam Ledger, kad įkeltumėte pavedimus.';
 
@@ -9996,11 +9990,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '$move šiandien';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '$move proc. p. šiandien';
   }
 
   @override
@@ -11961,16 +11950,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get searchShowMore => 'Rodyti daugiau';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return 'Baigiasi $date · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return 'Baigiasi $date';
-  }
 
   @override
   String get shareSendToAnyone => 'Siųsti bet kam';

@@ -233,7 +233,6 @@ class PredictionBrowseCard extends ConsumerWidget {
         teams: event.teams,
         slug: event.slug,
         gameId: event.gameId,
-        hasLivestream: event.hasLivestream,
         livePrices: livePrices,
         priceDirections: directions,
         onTap: onTap,

@@ -8377,12 +8377,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get marketCardSoon => 'brzy';
 
   @override
-  String get marketCardEsportsLive => 'Esport živě';
-
-  @override
-  String get marketCardLiveStream => 'Živý přenos';
-
-  @override
   String get pmOrdersConnectLedger =>
       'Pro načtení pokynů propoj obchodování Predikcí s tímto Ledgerem.';
 
@@ -9938,11 +9932,6 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '$move dnes';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '$move p. b. dnes';
   }
 
   @override
@@ -11903,16 +11892,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get searchShowMore => 'Zobrazit více';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return 'Končí $date · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return 'Končí $date';
-  }
 
   @override
   String get shareSendToAnyone => 'Poslat komukoli';

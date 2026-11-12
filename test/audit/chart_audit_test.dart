@@ -1071,7 +1071,6 @@ void main() {
                     teams: e.teams,
                     slug: e.slug,
                     gameId: e.gameId,
-                    hasLivestream: e.hasLivestream,
                     dayMove: e.oneDayPriceChange,
                   ),
                 ),

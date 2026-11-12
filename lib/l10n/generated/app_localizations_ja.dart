@@ -8026,12 +8026,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get marketCardSoon => 'まもなく';
 
   @override
-  String get marketCardEsportsLive => 'eスポーツ ライブ';
-
-  @override
-  String get marketCardLiveStream => 'ライブ配信';
-
-  @override
   String get pmOrdersConnectLedger => '注文を読み込むには、このLedgerで予測の取引を接続してください。';
 
   @override
@@ -9559,11 +9553,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '今日 $move';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '今日 ${move}pt';
   }
 
   @override
@@ -11476,16 +11465,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchShowMore => 'もっと見る';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return '$date 終了 · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return '$date 終了';
-  }
 
   @override
   String get shareSendToAnyone => '誰にでも送る';

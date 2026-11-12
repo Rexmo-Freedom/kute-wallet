@@ -8401,12 +8401,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get marketCardSoon => 'hamarosan';
 
   @override
-  String get marketCardEsportsLive => 'E-sport élőben';
-
-  @override
-  String get marketCardLiveStream => 'Élő közvetítés';
-
-  @override
   String get pmOrdersConnectLedger =>
       'A megbízások betöltéséhez kapcsold be az Előrejelzéseket ehhez a Ledgerhez.';
 
@@ -9967,11 +9961,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '$move ma';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '$move pont ma';
   }
 
   @override
@@ -11930,16 +11919,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get searchShowMore => 'Több megjelenítése';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return 'Zárul $date · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return 'Zárul $date';
-  }
 
   @override
   String get shareSendToAnyone => 'Küldés bárkinek';

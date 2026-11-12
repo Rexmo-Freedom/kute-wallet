@@ -287,7 +287,6 @@ class _GroupFeedCard extends ConsumerWidget {
         teams: market.teams,
         slug: market.slug,
         gameId: market.gameId,
-        hasLivestream: market.hasLivestream,
         onTapDown: () => MarketDetailSheet.prefetch(market),
         onTap: () {
           HapticFeedback.mediumImpact();

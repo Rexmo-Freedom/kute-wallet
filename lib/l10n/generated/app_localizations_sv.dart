@@ -8376,12 +8376,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get marketCardSoon => 'snart';
 
   @override
-  String get marketCardEsportsLive => 'E-sport live';
-
-  @override
-  String get marketCardLiveStream => 'Livesändning';
-
-  @override
   String get pmOrdersConnectLedger =>
       'Koppla Prognoser för den här Ledger för att ladda ordrar.';
 
@@ -9937,11 +9931,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '$move idag';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '$move p idag';
   }
 
   @override
@@ -11899,16 +11888,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get searchShowMore => 'Visa fler';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return 'Stänger $date · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return 'Stänger $date';
-  }
 
   @override
   String get shareSendToAnyone => 'Skicka till vem som helst';

@@ -8406,12 +8406,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get marketCardSoon => 'kmalu';
 
   @override
-  String get marketCardEsportsLive => 'E-šport v živo';
-
-  @override
-  String get marketCardLiveStream => 'Prenos v živo';
-
-  @override
   String get pmOrdersConnectLedger =>
       'Za nalaganje naročil povežite trgovanje v Napovedih za ta Ledger.';
 
@@ -9978,11 +9972,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '$move danes';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '$move o. t. danes';
   }
 
   @override
@@ -11946,16 +11935,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get searchShowMore => 'Prikaži več';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return 'Zapre se $date · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return 'Zapre se $date';
-  }
 
   @override
   String get shareSendToAnyone => 'Pošlji komurkoli';

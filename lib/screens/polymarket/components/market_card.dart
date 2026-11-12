@@ -1,4 +1,3 @@
-import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
@@ -35,7 +34,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 /// The list thumbnail and the gap after it.
@@ -289,37 +287,64 @@ String? polyCardMoveArrow(double? move) {
 Color polyCardMoveColor(double move) =>
     move >= 0 ? AppColors.marketUp : AppColors.marketDown;
 
+/// A move as a row writes it beside its leader's chance, compact ("▲6",
+/// "▼4"); null when it is unknown or under one point.
+String? polyCardMoveDelta(double? move) =>
+    polyCardMoveArrow(move)?.replaceAll(' ', '');
+
+/// A move's small figure, beside a row's chance or under the gauge's.
+TextStyle _moveStyle(double move) => TextStyle(
+      color: polyCardMoveColor(move),
+      fontSize: 11.sp,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+/// [text]'s width in [style] as [context] draws it (its face and scale).
+double _measureText(BuildContext context, String text, TextStyle style) =>
+    (TextPainter(
+      text: TextSpan(
+          text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout())
+        .width;
+
 /// One Predictions list card, in three shapes that share their frame:
 /// names on the left, the number that matters on the right.
 ///
 ///   * a game: a row per team in the title's order (crest, name, win
 ///     chance, and the score once the game is on), with the card's
-///     caption footer (clock, draw chance, volume) under it;
+///     caption footer (when it is played) under it;
 ///   * a single Yes/No market (October 2026, after Kalshi / Polymarket):
 ///     the market's image (40, rounded 10; the category glyph on the
 ///     neutral ground when it has none), the question (two lines at
-///     most, its year dropped when the meta line already says it), one
-///     meta line under it in the secondary colour, the date first and
-///     the volume last ("Closes Jan 2027 · $27.8K"; founder, 1 November
-///     2026), the Yes chance as a small half-ring gauge with the number
+///     most), the Yes chance as a small half-ring gauge with the number
 ///     under it on the right, and under them two small Yes / No price
 ///     pills, right-aligned, that open the slip on that side
 ///     ([onPickSide]). The day's move ("▲ 4") sits under the gauge's
 ///     number (founder, 12 November 2026: what's moving, on all three
 ///     cards);
-///   * an event with many outcomes: the question and the same meta line,
-///     the leader's day move at its end ("▲ 6 pts today"), then its three
-///     most likely outcomes as rows of the name (14, the leader
-///     semibold), a chance bar (6 tall) and the percent ("Name ▬▬▬▬ 41%")
-///     and "+N more ›". Each bar is filled in its outcome's line colour
-///     on the market's chart (founder, 11 November 2026: "more colourful,
-///     not corporate").
+///   * an event with many outcomes: the question, then its three most
+///     likely outcomes as rows of the name (14, the leader semibold), a
+///     chance bar (6 tall) and the percent ("Name ▬▬▬▬ 41%"), the
+///     leader's day move beside its percent ("84% ▲6"), and "+N more ›".
+///     Each bar is filled in its outcome's line colour on the market's
+///     chart (founder, 11 November 2026: "more colourful, not
+///     corporate").
 ///
-/// A game in play leads with a live dot and its clock (the volume beside
-/// them), and every game draws one split bar of its chances in the teams'
-/// colours ([kGameSideColors], the draw grey) with the leader's day move
-/// in the footer ("Arsenal ▲ 9 pts today"). A move shows only when it is
-/// a point or more: green up, red down; quiet otherwise.
+/// A game in play leads with a live dot and its clock, and every game draws one split bar of its chances in the teams'
+/// colours ([kGameSideColors], the draw grey), the leader's day move
+/// beside its chance ("62% ▲9"). A move shows only when it is a point or
+/// more: green up, red down; quiet otherwise.
+///
+/// No closing date, volume or stream tag on a list card (founder, 12
+/// November 2026: "unnecessary"); the market page keeps them. A question
+/// keeps no meta line under it, only a crypto round's window or a
+/// match's other markets when it has them, and a game's footer only what
+/// it adds (when it is played, the draw when no pill shows it).
 ///
 /// The pills are quiet (founder, 1 November 2026): the neutral surface
 /// as their fill, the side's market colour as their ink; no solid green
@@ -348,11 +373,9 @@ class MarketCard extends ConsumerWidget {
   final String title;
   final String? imageUrl;
   final List<PolymarketOutcome> outcomes;
+  /// The lifetime and last-24 h volume. Not written on the card (founder,
+  /// 12 November 2026); the market page has them.
   final double volume;
-  /// Last 24h volume — surfaced as a "live activity" signal next to the
-  /// lifetime volume in the footer. Polymarket's own browse cards show
-  /// `$X Vol · $Y 24h Vol`; mirroring that here lets static-feeling
-  /// cards read as active markets.
   final double volume24hr;
   final String category;
   /// Scheduled start/kickoff. When in the future the card shows a neutral
@@ -392,10 +415,6 @@ class MarketCard extends ConsumerWidget {
   /// fetch teams. Non-match cards (gameId==null) never trigger a request,
   /// avoiding a per-card fetch storm across the whole feed.
   final int? gameId;
-  /// True when the event is broadcasting a watchable stream (from
-  /// `PolymarketEvent.hasLivestream`). Surfaces a small "Live stream"
-  /// badge on the card so users can tell a market is being streamed.
-  final bool hasLivestream;
   /// Count of EXTRA sibling sub-markets for this match (Both Teams to Score,
   /// O/U, corners, More Markets …) that `collapseByGameId` folds away. When
   /// > 0 the footer names them ("4 markets") as a link wired to
@@ -448,7 +467,6 @@ class MarketCard extends ConsumerWidget {
     this.teams = const [],
     this.slug,
     this.gameId,
-    this.hasLivestream = false,
     this.siblingMarketCount = 0,
     this.onMoreMarkets,
     this.dayMove,
@@ -533,15 +551,6 @@ class MarketCard extends ConsumerWidget {
     return null;
   }
 
-  String _formatVolume(WidgetRef ref, double v) {
-    if (v >= 1000000) {
-      return '${formatDollars(v / 1000000, decimalDigits: 1)}M';
-    } else if (v >= 1000) {
-      return '${formatDollars(v / 1000, decimalDigits: 1)}K';
-    }
-    return formatDollars(v, decimalDigits: 0);
-  }
-
   String _formatEndDate(DateTime date, {bool year = true}) {
     // Date only — the "00:00" / "12:00" tail was almost always
     // meaningless (Polymarket end-of-day markers) and added noise.
@@ -564,18 +573,6 @@ class MarketCard extends ConsumerWidget {
   /// A single market's or an event's question on a list row: two lines,
   /// then cut (the market page writes it whole).
   static const int _kListTitleLines = 2;
-
-  /// The question as a list row titles it. One that ends with its full
-  /// date ("… by December 31, 2026?") loses the year when the meta line
-  /// already says the market closes in that year: the year reads once.
-  /// A plain check on the title's tail; any doubt keeps the title whole.
-  String _listTitle() {
-    final end = endDate;
-    if (end == null || round != null || !_hasStarted) return title;
-    final m = RegExp(r',\s*(\d{4})\s*(\?)?\s*$').firstMatch(title);
-    if (m == null || int.tryParse(m.group(1)!) != end.year) return title;
-    return '${title.substring(0, m.start)}${m.group(2) ?? ''}';
-  }
 
   /// The title, in the size and weight the app's list rows use for
   /// theirs (the team names of a game card are the same size), so a long
@@ -652,11 +649,12 @@ class MarketCard extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (shape == PolyCardShape.game && _gameLive) ...[
-                  _buildLiveHeader(context, ref, c),
+                  _buildLiveHeader(context, c),
                   SizedBox(height: 12.h),
                 ],
                 switch (shape) {
-                  PolyCardShape.game => _buildGame(c, game!, resolvedTeams),
+                  PolyCardShape.game =>
+                    _buildGame(context, c, game!, resolvedTeams),
                   PolyCardShape.yesNo => _buildYesNo(
                       context, ref, c, _displayImageUrl(resolvedTeams)),
                   PolyCardShape.outcomes => _buildOutcomes(
@@ -676,8 +674,7 @@ class MarketCard extends ConsumerWidget {
                     SizedBox(height: 12.h),
                     _buildGamePills(context, c, game, resolvedTeams),
                   ],
-                  if (_buildFooter(
-                          context, ref, c, shape, game, resolvedTeams)
+                  if (_buildFooter(context, ref, c, game)
                       case final footer?) ...[
                     SizedBox(height: 10.h),
                     footer,
@@ -702,10 +699,9 @@ class MarketCard extends ConsumerWidget {
   /// A game being played now: it leads with its live dot and clock.
   bool get _gameLive => liveGame != null && !liveGame!.finished;
 
-  /// A game in play's first line: the live dot and "Live · 67'" on the
-  /// left, the volume on the right.
-  Widget _buildLiveHeader(
-      BuildContext context, WidgetRef ref, AppColorsExtension c) {
+  /// A game in play's first line: the live dot and "Live · 67'" (no
+  /// volume on a list card; the market page has it).
+  Widget _buildLiveHeader(BuildContext context, AppColorsExtension c) {
     final l10n = context.l10n;
     final clock = liveGame!.clockOrStatus(context) ?? '';
     final label = clock.isEmpty || clock == l10n.liveBadge
@@ -732,10 +728,6 @@ class MarketCard extends ConsumerWidget {
                 color: c.textPrimary, fontWeight: FontWeight.w600),
           ),
         ),
-        if (volume > 0) ...[
-          SizedBox(width: 12.w),
-          Text(l10n.polyCardVolume(_formatVolume(ref, volume)), style: style),
-        ],
       ],
     );
   }
@@ -770,27 +762,6 @@ class MarketCard extends ConsumerWidget {
     ));
   }
 
-  /// The game's leader's day move as the footer writes it ("Arsenal ▲ 9
-  /// pts today"), or null when it is unknown, under a point, or nothing
-  /// separates the sides.
-  ({String text, double move})? _gameMove(
-      BuildContext context, PolyCardGame game, List<PolymarketTeam> teams) {
-    final leader = polyCardLeader(
-        score: _scoreOf(), chanceA: game.chanceA, chanceB: game.chanceB);
-    if (leader == 0) return null;
-    final move = leader > 0 ? game.dayMoveA : game.dayMoveB;
-    final arrow = polyCardMoveArrow(move);
-    if (arrow == null) return null;
-    final names = gameShortSideNames(game.nameA, game.nameB, teams: teams);
-    final name = leader > 0 ? names.$1 : names.$2;
-    // The team stays with its move; the move wraps as one piece.
-    return (
-      text: '$name ${context.l10n.polyCardPointsToday(arrow)}'
-          .replaceAll(' ', '\u00A0'),
-      move: move!,
-    );
-  }
-
   /// The score for [game]'s two rows, once the game is on or over.
   PolyCardScore? _scoreOf() {
     final live = liveGame;
@@ -801,11 +772,22 @@ class MarketCard extends ConsumerWidget {
 
   /// A game: one row per team in the title's order. The side ahead (on
   /// the score, else on the odds) reads in the primary colour.
-  Widget _buildGame(AppColorsExtension c, PolyCardGame game,
-      List<PolymarketTeam> resolvedTeams) {
+  Widget _buildGame(BuildContext context, AppColorsExtension c,
+      PolyCardGame game, List<PolymarketTeam> resolvedTeams) {
     final score = _scoreOf();
     final leader = polyCardLeader(
         score: score, chanceA: game.chanceA, chanceB: game.chanceB);
+    // The leader's day move beside its chance ("62% ▲9"), in a slot both
+    // rows keep so their chances end on one edge.
+    final move = leader == 0
+        ? null
+        : leader > 0
+            ? game.dayMoveA
+            : game.dayMoveB;
+    final delta = polyCardMoveDelta(move);
+    final deltaWidth = delta == null
+        ? 0.0
+        : _measureText(context, delta, _moveStyle(move!)).ceilToDouble() + 1;
     // Both scores sit in one column as wide as the longer of the two.
     final digits = score == null
         ? 0
@@ -859,6 +841,16 @@ class MarketCard extends ConsumerWidget {
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
           ),
+          if (delta != null) ...[
+            SizedBox(width: 4.w),
+            SizedBox(
+              width: deltaWidth,
+              child: leads && leader != 0
+                  ? Text(delta,
+                      maxLines: 1, softWrap: false, style: _moveStyle(move!))
+                  : null,
+            ),
+          ],
           if (points != null)
             SizedBox(
               width: scoreWidth + 14.w,
@@ -887,10 +879,6 @@ class MarketCard extends ConsumerWidget {
         if (_gameSpark(game, leader) case final spark?) ...[
           SizedBox(height: 10.h),
           spark,
-        ],
-        if (hasLivestream) ...[
-          SizedBox(height: 10.h),
-          _LiveStreamBadge(category: category),
         ],
       ],
     );
@@ -931,7 +919,7 @@ class MarketCard extends ConsumerWidget {
     return null;
   }
 
-  /// The image and the title (with the stream marker under it), shared
+  /// The image and the title (with what goes under it), shared
   /// by the two shapes that keep a title.
   Widget _buildHeading(
     AppColorsExtension c,
@@ -965,10 +953,6 @@ class MarketCard extends ConsumerWidget {
                 maxLines: maxLines,
                 overflow: TextOverflow.ellipsis,
               ),
-              if (hasLivestream) ...[
-                SizedBox(height: 6.h),
-                _LiveStreamBadge(category: category),
-              ],
               ...under,
             ],
           ),
@@ -995,7 +979,7 @@ class MarketCard extends ConsumerWidget {
     // The No side's own price when the feed has it, else what Yes leaves.
     final noPrice =
         (no == null ? 1 - yesPrice : _effectivePrice(no)).clamp(0.0, 1.0);
-    final meta = _buildMeta(context, ref, c);
+    final meta = _buildMeta(l10n, c);
     final open = !closed && !ended;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1004,7 +988,7 @@ class MarketCard extends ConsumerWidget {
         _buildHeading(
           c,
           image,
-          title: _listTitle(),
+          title: title,
           maxLines: _kListTitleLines,
           under: [
             if (meta != null) ...[SizedBox(height: 4.h), meta],
@@ -1056,68 +1040,27 @@ class MarketCard extends ConsumerWidget {
     );
   }
 
-  /// The one quiet line under a question: when the market closes (a
-  /// round's window or "Starts in 2h" in its place) and then the volume,
-  /// compact ("Closes Jan 2027 · $27.8K": the date first, the volume
-  /// last), with the match's other markets as a link when it has them.
-  /// Null when there is nothing to say. [move] (the leader's day move,
-  /// "▲ 6 pts today") ends it, in green or red, when it is a point or
-  /// more. The line wraps rather than cut.
-  Widget? _buildMeta(BuildContext context, WidgetRef ref, AppColorsExtension c,
-      {double? move}) {
-    final l10n = context.l10n;
-    final volumeText = volume > 0 ? _formatVolume(ref, volume) : null;
-    final String? when;
+  /// The quiet line under a question, kept only for what the card cannot
+  /// do without (founder, 12 November 2026: no closing date, no volume
+  /// on a list card; the market page has them): a crypto round's own
+  /// window ("10:15 PM – 10:30 PM", what tells one round from the next)
+  /// and the match's other markets as a link. Null otherwise. The line
+  /// wraps rather than cut.
+  Widget? _buildMeta(AppLocalizations l10n, AppColorsExtension c) {
     final round = this.round;
-    if (round != null) {
-      when = polyRoundTimes(round.start, round.end, l10n);
-    } else if (!_hasStarted) {
-      when = _dateCaption(l10n);
-    } else {
-      final end = endDate;
-      when = end == null
-          ? null
-          : l10n.marketCloses(DateFormat('MMM yyyy').format(end));
-    }
-    final String? text;
-    if (volumeText != null && when != null) {
-      text = round == null && _hasStarted
-          ? l10n.marketMetaLine(
-              volumeText, DateFormat('MMM yyyy').format(endDate!))
-          : '$when · $volumeText';
-    } else {
-      text = volumeText ?? when;
-    }
-    final arrow = polyCardMoveArrow(move);
-    if (text == null && arrow == null && siblingMarketCount == 0) return null;
+    final when =
+        round == null ? null : polyRoundTimes(round.start, round.end, l10n);
+    if (when == null && siblingMarketCount == 0) return null;
     final style = _caption(c).copyWith(
       color: c.textSecondary,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    // The move wraps as one piece ("▲ 6 pts today"), never across lines.
-    final moved = arrow == null
-        ? null
-        : l10n.polyCardPointsToday(arrow).replaceAll(' ', '\u00A0');
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (text != null && moved == null) Text(text, style: style),
-        if (moved != null)
-          Text.rich(
-            TextSpan(children: [
-              if (text != null) TextSpan(text: '$text · '),
-              TextSpan(
-                text: moved,
-                style: TextStyle(
-                  color: polyCardMoveColor(move!),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ]),
-            style: style,
-          ),
+        if (when != null) Text(when, style: style),
         if (siblingMarketCount > 0) ...[
-          if (text != null || moved != null) Text(' · ', style: style),
+          if (when != null) Text(' · ', style: style),
           _marketsLink(c, style),
         ],
       ],
@@ -1162,7 +1105,7 @@ class MarketCard extends ConsumerWidget {
         outcomes.length == 2 && !outcomes.any((o) => o.hasYesNo);
     // Fillers with no market behind them are not "more" outcomes.
     final more = polyRealOutcomes(outcomes).length - _kOutcomeRows;
-    final meta = _buildMeta(context, ref, c, move: top.firstOrNull?.dayMove);
+    final meta = _buildMeta(context.l10n, c);
     final charted = polyChartedOutcomes(outcomes, kPolyOutcomeColors);
     Color? lineColor(PolymarketOutcome o) {
       for (final line in charted) {
@@ -1194,6 +1137,18 @@ class MarketCard extends ConsumerWidget {
     var chanceWidth = measure('88.8%', figureStyle);
     for (final o in top) {
       final w = measure(polyCardChance(_effectivePrice(o)), figureStyle);
+      if (w > chanceWidth) chanceWidth = w;
+    }
+    // The leader's day move beside its percent ("84% ▲6"), the two in the
+    // figure column: the column is as wide as the widest of them, so the
+    // bars still end on one edge.
+    final leadMove = top.firstOrNull?.dayMove;
+    final delta = polyCardMoveDelta(leadMove);
+    if (delta != null) {
+      final w = measure(polyCardChance(_effectivePrice(top.first)),
+              figureStyle) +
+          4.w +
+          _measureText(context, delta, _moveStyle(leadMove!));
       if (w > chanceWidth) chanceWidth = w;
     }
     chanceWidth = chanceWidth.ceilToDouble() + 1;
@@ -1249,6 +1204,8 @@ class MarketCard extends ConsumerWidget {
         nameStyle: name,
         chanceStyle: chance,
         chanceWidth: chanceWidth,
+        delta: first ? delta : null,
+        deltaStyle: delta == null ? null : _moveStyle(leadMove!),
         trailing: pill == null
             ? null
             : PolySidePill(
@@ -1296,7 +1253,7 @@ class MarketCard extends ConsumerWidget {
           return _buildHeading(
             c,
             image,
-            title: _listTitle(),
+            title: title,
             maxLines: _kListTitleLines,
             trailing: beside ? spark : null,
             under: [
@@ -1358,70 +1315,43 @@ class MarketCard extends ConsumerWidget {
     return _dateCaption(l10n, year: year);
   }
 
-  /// One caption line: on the left what the shape has to add (a game's
-  /// clock and draw chance, a market's end date, "+3 more", the leader's
-  /// day move), on the right the volume. A game in play has its clock and
-  /// volume in its live line instead. Null when there is nothing to say.
-  /// Never cut: the date gives up its year when the two sides cannot both
-  /// fit, and a line that still cannot wraps.
-  Widget? _buildFooter(
-      BuildContext context,
-      WidgetRef ref,
-      AppColorsExtension c,
-      PolyCardShape shape,
-      PolyCardGame? game,
-      List<PolymarketTeam> teams) {
+  /// A game's one caption line, only what its rows, bar and pills do not
+  /// already say (founder, 12 November 2026: no volume on a list card,
+  /// the market page has it): when it is played ("Today 20:30", "Final";
+  /// a game in play has its clock in the live line), the games of the
+  /// set in play (tennis), the draw's chance when no pills show it, and
+  /// the match's other markets as a link. Null when there is nothing to
+  /// say. Never cut: the date gives up its year when the line cannot fit,
+  /// and a line that still cannot wraps.
+  Widget? _buildFooter(BuildContext context, WidgetRef ref,
+      AppColorsExtension c, PolyCardGame game) {
     final l10n = context.l10n;
     // A game starting within the day: refresh by the minute, so its
     // caption moves into (and through) the "Starts in" countdown.
     final soon = gameStart?.difference(DateTime.now());
-    if (shape == PolyCardShape.game &&
-        liveGame == null &&
+    if (liveGame == null &&
         soon != null &&
         !soon.isNegative &&
         soon.inHours < 24) {
       ref.watch(polyMinuteTickProvider);
     }
-    final live = shape == PolyCardShape.game && _gameLive;
-    // Fillers with no market behind them are not "more" outcomes.
-    final more = polyRealOutcomes(outcomes).length - _kOutcomeRows;
-    String leftText({required bool year}) => <String>[
-          ...switch (shape) {
-            PolyCardShape.game => [
-                // In play the live line has the clock.
-                if (!live) _gameCaption(context, year: year),
-                // Tennis: the games of the set in play.
-                if (live) _scoreOf()?.setGames,
-                if (game!.draw != null)
-                  '${l10n.betDraw} ${polyCardChance(game.draw!)}',
-              ],
-            PolyCardShape.yesNo => [_dateCaption(l10n, year: year)],
-            PolyCardShape.outcomes => [
-                more > 0
-                    ? l10n.polyCardMoreOutcomes(more)
-                    : _dateCaption(l10n, year: year),
-              ],
-          }
-              .whereType<String>()
-              .where((s) => s.isNotEmpty),
-        ].join(' · ');
-    final move = shape == PolyCardShape.game && game != null
-        ? _gameMove(context, game, teams)
-        : null;
+    final live = _gameLive;
+    final pills = _open && !(liveGame?.finished ?? false);
+    String leftText({required bool year}) => <String?>[
+          // In play the live line has the clock.
+          if (!live) _gameCaption(context, year: year),
+          // Tennis: the games of the set in play.
+          if (live) _scoreOf()?.setGames,
+          if (game.draw != null && !pills)
+            '${l10n.betDraw} ${polyCardChance(game.draw!)}',
+        ].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
     final style = _caption(c).copyWith(
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final volumeText = volume > 0 && !live
-        ? l10n.polyCardVolume(_formatVolume(ref, volume))
+    final marketsText = siblingMarketCount > 0
+        ? l10n.polyCardMarkets(siblingMarketCount + 1)
         : '';
-    final marketsText =
-        siblingMarketCount > 0 ? l10n.polyCardMarkets(siblingMarketCount + 1) : '';
-    if (leftText(year: true).isEmpty &&
-        move == null &&
-        volumeText.isEmpty &&
-        marketsText.isEmpty) {
-      return null;
-    }
+    if (leftText(year: true).isEmpty && marketsText.isEmpty) return null;
     return LayoutBuilder(builder: (context, constraints) {
       final scaler = MediaQuery.textScalerOf(context);
       // Measured in the face the footer is drawn in.
@@ -1435,70 +1365,33 @@ class MarketCard extends ConsumerWidget {
               maxLines: 1,
             )..layout())
               .width;
-      String withMove(String left) => move == null
-          ? left
-          : left.isEmpty
-              ? move.text
-              : '$left · ${move.text}';
       final full = leftText(year: true);
-      final fixed = measure(volumeText) +
-          (volumeText.isEmpty ? 0 : 12.w) +
-          (marketsText.isEmpty
-              ? 0
-              : measure(marketsText) + 16.sp + measure(' · '));
-      final left =
-          measure(withMove(full)) + fixed <= constraints.maxWidth
-              ? full
-              : leftText(year: false);
-      final moveStyle = move == null
-          ? null
-          : style.copyWith(
-              color: polyCardMoveColor(move.move),
-              fontWeight: FontWeight.w600,
-            );
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      final fixed = marketsText.isEmpty
+          ? 0
+          : measure(marketsText) + 16.sp + measure(' · ');
+      final left = measure(full) + fixed <= constraints.maxWidth
+          ? full
+          : leftText(year: false);
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Expanded(
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (left.isNotEmpty || move != null)
-                  Text.rich(
-                    TextSpan(children: [
-                      TextSpan(text: left),
-                      if (move != null) ...[
-                        if (left.isNotEmpty) const TextSpan(text: ' · '),
-                        TextSpan(text: move.text, style: moveStyle),
-                      ],
-                    ]),
-                    style: style,
-                  ),
-                // The match's other markets (kept in sibling events), as
-                // a link.
-                if (siblingMarketCount > 0) ...[
-                  if (left.isNotEmpty || move != null)
-                    Text(' · ', style: style),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onMoreMarkets,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(marketsText,
-                            style: style.copyWith(color: c.textSecondary)),
-                        Icon(Icons.chevron_right_rounded,
-                            size: 16.sp, color: c.textTertiary),
-                      ],
-                    ),
-                  ),
+          if (left.isNotEmpty) Text(left, style: style),
+          // The match's other markets (kept in sibling events), as a link.
+          if (siblingMarketCount > 0) ...[
+            if (left.isNotEmpty) Text(' · ', style: style),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onMoreMarkets,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(marketsText,
+                      style: style.copyWith(color: c.textSecondary)),
+                  Icon(Icons.chevron_right_rounded,
+                      size: 16.sp, color: c.textTertiary),
                 ],
-              ],
+              ),
             ),
-          ),
-          if (volumeText.isNotEmpty) ...[
-            SizedBox(width: 12.w),
-            Text(volumeText, maxLines: 1, style: style),
           ],
         ],
       );
@@ -1588,18 +1481,8 @@ class _ChanceGauge extends StatelessWidget {
         ),
         if (polyCardMoveArrow(move) case final arrow?) ...[
           SizedBox(height: 1.h),
-          Text(
-            arrow,
-            maxLines: 1,
-            softWrap: false,
-            style: TextStyle(
-              color: polyCardMoveColor(move!),
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
+          Text(arrow,
+              maxLines: 1, softWrap: false, style: _moveStyle(move!)),
         ],
       ],
     );
@@ -1748,6 +1631,11 @@ class _OutcomeLine extends StatelessWidget {
   final TextStyle nameStyle;
   final TextStyle chanceStyle;
   final double chanceWidth;
+
+  /// The day's move beside the percent ("▲6", the leader's row only),
+  /// the two right-aligned in the [chanceWidth] column.
+  final String? delta;
+  final TextStyle? deltaStyle;
   final Widget? trailing;
   final double trailingWidth;
   const _OutcomeLine({
@@ -1758,6 +1646,8 @@ class _OutcomeLine extends StatelessWidget {
     required this.nameStyle,
     required this.chanceStyle,
     required this.chanceWidth,
+    this.delta,
+    this.deltaStyle,
     this.trailing,
     this.trailingWidth = 0,
   });
@@ -1784,8 +1674,18 @@ class _OutcomeLine extends StatelessWidget {
         SizedBox(width: gap),
         SizedBox(
           width: chanceWidth,
-          child: Text(chance,
-              textAlign: TextAlign.right, maxLines: 1, style: chanceStyle),
+          child: delta == null
+              ? Text(chance,
+                  textAlign: TextAlign.right, maxLines: 1, style: chanceStyle)
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(chance, maxLines: 1, style: chanceStyle),
+                    SizedBox(width: 4.w),
+                    Text(delta!,
+                        maxLines: 1, softWrap: false, style: deltaStyle),
+                  ],
+                ),
         ),
         if (trailing != null) ...[
           SizedBox(width: gap),
@@ -2044,63 +1944,6 @@ class _InitialCircle extends StatelessWidget {
         polyCategoryGlyph(category),
         color: context.colors.textSecondary,
         size: size * 0.46,
-      ),
-    );
-  }
-}
-
-/// Small streaming marker shown under the title when an event is
-/// broadcasting: the broadcast glyph and a label on the card's neutral
-/// chip ground, like the live line under it.
-///
-/// Esports streams get their own variant: a controller glyph and an
-/// "Esports live" label, so a gaming match reads apart from a generic
-/// livestream.
-class _LiveStreamBadge extends StatelessWidget {
-  final String category;
-  const _LiveStreamBadge({required this.category});
-
-  static const _kEsportsSlugs = {
-    'esports',
-    'gaming',
-    'games',
-    'cs2',
-    'lol',
-    'dota',
-    'valorant',
-  };
-
-  bool get _isEsports => _kEsportsSlugs.contains(category.toLowerCase().trim());
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final accent = c.textSecondary;
-    final glyph = _isEsports ? BootstrapIcons.controller : BootstrapIcons.broadcast;
-    final label = _isEsports
-        ? context.l10n.marketCardEsportsLive
-        : context.l10n.marketCardLiveStream;
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(6.r),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(glyph, size: 13.sp, color: accent),
-          SizedBox(width: 5.w),
-          Text(
-            label,
-            style: TextStyle(
-              color: accent,
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.1,
-            ),
-          ),
-        ],
       ),
     );
   }

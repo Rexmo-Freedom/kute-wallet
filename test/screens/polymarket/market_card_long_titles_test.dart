@@ -96,12 +96,9 @@ void main() {
       expect(text.maxLines, 2, reason: q);
       expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
-    // The one meta line is whole: when it closes, then the volume.
-    final meta = find.text(r'Closes Oct 2026 · $2.5M');
-    expect(meta, findsNWidgets(_longest.length));
-    for (final e in meta.evaluate()) {
-      expect((e.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
-    }
+    // No meta line under the question: no closing date, no volume.
+    expect(find.textContaining('Oct 2026'), findsNothing);
+    expect(find.textContaining(r'$2.5M'), findsNothing);
     // No day move on the row any more: the gauge carries the chance.
     expect(find.textContaining('today'), findsNothing);
   });
@@ -136,8 +133,8 @@ void main() {
     }
   });
 
-  testWidgets('a meta line that cannot hold everything wraps; the markets '
-      'link stays whole', (tester) async {
+  testWidgets('the markets link stays whole, with no volume or date beside '
+      'it', (tester) async {
     await _pump(tester, [
       MarketCard(
         title: 'Arsenal vs Chelsea',
@@ -154,12 +151,10 @@ void main() {
       ),
     ]);
     expect(tester.takeException(), isNull);
-    // The volume and "Starts Sep 28, 2031" share the line with the link
-    // to the match's other markets; when they cannot, the link goes to
-    // the next line. Nothing is cut.
-    final meta = find.textContaining('Starts Sep 28');
-    expect(tester.renderObject<RenderParagraph>(meta).didExceedMaxLines,
-        isFalse);
+    // The link to the match's other markets is the line's only text
+    // (no volume, no "Starts Sep 28, 2031"), never cut.
+    expect(find.textContaining('Starts'), findsNothing);
+    expect(find.textContaining('123'), findsNothing);
     final link = find.textContaining('markets');
     expect(link, findsOneWidget);
     expect(tester.renderObject<RenderParagraph>(link).didExceedMaxLines,

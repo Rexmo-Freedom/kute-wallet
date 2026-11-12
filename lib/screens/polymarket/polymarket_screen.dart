@@ -1438,7 +1438,6 @@ class _PolyFeedCard extends ConsumerWidget {
           teams: market.teams,
           slug: market.slug,
           gameId: market.gameId,
-          hasLivestream: market.hasLivestream,
           siblingMarketCount: extraMarketCount,
           dayMove: market.oneDayPriceChange,
           onMoreMarkets: extraMarketCount > 0

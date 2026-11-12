@@ -14459,18 +14459,6 @@ abstract class AppLocalizations {
   /// **'soon'**
   String get marketCardSoon;
 
-  /// No description provided for @marketCardEsportsLive.
-  ///
-  /// In en, this message translates to:
-  /// **'Esports live'**
-  String get marketCardEsportsLive;
-
-  /// No description provided for @marketCardLiveStream.
-  ///
-  /// In en, this message translates to:
-  /// **'Live stream'**
-  String get marketCardLiveStream;
-
   /// No description provided for @pmOrdersConnectLedger.
   ///
   /// In en, this message translates to:
@@ -17109,12 +17097,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{move} today'**
   String polyCardMoveToday(String move);
-
-  /// Predictions list card: how far a chance moved in the last 24 hours, in percentage points (pts abbreviated). {move} is an arrow and a whole number, e.g. '▲ 6' (reads '▲ 6 pts today'); a game card puts the team before it ('Arsenal ▲ 9 pts today').
-  ///
-  /// In en, this message translates to:
-  /// **'{move} pts today'**
-  String polyCardPointsToday(String move);
 
   /// No description provided for @polyCardMoreOutcomes.
   ///
@@ -19987,18 +19969,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show more'**
   String get searchShowMore;
-
-  /// Predictions list row, the one quiet line under the question: the month and year the market closes ('Jan 2027') first, then its volume, compact ('$27.8K'): 'Closes Jan 2027 · $27.8K'. Starts the line, so capitalised.
-  ///
-  /// In en, this message translates to:
-  /// **'Closes {date} · {volume}'**
-  String marketMetaLine(String volume, String date);
-
-  /// Predictions list row and Top markets card, the line under the question when there is no volume to show: the month and year the market closes ('Closes Jan 2027'). Starts the line, so capitalised.
-  ///
-  /// In en, this message translates to:
-  /// **'Closes {date}'**
-  String marketCloses(String date);
 
   /// Recipient option on Send: a link anyone can claim with Kute.
   ///

@@ -8446,12 +8446,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get marketCardSoon => 'σύντομα';
 
   @override
-  String get marketCardEsportsLive => 'Esports live';
-
-  @override
-  String get marketCardLiveStream => 'Ζωντανή μετάδοση';
-
-  @override
   String get pmOrdersConnectLedger =>
       'Σύνδεσε τις συναλλαγές Προβλέψεων για αυτό το Ledger για να φορτώσεις τις εντολές.';
 
@@ -10013,11 +10007,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '$move σήμερα';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '$move μον. σήμερα';
   }
 
   @override
@@ -11981,16 +11970,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get searchShowMore => 'Περισσότερα';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return 'Κλείνει $date · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return 'Κλείνει $date';
-  }
 
   @override
   String get shareSendToAnyone => 'Στείλε σε οποιονδήποτε';

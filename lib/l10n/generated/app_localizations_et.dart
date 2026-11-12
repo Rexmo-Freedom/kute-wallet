@@ -8362,12 +8362,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get marketCardSoon => 'varsti';
 
   @override
-  String get marketCardEsportsLive => 'E-sport otse';
-
-  @override
-  String get marketCardLiveStream => 'Otseülekanne';
-
-  @override
   String get pmOrdersConnectLedger =>
       'Tellimuste laadimiseks ühenda selle Ledgeri jaoks Ennustuste tehingud.';
 
@@ -9930,11 +9924,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String polyCardMoveToday(String move) {
     return '$move täna';
-  }
-
-  @override
-  String polyCardPointsToday(String move) {
-    return '$move pp täna';
   }
 
   @override
@@ -11888,16 +11877,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get searchShowMore => 'Näita rohkem';
-
-  @override
-  String marketMetaLine(String volume, String date) {
-    return 'Sulgub $date · $volume';
-  }
-
-  @override
-  String marketCloses(String date) {
-    return 'Sulgub $date';
-  }
 
   @override
   String get shareSendToAnyone => 'Saada ükskõik kellele';

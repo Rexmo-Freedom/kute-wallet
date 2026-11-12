@@ -24,9 +24,6 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/render_png.dart' show loadRenderFonts;
 
-/// A move as the card writes it: one piece that never wraps inside.
-String _nb(String s) => s.replaceAll(' ', '\u00A0');
-
 Future<void> _pump(WidgetTester tester, Widget card,
     {bool dark = false,
     double width = 390,
@@ -140,7 +137,8 @@ void main() {
   group('A · what is moving', () {
     testWidgets(
         'many outcomes: rows at 14 with the leader semibold, bars 6 tall, '
-        "and the leader's day move on the meta line", (tester) async {
+        "the leader's day move beside its percent, no meta line",
+        (tester) async {
       await _pump(
         tester,
         MarketCard(
@@ -152,6 +150,7 @@ void main() {
           // The event's largest mover is another outcome's: not shown.
           dayMove: 0.2,
         ),
+        width: 393,
       );
       final c = AppColorsExtension.light();
       final leader = tester.widget<Text>(find.text('December 31, 2027'));
@@ -163,15 +162,31 @@ void main() {
       expect(second.style!.color, c.textSecondary);
       expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height,
           6);
-      // The leader's own move, never the event's largest one.
-      final meta = find.text('Closes Apr 2027 · \$20.2M · ${_nb('▲ 6 pts today')}');
-      expect(meta, findsOneWidget);
-      final span = (tester.widget<Text>(meta).textSpan! as TextSpan)
-          .children!
-          .last as TextSpan;
-      expect(span.text, _nb('▲ 6 pts today'));
-      expect(span.style!.color, AppColors.marketUp);
-      expect(find.textContaining('20 pts'), findsNothing);
+      // The leader's own move, never the event's largest one, compact
+      // and in green right after its percent, on its row.
+      final delta = find.text('▲6');
+      expect(delta, findsOneWidget);
+      expect(tester.widget<Text>(delta).style!.color, AppColors.marketUp);
+      final pct = find.text('84%');
+      expect(tester.getCenter(delta).dy,
+          moreOrLessEquals(tester.getCenter(pct).dy, epsilon: 2));
+      expect(tester.getTopLeft(delta).dx,
+          greaterThanOrEqualTo(tester.getTopRight(pct).dx));
+      expect(tester.getTopLeft(delta).dx - tester.getTopRight(pct).dx,
+          lessThan(8));
+      expect(find.text('▲20'), findsNothing);
+      expect(find.textContaining('pts today'), findsNothing);
+      // No meta line: no closing date, no volume.
+      expect(find.textContaining('Closes'), findsNothing);
+      expect(find.textContaining('Apr 2027'), findsNothing);
+      expect(find.textContaining(r'$20.2M'), findsNothing);
+      // The bars still end on one edge, the leader's row as the others.
+      final bars = find.byType(PolyOutcomeChanceBar);
+      final ends = [
+        for (var i = 0; i < 3; i++) tester.getTopRight(bars.at(i)).dx,
+      ];
+      expect(ends[1], moreOrLessEquals(ends[0], epsilon: 0.5));
+      expect(ends[2], moreOrLessEquals(ends[0], epsilon: 0.5));
     });
 
     testWidgets('many outcomes: a fall is red, under a point is quiet',
@@ -186,12 +201,9 @@ void main() {
           endDate: DateTime(2027, 4, 30),
         ),
       );
-      final meta = find.textContaining(_nb('▼ 4 pts today'));
-      expect(meta, findsOneWidget);
-      final span = (tester.widget<Text>(meta).textSpan! as TextSpan)
-          .children!
-          .last as TextSpan;
-      expect(span.style!.color, AppColors.marketDown);
+      final delta = find.text('▼4');
+      expect(delta, findsOneWidget);
+      expect(tester.widget<Text>(delta).style!.color, AppColors.marketDown);
 
       await _pump(
         tester,
@@ -203,8 +215,8 @@ void main() {
           endDate: DateTime(2027, 4, 30),
         ),
       );
-      expect(find.textContaining(_nb('pts today')), findsNothing);
-      expect(find.text(r'Closes Apr 2027 · $20.2M'), findsOneWidget);
+      expect(find.textContaining('▲'), findsNothing);
+      expect(find.textContaining('▼'), findsNothing);
     });
 
     testWidgets("Yes/No: the day's move under the gauge's number",
@@ -233,8 +245,9 @@ void main() {
           greaterThan(tester.getBottomLeft(figure.first).dy - 1));
       expect(tester.getCenter(move).dx,
           moreOrLessEquals(tester.getCenter(figure.first).dx, epsilon: 1));
-      // The meta line stays as it was.
-      expect(find.text(r'Closes Dec 2026 · $48.1M'), findsOneWidget);
+      // No meta line under the question.
+      expect(find.textContaining('Dec 2026'), findsNothing);
+      expect(find.textContaining(r'$48.1M'), findsNothing);
     });
 
     testWidgets('Yes/No: under a point the gauge stays quiet',
@@ -258,8 +271,8 @@ void main() {
 
     testWidgets(
         'a game in play: live dot and clock lead, one split bar in the '
-        "teams' colours with the draw grey, the leader's move in the footer",
-        (tester) async {
+        "teams' colours with the draw grey, the leader's move beside its "
+        'chance, no volume', (tester) async {
       await _pump(
         tester,
         const MarketCard(
@@ -275,10 +288,8 @@ void main() {
       expect(live, findsOneWidget);
       expect(tester.getTopLeft(live).dy,
           lessThan(tester.getTopLeft(find.text('Arsenal')).dy));
-      // The volume moved up beside the clock.
-      expect(
-          tester.getCenter(find.textContaining('3.4M')).dy,
-          moreOrLessEquals(tester.getCenter(live).dy, epsilon: 2));
+      // No volume on a list card, beside the clock or anywhere.
+      expect(find.textContaining('3.4M'), findsNothing);
       // One split bar: Arsenal, the draw, Chelsea.
       final boxes = tester
           .widgetList<ColoredBox>(find.descendant(
@@ -288,18 +299,21 @@ void main() {
           .toList();
       expect(boxes, contains(kGameSideColors[0]));
       expect(boxes, contains(kGameSideColors[1]));
-      final footer = find.text('Draw 21% · ${_nb('Arsenal ▲ 9 pts today')}');
-      expect(footer, findsOneWidget);
-      final span = (tester.widget<Text>(footer).textSpan! as TextSpan)
-          .children!
-          .last as TextSpan;
-      expect(span.style!.color, AppColors.marketUp);
-      // The bar sits between the teams and the footer.
-      expect(tester.getTopLeft(footer).dy,
-          greaterThan(tester.getBottomLeft(find.text('Chelsea')).dy));
+      // The leader's move beside its chance, on Arsenal's row.
+      final delta = find.text('▲9');
+      expect(delta, findsOneWidget);
+      expect(tester.widget<Text>(delta).style!.color, AppColors.marketUp);
+      expect(tester.getCenter(delta).dy,
+          moreOrLessEquals(tester.getCenter(find.text('Arsenal')).dy,
+              epsilon: 3));
+      expect(find.textContaining('pts today'), findsNothing);
+      // Chelsea's fall is not the leader's: not shown.
+      expect(find.textContaining('▼'), findsNothing);
+      // The pills say the draw; no footer repeats it.
+      expect(find.text('Draw 21%'), findsNothing);
     });
 
-    testWidgets('a game before kickoff keeps its kickoff in the footer',
+    testWidgets('a game before kickoff keeps only its kickoff in the footer',
         (tester) async {
       await _pump(
         tester,
@@ -312,9 +326,42 @@ void main() {
         ),
       );
       expect(find.textContaining('Live'), findsNothing);
-      expect(find.text('5 Oct 20:30 · Draw 21% · ${_nb('Arsenal ▲ 9 pts today')}'),
-          findsOneWidget);
-      expect(find.textContaining('3.4M vol'), findsOneWidget);
+      expect(find.text('5 Oct 20:30'), findsOneWidget);
+      expect(find.text('▲9'), findsOneWidget);
+      expect(find.textContaining('vol'), findsNothing);
+      expect(find.textContaining('3.4M'), findsNothing);
+    });
+
+    testWidgets('a closed game with no pills keeps the draw in its footer',
+        (tester) async {
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Arsenal vs Chelsea',
+          outcomes: _threeWay,
+          volume: 3.4e6,
+          category: 'sports',
+          closed: true,
+          gameStart: DateTime(2030, 10, 5, 20, 30),
+        ),
+      );
+      expect(find.textContaining('Draw 21%'), findsOneWidget);
+    });
+
+    testWidgets('no stream tag on a list card', (tester) async {
+      await _pump(
+        tester,
+        const MarketCard(
+          title: 'Arsenal vs Chelsea',
+          outcomes: _threeWay,
+          volume: 3.4e6,
+          category: 'sports',
+          liveGame: PolyLiveGame(
+              score: '2-1', clock: "67'", period: '2H', firstIsHome: true),
+        ),
+      );
+      expect(find.text('Live stream'), findsNothing);
+      expect(find.text('Esports live'), findsNothing);
     });
 
     test("each outcome keeps its own day move from Gamma, and the feed's "
