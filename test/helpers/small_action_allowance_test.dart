@@ -1,15 +1,18 @@
 // The small-action step-up allowance (D-11, widened 2026-11-12: orders
-// under $50 skip Face ID / PIN while unlocked) is a backend runtime-policy
-// setting. It reads `security.smallActionAllowanceCents` from the current
-// fresh capabilities snapshot and nothing else: no snapshot, a stale one or
-// a backend outage leaves it off. Scope: Predictions buys and sells
-// (combos too), Investing market and limit orders, closes and margin adds,
-// with or without a funding leg from the person's own accounts. Never
-// sends, withdrawals, gifts, Swap, leverage, Pro orders or the Builder.
+// under $50 skip Face ID / PIN while unlocked) is LOCAL ONLY (founder,
+// 2026-11-12): a client constant, no remote switch. The backend runtime
+// policy's `security.smallActionAllowanceCents` (0 on the 2.1.2 backend),
+// a missing, stale or unreachable policy never turn it off. Scope:
+// Predictions buys and sells (combos too), Investing market and limit
+// orders, closes and margin adds, with or without a funding leg from the
+// person's own accounts. Never sends, withdrawals, gifts, Swap, leverage,
+// Pro orders or the Builder.
 
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/small_action_allowance.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -25,14 +28,34 @@ class _Session implements StepUpSessionState {
   final bool isSessionUnlocked;
 }
 
-RuntimeCapabilities _snapshot({Object? security}) {
-  final now = DateTime.utc(2026, 11, 12, 12);
+/// The app's runtime policy service holding [held] (or nothing), with a
+/// backend that is down.
+class _HeldPolicy extends RuntimeCapabilitiesService {
+  _HeldPolicy(this.held)
+      : super.forTesting(
+          client: MockClient((_) async => http.Response('', 503)),
+          baseUrl: () => 'https://backend.test',
+          sessionToken: () => 'wallet-a',
+        );
+
+  final RuntimeCapabilities? held;
+
+  @override
+  RuntimeCapabilities? get snapshot => held;
+}
+
+/// The backend publishing [security] (0 on the 2.1.2 backend), fresh or
+/// already expired.
+RuntimeCapabilities _snapshot({Object? security, bool stale = false}) {
+  final now = DateTime.now().toUtc();
+  final evaluated =
+      stale ? now.subtract(const Duration(hours: 1)) : now;
   // Round-trip through JSON so the map types match a real response.
   return RuntimeCapabilities.fromJson(jsonDecode(jsonEncode({
     'schemaVersion': 1,
     'revision': 7,
-    'evaluatedAt': now.toIso8601String(),
-    'expiresAt': now.add(const Duration(minutes: 2)).toIso8601String(),
+    'evaluatedAt': evaluated.toIso8601String(),
+    'expiresAt': evaluated.add(const Duration(minutes: 2)).toIso8601String(),
     'capabilities': {
       'polymarket.trade': {'allowed': true, 'reason': ''},
     },
@@ -42,10 +65,6 @@ RuntimeCapabilities _snapshot({Object? security}) {
     if (security != null) 'security': security,
   })) as Map<String, dynamic>);
 }
-
-/// The policy the deploy of 2026-11-12 publishes: orders under $50.
-RuntimeCapabilities _on() =>
-    _snapshot(security: {'smallActionAllowanceCents': 5000});
 
 const _perp = HlMarket(
   coin: 'BTC',
@@ -175,83 +194,49 @@ AuthGrant? _issue(SmallActionAllowance allowance, SensitiveIntent intent,
         amountUsdCents: cents ?? _cents(usd), session: _Session(unlocked));
 
 void main() {
-  test('the snapshot model parses security.smallActionAllowanceCents', () {
-    expect(_snapshot().smallActionAllowanceCents, 0);
-    expect(_snapshot(security: {}).smallActionAllowanceCents, 0);
-    expect(
-        _snapshot(security: {'smallActionAllowanceCents': 5000})
-            .smallActionAllowanceCents,
-        5000);
-    expect(
-        _snapshot(security: {'smallActionAllowanceCents': 0})
-            .smallActionAllowanceCents,
-        0);
-    expect(
-        _snapshot(security: {'smallActionAllowanceCents': -5})
-            .smallActionAllowanceCents,
-        0);
-    expect(
-        _snapshot(security: {'smallActionAllowanceCents': '250'})
-            .smallActionAllowanceCents,
-        0);
-    expect(
-        _snapshot(security: {'smallActionAllowanceCents': 2.5})
-            .smallActionAllowanceCents,
-        2);
-    // Other sections are untouched.
-    expect(
-        _snapshot(security: {'smallActionAllowanceCents': 250})
-            .refereeDiscountBps,
-        20);
-  });
-
-  test('off without a fresh snapshot, when unset, and when the read throws',
-      () {
-    expect(SmallActionAllowance(readSnapshot: () => null).enabled, isFalse);
-    expect(
-        SmallActionAllowance(readSnapshot: () => _snapshot()).enabled, isFalse);
-    expect(
-        SmallActionAllowance(
-            readSnapshot: () =>
-                _snapshot(security: {'smallActionAllowanceCents': 0})).enabled,
-        isFalse);
-    final throwing =
-        SmallActionAllowance(readSnapshot: () => throw StateError('down'));
-    expect(throwing.enabled, isFalse);
-    expect(throwing.perActionCapCents, 0);
-    expect(_issue(throwing, _bet(10)), isNull);
-    expect(_issue(SmallActionAllowance(readSnapshot: () => null), _bet(10)),
-        isNull);
-    expect(_issue(SmallActionAllowance(readSnapshot: _snapshot), _bet(10)),
-        isNull);
-  });
-
-  test('follows the current snapshot on every read, clamped to \$50', () {
-    RuntimeCapabilities? current;
-    final allowance = SmallActionAllowance(readSnapshot: () => current);
-    expect(allowance.enabled, isFalse);
-    current = _snapshot(security: {'smallActionAllowanceCents': 250});
-    expect(allowance.perActionCapCents, 250);
-    current = _on();
-    expect(allowance.perActionCapCents, 5000);
-    current = _snapshot(security: {'smallActionAllowanceCents': 90000});
-    expect(allowance.perActionCapCents, SmallActionAllowance.maxPerActionCents);
-    expect(SmallActionAllowance.maxPerActionCents, 5000);
+  test('local only: the threshold is \$50 and the session cap \$250', () {
+    expect(SmallActionAllowance.perActionCapCents, 5000);
     expect(SmallActionAllowance.sessionCapCents, 25000);
-    // The policy went away (expired, session changed, backend down): off
-    // at the next use, without any refresh call.
-    current = null;
-    expect(allowance.enabled, isFalse);
-    expect(_issue(allowance, _bet(10)), isNull);
-    expect(SmallActionAllowance.clampCents(null), 0);
-    expect(SmallActionAllowance.clampCents(-1), 0);
-    expect(SmallActionAllowance.clampCents(5000), 5000);
-    expect(SmallActionAllowance.clampCents(5001), 5000);
+  });
+
+  group('whatever the backend says, under \$50 skips the prompt', () {
+    final policies = <String, RuntimeCapabilities?>{
+      'no snapshot (backend down, never fetched)': null,
+      'a policy without a security section': _snapshot(),
+      'a policy publishing 0 (the 2.1.2 backend)':
+          _snapshot(security: {'smallActionAllowanceCents': 0}),
+      'a policy publishing a lower threshold':
+          _snapshot(security: {'smallActionAllowanceCents': 500}),
+      'a policy publishing a higher threshold':
+          _snapshot(security: {'smallActionAllowanceCents': 90000}),
+      'a stale policy publishing 5000': _snapshot(
+          security: {'smallActionAllowanceCents': 5000}, stale: true),
+    };
+    for (final MapEntry(key: name, value: policy) in policies.entries) {
+      test(name, () {
+        final service = _HeldPolicy(policy);
+        RuntimeCapabilitiesService.debugInstance = service;
+        addTearDown(() {
+          RuntimeCapabilitiesService.debugInstance = null;
+          service.dispose();
+        });
+        final allowance = SmallActionAllowance();
+        expect(_issue(allowance, _bet(49.99), usd: 49.99)!.method,
+            AuthGrantMethod.allowance);
+        expect(_issue(allowance, _open(10))!.method,
+            AuthGrantMethod.allowance);
+        // A published value never raises it: $50 and above still asks.
+        expect(_issue(allowance, _bet(50), usd: 50), isNull);
+        expect(_issue(allowance, _bet(100), usd: 100), isNull);
+        // Nor lowers it.
+        expect(_issue(allowance, _bet(5), usd: 5), isNotNull);
+      });
+    }
   });
 
   group('under \$50 skips the prompt', () {
     late SmallActionAllowance allowance;
-    setUp(() => allowance = SmallActionAllowance(readSnapshot: _on));
+    setUp(() => allowance = SmallActionAllowance());
 
     final cases = <String, (SensitiveIntent, double)>{
       'a prediction (market)': (_bet(49.99), 49.99),
@@ -321,7 +306,7 @@ void main() {
   });
 
   test('\$50.00 and above, or nothing, asks', () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     expect(_issue(allowance, _bet(50), usd: 50), isNull);
     expect(_issue(allowance, _bet(50.01), usd: 50.01), isNull);
     expect(_issue(allowance, _open(50), usd: 50), isNull);
@@ -329,17 +314,11 @@ void main() {
     expect(_issue(allowance, _close(1), usd: 80), isNull);
     expect(_issue(allowance, _bet(1), cents: 0), isNull);
     expect(_issue(allowance, _bet(49.99), usd: 49.99), isNotNull);
-    // A lower published threshold is honoured exactly.
-    final low = SmallActionAllowance(
-        readSnapshot: () =>
-            _snapshot(security: {'smallActionAllowanceCents': 500}));
-    expect(_issue(low, _bet(5), usd: 5), isNull);
-    expect(_issue(low, _bet(4.99), usd: 4.99), isNotNull);
   });
 
   test('the session cap asks once \$250 have gone through, until relock',
       () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     for (var i = 0; i < 5; i++) {
       expect(_issue(allowance, _bet(49.99), usd: 49.99), isNotNull);
     }
@@ -355,13 +334,13 @@ void main() {
   });
 
   test('a locked session asks', () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     expect(_issue(allowance, _bet(10), unlocked: false), isNull);
     expect(allowance.sessionSpentCents, 0);
   });
 
   test('money leaving the wallet always asks, however small', () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     for (final intent in [
       _send(SensitiveAction.send), // Send, gifts (share links), Swap out
       _send(SensitiveAction.moveTransfer), // Swap, Buy Bitcoin, Move
@@ -398,7 +377,7 @@ void main() {
   });
 
   test('leverage, Pro orders, edits and the Builder always ask', () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     for (final intent in [
       _open(10, leverage: 3),
       HlIntents.marginMode(
@@ -450,7 +429,7 @@ void main() {
   });
 
   test('a funding leg that is not the order venue\'s own asks', () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     for (final intent in [
       // A prediction whose Dollars leg names Investing.
       _fundedBet(10, venue: IntentVenue.hyperliquid),
@@ -485,7 +464,7 @@ void main() {
   });
 
   test('an amount that does not match the order asks', () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     // A $60 bet stated as $10.
     expect(_issue(allowance, _bet(60), usd: 10), isNull);
     // A $60 Investing order stated as $10.
@@ -508,7 +487,7 @@ void main() {
   });
 
   test('the grant comes from the caller\'s store, as an allowance grant', () {
-    final allowance = SmallActionAllowance(readSnapshot: _on);
+    final allowance = SmallActionAllowance();
     SensitiveIntent? asked;
     final grant = allowance.tryIssue(_bet(10),
         amountUsdCents: 1000,

@@ -5,14 +5,12 @@
 // 50 USD do not do Face ID or PIN checks, both for placing in Investing or
 // in Predictions or selling").
 //
-//   * Off by default. The per-action threshold in cents is the backend
-//     runtime policy's `security.smallActionAllowanceCents`, read from the
-//     current fresh capabilities snapshot on every use; no snapshot, a stale
-//     snapshot, a backend outage or a value <= 0 means off. The backend
-//     switch is the kill switch. Analytics never steer this.
+//   * Local only (founder, 2026-11-12): always on, no remote switch. The
+//     threshold is the constant [perActionCapCents] ($50); the backend
+//     runtime policy, a missing or stale snapshot or a backend outage never
+//     turn it on or off. Analytics never steer this either.
 //   * An order qualifies when its USD amount (the stake, the margin, the
-//     sell or close proceeds) is strictly UNDER the threshold. The client
-//     clamps the threshold to [maxPerActionCents] ($50).
+//     sell or close proceeds) is strictly UNDER [perActionCapCents].
 //   * Session cap: at most [sessionCapCents] approved this way per unlocked
 //     session, so an unlocked phone cannot be drained in many small orders.
 //     [reset] runs on relock and cold start.
@@ -24,9 +22,9 @@
 //     venue (Dollars, Bitcoin via Dollars or straight to the own venue
 //     deposit, the other venue's cash); the funding executors re-check the
 //     own addresses before anything moves. Never sends, withdrawals, gifts,
-//     Swap, destination or settings changes, leverage changes, margin
-//     removal, Pro orders (scale, TWAP, triggers, trailing stops), order
-//     edits or the Builder. Leverage above 1x always asks.
+//     Swap, Buy Bitcoin, destination or settings changes, leverage changes,
+//     margin removal, Pro orders (scale, TWAP, triggers, trailing stops),
+//     order edits or the Builder. Leverage above 1x always asks.
 //   * Issues `AuthGrant(method: allowance)` bound to the exact order and its
 //     funding caps; the executors still `AuthGrants.consume` it. The person
 //     still taps Confirm: only the prompt is skipped.
@@ -35,19 +33,8 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
     show kFundUsdLimit, kFundVenueLimit, kFundVenueInvesting;
-import 'package:kute/services/runtime_capabilities_service.dart';
-
-/// Reads the current fresh runtime capabilities snapshot, or null when the
-/// app has none it may act on.
-typedef SnapshotReader = RuntimeCapabilities? Function();
-
-RuntimeCapabilities? _currentSnapshot() =>
-    RuntimeCapabilitiesService.instance.snapshot;
 
 class SmallActionAllowance {
-  SmallActionAllowance({SnapshotReader? readSnapshot})
-      : _readSnapshot = readSnapshot ?? _currentSnapshot;
-
   static final SmallActionAllowance _instance = SmallActionAllowance();
 
   /// Test seam for the app-wide allowance.
@@ -56,38 +43,18 @@ class SmallActionAllowance {
   /// App-wide allowance. Tests construct their own or set [debugInstance].
   static SmallActionAllowance get instance => debugInstance ?? _instance;
 
-  /// Client clamp on the published per-action threshold: orders under $50.
-  static const int maxPerActionCents = 5000;
+  /// Per-action threshold: orders strictly under $50 qualify. Local only,
+  /// no remote value overrides it.
+  static const int perActionCapCents = 5000;
 
   /// The most the allowance approves per unlocked session, in cents
   /// ($250). The one place to change it.
   static const int sessionCapCents = 25000;
 
-  final SnapshotReader _readSnapshot;
-
   int _sessionSpentCents = 0;
-
-  /// Effective per-action threshold after the client clamp, read from the
-  /// current fresh runtime policy on every call. 0 means off.
-  int get perActionCapCents {
-    try {
-      return clampCents(_readSnapshot()?.smallActionAllowanceCents);
-    } catch (_) {
-      return 0;
-    }
-  }
-
-  bool get enabled => perActionCapCents > 0;
 
   /// Cents approved by the allowance since the last [reset].
   int get sessionSpentCents => _sessionSpentCents;
-
-  /// Clamps a published threshold to 0..[maxPerActionCents]; null or <= 0
-  /// is off.
-  static int clampCents(int? cents) {
-    if (cents == null || cents <= 0) return 0;
-    return cents > maxPerActionCents ? maxPerActionCents : cents;
-  }
 
   /// Clears the session total. Call on relock and cold start (after the
   /// session unlocks again the budget starts from zero).
@@ -222,10 +189,11 @@ class SmallActionAllowance {
     required StepUpSessionState session,
     AuthGrant Function(SensitiveIntent intent)? issue,
   }) {
-    final cap = perActionCapCents;
-    if (cap <= 0 || !session.isSessionUnlocked) return null;
+    if (!session.isSessionUnlocked) return null;
     if (!inScope(intent)) return null;
-    if (amountUsdCents <= 0 || amountUsdCents >= cap) return null;
+    if (amountUsdCents <= 0 || amountUsdCents >= perActionCapCents) {
+      return null;
+    }
     if (_sessionSpentCents + amountUsdCents > sessionCapCents) return null;
     if (!_amountMatches(intent, amountUsdCents)) return null;
     final AuthGrant grant;

@@ -216,19 +216,15 @@ Future<void> _type(WidgetTester tester) async {
   await _frames(tester, 3);
 }
 
-/// Taps Sell (the bar is the sheet's one button), approves with the PIN,
-/// and lets the fake venue refuse.
+/// Taps Sell (the bar is the sheet's one button) and lets the fake venue
+/// refuse. The sale is under \$50 and the app unlocked, so no PIN is asked
+/// (`SmallActionAllowance`).
 Future<void> _fail(WidgetTester tester) async {
   expect(barPrimaryLabel(tester), startsWith('Sell'));
   expect(barPrimaryEnabled(tester), isTrue);
   await tapBarPrimary(tester, settle: false);
   await _frames(tester, 8);
-  expect(find.byType(PinGateSheet), findsOneWidget);
-  for (final d in '111111'.split('')) {
-    await tester.tap(
-        find.descendant(of: find.byType(PinGateSheet), matching: find.text(d)));
-    await tester.pump();
-  }
+  expect(find.byType(PinGateSheet), findsNothing);
   await _frames(tester, 60);
   expect(find.byType(PinGateSheet), findsNothing);
   expect(find.byType(PolySlipNotice), findsOneWidget);

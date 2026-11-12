@@ -103,7 +103,7 @@ void main() {
     expect(service.allows('hyperliquid.trade'), isTrue);
     expect(service.snapshot!.ai['dailyLimit'], 5);
     expect(service.snapshot!.fees['fiat_deposit']['bps'], 100);
-    expect(service.snapshot!.smallActionAllowanceCents, 250);
+    expect(service.snapshot!.security['smallActionAllowanceCents'], 250);
     now = now.add(const Duration(minutes: 6));
     expect(service.snapshot, isNull);
     // A stale policy is not shown as fresh, but what it allowed stays

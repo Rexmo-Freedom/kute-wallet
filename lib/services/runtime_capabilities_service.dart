@@ -356,18 +356,6 @@ class RuntimeCapabilities {
   /// may steer them.
   final Map<String, dynamic> security;
 
-  /// Small-action step-up allowance (D-11): an order (a Predictions bet or
-  /// sell, an Investing order or close, incl. its funding from the person's
-  /// own accounts) under this many US cents may skip the PIN or biometric
-  /// check while the session is unlocked. 0, absent or malformed means off.
-  /// `SmallActionAllowance` applies its own scope, per-action clamp and
-  /// per-session cap on top.
-  int get smallActionAllowanceCents {
-    final v = security['smallActionAllowanceCents'];
-    if (v is num && v.isFinite && v > 0) return v.toInt();
-    return 0;
-  }
-
   /// Investing settings resolved by the backend for this connection's
   /// region.
   final Map<String, dynamic> investing;

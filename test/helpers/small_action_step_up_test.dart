@@ -1,10 +1,11 @@
 // Orders under $50 through the step-up helper itself (founder decision,
-// 2026-11-12): with the backend policy on, a small bet, sell, Investing
-// order or close comes back approved by the allowance with no Face ID or
-// PIN sheet, funded orders included (held as the order's autofire grant);
-// $50.00 and above, the session cap, the policy off and every send still
-// open the PIN sheet (the Kute PIN fallback here, biometrics off). Relock
-// resets the session budget.
+// 2026-11-12, local only): a small bet, sell, Investing order or close
+// comes back approved by the allowance with no Face ID or PIN sheet, funded
+// orders included (held as the order's autofire grant), whatever the
+// backend policy says (0 on the 2.1.2 backend, missing, stale or down).
+// $50.00 and above, the session cap and every send still open the PIN
+// sheet (the Kute PIN fallback here, biometrics off). Relock resets the
+// session budget.
 
 import 'dart:convert';
 
@@ -13,6 +14,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
@@ -58,8 +61,25 @@ Settings _settings() => Settings(
       reviewDone: true,
     );
 
-RuntimeCapabilities _policy(int cents) {
-  final now = DateTime.now().toUtc();
+/// The app's runtime policy service: whatever [held] says, with a backend
+/// that is down.
+class _HeldPolicy extends RuntimeCapabilitiesService {
+  _HeldPolicy()
+      : super.forTesting(
+          client: MockClient((_) async => http.Response('', 503)),
+          baseUrl: () => 'https://backend.test',
+          sessionToken: () => 'wallet-a',
+        );
+
+  RuntimeCapabilities? held;
+
+  @override
+  RuntimeCapabilities? get snapshot => held;
+}
+
+RuntimeCapabilities _policy(int cents, {bool stale = false}) {
+  final now = DateTime.now().toUtc().subtract(
+      stale ? const Duration(hours: 1) : Duration.zero);
   return RuntimeCapabilities.fromJson(jsonDecode(jsonEncode({
     'schemaVersion': 1,
     'revision': 9,
@@ -143,7 +163,7 @@ SensitiveIntent _send(SensitiveAction action) => SensitiveIntent(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late FakeKeychain keychain;
-  late int policyCents;
+  late _HeldPolicy backend;
 
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -151,13 +171,17 @@ void main() {
     keychain.seed('v2:wallet:w1.mnemonic', 'words');
     SecretStores.debugOverride(local: keychain.local, synced: keychain.synced);
     FastBetWindow.instance.debugReset();
-    policyCents = 5000;
-    SmallActionAllowance.debugInstance = SmallActionAllowance(
-        readSnapshot: () => policyCents < 0 ? null : _policy(policyCents));
+    // The 2.1.2 backend: the policy publishes 0. Local only, so it does
+    // not matter.
+    backend = _HeldPolicy()..held = _policy(0);
+    RuntimeCapabilitiesService.debugInstance = backend;
+    SmallActionAllowance.debugInstance = SmallActionAllowance();
   });
 
   tearDown(() {
     SmallActionAllowance.debugInstance = null;
+    RuntimeCapabilitiesService.debugInstance = null;
+    backend.dispose();
     AuthGrantRegistry.instance.revokeAll(includeAutofire: true);
     FastBetWindow.instance.debugReset();
     SecretStores.debugReset();
@@ -301,12 +325,24 @@ void main() {
     await noPrompt(tester, ctx, _bet(1), 1);
   });
 
-  testWidgets('the policy off, stale or missing asks', (tester) async {
+  testWidgets(
+      'the backend at 0, stale, missing or higher changes nothing: '
+      'under \$50 does not ask, \$50 asks', (tester) async {
     final ctx = await pump(tester);
-    policyCents = 0;
-    await prompts(tester, ctx, _bet(5), 5);
-    policyCents = -1; // no fresh snapshot
-    await prompts(tester, ctx, _bet(5), 5);
+    for (final policy in <RuntimeCapabilities?>[
+      _policy(0), // the 2.1.2 backend
+      null, // no snapshot: never fetched, backend down, session changed
+      _policy(5000, stale: true),
+      _policy(0, stale: true),
+      _policy(500), // a lower published value does not lower it
+      _policy(90000), // nor does a higher one raise it
+    ]) {
+      backend.held = policy;
+      await noPrompt(tester, ctx, _bet(5), 5);
+      await noPrompt(tester, ctx, _perpOrder(10), 10);
+      await prompts(tester, ctx, _bet(50), 50);
+    }
+    expect(SmallActionAllowance.instance.sessionSpentCents, 9000);
   });
 
   testWidgets('sends, withdrawals, gifts and Swap under \$50 still ask',
