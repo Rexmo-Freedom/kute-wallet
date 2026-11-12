@@ -1405,9 +1405,13 @@ class PendingBetAutoFire {
   /// session, at most [kStandingReprices] times within
   /// [kStandingRepriceWindow]; a book past the worst price stops it with
   /// the money on the venue and asks the person again (needsApproval). A
-  /// pick for the next 5-minute round waits here for it to open. Every
-  /// post goes through `placeOrder`'s guard, so a restart or a resend can
-  /// never place twice.
+  /// pick for a round that has not started yet posts like any other, the
+  /// moment its money is counted: the venue takes and matches orders on a
+  /// round before it starts (founder report, 12 November 2026: a pick for
+  /// the 11:35 round, funded at 11:31, sat on "Confirming balance" until
+  /// the round opened because the post was held back here). Every post
+  /// goes through `placeOrder`'s guard, so a restart or a resend can never
+  /// place twice.
   Future<void> _placeStandingOrder(PendingBetIntent intent, String standingId,
       {required PolymarketCostBasisNotifier costBasis}) async {
     final pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
@@ -1440,15 +1444,6 @@ class PendingBetAutoFire {
     }
     // The order posted now; a re-price replaces it (never a second live one).
     var signed = stored;
-    // The next round's pick: funded ahead, posted once the round opens.
-    while (!standing.mayPost(standingId)) {
-      await Future<void>.delayed(const Duration(seconds: 1));
-      if (!_sameAttempt(intent)) return;
-      if (intent.isStale()) {
-        stop(StandingOrderFailure.expired, l10n.standingPredictionFailed);
-        return;
-      }
-    }
     if (autofireRoundClosed(intent)) {
       _failRoundClosed(intent);
       return;

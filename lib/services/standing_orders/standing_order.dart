@@ -7,6 +7,12 @@
 // once; the order is placed the moment the venue counts the money, at a
 // price never worse than the one approved, in one piece (never part now
 // and part later), and nothing is kept as a working balance on a venue.
+// A pick for a round that has not started yet is no exception (founder
+// report, 12 November 2026, on 2.2.0 (111): a $5 pick for the 11:35 round
+// sat on "Confirming balance" from 11:31 and went in the second the round
+// opened): the venue lists a round a day ahead and takes and matches
+// orders on it before it starts, so the order goes out the moment the
+// money is counted, like any other.
 //
 // What is durable: the PUBLIC facts here, in Hive per wallet
 // (standing_order_store.dart). The signed Polymarket order, or the
@@ -34,8 +40,6 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart'
     show PendingBetStatus, PredictionsReadiness;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
     show HlOrderResultKind;
-import 'package:kute/services/polymarket/crypto_round.dart'
-    show polyCryptoRoundOf;
 
 /// Which venue the standing order is for.
 enum StandingOrderVenue {
@@ -136,7 +140,6 @@ class StandingOrder {
     this.eventSlug,
     this.roundWindow,
     this.marketEndAt,
-    this.postNotBefore,
     this.orderHash,
     this.negRisk = false,
     this.failureCode,
@@ -207,10 +210,6 @@ class StandingOrder {
   final String? roundWindow;
   final DateTime? marketEndAt;
 
-  /// The post waits for this moment: a pick for the NEXT 5-minute round
-  /// funds ahead and posts once that round opens.
-  final DateTime? postNotBefore;
-
   /// Predictions: the signed order's hash (the id the venue files it
   /// under), computed before any POST. Local only, never tracked or shown.
   final String? orderHash;
@@ -260,13 +259,6 @@ class StandingOrder {
       !now.difference(createdAt).isNegative &&
       now.difference(createdAt) >= kStandingOrderLifetime;
 
-  /// Whether the post may go out at [now] (the round it is for has
-  /// opened, or it never waited for one).
-  bool mayPostAt(DateTime now) {
-    final at = postNotBefore;
-    return at == null || !now.isBefore(at);
-  }
-
   /// Whether [from] may move to [to] (see the file header).
   static bool canMove(StandingOrderState from, StandingOrderState to) {
     if (from == to) return false;
@@ -310,7 +302,6 @@ class StandingOrder {
     DateTime? updatedAt,
     String? orderHash,
     Object? failureCode = _keep,
-    DateTime? postNotBefore,
     int? attempts,
     double? movedToPrice,
     double? approvedPrice,
@@ -346,7 +337,6 @@ class StandingOrder {
         eventSlug: eventSlug,
         roundWindow: roundWindow,
         marketEndAt: marketEndAt,
-        postNotBefore: postNotBefore ?? this.postNotBefore,
         orderHash: orderHash ?? this.orderHash,
         negRisk: negRisk,
         failureCode: identical(failureCode, _keep)
@@ -388,7 +378,6 @@ class StandingOrder {
         'eventSlug': eventSlug,
         'roundWindow': roundWindow,
         'marketEndAtMs': marketEndAt?.toUtc().millisecondsSinceEpoch,
-        'postNotBeforeMs': postNotBefore?.toUtc().millisecondsSinceEpoch,
         'orderHash': orderHash,
         'negRisk': negRisk,
         'failureCode': failureCode,
@@ -441,7 +430,6 @@ class StandingOrder {
         eventSlug: json['eventSlug'] as String?,
         roundWindow: json['roundWindow'] as String?,
         marketEndAt: at(json['marketEndAtMs']),
-        postNotBefore: at(json['postNotBeforeMs']),
         orderHash: json['orderHash'] as String?,
         negRisk: json['negRisk'] as bool? ?? false,
         failureCode: json['failureCode'] as String?,
@@ -544,22 +532,4 @@ double? standingFillEntryPrice(
   }
   if (shares <= 0 || shares < needed) return null;
   return cost / shares;
-}
-
-/// When a prediction's post may go out at the earliest: the start of the
-/// round for a pick on a 5-minute window that has not started at [now]
-/// (the Crypto card's buttons on "Next"), else null (post as soon as the
-/// money is counted). [window] is the slip's own `roundWindow`; a slug
-/// whose round is already in play never waits.
-DateTime? standingPostNotBefore({
-  String? eventSlug,
-  String? window,
-  required DateTime now,
-}) {
-  if (eventSlug == null) return null;
-  final round = polyCryptoRoundOf(eventSlug);
-  if (round == null) return null;
-  if (!round.start.isAfter(now)) return null;
-  if (window != null && window != 'next') return null;
-  return round.start;
 }

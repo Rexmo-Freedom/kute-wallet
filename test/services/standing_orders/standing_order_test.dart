@@ -14,7 +14,6 @@ StandingOrder order({
   StandingOrderState state = StandingOrderState.funding,
   DateTime? createdAt,
   String? eventSlug,
-  DateTime? postNotBefore,
 }) {
   final at = createdAt ?? DateTime.utc(2026, 11, 9, 12);
   return StandingOrder(
@@ -37,7 +36,6 @@ StandingOrder order({
     slippagePct: 5,
     eventSlug: eventSlug,
     roundWindow: eventSlug == null ? null : 'next',
-    postNotBefore: postNotBefore,
     orderHash: '0x${'ab' * 32}',
     negRisk: true,
     attempts: 2,
@@ -100,8 +98,7 @@ void main() {
   test('the record round-trips through JSON with every public fact', () {
     final o = order(
         state: StandingOrderState.needsApproval,
-        eventSlug: 'btc-updown-5m-1791152100',
-        postNotBefore: DateTime.utc(2026, 11, 9, 12, 5));
+        eventSlug: 'btc-updown-5m-1791152100');
     final back = StandingOrder.fromJson(o.toJson())!;
     expect(back.id, o.id);
     expect(back.walletId, o.walletId);
@@ -115,7 +112,6 @@ void main() {
     expect(back.slippagePct, 5);
     expect(back.eventSlug, o.eventSlug);
     expect(back.roundWindow, 'next');
-    expect(back.postNotBefore, o.postNotBefore);
     expect(back.orderHash, o.orderHash);
     expect(back.negRisk, isTrue);
     expect(back.attempts, 2);
@@ -183,37 +179,15 @@ void main() {
     });
   });
 
-  group('the next round', () {
-    // btc-updown-5m-1791152100 starts at 1791152100 (UTC).
-    final start = DateTime.fromMillisecondsSinceEpoch(1791152100 * 1000, isUtc: true);
-
-    test('a pick for the next 5-minute round posts once it opens', () {
-      final now = start.subtract(const Duration(minutes: 2));
-      final at = standingPostNotBefore(
-          eventSlug: 'btc-updown-5m-1791152100', window: 'next', now: now);
-      expect(at, start);
-      final o = order(eventSlug: 'btc-updown-5m-1791152100', postNotBefore: at);
-      expect(o.mayPostAt(now), isFalse);
-      expect(o.mayPostAt(start), isTrue);
-    });
-
-    test('a round already in play, another market or no slug never waits', () {
-      expect(
-          standingPostNotBefore(
-              eventSlug: 'btc-updown-5m-1791152100',
-              window: 'current',
-              now: start.add(const Duration(seconds: 10))),
-          isNull);
-      expect(
-          standingPostNotBefore(
-              eventSlug: 'btc-updown-5m-1791152100',
-              window: 'current',
-              now: start.subtract(const Duration(seconds: 10))),
-          isNull);
-      expect(standingPostNotBefore(eventSlug: 'will-it-rain', now: start), isNull);
-      expect(standingPostNotBefore(now: start), isNull);
-      expect(order().mayPostAt(start), isTrue);
-    });
+  test('a record kept by a build that held a pick back for its round reads '
+      'as one that waits for nothing', () {
+    // 2.2.0 (111) and earlier wrote `postNotBeforeMs`; the venue takes
+    // orders before a round starts, so nothing reads it any more.
+    final json = order(eventSlug: 'btc-updown-5m-1791152100').toJson()
+      ..['postNotBeforeMs'] = 1791152100 * 1000;
+    final back = StandingOrder.fromJson(json)!;
+    expect(back.eventSlug, 'btc-updown-5m-1791152100');
+    expect(back.toJson().containsKey('postNotBeforeMs'), isFalse);
   });
 
   test('the re-price bounds are three times within 90 seconds', () {

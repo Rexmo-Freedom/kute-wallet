@@ -1074,8 +1074,6 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       eventSlug: intent.eventSlug,
       roundWindow: intent.roundWindow,
       marketEndAt: intent.marketEndAt,
-      postNotBefore: standingPostNotBefore(
-          eventSlug: intent.eventSlug, window: intent.roundWindow, now: now),
       negRisk: intent.marketQuote?.tokenId == intent.tokenId
           ? intent.marketQuote!.negRisk
           : intent.negRisk,
@@ -1142,7 +1140,9 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
       'fund_usd': record.fundUsd,
       'stage': (byId(record.id) ?? record).state.name,
       'order_kind': record.orderKind,
-      'waits_for_round': record.postNotBefore != null,
+      // Kept for the event's shape: no order waits for a round to open
+      // any more (standing_order.dart).
+      'waits_for_round': false,
     });
   }
 
@@ -1288,11 +1288,6 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
 
   /// The approval of [id] was used (the action signed): gone from storage.
   Future<void> approvalUsed(String id) => _store.deleteSecret(id);
-
-  /// Whether [id]'s post may go out at [now] (a pick for the next round
-  /// waits for it to open).
-  bool mayPost(String id, {DateTime? now}) =>
-      byId(id)?.mayPostAt(now ?? clock()) ?? true;
 
   // ── Transitions ──────────────────────────────────────────────────────
 

@@ -341,7 +341,10 @@ void main() {
       expect(secrets.writes, 1);
     });
 
-    test('a pick for the next round waits for it to open', () async {
+    test('a pick for a round that has not started waits for nothing', () async {
+      // The venue takes orders on a round before it starts: the standing
+      // order carries no "not before" moment (pending_bet_standing_post_test
+      // pins the post itself).
       final start = DateTime.fromMillisecondsSinceEpoch(1791152100 * 1000, isUtc: true);
       StandingOrdersNotifier.clock = () => start.subtract(const Duration(minutes: 2));
       AuthGrants.clock = StandingOrdersNotifier.clock;
@@ -354,11 +357,9 @@ void main() {
       c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
       await settle();
       final o = c.read(standingOrdersProvider).single;
-      expect(o.postNotBefore, start);
-      final notifier = c.read(standingOrdersProvider.notifier);
-      expect(notifier.mayPost(o.id), isFalse);
-      expect(notifier.mayPost(o.id, now: start), isTrue);
-      expect(named('standing_order_created').single.$2!['waits_for_round'], true);
+      expect(o.roundWindow, 'next');
+      expect(o.toJson().containsKey('postNotBeforeMs'), isFalse);
+      expect(named('standing_order_created').single.$2!['waits_for_round'], false);
     });
 
     test('no approval in memory: nothing is signed, the autofire goes on as before',
