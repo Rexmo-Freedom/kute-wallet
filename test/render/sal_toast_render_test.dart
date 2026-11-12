@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -31,7 +32,7 @@ Future<void> _assets(WidgetTester tester) async {
             await rootBundle.loadString('$kSalSpriteDir/manifest.json'))
         as Map<String, dynamic>;
     SalSpriteCache.debugSetManifest(manifest);
-    for (final clip in ['happy', 'sad', 'blink']) {
+    for (final clip in SalMoments.faceClips) {
       await SalSpriteCache.clip(clip, 3);
     }
   });

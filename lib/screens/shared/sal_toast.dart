@@ -12,10 +12,16 @@
 // the primary button's dark fill with white words in light mode, the white
 // pill with near-black words in dark mode; the hairline edge and the one
 // shadow), centred under the status bar and no wider than its words. On
-// the left the 3D Sal at the pill's size in the tone's clip (`happy` for a
-// success, `sad` for a failure, the calm `blink` for pending and for
-// information; the rig in the matching mood where his sheets cannot be
-// read, as in every Sal), then one line of message in the pill's text
+// the left the 3D Sal at the pill's size playing the tone's moment
+// (sal_moments.dart; founder, 12 November 2026): a success nods once and
+// keeps still, a failure shakes it off once (a calm `shake_no`, never
+// `sad`) and keeps still, pending waits (`think`, then `search`, a pass
+// each), information blinks; the rig in the matching mood where his
+// sheets cannot be read, as in every Sal. A toast changed in place into
+// how its order ended plays that moment at once. While a toast is on
+// screen it holds the spotlight (SalSpotlight, sal_sprite.dart): the
+// bar's Sals keep still and play no reaction of their own over it. Then
+// one line of message in the pill's text
 // style and an optional quieter second line, and on the right the result
 // sheet's own small mark (KuteStatusMark, kute_success_overlay.dart: the
 // check pops and draws, the "!", the clock; none for information).
@@ -65,6 +71,7 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart'
     show KuteConfirmation, KuteConfirmationTone, KuteStatusMark;
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/success_feedback.dart';
 import 'package:kute/theme/kute_bar_surface.dart';
@@ -74,14 +81,16 @@ import 'package:kute/theme/kute_overlay_surface.dart';
 /// What a toast is saying: Sal's clip, the mark, the haptic and how long
 /// it stays.
 enum SalToastTone {
-  /// Done (a prediction placed, a send out). Sal `happy`, the check, the
-  /// success beat, 2.5 s.
+  /// Done (a prediction placed, a send out). Sal nods once, the check,
+  /// the success beat, 2.5 s.
   success,
 
-  /// It did not happen. Sal `sad`, the "!", the failure tap, 6 s.
+  /// It did not happen. Sal shakes it off once, the "!", the failure
+  /// tap, 6 s.
   failure,
 
-  /// Accepted, not finished yet. Sal `blink`, the clock, no haptic, 3 s.
+  /// Accepted, not finished yet. Sal waits (think, search), the clock,
+  /// no haptic, 3 s.
   pending,
 
   /// Information (a copy, a note). Sal `blink`, no mark, no haptic, 3 s.
@@ -110,7 +119,15 @@ class SalToast extends StatefulWidget {
     this.closable,
     this.sticky = false,
     this.onClose,
+    this.salMoment,
   });
+
+  /// Sal's moment; null: the tone's ([momentFor]). The placing toast
+  /// waits under information's look.
+  final SalMoment? salMoment;
+
+  /// The moment Sal plays in this toast.
+  SalMoment get resolvedSalMoment => salMoment ?? momentFor(tone);
 
   /// The one line: a short plain sentence ("Prediction placed").
   final String message;
@@ -165,17 +182,23 @@ class SalToast extends StatefulWidget {
         SalToastTone.pending || SalToastTone.info => infoDuration,
       };
 
-  /// Sal's clip for [tone] (the result sheet's rule).
-  static String clipFor(SalToastTone tone) => switch (tone) {
-        SalToastTone.success => 'happy',
-        SalToastTone.failure => 'sad',
-        SalToastTone.pending || SalToastTone.info => 'blink',
+  /// Sal's moment for [tone] (sal_moments.dart; the result sheet's rule).
+  static SalMoment momentFor(SalToastTone tone) => switch (tone) {
+        SalToastTone.success => SalMoment.done,
+        SalToastTone.failure => SalMoment.shrug,
+        SalToastTone.pending => SalMoment.waiting,
+        SalToastTone.info => SalMoment.calm,
       };
+
+  /// The clip Sal opens [tone]'s moment on.
+  static String clipFor(SalToastTone tone) =>
+      SalMoments.firstClip(momentFor(tone));
 
   /// The rig's mood for [tone], where the sheets cannot be read.
   static KuteDogMood moodFor(SalToastTone tone) => switch (tone) {
         SalToastTone.success => KuteDogMood.happy,
-        SalToastTone.failure => KuteDogMood.sad,
+        // Calm, never sad for money (sal_moments.dart).
+        SalToastTone.failure => KuteDogMood.calm,
         SalToastTone.pending || SalToastTone.info => KuteDogMood.calm,
       };
 
@@ -207,6 +230,7 @@ class SalToast extends StatefulWidget {
     bool sticky = false,
     VoidCallback? onClose,
     String? tag,
+    SalMoment? salMoment,
   }) =>
       _SalToastStage.show(
         context,
@@ -222,6 +246,7 @@ class SalToast extends StatefulWidget {
           closable: closable,
           sticky: sticky,
           onClose: onClose,
+          salMoment: salMoment,
         ),
         tag: tag,
       );
@@ -341,9 +366,9 @@ class _SalToastState extends State<SalToast>
         mainAxisSize: MainAxisSize.min,
         children: [
           ExcludeSemantics(
-            child: SalSprite(
-              key: const ValueKey('sal-toast-sal'),
-              clip: SalToast.clipFor(tone),
+            child: SalMomentSprite(
+              spriteKey: const ValueKey('sal-toast-sal'),
+              moment: widget.resolvedSalMoment,
               size: KuteBarSurface.salSize,
               fallback: KuteDogConfirmation(
                 key: const ValueKey('sal-toast-rig'),

@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -106,12 +107,12 @@ void main() {
       (tester) async {
     _manifest();
     final loading = Completer<SalClip?>();
-    SalSpriteCache.debugPutLoading('happy', _density(tester), loading.future);
+    SalSpriteCache.debugPutLoading(SalMoments.doneFace, _density(tester), loading.future);
     await tester.pumpWidget(_app(_sheet()));
     await tester.pump(const Duration(milliseconds: 1200));
 
     expect(_sal(), findsOneWidget);
-    expect(tester.widget<SalSprite>(_sal()).clip, 'happy');
+    expect(tester.widget<SalSprite>(_sal()).clip, SalMoments.doneFace);
     expect(find.byType(KuteDogConfirmation), findsNothing,
         reason: 'never the rig for a wait on a read');
     expect(SalSprite.debugPaintLog, isEmpty, reason: 'nothing painted yet');
@@ -124,7 +125,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(SalSprite.debugPaintLog, isNotEmpty);
-    expect(SalSprite.debugPaintLog!.every((f) => f.name == 'happy'), isTrue);
+    expect(SalSprite.debugPaintLog!.every((f) => f.name == SalMoments.doneFace),
+        isTrue);
     expect(find.byType(KuteDogConfirmation), findsNothing);
     expect(tester.getSize(_sal()), place);
     expect(tester.takeException(), isNull);
@@ -150,14 +152,14 @@ void main() {
       'the read comes back empty (no sheet for the clip): the rig, and only '
       'then', (tester) async {
     _manifest();
-    SalSpriteCache.debugPutLoading(
-        'sad', _density(tester), Future<SalClip?>.value(null));
+    SalSpriteCache.debugPutLoading(SalMoments.shrugFace, _density(tester),
+        Future<SalClip?>.value(null));
     await tester.pumpWidget(_app(_sheet(tone: KuteConfirmationTone.failure)));
     await tester.pump();
     await tester.pump();
     expect(find.byType(KuteDogConfirmation), findsOneWidget);
     expect(tester.widget<KuteDogConfirmation>(find.byType(KuteDogConfirmation))
-        .mood, KuteDogMood.sad);
+        .mood, KuteDogMood.calm);
     expect(SalSprite.debugPaintLog, isEmpty);
     expect(tester.takeException(), isNull);
   });
@@ -175,7 +177,7 @@ void main() {
       (tester) async {
     _manifest();
     final loading = Completer<SalClip?>();
-    SalSpriteCache.debugPutLoading('happy', _density(tester), loading.future);
+    SalSpriteCache.debugPutLoading(SalMoments.doneFace, _density(tester), loading.future);
     await tester.pumpWidget(_app(_sheet(), reduceMotion: true));
     await tester.pump();
     expect(find.byType(KuteDogConfirmation), findsNothing);
@@ -188,7 +190,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('warmSal asks for happy, sad and blink', () async {
+  test('warmSal asks for every moment\'s clips', () async {
     SalSpriteCache.debugSetManifest(null);
     SalSpriteCache.debugRequestLog = [];
     addTearDown(() => SalSpriteCache.debugRequestLog = null);

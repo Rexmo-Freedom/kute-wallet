@@ -13,6 +13,7 @@ import 'package:kute/screens/shared/kute_success_overlay.dart'
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/sal_notices.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -113,7 +114,7 @@ void main() {
   }
 
   testWidgets(
-      'success: Sal happy, the check, the message and the second line; '
+      'success: Sal nods, the check, the message and the second line; '
       'the success beat once; gone by itself after 2.5 s', (tester) async {
     await pumpApp(tester);
     SalToast.show(page,
@@ -127,7 +128,7 @@ void main() {
     expect(find.text('Prediction placed'), findsOneWidget);
     expect(find.byKey(_detail), findsOneWidget);
     expect(find.text(r'$5.00 on Yes'), findsOneWidget);
-    expect(_clip(tester), 'happy');
+    expect(_clip(tester), 'nod');
     expect(_mood(tester), KuteDogMood.happy);
     expect(tester.widget<KuteStatusMark>(find.byKey(_mark)).tone,
         KuteConfirmationTone.success);
@@ -145,7 +146,8 @@ void main() {
   });
 
   testWidgets(
-      'failure: Sal sad, the "!", the failure tap once; stays 6 s',
+      'failure: Sal shrugs (never sad), the "!", the failure tap once; '
+      'stays 6 s',
       (tester) async {
     await pumpApp(tester);
     SalToast.show(page,
@@ -153,8 +155,8 @@ void main() {
     await tester.pump();
     await tester.pump(_arrive);
 
-    expect(_clip(tester), 'sad');
-    expect(_mood(tester), KuteDogMood.sad);
+    expect(_clip(tester), 'shake_no');
+    expect(_mood(tester), KuteDogMood.calm);
     expect(tester.widget<KuteStatusMark>(find.byKey(_mark)).tone,
         KuteConfirmationTone.failure);
     expect(failure, 1);
@@ -190,13 +192,16 @@ void main() {
     await drain(tester);
   });
 
-  testWidgets('pending: Sal blinks, the clock, no haptic', (tester) async {
+  testWidgets('pending: Sal waits, the clock, no haptic', (tester) async {
     await pumpApp(tester);
     SalToast.show(page, message: 'Order resting', tone: SalToastTone.pending);
     await tester.pump();
     await tester.pump(_arrive);
 
-    expect(_clip(tester), 'blink');
+    // No sheets here (the rig draws him): the moment, and the clip it
+    // opens on (sal_moments_test.dart plays it).
+    expect(_shown(tester).resolvedSalMoment, SalMoment.waiting);
+    expect(SalToast.clipFor(SalToastTone.pending), 'think');
     expect(tester.widget<KuteStatusMark>(find.byKey(_mark)).tone,
         KuteConfirmationTone.pending);
     expect(success, 0);
