@@ -5875,6 +5875,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                                 // Phrased around the order, never as money
                                 // moving into Investments (it is there).
                                 ? context.l10n.slipStepPreparingOrder
+                                // After the tap the button says what is
+                                // happening, never the action again
+                                // (founder, 12 November 2026: "should be,
+                                // after I press, processing or something").
+                                : _isPlacing
+                                ? context.l10n.betPlacingOrder
+                                : _preparing
+                                ? context.l10n.activityProcessingEllipsis
                                 : null),
                     category: SearchCategory.perpetuals,
                     source: 'order_slip',
