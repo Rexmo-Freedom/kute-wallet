@@ -15,6 +15,12 @@ import 'package:kute/screens/polymarket/components/game_chart_section.dart'
     show gameSideColors, kGameSideColors;
 import 'package:kute/services/polymarket/market_display_title.dart'
     show polyMarketDisplayTitle;
+import 'package:kute/providers/polymarket_card_spark_provider.dart'
+    show polyCardSparkProvider;
+import 'package:kute/services/polymarket/poly_card_spark_store.dart'
+    show PolyCardSparkStore, polyCardSparkValues;
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlLineSparkline;
 import 'package:kute/services/polymarket/live_game/game_sides.dart'
     show gameShortSideNames;
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -318,6 +324,13 @@ Color polyCardMoveColor(double move) =>
 /// The pills are quiet (founder, 1 November 2026): the neutral surface
 /// as their fill, the side's market colour as their ink; no solid green
 /// or red blocks on a list, and no tinted chips anywhere in the app.
+///
+/// Each card has a tiny chart (founder, 12 November 2026), read card by
+/// card from the market chart's own history (polymarket_card_spark_provider):
+/// the leader's 7-day line top right in its chart colour, a Yes/No
+/// market's 7-day Yes line in the neutral ink over its answers, a game's
+/// leader's win chance in its team's colour (since kickoff while it is
+/// played). It never holds the card up: nothing is drawn until it lands.
 ///
 /// Every open card has one tap to the slip ([onPickSide], founder, 12
 /// November 2026): a quiet "Yes 84¢" pill per outcome row, a Yes/No
@@ -871,11 +884,35 @@ class MarketCard extends ConsumerWidget {
         row(game.nameA, game.chanceA, score?.a, game.outcomeA, leader >= 0),
         SizedBox(height: 12.h),
         row(game.nameB, game.chanceB, score?.b, game.outcomeB, leader <= 0),
+        if (_gameSpark(game, leader) case final spark?) ...[
+          SizedBox(height: 10.h),
+          spark,
+        ],
         if (hasLivestream) ...[
           SizedBox(height: 10.h),
           _LiveStreamBadge(category: category),
         ],
       ],
+    );
+  }
+
+  /// The leader's win chance as a line in its team's colour: since
+  /// kickoff while the game is played, its last 7 days otherwise. Null
+  /// when the side has no token to read.
+  Widget? _gameSpark(PolyCardGame game, int leader) {
+    final a = leader >= 0;
+    final token = a ? game.tokenA : game.tokenB;
+    if (token == null || token.isEmpty) return null;
+    final colors = gameSideColors(title, game.nameA, game.nameB);
+    final live = _gameLive;
+    return _CardSpark(
+      tokenId: token,
+      interval: live ? PolyCardSparkStore.liveInterval : '1w',
+      since: live ? gameStart : null,
+      live: a ? game.chanceA : game.chanceB,
+      color: a ? colors.$1 : colors.$2,
+      width: double.infinity,
+      height: 24,
     );
   }
 
@@ -975,6 +1012,19 @@ class MarketCard extends ConsumerWidget {
           trailing: _ChanceGauge(
               identity: _identity, chance: yesPrice, move: dayMove ?? yes.dayMove),
         ),
+        // The 7-day Yes line in the neutral ink (a chance is not good or
+        // bad), over the answers.
+        if (yes.tokenId case final token? when token.isNotEmpty) ...[
+          SizedBox(height: 12.h),
+          _CardSpark(
+            tokenId: token,
+            interval: '1w',
+            live: yesPrice,
+            color: c.textPrimary,
+            width: double.infinity,
+            height: 24,
+          ),
+        ],
         if (open) ...[
           SizedBox(height: 12.h),
           // The two answers as the card's base: full width, 36 tall.
@@ -1220,15 +1270,41 @@ class MarketCard extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildHeading(
-          c,
-          image,
-          title: _listTitle(),
-          maxLines: _kListTitleLines,
-          under: [
-            if (meta != null) ...[SizedBox(height: 4.h), meta],
-          ],
-        ),
+        LayoutBuilder(builder: (context, constraints) {
+          // The leader's 7-day line top right, in its chart colour (where
+          // the Yes/No card keeps its gauge); under the meta line when the
+          // title would be left too little room beside it.
+          final leader = top.firstOrNull;
+          final token = leader?.tokenId;
+          final spark = token == null || token.isEmpty
+              ? null
+              : _CardSpark(
+                  tokenId: token,
+                  interval: '1w',
+                  live: _effectivePrice(leader!).clamp(0.0, 1.0),
+                  color: lineColor(leader) ?? c.textPrimary,
+                  width: 64,
+                  height: 24,
+                );
+          final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+          final room = constraints.maxWidth -
+              kPolyCardImage.w -
+              kPolyCardImageGap.w -
+              64.w -
+              10.w;
+          final beside = spark != null && room / scale >= 150;
+          return _buildHeading(
+            c,
+            image,
+            title: _listTitle(),
+            maxLines: _kListTitleLines,
+            trailing: beside ? spark : null,
+            under: [
+              if (meta != null) ...[SizedBox(height: 4.h), meta],
+              if (spark != null && !beside) ...[SizedBox(height: 6.h), spark],
+            ],
+          );
+        }),
         for (var i = 0; i < top.length; i++) ...[
           SizedBox(height: i == 0 ? 10.h : 8.h),
           Padding(padding: indent, child: row(top[i], i == 0)),
@@ -1773,6 +1849,51 @@ class PolyOutcomeChanceBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A card's tiny chart: one token's line ([HlLineSparkline], the
+/// Investing cards' own) in [color], no fill and no baseline, ending on
+/// [live] (the figure the card shows), from [since] when given. Until the
+/// series lands it takes its place and draws nothing.
+class _CardSpark extends ConsumerWidget {
+  final String tokenId;
+  final String interval;
+  final DateTime? since;
+  final double? live;
+  final Color color;
+
+  /// In design units (the sparkline scales them); [double.infinity] for
+  /// the card's whole width.
+  final double width;
+  final double height;
+  const _CardSpark({
+    required this.tokenId,
+    required this.interval,
+    this.since,
+    this.live,
+    required this.color,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final points = ref.watch(
+        polyCardSparkProvider((tokenId: tokenId, interval: interval)));
+    final values = polyCardSparkValues(points, since: since, live: live);
+    if (values.length < 2) {
+      return SizedBox(width: width.w, height: height.h);
+    }
+    return HlLineSparkline(
+      closes: values,
+      width: width,
+      height: height,
+      upColor: color,
+      downColor: color,
+      strokeWidth: 1.6,
+      baseline: false,
     );
   }
 }

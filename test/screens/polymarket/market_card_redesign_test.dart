@@ -11,7 +11,13 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart'
     show kGameSideColors;
+import 'dart:async';
+
+import 'package:kute/providers/polymarket_card_spark_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlLineSparkline;
 import 'package:kute/screens/polymarket/components/live_game.dart';
+import 'package:kute/services/polymarket/poly_card_spark_store.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/services/polymarket/polymarket_feed_cache.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -109,6 +115,23 @@ const _threeWay = [
       noTokenId: 'cheN',
       dayMove: -0.09),
 ];
+
+/// A store whose history answers at once with a climbing week.
+List<Override> _sparks() => [
+      polyCardSparkStoreProvider.overrideWith((ref) {
+        final store = PolyCardSparkStore(fetch: (token, interval) async {
+          final now = DateTime.now();
+          return [
+            for (var i = 0; i < 40; i++)
+              PolymarketPricePoint(
+                  timestamp: now.subtract(Duration(hours: 4 * (40 - i))),
+                  price: 0.3 + i * 0.01),
+          ];
+        });
+        ref.onDispose(store.dispose);
+        return store;
+      }),
+    ];
 
 void main() {
   // The app's own face, so a row lays out as on a phone.
@@ -519,6 +542,201 @@ void main() {
     });
   });
 
+  group('C · tiny chart', () {
+    late List<(String, String)> asked;
+    late DateTime kickoff;
+
+    /// A history that answers at once: a week of points (the last two
+    /// hours at a point a minute), climbing.
+    List<Override> answering({Completer<void>? hold}) => [
+          polyCardSparkStoreProvider.overrideWith((ref) {
+            final store = PolyCardSparkStore(fetch: (token, interval) async {
+              asked.add((token, interval));
+              if (hold != null) await hold.future;
+              final now = DateTime.now();
+              return [
+                for (var i = 0; i < 40; i++)
+                  PolymarketPricePoint(
+                      timestamp: now.subtract(Duration(hours: 4 * (40 - i))),
+                      price: 0.3 + i * 0.01),
+                for (var m = 120; m > 0; m -= 10)
+                  PolymarketPricePoint(
+                      timestamp: now.subtract(Duration(minutes: m)),
+                      price: 0.5),
+              ];
+            });
+            ref.onDispose(store.dispose);
+            return store;
+          }),
+        ];
+
+    setUp(() {
+      asked = [];
+      kickoff = DateTime.now().subtract(const Duration(minutes: 72));
+    });
+
+    Future<void> land(WidgetTester tester) async {
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+    }
+
+    HlLineSparkline spark(WidgetTester tester) =>
+        tester.widget<HlLineSparkline>(find.byType(HlLineSparkline));
+
+    testWidgets(
+        "many outcomes: the leader's 7-day line top right, in its chart "
+        'colour, ending on its chance', (tester) async {
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Jensen Huang announced resignation or removal?',
+          outcomes: _dated(),
+          volume: 20.2e6,
+          category: 'tech',
+          endDate: DateTime(2027, 4, 30),
+        ),
+        overrides: answering(),
+      );
+      await land(tester);
+      expect(asked, [('d27', '1w')]);
+      final line = spark(tester);
+      final bar = tester.widgetList<PolyOutcomeChanceBar>(
+          find.byType(PolyOutcomeChanceBar)).first;
+      expect(line.upColor, bar.color);
+      expect(line.downColor, bar.color);
+      expect(line.baseline, isFalse);
+      expect(line.closes.last, 0.84);
+      final card = tester.getRect(find.byType(MarketCard));
+      final at = tester.getRect(find.byType(HlLineSparkline));
+      expect(card.right - at.right, moreOrLessEquals(16.w, epsilon: 1));
+      expect(at.bottom,
+          lessThan(tester.getTopLeft(find.text('December 31, 2027')).dy));
+    });
+
+    testWidgets('Yes/No: the 7-day Yes line in the neutral ink over the '
+        'answers', (tester) async {
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Fed cuts rates in December?',
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.62, tokenId: 'y'),
+            PolymarketOutcome(name: 'No', price: 0.39, tokenId: 'n'),
+          ],
+          volume: 48.1e6,
+          category: 'economy',
+          endDate: DateTime(2026, 12, 10),
+          onPickSide: (_) {},
+        ),
+        overrides: answering(),
+      );
+      await land(tester);
+      expect(asked, [('y', '1w')]);
+      final line = spark(tester);
+      expect(line.upColor, AppColorsExtension.light().textPrimary);
+      expect(line.closes.last, 0.62);
+      final at = tester.getRect(find.byType(HlLineSparkline));
+      final pills = tester.getRect(find.byType(PolySidePill).first);
+      expect(at.bottom, lessThanOrEqualTo(pills.top));
+      expect(at.width, moreOrLessEquals(pills.width * 2 + 8.w, epsilon: 1));
+    });
+
+    testWidgets(
+        "a game in play: the leader's win chance since kickoff in its team "
+        'colour', (tester) async {
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Arsenal vs Chelsea',
+          outcomes: _threeWay,
+          volume: 3.4e6,
+          category: 'sports',
+          gameStart: kickoff,
+          liveGame: const PolyLiveGame(
+              score: '2-1', clock: "67'", period: '2H', firstIsHome: true),
+        ),
+        overrides: answering(),
+      );
+      await land(tester);
+      expect(asked, [('ars', '6h')]);
+      final line = spark(tester);
+      expect(line.upColor, kGameSideColors[0]);
+      // Only the points since kickoff (the last 72 minutes: 7 of the
+      // fake's), then the chance shown.
+      expect(line.closes, [...List.filled(7, 0.5), 0.58]);
+    });
+
+    testWidgets('a game before kickoff: the 7-day line of the likelier side',
+        (tester) async {
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Broncos vs. 49ers',
+          outcomes: const [
+            PolymarketOutcome(name: 'Broncos', price: 0.36, tokenId: 'bro'),
+            PolymarketOutcome(name: '49ers', price: 0.64, tokenId: 'nin'),
+          ],
+          volume: 6.2e6,
+          category: 'sports',
+          gameStart: DateTime(2030, 10, 5, 20, 30),
+        ),
+        overrides: answering(),
+      );
+      await land(tester);
+      expect(asked, [('nin', '1w')]);
+      expect(spark(tester).upColor, kGameSideColors[1]);
+    });
+
+    testWidgets('until the history lands the card is whole and draws no line',
+        (tester) async {
+      final hold = Completer<void>();
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Fed cuts rates in December?',
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.62, tokenId: 'y'),
+            PolymarketOutcome(name: 'No', price: 0.39, tokenId: 'n'),
+          ],
+          volume: 48.1e6,
+          category: 'economy',
+          endDate: DateTime(2026, 12, 10),
+        ),
+        overrides: answering(hold: hold),
+      );
+      final before = tester.getSize(find.byType(MarketCard));
+      await land(tester);
+      expect(asked, hasLength(1));
+      expect(find.byType(HlLineSparkline), findsNothing);
+      expect(find.text('Fed cuts rates in December?'), findsOneWidget);
+      hold.complete();
+      await land(tester);
+      expect(find.byType(HlLineSparkline), findsOneWidget);
+      // Its place was kept: the card does not jump when it lands.
+      expect(tester.getSize(find.byType(MarketCard)), before);
+    });
+
+    testWidgets('a card scrolled away before its batch asks for nothing',
+        (tester) async {
+      final overrides = answering();
+      MarketCard yesNo(String token) => MarketCard(
+            title: 'Will $token happen?',
+            outcomes: [
+              PolymarketOutcome(name: 'Yes', price: 0.62, tokenId: token),
+              const PolymarketOutcome(name: 'No', price: 0.39),
+            ],
+            volume: 1,
+            category: 'economy',
+          );
+      await _pump(tester, yesNo('gone'), overrides: overrides);
+      await tester.pump(const Duration(milliseconds: 100));
+      // The list moved on (same session, same store): another card.
+      await _pump(tester, yesNo('kept'), overrides: overrides);
+      await tester.pump(const Duration(seconds: 1));
+      expect(asked, [('kept', '1w')]);
+    });
+  });
+
   group('nothing cut', () {
     for (final dark in [false, true]) {
       testWidgets('at 320 pt and text ×1.5 (${dark ? 'dark' : 'light'})',
@@ -559,7 +777,12 @@ void main() {
           dark: dark,
           width: 320 * 1.0,
           textScale: 1.5,
+          overrides: _sparks(),
         );
+        // The tiny charts land too.
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump();
+        expect(find.byType(HlLineSparkline), findsNWidgets(3));
         expect(tester.takeException(), isNull);
         const titles = {
           'Jensen Huang announced resignation or removal?',
