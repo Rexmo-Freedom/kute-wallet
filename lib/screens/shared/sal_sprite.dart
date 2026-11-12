@@ -120,6 +120,58 @@ const int kSalSpriteCacheMaxBytes = 120 * 1024 * 1024;
 /// The cross-dissolve between two clips (see the file header).
 const Duration kSalCrossfade = Duration(milliseconds: 120);
 
+/// Who is performing now (see the file header, "one Sal at a time"): a
+/// set of holders, and a revision that changes whenever it does. A change
+/// made while the tree builds (a holder mounting or going) is told after
+/// that frame, so listeners may set state.
+abstract final class SalSpotlight {
+  static final Set<Object> _holders = <Object>{};
+  static final ValueNotifier<int> _changes = ValueNotifier<int>(0);
+  static bool _scheduled = false;
+
+  /// Changes whenever a holder comes or goes.
+  static ValueListenable<int> get changes => _changes;
+
+  /// [who] is performing (a toast, a result sheet, the money journey, an
+  /// idle beat); idempotent.
+  static void hold(Object who) {
+    if (_holders.add(who)) _notify();
+  }
+
+  /// [who] is through; idempotent.
+  static void release(Object who) {
+    if (_holders.remove(who)) _notify();
+  }
+
+  /// Whether any Sal is performing.
+  static bool get held => _holders.isNotEmpty;
+
+  /// Whether a Sal other than [who] is performing.
+  static bool heldByOther(Object who) =>
+      _holders.any((h) => !identical(h, who));
+
+  static void _notify() {
+    final binding = SchedulerBinding.instance;
+    if (binding.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      _changes.value++;
+      return;
+    }
+    if (_scheduled) return;
+    _scheduled = true;
+    binding.addPostFrameCallback((_) {
+      _scheduled = false;
+      _changes.value++;
+    });
+  }
+
+  /// Tests: nobody performing.
+  @visibleForTesting
+  static void debugReset() {
+    _holders.clear();
+    _scheduled = false;
+  }
+}
+
 /// One clip's sheet, decoded, with its timing.
 class SalClip {
   const SalClip({
@@ -263,6 +315,7 @@ abstract final class SalSpriteCache {
     maxBytes = kSalSpriteCacheMaxBytes;
     debugLoader = null;
     SalCoinAnchors.debugReset();
+    SalSpotlight.debugReset();
   }
 
   /// The manifest's groups: group name → clip names, in manifest order.
@@ -648,6 +701,7 @@ class SalSprite extends StatefulWidget {
     this.cue = 0,
     this.crossfade = kSalCrossfade,
     this.switchAtBoundary = true,
+    this.paused = false,
     this.onComplete,
     this.onUnavailable,
     this.onFrame,
@@ -696,6 +750,12 @@ class SalSprite extends StatefulWidget {
   /// (a loop back at frame 0, a one-shot through); off, it lands on the
   /// next tick.
   final bool switchAtBoundary;
+
+  /// Holds the frame on screen, the ticker stopped (frame 0 when nothing
+  /// has played yet: an empty state's Sal standing still before his first
+  /// beat); unpaused, the clip plays on from there. A clip asked for while
+  /// paused takes the screen at once.
+  final bool paused;
 
   /// Called once when a one-shot reaches its last frame.
   final VoidCallback? onComplete;
@@ -792,9 +852,18 @@ class _SalSpriteState extends State<SalSprite>
     } else if (old.loop != widget.loop) {
       // The clip on screen asked to loop (or not) from here: a one-shot
       // that is now asked to loop plays on from where it stopped (the
-      // bar's `share`: once at 1.3x, then looping).
+      // bar's `share`: once at 1.3x, then looping); a loop asked to stop
+      // plays out the pass it is in and holds its last frame (a bar Sal
+      // giving the spotlight to another), never cut to it mid-cycle.
+      final wasLooping = _loops;
       _loopOverride = widget.loop;
       _onComplete = widget.onComplete;
+      final clip = _clip;
+      if (wasLooping && !_loops && clip != null) {
+        _elapsed = Duration(
+            microseconds:
+                _elapsed.inMicroseconds % clip.duration.inMicroseconds);
+      }
       if (_completed && _loops) _completed = false;
     }
     _sync();
@@ -920,6 +989,7 @@ class _SalSpriteState extends State<SalSprite>
         clip.frames > 1 &&
         (_loops || _elapsed < clip.duration);
     final play = !_reduce &&
+        !widget.paused &&
         clip != null &&
         (moving || _pendingClip != null || _out != null);
     if (play && !ticker.isActive) {
@@ -927,7 +997,12 @@ class _SalSpriteState extends State<SalSprite>
       ticker.start();
     } else if (!play && ticker.isActive) {
       ticker.stop();
-      if (!_completed) _elapsed = Duration.zero;
+      if (!_completed && !widget.paused) _elapsed = Duration.zero;
+      _out = null;
+      _outName = null;
+      _publish();
+    } else if (!play && _out != null) {
+      // A switch while still (paused): no dissolve to run.
       _out = null;
       _outName = null;
       _publish();

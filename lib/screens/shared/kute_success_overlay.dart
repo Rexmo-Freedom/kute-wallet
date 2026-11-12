@@ -265,6 +265,8 @@ class _KuteConfirmationState extends State<KuteConfirmation>
   @override
   void initState() {
     super.initState();
+    // One Sal at a time: the sheet's performs, the bar's keeps still.
+    SalSpotlight.hold(this);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: KuteConfirmation.totalMs),
@@ -376,6 +378,7 @@ class _KuteConfirmationState extends State<KuteConfirmation>
 
   @override
   void dispose() {
+    SalSpotlight.release(this);
     _routeEntrance?.removeStatusListener(_onRouteEntranceStatus);
     _slide?.dispose();
     _drag.dispose();

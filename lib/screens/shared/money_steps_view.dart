@@ -1147,6 +1147,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
 
   @override
   void dispose() {
+    SalSpotlight.release(this);
     _events.clear();
     _stillTimer?.cancel();
     _clock.dispose();
@@ -1263,6 +1264,14 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   /// tickers off) plays the pending haptics once this frame is drawn
   /// instead.
   void _kick() {
+    final ticking = TickerMode.valuesOf(context).enabled;
+    // One Sal at a time (SalSpotlight, sal_sprite.dart): while the money
+    // moves here, on screen, this Sal performs and the bar's keep still.
+    if (_scene.live && !_scene.still && ticking) {
+      SalSpotlight.hold(this);
+    } else {
+      SalSpotlight.release(this);
+    }
     if (_scene.still) {
       // Sal's still pose for the wait, once the row is laid out.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1274,7 +1283,6 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       _stillTimer?.cancel();
       _stillTimer = null;
     }
-    final ticking = TickerMode.valuesOf(context).enabled;
     if (_scene.still || !ticking) {
       if (_clock.isAnimating) _clock.stop();
       if (_events.isEmpty) return;

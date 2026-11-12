@@ -829,14 +829,26 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
   Timer? _happyTimer;
   SalReactionEvent? _reaction;
 
+  /// Another Sal is performing (a toast, a result sheet, the money
+  /// journey; SalSpotlight): the pass on screen plays out and holds.
+  bool _yield = false;
+
   @override
   void initState() {
     super.initState();
     _loading = kuteSearchLoading.value;
     kuteSearchLoading.addListener(_onLoading);
     SalReactions.current.addListener(_onReaction);
+    SalSpotlight.changes.addListener(_onSpotlight);
     _reaction = SalReactions.current.value;
+    _yield = SalSpotlight.held;
     _intro = widget.cue != 0;
+  }
+
+  void _onSpotlight() {
+    final held = SalSpotlight.held;
+    if (!mounted || held == _yield) return;
+    setState(() => _yield = held);
   }
 
   void _onReaction() {
@@ -885,6 +897,7 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
     _happyTimer?.cancel();
     kuteSearchLoading.removeListener(_onLoading);
     SalReactions.current.removeListener(_onReaction);
+    SalSpotlight.changes.removeListener(_onSpotlight);
     // A load this glyph reported ends with it.
     SalReactions.loading(kuteSearchLoading, false);
     super.dispose();
@@ -918,7 +931,7 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
         clip: clip,
         size: size,
         speed: _loading && reaction == null ? 1.4 : (intro ? 1.3 : 1.0),
-        loop: oneShot ? false : null,
+        loop: oneShot || _yield ? false : null,
         onComplete: reaction != null
             ? () => _reactionDone(reaction)
             : intro

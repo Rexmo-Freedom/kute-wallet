@@ -638,6 +638,8 @@ class _SalToastFlightState extends State<_SalToastFlight>
   @override
   void initState() {
     super.initState();
+    // One Sal at a time: the toast's performs, the bar's keep still.
+    SalSpotlight.hold(this);
     _flight.addStatusListener(_onFlight);
     if (_toast.haptic) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -704,6 +706,7 @@ class _SalToastFlightState extends State<_SalToastFlight>
   Future<void> leave() async {
     if (_leaving) return;
     _leaving = true;
+    SalSpotlight.release(this);
     _timer?.cancel();
     _timer = null;
     if (_reduce) {
@@ -763,6 +766,7 @@ class _SalToastFlightState extends State<_SalToastFlight>
 
   @override
   void dispose() {
+    SalSpotlight.release(this);
     _timer?.cancel();
     _flight.removeStatusListener(_onFlight);
     _flight.dispose();

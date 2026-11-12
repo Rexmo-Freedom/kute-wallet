@@ -74,8 +74,10 @@ abstract final class SalReactions {
 
   static final Map<Object, Timer> _loads = {};
 
-  /// Asks the bar to play [reaction] once.
+  /// Asks the bar to play [reaction] once; nothing while another Sal is
+  /// performing ([SalSpotlight]).
   static void play(SalReaction reaction) {
+    if (SalSpotlight.held) return;
     current.value = SalReactionEvent(reaction, ++_seq);
   }
 
@@ -135,11 +137,29 @@ class _SalReactionSpriteState extends State<SalReactionSprite> {
   bool _reduce = false;
   bool _warmed = false;
 
+  /// Another Sal is performing: the pass on screen plays out and holds.
+  bool _yield = false;
+
   @override
   void initState() {
     super.initState();
     SalReactions.current.addListener(_onReaction);
+    SalSpotlight.changes.addListener(_onSpotlight);
     _reaction = SalReactions.current.value;
+    _yield = SalSpotlight.held;
+  }
+
+  void _onSpotlight() {
+    final held = SalSpotlight.held;
+    if (!mounted || held == _yield) return;
+    final reaction = _reaction;
+    setState(() {
+      _yield = held;
+      // A reaction not on screen yet gives way (one already playing
+      // plays out: the switch back waits for its end).
+      if (held && reaction != null) _reaction = null;
+    });
+    if (held && reaction != null) SalReactions.clear(reaction);
   }
 
   @override
@@ -180,6 +200,7 @@ class _SalReactionSpriteState extends State<SalReactionSprite> {
   @override
   void dispose() {
     SalReactions.current.removeListener(_onReaction);
+    SalSpotlight.changes.removeListener(_onSpotlight);
     super.dispose();
   }
 
@@ -195,7 +216,8 @@ class _SalReactionSpriteState extends State<SalReactionSprite> {
       cue: reaction?.seq ?? 0,
       size: widget.size,
       speed: reaction == null ? widget.speed : 1.0,
-      loop: reaction == null ? null : false,
+      // Yielding, the context's loop plays out its pass and holds.
+      loop: reaction == null && !_yield ? null : false,
       onComplete: reaction == null ? null : () => _done(reaction),
       onUnavailable: reaction == null ? null : () => _done(reaction),
       fallback: widget.fallback,
