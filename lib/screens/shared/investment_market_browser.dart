@@ -175,9 +175,9 @@ class PredictionBrowseCard extends ConsumerWidget {
   final PolymarketEvent event;
   final VoidCallback? onTap;
 
-  /// A Yes / No pill of the row was tapped ([MarketCard.onPickSide]);
-  /// null leaves the pills as part of the row's tap.
-  final ValueChanged<String>? onPickSide;
+  /// A pill of the card was tapped ([MarketCard.onPickSide]); null
+  /// leaves the pills as part of the row's tap.
+  final ValueChanged<PolyCardPick>? onPickSide;
 
   /// A row of a grouped list card ([MarketCard.inGroup]).
   final bool inGroup;

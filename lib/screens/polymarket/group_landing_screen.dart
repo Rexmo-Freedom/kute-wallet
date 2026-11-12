@@ -294,8 +294,8 @@ class _GroupFeedCard extends ConsumerWidget {
           MarketDetailSheet.show(context,
               event: market, source: 'group_landing');
         },
-        onPickSide: (side) => polyCardOpenSlip(context,
-            event: market, side: side, source: 'group_landing'),
+        onPickSide: (pick) => polyCardOpenSlip(context,
+            event: market, pick: pick, source: 'group_landing'),
       ),
     );
   }

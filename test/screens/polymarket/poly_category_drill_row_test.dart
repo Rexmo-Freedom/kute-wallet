@@ -163,10 +163,17 @@ void main() {
         final busy = find.ancestor(
             of: find.text('Busy market 1?'), matching: find.byType(MarketCard));
         expect(tester.widget<MarketCard>(busy).inGroup, isTrue);
+        // The cards carry a pill per outcome now (one tap to the slip):
+        // the event sits further down the list.
+        await tester.scrollUntilVisible(find.text('Who will Trump meet?'), 300,
+            scrollable: _inBrowser(find.byType(Scrollable)).first);
         final trump = find.ancestor(
             of: find.text('Who will Trump meet?'),
             matching: find.byType(MarketCard));
         expect(tester.widget<MarketCard>(trump).inGroup, isFalse);
+        await tester.drag(_inBrowser(find.byType(Scrollable)).first,
+            const Offset(0, 20000));
+        await _settle(tester);
       } else {
         // Plain markets share Home Activity's grouped card; the event with
         // many outcomes keeps its own card and breaks the group:

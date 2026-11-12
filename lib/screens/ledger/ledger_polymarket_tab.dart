@@ -274,11 +274,11 @@ class _LedgerPredictionsDiscovery extends ConsumerWidget {
                   event: event,
                   onTap: onTap,
                   inGroup: inGroup,
-                  // The row's Yes / No pills open the slip on that side,
-                  // for the Ledger wallet.
-                  onPickSide: (side) => polyCardOpenSlip(context,
+                  // The card's pills open the slip on their side, for the
+                  // Ledger wallet.
+                  onPickSide: (pick) => polyCardOpenSlip(context,
                       event: event,
-                      side: side,
+                      pick: pick,
                       ledgerWalletId: walletId,
                       source: 'ledger')),
               groups: (e) => polyCardGroups(e.title, e.outcomes),

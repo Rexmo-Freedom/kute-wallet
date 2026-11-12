@@ -16,12 +16,17 @@ import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/services/polymarket/polymarket_feed_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/render_png.dart' show loadRenderFonts;
+
+/// A move as the card writes it: one piece that never wraps inside.
+String _nb(String s) => s.replaceAll(' ', '\u00A0');
+
 Future<void> _pump(WidgetTester tester, Widget card,
     {bool dark = false,
     double width = 390,
     double textScale = 1,
     List<Override> overrides = const []}) async {
-  tester.view.physicalSize = Size(width, 1200);
+  tester.view.physicalSize = Size(width, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -106,6 +111,9 @@ const _threeWay = [
 ];
 
 void main() {
+  // The app's own face, so a row lays out as on a phone.
+  setUpAll(loadRenderFonts);
+
   group('A · what is moving', () {
     testWidgets(
         'many outcomes: rows at 14 with the leader semibold, bars 6 tall, '
@@ -133,12 +141,12 @@ void main() {
       expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height,
           6);
       // The leader's own move, never the event's largest one.
-      final meta = find.text(r'Closes Apr 2027 · $20.2M · ▲ 6 pts today');
+      final meta = find.text('Closes Apr 2027 · \$20.2M · ${_nb('▲ 6 pts today')}');
       expect(meta, findsOneWidget);
       final span = (tester.widget<Text>(meta).textSpan! as TextSpan)
           .children!
           .last as TextSpan;
-      expect(span.text, '▲ 6 pts today');
+      expect(span.text, _nb('▲ 6 pts today'));
       expect(span.style!.color, AppColors.marketUp);
       expect(find.textContaining('20 pts'), findsNothing);
     });
@@ -155,7 +163,7 @@ void main() {
           endDate: DateTime(2027, 4, 30),
         ),
       );
-      final meta = find.textContaining('▼ 4 pts today');
+      final meta = find.textContaining(_nb('▼ 4 pts today'));
       expect(meta, findsOneWidget);
       final span = (tester.widget<Text>(meta).textSpan! as TextSpan)
           .children!
@@ -172,7 +180,7 @@ void main() {
           endDate: DateTime(2027, 4, 30),
         ),
       );
-      expect(find.textContaining('pts today'), findsNothing);
+      expect(find.textContaining(_nb('pts today')), findsNothing);
       expect(find.text(r'Closes Apr 2027 · $20.2M'), findsOneWidget);
     });
 
@@ -257,7 +265,7 @@ void main() {
           .toList();
       expect(boxes, contains(kGameSideColors[0]));
       expect(boxes, contains(kGameSideColors[1]));
-      final footer = find.text('Draw 21% · Arsenal ▲ 9 pts today');
+      final footer = find.text('Draw 21% · ${_nb('Arsenal ▲ 9 pts today')}');
       expect(footer, findsOneWidget);
       final span = (tester.widget<Text>(footer).textSpan! as TextSpan)
           .children!
@@ -281,7 +289,7 @@ void main() {
         ),
       );
       expect(find.textContaining('Live'), findsNothing);
-      expect(find.text('5 Oct 20:30 · Draw 21% · Arsenal ▲ 9 pts today'),
+      expect(find.text('5 Oct 20:30 · Draw 21% · ${_nb('Arsenal ▲ 9 pts today')}'),
           findsOneWidget);
       expect(find.textContaining('3.4M vol'), findsOneWidget);
     });
@@ -345,6 +353,169 @@ void main() {
       final back = PolymarketFeedCache.eventFromJson(
           PolymarketFeedCache.eventToJson(multi));
       expect(back.outcomes.map((o) => o.dayMove), [0.06, -0.12]);
+    });
+  });
+
+  group('B · one tap to the slip', () {
+    testWidgets(
+        'many outcomes: one quiet Yes pill per row hands its outcome to the '
+        'list; the rest of the card opens the market', (tester) async {
+      final picks = <PolyCardPick>[];
+      var opened = 0;
+      final outcomes = _dated();
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Jensen Huang announced resignation or removal?',
+          outcomes: outcomes,
+          volume: 20.2e6,
+          category: 'tech',
+          endDate: DateTime(2027, 4, 30),
+          onTap: () => opened++,
+          onPickSide: picks.add,
+        ),
+      );
+      final c = AppColorsExtension.light();
+      for (final label in ['Yes 84¢', 'Yes 82.5¢', 'Yes 77.5¢']) {
+        final text = tester.widget<Text>(find.text(label));
+        expect(text.style!.color, AppColors.marketUp);
+        final pill = tester.widget<Container>(find
+            .ancestor(of: find.text(label), matching: find.byType(Container))
+            .first);
+        expect((pill.decoration! as BoxDecoration).color, c.surfaceLight);
+      }
+      // One per row, on its row, and the pills line up.
+      expect(find.byType(PolySidePill), findsNWidgets(3));
+      expect(tester.getCenter(find.text('Yes 82.5¢')).dy,
+          moreOrLessEquals(tester.getCenter(find.text('March 31, 2027')).dy,
+              epsilon: 2));
+      final rights = [
+        for (final p in tester.widgetList(find.byType(PolySidePill)))
+          tester.getTopRight(find.byWidget(p)).dx
+      ];
+      expect(rights.toSet(), hasLength(1));
+      await tester.tap(find.text('Yes 82.5¢'));
+      expect(picks.single.outcome, same(outcomes[1]));
+      expect(opened, 0);
+      await tester.tap(find.text('Jensen Huang announced resignation or removal?'));
+      expect(opened, 1);
+      expect(picks, hasLength(1));
+    });
+
+    testWidgets('Yes/No: two pills, full width and 36 tall, Yes and No',
+        (tester) async {
+      final picks = <PolyCardPick>[];
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Fed cuts rates in December?',
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.62, tokenId: 'y'),
+            PolymarketOutcome(name: 'No', price: 0.39, tokenId: 'n'),
+          ],
+          volume: 48.1e6,
+          category: 'economy',
+          endDate: DateTime(2026, 12, 10),
+          onPickSide: picks.add,
+        ),
+      );
+      final pills = find.byType(PolySidePill);
+      expect(pills, findsNWidgets(2));
+      final card = tester.getRect(find.byType(MarketCard));
+      final yes = tester.getRect(pills.first), no = tester.getRect(pills.last);
+      expect(yes.height, moreOrLessEquals(36.h, epsilon: 0.5));
+      expect(yes.width, moreOrLessEquals(no.width, epsilon: 0.5));
+      // Edge to edge inside the card's padding.
+      expect(yes.left - card.left, moreOrLessEquals(16.w, epsilon: 0.5));
+      expect(card.right - no.right, moreOrLessEquals(16.w, epsilon: 0.5));
+      await tester.tap(find.text('No 39¢'));
+      await tester.tap(find.text('Yes 62¢'));
+      expect(picks.map((p) => p.side), ['no', 'yes']);
+    });
+
+    testWidgets('a game: three neutral pills, team · draw · team',
+        (tester) async {
+      final picks = <PolyCardPick>[];
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Arsenal vs Chelsea',
+          outcomes: _threeWay,
+          volume: 3.4e6,
+          category: 'sports',
+          liveGame: const PolyLiveGame(
+              score: '2-1', clock: "67'", period: '2H', firstIsHome: true),
+          onPickSide: picks.add,
+        ),
+      );
+      final c = AppColorsExtension.light();
+      final labels = ['Arsenal 58¢', 'Draw 21¢', 'Chelsea 21¢'];
+      for (final l in labels) {
+        expect(tester.widget<Text>(find.text(l)).style!.color, c.textPrimary);
+      }
+      final xs = [for (final l in labels) tester.getCenter(find.text(l)).dx];
+      expect(xs, orderedEquals([...xs]..sort()));
+      for (final l in labels.reversed) {
+        await tester.tap(find.text(l));
+      }
+      expect(picks.map((p) => p.way), [2, 1, 0]);
+    });
+
+    testWidgets('a closed market or a finished game has no pills',
+        (tester) async {
+      await _pump(
+        tester,
+        Column(children: [
+          MarketCard(
+            title: 'Jensen Huang announced resignation or removal?',
+            outcomes: _dated(),
+            volume: 1,
+            category: 'tech',
+            closed: true,
+            onPickSide: (_) {},
+          ),
+          const MarketCard(
+            title: 'Fed cuts rates in December?',
+            outcomes: [
+              PolymarketOutcome(name: 'Yes', price: 0.62),
+              PolymarketOutcome(name: 'No', price: 0.39),
+            ],
+            volume: 1,
+            category: 'economy',
+            ended: true,
+          ),
+          MarketCard(
+            title: 'Arsenal vs Chelsea',
+            outcomes: _threeWay,
+            volume: 1,
+            category: 'sports',
+            liveGame:
+                const PolyLiveGame(score: '2-1', firstIsHome: true, finished: true),
+            onPickSide: (_) {},
+          ),
+        ]),
+      );
+      expect(find.byType(PolySidePill), findsNothing);
+    });
+
+    testWidgets("with no slip door (Home's read-only card) a pill is the "
+        "card's own tap", (tester) async {
+      var opened = 0;
+      await _pump(
+        tester,
+        MarketCard(
+          title: 'Fed cuts rates in December?',
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.62),
+            PolymarketOutcome(name: 'No', price: 0.39),
+          ],
+          volume: 1,
+          category: 'economy',
+          onTap: () => opened++,
+        ),
+      );
+      await tester.tap(find.text('Yes 62¢'));
+      expect(opened, 1);
     });
   });
 

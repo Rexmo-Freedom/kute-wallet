@@ -177,9 +177,8 @@ void main() {
     expect(find.text('Will it rain in Lisbon?'), findsOneWidget);
     expect(_rolled('24%'), findsOneWidget);
     expect(_rolled('76%'), findsNothing);
-    // No day move on the row (the gauge carries the chance): one quiet
-    // meta line, when it closes and then the volume, and the two side
-    // pills.
+    // One quiet meta line, when it closes and then the volume, and the
+    // two side pills.
     expect(find.textContaining('today'), findsNothing);
     expect(find.text('Dec 31, 2030'), findsNothing);
     expect(find.text(r'Closes Dec 2030 · $1.5K'), findsOneWidget);
@@ -201,11 +200,17 @@ void main() {
         matching: find.byType(Container)).first);
     expect((yesPill.decoration as BoxDecoration).color, c.surfaceLight);
     expect((noPill.decoration as BoxDecoration).color, c.surfaceLight);
+    // The two answers are the card's base: full width, 36 tall.
     expect(tester.getSize(find.byWidget(yesPill)).height,
-        moreOrLessEquals(28.h, epsilon: 0.5));
-    // Both pills sit on one line.
+        moreOrLessEquals(36.h, epsilon: 0.5));
+    // Both pills sit on one line and share it.
     expect(tester.getTopLeft(find.byWidget(yesPill)).dy,
         tester.getTopLeft(find.byWidget(noPill)).dy);
+    expect(tester.getSize(find.byWidget(yesPill)).width,
+        moreOrLessEquals(tester.getSize(find.byWidget(noPill)).width,
+            epsilon: 0.5));
+    // The day's move under the gauge's number, not on the meta line.
+    expect(find.text('▲ 6'), findsOneWidget);
   });
 
   testWidgets('a flat or unknown day shows no move', (tester) async {

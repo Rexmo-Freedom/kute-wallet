@@ -12,7 +12,9 @@ import 'package:kute/screens/polymarket/components/outcome_leading.dart'
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/game_time.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart'
-    show gameSideColors;
+    show gameSideColors, kGameSideColors;
+import 'package:kute/services/polymarket/market_display_title.dart'
+    show polyMarketDisplayTitle;
 import 'package:kute/services/polymarket/live_game/game_sides.dart'
     show gameShortSideNames;
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -20,6 +22,7 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
     show polymarketCentsLabel;
 import 'package:kute/services/polymarket/market_card_shape.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'dart:math' as math;
 import 'dart:math' show pi;
 
 import 'package:flutter/material.dart';
@@ -81,38 +84,188 @@ Widget polyGroupRowDivider(BuildContext context, double indent) => Divider(
       indent: indent,
     );
 
-/// Opens the bet slip on [side] ('yes' / 'no') of [event], the way the
-/// market page's own Yes / No pair does ([MarketCard.onPickSide] from a
-/// row's pill): the side's outcome preselected, nothing new in between.
-/// [source] is the list the row sits in, for the slip's existing open
-/// event.
+/// What a card's pill opens the slip on (founder, 12 November 2026: one
+/// tap to the slip, money only after Confirm there): a side of a single
+/// market ('yes' / 'no'), one outcome of an event (its Yes), or one side
+/// of a game (0 the title's first team, 1 the draw, 2 the second).
+@immutable
+class PolyCardPick {
+  final String? side;
+  final PolymarketOutcome? outcome;
+  final int? way;
+  const PolyCardPick.side(String this.side)
+      : outcome = null,
+        way = null;
+  const PolyCardPick.outcome(PolymarketOutcome this.outcome)
+      : side = null,
+        way = null;
+  const PolyCardPick.game(int this.way)
+      : side = null,
+        outcome = null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PolyCardPick &&
+      other.side == side &&
+      identical(other.outcome, outcome) &&
+      other.way == way;
+
+  @override
+  int get hashCode => Object.hash(side, outcome, way);
+
+  @override
+  String toString() => 'PolyCardPick(${side ?? outcome?.name ?? way})';
+}
+
+/// Opens the bet slip on [side] ('yes' / 'no') of [event], or on [pick],
+/// the way the market page's own buttons do ([MarketCard.onPickSide] from
+/// a card's pill): the side's outcome preselected, nothing new in between
+/// and nothing placed, funded or approved (that waits for Confirm on the
+/// slip). [source] is the list the card sits in, for the slip's existing
+/// open event.
 void polyCardOpenSlip(
   BuildContext context, {
   required PolymarketEvent event,
-  required String side,
+  String? side,
+  PolyCardPick? pick,
   required String source,
   VoidCallback? onDeposit,
   String? ledgerWalletId,
 }) {
   HapticFeedback.mediumImpact();
-  var idx = event.outcomes
-      .indexWhere((o) => o.name.trim().toLowerCase() == side.toLowerCase());
+  void open({
+    required List<PolymarketOutcome> outcomes,
+    required int index,
+    String? question,
+    String? image,
+    String? pos,
+    String? neg,
+    List<Color?>? colors,
+    List<String>? labels,
+  }) =>
+      BetSlipSheet.show(
+        context,
+        event: event,
+        negRisk: event.negRisk,
+        marketQuestion: question ?? event.displayTitle,
+        marketSlug: event.slug,
+        marketImage: image ?? event.imageUrl,
+        outcomes: outcomes,
+        initialOutcomeIndex: index,
+        onDeposit: onDeposit,
+        ledgerWalletId: ledgerWalletId,
+        marketCategory: event.category,
+        marketEndAt: event.endDate,
+        sideLabelPos: pos,
+        sideLabelNeg: neg,
+        outcomeColors: colors,
+        outcomeLabels: labels,
+        source: source,
+      );
+  // One market's two sides, Yes first, opened on [no] or not.
+  List<PolymarketOutcome> pair(PolymarketOutcome m) {
+    final yes = m.price.clamp(0.0, 1.0).toDouble();
+    return [
+      PolymarketOutcome(
+        name: 'Yes',
+        price: yes,
+        tokenId: m.tokenId,
+        conditionId: m.conditionId,
+        gammaMarketId: m.gammaMarketId,
+      ),
+      PolymarketOutcome(
+        name: 'No',
+        price: 1.0 - yes,
+        tokenId: m.noTokenId,
+        conditionId: m.conditionId,
+        gammaMarketId: m.gammaMarketId,
+      ),
+    ];
+  }
+
+  final outcome = pick?.outcome;
+  if (outcome != null) {
+    if (outcome.hasYesNo) {
+      // One outcome of an event is its own Yes/No market: its Yes.
+      open(
+        outcomes: pair(outcome),
+        index: 0,
+        question: polyMarketDisplayTitle(event.title,
+            question: outcome.question, itemTitle: outcome.name),
+        image: outcome.imageUrl,
+      );
+    } else {
+      final idx = event.outcomes.indexWhere((o) =>
+          identical(o, outcome) ||
+          (o.tokenId != null && o.tokenId == outcome.tokenId) ||
+          o.name == outcome.name);
+      open(outcomes: event.outcomes, index: idx < 0 ? 0 : idx);
+    }
+    return;
+  }
+  final way = pick?.way;
+  if (way != null) {
+    final game = polyCardGame(event.displayTitle, event.outcomes);
+    if (game == null) return;
+    final names =
+        gameShortSideNames(game.nameA, game.nameB, teams: event.teams);
+    final colors = gameSideColors(event.displayTitle, game.nameA, game.nameB);
+    final draw = game.drawOutcome;
+    if (draw != null) {
+      // A three-way: the match's three winner markets as three sides,
+      // each bought on its own market's Yes (the market page's slip).
+      final sides = [game.outcomeA, draw, game.outcomeB];
+      open(
+        outcomes: [
+          for (final o in sides)
+            PolymarketOutcome(
+              name: o.name,
+              price: o.price,
+              tokenId: o.tokenId,
+              conditionId: o.conditionId,
+              gammaMarketId: o.gammaMarketId,
+              imageUrl: o.imageUrl,
+            ),
+        ],
+        index: way.clamp(0, 2),
+        labels: [names.$1, context.l10n.betDraw, names.$2],
+        colors: [colors.$1, kGameSideColors[2], colors.$2],
+      );
+    } else if (identical(game.outcomeA, game.outcomeB)) {
+      // The market named for the match: Yes is the team it names first.
+      final market = game.outcomeA;
+      final aFirst = !game.aOnNo;
+      open(
+        outcomes: pair(market),
+        index: (way == 0 ? game.aOnNo : game.bOnNo) ? 1 : 0,
+        pos: aFirst ? names.$1 : names.$2,
+        neg: aFirst ? names.$2 : names.$1,
+        colors: aFirst ? [colors.$1, colors.$2] : [colors.$2, colors.$1],
+      );
+    } else {
+      // The teams are the market's own two outcomes.
+      final target = way == 0 ? game.outcomeA : game.outcomeB;
+      final idx = event.outcomes.indexWhere((o) => identical(o, target));
+      open(
+        outcomes: event.outcomes,
+        index: idx < 0 ? 0 : idx,
+        colors: [
+          for (final o in event.outcomes)
+            identical(o, game.outcomeA)
+                ? colors.$1
+                : identical(o, game.outcomeB)
+                    ? colors.$2
+                    : null,
+        ],
+      );
+    }
+    return;
+  }
+  final picked = (pick?.side ?? side ?? '').toLowerCase();
+  var idx =
+      event.outcomes.indexWhere((o) => o.name.trim().toLowerCase() == picked);
   if (idx < 0) idx = 0;
-  BetSlipSheet.show(
-    context,
-    event: event,
-    negRisk: event.negRisk,
-    marketQuestion: event.displayTitle,
-    marketSlug: event.slug,
-    marketImage: event.imageUrl,
-    outcomes: event.outcomes,
-    initialOutcomeIndex: idx,
-    onDeposit: onDeposit,
-    ledgerWalletId: ledgerWalletId,
-    marketCategory: event.category,
-    marketEndAt: event.endDate,
-    source: source,
-  );
+  open(outcomes: event.outcomes, index: idx);
 }
 
 /// A chance's move in whole points as the cards write it, an arrow and
@@ -165,6 +318,13 @@ Color polyCardMoveColor(double move) =>
 /// The pills are quiet (founder, 1 November 2026): the neutral surface
 /// as their fill, the side's market colour as their ink; no solid green
 /// or red blocks on a list, and no tinted chips anywhere in the app.
+///
+/// Every open card has one tap to the slip ([onPickSide], founder, 12
+/// November 2026): a quiet "Yes 84¢" pill per outcome row, a Yes/No
+/// market's two answers full width and 36 tall, a game's sides as
+/// neutral pills (team · draw · team). A pill only opens the slip
+/// prefilled on its side; nothing is placed, funded or approved before
+/// Confirm there, and there are no amount chips.
 ///
 /// Which shape, and every number on it, comes from the event the feed
 /// already gave (market_card_shape.dart). The whole card is one tap
@@ -247,10 +407,11 @@ class MarketCard extends ConsumerWidget {
   /// Yes/No markets are grouped.
   final bool inGroup;
 
-  /// A Yes / No pill of a single market was tapped: 'yes' or 'no'. The
-  /// list opens the slip on that side ([polyCardOpenSlip]). Null leaves
-  /// the pills as part of the card's own tap.
-  final ValueChanged<String>? onPickSide;
+  /// A pill was tapped: a Yes / No side of a single market, an outcome's
+  /// Yes, or a game's side ([PolyCardPick]). The list opens the slip
+  /// prefilled on it ([polyCardOpenSlip]); nothing is placed until Confirm
+  /// there. Null leaves the pills as part of the card's own tap.
+  final ValueChanged<PolyCardPick>? onPickSide;
 
   const MarketCard({
     super.key,
@@ -498,6 +659,10 @@ class MarketCard extends ConsumerWidget {
                     b: game.chanceB,
                     colors: gameSideColors(title, game.nameA, game.nameB),
                   ),
+                  if (_open && !(liveGame?.finished ?? false)) ...[
+                    SizedBox(height: 12.h),
+                    _buildGamePills(context, c, game, resolvedTeams),
+                  ],
                   if (_buildFooter(
                           context, ref, c, shape, game, resolvedTeams)
                       case final footer?) ...[
@@ -512,6 +677,14 @@ class MarketCard extends ConsumerWidget {
       ),
     );
   }
+
+  /// A pill's tap: [pick] to the list ([onPickSide]), or null when the
+  /// list gave none (the pill is then part of the card's own tap).
+  VoidCallback? _pick(PolyCardPick pick) =>
+      onPickSide == null ? null : () => onPickSide!(pick);
+
+  /// Whether the market still takes bets: its pills show.
+  bool get _open => !closed && !ended;
 
   /// A game being played now: it leads with its live dot and clock.
   bool get _gameLive => liveGame != null && !liveGame!.finished;
@@ -529,17 +702,13 @@ class MarketCard extends ConsumerWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.only(top: 5.sp),
-          child: Container(
-            width: 7.r,
-            height: 7.r,
-            decoration: const BoxDecoration(
-              color: AppColors.marketDown,
-              shape: BoxShape.circle,
-            ),
+        Container(
+          width: 7.r,
+          height: 7.r,
+          decoration: const BoxDecoration(
+            color: AppColors.marketDown,
+            shape: BoxShape.circle,
           ),
         ),
         SizedBox(width: 6.w),
@@ -558,6 +727,36 @@ class MarketCard extends ConsumerWidget {
     );
   }
 
+  /// A game's sides as neutral price pills, team · draw · team (two on a
+  /// game with no draw): each opens the slip on that side. Neutral ink: a
+  /// team is not up or down.
+  Widget _buildGamePills(BuildContext context, AppColorsExtension c,
+      PolyCardGame game, List<PolymarketTeam> teams) {
+    final names = gameShortSideNames(game.nameA, game.nameB, teams: teams);
+    Widget pill(String label, double price, int way) => Expanded(
+          child: PolySidePill(
+            wide: true,
+            text: '$label ${polymarketCentsLabel(price.clamp(0.0, 1.0))}',
+            color: c.textPrimary,
+            onTap: _pick(PolyCardPick.game(way)),
+          ),
+        );
+    // One height for the row: a side whose label wraps sets it.
+    return IntrinsicHeight(
+        child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        pill(names.$1, game.chanceA, 0),
+        if (game.draw != null) ...[
+          SizedBox(width: 6.w),
+          pill(context.l10n.betDraw, game.draw!, 1),
+        ],
+        SizedBox(width: 6.w),
+        pill(names.$2, game.chanceB, 2),
+      ],
+    ));
+  }
+
   /// The game's leader's day move as the footer writes it ("Arsenal ▲ 9
   /// pts today"), or null when it is unknown, under a point, or nothing
   /// separates the sides.
@@ -571,8 +770,10 @@ class MarketCard extends ConsumerWidget {
     if (arrow == null) return null;
     final names = gameShortSideNames(game.nameA, game.nameB, teams: teams);
     final name = leader > 0 ? names.$1 : names.$2;
+    // The team stays with its move; the move wraps as one piece.
     return (
-      text: '$name ${context.l10n.polyCardPointsToday(arrow)}',
+      text: '$name ${context.l10n.polyCardPointsToday(arrow)}'
+          .replaceAll(' ', '\u00A0'),
       move: move!,
     );
   }
@@ -775,23 +976,31 @@ class MarketCard extends ConsumerWidget {
               identity: _identity, chance: yesPrice, move: dayMove ?? yes.dayMove),
         ),
         if (open) ...[
-          SizedBox(height: 10.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          SizedBox(height: 12.h),
+          // The two answers as the card's base: full width, 36 tall.
+          IntrinsicHeight(
+              child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              PolySidePill(
-                text: '${l10n.yes} ${polymarketCentsLabel(yesPrice)}',
-                color: AppColors.marketUp,
-                onTap: onPickSide == null ? null : () => onPickSide!('yes'),
+              Expanded(
+                child: PolySidePill(
+                  wide: true,
+                  text: '${l10n.yes} ${polymarketCentsLabel(yesPrice)}',
+                  color: AppColors.marketUp,
+                  onTap: _pick(const PolyCardPick.side('yes')),
+                ),
               ),
-              SizedBox(width: 6.w),
-              PolySidePill(
-                text: '${l10n.betNo} ${polymarketCentsLabel(noPrice)}',
-                color: AppColors.marketDown,
-                onTap: onPickSide == null ? null : () => onPickSide!('no'),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: PolySidePill(
+                  wide: true,
+                  text: '${l10n.betNo} ${polymarketCentsLabel(noPrice)}',
+                  color: AppColors.marketDown,
+                  onTap: _pick(const PolyCardPick.side('no')),
+                ),
               ),
             ],
-          ),
+          )),
         ],
       ],
     );
@@ -835,7 +1044,10 @@ class MarketCard extends ConsumerWidget {
       color: c.textSecondary,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final moved = arrow == null ? null : l10n.polyCardPointsToday(arrow);
+    // The move wraps as one piece ("▲ 6 pts today"), never across lines.
+    final moved = arrow == null
+        ? null
+        : l10n.polyCardPointsToday(arrow).replaceAll(' ', '\u00A0');
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
@@ -935,6 +1147,33 @@ class MarketCard extends ConsumerWidget {
       if (w > chanceWidth) chanceWidth = w;
     }
     chanceWidth = chanceWidth.ceilToDouble() + 1;
+    // One quiet pill per row while the market is open: an outcome's Yes
+    // ("Yes 84¢"), or the price of one side of a two-sided market. One
+    // width for the card's pills (the widest text), so they line up.
+    String? pillText(PolymarketOutcome o, double price) {
+      if (!_open || o.unpriced) return null;
+      final cents = polymarketCentsLabel(price.clamp(0.0, 1.0));
+      return o.hasYesNo ? '${context.l10n.yes} $cents' : cents;
+    }
+
+    double rowPrice(PolymarketOutcome o, bool first) => twoSided && !first
+        ? 1 - _effectivePrice(top.first)
+        : _effectivePrice(o);
+    var pillWidth = 0.0;
+    for (var i = 0; i < top.length; i++) {
+      final text = pillText(top[i], rowPrice(top[i], i == 0));
+      if (text == null) continue;
+      final w = measure(
+          text,
+          DefaultTextStyle.of(context)
+              .style
+              .merge(PolySidePill.smallStyle(c.textPrimary)));
+      if (w > pillWidth) pillWidth = w;
+    }
+    if (pillWidth > 0) {
+      pillWidth = (pillWidth + 20.w).ceilToDouble();
+      if (pillWidth < 56.w) pillWidth = 56.w;
+    }
     Widget row(PolymarketOutcome o, bool first) {
       final name = TextStyle(
         color: first ? c.textPrimary : c.textSecondary,
@@ -948,9 +1187,8 @@ class MarketCard extends ConsumerWidget {
         fontFeatures: const [FontFeature.tabularFigures()],
       );
       // The two sides of one market add up to 100.
-      final price = twoSided && !first
-          ? 1 - _effectivePrice(top.first)
-          : _effectivePrice(o);
+      final price = rowPrice(o, first);
+      final pill = pillText(o, price);
       return _OutcomeLine(
         name: o.name,
         fraction: price.clamp(0.0, 1.0),
@@ -961,6 +1199,14 @@ class MarketCard extends ConsumerWidget {
         nameStyle: name,
         chanceStyle: chance,
         chanceWidth: chanceWidth,
+        trailing: pill == null
+            ? null
+            : PolySidePill(
+                text: pill,
+                color: o.hasYesNo ? AppColors.marketUp : c.textPrimary,
+                onTap: _pick(PolyCardPick.outcome(o)),
+              ),
+        trailingWidth: pillWidth,
       );
     }
 
@@ -1321,47 +1567,83 @@ class _HalfRingPainter extends CustomPainter {
       old.stroke != stroke;
 }
 
-/// A Yes / No price pill under a single market's row, and on a Top
-/// markets card: small (72 by 28), the side's label and price ("Yes 29¢")
-/// in the side's market colour on the neutral surface (founder, 1
-/// November 2026: quiet pills, no solid green / red blocks on a list; no
-/// tinted chips anywhere in the app, so the ground is the surface
-/// colour, never a tint of the side's). Taps [onTap]; with none it is
-/// part of the row.
+/// A price pill on a list card: the side's label and price ("Yes 29¢")
+/// in [color] on the neutral surface (founder, 1 November 2026: quiet
+/// pills, no solid green / red blocks on a list; no tinted chips anywhere
+/// in the app, so the ground is the surface colour, never a tint of the
+/// side's). Small (72 by 28, or the width its slot gives it) beside an
+/// outcome's row; [wide] fills its slot, 36 tall, for a Yes/No market's
+/// two answers and a game's sides, its text wrapping to a second line
+/// rather than cut. Taps [onTap]; with none it is part of the card.
 class PolySidePill extends StatelessWidget {
   final String text;
 
-  /// The side's market colour ([AppColors.marketUp] / [marketDown]): the
-  /// pill's ink.
+  /// The pill's ink: the side's market colour ([AppColors.marketUp] /
+  /// [marketDown]), or the primary text colour for a side that is not up
+  /// or down (a team, the draw).
   final Color color;
   final VoidCallback? onTap;
+  final bool wide;
   const PolySidePill(
-      {super.key, required this.text, required this.color, this.onTap});
+      {super.key,
+      required this.text,
+      required this.color,
+      this.onTap,
+      this.wide = false});
+
+  /// The small pill's text style, for a list that sizes its pills to the
+  /// widest one.
+  static TextStyle smallStyle(Color color) => TextStyle(
+        color: color,
+        fontSize: 11.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
 
   @override
   Widget build(BuildContext context) {
-    final pill = Container(
-      width: 72.w,
-      height: 28.h,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: context.colors.surfaceLight,
-        borderRadius: BorderRadius.circular(9.r),
-      ),
-      child: Text(
-        text,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.fade,
-        style: TextStyle(
-          color: color,
-          fontSize: 11.sp,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.1,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
+    final surface = context.colors.surfaceLight;
+    final Widget pill = wide
+        ? Container(
+            // 36 on the design's phone, never a target under 32.
+            constraints: BoxConstraints(minHeight: math.max(36.h, 32)),
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(11.r),
+            ),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              style: TextStyle(
+                color: color,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+                height: 1.15,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          )
+        : Container(
+            width: 72.w,
+            constraints: BoxConstraints(minHeight: 28.h),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(9.r),
+            ),
+            child: Text(
+              text,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.fade,
+              style: smallStyle(color),
+            ),
+          );
     if (onTap == null) return pill;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1372,9 +1654,10 @@ class PolySidePill extends StatelessWidget {
 }
 
 /// One outcome of an event's row: its name, a chance bar, its chance
-/// ("Name ▬▬▬▬ 41%"). The name takes what it needs (two lines at
-/// most) while the bar keeps a little width; a name that cannot fit so
-/// sits on its own line over the bar, figure and pill. Never cut. The
+/// ("Name ▬▬▬▬ 41%") and, when the list can open the slip, a [trailing]
+/// pill [trailingWidth] wide. The name takes what it needs on one line
+/// while the bar keeps a little width; a name that cannot fit so sits on
+/// its own line (wrapping) over the bar, figure and pill. Never cut. The
 /// figure keeps one width per card ([chanceWidth]) so the bars of the
 /// rows end together.
 class _OutcomeLine extends StatelessWidget {
@@ -1389,6 +1672,8 @@ class _OutcomeLine extends StatelessWidget {
   final TextStyle nameStyle;
   final TextStyle chanceStyle;
   final double chanceWidth;
+  final Widget? trailing;
+  final double trailingWidth;
   const _OutcomeLine({
     required this.name,
     required this.fraction,
@@ -1397,20 +1682,24 @@ class _OutcomeLine extends StatelessWidget {
     required this.nameStyle,
     required this.chanceStyle,
     required this.chanceWidth,
+    this.trailing,
+    this.trailingWidth = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final gap = 8.w;
-      final fixed = gap + chanceWidth;
+      final fixed = gap +
+          chanceWidth +
+          (trailing == null ? 0 : gap + trailingWidth);
       final nameMax = constraints.maxWidth - fixed - gap - 16.w;
       final drawn = DefaultTextStyle.of(context).style.merge(nameStyle);
       final painter = TextPainter(
         text: TextSpan(text: name, style: drawn),
         textDirection: TextDirection.ltr,
         textScaler: MediaQuery.textScalerOf(context),
-        maxLines: 2,
+        maxLines: 1,
       )..layout(maxWidth: nameMax > 0 ? nameMax : 0);
       final inline = nameMax > 0 && !painter.didExceedMaxLines;
       final tail = <Widget>[
@@ -1422,6 +1711,10 @@ class _OutcomeLine extends StatelessWidget {
           child: Text(chance,
               textAlign: TextAlign.right, maxLines: 1, style: chanceStyle),
         ),
+        if (trailing != null) ...[
+          SizedBox(width: gap),
+          SizedBox(width: trailingWidth, child: trailing),
+        ],
       ];
       if (inline) {
         return Row(
@@ -1429,7 +1722,7 @@ class _OutcomeLine extends StatelessWidget {
           children: [
             SizedBox(
               width: painter.width.ceilToDouble() + 1,
-              child: Text(name, maxLines: 2, style: nameStyle),
+              child: Text(name, maxLines: 1, style: nameStyle),
             ),
             SizedBox(width: gap),
             ...tail,
@@ -1511,6 +1804,7 @@ class _GameSplitBar extends StatelessWidget {
       child: SizedBox(
         height: 6,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var i = 0; i < parts.length; i++) ...[
               if (i > 0) const SizedBox(width: 2),

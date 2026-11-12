@@ -1475,12 +1475,13 @@ class _PolyFeedCard extends ConsumerWidget {
               source: source,
             );
           },
-          // A Yes / No pill opens the slip straight on that side, the
-          // way the market page's own pair does.
-          onPickSide: (side) => polyCardOpenSlip(
+          // A pill opens the slip straight on its side (a Yes / No, an
+          // outcome's Yes, a team), the way the market page's own buttons
+          // do. Nothing is placed before Confirm there.
+          onPickSide: (pick) => polyCardOpenSlip(
             context,
             event: market,
-            side: side,
+            pick: pick,
             onDeposit: () async {
               if (context.mounted) openPredictionsDeposit(context, ref);
             },
