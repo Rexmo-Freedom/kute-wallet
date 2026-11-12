@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 
 /// Re-expresses the whole palette as contrast ink on [side], so a sheet
 /// can paint itself in a money direction's own colour and every child
@@ -13,15 +14,20 @@ import 'package:kute/theme/app_theme.dart';
 /// `surfaceElevated` for the selected or pressed state.
 AppColorsExtension sideTintPalette(AppColorsExtension base, Color side) {
   final on = contrastingOnColor(side);
+  // The quieter text steps: white keeps the steps it always had; dark ink
+  // on a light fill (an outcome's soft line colour) loses contrast faster
+  // as it thins, so its steps sit higher and still read at 4.5:1 on any
+  // fill dark ink is picked for.
+  final dark = on != Colors.white;
   return base.copyWith(
     background: side,
-    surface: on.withValues(alpha: 0.16),
-    surfaceLight: on.withValues(alpha: 0.24),
-    surfaceElevated: on.withValues(alpha: 0.32),
+    surface: tintPane(on, 0.16),
+    surfaceLight: tintPane(on, 0.24),
+    surfaceElevated: tintPane(on, 0.32),
     textPrimary: on,
-    textSecondary: on.withValues(alpha: 0.78),
-    textTertiary: on.withValues(alpha: 0.64),
-    textDisabled: on.withValues(alpha: 0.38),
+    textSecondary: on.withValues(alpha: dark ? 0.86 : 0.78),
+    textTertiary: on.withValues(alpha: dark ? 0.76 : 0.64),
+    textDisabled: on.withValues(alpha: dark ? 0.46 : 0.38),
     border: on.withValues(alpha: 0.34),
     borderSubtle: on.withValues(alpha: 0.22),
     borderFocused: on,
@@ -37,6 +43,29 @@ AppColorsExtension sideTintPalette(AppColorsExtension base, Color side) {
     cardShadow: Colors.transparent,
   ) as AppColorsExtension;
 }
+
+/// How much of a white pane's strength the same pane takes in dark ink.
+/// Black over a soft fill weighs far more than white over a saturated
+/// one: at the white steps a dark pane turned to mud and the dark words
+/// on it stopped reading.
+const double kDarkInkPaneWeight = 0.5;
+
+/// A pane of a tinted sheet's ink [on] (a tappable surface, a selected
+/// side, a key): [alpha] is its strength in white ink, the one the
+/// green and red sheets have always had; dark ink takes
+/// [kDarkInkPaneWeight] of it, so the pane separates as clearly and the
+/// words on it keep reading.
+Color tintPane(Color on, double alpha) => on.withValues(
+    alpha: on == Colors.white ? alpha : alpha * kDarkInkPaneWeight);
+
+/// The fill of a slip's one primary button on a sheet lettered in [on]:
+/// the ink itself. On a dark fill that is the white button the green and
+/// red slips have always had; on a light fill (an outcome's soft line
+/// colour) a white button would not stand off the sheet, so it is the
+/// app's own near-black button ([KuteBarSurface.inkOnWhite], the bar's
+/// fill in light mode), lettered by [slipCtaLabelColor].
+Color slipCtaFill(Color on) =>
+    on == Colors.white ? on : KuteBarSurface.inkOnWhite;
 
 /// The label colour of a slip's one primary button whose fill is [fill].
 /// A trade (Yes/No, Long/Short) sitting on the sheet's ink is lettered in
@@ -126,6 +155,10 @@ class SheetTint extends InheritedWidget {
 
   /// Best-contrast ink on [side] — the same helper the CTA label uses.
   final Color on;
+
+  /// A pane of the sheet's ink at [alpha], its strength in white ink
+  /// ([tintPane]).
+  Color pane(double alpha) => tintPane(on, alpha);
 
   static SheetTint? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<SheetTint>();

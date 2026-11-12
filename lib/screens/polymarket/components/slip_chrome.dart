@@ -324,8 +324,8 @@ class PolySlipFigureRow extends StatelessWidget {
 /// The ticket's single primary action.
 ///
 /// On a side-tinted sheet the CTA inverts: the sheet's ink becomes the
-/// fill and the side colour becomes the label, so the one action still
-/// reads as the one action. A red button on a red sheet does not. A
+/// fill ([slipCtaFill]) and the side colour becomes the label, so the one
+/// action still reads as the one action. A red button on a red sheet does not. A
 /// [neutral] action (the deposit door, a wait) keeps a label that
 /// contrasts with that fill instead, so the funding door never wears the
 /// trade's direction. Same rule, and the same faded disabled state, as
@@ -405,12 +405,16 @@ class PolySlipCta extends StatelessWidget {
     // THE SLIP'S OWN BUTTON LOOK (founder: never black on the tinted
     // slip): the sheet's ink as the fill, the trade lettered in its side
     // colour, a neutral action in the contrast; off the tint, the side
-    // colour itself. The slip's 16 radius and w800.
+    // colour itself. The slip's 16 radius and w800. That white button is
+    // for a sheet lettered in white (green, red, a deep line colour); on
+    // a sheet lettered in dark ink (an outcome's soft line colour, 12
+    // November 2026) white would not stand off the fill, so the button
+    // is the app's own near-black one ([slipCtaFill]).
     final tint = SheetTint.maybeOf(context);
-    final fill = tint == null ? color : tint.on;
+    final fill = tint == null ? color : slipCtaFill(tint.on);
     final fg = tint == null
         ? contrastingOnColor(color)
-        : slipCtaLabelColor(fill: tint.on, side: tint.side, neutral: neutral);
+        : slipCtaLabelColor(fill: fill, side: tint.side, neutral: neutral);
     return KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: label,

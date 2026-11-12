@@ -419,8 +419,9 @@ class BetSlipSheet extends ConsumerStatefulWidget {
 
   /// The colour of each outcome's line on the market's chart, by index
   /// into [outcomes] (null where it has none). An outcome with one tints
-  /// the slip in it ([polyOutcomeFill]) instead of the green and red of
-  /// Yes and No; flipping to an outcome without one goes back to those.
+  /// the slip in it ([polyOutcomeFill]: the line's own colour wherever
+  /// dark ink reads on it) instead of the green and red of Yes and No;
+  /// flipping to an outcome without one goes back to those.
   final List<Color?>? outcomeColors;
 
   /// The label each outcome's button writes, by index into [outcomes]. A
@@ -7332,19 +7333,23 @@ class _BinaryToggleButton extends StatelessWidget {
     // selected side takes a clear pane of that ink, the unselected side a
     // quiet one; borrowing the neutral surface tones flattened the pair
     // into one slab once the sheet itself went saturated.
-    final tintOn = SheetTint.maybeOf(context)?.on;
+    // Off the tint (Advanced) the selected side is a slab of its own
+    // colour, lettered in the ink that reads on it: white on green and
+    // red, dark on an outcome's soft line colour.
+    final tint = SheetTint.maybeOf(context);
+    final tintOn = tint?.on;
+    final onSide = contrastingOnColor(color);
     final bg = selected
-        ? (tintOn?.withValues(alpha: 0.32) ?? color)
-        : (tintOn?.withValues(alpha: 0.10) ?? c.surfaceLight);
+        ? (tint?.pane(0.32) ?? color)
+        : (tint?.pane(0.10) ?? c.surfaceLight);
     final fg = selected
-        ? (tintOn ?? Colors.white)
+        ? (tintOn ?? onSide)
         : (tintOn?.withValues(alpha: 0.82) ?? c.textPrimary);
     final discBg = selected
-        ? (tintOn ?? Colors.white)
-            .withValues(alpha: tintOn == null ? 0.18 : 0.40)
-        : (tintOn?.withValues(alpha: 0.18) ?? c.surface);
+        ? (tint?.pane(0.40) ?? onSide.withValues(alpha: 0.18))
+        : (tint?.pane(0.18) ?? c.surface);
     final discIcon = selected
-        ? (tintOn ?? Colors.white)
+        ? (tintOn ?? onSide)
         : (tintOn?.withValues(alpha: 0.82) ?? c.textSecondary);
     final borderColor = selected
         ? tintOn?.withValues(alpha: 0.62)
@@ -7541,19 +7546,23 @@ class _IconDiscButton extends StatelessWidget {
     // selected side takes a clear pane of that ink, the unselected side a
     // quiet one; borrowing the neutral surface tones flattened the pair
     // into one slab once the sheet itself went saturated.
-    final tintOn = SheetTint.maybeOf(context)?.on;
+    // Off the tint (Advanced) the selected side is a slab of its own
+    // colour, lettered in the ink that reads on it: white on green and
+    // red, dark on an outcome's soft line colour.
+    final tint = SheetTint.maybeOf(context);
+    final tintOn = tint?.on;
+    final onSide = contrastingOnColor(color);
     final bg = selected
-        ? (tintOn?.withValues(alpha: 0.32) ?? color)
-        : (tintOn?.withValues(alpha: 0.10) ?? c.surfaceLight);
+        ? (tint?.pane(0.32) ?? color)
+        : (tint?.pane(0.10) ?? c.surfaceLight);
     final fg = selected
-        ? (tintOn ?? Colors.white)
+        ? (tintOn ?? onSide)
         : (tintOn?.withValues(alpha: 0.82) ?? c.textPrimary);
     final discBg = selected
-        ? (tintOn ?? Colors.white)
-            .withValues(alpha: tintOn == null ? 0.18 : 0.40)
-        : (tintOn?.withValues(alpha: 0.18) ?? c.surface);
+        ? (tint?.pane(0.40) ?? onSide.withValues(alpha: 0.18))
+        : (tint?.pane(0.18) ?? c.surface);
     final discIcon = selected
-        ? (tintOn ?? Colors.white)
+        ? (tintOn ?? onSide)
         : (tintOn?.withValues(alpha: 0.82) ?? c.textSecondary);
     final borderColor = selected
         ? tintOn?.withValues(alpha: 0.62)

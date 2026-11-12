@@ -1,7 +1,8 @@
 // An outcome with a line on its market's chart wears that line's colour:
-// its button under the chart is a solid slab of it (white text, 4.5:1),
-// and the bet slip opened on it is tinted in it, switching when the slip
-// flips to the other side. Yes / No and Up / Down keep green and red, and
+// its button under the chart is a solid slab of it, lettered in the ink
+// that reads on it, and the bet slip opened on it is that same colour
+// (bet_slip_on_colour_test.dart), switching when the slip flips to the
+// other side. Yes / No and Up / Down keep green and red, and
 // the sell sheet stays red.
 
 import 'dart:async';
@@ -257,21 +258,39 @@ void main() {
 
   group('polyOutcomeFill', () {
     final palette = {...kPolyOutcomeColors, ...kGameSideColors};
-    test('white text on every palette fill reads at 4.5:1 or better', () {
+    test('the ink that reads on every palette fill reads at 4.5:1 or better',
+        () {
       for (final line in palette) {
         final fill = polyOutcomeFill(line);
-        expect(polyWhiteContrast(fill), greaterThanOrEqualTo(4.5),
+        final white = polyWhiteContrast(fill);
+        final dark = (fill.computeLuminance() + 0.05) / 0.05;
+        expect(contrastingOnColor(fill) == Colors.white ? white : dark,
+            greaterThanOrEqualTo(4.5),
             reason: '$line → $fill');
       }
     });
 
-    test('keeps the line\'s hue, only ever darker', () {
+    // Founder, 12 November 2026 ("the sheet still has the old colors"): a
+    // line dark ink reads on is the slip's fill as it is, the colour of
+    // its button and of its line on the chart.
+    test('a line lettered in dark ink is its own fill', () {
       for (final line in palette) {
+        if (contrastingOnColor(line) == Colors.white) continue;
+        expect(polyOutcomeFill(line), line);
+      }
+      expect(kGameSideColors.map(polyOutcomeFill), kGameSideColors);
+    });
+
+    test('a line lettered in white keeps its hue, only ever darker', () {
+      for (final line in [...palette, AppColors.marketUp, AppColors.marketDown]) {
+        if (contrastingOnColor(line) != Colors.white) continue;
         final a = HSLColor.fromColor(line);
         final b = HSLColor.fromColor(polyOutcomeFill(line));
         final dh = (a.hue - b.hue).abs();
         expect(dh < 3 || dh > 357, isTrue, reason: '$line hue moved $dh');
         expect(b.lightness, lessThanOrEqualTo(a.lightness + 0.005));
+        expect(polyWhiteContrast(polyOutcomeFill(line)),
+            greaterThanOrEqualTo(4.5));
       }
     });
 
@@ -393,10 +412,11 @@ void main() {
         (tester) async {
       final a = kGameSideColors[0], b = kGameSideColors[1];
       await _pump(tester, slip(teams, colors: [a, b]));
-      expect(_slipTint(tester), polyOutcomeFill(a));
-      // White ink on the outcome's fill.
+      // Exactly the line's colour, the button's on the market page.
+      expect(_slipTint(tester), a);
+      // Dark ink on the outcome's soft fill.
       expect(tester.widget<SheetTint>(find.byType(SheetTint).first).on,
-          Colors.white);
+          Colors.black);
       await tester.tap(find.text('Commanders').last);
       await tester.pump(const Duration(milliseconds: 300));
       expect(_slipTint(tester), polyOutcomeFill(b));
