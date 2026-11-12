@@ -1483,6 +1483,13 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning adresa';
 
   @override
+  String get sendVerifiedByBranta => 'Ověřeno službou Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta hlásí, že tato adresa byla podvržena. Než odešleš, ověř ji u příjemce.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin adresa';
 
   @override

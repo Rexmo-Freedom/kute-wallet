@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Sagatavo darījumu…",
   "sendDetectedLightningPayment": "Lightning maksājums",
   "sendDetectedLightningAddress": "Lightning adrese",
+  "sendVerifiedByBranta": "Apstiprinājis Branta",
+  "sendBrantaTampered": "Branta ziņo, ka šī adrese ir apmainīta. Pirms sūtīšanas pārbaudi to ar saņēmēju.",
   "sendDetectedBitcoinAddress": "Bitcoin adrese",
   "sendDetectedSpendingWalletAddress": "Tēriņu maciņa adrese",
   "sendDetectedEthereumStyleAddress": "Ethereum tipa adrese",

@@ -602,6 +602,14 @@
   "sendPreparingTransaction": "Preparing the transaction…",
   "sendDetectedLightningPayment": "Lightning payment",
   "sendDetectedLightningAddress": "Lightning address",
+  "sendVerifiedByBranta": "Verified by Branta",
+  "@sendVerifiedByBranta": {
+    "description": "Under the payee name on Send's recipient card and Review when Branta (a payment-code registry, a brand name: keep it) vouches for the address."
+  },
+  "sendBrantaTampered": "Branta says this address was swapped. Check it with the recipient before you send.",
+  "@sendBrantaTampered": {
+    "description": "Warning on Send when Branta reports the address in a scanned or pasted payment code was swapped (tampered). Branta is a brand name: keep it."
+  },
   "sendDetectedBitcoinAddress": "Bitcoin address",
   "sendDetectedSpendingWalletAddress": "Spending wallet address",
   "sendDetectedEthereumStyleAddress": "Ethereum style address",

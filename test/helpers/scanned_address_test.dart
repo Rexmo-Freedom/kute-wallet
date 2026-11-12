@@ -44,6 +44,15 @@ void main() {
           '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU');
     });
 
+    test('pol: (Branta payee codes) is Polygon: the address, chain 137', () {
+      const code = 'pol:$_evm?value=50&branta_id=a%2Bb&branta_secret=s';
+      expect(bareRecipientAddress(code), _evm);
+      expect(bareCrossChainRecipient(code), _evm);
+      expect(evmPaymentChainId(code), 137);
+      expect(evmPaymentChainId('POL:$_evm'), 137);
+      expect(evmPaymentChainId(_evm), isNull);
+    });
+
     test('EIP-681: chain id and pay- prefix go', () {
       expect(bareRecipientAddress('ethereum:$_evm@8453'), _evm);
       expect(bareRecipientAddress('ethereum:pay-$_evm@1?value=1e18'), _evm);

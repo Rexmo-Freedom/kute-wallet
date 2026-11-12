@@ -1484,6 +1484,13 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning-aadress';
 
   @override
+  String get sendVerifiedByBranta => 'Branta kinnitatud';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta teatab, et see aadress on välja vahetatud. Kontrolli seda saajaga enne saatmist.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoini aadress';
 
   @override

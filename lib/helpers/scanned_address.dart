@@ -28,6 +28,9 @@ Future<String?> scanRecipientRaw(BuildContext context) =>
 const Set<String> _kAddressSchemes = {
   'spark',
   'ethereum',
+  // Polygon (the scheme Branta's payee codes use for USDC and USDT on
+  // Polygon): the address is the path, the query is dropped.
+  'pol',
   'solana',
   'tron',
   'litecoin',
@@ -45,8 +48,8 @@ final RegExp _scheme =
 /// the bitcoin send reduces `bitcoin:bc1…?amount=…`:
 ///
 ///  * `bitcoin:` — [stripBitcoinAddress] (scheme and BIP21 query).
-///  * `spark:`, `solana:`, `tron:`, `litecoin:`, `zcash:`, XRP and TON
-///    schemes — the scheme and any `?query` go, the address stays.
+///  * `spark:`, `pol:`, `solana:`, `tron:`, `litecoin:`, `zcash:`, XRP and
+///    TON schemes — the scheme and any `?query` go, the address stays.
 ///  * `ethereum:` (EIP-681) — the `pay-` prefix, `@chainId` and query go.
 ///    An ERC-20 `…/transfer?address=0x…` request names the TOKEN CONTRACT
 ///    as its target, so the recipient is the `address` parameter, never
@@ -148,10 +151,13 @@ const Map<int, String> kEvmChainIdSlugs = {
 /// request or names none.
 ///
 /// `ethereum:0xabc…@8453` and `ethereum:pay-0xUSDC…@42161/transfer?address=…`
-/// both carry one; a bare address carries none.
+/// both carry one; a bare address carries none. A `pol:` request is
+/// Polygon's (137) by its scheme.
 int? evmPaymentChainId(String raw) {
   final input = raw.trim();
   final match = _scheme.firstMatch(input);
+  // `pol:` names Polygon by its scheme alone (Branta's payee codes).
+  if (match != null && match.group(1)!.toLowerCase() == 'pol') return 137;
   if (match == null || match.group(1)!.toLowerCase() != 'ethereum') {
     return null;
   }

@@ -1489,6 +1489,13 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning-osoite';
 
   @override
+  String get sendVerifiedByBranta => 'Brantan vahvistama';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta ilmoittaa, että tämä osoite on vaihdettu. Tarkista se vastaanottajalta ennen lähettämistä.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin-osoite';
 
   @override

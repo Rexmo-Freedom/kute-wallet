@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Valmistellaan tapahtumaa…",
   "sendDetectedLightningPayment": "Lightning-maksu",
   "sendDetectedLightningAddress": "Lightning-osoite",
+  "sendVerifiedByBranta": "Brantan vahvistama",
+  "sendBrantaTampered": "Branta ilmoittaa, että tämä osoite on vaihdettu. Tarkista se vastaanottajalta ennen lähettämistä.",
   "sendDetectedBitcoinAddress": "Bitcoin-osoite",
   "sendDetectedSpendingWalletAddress": "Käyttölompakon osoite",
   "sendDetectedEthereumStyleAddress": "Ethereum-tyyppinen osoite",

@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Tehingu ettevalmistamine…",
   "sendDetectedLightningPayment": "Lightning-makse",
   "sendDetectedLightningAddress": "Lightning-aadress",
+  "sendVerifiedByBranta": "Branta kinnitatud",
+  "sendBrantaTampered": "Branta teatab, et see aadress on välja vahetatud. Kontrolli seda saajaga enne saatmist.",
   "sendDetectedBitcoinAddress": "Bitcoini aadress",
   "sendDetectedSpendingWalletAddress": "Kulutusrahakoti aadress",
   "sendDetectedEthereumStyleAddress": "Ethereumi tüüpi aadress",

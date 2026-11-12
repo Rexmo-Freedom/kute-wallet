@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "トランザクションを準備中…",
   "sendDetectedLightningPayment": "Lightning支払い",
   "sendDetectedLightningAddress": "Lightningアドレス",
+  "sendVerifiedByBranta": "Brantaで確認済み",
+  "sendBrantaTampered": "Brantaによると、このアドレスはすり替えられています。送金する前に受取人に確認してください。",
   "sendDetectedBitcoinAddress": "ビットコインアドレス",
   "sendDetectedSpendingWalletAddress": "支払い用ウォレットのアドレス",
   "sendDetectedEthereumStyleAddress": "Ethereum形式のアドレス",

@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Pripravljanje transakcije …",
   "sendDetectedLightningPayment": "Lightning plačilo",
   "sendDetectedLightningAddress": "Lightning naslov",
+  "sendVerifiedByBranta": "Preveril Branta",
+  "sendBrantaTampered": "Branta sporoča, da je bil ta naslov zamenjan. Pred pošiljanjem ga preveri s prejemnikom.",
   "sendDetectedBitcoinAddress": "Bitcoin naslov",
   "sendDetectedSpendingWalletAddress": "Naslov denarnice za porabo",
   "sendDetectedEthereumStyleAddress": "Naslov v slogu Ethereum",

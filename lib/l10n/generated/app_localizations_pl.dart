@@ -1488,6 +1488,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Adres Lightning';
 
   @override
+  String get sendVerifiedByBranta => 'Zweryfikowane przez Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta zgłasza, że ten adres został podmieniony. Sprawdź go z odbiorcą, zanim wyślesz.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Adres Bitcoin';
 
   @override

@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Tranzakció előkészítése…",
   "sendDetectedLightningPayment": "Lightning fizetés",
   "sendDetectedLightningAddress": "Lightning-cím",
+  "sendVerifiedByBranta": "A Branta ellenőrizte",
+  "sendBrantaTampered": "A Branta szerint ezt a címet kicserélték. Küldés előtt egyeztesd a címzettel.",
   "sendDetectedBitcoinAddress": "Bitcoin-cím",
   "sendDetectedSpendingWalletAddress": "Költési tárca címe",
   "sendDetectedEthereumStyleAddress": "Ethereum típusú cím",

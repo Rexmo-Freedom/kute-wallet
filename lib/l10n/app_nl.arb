@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Transactie voorbereiden…",
   "sendDetectedLightningPayment": "Lightning-betaling",
   "sendDetectedLightningAddress": "Lightning-adres",
+  "sendVerifiedByBranta": "Geverifieerd door Branta",
+  "sendBrantaTampered": "Branta meldt dat dit adres is verwisseld. Controleer het bij de ontvanger voordat je verstuurt.",
   "sendDetectedBitcoinAddress": "Bitcoin-adres",
   "sendDetectedSpendingWalletAddress": "Adres bestedingswallet",
   "sendDetectedEthereumStyleAddress": "Adres in Ethereum-stijl",

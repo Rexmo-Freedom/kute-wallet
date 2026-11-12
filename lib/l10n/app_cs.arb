@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Připravuje se transakce…",
   "sendDetectedLightningPayment": "Lightning platba",
   "sendDetectedLightningAddress": "Lightning adresa",
+  "sendVerifiedByBranta": "Ověřeno službou Branta",
+  "sendBrantaTampered": "Branta hlásí, že tato adresa byla podvržena. Než odešleš, ověř ji u příjemce.",
   "sendDetectedBitcoinAddress": "Bitcoin adresa",
   "sendDetectedSpendingWalletAddress": "Adresa výdajové peněženky",
   "sendDetectedEthereumStyleAddress": "Adresa typu Ethereum",

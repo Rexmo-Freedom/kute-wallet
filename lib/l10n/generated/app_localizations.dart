@@ -2930,6 +2930,18 @@ abstract class AppLocalizations {
   /// **'Lightning address'**
   String get sendDetectedLightningAddress;
 
+  /// Under the payee name on Send's recipient card and Review when Branta (a payment-code registry, a brand name: keep it) vouches for the address.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified by Branta'**
+  String get sendVerifiedByBranta;
+
+  /// Warning on Send when Branta reports the address in a scanned or pasted payment code was swapped (tampered). Branta is a brand name: keep it.
+  ///
+  /// In en, this message translates to:
+  /// **'Branta says this address was swapped. Check it with the recipient before you send.'**
+  String get sendBrantaTampered;
+
   /// No description provided for @sendDetectedBitcoinAddress.
   ///
   /// In en, this message translates to:

@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Προετοιμασία συναλλαγής…",
   "sendDetectedLightningPayment": "Πληρωμή Lightning",
   "sendDetectedLightningAddress": "Διεύθυνση Lightning",
+  "sendVerifiedByBranta": "Επαληθεύτηκε από το Branta",
+  "sendBrantaTampered": "Το Branta αναφέρει ότι αυτή η διεύθυνση αντικαταστάθηκε. Επιβεβαίωσέ τη με τον παραλήπτη πριν στείλεις.",
   "sendDetectedBitcoinAddress": "Διεύθυνση Bitcoin",
   "sendDetectedSpendingWalletAddress": "Διεύθυνση πορτοφολιού εξόδων",
   "sendDetectedEthereumStyleAddress": "Διεύθυνση τύπου Ethereum",

@@ -1487,6 +1487,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning-cím';
 
   @override
+  String get sendVerifiedByBranta => 'A Branta ellenőrizte';
+
+  @override
+  String get sendBrantaTampered =>
+      'A Branta szerint ezt a címet kicserélték. Küldés előtt egyeztesd a címzettel.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin-cím';
 
   @override

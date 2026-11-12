@@ -1487,6 +1487,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning address';
 
   @override
+  String get sendVerifiedByBranta => 'Verified by Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta says this address was swapped. Check it with the recipient before you send.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin address';
 
   @override

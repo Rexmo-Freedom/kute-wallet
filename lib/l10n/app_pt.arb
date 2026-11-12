@@ -496,6 +496,8 @@
   "sendPreparingTransaction": "A preparar a transação…",
   "sendDetectedLightningPayment": "Pagamento Lightning",
   "sendDetectedLightningAddress": "Endereço Lightning",
+  "sendVerifiedByBranta": "Verificado pela Branta",
+  "sendBrantaTampered": "A Branta indica que este endereço foi trocado. Confirme-o com o destinatário antes de enviar.",
   "sendDetectedBitcoinAddress": "Endereço Bitcoin",
   "sendDetectedSpendingWalletAddress": "Endereço de carteira de gastos",
   "sendDetectedEthereumStyleAddress": "Endereço do tipo Ethereum",

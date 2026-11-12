@@ -1485,6 +1485,13 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning adresa';
 
   @override
+  String get sendVerifiedByBranta => 'Overené službou Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta hlási, že táto adresa bola podvrhnutá. Pred odoslaním si ju over u príjemcu.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin adresa';
 
   @override

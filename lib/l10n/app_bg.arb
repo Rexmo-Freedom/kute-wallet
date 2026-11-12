@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Подготвяне на транзакцията…",
   "sendDetectedLightningPayment": "Lightning плащане",
   "sendDetectedLightningAddress": "Lightning адрес",
+  "sendVerifiedByBranta": "Потвърдено от Branta",
+  "sendBrantaTampered": "Branta съобщава, че този адрес е подменен. Провери го с получателя, преди да изпратиш.",
   "sendDetectedBitcoinAddress": "Bitcoin адрес",
   "sendDetectedSpendingWalletAddress": "Адрес на портфейла за плащания",
   "sendDetectedEthereumStyleAddress": "Адрес тип Ethereum",

@@ -1490,6 +1490,13 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Adresă Lightning';
 
   @override
+  String get sendVerifiedByBranta => 'Verificat de Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta semnalează că această adresă a fost înlocuită. Verific-o cu destinatarul înainte să trimiți.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Adresă Bitcoin';
 
   @override

@@ -1481,6 +1481,13 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning adrese';
 
   @override
+  String get sendVerifiedByBranta => 'Apstiprinājis Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta ziņo, ka šī adrese ir apmainīta. Pirms sūtīšanas pārbaudi to ar saņēmēju.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin adrese';
 
   @override

@@ -465,6 +465,8 @@
   "sendPreparingTransaction": "Ruošiama operacija…",
   "sendDetectedLightningPayment": "Lightning mokėjimas",
   "sendDetectedLightningAddress": "Lightning adresas",
+  "sendVerifiedByBranta": "Patvirtinta Branta",
+  "sendBrantaTampered": "Branta praneša, kad šis adresas buvo pakeistas. Prieš siųsdami pasitikrinkite jį su gavėju.",
   "sendDetectedBitcoinAddress": "Bitcoin adresas",
   "sendDetectedSpendingWalletAddress": "Išlaidų piniginės adresas",
   "sendDetectedEthereumStyleAddress": "Ethereum tipo adresas",

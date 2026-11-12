@@ -1485,6 +1485,13 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning-adresse';
 
   @override
+  String get sendVerifiedByBranta => 'Bekræftet af Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta siger, at denne adresse er blevet byttet ud. Tjek den med modtageren, før du sender.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin-adresse';
 
   @override

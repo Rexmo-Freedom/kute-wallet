@@ -1493,6 +1493,13 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning-adres';
 
   @override
+  String get sendVerifiedByBranta => 'Geverifieerd door Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta meldt dat dit adres is verwisseld. Controleer het bij de ontvanger voordat je verstuurt.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin-adres';
 
   @override
