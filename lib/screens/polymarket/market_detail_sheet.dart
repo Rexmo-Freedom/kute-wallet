@@ -56,6 +56,9 @@ import 'package:kute/screens/polymarket/components/game_winner_lines.dart';
 import 'package:kute/screens/polymarket/components/game_more_markets.dart';
 import 'package:kute/screens/polymarket/components/game_side_button.dart';
 import 'package:kute/screens/polymarket/components/line_ladder.dart';
+import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
+    show PolyAutoScrollRow;
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -1079,38 +1082,63 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  // ── Line ladder (line_ladder.dart) ──────────────────────────────────
+  // ── Line ladders (line_ladder.dart) ─────────────────────────────────
 
-  /// The ladder this event is ([polyLineLadder]), worked out once per
-  /// event; null for any other event.
-  PolyLineLadder? get _ladder {
+  /// This event read as ladders ([polyLadderBoard]), worked out once per
+  /// event; null for any other event, and for a game whose own board
+  /// shows its lines (a "More Markets" event with a game behind it: its
+  /// Spread and Total rows and "More markets" under them, as before).
+  PolyLadderBoard? get _ladder {
     final e = event;
     if (!identical(e, _ladderMemoEvent)) {
       _ladderMemoEvent = e;
-      _ladderMemo = polyLineLadder(e);
+      _ladderMemo = polyLadderBoard(e);
+      _ladderOnGameBoard = e.outcomes.any((o) {
+        final kind = (o.marketLine?.kind ?? '').toLowerCase();
+        return kind == 'spreads' || kind == 'totals';
+      });
     }
+    if (_ladderMemo == null) return null;
+    if (_ladderOnGameBoard && _showsGameLines) return null;
     return _ladderMemo;
   }
 
   PolymarketEvent? _ladderMemoEvent;
-  PolyLineLadder? _ladderMemo;
+  PolyLadderBoard? _ladderMemo;
+  bool _ladderOnGameBoard = false;
 
-  /// The line picked on the stepper, by its market's Over token; null
-  /// until one is picked (the line nearest 50% then).
-  String? _ladderPick;
+  /// The group picked on the picker, by its key; null until one is picked
+  /// (the group with the most volume then).
+  String? _ladderGroupPick;
 
-  /// The lines the stepper offers and the one selected, at the live
-  /// prices ([polyLadderShownLines], [polyLadderDefaultIndex]).
-  ({List<PolyLadderLine> lines, int index}) _ladderState(WidgetRef ref) {
-    final ladder = _ladder!;
+  /// The line picked on each group's stepper, by the group's key and the
+  /// market's first token; a group with none opens on the line nearest
+  /// 50%.
+  final Map<String, String> _ladderLinePick = {};
+
+  /// Where the page of ladders stands at the live prices: the group
+  /// shown (null when no group has a line that trades: the page then says
+  /// once that it awaits liquidity), the lines its stepper offers (empty
+  /// for a group that awaits liquidity) and the one selected.
+  ({PolyLineLadder? group, List<PolyLadderLine> lines, int index})
+      _ladderState(WidgetRef ref) {
+    final board = _ladder!;
     final live = ref.watch(
         livePriceProvider.select((s) => (s.prices, s.unpriced)));
-    final lines = polyLadderShownLines(ladder, live.$1, live.$2);
-    var index = _ladderPick == null
+    final opening =
+        polyLadderDefaultGroup(board.groups, live.$1, live.$2);
+    if (opening == null) return (group: null, lines: const [], index: 0);
+    final picked = _ladderGroupPick == null
         ? -1
-        : lines.indexWhere((l) => l.outcome.tokenId == _ladderPick);
+        : board.groups.indexWhere((g) => g.key == _ladderGroupPick);
+    final group = board.groups[picked < 0 ? opening : picked];
+    final lines = polyLadderShownLines(group, live.$1, live.$2);
+    final pick = _ladderLinePick[group.key];
+    var index = pick == null
+        ? -1
+        : lines.indexWhere((l) => l.outcome.tokenId == pick);
     if (index < 0) index = polyLadderDefaultIndex(lines, live.$1, live.$2);
-    return (lines: lines, index: index);
+    return (group: group, lines: lines, index: index);
   }
 
   /// The chance of [line]'s first side as a list would show it
@@ -1118,11 +1146,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   double? _ladderChance(WidgetRef ref, PolyLadderLine line) =>
       _shownChanceFor(ref, line.outcome);
 
-  /// The two sides of a ladder's line by name, in the app's language:
-  /// "Over 8.5" / "Under 8.5", else "Yes" / "No" (the line is the
-  /// stepper's).
-  ({String a, String b}) _ladderSideNames(PolyLadderLine line) {
-    final ladder = _ladder!;
+  /// The two sides of [line] of [ladder] by name, in the app's language:
+  /// "Over 8.5" / "Under 8.5"; a handicap's two teams by their short
+  /// names, each with its own line ("Dynamo Kyiv -1.5" / "Livyi Bereh
+  /// +1.5"); else the market's own sides ("Yes" / "No").
+  ({String a, String b}) _ladderSideNames(
+      PolyLineLadder ladder, PolyLadderLine line) {
     final l10n = context.l10n;
     String word(String side) => switch (side.trim().toLowerCase()) {
           'over' => l10n.polySideOver,
@@ -1137,17 +1166,86 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         b: '${word(ladder.sideB)} ${line.lineText}',
       );
     }
-    return (a: word(ladder.sideA), b: word(ladder.sideB));
+    const plain = {'yes', 'no'};
+    if (plain.contains(ladder.sideA.trim().toLowerCase()) ||
+        plain.contains(ladder.sideB.trim().toLowerCase())) {
+      return (a: word(ladder.sideA), b: word(ladder.sideB));
+    }
+    final short = gameShortSideNames(ladder.sideA, ladder.sideB,
+        teams: event.teams.isNotEmpty ? event.teams : _fetchedTeams);
+    if (!ladder.spread) return (a: short.$1, b: short.$2);
+    // The market's line belongs to its first side.
+    return (
+      a: '${short.$1} ${polyLadderLineText(line.line, signed: true)}',
+      b: '${short.$2} ${polyLadderLineText(-line.line, signed: true)}',
+    );
   }
 
   /// The colours of a ladder's two sides: their chart lines' and their
   /// buttons' alike (the game palette's first two, never up and down).
   (Color, Color) get _ladderColors => (kGameSideColors[0], kGameSideColors[1]);
 
-  /// A ladder's headline: the selected line's question ("O/U 8.5 Total
-  /// Corners") and its first side's chance, as the leading-outcome
-  /// headline writes them. A line with no chance to show says it awaits
-  /// liquidity rather than write a figure nobody traded.
+  /// The picker over a page's ladders, in the app's pill row ("Total ·
+  /// 1st half · Shakhtar · Fenerbahçe"; it scrolls, so no name is cut).
+  /// Nothing for a page of one ladder, and nothing while no group trades:
+  /// the page then says once that it awaits liquidity.
+  Widget _buildLadderPicker(WidgetRef ref) {
+    final board = _ladder!;
+    if (board.groups.length < 2) return const SizedBox.shrink();
+    final state = _ladderState(ref);
+    final shown = state.group;
+    if (shown == null) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    final teams = _detectSportsTeams();
+    final short = teams == null
+        ? null
+        : gameShortSideNames(teams.teamA, teams.teamB,
+            teams: event.teams.isNotEmpty ? event.teams : _fetchedTeams);
+    final labels = polyLadderGroupLabels(
+      board.groups,
+      teamA: teams?.teamA,
+      teamB: teams?.teamB,
+      shortA: short?.$1,
+      shortB: short?.$2,
+      total: l10n.polyGameTotal,
+      firstHalf: l10n.polyPeriodFirstHalf,
+      secondHalf: l10n.polyPeriodSecondHalf,
+      spread: l10n.polyGameSpread,
+    );
+    return Padding(
+      padding: EdgeInsets.only(top: teams != null ? 18.h : 0, bottom: 2.h),
+      child: PolyAutoScrollRow(
+        key: const ValueKey('ladder-group-chips'),
+        height: 34.h,
+        padding: 0,
+        itemCount: board.groups.length,
+        selectedIndex: board.groups.indexOf(shown),
+        itemBuilder: (context, i) {
+          final group = board.groups[i];
+          return KutePill(
+            key: ValueKey('ladder-group-$i'),
+            label: labels[i],
+            selected: identical(group, shown),
+            onTap: () {
+              if (identical(group, shown)) return;
+              HapticFeedback.selectionClick();
+              TrackingService.track('category_pill_tapped', params: {
+                'section': 'ladder_groups',
+                'subcategory': group.kind.isEmpty ? 'line' : group.kind,
+              });
+              setState(() => _ladderGroupPick = group.key);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /// A page of ladders' headline: the selected line's question ("O/U 8.5
+  /// Total Corners") and its first side's chance, as the leading-outcome
+  /// headline writes them. A group with no line that trades, and a page
+  /// with no such group, says it awaits liquidity rather than write a
+  /// figure nobody traded.
   Widget _buildLadderHero(WidgetRef ref, AppColorsExtension c) {
     final state = _ladderState(ref);
     if (state.lines.isEmpty) return _buildAwaitingLiquidityHeroPill(c);
@@ -1185,14 +1283,16 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// A ladder's chart: the selected line's two sides, each in its
-  /// button's colour and tagged by its side and line.
+  /// A page of ladders' chart: the selected line's two sides, each in its
+  /// button's colour and tagged by its side and line. No chart for a
+  /// group (or a page) that awaits liquidity: never the event's most
+  /// likely markets drawn over each other.
   MarketChart? _buildLadderChart(WidgetRef ref) {
     final state = _ladderState(ref);
     if (state.lines.isEmpty) return null;
     final line = state.lines[state.index];
     final o = line.outcome;
-    final names = _ladderSideNames(line);
+    final names = _ladderSideNames(state.group!, line);
     final colors = _ladderColors;
     final over = _livePriceFor(ref, o.tokenId, o.price).clamp(0.0, 1.0);
     final lines = <MarketChartLine>[
@@ -1227,29 +1327,40 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// A ladder's stepper and the selected line's two sides as the game
+  /// Under the chart of a page of ladders: the group's stepper (none for
+  /// a group of one line) and the selected line's two sides as the game
   /// page's side buttons ("Over 8.5 · 53.5%", "Under 8.5 · 46.5%"), each
-  /// in its chart line's colour; a side opens the slip on it.
+  /// in its chart line's colour, a side opening the slip on it; nothing
+  /// for a group that awaits liquidity. Then the event's markets that are
+  /// no line of any ladder ("Odd or Even?", "Both Teams to Score") as the
+  /// plain rows they were, only those with a price to show.
   Widget _buildLadder(WidgetRef ref, AppColorsExtension c) {
+    final board = _ladder!;
     final state = _ladderState(ref);
-    if (state.lines.isEmpty) return const SliverToBoxAdapter();
-    final line = state.lines[state.index];
-    final names = _ladderSideNames(line);
-    final colors = _ladderColors;
-    final chance = _ladderChance(ref, line);
-    final pair = chance == null ? null : formatPolyChancePair(chance);
-    Widget side(bool a) => Expanded(
-          child: PolyGameSideButton(
-            key: ValueKey('ladder-side-${a ? 'a' : 'b'}'),
-            label: a ? names.a : names.b,
-            pctText: pair == null ? '—' : (a ? pair.first : pair.second),
-            lineColor: pair == null ? null : (a ? colors.$1 : colors.$2),
-            muted: pair == null,
-            onTap: () => _openLadderSide(line, second: !a),
-          ),
-        );
-    return SliverToBoxAdapter(
-      child: Column(
+    final live = ref.watch(
+        livePriceProvider.select((s) => (s.prices, s.unpriced)));
+    final others = [
+      for (final o in board.others)
+        if (polyLadderLineTrades(live.$1, live.$2, o)) o
+    ];
+    Widget? head;
+    if (state.lines.isNotEmpty) {
+      final ladder = state.group!;
+      final line = state.lines[state.index];
+      final names = _ladderSideNames(ladder, line);
+      final colors = _ladderColors;
+      final pair = formatPolyChancePair(
+          _ladderChance(ref, line) ?? line.outcome.price);
+      Widget side(bool a) => Expanded(
+            child: PolyGameSideButton(
+              key: ValueKey('ladder-side-${a ? 'a' : 'b'}'),
+              label: a ? names.a : names.b,
+              pctText: a ? pair.first : pair.second,
+              lineColor: a ? colors.$1 : colors.$2,
+              onTap: () => _openLadderSide(ladder, line, second: !a),
+            ),
+          );
+      head = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(height: 8.h),
@@ -1259,21 +1370,37 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               lines: [for (final l in state.lines) l.lineText],
               selected: state.index,
               semanticPrefix: line.question,
-              onSelect: (i) =>
-                  setState(() => _ladderPick = state.lines[i].outcome.tokenId),
+              onSelect: (i) => setState(() => _ladderLinePick[ladder.key] =
+                  state.lines[i].outcome.tokenId!),
             ),
           SizedBox(height: 8.h),
           Row(children: [side(true), SizedBox(width: 8.w), side(false)]),
           _buildInPlayDelayNote(c),
         ],
-      ),
+      );
+    }
+    return SliverMainAxisGroup(
+      slivers: [
+        if (head != null) SliverToBoxAdapter(child: head),
+        if (others.isNotEmpty) ...[
+          SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+          _ExpandableOutcomeLegend(
+            outcomes: others,
+            livePriceFor: _shownChanceFor,
+            nameFor: _rowName,
+            sideLabelsFor: _sideLabelsFor,
+            onPickOutcome: _openCandidateDetail,
+          ),
+        ],
+      ],
     );
   }
 
   /// One side of a ladder's line, tapped: the slip on that side at the
   /// live price, its sides named as the buttons name them and wearing
   /// their colours, titled by the market's question.
-  void _openLadderSide(PolyLadderLine line, {required bool second}) {
+  void _openLadderSide(PolyLineLadder ladder, PolyLadderLine line,
+      {required bool second}) {
     TrackingService.track('prediction_outcome_tapped', params: {
       'outcome_type': second ? 'no' : 'yes',
       if (event.category.isNotEmpty) 'category': event.category.toLowerCase(),
@@ -1281,7 +1408,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final o = line.outcome;
     final live =
         o.tokenId == null ? null : ref.read(livePriceProvider).prices[o.tokenId];
-    final names = _ladderSideNames(line);
+    final names = _ladderSideNames(ladder, line);
     final colors = _ladderColors;
     _openLineBetSlip(
       live == null
@@ -1851,6 +1978,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           // A game has no headline: its header carries the score and the
           // clock and its board the chances. (The most likely of its many
           // markets, an over/under at 99%, said nothing about the game.)
+          // A page of ladders: its picker ("Total · 1st half · Shakhtar").
+          // Own Consumer: which group it opens on follows the prices.
+          if (_ladder != null)
+            Consumer(
+              builder: (context, pickRef, _) => _buildLadderPicker(pickRef),
+            ),
           // A ladder is one question: it has its headline, game or not.
           if (!_isGameSheet || _ladder != null) ...[
             if (sportsTeams != null) SizedBox(height: 22.h),

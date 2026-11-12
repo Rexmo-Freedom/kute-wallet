@@ -1,31 +1,42 @@
 // lib/screens/polymarket/components/line_ladder.dart
 //
-// A LINE LADDER (founder, 12 November 2026, on "Sabah FK vs. FC
-// Barcelona - Total Corners": "on some of these events for football it is
-// not correctly divided, it looks bad, make it look good please"): an
-// event whose markets are one question asked at different lines, "O/U 7.5
-// Total Corners" … "O/U 12.5 Total Corners", a spread at -1.5 / -2.5, a
-// card count. The page read it as a list of six rows, each "OVER —" in
-// another colour, under a chart of six lines whose tags all read "Total
-// Corners".
+// LINE LADDERS (founder, 12 November 2026, on "Sabah FK vs. FC Barcelona -
+// Total Corners", then on the real "FK Shakhtar Donetsk vs. Fenerbahçe SK
+// - Total Corners": "some Polymarket events still look like complete
+// slop"). A football prop event is not a list of candidates: it is a few
+// QUESTIONS, each asked at several lines:
 //
-// It now reads as polymarket.com shows a ladder, ONE question:
+//   Total Corners            O/U 7.5 … 13.5
+//   1st Half Total Corners   O/U 3.5 … 5.5
+//   FK Shakhtar Donetsk Corners   O/U 2.5 … 5.5
+//   Fenerbahçe SK Corners    O/U 2.5 … 5.5
+//   (and one-off markets: "Total Corners Odd or Even?", "Team to Take
+//   First Corner"; a "More Markets" event adds spreads, goals O/U, team
+//   totals, both teams to score)
 //
-//   * the selected line's question as the headline ("O/U 8.5 Total
-//     Corners", never the fixture in front of it: the teams header names
-//     it) and its Over chance;
-//   * its own chart, Over and Under, each tag naming its side and line
-//     ("Over 8.5", "Under 8.5");
-//   * a LINE STEPPER, "‹ 7.5 8.5 9.5 ›": the chevrons step a line, a
-//     neighbour is a tap away;
-//   * the line's two sides as the game page's side buttons ("Over 53.5%",
-//     "Under 46.5%"), each in its chart line's colour.
+// The page read it as a list of rows, each "OVER —" in another colour,
+// under a chart of five lines. [polyLadderBoard] sorts the event's
+// markets into LADDER GROUPS by question (the market's name with the
+// fixture and its line taken out); a market with no line is not in a
+// group and stays a row of its own. The page then shows, as
+// polymarket.com shows a ladder:
 //
-// It opens on the line nearest 50%. A line nobody trades (a book wider
-// than 10¢ that never traded, a stub still at Gamma's 50/50) or one
-// already settled is not offered while another line trades
-// ([polyLadderShownLines]); with none trading every line stays, figures
-// quiet.
+//   * a GROUP PICKER when there is more than one group, in the app's pill
+//     row: "Total · 1st half · Shakhtar · Fenerbahçe"
+//     ([polyLadderGroupLabels]);
+//   * for the group picked, ONE question: the selected line's question as
+//     the headline ("O/U 8.5 Total Corners", never the fixture in front
+//     of it) and its first side's chance; its own chart, Over and Under,
+//     each tag naming its side and line; a LINE STEPPER "‹ 7.5 8.5 9.5 ›"
+//     (hidden for a group of one line); the line's two sides as the game
+//     page's side buttons, each in its chart line's colour.
+//
+// It opens on the group with the most volume (the first, "Total", on a
+// tie) and on the line nearest 50%. ONLY a line with a real price is
+// offered ([polyLadderLineTrades]): a book wider than 10¢ that never
+// traded, a stub at Gamma's 50/50 and a line already decided (99% or 1%)
+// are left out, never written "—". A group with no such line says it
+// awaits liquidity; an event with none says so once.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -61,14 +72,29 @@ class PolyLadderLine {
   bool get _signed => RegExp(r'[+-]\s*\d').hasMatch(question);
 }
 
-/// A ladder: its lines, lowest first, and the two sides every line's
-/// market has, in the market's order ("Over" / "Under", "Yes" / "No").
+/// One ladder: a question's lines, lowest first, and the two sides every
+/// line's market has, in the market's order ("Over" / "Under", two teams
+/// on a spread, "Yes" / "No").
 class PolyLineLadder {
+  /// What makes two markets the same question: the name with its line
+  /// taken out, the kind of market and its sides.
+  final String key;
+
+  /// The question without its line and the words every ladder shares
+  /// ("O/U", "Spread:"): "Total Corners", "1st Half Total Corners",
+  /// "FK Shakhtar Donetsk Corners"; empty for a bare "O/U 2.5".
+  final String stem;
+
+  /// Gamma's kind of market (`sportsMarketType`), '' when it sends none.
+  final String kind;
   final List<PolyLadderLine> lines;
   final String sideA;
   final String sideB;
 
   const PolyLineLadder({
+    required this.key,
+    required this.stem,
+    required this.kind,
     required this.lines,
     required this.sideA,
     required this.sideB,
@@ -78,6 +104,26 @@ class PolyLineLadder {
   bool get overUnder =>
       sideA.trim().toLowerCase() == 'over' &&
       sideB.trim().toLowerCase() == 'under';
+
+  /// A handicap: its sides are the two teams.
+  bool get spread =>
+      kind.toLowerCase().contains('spread') ||
+      kind.toLowerCase().contains('handicap') ||
+      lines.any((l) => l.question.toLowerCase().startsWith('spread'));
+
+  /// What its markets have traded, added up.
+  double get volume =>
+      lines.fold(0.0, (sum, l) => sum + (l.outcome.volume ?? 0));
+}
+
+/// An event read as ladders: its groups, in the event's order, and the
+/// markets that are no line of any ([others]: "Odd or Even?", "Both Teams
+/// to Score").
+class PolyLadderBoard {
+  final List<PolyLineLadder> groups;
+  final List<PolymarketOutcome> others;
+
+  const PolyLadderBoard({required this.groups, required this.others});
 }
 
 /// [line] written as a ladder writes it: no trailing ".0", a sign when
@@ -92,18 +138,34 @@ String polyLadderLineText(double line, {bool signed = false}) {
 /// number.
 final RegExp _kHalfLine = RegExp(r'(?<![\d.])[+-]?\d+\.5(?![\d.])');
 
-/// The ladder [event] is, or null when it is not one.
+/// Gamma's kinds of market that are a game's own board (its winner): an
+/// event with one is the game itself, never a page of ladders.
+const Set<String> _kWinnerKinds = {'moneyline', 'child_moneyline'};
+
+/// What is left of a ladder's question without its line and the words
+/// every ladder shares: "O/U # Total Corners" -> "Total Corners",
+/// "Spread: FK Dynamo Kyiv (#)" -> "FK Dynamo Kyiv".
+String _ladderStem(String shape) => shape
+    .replaceAll('#', ' ')
+    .replaceAll(RegExp(r'\bo\s*/\s*u\b', caseSensitive: false), ' ')
+    .replaceAll(RegExp(r'\bover\s*/\s*under\b', caseSensitive: false), ' ')
+    .replaceAll(RegExp(r'^\s*spread\s*:', caseSensitive: false), ' ')
+    .replaceAll(RegExp(r'[()\[\]:?]'), ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();
+
+/// [event] read as ladders, or null when it is not a page of them.
 ///
-/// A ladder is a sports event (a sports tag, teams or a matchup title)
-/// of two or more markets, each a two-sided market (its own two tokens),
-/// that ask the SAME question at different half lines: every market's
-/// name with the fixture and its line taken out reads the same, its sides
-/// are the same pair, and no two share a line. The line is Gamma's own
-/// (`line`) when the market carries it, else the one half line in its
-/// name. Anything else (a match result with a draw, both teams to score,
-/// a game of many kinds of market, a price ladder outside sports) is not
-/// a ladder and keeps its page.
-PolyLineLadder? polyLineLadder(PolymarketEvent event) {
+/// Only a sports event (a sports tag, teams or a matchup title) that is
+/// not a game's own event (no winner market) and not one Yes / No market.
+/// Each two-sided market whose name, with the fixture taken off, carries
+/// exactly one half line is a line of the group that asks its question:
+/// same name once the line is out, same kind, same sides. Every other
+/// market is one of [PolyLadderBoard.others]. Null unless at least one
+/// group has two lines: a match result with a draw, an exact score, a
+/// first-to-score event and a price ladder outside sports keep their
+/// pages.
+PolyLadderBoard? polyLadderBoard(PolymarketEvent event) {
   if (event.isBinary || event.isSyntheticBinary) return null;
   final sports = event.isSportsCategory ||
       event.teams.isNotEmpty ||
@@ -111,65 +173,183 @@ PolyLineLadder? polyLineLadder(PolymarketEvent event) {
   if (!sports) return null;
   final outcomes = event.outcomes;
   if (outcomes.length < 2) return null;
-  String? template;
-  String? kind;
-  (String, String)? sides;
-  final seen = <double>{};
-  final lines = <PolyLadderLine>[];
+  final byKey = <String, List<PolyLadderLine>>{};
+  final meta = <String, ({String stem, String kind, String a, String b})>{};
+  final others = <PolymarketOutcome>[];
   for (final o in outcomes) {
-    if (!o.hasYesNo || o.tokenId == null || o.tokenId!.isEmpty) return null;
+    final kind = (o.marketLine?.kind ?? '').trim();
+    if (_kWinnerKinds.contains(kind.toLowerCase())) return null;
     final question =
         polyStripEventPrefix((o.question ?? o.name).trim(), event.title);
     final matches = _kHalfLine.allMatches(question).toList();
-    final named = matches.length == 1
-        ? double.tryParse(matches.single.group(0)!.replaceAll(' ', ''))
-        : null;
-    final line = o.marketLine?.line ?? named;
-    if (line == null || matches.length != 1) return null;
-    // Gamma's line and the name's agree (a spread's line may be the other
-    // side's sign).
-    if (named == null || named.abs() != line.abs()) return null;
-    if (!seen.add(named)) return null;
+    final named =
+        matches.length == 1 ? double.tryParse(matches.single.group(0)!) : null;
+    final gamma = o.marketLine?.line;
+    // A line of a ladder: two tokens, one half line in the name, and
+    // Gamma's own line (when it sends one) the same but for its sign.
+    if (!o.hasYesNo ||
+        o.tokenId == null ||
+        o.tokenId!.isEmpty ||
+        named == null ||
+        (gamma != null && gamma.abs() != named.abs())) {
+      others.add(o);
+      continue;
+    }
     final shape = question
         .replaceRange(matches.single.start, matches.single.end, '#')
-        .toLowerCase()
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    template ??= shape;
-    if (shape != template) return null;
-    final k = o.marketLine?.kind ?? '';
-    kind ??= k;
-    if (k != kind) return null;
     final own = o.marketLine?.sides ?? const [];
-    final pair =
-        own.length == 2 ? (own[0].trim(), own[1].trim()) : ('Yes', 'No');
-    sides ??= pair;
-    if (pair.$1.toLowerCase() != sides.$1.toLowerCase() ||
-        pair.$2.toLowerCase() != sides.$2.toLowerCase()) {
-      return null;
+    final a = own.length == 2 ? own[0].trim() : 'Yes';
+    final b = own.length == 2 ? own[1].trim() : 'No';
+    final key = '${shape.toLowerCase()}|${kind.toLowerCase()}|'
+        '${a.toLowerCase()}|${b.toLowerCase()}';
+    final lines = byKey.putIfAbsent(key, () => []);
+    if (lines.any((l) => l.line == named)) {
+      others.add(o);
+      continue;
     }
+    meta[key] ??= (stem: _ladderStem(shape), kind: kind, a: a, b: b);
     lines.add(PolyLadderLine(outcome: o, line: named, question: question));
   }
-  lines.sort((a, b) => a.line.compareTo(b.line));
-  return PolyLineLadder(lines: lines, sideA: sides!.$1, sideB: sides.$2);
+  if (!byKey.values.any((l) => l.length >= 2)) return null;
+  return PolyLadderBoard(
+    groups: [
+      for (final e in byKey.entries)
+        PolyLineLadder(
+          key: e.key,
+          stem: meta[e.key]!.stem,
+          kind: meta[e.key]!.kind,
+          lines: [...e.value]..sort((x, y) => x.line.compareTo(y.line)),
+          sideA: meta[e.key]!.a,
+          sideB: meta[e.key]!.b,
+        ),
+    ],
+    others: others,
+  );
 }
 
-/// The lines the stepper offers at the live [prices]: those trading
-/// ([gameLineStatus] open); with none trading, those not settled; with
-/// every line settled, all of them. Lowest first.
-List<PolyLadderLine> polyLadderShownLines(
-    PolyLineLadder ladder, Map<String, double> prices, Set<String> unpriced) {
-  final open = [
-    for (final l in ladder.lines)
-      if (gameLineStatus(prices, unpriced, l.outcome) == GameLineStatus.open) l
+final RegExp _kFirstHalf =
+    RegExp(r'\b(1st|first)\s+half\b', caseSensitive: false);
+final RegExp _kSecondHalf =
+    RegExp(r'\b(2nd|second)\s+half\b', caseSensitive: false);
+
+/// The picker's name for each of [groups], short and never the same
+/// twice: the whole game's question is [total] ("Total"), a half's is its
+/// half ([firstHalf], [secondHalf]), a team's is the team's short name
+/// ([shortA] for [teamA], the fixture's first side), a team's half both
+/// ("Shakhtar 1st half") and a handicap [spread] and its team ("Spread
+/// Dynamo"). What the question counts ("Corners") is the page's title
+/// already; it is written only to tell two groups apart ("Total Corners"
+/// beside "Total Cards"), and two that still read alike write their
+/// whole stems.
+List<String> polyLadderGroupLabels(
+  List<PolyLineLadder> groups, {
+  String? teamA,
+  String? teamB,
+  String? shortA,
+  String? shortB,
+  required String total,
+  required String firstHalf,
+  required String secondHalf,
+  required String spread,
+}) {
+  ({String label, String rest}) read(PolyLineLadder g) {
+    var rest = g.stem;
+    String? period;
+    if (_kFirstHalf.hasMatch(rest)) {
+      period = firstHalf;
+      rest = rest.replaceAll(_kFirstHalf, ' ');
+    } else if (_kSecondHalf.hasMatch(rest)) {
+      period = secondHalf;
+      rest = rest.replaceAll(_kSecondHalf, ' ');
+    }
+    String? team;
+    // The longer name first: "Manchester United" before "Manchester".
+    final sides = [
+      if (teamA != null && teamA.trim().isNotEmpty)
+        (teamA.trim(), shortA ?? teamA),
+      if (teamB != null && teamB.trim().isNotEmpty)
+        (teamB.trim(), shortB ?? teamB),
+    ]..sort((x, y) => y.$1.length.compareTo(x.$1.length));
+    for (final (name, short) in sides) {
+      final at = rest.toLowerCase().indexOf(name.toLowerCase());
+      if (at < 0) continue;
+      team = short.trim();
+      rest = rest.replaceRange(at, at + name.length, ' ');
+      break;
+    }
+    rest = rest.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final parts = [
+      if (g.spread) spread,
+      if (team != null) team,
+      if (period != null) period,
+    ];
+    return (label: parts.isEmpty ? total : parts.join(' '), rest: rest);
+  }
+
+  final reads = [for (final g in groups) read(g)];
+  bool clash(List<String> labels, int i) {
+    for (var j = 0; j < labels.length; j++) {
+      if (j != i && labels[j].toLowerCase() == labels[i].toLowerCase()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  final first = [for (final r in reads) r.label];
+  final second = [
+    for (var i = 0; i < reads.length; i++)
+      clash(first, i) && reads[i].rest.isNotEmpty
+          ? (first[i] == total &&
+                  reads[i].rest.toLowerCase().contains(total.toLowerCase())
+              ? reads[i].rest
+              : '${first[i]} ${reads[i].rest}')
+          : first[i],
   ];
-  if (open.isNotEmpty) return open;
-  final unsettled = [
-    for (final l in ladder.lines)
-      if (gameLineStatus(prices, unpriced, l.outcome) != GameLineStatus.settled)
-        l
+  return [
+    for (var i = 0; i < reads.length; i++)
+      clash(second, i) && groups[i].stem.isNotEmpty
+          ? groups[i].stem
+          : second[i],
   ];
-  return unsettled.isNotEmpty ? unsettled : ladder.lines;
+}
+
+/// Whether [o] has a real price at the live [prices]: its book trades
+/// ([gameLineStatus] open: not a wide book that never traded, not a stub
+/// at Gamma's 50/50, not closed) and it is not decided already (99% or
+/// more, 1% or less). Only such a line is offered.
+bool polyLadderLineTrades(
+    Map<String, double> prices, Set<String> unpriced, PolymarketOutcome o) {
+  if (gameLineStatus(prices, unpriced, o) != GameLineStatus.open) return false;
+  final p = polyShownChanceOf(prices, unpriced, o);
+  return p != null && p > 0.01 + 1e-9 && p < 0.99 - 1e-9;
+}
+
+/// The lines of [ladder] the stepper offers at the live [prices]: those
+/// that trade ([polyLadderLineTrades]), lowest first. Empty when none
+/// does: the group then awaits liquidity.
+List<PolyLadderLine> polyLadderShownLines(PolyLineLadder ladder,
+        Map<String, double> prices, Set<String> unpriced) =>
+    [
+      for (final l in ladder.lines)
+        if (polyLadderLineTrades(prices, unpriced, l.outcome)) l
+    ];
+
+/// The group a page of ladders opens on: among those with a line that
+/// trades, the one with the most volume; the earlier one on a tie (the
+/// whole game's question comes first). Null when no group trades.
+int? polyLadderDefaultGroup(List<PolyLineLadder> groups,
+    Map<String, double> prices, Set<String> unpriced) {
+  int? best;
+  for (var i = 0; i < groups.length; i++) {
+    if (polyLadderShownLines(groups[i], prices, unpriced).isEmpty) continue;
+    if (best == null || groups[i].volume > groups[best].volume + 1e-9) {
+      best = i;
+    }
+  }
+  return best;
 }
 
 /// The line a ladder opens on: the one whose first side's chance is
