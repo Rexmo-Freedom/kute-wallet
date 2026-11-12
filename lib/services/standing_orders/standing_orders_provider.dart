@@ -1363,12 +1363,65 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     required DateTime since,
   }) async {
     final order = byId(id);
-    final walletId = _walletId();
-    if (order == null || walletId == null || !order.isOpen) return null;
+    if (order == null || !order.isOpen) return null;
     if (order.attempts > kStandingReprices ||
         clock().difference(since) > kStandingRepriceWindow) {
       return null;
     }
+    return _signAgain(id,
+        intent: intent, price: price, shares: shares, spendUsd: spendUsd);
+  }
+
+  /// A landing short of the stake (a reviewer's finding on the short
+  /// landing hold, 11 November 2026: the order signed at the accept is for
+  /// the whole stake, so one that landed a few cents short sat in
+  /// `placing` until the 12-minute funds wait and failed generically).
+  /// The order kept was never accepted (never posted, or refused for its
+  /// balance), so a NEW order for the same bet is signed for [spendUsd],
+  /// never more than the stake approved, at the very limit price the
+  /// order kept was signed at ([StandingOrder.approvedPrice], never
+  /// worse), under the same approval (a child of the autofire grant still
+  /// held this session); its secret replaces the old one and [attempts]
+  /// is counted. Null when nothing may be signed: no approval in memory
+  /// (a restart), a limit order (its price and size are the person's:
+  /// short is short), or the new order outside what was approved.
+  Future<StandingSignedOrder?> resize(
+    String id, {
+    required PendingBetIntent intent,
+    required double spendUsd,
+  }) async {
+    final order = byId(id);
+    if (order == null || !order.isOpen || order.orderKind != 'market') {
+      return null;
+    }
+    final price = order.approvedPrice;
+    if (!spendUsd.isFinite ||
+        spendUsd <= 0 ||
+        spendUsd > order.amountUsd + 1e-9 ||
+        !price.isFinite ||
+        price <= 0) {
+      return null;
+    }
+    final shares = PolymarketOrderPlan.sharesFor(spendUsd, price);
+    if (shares <= 0) return null;
+    return _signAgain(id,
+        intent: intent, price: price, shares: shares, spendUsd: spendUsd);
+  }
+
+  /// Signs a new market order for [id]'s bet under the approval still
+  /// held this session and keeps it in place of the old one ([reprice],
+  /// [resize]). Null when there is no approval, the order is outside it,
+  /// or the signature fails: the old secret stays.
+  Future<StandingSignedOrder?> _signAgain(
+    String id, {
+    required PendingBetIntent intent,
+    required double price,
+    required double shares,
+    required double spendUsd,
+  }) async {
+    final order = byId(id);
+    final walletId = _walletId();
+    if (order == null || walletId == null || !order.isOpen) return null;
     final parent =
         AuthGrantRegistry.instance.peekAutofire(kPendingBetAutofireId);
     if (parent == null) return null;

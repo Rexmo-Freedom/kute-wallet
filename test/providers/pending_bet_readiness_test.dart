@@ -1057,6 +1057,28 @@ void main() {
         'placed');
   });
 
+  test(
+      'refused for balance and the wallet reads short for good: the next '
+      'order is sized to what is there, never the whole funds wait', () async {
+    PendingBetAutoFire.debugShortLandingGrace =
+        const Duration(milliseconds: 60);
+    addTearDown(() => PendingBetAutoFire.debugShortLandingGrace = null);
+    final r = await start(refusals: [const PolymarketBalanceRefused(_balance)]);
+    r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+    // By the post the wallet holds less than the order costs (another
+    // order of the person's took part of it): the venue refuses it.
+    r.trading.onRefused = () => r.trading.reads = _reads(pusd: 8, counted: 8);
+    r.trading.land(10.6);
+    await settle(r.c);
+    expect(r.trading.orders, hasLength(2),
+        reason: 'sent again for what is there, in seconds');
+    expect(r.trading.orderCosts.last, lessThanOrEqualTo(8));
+    expect(r.trading.orderCosts.last, greaterThan(7));
+    expect(r.c.read(pendingPolymarketBetProvider)!.status,
+        PendingBetStatus.awaitingConfirmation);
+    expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+  });
+
   group('funded from Bitcoin: the executor\'s own grant check', () {
     // Founder, 19 October 2026: "Moved \$5.30 from Bitcoin", then
     // `[pm-autofire] failed: ReauthRequired(other)` at placeOrder's

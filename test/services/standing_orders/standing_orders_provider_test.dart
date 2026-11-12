@@ -1131,6 +1131,49 @@ void main() {
     });
   });
 
+  group('resize (a landing short of the stake)', () {
+    test('a smaller order at the same limit: signed under the same approval, '
+        'the old secret replaced', () async {
+      final c = container();
+      final intent = _bet();
+      approve(intent);
+      c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
+      await settle();
+      final first = c.read(standingOrdersProvider).single;
+      final signed = await c
+          .read(standingOrdersProvider.notifier)
+          .resize(first.id, intent: intent, spendUsd: 9.4);
+      expect(signed, isNotNull);
+      expect(signer.calls, 2);
+      expect(signer.lastPrice, first.approvedPrice, reason: 'never a worse price');
+      expect(signed!.spendUsd, 9.4);
+      final o = c.read(standingOrdersProvider).single;
+      expect(o.amountUsd, 10, reason: 'the stake approved stays on the record');
+      expect(o.approvedPrice, first.approvedPrice);
+      expect(o.size, lessThan(first.size));
+      expect(o.attempts, 2);
+      expect(o.orderHash, signed.orderHash);
+      expect(secrets.values, hasLength(1), reason: 'one signature unaccounted for');
+    });
+
+    test('never larger than the stake, never without the approval', () async {
+      final c = container();
+      final intent = _bet();
+      approve(intent);
+      c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
+      await settle();
+      final id = c.read(standingOrdersProvider).single.id;
+      final notifier = c.read(standingOrdersProvider.notifier);
+      expect(await notifier.resize(id, intent: intent, spendUsd: 10.5), isNull);
+      expect(await notifier.resize(id, intent: intent, spendUsd: 0), isNull);
+      // No approval in memory (a restart): nothing is signed.
+      AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
+      expect(await notifier.resize(id, intent: intent, spendUsd: 9.4), isNull);
+      expect(signer.calls, 1);
+      expect(await store.hasSecret(id), isTrue, reason: 'the order kept stays');
+    });
+  });
+
   group('cancel', () {
     test('before posting: the queued bet goes, the secret goes, the money stays',
         () async {

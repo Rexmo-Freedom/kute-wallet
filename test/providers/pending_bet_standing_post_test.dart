@@ -24,7 +24,10 @@ import 'package:kute/providers/pending_bet_autofire.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/polymarket/placement_waits.dart'
@@ -270,7 +273,9 @@ void main() {
   /// Queues [intent] under its one approval: the standing order is signed
   /// and the autofire watches for its money.
   Future<({ProviderContainer c, _Trading trading})> accept(
-      PendingBetIntent intent) async {
+      PendingBetIntent bet,
+      {bool delivered = false}) async {
+    var intent = bet;
     final trading = _Trading();
     addTearDown(trading.deliveries.close);
     final c = ProviderContainer(overrides: [
@@ -306,6 +311,30 @@ void main() {
       method: AuthGrantMethod.biometric,
     );
     PredictionFundingLedger.instance.sent('ref_move', usd: intent.fundUsd!);
+    if (delivered) {
+      // The bet's own funding run, its one leg reported delivered.
+      final runs = c.read(fundedOrdersProvider.notifier);
+      final id = runs.start(
+          FundedOrderLabel(
+              venue: OneBalanceVenue.predictions,
+              orderUsd: intent.amount,
+              side: 'Up',
+              market: 'Question',
+              marketKey: _token),
+          stage: FundedOrderStage.preparing);
+      runs.setSteps(
+          id,
+          MoneyStepGraph([
+            MoneyStep(
+                id: 'leg:bitcoin',
+                kind: MoneyStepKind.leg,
+                from: MoneyPlace.bitcoin,
+                to: MoneyPlace.predictions,
+                usd: intent.fundUsd!,
+                status: MoneyStepStatus.done),
+          ]));
+      intent = intent.copyWith(fundedRunId: id);
+    }
     c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
     // The signature and its secret are written between the accept and
     // the first look.
@@ -352,5 +381,103 @@ void main() {
         r.c.read(pendingPolymarketBetProvider) == null);
     final ended = r.c.read(pendingPolymarketBetProvider);
     expect(ended == null || ended.status == PendingBetStatus.done, isTrue);
+  });
+
+  group('a landing short of the stake', () {
+    // What the reviewer flagged on d4003555: the order signed at the accept
+    // is for the whole stake, so a landing short of it could not be placed
+    // and sat in `placing` until the 12-minute funds wait, then failed
+    // with the generic copy.
+    setUp(() {
+      PendingBetAutoFire.readyPollInterval = const Duration(milliseconds: 20);
+      PendingBetAutoFire.debugShortLandingGrace =
+          const Duration(milliseconds: 100);
+    });
+
+    test(
+        'a few cents short: signed again smaller at the same price under '
+        'the same approval and placed, in seconds', () async {
+      final r = await accept(_bet(_roundNotStarted()), delivered: true);
+      final first = signer.prices.single;
+
+      // Every leg delivered; the wallet holds $4.97 where the $5.00 stake
+      // and its fees need $5.24.
+      r.trading.reads = () => _reads(pusd: 4.97, counted: 4.97);
+      r.trading.land(4.97);
+      await until(() => r.trading.posts.isNotEmpty);
+
+      expect(r.trading.posts, hasLength(1),
+          reason: 'placed for what landed, never a 12-minute wait');
+      final posted = r.trading.posts.single;
+      expect(posted.spendUsd, lessThan(5));
+      expect(posted.spendUsd, greaterThan(4.5));
+      // Never larger, never a worse price than the one approved.
+      expect(signer.calls, 2);
+      expect(signer.spends.last, posted.spendUsd);
+      expect(signer.prices.last, first);
+      // One order at the venue, the smaller one; the first was never sent.
+      expect(r.trading.posts.map((p) => p.orderHash).toSet(), hasLength(1));
+      await until(() =>
+          r.c.read(pendingPolymarketBetProvider)?.status ==
+              PendingBetStatus.done ||
+          r.c.read(pendingPolymarketBetProvider) == null);
+      final ended = r.c.read(pendingPolymarketBetProvider);
+      expect(ended == null || ended.status == PendingBetStatus.done, isTrue);
+    });
+
+    test(
+        'no approval left to sign a smaller order (a restart): it stops at '
+        'once with "Add funds to predict", the money in Predictions',
+        () async {
+      final r = await accept(_bet(_roundNotStarted()), delivered: true);
+      // The session's approval is gone: nothing new may be signed.
+      AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
+
+      r.trading.reads = () => _reads(pusd: 4.97, counted: 4.97);
+      r.trading.land(4.97);
+      await until(() =>
+          r.c.read(pendingPolymarketBetProvider)?.status ==
+          PendingBetStatus.failed);
+
+      final ended = r.c.read(pendingPolymarketBetProvider)!;
+      expect(ended.status, PendingBetStatus.failed,
+          reason: 'said at once, never after the 12-minute funds wait');
+      expect(ended.failureCode, 'insufficient_usdc');
+      expect(ended.errorMessage, l10nForLanguage('en').betAddFundsToPredict);
+      expect(r.trading.posts, isEmpty);
+      expect(signer.calls, 1);
+    });
+
+    test(
+        'the cash went short after the look that released the order: the '
+        'refusal is met by a smaller order, not by the funds wait', () async {
+      final r = await accept(_bet(_roundNotStarted()), delivered: true);
+      // Counted in full at the readiness look; by the post the wallet
+      // holds less (another order of the person's took part of it).
+      var looks = 0;
+      r.trading.reads = () => looks++ < 1
+          ? _reads(pusd: 5.49, counted: 5.49)
+          : _reads(pusd: 4.2, counted: 4.2);
+      r.trading.land(5.49);
+      await until(() => r.trading.posts.isNotEmpty);
+
+      expect(r.trading.posts, hasLength(1));
+      expect(r.trading.posts.single.spendUsd, lessThan(4.2));
+      expect(r.trading.posts.single.spendUsd, greaterThan(3.8));
+      expect(signer.prices.toSet(), hasLength(1));
+    });
+
+    test('a landing under the venue\'s minimum stops at once too', () async {
+      final r = await accept(_bet(_roundNotStarted()), delivered: true);
+      r.trading.reads = () => _reads(pusd: 0.6, counted: 0.6);
+      r.trading.land(0.6);
+      await until(() =>
+          r.c.read(pendingPolymarketBetProvider)?.status ==
+          PendingBetStatus.failed);
+      final ended = r.c.read(pendingPolymarketBetProvider)!;
+      expect(ended.status, PendingBetStatus.failed);
+      expect(ended.failureCode, 'insufficient_usdc');
+      expect(r.trading.posts, isEmpty);
+    });
   });
 }
