@@ -92,6 +92,7 @@ import 'package:kute/services/contacts/send_contacts_service.dart'
     show SendContact, sendContactsProvider;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/services/lightning_address_check.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -298,6 +299,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   /// [text] into the field; a paste or a scan ([goOn]) goes straight on
   /// ([_goOn]).
   void _setText(String text, {bool goOn = false}) {
+    // The code as scanned or pasted, for Branta's payee lookup.
+    brantaNoteInput(text);
     _search.value = TextEditingValue(
         text: text, selection: TextSelection.collapsed(offset: text.length));
     setState(() {});
@@ -440,7 +443,10 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                     SendRecipientSearchField(
                       controller: _search,
                       hintText: l10n.sendRecipientSearchHint,
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (v) {
+                        brantaNoteInput(v);
+                        setState(() {});
+                      },
                       onSubmitted: _goOn,
                       onPaste: () => unawaited(_paste()),
                       onScan: () => unawaited(_scan()),
@@ -473,6 +479,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                         recents: recents,
                         onChange: _clearRecipient,
                         onTap: _continue,
+                        brantaRail: brantaRailFor(
+                            assetCode: auto.assetCode, chain: auto.chain),
                       ),
                     ] else if (who.bitcoinRail) ...[
                       // Only bitcoin pays it: the card says the money
@@ -489,6 +497,8 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                         recents: recents,
                         onChange: _clearRecipient,
                         onTap: notPayable ? null : _continue,
+                        brantaRail:
+                            notPayable ? null : brantaRailForBitcoin(text),
                         kindLine: switch (lightningStatus) {
                           LightningAddressStatus.exists =>
                             l10n.sendDetectedLightningAddress,

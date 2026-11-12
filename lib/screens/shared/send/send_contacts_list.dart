@@ -75,6 +75,13 @@
 // before the @ (or the saved contact's name) whole, "@domain" under it
 // ([sendAtAddressParts]).
 //
+// A PAYEE BRANTA VOUCHES FOR (founder, 12 November 2026; send_branta_payee
+// .dart): with [SendRecipientCard.brantaRail] / [SendReviewRoute
+// .brantaRail] set, a destination Branta verifies wears the payee's logo in
+// the avatar's circle and its name ("Bitfinex") on the card and the To
+// square, "Verified by Branta" under it, the address still read; a swapped
+// one adds the inline warning. Anything else looks exactly as before.
+//
 // Until the contacts are granted, "All contacts" holds the ask row (and,
 // while typing, the matching recents). Everything is local: numbers never
 // leave the phone.
@@ -88,8 +95,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/send/send_branta_payee.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -974,11 +983,16 @@ class SendRecipientCard extends ConsumerWidget {
     this.onTap,
     this.kindLine,
     this.badge,
+    this.brantaRail,
   });
 
   final String address;
   final String? rail;
   final Widget railMark;
+
+  /// How the send pays [address], for Branta's payee lookup
+  /// (send_branta_payee.dart); null: no lookup, the card as it always was.
+  final BrantaRail? brantaRail;
   final List<SendPerson> recents;
   final VoidCallback onChange;
   final VoidCallback? onTap;
@@ -999,14 +1013,20 @@ class SendRecipientCard extends ConsumerWidget {
     final contacts = state.granted ? state.contacts : const <SendContact>[];
     final match =
         sendMatchingPerson(address, recents: recents, contacts: contacts);
-    final name = sendRecipientName(match, address);
-    final avatar = sendRecipientAvatarPerson(match, address,
-        railMark: railMark, badge: badge);
+    final payee = watchBrantaPayee(ref, address, brantaRail);
+    final verified = payee != null && payee.verified;
+    final name = verified ? payee.name! : sendRecipientName(match, address);
+    final avatar = verified
+        ? sendBrantaPayeePerson(payee, railMark: railMark, size: 44)
+        : sendRecipientAvatarPerson(match, address,
+            railMark: railMark, badge: badge);
     // An address with no saved name already shows as the name: the line
     // under it says what it is instead of repeating it.
     final saved = sendSavedName(match, address,
         handle: sendAtAddressParts(address)?.name);
-    final line = kindLine != null && saved == null ? kindLine! : address.trim();
+    final line = kindLine != null && saved == null && !verified
+        ? kindLine!
+        : address.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1052,10 +1072,16 @@ class SendRecipientCard extends ConsumerWidget {
                           ),
                         ),
                         SizedBox(height: 2.h),
+                        // Verified: the line under the name, the address
+                        // on one line under it.
+                        if (verified) ...[
+                          const SendVerifiedByBranta(),
+                          SizedBox(height: 2.h),
+                        ],
                         SendMiddleEllipsisText(
                           line,
                           key: const ValueKey('send-recipient-address'),
-                          maxLines: 2,
+                          maxLines: verified ? 1 : 2,
                           style: TextStyle(
                             color: c.textSecondary,
                             fontSize: 13.sp,
@@ -1097,10 +1123,26 @@ class SendRecipientCard extends ConsumerWidget {
             ),
           ),
         ),
+        if (payee != null && payee.tampered) ...[
+          SizedBox(height: 10.h),
+          SendInlineError(message: l10n.sendBrantaTampered),
+        ],
       ],
     );
   }
 }
+
+/// The avatar of a payee Branta verifies: its logo in the circle, the
+/// rail's mark ([railMark]) until it loads or if it cannot; no badge.
+/// [size] is the avatar's, unscaled.
+SendPerson sendBrantaPayeePerson(BrantaPayee payee,
+        {required Widget railMark, required double size}) =>
+    SendPerson(
+      id: 'recipient',
+      name: payee.name ?? '',
+      mark: BrantaPayeeLogo(
+          url: payee.logoUrl, size: size.sp, fallback: railMark),
+    );
 
 /// The face a recipient wears on the Who step's card and on the Review's
 /// To square: the person's own avatar when it has one (a photo, initials,
@@ -1130,6 +1172,7 @@ class SendRecipientAvatar extends ConsumerWidget {
     required this.railMark,
     required this.recents,
     this.size = 40,
+    this.brantaRail,
   });
 
   final String address;
@@ -1137,14 +1180,53 @@ class SendRecipientAvatar extends ConsumerWidget {
   final List<SendPerson> recents;
   final double size;
 
+  /// The Branta lookup's rail ([SendRecipientCard.brantaRail]).
+  final BrantaRail? brantaRail;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final payee = watchBrantaPayee(ref, address, brantaRail);
+    if (payee != null && payee.verified) {
+      return SendPersonAvatar(
+        person: sendBrantaPayeePerson(payee, railMark: railMark, size: size),
+        size: size,
+      );
+    }
     final state = ref.watch(sendContactsProvider);
     final contacts = state.granted ? state.contacts : const <SendContact>[];
     final match =
         sendMatchingPerson(address, recents: recents, contacts: contacts);
     return SendPersonAvatar(
       person: sendRecipientAvatarPerson(match, address, railMark: railMark),
+      size: size,
+    );
+  }
+}
+
+/// A Review visual ([child], the coin's mark on the Dollars Send) that
+/// becomes the payee's logo in the avatar's circle when Branta verifies
+/// [address] on [brantaRail] ([sendBrantaPayeePerson]); [child] otherwise,
+/// unchanged. [size] is the visual's, unscaled.
+class SendBrantaPayeeVisual extends ConsumerWidget {
+  const SendBrantaPayeeVisual({
+    super.key,
+    required this.address,
+    required this.brantaRail,
+    required this.size,
+    required this.child,
+  });
+
+  final String address;
+  final BrantaRail? brantaRail;
+  final double size;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final payee = watchBrantaPayee(ref, address, brantaRail);
+    if (payee == null || !payee.verified) return child;
+    return SendPersonAvatar(
+      person: sendBrantaPayeePerson(payee, railMark: child, size: size),
       size: size,
     );
   }
@@ -1232,6 +1314,7 @@ class SendReviewRoute extends ConsumerWidget {
     this.expanded = false,
     this.onToggle,
     this.onCopied,
+    this.brantaRail,
   });
 
   /// The size the squares draw their visuals at (the cards' 40 box).
@@ -1259,12 +1342,19 @@ class SendReviewRoute extends ConsumerWidget {
   /// The address was copied (analytics; never the address itself).
   final VoidCallback? onCopied;
 
+  /// The Branta lookup's rail ([SendRecipientCard.brantaRail]): a payee
+  /// Branta verifies reads as its name over "Verified by Branta" and the
+  /// short address (the [toVisual] given the same rail wears its logo).
+  final BrantaRail? brantaRail;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final addr = address.trim();
     final toggle = onToggle;
-    final at = sendAtAddressParts(addr);
+    final payee = watchBrantaPayee(ref, addr, brantaRail);
+    final verified = payee != null && payee.verified;
+    final at = verified ? null : sendAtAddressParts(addr);
     String? atName;
     if (at != null) {
       final state = ref.watch(sendContactsProvider);
@@ -1295,12 +1385,14 @@ class SendReviewRoute extends ConsumerWidget {
               key: const ValueKey('send-review-to'),
               visual: toVisual,
               label: l10n.to,
-              title: at != null
-                  ? atName ?? at.name
-                  : addr.isEmpty
-                      ? '…'
-                      : addr,
-              oneLineTitle: addr.isEmpty || at != null
+              title: verified
+                  ? payee.name!
+                  : at != null
+                      ? atName ?? at.name
+                      : addr.isEmpty
+                          ? '…'
+                          : addr,
+              oneLineTitle: verified || addr.isEmpty || at != null
                   ? null
                   : (style) => SendMiddleEllipsisText(
                         addr,
@@ -1308,14 +1400,20 @@ class SendReviewRoute extends ConsumerWidget {
                         style: style,
                         maxLines: 1,
                       ),
-              subtitle: at != null
-                  ? '@${at.domain}'
-                  : toLine == null || toLine!.isEmpty
+              subtitle: verified
+                  ? '${l10n.sendVerifiedByBranta}\n${sendShortAddress(addr)}'
+                  : at != null
+                      ? '@${at.domain}'
+                      : toLine == null || toLine!.isEmpty
+                          ? null
+                          : toLine,
+              semanticsLabel: verified
+                  ? [l10n.to, payee.name!, l10n.sendVerifiedByBranta, addr]
+                      .join(', ')
+                  : at == null
                       ? null
-                      : toLine,
-              semanticsLabel: at == null
-                  ? null
-                  : [l10n.to, if (atName != null) atName, addr].join(', '),
+                      : [l10n.to, if (atName != null) atName, addr]
+                          .join(', '),
               onTap: addr.isEmpty || toggle == null
                   ? null
                   : () {
@@ -1325,6 +1423,10 @@ class SendReviewRoute extends ConsumerWidget {
             ),
           ],
         ),
+        if (payee != null && payee.tampered) ...[
+          SizedBox(height: kKuteActionCardGap.w),
+          SendInlineError(message: l10n.sendBrantaTampered),
+        ],
         if (expanded && addr.isNotEmpty) ...[
           SizedBox(height: kKuteActionCardGap.w),
           SendReviewFullAddress(address: addr, onCopied: onCopied),

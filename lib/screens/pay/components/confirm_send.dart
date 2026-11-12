@@ -2,6 +2,7 @@ import 'package:kute/models/advisor_context.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/security/address_guard.dart';
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/screens/pay/components/bitcoin_coin_selection_sheet.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
 import 'dart:async';
@@ -2446,6 +2447,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           'address_entry_method': _addressEntryMethod!,
         if (address.isNotEmpty)
           'address_type': _trackingAddressType(_detectAddressType(address)),
+        // Branta named the payee (a yes/no only: never the payee, never
+        // the address).
+        'verified_payee': brantaVerifiedPayee(address, _brantaRail(address)),
         'amount_unit': ref.read(inputCurrencyProvider).toLowerCase(),
         if (_amountMethod != null) 'amount_method': _amountMethod!,
         'max_used': _isDraining,
@@ -6117,8 +6121,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                 _recipientRailMark(detected, avatar: kKuteActionCardVisualSize),
             recents: recentPeople,
             size: kKuteActionCardVisualSize,
+            brantaRail: _brantaRail(addr),
           ),
           address: addr,
+          brantaRail: _brantaRail(addr),
           toLine: _reviewRailLine(detected),
           recents: recentPeople,
           expanded: _reviewToExpanded,
@@ -6326,6 +6332,22 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       default:
         return null;
     }
+  }
+
+  /// How this send pays [addr], for Branta's payee lookup
+  /// (services/branta): the chosen coin on its network (USDC or USDT on
+  /// Polygon), else the bitcoin rail the address itself names (a BOLT11
+  /// invoice on Lightning, a bitcoin address on chain); null when Branta
+  /// has nothing for it.
+  BrantaRail? _brantaRail(String addr) {
+    final dest = _selectedDestAsset;
+    if (dest != null && dest.code.toUpperCase() != 'BTC') {
+      final network = _selectedDestNetwork;
+      return network == null
+          ? null
+          : brantaRailFor(assetCode: dest.code, chain: network.network);
+    }
+    return brantaRailForBitcoin(addr);
   }
 
   /// The rail's mark inside a recipient's avatar [avatar] across, the Who
@@ -7111,6 +7133,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// `'scanned'` / `'pasted'` / `'contacts'` / `'invoice'`. Defaults
   /// to `'pasted'` since the field-level paste path lands here too.
   void _commitPastedAddress(String raw, {String method = 'pasted'}) {
+    // The code as scanned or pasted, for Branta's payee lookup (its params
+    // go with the strip below).
+    brantaNoteInput(raw);
     // A cross-chain payment URI (`ethereum:0x…@8453`, an ERC-20
     // `…/transfer?address=…`, `solana:`, `tron:` …) becomes its bare
     // recipient here. `bitcoin:`, `spark:`, `lightning:` and bare
@@ -7878,6 +7903,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               // `solana:…`) is reduced to its bare recipient, as the Paste
               // button's commit does, once that recipient is an address
               // (never half a scheme while it is being typed).
+              brantaNoteInput(val);
               final bare = bareCrossChainRecipient(val);
               final norm = val.toLowerCase().startsWith('bitcoin:')
                   ? stripBitcoinAddress(val)
@@ -7948,6 +7974,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                   : null,
               recents: recentPeople,
               onChange: _clearRecipient,
+              brantaRail: lightningStatus == LightningAddressStatus.missing ||
+                      lightningStatus == LightningAddressStatus.checking
+                  ? null
+                  : _brantaRail(addr),
             ),
           ],
           if (showSignerWarning) ...[

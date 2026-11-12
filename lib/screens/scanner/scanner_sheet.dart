@@ -41,6 +41,7 @@ import 'package:kute/providers/qr_scanner_provider.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/add_wallet_capabilities.dart';
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/breez_provider.dart';
@@ -459,6 +460,10 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     // so a withdraw voucher shared as a URL resolves like its bech32
     // `LNURL1…` twin.
     final input = _normalizeBech32Case(_normalizeLud17Scheme(rawInput));
+    // The code as scanned, for Branta's payee lookup on Send: every route
+    // below strips it down to the address, and its Branta params with it.
+    // Kept in memory only; nothing is looked up until a recipient card.
+    brantaNoteInput(rawInput);
 
     // Recipient mode: hand the payload back to the field that asked and
     // stop. The caller (the Send field's Scan) runs its own paste/commit

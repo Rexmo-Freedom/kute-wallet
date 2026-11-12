@@ -74,7 +74,9 @@ import 'package:kute/screens/shared/asset_network_picker.dart'
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetGroup, coinGroupsOfferedUnderPolicy, groupCoinsByAsset;
 import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/send/send_branta_payee.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart'
     show runtimeCapabilitiesProvider;
@@ -480,33 +482,46 @@ class SendAcceptedCoins extends ConsumerWidget {
 /// The destination the field holds, recognised: the rail's mark, the
 /// shortened address over the rail in words ("Bitcoin · on-chain",
 /// "Lightning", "USDT on Base"). One row in a soft card; the bar's
-/// Continue acts on it.
-class SendResolvedRow extends StatelessWidget {
+/// Continue acts on it. With [brantaRail], a payee Branta verifies
+/// (send_branta_payee.dart) wears its logo over [leading] and reads as its
+/// name over "Verified by Branta · short address"; a swapped address adds
+/// the inline warning under the card.
+class SendResolvedRow extends ConsumerWidget {
   const SendResolvedRow({
     super.key,
     required this.leading,
     required this.address,
     required this.rail,
     this.onTap,
+    this.brantaRail,
   });
 
   final Widget leading;
   final String address;
   final String rail;
   final VoidCallback? onTap;
+  final BrantaRail? brantaRail;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    return SendToListCard(
+    final payee = watchBrantaPayee(ref, address, brantaRail);
+    final verified = payee != null && payee.verified;
+    final card = SendToListCard(
       key: const ValueKey('send-resolved-row'),
       colors: c,
       rows: [
         SendToListRow(
           colors: c,
-          leading: leading,
-          title: sendShortAddress(address),
-          subtitle: rail,
+          leading: verified
+              ? BrantaPayeeLogo(
+                  url: payee.logoUrl, size: 28.sp, fallback: leading)
+              : leading,
+          title: verified ? payee.name! : sendShortAddress(address),
+          subtitle: verified
+              ? '${context.l10n.sendVerifiedByBranta} · '
+                  '${sendShortAddress(address)}'
+              : rail,
           trailing: Container(
             width: 24.sp,
             height: 24.sp,
@@ -515,6 +530,16 @@ class SendResolvedRow extends StatelessWidget {
           ),
           onTap: onTap ?? () {},
         ),
+      ],
+    );
+    if (payee == null || !payee.tampered) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        card,
+        SizedBox(height: 10.h),
+        SendInlineError(message: context.l10n.sendBrantaTampered),
       ],
     );
   }

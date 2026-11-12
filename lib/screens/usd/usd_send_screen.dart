@@ -107,7 +107,8 @@ import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart'
     show KuteActionCardIcon, kKuteActionCardVisualSize;
 import 'package:kute/screens/shared/send/send_contacts_list.dart'
-    show SendReviewRoute;
+    show SendBrantaPayeeVisual, SendReviewRoute;
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
@@ -539,11 +540,20 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     }
   }
 
+  /// The Branta lookup's rail for [d] (services/branta): USDC or USDT on
+  /// Polygon; null for every other coin and network.
+  static BrantaRail? _brantaRail(UsdSendDestination d) =>
+      brantaRailFor(assetCode: d.assetCode, chain: d.chain);
+
   /// What has been entered so far (funnel props); never the address.
   Map<String, Object> _flowInputs() {
     final d = _destination;
     final usd = _amountUsd;
     return {
+      // Branta named the payee (a yes/no only: never the payee, never the
+      // address).
+      'verified_payee': d != null &&
+          brantaVerifiedPayee(_address.text.trim(), _brantaRail(d)),
       'source_asset': 'usd',
       if (d != null)
         ...TrackingService.routeParams(
@@ -781,6 +791,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// request keeps the chain id it named). The picked destination never
   /// moves: an address for another network is refused by the field.
   void _commitRecipient(String raw, {required String method}) {
+    // The code as scanned or pasted, for Branta's payee lookup.
+    brantaNoteInput(raw);
     final address = bareRecipientAddress(raw);
     if (address.isEmpty) return;
     HapticFeedback.selectionClick();
@@ -797,6 +809,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   }
 
   void _onAddressTyped(String value) {
+    brantaNoteInput(value);
     // A request typed or pasted from the keyboard is reduced exactly as
     // the Paste button reduces it.
     if (bareRecipientAddress(value) != value.trim() && value.contains(':')) {
@@ -1200,6 +1213,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             SendResolvedRow(
               leading: _destinationMark(destination, size: 28),
               address: addr,
+              brantaRail: _brantaRail(destination),
               rail: l10n.usdSendResolvedRail(
                   destination.chainDisplayName, destination.displaySymbol),
             ),
@@ -1729,9 +1743,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                       '\$${available.toStringAsFixed(2)}'),
                   toVisual: destination == null
                       ? const SizedBox.shrink()
-                      : _destinationMark(destination,
-                          size: kKuteActionCardVisualSize),
+                      : SendBrantaPayeeVisual(
+                          address: addr,
+                          brantaRail: _brantaRail(destination),
+                          size: kKuteActionCardVisualSize,
+                          child: _destinationMark(destination,
+                              size: kKuteActionCardVisualSize),
+                        ),
                   address: addr,
+                  brantaRail:
+                      destination == null ? null : _brantaRail(destination),
                   // No line under the address: the coin chip over the
                   // squares already names the coin and its network, and
                   // the mark wears the network's badge.
