@@ -1900,31 +1900,6 @@ class CryptoPredictBanner extends ConsumerWidget {
       ));
     }
 
-    // The quick amounts, for the side last tapped (Up until then): what
-    // each pays if that side wins at the odds on its button, the slip's
-    // own sum (shares = stake ÷ price), to the whole dollar below so it
-    // never promises more than the slip will.
-    final quickSide =
-        hasStrip ? ref.watch(cryptoQuickSideProvider(pickKey)) : 'up';
-    final sidePrice = betUp == null
-        ? null
-        : quickSide == 'down'
-            ? 1 - betUp
-            : betUp;
-    final whole = NumberFormat.simpleCurrency(name: 'USD', decimalDigits: 0);
-    final quick = <CryptoQuickAmount>[
-      for (final amount in kCryptoQuickAmounts)
-        (
-          amount: amount,
-          label: context.l10n.predictQuickWin(
-              whole.format(amount),
-              sidePrice == null || sidePrice <= 0
-                  ? '—'
-                  : whole.format((amount / sidePrice).floorToDouble())),
-          onTap: canBet ? () => openSide(quickSide, amount: amount) : null,
-        ),
-    ];
-
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
     // Predictions tab.
@@ -1963,8 +1938,10 @@ class CryptoPredictBanner extends ConsumerWidget {
           buttonsEnabled: canBet,
           onUp: () => openSide('up'),
           onDown: () => openSide('down'),
-          quick: hasStrip ? quick : const [],
-          quickUp: quickSide != 'down',
+          // No quick amounts (founder, 12 November 2026: "the buttons on
+          // the bottom, $5 win $x, do not have it").
+          quick: const [],
+          quickUp: true,
                         ),
                       ),
     ));

@@ -733,50 +733,6 @@ void main() {
     await tearCardDown(tester);
   });
 
-  testWidgets(
-      'quick amounts: "\$5 · win \$9" for Up until Down is tapped; a tap opens '
-      'the slip with that amount and side, and nothing is placed or funded',
-      (tester) async {
-    world.listNext();
-    await pumpCard(tester, compact: false);
-    String quickLabel(int amount) => tester
-        .widget<Text>(find.descendant(
-            of: find.byKey(ValueKey('crypto-round-quick-$amount')),
-            matching: find.byType(Text)))
-        .data!;
-    // Up at 50.5%: 5 ÷ 0.505 = 9.90, to the dollar below.
-    expect(quickLabel(5), r'$5 · win $9');
-    expect(quickLabel(25), r'$25 · win $49');
-    expect(quickLabel(100), r'$100 · win $198');
-    await tester.tap(find.byKey(const ValueKey('crypto-round-quick-25')));
-    await settle(tester);
-    var slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
-    expect(slip.initialAmountUsd, 25);
-    expect(slip.initialOutcomeIndex, 0);
-    expect(slip.outcomes.map((o) => o.tokenId), ['next-up', 'next-down']);
-    expect(
-        events.where((e) =>
-            e.$1 == 'polymarket_bet_placed' ||
-            e.$1.contains('funding') ||
-            e.$1.contains('approv')),
-        isEmpty,
-        reason: 'a quick amount only fills the slip in');
-    expect(find.byType(BetSlipSheet), findsOneWidget);
-    Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
-    await settle(tester);
-    // Down tapped: the quick amounts are Down's.
-    await tapSide(tester, downPill);
-    Navigator.of(tester.element(find.byType(BetSlipSheet))).pop();
-    await settle(tester);
-    expect(quickLabel(25), r'$25 · win $50');
-    await tester.tap(find.byKey(const ValueKey('crypto-round-quick-100')));
-    await settle(tester);
-    slip = tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
-    expect(slip.initialAmountUsd, 100);
-    expect(slip.initialOutcomeIndex, 1);
-    await tearCardDown(tester);
-  });
-
   testWidgets('a slip open across the start stays on the round it opened for',
       (tester) async {
     world.listNext();
