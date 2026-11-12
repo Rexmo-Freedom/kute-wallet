@@ -58,6 +58,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
@@ -151,9 +152,10 @@ abstract final class StandingOrderToasts {
           ? l10n.standingPlacingPrediction
           : l10n.standingPlacingInvestment,
       detail: order?.marketTitle ?? marketTitle,
-      // Information's look: Sal's calm blink and no mark (no clock, no
-      // spinner), no haptic.
+      // Information's look: no mark (no clock, no spinner), no haptic;
+      // Sal waits while the money moves (sal_moments.dart).
       tone: SalToastTone.info,
+      salMoment: SalMoment.waiting,
       sticky: true,
       closable: true,
       onTap: () => unawaited(StandingOrderSlips.reopen(context,

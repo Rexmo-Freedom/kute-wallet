@@ -103,8 +103,8 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_morph_label.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
-import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_bar_surface.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -367,9 +367,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
     // Only the pill folds; a trade row or a button keeps its place.
     final collapsed = _collapsed && !reduce && ctx.kind == KuteBarKind.search;
-    // A primary action busy for 2 s: Sal thinks (sal_reactions.dart; the
-    // pill's Sal plays it).
-    SalReactions.loading(_KuteShellBarState, show && ctx.isPrimary && ctx.busy);
+    // A primary action busy: the button's own Sal waits (sal_moments.dart),
+    // so no `think` reaction is asked for on top of it.
     // The pill, or the primary button, cross-fading on the settle; the
     // folded circle keeps to the right.
     final Widget switcher = AnimatedSwitcher(
@@ -1121,19 +1120,17 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
     final ValueKey<String> labelKey = ValueKey('primary-label|$words');
 
     // Sal: curious while the step is the person's, idle on the action,
-    // thinking while it runs (search at 1.4x until `think` is there).
+    // waiting while it runs (sal_moments.dart: `think`, then `search`, one
+    // pass each, switching only as a pass ends; still while another Sal,
+    // the money journey or a toast, is performing).
     final fallbackIcon = Icon(Icons.bolt_rounded, size: 22, color: ink);
     final Widget sal = busy
-        ? SalReactionSprite(
+        ? SalMomentSprite(
             key: const ValueKey('primary-sal-think'),
-            clip: 'think',
+            moment: SalMoment.waiting,
             size: KuteBarPrimaryButton.salSize,
-            fallback: SalSprite(
-              clip: 'search',
-              size: KuteBarPrimaryButton.salSize,
-              speed: 1.4,
-              fallback: fallbackIcon,
-            ),
+            yieldToSpotlight: true,
+            fallback: fallbackIcon,
           )
         : SalReactionSprite(
             key: ValueKey('primary-sal-${enabled ? ctx.clip : 'curious'}'),
