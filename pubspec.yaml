@@ -74,6 +74,11 @@ dependencies:
   # (im.crisp.client.internal…onResponse) that crashed on a background
   # thread — uncatchable from Dart. 2.6.0 carries the upstream SDK fix.
   crisp_chat: ^2.6.0
+  # Branta (MIT, pure Dart, no native code): names and logos the payee of
+  # a scanned or pasted destination on Send (services/branta). Verify
+  # only, no account or key. Pinned exactly: it decides what Send calls
+  # verified (founder, 12 November 2026).
+  branta: 4.2.0
 
   # Breez SDK
   breez_sdk_spark_flutter:
