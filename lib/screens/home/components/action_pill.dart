@@ -44,7 +44,7 @@ const Color redColor = AppColors.marketDown;
 final selectedNetworkTypeProvider = StateProvider<String>((ref) => "Bitcoin Network");
 
 /// Whether the strip is the spending account's Bitcoin | Dollars switch
-/// ([HomeTabSwitch]), which the bar centres on the screen, rather than a
+/// ([HomeTabSwitch]), which fills the bar up to the hub button, rather than a
 /// wallet's or a Ledger's tabs ([ServiceTabStrip]).
 bool shellStripIsSwitch(WalletConfig? shellWallet, WalletConfig? owner) =>
     !showBankTab && shellWallet == null && shellShowsUsdTab(owner);

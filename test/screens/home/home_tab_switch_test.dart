@@ -1,14 +1,16 @@
 // The top of the homes (founder, 8 November 2026, option A): the Bitcoin |
-// Dollars switch, its thumb on the shell's own page position, centred on the
-// screen with an empty slot left of the round +-and-gear. Everything runs in
-// the real AppShell:
+// Dollars switch, its thumb on the shell's own page position, filling the
+// bar from the page's 16 margin up to the round +-and-gear (founder, 12
+// November 2026). Everything runs in the real AppShell:
 //
 //   * a tap slides the thumb and switches the branch, reporting as it did;
 //     Reduce Motion moves it at once;
 //   * a swipe drags the thumb under the finger, with no animation of its
 //     own; it lands, or springs back, with the page;
-//   * the switch is centred, its items equal, nothing overflows at 320, in
-//     a long locale, at large text; each target is 44 pt at least;
+//   * the switch spans the margin to the button's gap on both homes, its
+//     items equal halves with their words centred, nothing cut at 320, 393
+//     and 430, in a long locale, at large text; each target is 44 pt at
+//     least;
 //   * screen readers hear a tab bar of tabs with their selection;
 //   * the round button keeps its glyph, its press, its door and its tracking;
 //   * the bar still slides away with the page's scroll;
@@ -23,6 +25,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/screens/home/components/home_tab_switch.dart';
 import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
@@ -189,38 +192,68 @@ void main() {
     (const Size(320, 568), null, 1.0),
     (const Size(320, 568), const Locale('ja'), 1.0),
     (const Size(320, 568), const Locale('de'), 1.3),
+    (const Size(320, 568), null, 1.5),
+    (const Size(320, 568), const Locale('de'), 1.5),
     (const Size(320, 568), const Locale('de'), 3.0),
     (const Size(375, 812), null, 1.3),
+    (const Size(393, 852), null, 1.0),
+    (const Size(393, 852), null, 1.5),
     (const Size(430, 932), null, 1.0),
+    (const Size(430, 932), null, 1.5),
     (const Size(430, 932), const Locale('el'), 2.0),
   ]) {
-    testWidgets('centred, equal and in clear room at $size, $locale, ${scale}x',
-        (tester) async {
-      await pumpTopSwitchShell(tester,
-          size: size, locale: locale, textScale: scale);
-      await _settle(tester);
-      expect(tester.takeException(), isNull);
-      final track = tester.getRect(_track);
-      expect(track.center.dx, moreOrLessEquals(size.width / 2, epsilon: 0.01));
-      final button = tester
-          .getRect(find.byKey(const ValueKey('financial-hub-square')));
-      // Clear of the button, and as clear of the left edge, the
-      // button's whole slot and more.
-      expect(track.right, lessThan(button.left));
-      expect(button.right, lessThanOrEqualTo(size.width));
-      expect(track.left, greaterThan(size.width - button.left));
-      // Equal halves, each the target of 44 pt at least.
-      final halves = tester
-          .renderObjectList<RenderBox>(find.descendant(
-              of: _switch,
-              matching: find.byWidgetPredicate((w) =>
-                  w is Semantics && w.properties.role == SemanticsRole.tab)))
-          .toList();
-      expect(halves, hasLength(2));
-      expect(halves[0].size.width, moreOrLessEquals(halves[1].size.width));
-      expect(halves[0].size.height, greaterThanOrEqualTo(44));
-      expect(_place(tester), moreOrLessEquals(0));
-    });
+    for (final location in ['/home', '/usd']) {
+      testWidgets(
+          'fills the bar, equal and uncut at $size, $locale, ${scale}x, '
+          '$location', (tester) async {
+        await pumpTopSwitchShell(tester,
+            size: size, locale: locale, textScale: scale, location: location);
+        await _settle(tester);
+        expect(tester.takeException(), isNull);
+        final track = tester.getRect(_track);
+        final button = tester
+            .getRect(find.byKey(const ValueKey('financial-hub-square')));
+        // The button where it was: its square's edge on the 16 margin.
+        expect(button.right, moreOrLessEquals(size.width - 16.w, epsilon: 0.01));
+        expect(button.width, moreOrLessEquals(46.w));
+        // From the left margin to the button, with the gap it always had:
+        // 8 to the button's slot, which reaches a little past a scaled-down
+        // square for its 44 pt target.
+        final slot = 46.w < 44 ? 44.0 : 46.w;
+        final gap = 8.w + (slot - 46.w) / 2;
+        expect(track.left, moreOrLessEquals(16.w, epsilon: 0.01));
+        expect(track.right, moreOrLessEquals(button.left - gap, epsilon: 0.01));
+        // Equal halves, each the target of 44 pt at least.
+        final halves = tester
+            .renderObjectList<RenderBox>(find.descendant(
+                of: _switch,
+                matching: find.byWidgetPredicate((w) =>
+                    w is Semantics && w.properties.role == SemanticsRole.tab)))
+            .toList();
+        expect(halves, hasLength(2));
+        expect(halves[0].size.width, moreOrLessEquals(halves[1].size.width));
+        expect(halves[0].size.width, moreOrLessEquals(track.width / 2));
+        expect(halves[0].size.height, greaterThanOrEqualTo(44));
+        // Each item's glyph and words whole inside its half, centred in it.
+        final l10n = tester.element(_switch).l10n;
+        for (final (i, label) in [l10n.bitcoin, l10n.usdAccountTab].indexed) {
+          final half = halves[i].localToGlobal(Offset.zero) & halves[i].size;
+          final text = find.descendant(of: _switch, matching: find.text(label));
+          final row =
+              find.ancestor(of: text, matching: find.byType(Row)).first;
+          final words = tester.getRect(text);
+          final item = tester.getRect(row);
+          expect(half.left - 0.01, lessThanOrEqualTo(item.left));
+          expect(item.right, lessThanOrEqualTo(half.right + 0.01));
+          expect(item.right, greaterThanOrEqualTo(words.right - 0.01));
+          expect(item.center.dx, moreOrLessEquals(half.center.dx, epsilon: 0.5));
+          final glyph = tester.getRect(
+              find.descendant(of: row, matching: find.byType(Icon)).first);
+          expect(glyph.left, greaterThanOrEqualTo(half.left - 0.01));
+        }
+        expect(_place(tester), moreOrLessEquals(location == '/usd' ? 1 : 0));
+      });
+    }
   }
 
   testWidgets('the words that fit keep their size; the row is not squeezed',

@@ -1,10 +1,11 @@
 // A look by eye at the top of the homes (founder, 8 November 2026, option
-// A): the Bitcoin | Dollars switch centred over the balance, the round
-// +-and-gear at the right, written only when asked:
+// A; 12 November 2026, "occupy all available space"): the Bitcoin | Dollars
+// switch filling the bar from the 16 margin up to the round +-and-gear at
+// the right, written only when asked:
 //   TOP_SWITCH_RENDER=<dir> flutter test test/render/top_switch_render_test.dart
-// Light and dark, 320, 375 and 430 wide, a long locale, 1.3x text, and the
-// thumb in the middle of a swipe. Written or not, each case checks that the
-// switch's centre sits on the screen's and on the balance's.
+// Light and dark, 320, 375, 393 and 430 wide, a long locale, 1.3x and 1.5x
+// text, and the thumb in the middle of a swipe. Written or not, each case
+// checks that the switch runs from the margin to the button's gap.
 
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -12,10 +13,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/screens/home/home.dart';
-import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 
 import '../screens/home/top_switch_harness.dart';
@@ -53,15 +54,6 @@ Future<void> _shoot(WidgetTester tester, String name) async {
   await tester.pump();
 }
 
-/// The middle of the balance's figure: the home's "₿ 0" row, the Dollars
-/// hero's total.
-double _balanceCentre(WidgetTester tester, String location) {
-  final figure = location == '/home'
-      ? find.ancestor(of: find.text('₿'), matching: find.byType(Row)).first
-      : find.byType(RollingNumberText).first;
-  return tester.getCenter(figure).dx;
-}
-
 final _thumb = find.byKey(const ValueKey('home-tab-switch-thumb'));
 final _track = find.byKey(const ValueKey('home-tab-switch-track'));
 
@@ -80,6 +72,11 @@ void main() {
     ('w320_scale13_light', const Size(320, 568), false, null, 1.3),
     ('w375_scale13_dark', const Size(375, 812), true, null, 1.3),
     ('w430_scale13_light', const Size(430, 932), false, null, 1.3),
+    ('w393_light', const Size(393, 852), false, null, 1),
+    ('w393_dark', const Size(393, 852), true, null, 1),
+    ('w320_scale15_light', const Size(320, 568), false, null, 1.5),
+    ('w320_scale15_dark', const Size(320, 568), true, null, 1.5),
+    ('w430_scale15_dark', const Size(430, 932), true, null, 1.5),
   ];
   for (final (name, size, dark, locale, scale) in cases) {
     for (final location in ['/home', '/usd']) {
@@ -99,10 +96,14 @@ void main() {
         for (var i = 0; i < 30; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
-        final centre = tester.getCenter(_track).dx;
-        expect(centre, moreOrLessEquals(size.width / 2, epsilon: 0.01));
-        expect(_balanceCentre(tester, location),
-            moreOrLessEquals(centre, epsilon: 0.5));
+        final track = tester.getRect(_track);
+        final button = tester
+            .getRect(find.byKey(const ValueKey('financial-hub-square')));
+        final slot = 46.w < 44 ? 44.0 : 46.w;
+        expect(track.left, moreOrLessEquals(16.w, epsilon: 0.01));
+        expect(track.right,
+            moreOrLessEquals(button.left - 8.w - (slot - 46.w) / 2,
+                epsilon: 0.01));
         expect(tester.takeException(), isNull);
         if (_dir != null) await _shoot(tester, '${name}_${location == '/usd' ? 'dollars' : 'bitcoin'}');
         await tester.pumpWidget(const SizedBox());

@@ -16,10 +16,12 @@
 // labels' colours ride the same value. With no pager (a test, a standalone
 // use) it is the spring alone.
 //
-// It sizes itself to its words: its natural width, at least
-// [_kMinWidth], up to whatever the bar leaves it; past that (a long locale, a
-// large text setting on a narrow phone) the words scale down rather than
-// overflow. The target of each item is at least 44 pt tall even where the
+// It fills the room the bar leaves it, from the page's margin up to the hub
+// button (founder, 12 November 2026: "occupy all available space"), each
+// item an equal half with its words centred in it; where the words do not
+// fit their half (a long locale, a large text setting on a narrow phone)
+// they scale down rather than overflow. With no bound on its width (a
+// standalone use) it takes its words' natural width, at least [_kMinWidth]. The target of each item is at least 44 pt tall even where the
 // track, which scales with the layout, is shorter.
 //
 // Screen readers hear a tab bar of tabs, each with its selection, the
@@ -107,16 +109,14 @@ class HomeTabSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = _labelStyle(context);
-    final natural = _naturalWidth(context, style);
     final track = homeTabSwitchTrackHeight();
     final target = math.max(kKuteNavHitSize, track);
     return LayoutBuilder(
       builder: (context, constraints) {
         final room = constraints.maxWidth;
-        final least = _kMinWidth.w;
         final width = room.isFinite
-            ? math.max(math.min(least, room), math.min(natural, room))
-            : math.max(least, natural);
+            ? room
+            : math.max(_kMinWidth.w, _naturalWidth(context, style));
         return Center(
           heightFactor: 1,
           widthFactor: 1,

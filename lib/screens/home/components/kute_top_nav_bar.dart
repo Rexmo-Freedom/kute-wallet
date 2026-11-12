@@ -1,12 +1,12 @@
 // lib/screens/home/components/kute_top_nav_bar.dart
 //
 // Integrated top navigation bar: the Bitcoin | Dollars switch
-// ([HomeTabSwitch], founder 8 November 2026) centred on the screen, so it
-// lines up with the balance below, an empty slot on the left balancing the
-// ONE square button on the RIGHT that opens the Financial hub: the wallet
-// list, switch wallet and Add wallet, Notifications in its header and a
-// Settings row. For any other wallet the slot is not there and its tab chips
-// ([ServiceTabStrip]) fill the row up to the button.
+// ([HomeTabSwitch], founder 8 November 2026) filling the bar from the
+// page's 16 margin up to the ONE square button on the RIGHT that opens the
+// Financial hub (founder, 12 November 2026: "the selector should sort of
+// occupy the whole top bar"): the wallet list, switch wallet and Add wallet,
+// Notifications in its header and a Settings row. For any other wallet its
+// tab chips ([ServiceTabStrip]) fill the row up to the button in the same way.
 // Its glyph is a rounded "+" with a small gear badge at its lower right
 // (owner decision October 2026: one glyph for "add" and "settings", the two
 // jobs behind it; it is the only door to the hub on the shell, and a pushed
@@ -71,8 +71,8 @@ class KuteTopNavBar extends ConsumerWidget {
 
     final centred = shellStripIsSwitch(
         ref.watch(shellWalletProvider), ref.watch(shellVenueOwnerProvider));
-    // The hub button's slot, and on the left its empty twin. The bar's inset
-    // puts the square's own edge on the page's 16 margin.
+    // The hub button's slot. The bar's inset puts the square's own edge on
+    // the page's 16 margin; the switch starts on the left one.
     final slot = math.max(kKuteNavHitSize, _kHubButtonSize.w);
     final edge = 16.w - (slot - _kHubButtonSize.w) / 2;
     // The switch's 44 pt targets reach above its track on a narrow phone
@@ -84,16 +84,16 @@ class KuteTopNavBar extends ConsumerWidget {
     final bar = SafeArea(
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(centred ? edge : 12.w, top, edge, 6.h),
+        padding: EdgeInsets.fromLTRB(centred ? 16.w : 12.w, top, edge, 6.h),
         // No enclosing band: the switch and the hub button float. The
         // strip's region is bounded by Expanded, so it can never grow under
         // or collide with the button.
         child: Row(
           children: [
-            if (centred) SizedBox(width: slot),
             Expanded(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: centred ? 8.w : 0),
+                // The switch's gap to the button's slot.
+                padding: EdgeInsetsDirectional.only(end: centred ? 8.w : 0),
                 child: FloatingActionPill(
                   activeTab: activeTab,
                   onSelectTab: onSelectTab,
