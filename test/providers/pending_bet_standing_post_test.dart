@@ -145,8 +145,14 @@ class _Trading extends PolymarketTradingNotifier {
         : (pusd: r.pusd, usdce: r.usdce, endpoint: 0, rpcErrors: 0);
   }
 
+  /// Called when a conversion is asked for.
+  void Function()? onNudge;
+
   @override
-  void nudgeConversion() => nudges++;
+  void nudgeConversion() {
+    nudges++;
+    onNudge?.call();
+  }
 
   @override
   Future<bool> readyCollateralForBuy(double costUsd) async => false;
@@ -272,9 +278,10 @@ void main() {
 
   /// Queues [intent] under its one approval: the standing order is signed
   /// and the autofire watches for its money.
-  Future<({ProviderContainer c, _Trading trading})> accept(
-      PendingBetIntent bet,
-      {bool delivered = false}) async {
+  Future<({ProviderContainer c, _Trading trading, void Function() deliver})>
+      accept(PendingBetIntent bet,
+          {bool delivered = false, bool moving = false}) async {
+    void Function() deliver = () {};
     var intent = bet;
     final trading = _Trading();
     addTearDown(trading.deliveries.close);
@@ -311,8 +318,9 @@ void main() {
       method: AuthGrantMethod.biometric,
     );
     PredictionFundingLedger.instance.sent('ref_move', usd: intent.fundUsd!);
-    if (delivered) {
-      // The bet's own funding run, its one leg reported delivered.
+    if (delivered || moving) {
+      // The bet's own funding run, its one leg reported delivered (or
+      // still moving until [deliver]).
       final runs = c.read(fundedOrdersProvider.notifier);
       final id = runs.start(
           FundedOrderLabel(
@@ -322,17 +330,18 @@ void main() {
               market: 'Question',
               marketKey: _token),
           stage: FundedOrderStage.preparing);
-      runs.setSteps(
-          id,
-          MoneyStepGraph([
+      MoneyStepGraph leg(MoneyStepStatus status) => MoneyStepGraph([
             MoneyStep(
                 id: 'leg:bitcoin',
                 kind: MoneyStepKind.leg,
                 from: MoneyPlace.bitcoin,
                 to: MoneyPlace.predictions,
-                usd: intent.fundUsd!,
-                status: MoneyStepStatus.done),
-          ]));
+                usd: bet.fundUsd!,
+                status: status),
+          ]);
+      runs.setSteps(
+          id, leg(delivered ? MoneyStepStatus.done : MoneyStepStatus.running));
+      deliver = () => runs.setSteps(id, leg(MoneyStepStatus.done));
       intent = intent.copyWith(fundedRunId: id);
     }
     c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
@@ -343,7 +352,7 @@ void main() {
     }
     expect(signer.calls, 1, reason: 'signed once at the accept');
     expect(c.read(pendingPolymarketBetProvider)!.standingOrderId, isNotNull);
-    return (c: c, trading: trading);
+    return (c: c, trading: trading, deliver: deliver);
   }
 
   Future<void> until(bool Function() done,
@@ -479,5 +488,93 @@ void main() {
       expect(ended.failureCode, 'insufficient_usdc');
       expect(r.trading.posts, isEmpty);
     });
+  });
+
+  test(
+      'from "delivered" to the post: the chain a second or two behind, the '
+      'conversion mined 4 s later, the book counting 2 s after that: posted '
+      'within 12 s, every wait named on the journey', () async {
+    // One second of the app is 100 ms here: every wait below is the
+    // autofire's own one-second look ([readyPollInterval]), scaled. The
+    // looks are what is counted (one a second in the app): the wall clock
+    // of a test also carries the machine's own cold start.
+    const second = Duration(milliseconds: 100);
+    double seconds(Duration d) => d.inMicroseconds / second.inMicroseconds;
+    PendingBetAutoFire.readyPollInterval = second;
+    final r = await accept(_bet(_roundNotStarted()), moving: true);
+
+    // Predictions held $2.41; the leg's $3.08 is on its way.
+    DateTime? deliveredAt, minedAt;
+    PolyBuyReads wallet() {
+      final now = DateTime.now();
+      final delivered = deliveredAt;
+      // Orchestra says delivered before the read endpoint shows the
+      // USDC.e (a block or two: 1.5 s).
+      if (delivered == null ||
+          now.isBefore(delivered.add(second * 1.5))) {
+        return _reads(pusd: 2.41, counted: 2.41);
+      }
+      final mined = minedAt;
+      if (mined == null || now.isBefore(mined)) {
+        return _reads(pusd: 2.41, usdce: 3.08, counted: 2.41);
+      }
+      // Mined: pUSD on chain; the order book counts it 2 s later.
+      return _reads(
+          pusd: 5.49,
+          counted: now.isBefore(mined.add(second * 2)) ? 2.41 : 5.49);
+    }
+
+    r.trading.reads = wallet;
+    // The conversion: one relayer batch, mined 4 s after it is asked for.
+    r.trading.onNudge = () => minedAt ??= DateTime.now().add(second * 4);
+    r.trading.land(2.41);
+    await Future<void>.delayed(second * 2);
+    expect(r.trading.posts, isEmpty);
+    expect(r.trading.nudges, 0, reason: 'nothing converts before the money');
+
+    // What the journey line says, as it changes.
+    final line = <(double, String)>[];
+    String? last;
+    r.c.listen<PendingBetIntent?>(pendingPolymarketBetProvider, (_, next) {
+      final since = deliveredAt;
+      if (next == null || since == null) return;
+      final word = '${next.status.name}/${next.readiness?.name}';
+      if (word == last) return;
+      last = word;
+      line.add((seconds(DateTime.now().difference(since)), word));
+    });
+
+    final looksBefore = r.trading.readinessReads;
+    deliveredAt = DateTime.now();
+    r.deliver();
+    await until(() => r.trading.posts.isNotEmpty,
+        within: second * 40);
+    expect(r.trading.posts, hasLength(1));
+    final took = seconds(r.trading.postedAt.single.difference(deliveredAt));
+    final looks = r.trading.readinessReads - looksBefore;
+    // ignore: avoid_print
+    print('delivered -> posted: ${took.toStringAsFixed(1)} s, $looks looks; '
+        '${line.map((e) => '${e.$1.toStringAsFixed(1)}s ${e.$2}').join(', ')}');
+    // Delivery 0 s, chain +1.5 s, mined +4 s, book +2 s: the money itself
+    // needs 7.5 s. One look a second: the first at the delivery, then one
+    // per second until the book counts it.
+    expect(looks, lessThanOrEqualTo(11),
+        reason: 'no look is spent on anything but the money\'s own waits '
+            '(the short-landing hold never adds its 5 looks to a landing '
+            'that is only a block behind)');
+    expect(took, lessThan(16), reason: 'the looks above, plus the machine');
+    // The whole stake, the order signed at the accept: a landing the
+    // first read did not show yet is never taken for a short one.
+    expect(r.trading.posts.single.spendUsd, 5);
+    expect(signer.calls, 1);
+    // Each wait is said: converting while it converts, confirming while
+    // the book catches up, ready as the order goes.
+    final words = [for (final e in line) e.$2];
+    expect(words, containsAllInOrder([
+      'awaitingBalance/converting',
+      'awaitingBalance/confirming',
+      'placing/confirming',
+      'placing/ready',
+    ]));
   });
 }
