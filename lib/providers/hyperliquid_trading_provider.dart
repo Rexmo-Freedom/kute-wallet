@@ -1093,6 +1093,15 @@ class HyperliquidTradingNotifier
       double slippagePct = 0,
       bool includeBuilderFee = true,
       bool tradingFee = true}) async {
+    // Moving Investing cash for an order holds it (InvestingCashLock), so
+    // a send out of Investing never moves the same cash the other way.
+    if (!InvestingCashLock.held) {
+      return InvestingCashLock.run(() => _fundPerpAction(market, marginUsd,
+          leverage: leverage,
+          slippagePct: slippagePct,
+          includeBuilderFee: includeBuilderFee,
+          tradingFee: tradingFee));
+    }
     final exchange = _exchange;
     final address = _address;
     if (exchange == null || address == null) {
@@ -1230,46 +1239,53 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev = leverage.clamp(1, market.maxLeverage).toInt();
-      await _fundPerpAction(market, marginUsd,
-          leverage: lev, slippagePct: slippagePct);
+      HlBuilderFee? builder;
+      // Funding through placement holds the Investing cash
+      // (InvestingCashLock): a Swap or Send pulling Investing cash at the
+      // same moment waits for the order instead of moving the cash it is
+      // funding the order with back out of the builder dex.
+      final result = await InvestingCashLock.run(() async {
+        await _fundPerpAction(market, marginUsd,
+            leverage: lev, slippagePct: slippagePct);
 
-      // 1) Leverage + margin mode (writes only when the resting per-asset
-      //    setting differs; always writes when flat).
-      await _ensureLeverage(market, current, lev, isCross,
+        // 1) Leverage + margin mode (writes only when the resting per-asset
+        //    setting differs; always writes when flat).
+        await _ensureLeverage(market, current, lev, isCross,
             changeOpenPosition: changeOpenPosition);
 
-      // 2) Size from margin × leverage at the live reference price.
-      final refPx = _referencePx(market);
-      final size = sizeFromUsd(
-        usd: marginUsd * lev,
-        px: refPx,
-        szDecimals: market.szDecimals,
-      );
+        // 2) Size from margin × leverage at the live reference price.
+        final refPx = _referencePx(market);
+        final size = sizeFromUsd(
+          usd: marginUsd * lev,
+          px: refPx,
+          szDecimals: market.szDecimals,
+        );
 
-      // 3) IOC limit priced through the book. TP/SL rides in the SAME
-      //    'normalTpsl'-grouped action: the exchange sizes the triggers
-      //    to the actual fill, activates them on it, and OCO-cancels
-      //    them against each other — the old two-step attach could
-      //    silently fail and leave the user believing a stop-loss
-      //    existed that didn't.
-      final builder = await _builderFee();
-      final orderCloid = cloid ?? newHlCloid();
-      final result = await _sendReconciled(
-        () => ex.placeMarketOrder(
-          market: market,
-          isBuy: isLong,
-          size: size,
-          referencePx: refPx,
-          slippage: slippagePct / 100,
-          takeProfitPx: takeProfitPx,
-          stopLossPx: stopLossPx,
+        // 3) IOC limit priced through the book. TP/SL rides in the SAME
+        //    'normalTpsl'-grouped action: the exchange sizes the triggers
+        //    to the actual fill, activates them on it, and OCO-cancels
+        //    them against each other — the old two-step attach could
+        //    silently fail and leave the user believing a stop-loss
+        //    existed that didn't.
+        builder = await _builderFee();
+        final orderCloid = cloid ?? newHlCloid();
+        return _sendReconciled(
+          () => ex.placeMarketOrder(
+            market: market,
+            isBuy: isLong,
+            size: size,
+            referencePx: refPx,
+            slippage: slippagePct / 100,
+            takeProfitPx: takeProfitPx,
+            stopLossPx: stopLossPx,
+            cloid: orderCloid,
+            builder: builder,
+          ),
           cloid: orderCloid,
-          builder: builder,
-        ),
-        cloid: orderCloid,
-        market: market,
-        action: 'open',
-      );
+          market: market,
+          action: 'open',
+        );
+      });
 
       // The exchange took the order: nothing below may turn that into a
       // failure (it is bookkeeping, and a throw from it used to reach the

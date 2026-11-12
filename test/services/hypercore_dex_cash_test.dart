@@ -247,6 +247,58 @@ void main() {
       expect(spotMoveOf(ledger), BigInt.zero);
     });
   });
+
+  group('an Investing order and a send never move the same cash at once', () {
+    setUp(InvestingCashLock.reset);
+
+    test('the send waits for the order, then runs', () async {
+      final events = <String>[];
+      final orderFunded = Completer<void>();
+      final order = InvestingCashLock.run(() async {
+        events.add('order: main -> xyz');
+        await orderFunded.future;
+        events.add('order placed');
+      });
+      final send = InvestingCashLock.run(() async {
+        events.add('send: reads afresh, xyz -> main, burn');
+      }, maxWait: const Duration(seconds: 5));
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      expect(events, ['order: main -> xyz']);
+      orderFunded.complete();
+      await Future.wait([order, send]);
+      expect(events, [
+        'order: main -> xyz',
+        'order placed',
+        'send: reads afresh, xyz -> main, burn',
+      ]);
+    });
+
+    test(
+        'a send that cannot wait stops before anything moves, and the '
+        'queue keeps its order', () async {
+      final events = <String>[];
+      final release = Completer<void>();
+      final order = InvestingCashLock.run(() async {
+        await release.future;
+        events.add('order');
+      });
+      await expectLater(
+          InvestingCashLock.run(() async => events.add('send'),
+              maxWait: const Duration(milliseconds: 10)),
+          throwsA(isA<InvestingCashBusy>()));
+      final next = InvestingCashLock.run(() async => events.add('next'));
+      release.complete();
+      await Future.wait([order, next]);
+      expect(events, ['order', 'next']);
+    });
+
+    test('re-entrant inside the action that holds it', () async {
+      final value = await InvestingCashLock.run(
+          () => InvestingCashLock.run(() async => 7),
+          maxWait: const Duration(milliseconds: 50));
+      expect(value, 7);
+    });
+  });
 }
 
 /// One Investing account: main perpetuals, builder dexes and spot USDC,

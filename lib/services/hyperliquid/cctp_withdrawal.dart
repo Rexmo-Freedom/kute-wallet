@@ -2107,54 +2107,59 @@ class LiveCctpSender implements CctpSender {
         );
       }
 
-      final portfolio = await model.getPortfolioSnapshot(hl.address);
-      ensureWallet();
-      final spotMove = hypercorePerpShortfall(
-          requiredBaseUnits: reserve,
-          spotAvailable: hypercoreAvailableUsdc(0, portfolio.spotBalances),
-          perpAvailable: portfolio.withdrawable);
-      final requiredDefault = reserve - spotMove;
-      final exchange = HyperliquidExchangeService(
-        credentials: hl.credentials,
-        walletAddress: hl.address,
-        allowNonceRetry: false,
-        onBeforePost: (post) async {
-          ensureWallet();
-          if (post.action['type'] == 'sendToEvmWithData') {
-            if (await perpShortfall() > BigInt.zero) {
-              throw HypercoreBalanceShortfall(
-                  'Insufficient available perpetuals balance.');
-            }
-            await onBeforePost(post.nonce);
-            ensureWallet();
-          }
-        },
-      );
-      try {
-        // Builder dex and spot cash home to perpetuals, each move waited
-        // for until the main account's read shows it.
-        await gatherOwnPerpCash(
-            model: model,
-            exchange: exchange,
+      // One money-moving action at a time on the Investing cash: an order
+      // being funded or placed finishes first, then the cash is read afresh.
+      return await InvestingCashLock.run(maxWait: kInvestingCashLockWait,
+          () async {
+        final portfolio = await model.getPortfolioSnapshot(hl.address);
+        ensureWallet();
+        final spotMove = hypercorePerpShortfall(
             requiredBaseUnits: reserve,
-            requiredDefaultBaseUnits: requiredDefault,
-            spotMove: perpShortfall,
-            beforeSend: ensureWallet);
-      } on HyperliquidRejectedException catch (e) {
-        throw SettlementFundingRefused(e);
-      }
-      return await exchange.sendToEvmWithData(
-        destination: destination,
-        amount: amountWire,
-        sourceDex: '',
-        destinationDomain: domain,
-        gasLimit: kCctpForwardGasLimit,
-        token: token,
-        beforeSend: () {
-          ensureWallet();
-          externalPostStarted = true;
-        },
-      );
+            spotAvailable: hypercoreAvailableUsdc(0, portfolio.spotBalances),
+            perpAvailable: portfolio.withdrawable);
+        final requiredDefault = reserve - spotMove;
+        final exchange = HyperliquidExchangeService(
+          credentials: hl.credentials,
+          walletAddress: hl.address,
+          allowNonceRetry: false,
+          onBeforePost: (post) async {
+            ensureWallet();
+            if (post.action['type'] == 'sendToEvmWithData') {
+              if (await perpShortfall() > BigInt.zero) {
+                throw HypercoreBalanceShortfall(
+                    'Insufficient available perpetuals balance.');
+              }
+              await onBeforePost(post.nonce);
+              ensureWallet();
+            }
+          },
+        );
+        try {
+          // Builder dex and spot cash home to perpetuals, each move waited
+          // for until the main account's read shows it.
+          await gatherOwnPerpCash(
+              model: model,
+              exchange: exchange,
+              requiredBaseUnits: reserve,
+              requiredDefaultBaseUnits: requiredDefault,
+              spotMove: perpShortfall,
+              beforeSend: ensureWallet);
+        } on HyperliquidRejectedException catch (e) {
+          throw SettlementFundingRefused(e);
+        }
+        return await exchange.sendToEvmWithData(
+          destination: destination,
+          amount: amountWire,
+          sourceDex: '',
+          destinationDomain: domain,
+          gasLimit: kCctpForwardGasLimit,
+          token: token,
+          beforeSend: () {
+            ensureWallet();
+            externalPostStarted = true;
+          },
+        );
+      });
     } on HyperliquidRejectedException catch (e) {
       // A rejection answer: the action was not executed.
       if (externalPostStarted) throw CctpSendRejected(e);

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:async';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 
@@ -187,4 +188,58 @@ Future<void> gatherOwnPerpCash({
     afterSend?.call();
     await settled(requiredBaseUnits);
   }
+}
+
+/// How long a send out of Investing waits for an order on the same cash
+/// ([InvestingCashLock]) before it stops as not sent ([InvestingCashBusy]).
+/// With [kOwnPerpCreditWait] it fits the one-time CCTP quote's validity.
+const Duration kInvestingCashLockWait = Duration(seconds: 20);
+
+/// The send that cannot wait for an Investing order (or the order for the
+/// send) any longer: nothing of it moved.
+class InvestingCashBusy implements Exception {
+  const InvestingCashBusy();
+
+  @override
+  String toString() => 'InvestingCashBusy';
+}
+
+/// One money-moving action at a time on the Investing account's own cash:
+/// an order's funding and placement, and a send out of it (a Swap's or a
+/// Send's Investing leg, a sweep home). The second waits for the first
+/// (a queue), then reads the account afresh: a stock order and a Swap at
+/// the same moment no longer move the same cash in opposite directions
+/// (the order main → builder dex, the send builder dex → main), each
+/// failing the other. Re-entrant within the action that holds it.
+abstract final class InvestingCashLock {
+  static final Object _heldKey = Object();
+  static Future<void> _tail = Future<void>.value();
+
+  /// Whether the current action already holds the lock.
+  static bool get held => Zone.current[_heldKey] == true;
+
+  /// Runs [body] once every earlier holder is done. With [maxWait], a
+  /// holder that takes longer stops this one before [body] runs
+  /// ([InvestingCashBusy]), and the queue behind it keeps its order.
+  static Future<T> run<T>(Future<T> Function() body,
+      {Duration? maxWait}) async {
+    if (held) return body();
+    final before = _tail;
+    final mine = Completer<void>();
+    _tail = mine.future;
+    try {
+      await (maxWait == null ? before : before.timeout(maxWait));
+    } on TimeoutException {
+      before.whenComplete(mine.complete);
+      throw const InvestingCashBusy();
+    }
+    try {
+      return await runZoned(body, zoneValues: {_heldKey: true});
+    } finally {
+      mine.complete();
+    }
+  }
+
+  @visibleForTesting
+  static void reset() => _tail = Future<void>.value();
 }
