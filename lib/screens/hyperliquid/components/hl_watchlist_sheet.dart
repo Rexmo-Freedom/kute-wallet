@@ -25,11 +25,12 @@
 // THE ROWS: with no search, the watchlist's markets first (in its order),
 // then every other Investing market by 24 h volume, one listing per
 // underlying (hlPrimaryListings), as the browse lists show them. A search
-// lists every market that answers it (hlMarketMatchesQuery: the ticker,
-// the app's name for it, the venue's names and keywords), by volume, the
-// ticked ones included. A market the policy keeps from being bought here
-// is listed like any other (founder, 12 November 2026): its ticket says
-// so.
+// is Search's own (founder, 13 November 2026: "do exactly like we do in
+// the search"): the same provider (hyperliquidMarketSearchProvider: fuzzy,
+// alias-aware, one result per underlying, at most 8) in the same order
+// (rankInvestingResults), so "nv" lists Nvidia once. A market the policy
+// keeps from being bought here is listed like any other (founder, 12
+// November 2026): its ticket says so.
 //
 // EVENTS: `watchlist_sheet_opened` {venue: hyperliquid, mode: create |
 // edit, source, list_size}; on a Done that changes the list, one
@@ -46,9 +47,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/providers/hyperliquid_search_provider.dart'
+    show HlMarketSearchResult, hyperliquidMarketSearchProvider;
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
-    show hlFriendlyName, hlPrimaryListings;
+    show hlPrimaryListings;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_watch_star.dart'
     show trackHlWatchlistToggled;
@@ -57,6 +60,8 @@ import 'package:kute/screens/shared/asset_network_picker.dart'
     show PickerSearchField;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/market_groups.dart';
+import 'package:kute/screens/search/search_result_order.dart'
+    show rankInvestingResults;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -73,24 +78,13 @@ Future<bool> showHlWatchlistSheet(BuildContext context,
   return saved ?? false;
 }
 
-/// The markets the sheet lists (see the file header): with an empty
-/// [query], [picked]'s markets first in its order, then the rest of
-/// [universe] by 24 h volume, one listing per underlying; with a query,
-/// every market that answers it, by volume.
+/// The markets the sheet lists with no search (see the file header):
+/// [picked]'s markets first in its order, then the rest of [universe] by
+/// 24 h volume, one listing per underlying.
 List<HlMarket> hlWatchlistSheetRows(
-    List<HlMarket> universe, List<String> picked, String query) {
+    List<HlMarket> universe, List<String> picked) {
   final byVolume = [...universe]
     ..sort((a, b) => b.dayNtlVlm.compareTo(a.dayNtlVlm));
-  final q = query.trim();
-  if (q.isNotEmpty) {
-    return [
-      for (final m in byVolume)
-        if (hlMarketMatchesQuery(m, q,
-            friendlyName:
-                hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName))
-          m,
-    ];
-  }
   final first = hlWatchlistMarkets(picked, universe);
   final keys = {for (final m in first) hlWatchlistKey(m)};
   return [
@@ -99,6 +93,16 @@ List<HlMarket> hlWatchlistSheetRows(
       if (!keys.contains(hlWatchlistKey(m))) m,
   ];
 }
+
+/// The markets the sheet lists for [query]: Search's hits ([hits], from
+/// hyperliquidMarketSearchProvider) in Search's order
+/// ([rankInvestingResults]), each as the listing Search leads with.
+List<HlMarket> hlWatchlistSearchRows(
+        String query, List<HlMarketSearchResult> hits) =>
+    [
+      for (final r in rankInvestingResults(query, hits))
+        if (r.market case final HlMarket m) m,
+    ];
 
 class HlWatchlistSheet extends ConsumerStatefulWidget {
   const HlWatchlistSheet({super.key, required this.source});
@@ -122,6 +126,7 @@ class _HlWatchlistSheetState extends ConsumerState<HlWatchlistSheet> {
 
   final _search = TextEditingController();
   String _query = '';
+  List<HlMarket> _searchRows = const [];
 
   bool get _creating => _initial.isEmpty;
 
@@ -212,7 +217,17 @@ class _HlWatchlistSheetState extends ConsumerState<HlWatchlistSheet> {
     final c = context.colors;
     final universe = ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
         const <HlMarket>[];
-    final rows = hlWatchlistSheetRows(universe, _openOrder, _query);
+    final q = _query.trim();
+    final List<HlMarket> rows;
+    if (q.isEmpty) {
+      rows = hlWatchlistSheetRows(universe, _openOrder);
+    } else {
+      // Search's own results; while the next keystroke's land, the last
+      // ones stay (no flash of an empty list).
+      final hits = ref.watch(hyperliquidMarketSearchProvider(q)).valueOrNull;
+      if (hits != null) _searchRows = hlWatchlistSearchRows(q, hits);
+      rows = _searchRows;
+    }
     final picked = _picked.toSet();
 
     Widget check(bool on) => Semantics(

@@ -334,6 +334,9 @@ void main() {
             of: find.byKey(const ValueKey('hl-watchlist-search')),
             matching: find.byType(TextField)),
         'link');
+    // Search's own provider, after its 200 ms debounce.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
     await tester.pump();
     expect(_row('LINK'), findsOneWidget);
     expect(_row('BTC'), findsNothing);
