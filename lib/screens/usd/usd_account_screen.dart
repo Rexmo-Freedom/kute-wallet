@@ -10,14 +10,15 @@
 //   * the shared hero, [InvestmentBalanceHeader] in its one-balance mode:
 //     the total (dollars plus the venues' open positions) standing alone,
 //     no title over it (Invested is in Balances, never twice), and,
-//     while anything is on a rail, the in-flight lines under it ("$5.00 moving to
-//     Predictions", "$12.40 coming back from Investing", "Incoming
-//     $20.00", "$0.60 unavailable until balancing completes"), so money
-//     in flight is never hidden. THE BALANCE IS NOT A DOOR (owner
-//     decision October 2026, replacing "the balance is the door to the
-//     Portfolio"): neither the hero nor the compact bar's small total
-//     opens anything, and the hero wears no arrow; the Portfolio is the
-//     third pill;
+//     while money arrives from outside or a venue still owes it back,
+//     the in-flight lines under it ("Incoming $20.00", "$0.60
+//     unavailable until balancing completes"), so money in flight is
+//     never hidden. Never a line for an order on its way (founder, 10
+//     November 2026): its money is Invested at once and the Overview's
+//     card says Placing. The balance was no door from October 2026
+//     until 13 November 2026, when it became the door to the Portfolio
+//     again (see 13 NOVEMBER 2026 below); the compact bar's small total
+//     still opens nothing;
 //   * one pill row under it, Investing · Predictions · Portfolio, the
 //     same pills the Home strip uses a step bigger ([KutePillSize.large]),
 //     each wearing a glyph of the one icon family the top tabs used
@@ -78,6 +79,67 @@
 // screen's session-long side-cars (the deposit→order auto-fire watcher,
 // the user-events socket) keep running from app start.
 //
+// 31 OCTOBER 2026 (founder review): THE TOP TAB READS "DOLLARS"
+// (Bitcoin | Dollars; the names in code stay Investments). THE PORTFOLIO
+// IS ITS OWN SCREEN (portfolio_screen.dart, route /portfolio), the third
+// button of the action row under the balance, Add · Portfolio · Send,
+// three equal buttons; the pill row is Investing · Predictions only, and
+// every link that named a Portfolio section opens that screen. THE
+// PICKED PILL ALWAYS SHOWS WHAT IT HOLDS ("Investing · Trending", the
+// category in the quieter weight, a chevron in a filled circle at its
+// end: a control, not decoration; KutePillItem.detail / menu), and
+// tapping it again opens the redone category sheet
+// (investments_category_sheet.dart).
+//
+// 4 NOVEMBER 2026 (founder): "On Dollars, like we do on the Bitcoin
+// screen, have the first tab be the Activity screen … the bottom button
+// must say 'See full portfolio and activity', and then it will take us to
+// the Portfolio screen. Meaning Portfolio is no longer needed on the top
+// buttons." THE SWITCH IS ACTIVITY · INVESTING · PREDICTIONS, Activity
+// first and the pill the tab opens on, as the Bitcoin home's Activity
+// leads its strip: the biggest open positions as squares, the P&L under
+// them, the latest Dollars actions (components/dollars_activity_tab.dart).
+// On Activity the bar IS "See full portfolio and activity"
+// ([KuteBarContext.primary]), which pushes the Portfolio screen and sends
+// the `quick_action_tapped` `portfolio` the row's Portfolio button sent;
+// the row under the balance is Buy dollars · Swap · Receive · Send (Swap
+// since 7 November 2026, UsdAccountActionBar.swap). The hero's
+// line under the total is "Invested $X · Available $Y", the two adding up
+// to it (investment_balance_header.dart, oneBalanceSplit). A
+// `?tab=activity` link opens this pill.
+//
+// 7 NOVEMBER 2026 (founder), reversed the next day: the page opened on
+// Investing, the middle pill, and with Investing's browsing withheld on
+// Predictions while that was live, else on Activity. A link that names a
+// pill keeps opening that pill.
+//
+// 8 NOVEMBER 2026 (founder), reversing the page's opening of 7 November:
+// THE FIRST PILL READS OVERVIEW, AND THE PAGE OPENS ON IT, on its first build
+// and whenever the Bitcoin | Dollars switch lands on Dollars (a tap or a
+// swipe; [openInvestmentsOnDefaultTab]), wherever the pill was left. Overview
+// is always there, so no policy moves where the page opens. In code the pill
+// stays [InvestmentsTab.activity] and `activity` in links and analytics;
+// `?tab=overview` opens it too. Overview is the open positions, the open P&L
+// and the market map, moved here from Investing; its "Latest" list is gone,
+// the full activity being the Portfolio's, which the bar opens
+// (components/dollars_activity_tab.dart).
+//
+// 13 NOVEMBER 2026 (founder): "on the main balance, if we click on it, on
+// Dollars we should also take the user to the Portfolio. On the main
+// balance we should have a % of up and down of open positions also, to
+// know how much we earned." THE BALANCE OPENS THE PORTFOLIO: a tap on the
+// total or any line under it pushes the Portfolio screen exactly as the
+// Overview's bar does (same route, the section where it was last left;
+// [UsdAccountActionBar.openPortfolioFromBalance]), counted as the bar's
+// `quick_action_tapped` `portfolio` from source `usd_balance`, with the
+// hero's own press feedback and its portfolio glyph after the total
+// (investment_balance_header.dart). The tap never toggled hidden
+// balances here (the Bitcoin home's tap does), so nothing moved. UNDER
+// THE SPLIT, THE OPEN P&L: "Open profits ▲ $1.23 (+4.8%)", the Overview
+// card's own figure ([dollarsOpenPnl]) over what the open positions cost,
+// green up, red down, dots with balances hidden; nothing open with a
+// known cost, no line ([OneBalanceOpenPnlLine]).
+//
 // THE PILL IS SHARED STATE ([investmentsTabProvider]) so a deep link, a
 // placed bet or Sal can open a pill from anywhere: `/hyperliquid` and
 // `/polymarket` redirect here with `?tab=investing|predictions`
@@ -87,7 +149,7 @@
 // Portfolio's section is shared the same way ([portfolioSectionProvider]).
 // The old links keep working: `?tab=positions|portfolio|open` opens the
 // Portfolio on Balances, `?tab=orders|statistics|charts` on P&L charts
-// (where the orders are), `?tab=activity` on Activity, `?tab=balances` on
+// (where the orders are), `?tab=activity` on Overview, `?tab=balances` on
 // Balances ([PortfolioSection.forLink]).
 //
 // Deposit opens the Dollars receive screen off the Orchestra route list,
@@ -102,9 +164,11 @@
 // `shellShowsUsdTab` in shell_venue_tabs.dart) — a Bitcoin-only,
 // watch-only, tracked, signer or Ledger account has no dollars.
 
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -113,8 +177,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show HlBrowseTab, hlBrowseSelectionProvider, hlDefaultBrowseSelection;
+import 'package:kute/providers/hyperliquid_watchlist_provider.dart'
+    show hlWatchlistProvider;
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolyBrowseSelection, polyBrowseSelectionProvider;
 import 'package:kute/providers/refresh_everything_provider.dart';
-import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
@@ -127,24 +196,44 @@ import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/screens/portfolio/portfolio_screen.dart';
 import 'package:kute/screens/receive/receive_sheet.dart'
     show showUsdReceiveSheet;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
-    show kuteMotion, kuteReduceMotion;
+    show SelectionFade, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
+import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
+    show DollarsActivityTab;
+import 'package:kute/screens/usd/investments_category_sheet.dart'
+    show
+        investmentsCategoryLabel,
+        investmentsCategoryShortLabel,
+        showInvestmentsCategorySheet;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show showCapabilityUnavailableSheet;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show MoneyMovementAccount, showOwnMoneyMove;
+import 'package:kute/screens/shared/receive_arrow_glyph.dart'
+    show receiveArrowGlyph;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// Source key for every event this surface emits.
 const String kUsdSurfaceSource = 'usd';
 
 /// The dock's Receive as the Dollars receive flow's `entry_source`.
 const String kUsdDockSource = 'usd_dock';
+
+/// The action row's Swap as the Swap sheet's `entry_source`
+/// (`move_sheet_opened`).
+const String kUsdHomeSwapSource = 'usd_home_swap';
 
 /// The compact pinned bar's height, in design units: the small total line
 /// over the compact pills ([KutePillSize.compact], 32 high), with the
@@ -157,12 +246,16 @@ const double _kExpandedHeaderEstimate = 158;
 
 /// The Investments pills, in strip order. [key] is the analytics value
 /// and the `?tab=` query value, fixed English so a pill reads the same in
-/// PostHog and in a link in every app language. The third pill reads
-/// "Portfolio" (it read "Positions" until October 2026) and still sends
-/// `positions`, so the dashboards keep counting it. [icon] is the pill's
-/// glyph: the one icon family the top tabs used (rising trend, ring) and
-/// the pie the Portfolio wears.
+/// PostHog and in a link in every app language. [activity] is the pill
+/// that reads Overview (8 November 2026; the key stays, so links and
+/// dashboards keep working): it leads the strip and the page opens on it
+/// ([kInvestmentsDefaultTab]). [positions] is the
+/// Portfolio, its own screen since 31 October 2026 and no pill: it
+/// still sends `positions`, so the dashboards keep counting it. [icon] is
+/// the pill's glyph: the one icon family the top tabs used (receipt,
+/// rising trend, ring) and the pie the Portfolio wears.
 enum InvestmentsTab {
+  activity('activity', Icons.receipt_long_rounded),
   investing('investing', Icons.trending_up_rounded),
   predictions('predictions', Icons.donut_large_rounded),
   positions('positions', Icons.pie_chart_rounded);
@@ -176,8 +269,9 @@ enum InvestmentsTab {
   /// old `earn` pill among them: Earn is shown nowhere). A link naming a
   /// Portfolio section ([PortfolioSection.forLink]: the old Portfolio
   /// pill, its Open, Orders, Activity and Statistics tabs among them)
-  /// opens the Portfolio.
+  /// opens the Portfolio. `overview`, what [activity] reads, opens it too.
   static InvestmentsTab? fromKey(String? key) {
+    if (key == 'overview') return InvestmentsTab.activity;
     for (final tab in values) {
       if (tab.key == key) return tab;
     }
@@ -187,16 +281,19 @@ enum InvestmentsTab {
   }
 }
 
-/// Opens the Portfolio pill on [section] from anywhere: the section and
-/// the pill, then the Investments tab when another tab is on screen.
+/// Opens the Portfolio screen on [section] from anywhere (the section is
+/// written first; the screen is pushed over whatever is on screen, once).
 void openInvestmentsPortfolio(BuildContext context, PortfolioSection section) {
   final container = ProviderScope.containerOf(context, listen: false);
   container.read(portfolioSectionProvider.notifier).state = section;
-  container.read(investmentsTabProvider.notifier).state =
-      InvestmentsTab.positions;
-  if (container.read(activeShellTabProvider) != ActiveNavTab.usd) {
-    context.go('/usd');
-  }
+  openPortfolioScreen(context);
+}
+
+/// Pushes the Portfolio screen (portfolio_screen.dart) where the section
+/// was last left; a second push while it is already up does nothing.
+void openPortfolioScreen(BuildContext context) {
+  // ignore: discarded_futures
+  OpenOnce.run('portfolio_screen', () => context.push(PortfolioScreen.route));
 }
 
 /// Opens what is held (a placed order's "View positions", a trade
@@ -218,10 +315,85 @@ void openInvestmentsOrders(BuildContext context,
   openInvestmentsPortfolio(context, PortfolioSection.charts);
 }
 
+/// The pill the Dollars page opens on (founder, 8 November 2026): Overview.
+/// It is always there, so no policy changes it. A link that names a pill
+/// (`/usd?tab=predictions`, the venue routes' redirects) opens that pill
+/// instead ([UsdAccountScreen.initialTab]).
+const InvestmentsTab kInvestmentsDefaultTab = InvestmentsTab.activity;
+
 /// The pill on screen. Shared so a deep link, a placed bet or Sal can
 /// open a pill from outside the screen; the screen writes it on a tap.
 final investmentsTabProvider =
-    StateProvider<InvestmentsTab>((_) => InvestmentsTab.investing);
+    StateProvider<InvestmentsTab>((ref) => kInvestmentsDefaultTab);
+
+/// The Bitcoin | Dollars switch landed on Dollars (a tap on the strip or a
+/// swipe, app_shell.dart): the page opens on its default pill again
+/// ([kInvestmentsDefaultTab]), wherever it was left. A link that names a
+/// pill never comes through here: it lands on that pill
+/// ([UsdAccountScreen.initialTab]). The pill is put back in place, with no
+/// switch motion: the shell's slide brings the page in
+/// ([_investmentsQuietPillProvider]). Writes no pill when it is already
+/// the default, so the shell's pill listener stays quiet. Called from an
+/// event handler, never while building.
+void openInvestmentsOnDefaultTab(WidgetRef ref) {
+  if (ref.read(investmentsTabProvider) == kInvestmentsDefaultTab) return;
+  ref.read(_investmentsQuietPillProvider.notifier).state =
+      kInvestmentsDefaultTab;
+  ref.read(investmentsTabProvider.notifier).state = kInvestmentsDefaultTab;
+}
+
+/// The category picked on [left] goes back to its first one, Trending
+/// (founder, 8 November 2026: "do not remember the last one we picked, also
+/// open on the trending or on the equivalent in investing"). Called when the
+/// page leaves that pill, by a pick or by coming back to Dollars
+/// ([openInvestmentsOnDefaultTab]). A pill left is hidden at once, so nothing
+/// moves on screen, and opening a market from a list changes no pill, so the
+/// way back still lands on the same list. Investing's first one is its
+/// Watchlist once that holds a market (founder, 13 November 2026;
+/// hlDefaultBrowseSelection); Predictions keeps Trending.
+void resetInvestmentsPicks(WidgetRef ref, InvestmentsTab left) {
+  switch (left) {
+    case InvestmentsTab.investing:
+      ref.read(hlBrowseSelectionProvider.notifier).state =
+          hlDefaultBrowseSelection(ref.read(hlWatchlistProvider));
+    case InvestmentsTab.predictions:
+      ref.read(polyBrowseSelectionProvider.notifier).state =
+          const PolyBrowseSelection();
+    case InvestmentsTab.activity:
+    case InvestmentsTab.positions:
+      break;
+  }
+}
+
+/// Investing entered: a selection still at its untouched default (Trending,
+/// nothing picked: what [resetInvestmentsPicks] left before the first
+/// market was starred, by a market page's star or the watchlist sheet
+/// anywhere) becomes the default now, the Watchlist once it holds a
+/// market. A pick made on the way in (a link, search's "See all", which
+/// names its subcategory) is kept.
+void enterInvestingOnDefault(WidgetRef ref) {
+  final sel = ref.read(hlBrowseSelectionProvider);
+  if (sel.tab != HlBrowseTab.trending || sel.subs.isNotEmpty) return;
+  final next = hlDefaultBrowseSelection(ref.read(hlWatchlistProvider));
+  if (next.tab == sel.tab) return;
+  ref.read(hlBrowseSelectionProvider.notifier).state = next;
+}
+
+/// The pill [openInvestmentsOnDefaultTab] last put on the page, until a
+/// pick or a link moves it: that change is shown at once, not switched in
+/// (the page is coming on screen; its slide is the motion). Read, never
+/// watched.
+final _investmentsQuietPillProvider =
+    StateProvider<InvestmentsTab?>((_) => null);
+
+/// The pills of the Dollars switch, in order: Overview first, the pill the
+/// page opens on ([kInvestmentsDefaultTab]), then the two venues. The
+/// Portfolio is its own screen.
+const List<InvestmentsTab> kInvestmentsPills = [
+  InvestmentsTab.activity,
+  InvestmentsTab.investing,
+  InvestmentsTab.predictions,
+];
 
 /// The `/usd` location that opens on [tab]: what the venue routes
 /// redirect to for the spending account.
@@ -267,6 +439,8 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
   }
 
   /// Post-frame: provider writes are illegal while the tree is building.
+  /// A link naming the Portfolio (or one of its sections) opens the
+  /// Portfolio screen over this page; a venue pill is picked in place.
   void _applyLinkedTab() {
     final tab = widget.initialTab;
     final section = widget.initialSection;
@@ -276,7 +450,12 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
       if (section != null) {
         ref.read(portfolioSectionProvider.notifier).state = section;
       }
-      if (tab != null) ref.read(investmentsTabProvider.notifier).state = tab;
+      if (tab == InvestmentsTab.positions) {
+        openPortfolioScreen(context);
+      } else if (tab != null) {
+        ref.read(_investmentsQuietPillProvider.notifier).state = null;
+        ref.read(investmentsTabProvider.notifier).state = tab;
+      }
     });
   }
 
@@ -284,7 +463,11 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
   Widget build(BuildContext context) {
     return Container(
       decoration: AppDecorations.screenGradient(context),
+      // Home's dock mount: the one quiet pill to search and Sal at the
+      // bottom; the money verbs are the compact row under the balance.
       child: KuteDockHost(
+        // The dock is the one search pill; it frosts itself.
+        frostBand: false,
         dockBuilder: (onHeightChanged) =>
             UsdAccountActionBar(onHeightChanged: onHeightChanged),
         body: SafeArea(
@@ -314,10 +497,9 @@ class InvestmentsBody extends ConsumerStatefulWidget {
 }
 
 class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
-  /// The pills opened at least once: Portfolio mounts on its first tap
-  /// and stays mounted after (the venue browsers are always mounted, see
-  /// the file header).
-  final Set<InvestmentsTab> _opened = {};
+  /// The pills on the page: Overview, then the two venues (the Portfolio
+  /// is its own screen, see the file header).
+  static const List<InvestmentsTab> _tabs = kInvestmentsPills;
 
   /// The outer (header) scroll: the collapse, the chevron's way back up
   /// and the nav bar's "near the top" reveal all read it.
@@ -338,6 +520,19 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   /// offset at which the header is the compact bar.
   double _collapseRange = 0;
 
+  /// The outer scroll back within its maximum once this frame's layout
+  /// has shrunk the header (see the header sliver's builder).
+  void _clampOuterAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_outer.hasClients) return;
+      final position = _outer.position;
+      if (!position.hasContentDimensions || !position.hasPixels) return;
+      if (position.pixels > position.maxScrollExtent) {
+        position.forcePixels(position.maxScrollExtent);
+      }
+    });
+  }
+
   @override
   void dispose() {
     _outer.dispose();
@@ -346,8 +541,30 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 
   /// The expanded header's layout reported its height (post-frame, see
   /// [_MeasureHeight]): a different one resizes the sliver.
+  ///
+  /// COLLAPSED, IT STAYS COLLAPSED (founder, 2 November 2026: the
+  /// Predictions list "jitters sometimes when the balance changes"). The
+  /// hero grows a line per money movement on its way (an order being
+  /// placed, a deposit arriving) and loses it when the money lands, so its
+  /// height changes with the balance. With the page scrolled, the outer
+  /// scroll rested at the old collapse range while the range moved with
+  /// the hero: the header re-expanded by the new lines' height (the
+  /// compact bar half faded, a slice of the hero showed) and the list
+  /// under it slid down, then back up as the lines left. The outer scroll
+  /// now moves with the range in the same frame as the resize, so a
+  /// collapsed header keeps its compact bar and the list does not move.
   void _onExpandedHeight(double height) {
     if (!mounted || (height - _expandedExtent).abs() < 0.5) return;
+    final oldRange = _collapseRange;
+    final compact = kInvestmentsCompactBarHeight.h;
+    final newRange = math.max(height, compact) - compact;
+    if (_outer.hasClients && oldRange > 0) {
+      final position = _outer.position;
+      if (position.hasPixels && position.pixels >= oldRange - 0.5) {
+        position.correctPixels(
+            math.max(0.0, position.pixels + newRange - oldRange));
+      }
+    }
     setState(() => _expandedExtent = height);
   }
 
@@ -360,8 +577,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       _outer.jumpTo(0);
     } else {
       _outer.animateTo(0,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic);
+          duration: KuteMotion.settleDuration, curve: KuteMotion.settle);
     }
   }
 
@@ -375,18 +591,29 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     final pixels = _outer.position.pixels;
     if (range <= 0 || pixels <= 0 || pixels >= range) return;
     final target = pixels < range / 2 ? 0.0 : range;
+    // The snap settles on the app's settle easing (KuteMotion).
     if (kuteReduceMotion(context)) {
       _outer.jumpTo(target);
     } else {
       _outer.animateTo(target,
-          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+          duration: KuteMotion.settleDuration, curve: KuteMotion.settle);
     }
   }
 
   void _pick(InvestmentsTab next) {
     final current = ref.read(investmentsTabProvider);
-    if (next == current) return;
+    // The pill on screen carries its category; tapping it again opens
+    // the categories of that section (one pill row, nothing under it).
+    // Overview has no categories: its bar opens the rest.
+    if (next == current) {
+      if (next != InvestmentsTab.activity) {
+        unawaited(showInvestmentsCategorySheet(context, ref, next));
+      }
+      return;
+    }
     HapticFeedback.selectionClick();
+    // A pick switches in, as every switch does.
+    ref.read(_investmentsQuietPillProvider.notifier).state = null;
     // The strip's own event, as the Home pills and the old Balance | Earn
     // pair reported, so the existing tiles keep counting. The Portfolio
     // carries the section it opens on as `sub`.
@@ -395,7 +622,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       'from_tab': current.key,
       'surface': 'investments',
       if (next == InvestmentsTab.positions)
-        'sub': ref.read(portfolioSectionProvider).key,
+        'sub': ref.read(portfolioSectionProvider).eventName,
     });
     // The venue tabs' own open events, from the pills that open them now.
     switch (next) {
@@ -403,27 +630,11 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
         TrackingService.hyperliquidTabOpened();
       case InvestmentsTab.predictions:
         TrackingService.polymarketTabOpened();
+      case InvestmentsTab.activity:
       case InvestmentsTab.positions:
         break;
     }
     ref.read(investmentsTabProvider.notifier).state = next;
-  }
-
-  /// A Portfolio section pill: the strip's event again, the pill staying
-  /// `positions` (so `from_tab` equals `tab`) with the section as `sub`
-  /// and the one it left as `from_sub`.
-  void _pickSection(PortfolioSection next) {
-    final current = ref.read(portfolioSectionProvider);
-    if (next == current) return;
-    HapticFeedback.selectionClick();
-    TrackingService.track('analytics_tab_selected', params: {
-      'tab': InvestmentsTab.positions.key,
-      'from_tab': InvestmentsTab.positions.key,
-      'surface': 'investments',
-      'sub': next.key,
-      'from_sub': current.key,
-    });
-    ref.read(portfolioSectionProvider.notifier).state = next;
   }
 
   /// Whether [notification] comes from the pill on screen (or the page
@@ -486,7 +697,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   Future<void> _refresh() {
     final tab = ref.read(investmentsTabProvider);
     switch (tab) {
+      // Overview holds the market map, drawn from Investing's lists.
       case InvestmentsTab.investing:
+      case InvestmentsTab.activity:
         HyperliquidScreen.refreshMarkets(ref.invalidate);
       case InvestmentsTab.predictions:
         PolymarketScreen.refreshBrowse(ref);
@@ -500,18 +713,39 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final selected = ref.watch(investmentsTabProvider);
-    _opened.add(selected);
-    const tabs = InvestmentsTab.values;
+    const tabs = _tabs;
+    // The Portfolio is no pill any more: a stale pick of it (an old
+    // session's) shows Overview.
+    var selected = ref.watch(investmentsTabProvider);
+    if (!tabs.contains(selected)) selected = InvestmentsTab.activity;
+    ref.listen<InvestmentsTab>(investmentsTabProvider, (prev, next) {
+      if (prev != null && prev != next) resetInvestmentsPicks(ref, prev);
+      if (next == InvestmentsTab.investing) enterInvestingOnDefault(ref);
+    });
 
-    KutePillItem item(InvestmentsTab tab) => KutePillItem(
-          label: switch (tab) {
-            InvestmentsTab.investing => l10n.trading,
-            InvestmentsTab.predictions => l10n.predictions,
-            InvestmentsTab.positions => l10n.walletPortfolioAction,
-          },
-          icon: tab.icon,
-        );
+    // The picked pill always carries its context ("Investing · Trending",
+    // the category in the quieter weight) and the chevron in its circle;
+    // a tap on it opens the pick (see _pick). The others are their name.
+    KutePillItem item(InvestmentsTab tab) {
+      final base = switch (tab) {
+        InvestmentsTab.activity => l10n.overview,
+        InvestmentsTab.investing => l10n.trading,
+        InvestmentsTab.predictions => l10n.predictions,
+        InvestmentsTab.positions => l10n.walletPortfolioAction,
+      };
+      // Overview holds no category: its name alone, picked or not.
+      if (tab != selected || tab == InvestmentsTab.activity) {
+        return KutePillItem(label: base);
+      }
+      return KutePillItem(
+        label: base,
+        detail: investmentsCategoryLabel(ref, l10n, tab),
+        // Too long for the row even with the other pill hugging its name:
+        // the subcategory alone (kute_pill_tabs.dart, nothing cut).
+        shortDetail: investmentsCategoryShortLabel(ref, l10n, tab),
+        menu: true,
+      );
+    }
 
     final compactExtent = kInvestmentsCompactBarHeight.h;
     final expandedExtent = math.max(
@@ -520,67 +754,104 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     _collapseRange = expandedExtent - compactExtent;
 
     final c = context.colors;
-    return NotificationListener<ScrollNotification>(
-      onNotification: _onScroll,
-      child: RefreshIndicator(
-        onRefresh: _refresh,
-        color: c.textPrimary,
-        backgroundColor: c.surface,
-        // The pull lands on the pill's own list (the nested scroll hands
-        // the overscroll to the inner lists, every mounted one of them),
-        // so the page listens to the visible pill's list, not to the
-        // header, and not to the pills kept mounted behind the stack.
-        notificationPredicate: (n) => n.depth > 0 && _fromVisiblePill(n),
-        child: NestedScrollView(
-          controller: _outer,
-          physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics()),
-          headerSliverBuilder: (context, _) => [
-            // The hero and the pills as one collapsing header (see the
-            // file header), pinned as the compact bar, under the nav
-            // bar's room while the bar is on screen.
-            Consumer(
-              builder: (context, ref, _) => TweenAnimationBuilder<double>(
-                tween: Tween<double>(
-                    end: ref.watch(navBarHiddenProvider) ? 0 : 1),
-                duration: kuteMotion(context, kNavBarSlideDuration),
-                curve: Curves.easeOut,
-                builder: (context, room, _) => SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _InvestmentsHeaderDelegate(
-                    items: [for (final tab in tabs) item(tab)],
-                    selectedIndex: tabs.indexOf(selected),
-                    onTap: (i) => _pick(tabs[i]),
-                    onExpand: _expand,
-                    onExpandedHeight: _onExpandedHeight,
-                    figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
-                    expandedExtent: expandedExtent,
-                    compactExtent: compactExtent,
-                    topRoom: kShellTopBarSpacing.h * room,
-                    background: Theme.of(context).scaffoldBackgroundColor,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          body: IndexedStack(
-            index: tabs.indexOf(selected),
-            // Every pill keeps its state; only the one on screen ticks.
-            children: [
-              for (final tab in tabs)
-                TickerMode(
-                  enabled: tab == selected,
-                  child: switch (tab) {
-                    InvestmentsTab.investing =>
-                      const HyperliquidScreen(embedded: true),
-                    InvestmentsTab.predictions =>
-                      const PolymarketScreen(embedded: true),
-                    InvestmentsTab.positions => _opened.contains(tab)
-                        ? InvestmentsPortfolio(onSection: _pickSection)
-                        : const SizedBox.shrink(),
+    // THE BAR'S LABEL FOLLOWS THE PICKED HALF (founder, 31 October 2026):
+    // "Search predictions or Manage with AI" with Predictions, "Search
+    // investments or Manage with AI" with Investing (founder, 2 November
+    // 2026), scoped to that venue as the
+    // sheet already is (searchTarget); the pill morphs on the chip spring
+    // as the pill switches. Held only while this branch is on screen (the
+    // shell parks the other tab's branch with its tickers off).
+    return KuteBarContextScope(
+      active: TickerMode.of(context),
+      // On Overview the bar is the way to everything else (founder, 4
+      // November 2026): "See full portfolio and activity", the Portfolio
+      // screen ([UsdAccountActionBar.barContext]).
+      barContext: UsdAccountActionBar.barContext(context, selected),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: c.textPrimary,
+          backgroundColor: c.surface,
+          // The pull lands on the pill's own list (the nested scroll hands
+          // the overscroll to the inner lists, every mounted one of them),
+          // so the page listens to the visible pill's list, not to the
+          // header, and not to the pills kept mounted behind the stack.
+          notificationPredicate: (n) => n.depth > 0 && _fromVisiblePill(n),
+          child: NestedScrollView(
+            controller: _outer,
+            physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics()),
+            headerSliverBuilder: (context, _) => [
+              // The hero and the pills as one collapsing header (see the
+              // file header), pinned as the compact bar, under the nav
+              // bar's room while the bar is on screen.
+              Consumer(
+                builder: (context, ref, _) => TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                      end: ref.watch(navBarHiddenProvider) ? 0 : 1),
+                  duration: kuteMotion(context, kNavBarSlideDuration),
+                  curve: Curves.easeOut,
+                  builder: (context, room, _) {
+                    // The header's extents follow the nav bar's room and the
+                    // hero's measured height: when they SHRINK while the
+                    // outer scroll rests at its end, its pixels are past the
+                    // new maximum, and the nested scroll's next fling
+                    // asserts (`extra >= 0.0`, the red overlay the founder
+                    // saw). Clamped after the frame, with the drag and the
+                    // activity kept (forcePixels, never jumpTo).
+                    _clampOuterAfterFrame();
+                    return SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _InvestmentsHeaderDelegate(
+                        items: [for (final tab in tabs) item(tab)],
+                        selectedIndex: tabs.indexOf(selected),
+                        onTap: (i) => _pick(tabs[i]),
+                        onExpand: _expand,
+                        onExpandedHeight: _onExpandedHeight,
+                        figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
+                        expandedExtent: expandedExtent,
+                        compactExtent: compactExtent,
+                        topRoom: kShellTopBarSpacing.h * room,
+                        background: Theme.of(context).scaffoldBackgroundColor,
+                      ),
+                    );
                   },
                 ),
+              ),
             ],
+            // A pill switch moves as every switch does (KuteMotion.switchIn,
+            // founder 6 November 2026): the pill's page fades in and slides
+            // 24 px from its side, a pill to the right from the right; a
+            // category picked for the pill moves its list the same way
+            // (the venue list's SliverSelectionFade). At once under Reduce
+            // Motion.
+            // The page put back on its default pill as the shell brings it
+            // on screen ([openInvestmentsOnDefaultTab]) shows it at once.
+            body: SelectionFade(
+              selection: selected,
+              order: tabs.indexOf(selected),
+              animate: ref.read(_investmentsQuietPillProvider) != selected,
+              child: IndexedStack(
+              index: tabs.indexOf(selected),
+              // Every pill keeps its state; only the one on screen ticks.
+              children: [
+                for (final tab in tabs)
+                  TickerMode(
+                    enabled: tab == selected,
+                    child: switch (tab) {
+                      InvestmentsTab.activity => const DollarsActivityTab(),
+                      InvestmentsTab.investing =>
+                        const HyperliquidScreen(embedded: true),
+                      InvestmentsTab.predictions =>
+                        const PolymarketScreen(embedded: true),
+                      // Its own screen now (portfolio_screen.dart).
+                      InvestmentsTab.positions => const SizedBox.shrink(),
+                    },
+                  ),
+              ],
+              ),
+            ),
           ),
         ),
       ),
@@ -670,23 +941,42 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                       Transform.scale(
                         scale: 1 - 0.6 * t,
                         alignment: Alignment.topLeft,
-                        // No onTap: the balance opens nothing and wears no
-                        // arrow (see the file header).
+                        // The balance and the lines under it open the
+                        // Portfolio, as the Overview's bar does (see the
+                        // file header, 13 November 2026).
                         child: InvestmentBalanceHeader(
                           product: InvestmentsProduct.trading,
                           oneBalance: true,
+                          showOpenPnl: true,
+                          onTap: () =>
+                              UsdAccountActionBar.openPortfolioFromBalance(
+                                  context),
                         ),
                       ),
-                      // The Home strip's pills, a step bigger, on the
-                      // strip's inset with 12.h of air above (where the
-                      // deposit door used to sit) and under them.
+                      // ONE compact row under the balance: Buy dollars ·
+                      // Swap · Receive · Send, four equal buttons in the
+                      // Bitcoin tab's row's own inset (16), so the squares
+                      // stand where the Bitcoin home's stand (the Portfolio
+                      // is the Overview pill's bar since 4 November 2026).
                       Padding(
-                        padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
+                        padding: EdgeInsets.fromLTRB(16, 8.h, 16, 0),
+                        child: const UsdAccountActionRow(),
+                      ),
+                      // ONE strip, exactly the home strip (founder, 31
+                      // October 2026): two equal halves across the width,
+                      // the picked half the white pill carrying its
+                      // category ("Investing · Trending ⌄", a plain
+                      // chevron); its tap opens the pick, the other's
+                      // switches.
+                      // More air around it (founder, 1 November 2026):
+                      // 18 under the action row, 14 over the big cards.
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(12.w, 18.h, 12.w, 14.h),
                         child: KutePillTabs(
                           items: items,
                           selectedIndex: selectedIndex,
                           onTap: onTap,
-                          size: KutePillSize.large,
+                          size: kutePillSwitchSize,
                         ),
                       ),
                     ],
@@ -751,7 +1041,11 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   static bool _sameLabels(List<KutePillItem> a, List<KutePillItem> b) {
     for (var i = 0; i < a.length; i++) {
-      if (a[i].label != b[i].label) return false;
+      if (a[i].label != b[i].label ||
+          a[i].detail != b[i].detail ||
+          a[i].menu != b[i].menu) {
+        return false;
+      }
     }
     return true;
   }
@@ -944,6 +1238,28 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   final ValueChanged<double>? onHeightChanged;
 
+  /// Test seam: what Buy dollars opens. Null opens the shared
+  /// Unavailable sheet ([showCapabilityUnavailableSheet]).
+  @visibleForTesting
+  static void Function(BuildContext context)? debugBuyDollarsOpener;
+
+  /// The `surface` Buy dollars opens the Unavailable sheet with.
+  static const String buyDollarsSurface = 'buy_dollars';
+
+  /// The row's Buy dollars: not available yet (founder, 6 November 2026:
+  /// "Buy dollars and Receive are basically one and the same ... we will
+  /// have an actual buy. So for now Buy just shows not available"). The
+  /// shared Unavailable sheet, its generic sentence; bitcoin into Dollars
+  /// is the Receive sheet's "From your Bitcoin". The tap still counts as
+  /// `quick_action_tapped` `buy_dollars`.
+  static void buyDollars(BuildContext context) {
+    final open = debugBuyDollarsOpener;
+    if (open != null) return open(context);
+    unawaited(showCapabilityUnavailableSheet(context,
+        message: context.l10n.capabilityUnavailable,
+        surface: buyDollarsSurface));
+  }
+
   /// Test seam: what Receive opens. Null opens the Dollars receive sheet
   /// ([showUsdReceiveSheet]); a test swaps in a recorder so the dock can
   /// be driven on its own.
@@ -952,7 +1268,7 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   /// The dock's Receive: the Dollars receive sheet on its first step,
   /// "From your Bitcoin" over the coins it also accepts.
-  void _receive(BuildContext context) {
+  static void receive(BuildContext context) {
     TrackingService.markEntrySource('usd_receive', kUsdDockSource);
     final open = debugReceiveOpener;
     if (open != null) return open(context);
@@ -967,12 +1283,29 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   /// The dock's Withdraw: the Withdraw sheet on its first step, "To your
   /// wallet" over the coins the dollars can be sent out as.
-  void _withdraw(BuildContext context) {
+  static void withdraw(BuildContext context) {
     final open = debugWithdrawOpener;
     if (open != null) return open(context);
     // ignore: discarded_futures
     showUsdWithdrawSheet(context);
   }
+
+  /// The row's Swap (founder, 7 November 2026: "ideally is to have a move
+  /// button, i am sorry but we need it. Only on dollars"; named "Swap",
+  /// the crypto wallets' word, the same day): the Swap sheet, the two-way
+  /// move between the person's own Bitcoin and Dollars
+  /// (showOwnMoneyMove), opened on Bitcoin → Dollars as the Dollars
+  /// Receive's "From your Bitcoin" opens it, since the person is on
+  /// Dollars; its swap circle turns it the other way. What may move is
+  /// the backend policy's alone: the sheet says why where it refuses a
+  /// direction. The tap counts as `quick_action_tapped` `swap`, the sheet
+  /// opens under [kUsdHomeSwapSource]. Only here: the Bitcoin home has no
+  /// Swap, it has Scan (founder, 10 November 2026: "The swap we can only
+  /// have it in the dollars").
+  static void swap(BuildContext context) => unawaited(showOwnMoneyMove(
+      context,
+      from: MoneyMovementAccount.bitcoin,
+      entrySource: kUsdHomeSwapSource));
 
   /// What the square searches for [tab]: a venue's own markets, results
   /// first and under the venue's own source, or, from Positions, everything
@@ -982,6 +1315,10 @@ class UsdAccountActionBar extends ConsumerWidget {
   static ({SearchCategory category, String source}) searchTarget(
           InvestmentsTab tab) =>
       switch (tab) {
+        InvestmentsTab.activity => (
+            category: SearchCategory.all,
+            source: kUsdSurfaceSource
+          ),
         InvestmentsTab.investing => (
             category: SearchCategory.perpetuals,
             source: 'trading'
@@ -996,7 +1333,7 @@ class UsdAccountActionBar extends ConsumerWidget {
           ),
       };
 
-  void _search(BuildContext context, WidgetRef ref) {
+  static void search(BuildContext context, WidgetRef ref) {
     final tab = ref.read(investmentsTabProvider);
     final target = searchTarget(tab);
     showKuteSearch(
@@ -1006,41 +1343,144 @@ class UsdAccountActionBar extends ConsumerWidget {
       searchHint: switch (tab) {
         InvestmentsTab.predictions => context.l10n.searchPredictionsHint,
         InvestmentsTab.investing => context.l10n.searchInvestmentsHint,
-        InvestmentsTab.positions => null,
+        InvestmentsTab.activity || InvestmentsTab.positions => null,
       },
       source: target.source,
     );
   }
 
+  /// The `quick_action_tapped` action the Overview pill's bar sends: the
+  /// key the row's Portfolio button sent, so the dashboards keep counting
+  /// the Portfolio's opens.
+  static const String portfolioActionId = 'portfolio';
+
+  /// The `quick_action_tapped` source of the Portfolio opened from the
+  /// Dollars balance (the hero's total and the lines under it), beside
+  /// the bar's [kUsdSurfaceSource]: the same `portfolio` action, so the
+  /// dashboards count both opens and can tell them apart.
+  static const String balanceSource = 'usd_balance';
+
+  /// The Dollars balance's tap (founder, 13 November 2026: "on the main
+  /// balance, if we click on it, on Dollars we should also take the user
+  /// to the Portfolio"): exactly the bar's "See full portfolio and
+  /// activity", the Portfolio screen where its section was last left,
+  /// reported as `quick_action_tapped` `portfolio` from [balanceSource].
+  static void openPortfolioFromBalance(BuildContext context) {
+    TrackingService.quickAction(portfolioActionId, source: balanceSource);
+    openPortfolioScreen(context);
+  }
+
+  /// The bar over [tab] (see the file header): on Overview the primary
+  /// "See full portfolio and activity", pushing the Portfolio screen; on a
+  /// venue pill the search pill scoped to that venue ("Search predictions
+  /// or Manage with AI").
+  static KuteBarContext barContext(BuildContext context, InvestmentsTab tab) {
+    final l10n = context.l10n;
+    final target = searchTarget(tab);
+    if (tab == InvestmentsTab.activity) {
+      return KuteBarContext.primary(
+        label: l10n.seeFullPortfolioAndActivity,
+        onPrimary: () {
+          TrackingService.quickAction(portfolioActionId,
+              source: kUsdSurfaceSource);
+          openPortfolioScreen(context);
+        },
+        // Never off: the Portfolio always opens.
+        disabledLabel: l10n.seeFullPortfolioAndActivity,
+        category: target.category,
+        source: target.source,
+      );
+    }
+    return KuteBarContext(
+      label: switch (tab) {
+        InvestmentsTab.predictions => l10n.searchPredictionsOrManageAi,
+        InvestmentsTab.investing => l10n.searchInvestmentsOrManageAi,
+        InvestmentsTab.activity ||
+        InvestmentsTab.positions =>
+          l10n.searchOrManageAi,
+      },
+      category: target.category,
+      searchHint: switch (tab) {
+        InvestmentsTab.predictions => l10n.searchPredictionsHint,
+        InvestmentsTab.investing => l10n.searchInvestmentsHint,
+        InvestmentsTab.activity || InvestmentsTab.positions => null,
+      },
+      source: target.source,
+    );
+  }
+
+  /// The action row under the balance ([UsdAccountActionRow]): Buy
+  /// dollars · Swap · Receive · Send (founder, 2 November 2026: "Buy
+  /// dollars" in place of Manage with AI, "Send and Receive, not Add and
+  /// Send"; 4 November 2026: Portfolio is no longer needed on the top
+  /// buttons, the Overview pill's bar opens it; 7 November 2026: Swap,
+  /// [swap]). Four squares in the Bitcoin home's columns (Purchase · Scan
+  /// · Receive · Send; founder, 10 November 2026: Scan back on the Bitcoin
+  /// home, Swap only here): the solid buy first, the surface's own verb
+  /// second (Scan there, Swap here), Receive and Send last, so switching
+  /// Bitcoin | Dollars moves no button but the second. Buy dollars sends
+  /// `buy_dollars` and, until there is a real buy, opens the Unavailable
+  /// sheet ([buyDollars]). Swap sends `swap`. Receive and Send keep the
+  /// keys `receive` and `send`, so the events read as before: Receive is
+  /// money into Dollars (from Bitcoin or another wallet), Send is Dollars
+  /// out, to Bitcoin or sent on as a coin to another wallet.
+  static List<KuteDockAction> moneyActions(BuildContext context) => [
+        // First, the solid square (founder, 2 November 2026: Buy dollars
+        // black).
+        KuteDockAction(
+          icon: Icons.attach_money_rounded,
+          label: context.l10n.buyDollarsAction,
+          trackingId: 'buy_dollars',
+          solid: true,
+          onTap: () => buyDollars(context),
+        ),
+        // The two-way arrows the app's swap controls wear.
+        KuteDockAction(
+          icon: Icons.swap_horiz_rounded,
+          label: context.l10n.swap,
+          trackingId: 'swap',
+          onTap: () => swap(context),
+        ),
+        // The plain receive arrow, moving as the hub's "+" does (founder,
+        // 7 November 2026; receive_arrow_glyph.dart).
+        KuteDockAction(
+          icon: Icons.south_west_rounded,
+          glyph: receiveArrowGlyph,
+          label: context.l10n.receive,
+          trackingId: 'receive',
+          onTap: () => receive(context),
+        ),
+        KuteDockAction(
+          icon: Icons.north_east_rounded,
+          label: context.l10n.send,
+          trackingId: 'send',
+          // The Receive sheet, turned around (usd_withdraw_screen.dart):
+          // "To your wallet" over the coins; a coin opens the dollar
+          // send, whose `usd_send_opened` fires from its initState.
+          onTap: () => withdraw(context),
+        ),
+      ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => KuteBottomActionBar(
         source: kUsdSurfaceSource,
         onHeightChanged: onHeightChanged,
-        actions: [
-          // The Bitcoin dock's Receive, label, arrow and action key; the
-          // dock sends it under this surface's source (`usd`). Before
-          // 2026-10-13 this slot was Deposit (`dollar_deposit`).
-          // Investments says Deposit and Withdraw, never Receive and Send
-          // (founder, 2026-10-23); the action keys stay `receive` and
-          // `send` so the dock's events read as before.
-          KuteDockAction(
-            icon: Icons.south_west_rounded,
-            label: context.l10n.deposit,
-            trackingId: 'receive',
-            onTap: () => _receive(context),
-          ),
-          KuteDockAction(
-            icon: Icons.north_east_rounded,
-            label: context.l10n.withdraw,
-            trackingId: 'send',
-            // The Deposit's sheet, turned around (usd_withdraw_screen
-            // .dart): "To your wallet" over the coins; a coin opens the
-            // dollar send, whose `usd_send_opened` fires from its
-            // initState.
-            onTap: () => _withdraw(context),
-          ),
-        ],
-        onSearch: () => _search(context, ref),
+        // The money verbs sit under the balance; the dock is the one
+        // quiet door to search and Sal.
+        actions: const [],
+        onSearch: () => search(context, ref),
+      );
+}
+
+/// The Dollars compact row under the balance: Buy dollars · Swap ·
+/// Receive · Send, the Bitcoin tab's squared buttons, each once.
+class UsdAccountActionRow extends StatelessWidget {
+  const UsdAccountActionRow({super.key});
+
+  @override
+  Widget build(BuildContext context) => KuteCompactActions(
+        source: kUsdSurfaceSource,
+        actions: UsdAccountActionBar.moneyActions(context),
       );
 }
 

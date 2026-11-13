@@ -1,0 +1,863 @@
+// lib/screens/share/send_to_anyone_sheet.dart
+//
+// SEND TO ANYONE. The recipient option on Send (bitcoin: the Send to step
+// of confirm_send.dart; dollars: the Withdraw sheet) for someone who has
+// no address to paste: a link they claim with Kute. Three steps in one
+// sheet, each built from the send flows' own pieces:
+//
+//   1. Amount: THE SEND AMOUNT STEP'S OWN PIECES (founder, 6 November
+//      2026: "this one must have the sats and such, like here";
+//      send_flow_widgets.dart), CALM (founder, 7 November 2026: "they
+//      seem soo dense, to many numbers"). Bitcoin opens in the Bitcoin
+//      unit from Settings, as the Bitcoin Send does: the one big figure,
+//      centred, in the entry unit (₿ sats, ₿ BTC or the money;
+//      SendBitcoinAmountHero, SendTypedAmountHero), the other unit's
+//      figure under it as the one line, which flips the unit when tapped
+//      (⇅), and, over 25% · 50% · 100% and the app keypad (AmountKeypad),
+//      the spending wallet's bitcoin (which pays the link) as one number
+//      in the figure's unit: "328,686 sats available" or "$328.69
+//      available". No unit pill: sats or BTC, and the money, come from
+//      Settings. Dollars keep the dollar figure alone, "$12.00 available"
+//      (the Dollars balance) and the same percent row. An amount over the
+//      balance turns red, says so and keeps Continue off, as the Send
+//      does; a balance not known yet is never judged.
+//   2. Who is it for? One text field, the first name, optional, under THE
+//      SHARE CARD live at about 60% (founder, 1 November 2026: "the card
+//      makes it feel like a gift"; cards/share_cards.dart): "{Name}, I
+//      sent you" over the amount as they type, or the pick's card (the
+//      prediction's odds, the actual stock). Create link posts to the
+//      backend (nothing moves: a share link is a pending send, see
+//      models/share_link_model.dart).
+//   3. The card in full ("Your card is ready") over the pending row
+//      (pending_share_links.dart), the bar "Share": the card as a PNG in
+//      the OS share sheet with "{name}, I sent you {amount} with Kute.
+//      Claim it here: {url}". Sharing always shows the card first; Done
+//      is a text button.
+//
+// A PREDICTION (or an investment) IS SENT FROM SEND, THROUGH ITS SLIP
+// IN SEND MODE (founder, 7 November 2026: "only in Send should it be to
+// send to someone"; slip_share.dart, send_pick_session.dart). The slip's
+// primary ("Send $50 · Short AMD") hands the sheet THE PICK and the
+// amount: the market slug and title, the venue, the outcome ("Yes", a
+// candidate, "Long"), its index and the side, the dollars, and the
+// contact picked on Send, if any, as the name. The sheet then opens on
+// its last step at once, made unmistakable ("here, sending the
+// prediction must actually be better, more clear we are sending the
+// prediction"):
+//
+//   * the title "Send this prediction" ("Send this investment"), with
+//     what happens under it: they claim it, then place it with one tap
+//     (nothing moves until they claim; the Claim screen opens the slip on
+//     the pick, nothing placed without their tap, claim_screen.dart);
+//   * THE CARD as the hero, as wide as the sheet allows, live as the name
+//     is typed ("ANA, A PREDICTION FOR YOU", the chance on the
+//     speedometer, "$5 on Yes" in big type; cards/share_cards.dart);
+//   * the one line saying what the friend gets, in words: "Your friend
+//     gets $5 on Apple — Yes at 62%" ("Ana gets …" once a name is typed);
+//   * the name field (optional, not focused: the card leads) and the
+//     "Challenge them" switch;
+//   * the bar "Send prediction" ("Send investment"): it creates the link
+//     and the card is ready to share.
+//
+// The content scrolls under its header, so nothing overflows with the
+// keyboard up on the smallest phone; the field scrolls clear of the bar
+// riding above the keyboard.
+//
+// A PREDICTION pick can go as a DARE (share_challenge.dart): the
+// "Challenge them" switch under the name, off by default, turns the live
+// card into the challenge card (both sides, the sender's marked) and the
+// link into a challenge (`challenge: true` to the backend, `?challenge=1`
+// on the URL kept in the pending row, so every resend carries it).
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/share_link_model.dart';
+import 'package:kute/helpers/formatters/currency_formatter.dart';
+import 'package:kute/providers/address_receive_provider.dart'
+    show bitcoinEntryUnit;
+import 'package:kute/providers/balance_provider.dart'
+    show walletBalanceCacheProvider;
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show
+        conversionProvider,
+        conversionToFiatProvider,
+        currencyProvider,
+        inputToSatsProvider,
+        satsToTargetCurrencyProvider;
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show shareCardChance, shareCardMessage, shareCardOutcome;
+import 'package:kute/screens/share/cards/share_card_data.dart';
+import 'package:kute/screens/share/cards/share_card_preview.dart';
+import 'package:kute/screens/share/cards/share_card_sources.dart';
+import 'package:kute/screens/share/pending_share_links.dart';
+import 'package:kute/screens/share/share_challenge.dart';
+import 'package:kute/screens/share/share_link_copy.dart';
+import 'package:kute/screens/share/share_link_resend.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountKeypad, canonicalDecimalText;
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/app_text_field.dart';
+import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show
+        SendAmountBalanceRow,
+        SendAmountConversionLine,
+        SendAmountHeroStack,
+        SendBitcoinAmountHero,
+        SendToListCard,
+        SendTypedAmountHero,
+        sendAtmDigits,
+        sendAtmDigitsOf,
+        sendCurrencyPrefix,
+        sendFiatFlipUnit,
+        sendIsBitcoinUnit;
+import 'package:kute/services/api/share_links_api.dart';
+import 'package:kute/services/share_link_events.dart';
+import 'package:kute/services/share_links_store.dart';
+import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart';
+
+/// The sheet's route name, for the route observers.
+const String kSendToAnyoneRouteName = 'send_to_anyone';
+
+/// Opens Send to anyone for [kind] over the current screen. Resolves to
+/// true when a link was created. The pick ([marketSlug], [marketTitle],
+/// [venue], [outcome], [outcomeIndex], [side]) with [amountMinor] (cents,
+/// a slip's amount) opens on the last step; see the file header.
+Future<bool?> showSendToAnyoneSheet(
+  BuildContext context, {
+  required ShareLinkKind kind,
+  String? marketSlug,
+  String? marketTitle,
+  String? venue,
+  String? outcome,
+  int? outcomeIndex,
+  String? side,
+  int? amountMinor,
+  String? senderLabel,
+  String? recipientPhone,
+  required String entrySource,
+}) {
+  TrackingService.markEntrySource('share_link', entrySource);
+  return showAppBottomSheet<bool>(
+    context: context,
+    routeSettings: const RouteSettings(name: kSendToAnyoneRouteName),
+    builder: (_) => SendToAnyoneSheet(
+      kind: kind,
+      marketSlug: marketSlug,
+      marketTitle: marketTitle,
+      venue: venue,
+      outcome: outcome,
+      outcomeIndex: outcomeIndex,
+      side: side,
+      amountMinor: amountMinor,
+      senderLabel: senderLabel,
+      recipientPhone: recipientPhone,
+    ),
+  );
+}
+
+class SendToAnyoneSheet extends ConsumerStatefulWidget {
+  const SendToAnyoneSheet({
+    super.key,
+    required this.kind,
+    this.marketSlug,
+    this.marketTitle,
+    this.venue,
+    this.outcome,
+    this.outcomeIndex,
+    this.side,
+    this.amountMinor,
+    this.senderLabel,
+    this.recipientPhone,
+  });
+
+  final ShareLinkKind kind;
+  final String? marketSlug;
+
+  /// The name field prefilled (a contact picked on the Send screen, its
+  /// first name). The person can still change it.
+  final String? senderLabel;
+
+  /// The picked contact's number, kept in the local row only (see
+  /// PendingShareLink.recipientPhone); offers WhatsApp and SMS on the
+  /// receipt with it prefilled. Never posted, never tracked.
+  final String? recipientPhone;
+
+  /// The pick (see the file header); all null for a plain send.
+  final String? marketTitle;
+  final String? venue;
+  final String? outcome;
+  final int? outcomeIndex;
+  final String? side;
+
+  /// The amount already chosen (a slip's), in the link's minor units;
+  /// null or 0 asks for it on the amount step.
+  final int? amountMinor;
+
+  /// Whether the link carries a pick.
+  bool get hasPick =>
+      (outcome?.trim().isNotEmpty ?? false) &&
+      (marketTitle?.trim().isNotEmpty ?? false);
+
+  /// Whether the amount came with the sheet (a slip's).
+  bool get hasAmount => (amountMinor ?? 0) > 0;
+
+  @override
+  ConsumerState<SendToAnyoneSheet> createState() => _SendToAnyoneSheetState();
+}
+
+enum _Step { amount, name, done }
+
+class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet>
+    with SingleTickerProviderStateMixin {
+  // A pick arrives with its amount (a slip's): straight to who it is for.
+  late _Step _step = widget.hasAmount ? _Step.name : _Step.amount;
+
+  /// The typed figure in dollars, or in a fiat unit of a bitcoin link.
+  String _typed = '';
+
+  /// A bitcoin link's figure in a Bitcoin unit: whole sats, typed ATM
+  /// style (the Send amount step's accumulator).
+  String _digits = '';
+
+  /// The entry unit: 'USD' for dollars; for bitcoin 'Sats', 'BTC' or a
+  /// fiat, opening in the Bitcoin unit from Settings as the Send does.
+  late String _unit =
+      _dollars ? 'USD' : bitcoinEntryUnit(ref.read(settingsProvider).btcFormat);
+
+  /// The fiat last typed in, the one the ⇅ swap goes back to.
+  String? _lastFiat;
+
+  /// The Send's per-keystroke "digit lands" bounce.
+  late final AnimationController _amountPulse = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 220));
+  late final TextEditingController _name =
+      TextEditingController(text: widget.senderLabel?.trim() ?? '');
+  bool _creating = false;
+  bool _sharing = false;
+
+  /// "Challenge them" (share_challenge.dart), a prediction pick only.
+  bool _challenge = false;
+  bool get _canChallenge =>
+      shareChallengeOffered(hasPick: _hasPick, venue: _pickVenue);
+  String? _error;
+  PendingShareLink? _created;
+
+  /// The live card as the name step last drew it.
+  ShareCardData? _liveCard;
+
+  /// The card's capture (the last step) and Sal's line, picked once.
+  final GlobalKey _boundary = GlobalKey();
+  final GlobalKey _liveBoundary = GlobalKey();
+  final int _seed = ShareCardShare.seed();
+
+  ShareLinkKind get kind => widget.kind;
+  bool get _dollars => kind == ShareLinkKind.dollars;
+
+  String? get _pickSlug => widget.marketSlug;
+  String? get _pickTitle => widget.marketTitle;
+  String? get _pickVenue => widget.venue;
+  String? get _pickOutcome => widget.outcome;
+  int? get _pickIndex => widget.outcomeIndex;
+  String? get _pickSide => widget.side;
+  bool get _investing => _pickVenue == 'hyperliquid';
+  bool get _hasPick => widget.hasPick;
+
+  @override
+  void dispose() {
+    _amountPulse.dispose();
+    _name.dispose();
+    super.dispose();
+  }
+
+  bool get _bitcoinUnit => !_dollars && sendIsBitcoinUnit(_unit);
+
+  /// The link's minor units: the amount handed over, else the typed
+  /// figure as cents, the sats typed, or a fiat figure in sats through
+  /// the bitcoin send's conversion. Zero while nothing usable is typed.
+  int _amountMinor() {
+    if (widget.hasAmount) return widget.amountMinor!;
+    if (_bitcoinUnit) return _digits.isEmpty ? 0 : int.tryParse(_digits) ?? 0;
+    final value = double.tryParse(_typed) ?? 0;
+    if (value <= 0) return 0;
+    if (_dollars) return (value * 100).round();
+    try {
+      return ref.read(inputToSatsProvider((amount: _typed, currency: _unit)));
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// What pays the link, in its minor units: the spending wallet's
+  /// bitcoin (sats) or the Dollars balance (cents, floored). Zero while
+  /// unknown: then the amount is never judged.
+  int _poolMinor() {
+    try {
+      if (_dollars) return (ref.watch(usdBalanceProvider) * 100).floor();
+      final spending = pickSpendingWallet(ref.watch(settingsProvider));
+      if (spending == null) return 0;
+      return ref
+              .watch(walletBalanceCacheProvider)[spending.id]
+              ?.sparkBitcoinbalance ??
+          0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// [minor] (sats or cents) written into the entry, in its unit.
+  void _setAmountMinor(int minor) {
+    if (_dollars) {
+      _typed = minor <= 0 ? '' : (minor / 100).toStringAsFixed(2);
+    } else if (_bitcoinUnit) {
+      _digits = sendAtmDigitsOf(minor);
+    } else {
+      _typed = minor <= 0 ? '' : _fiatText(minor, _unit);
+    }
+  }
+
+  /// [sats] in [fiat] as the keypad's plain text ("12.50", never "12,50").
+  String _fiatText(int sats, String fiat) {
+    try {
+      return canonicalDecimalText(ref.read(
+          satsToTargetCurrencyProvider((sats: sats, currency: fiat))));
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _pulse() {
+    if (!(MediaQuery.maybeOf(context)?.disableAnimations ?? false)) {
+      _amountPulse.forward(from: 0.0);
+    }
+  }
+
+  /// The conversion line's flip (⇅): Bitcoin to the fiat last typed in
+  /// (else Settings'), fiat back to the Bitcoin unit from Settings, the
+  /// amount kept.
+  void _flipUnit() {
+    final sats = _amountMinor();
+    final wasBitcoin = _bitcoinUnit;
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (wasBitcoin) {
+        _unit = sendFiatFlipUnit(
+            lastFiat: _lastFiat,
+            settingsCurrency: ref.read(settingsProvider).currency,
+            hasRate: ref.read(currencyProvider).hasRate);
+      } else {
+        _lastFiat = _unit;
+        _unit = bitcoinEntryUnit(ref.read(settingsProvider).btcFormat);
+      }
+      _setAmountMinor(sats);
+    });
+  }
+
+  /// 25% / 50% / 100% of what pays the link (100% is all of it).
+  void _onPercent(double ratio) {
+    final pool = _poolMinor();
+    if (pool <= 0) return;
+    final target = ratio >= 1.0 ? pool : (pool * ratio).floor();
+    if (target <= 0) return;
+    HapticFeedback.selectionClick();
+    setState(() => _setAmountMinor(target));
+  }
+
+  Future<void> _create() async {
+    if (_creating) return;
+    final amountMinor = _amountMinor();
+    if (amountMinor <= 0) return;
+    setState(() {
+      _creating = true;
+      _error = null;
+    });
+    final label = _name.text.trim();
+    // The market's own title for the row and the message: the live card's
+    // (as last drawn), which names the event behind a candidate's page.
+    final card = _liveCard;
+    final title = card is PredictionCardData && card.question.trim().isNotEmpty
+        ? card.question.trim()
+        : _pickTitle?.trim();
+    try {
+      final pick = _hasPick;
+      final challenge = _challenge && _canChallenge;
+      final created = await ref.read(shareLinksApiProvider).create(
+            kind: kind,
+            amountMinor: amountMinor,
+            marketSlug: _pickSlug,
+            senderLabel: label.isEmpty ? null : label,
+            venue: pick ? _pickVenue : null,
+            outcome: pick ? _pickOutcome!.trim() : null,
+            outcomeIndex: pick ? _pickIndex : null,
+            side: pick ? _pickSide : null,
+            challenge: challenge,
+          );
+      final row = PendingShareLink(
+        id: created.id,
+        kind: kind,
+        amountMinor: amountMinor,
+        label: label.isEmpty ? null : label,
+        marketSlug: _pickSlug,
+        marketTitle: pick ? title : null,
+        venue: pick ? _pickVenue : null,
+        outcome: pick ? _pickOutcome!.trim() : null,
+        url: challenge ? shareChallengeUrl(created.url) : created.url,
+        challenge: challenge,
+        createdAt: DateTime.now(),
+        status: ShareLinkStatus.open,
+        recipientPhone: widget.recipientPhone?.trim().isEmpty ?? true
+            ? null
+            : widget.recipientPhone!.trim(),
+      );
+      ShareLinksStore.put(row);
+      ShareLinkEvents.created(kind, amountMinor,
+          marketSlug: _pickSlug,
+          outcome: row.outcome,
+          challenge: challenge);
+      if (!mounted) return;
+      // The card first (founder, 1 November 2026): Share is the bar.
+      setState(() {
+        _created = row;
+        _step = _Step.done;
+        _creating = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _creating = false;
+        _error = context.l10n.shareCreateFailed;
+      });
+    }
+  }
+
+  /// The card for [amountMinor] to [label]: the pick's card when the
+  /// link carries one (the dare with [challenge]), else the money card
+  /// (cards/share_card_sources.dart).
+  ShareCardData _card(int amountMinor, String? label,
+      {bool challenge = false}) {
+    String? btc;
+    String? fiat;
+    if (!_dollars && amountMinor > 0) {
+      try {
+        btc = ref.watch(conversionProvider(amountMinor));
+        fiat = ref.watch(conversionToFiatProvider(amountMinor));
+      } catch (_) {
+        btc = null;
+        fiat = null;
+      }
+    }
+    final pick = _hasPick;
+    return shareCardForLink(
+      <T>(p) => ref.watch(p),
+      locale: context.l10n.localeName,
+      kind: kind,
+      amountMinor: amountMinor,
+      recipient: label,
+      marketSlug: pick ? _pickSlug : null,
+      marketTitle: pick ? _pickTitle : null,
+      venue: pick ? _pickVenue : null,
+      outcome: pick ? _pickOutcome : null,
+      side: pick ? _pickSide : null,
+      bitcoinAmount: btc,
+      bitcoinFiat: fiat,
+      referralCode: AffiliateService.affiliateCode,
+      challenge: pick && challenge,
+    );
+  }
+
+  Future<void> _share(PendingShareLink row, ShareCardData card) async {
+    if (_sharing) return;
+    final amount =
+        shareLinkAmountLabel(context, ref, row.kind, row.amountMinor);
+    final text = shareCardMessage(
+        context.l10n,
+        card,
+        shareLinkMessage(context,
+            name: row.label,
+            amount: amount,
+            url: row.url,
+            outcome: row.outcome,
+            title: row.marketTitle,
+            venue: row.venue,
+            challenge: row.challenge));
+    setState(() => _sharing = true);
+    final result =
+        await shareCardImage(context, _boundary, text: text, name: card.kind);
+    ShareLinkEvents.shared(row.kind, result: result);
+    if (mounted) setState(() => _sharing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    // A pick's last step says what is sent (see the file header).
+    final pickName = _hasPick && _step == _Step.name;
+    return AppBottomSheetContainer(
+      maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      followKeyboard: _step == _Step.name,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Each step says what it asks: how much, who it is for; a pick
+          // says it is a prediction (an investment) being sent.
+          AppBottomSheetHeader(
+            title: switch (_step) {
+              _Step.done => l10n.shareCardReadyTitle,
+              _ when _hasPick =>
+                _investing ? l10n.sendThisInvestment : l10n.sendThisPrediction,
+              _Step.name => l10n.shareWhoIsItFor,
+              _Step.amount => l10n.shareSendToAnyone,
+            },
+            subtitle: switch (_step) {
+              _Step.amount => l10n.shareSendToAnyoneSubtitle,
+              _ when pickName => l10n.sendPickHowItWorks,
+              _ => null,
+            },
+            icon: Icons.ios_share_rounded,
+          ),
+          // The step scrolls under the header: nothing overflows with the
+          // keyboard up, however small the phone (see the file header).
+          Flexible(
+            child: SingleChildScrollView(
+              key: const ValueKey('send-to-anyone-scroll'),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
+              child: switch (_step) {
+                _Step.amount => _amountStep(),
+                _Step.name => _nameStep(),
+                _Step.done => _doneStep(),
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _amountStep() {
+    final l10n = context.l10n;
+    final amountMinor = _amountMinor();
+    final pool = _poolMinor();
+    // Judged at typing time, as the Send does; an unknown balance (0) is
+    // never judged.
+    final overBalance = pool > 0 && amountMinor > pool;
+    final settings = ref.watch(settingsProvider);
+    final btcFormat = settings.btcFormat;
+    final Widget hero;
+    Widget? conversion;
+    final String available;
+    if (_dollars) {
+      // Dollars only: the figure alone, its $ names the unit.
+      hero = SendTypedAmountHero(
+          prefix: '\$', typed: _typed, overBalance: overBalance);
+      available = l10n.hlYieldAvailableLine(
+          '\$${(pool / 100).toStringAsFixed(2)}');
+    } else {
+      hero = _bitcoinUnit
+          ? SendBitcoinAmountHero(
+              digits: _digits, unit: _unit, overBalance: overBalance)
+          : SendTypedAmountHero(
+              prefix: sendCurrencyPrefix(_unit),
+              typed: _typed,
+              overBalance: overBalance);
+      try {
+        final String secondary;
+        if (_bitcoinUnit) {
+          final fiat = sendFiatFlipUnit(
+              lastFiat: _lastFiat,
+              settingsCurrency: settings.currency,
+              hasRate: ref.watch(currencyProvider).hasRate);
+          secondary = '${sendCurrencyPrefix(fiat)}'
+              '${ref.watch(satsToTargetCurrencyProvider((sats: amountMinor, currency: fiat)))}';
+        } else {
+          secondary = '₿${amountMinor.toFormattedString(btcFormat)}';
+        }
+        conversion = SendAmountConversionLine(
+            secondary: secondary, zero: amountMinor <= 0, onSwap: _flipUnit);
+      } catch (_) {
+        conversion = null;
+      }
+      // The spending wallet's bitcoin as one number, in the figure's unit.
+      String poolText = '${pool.toFormattedString(btcFormat)} $btcFormat';
+      if (!_bitcoinUnit) {
+        try {
+          poolText = '${sendCurrencyPrefix(_unit)}'
+              '${ref.watch(satsToTargetCurrencyProvider((sats: pool, currency: _unit)))}';
+        } catch (_) {}
+      }
+      available = l10n.hlYieldAvailableLine(poolText);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: 8.h),
+        // The Send amount step's top: the figure, centred, and its one
+        // line, the other unit, which flips it (send_flow_widgets.dart).
+        SendAmountHeroStack(
+          figure: hero,
+          pulse: _amountPulse,
+          below: conversion,
+          warning: overBalance ? l10n.sendMoreThanAvailable : null,
+        ),
+        SizedBox(height: 18.h),
+        // The balance, one number, over the chips that take a share of it.
+        SendAmountBalanceRow(available: available, onPercent: _onPercent),
+        SizedBox(height: 12.h),
+        MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: AmountKeypad(
+            value: _bitcoinUnit ? _digits : _typed,
+            // Whole sats in a Bitcoin unit; cents in dollars or a fiat.
+            maxDecimals: _bitcoinUnit ? 0 : 2,
+            onChanged: (v) {
+              setState(() {
+                if (_bitcoinUnit) {
+                  _digits = sendAtmDigits(v);
+                } else {
+                  _typed = v;
+                }
+              });
+              _pulse();
+            },
+          ),
+        ),
+        // THE BAR IS THE BUTTON (kute_bar_context.dart): Continue is the
+        // floating Sal bar's primary action; the keypad keeps clear of it.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: l10n.continueLabel,
+            onPrimary: () => setState(() => _step = _Step.name),
+            enabled: amountMinor > 0 && !overBalance,
+            source: 'share_amount',
+            disabledLabel:
+                overBalance ? l10n.barNeedLowerAmount : l10n.barNeedAmount,
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
+        ),
+      ],
+    );
+  }
+
+  /// What the friend gets, in words, under a pick's card: "Your friend
+  /// gets $5 on Apple — Yes at 62%" ("Ana gets …" with a name), read off
+  /// [card] so it says exactly what the card shows. Null without a pick.
+  String? _friendGets(ShareCardData card, String? name) {
+    final l10n = context.l10n;
+    final who = name ?? l10n.sendPickYourFriend;
+    switch (card) {
+      case final PredictionCardData d:
+        final amount = d.amount;
+        if (amount == null) return null;
+        final market = d.question.trim();
+        var side = shareCardOutcome(l10n, d.outcome);
+        // A candidate's own page before the event is read: the market is
+        // the candidate, and the side is its Yes.
+        if (side.toLowerCase() == market.toLowerCase()) side = l10n.yes;
+        final chance = d.chance;
+        return l10n.sendPickGets(
+            who,
+            amount,
+            market,
+            chance == null
+                ? side
+                : l10n.sendPickSideAtChance(
+                    side, shareCardChance(l10n.localeName, chance)));
+      case final InvestmentCardData d:
+        final amount = d.amount;
+        if (amount == null) return null;
+        final side = d.side == 'short' ? l10n.shortLabel : l10n.longLabel;
+        return l10n.sendPickGets(who, amount, d.title, side);
+      case MoneyCardData():
+      case ReceiptCardData():
+      case InviteCardData():
+      case GoalCardData():
+        return null;
+    }
+  }
+
+  Widget _nameStep() {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final label = _name.text.trim();
+    final name = label.isEmpty ? null : label;
+    final card = _liveCard =
+        _card(_amountMinor(), name, challenge: _challenge && _canChallenge);
+    final pick = _hasPick;
+    final gets = pick ? _friendGets(card, name) : null;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // The card, live as the name is typed (see the file header): a
+        // pick's is the hero, as wide as the sheet allows.
+        ShareCardPreviewBox(
+          key: const ValueKey('share-live-card'),
+          data: card,
+          boundaryKey: _liveBoundary,
+          widthFraction: pick ? 1 : 0.6,
+          heightFraction: pick ? 0.5 : 0.34,
+          lineSeed: _seed,
+        ),
+        if (gets != null) ...[
+          SizedBox(height: 14.h),
+          // What the friend gets, in words.
+          Text(
+            gets,
+            key: const ValueKey('send-pick-gets'),
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+              height: 1.3,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+        SizedBox(height: 14.h),
+        AppTextField(
+          key: const ValueKey('share-name-field'),
+          controller: _name,
+          hintText: l10n.shareFirstNameHint,
+          // A pick's card leads: the name is optional and waits for a
+          // tap; a plain send asks for it at once.
+          autofocus: !pick,
+          maxLength: 40,
+          keyboardType: TextInputType.name,
+          // Clear of the bar riding above the keyboard.
+          scrollPadding: EdgeInsets.fromLTRB(
+              20, 20, 20, kuteBarScrollClearance.h + 20),
+          onChanged: (_) => setState(() {}),
+          // The return key sends too.
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (!_creating) unawaited(_create());
+          },
+        ),
+        // A prediction can go as a dare (share_challenge.dart).
+        if (_canChallenge) ...[
+          SizedBox(height: 8.h),
+          ShareChallengeToggle(
+            value: _challenge,
+            onChanged: (v) => setState(() => _challenge = v),
+          ),
+        ],
+        if (_error != null) ...[
+          SizedBox(height: 10.h),
+          Text(
+            _error!,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        // The bar sends (kute_bar_context.dart), busy while the link is
+        // posted: "Send prediction" on a pick, else Create link. It rides
+        // above the keyboard; the field's return key sends too.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: pick
+                ? (_investing ? l10n.sendInvestmentCta : l10n.sendPredictionCta)
+                : l10n.shareCreateLink,
+            onPrimary: () => unawaited(_create()),
+            enabled: !_creating,
+            busy: _creating,
+            busyLabel: l10n.shareCreatingLink,
+            source: 'share_name',
+            disabledLabel: null,
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
+        ),
+      ],
+    );
+  }
+
+  Widget _doneStep() {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final row = _created;
+    if (row == null) return const SizedBox.shrink();
+    final card = _card(row.amountMinor, row.label, challenge: row.challenge);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // The card is a button too: a tap shares it, as the bar does.
+        Semantics(
+          button: true,
+          label: l10n.share,
+          child: GestureDetector(
+            key: const ValueKey('share-done-card-tap'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => unawaited(_share(row, card)),
+            child: ShareCardPreviewBox(
+              data: card,
+              boundaryKey: _boundary,
+              heightFraction: row.recipientPhone != null ? 0.34 : 0.42,
+              lineSeed: _seed,
+            ),
+          ),
+        ),
+        SizedBox(height: 12.h),
+        SendToListCard(
+          colors: c,
+          rows: [PendingShareLinkRow(row: row, onTap: () {})],
+        ),
+        SizedBox(height: 12.h),
+        // The contact's number, kept on the phone, prefilled in WhatsApp
+        // and the SMS composer (share_link_resend.dart).
+        if (row.recipientPhone != null) ...[
+          AppTextButton(
+            key: const ValueKey('share-again-whatsapp'),
+            text: l10n.shareSendAgainWhatsApp,
+            onPressed: () => unawaited(resendShareLinkVia(
+                context, ref, row, ShareLinkResendChannel.whatsapp)),
+          ),
+          AppTextButton(
+            key: const ValueKey('share-again-sms'),
+            text: l10n.shareSendAgainSms,
+            onPressed: () => unawaited(resendShareLinkVia(
+                context, ref, row, ShareLinkResendChannel.sms)),
+          ),
+        ],
+        AppTextButton(
+          key: const ValueKey('share-done'),
+          text: l10n.done,
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+        // Share is the bar (kute_bar_context.dart): the card with the
+        // link; Done sits above it.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: l10n.share,
+            onPrimary: () => unawaited(_share(row, card)),
+            busy: _sharing,
+            source: 'share_done',
+            disabledLabel: null,
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
+        ),
+      ],
+    );
+  }
+}

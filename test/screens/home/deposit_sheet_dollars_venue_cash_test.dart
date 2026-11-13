@@ -1,14 +1,20 @@
-// Buy bitcoin from Investments: the From row shows what can actually be
-// bought (the Max: Dollars plus the venue cash the engine reaches, net of
-// the planned move costs, a figure the engine's plan covers) on the first
-// frame, from the last known values, with no loading state; any amount up
-// to it goes through and a cent above is "insufficient"; the venues are
-// read again in the background and the figure follows. Past what Dollars hold the venue cash in reach
-// counts, the purchase asks its ONE approval before any venue cash
-// moves (declined: nothing moves), the legs then go under it (straight to
+// Swap, Dollars → Bitcoin (showOwnMoneyMove): the From square shows what
+// can actually be bought (the Max: Dollars plus the venue cash the engine
+// reaches, net of the planned move costs, a figure the engine's plan
+// covers) on the first frame, from the last known values, with no loading
+// state; any amount up to it goes through and a cent above is
+// "insufficient"; the venues are read again in the background and the
+// figure follows. Past what Dollars hold the venue cash in reach counts,
+// the purchase asks its ONE approval before any venue cash moves
+// (declined: nothing moves), the legs then go under it (straight to
 // Bitcoin where the venue offers it, home to Dollars otherwise), and when
 // what comes home has not landed in time the purchase stops and says so
 // (nothing is bought).
+//
+// Buy bitcoin is the other screen (founder, 8 November 2026: "do not show
+// the dollars here please, only the Cash App, as it is the only fiat
+// onramp"): the buy doors read Cash App with nothing to pick, and with
+// Cash App withheld Buy bitcoin does not stay open at all.
 
 import 'dart:async';
 import 'dart:convert';
@@ -37,14 +43,19 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
+import 'package:kute/screens/home/components/deposit/deposit_route_card.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show MoneyMovementAccount, showOwnMoneyMove;
 import 'package:kute/screens/shared/multi_source_move_activity.dart'
     show multiSourceMoveShows;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/onramp_visibility.dart' show kOnrampCashApp;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
@@ -67,6 +78,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _usdPerBtc = 100000.0;
 const _balanceSats = 100000; // $100.00 at the sample price.
@@ -135,19 +147,22 @@ class _Settings extends SettingsModel {
         ));
 }
 
-/// Opens the sheet on [side] with [_balanceSats] in spending Bitcoin.
-/// The spending SDK never answers, so a move that is started parks in
-/// flight with the sheet's own processing state up: nothing can leave,
-/// and the test decides when the balance it is spending drops.
+/// Opens Swap on Dollars → Bitcoin, the Swap screen's other direction, over the
+/// screen it was opened from, with [_balanceSats] in spending Bitcoin; or
+/// [door] in its place (the buy doors). The spending SDK never answers, so
+/// a move that is started parks in flight with the sheet's own processing
+/// state up: nothing can leave, and the test decides when the balance it
+/// is spending drops.
 ///
 /// [sdk] stands in for the spending SDK; left alone it never answers.
-Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
+/// [settle] false stops on the sheet's very first frame.
+Future<ProviderContainer> _open(WidgetTester tester,
     {MockClient Function() orchestra = _orchestra,
     Completer<BreezSdkSpark>? sdk,
     bool cachedRate = false,
     VenueCashLastRead? lastRead,
     bool settle = true,
-    bool routed = false,
+    Widget? door,
     bool reduceMotion = false}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
@@ -167,6 +182,8 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
     breezSDKProvider
         .overrideWith((_) => (sdk ?? Completer<BreezSdkSpark>()).future),
     usdBalanceProvider.overrideWith((_) => _dollars),
+    dollarsToBitcoinMinimumProvider
+        .overrideWith((_) => DollarsToBitcoinMinimum(fetch: (_) async => null)),
     sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
     venueCashPullerProvider.overrideWith((_) => _puller!),
     bitcoinPurchaseFinisherProvider.overrideWith((_) => _finisher),
@@ -199,27 +216,30 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           navigatorKey: _nav,
+          // Reduce Motion when asked; the shell bar over the page, as
+          // app_widget.dart mounts it (kute_bar_test_support.dart).
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(disableAnimations: reduceMotion),
-            child: child!,
+            child: withKuteShellBar(context, child),
           ),
-          home: routed
-              ? const Scaffold(body: Text(_behind))
-              : DepositSheet(lockedSide: side),
+          home: const Scaffold(body: Text(_behind)),
         ),
       ),
     )),
     orchestra,
   );
-  if (routed) {
-    // The sheet over the screen it was opened from, as the app shows it.
-    unawaited(_nav.currentState!.push(MaterialPageRoute<void>(
-        builder: (_) => DepositSheet(lockedSide: side))));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-  }
+  // The sheet over the screen it was opened from, as the app shows it.
+  unawaited(door != null
+      ? _nav.currentState!.push(MaterialPageRoute<void>(
+          fullscreenDialog: true, builder: (_) => door))
+      : showOwnMoneyMove(_nav.currentContext!,
+          from: MoneyMovementAccount.dollars, entrySource: 'usd_home_swap'));
+  // One frame takes the push, the next is the sheet's first.
+  await tester.pump();
+  await tester.pump();
   if (!settle) return container;
+  await tester.pump(const Duration(milliseconds: 400));
   // The price sample lands.
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 50));
@@ -375,8 +395,8 @@ VenueCashLastRead _read({double predictions = 0, double investing = 0}) => (
       ],
     );
 
-/// The From row's figure, as the route card prints it.
-Finder _shown(String usd) => find.text('\$$usd');
+/// The From square's figure, as Swap prints it.
+Finder _shown(String usd) => find.text('\$$usd available');
 
 BigAmountDisplay _big(WidgetTester tester) =>
     tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
@@ -412,7 +432,7 @@ Future<void> _close(WidgetTester tester, ProviderContainer container) async {
   await tester.pump(const Duration(minutes: 3));
 }
 
-Finder get _cta => find.byType(AppButton).last;
+Finder get _cta => kuteBarPrimary;
 
 void main() {
   setUpAll(() {
@@ -447,7 +467,7 @@ void main() {
   });
 
   testWidgets(
-      'Dollars → Bitcoin past Dollars (the founder case): the leg comes home '
+      'Swap, Dollars → Bitcoin past Dollars (the founder case): the leg comes home '
       'to Dollars, the sheet closes as soon as it is submitted without '
       'waiting for it to land, and the purchase still runs once it lands',
       (tester) async {
@@ -466,14 +486,14 @@ void main() {
       sleep: (d) async => now = now.add(d),
     );
     final container =
-        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+        await _open(tester);
     // $30 against $10 of Dollars and $60 of reach.
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
     }
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
     await tester.tap(_cta);
     for (var i = 0; i < 10; i++) {
@@ -540,7 +560,7 @@ void main() {
       sleep: (d) async => now = now.add(d),
     );
     final container =
-        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+        await _open(tester);
     RubberBandProgressState band() =>
         tester.state<RubberBandProgressState>(find.byType(RubberBandProgress));
     expect(band().stretch, 0, reason: 'at rest before the tap');
@@ -606,7 +626,7 @@ void main() {
       minimumUsd: (_) async => 1,
     );
     final container =
-        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+        await _open(tester);
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
@@ -643,8 +663,7 @@ void main() {
       clock: () => now,
       sleep: (d) async => now = now.add(d),
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat,
-        routed: true, reduceMotion: true);
+    final container = await _open(tester, reduceMotion: true);
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
@@ -689,7 +708,7 @@ void main() {
         readDollars: () => _dollars,
         minimumUsd: (_) async => 1);
     final container =
-        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+        await _open(tester);
     for (final key in ['3', '.', '8']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
@@ -714,7 +733,7 @@ void main() {
   });
 
   testWidgets(
-      'Buy Bitcoin with every leg straight to Bitcoin: ONE prompt, before '
+      'Swap with every leg straight to Bitcoin: ONE prompt, before '
       'anything moves, and the legs run under it', (tester) async {
     // Dollars under the onward minimum are left alone: the venue covers
     // the whole purchase straight to Bitcoin.
@@ -734,7 +753,7 @@ void main() {
       clock: () => now,
       sleep: (d) async => now = now.add(d),
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    final container = await _open(tester);
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
@@ -787,7 +806,7 @@ void main() {
       sleep: (d) async => now = now.add(d),
     );
     final container =
-        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+        await _open(tester);
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
@@ -826,7 +845,7 @@ void main() {
       clock: () => now,
       sleep: (d) async => now = now.add(d),
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    final container = await _open(tester);
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
@@ -842,7 +861,7 @@ void main() {
     expect(events.where((e) => e.endsWith('_cash_pulled')), isEmpty);
     expect(events, isNot(contains('multi_source_move_started')));
     // Back to the amount, quietly: no error, no spinner, no failure tap.
-    expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
+    expect(kuteBarPrimaryProbe(tester).isLoading, isFalse);
     expect(find.text(_insufficient), findsNothing);
     await tester.pump(const Duration(milliseconds: 500));
     expect(_haptics('softTap'), 0, reason: 'the person said no');
@@ -850,7 +869,7 @@ void main() {
   });
 
   testWidgets(
-      'Buy Bitcoin from Investments: Dollars plus venue cash and the price '
+      'Swap from Dollars: Dollars plus venue cash and the price '
       'are on the very first frame, from the last known values, with no '
       'loading state; the fresh venue read updates the figure in place',
       (tester) async {
@@ -862,13 +881,13 @@ void main() {
       minimumUsd: (_) async => 1,
     );
     // The route's own price sample is slow; the cached price stands in.
-    final container = await _open(tester, MoveLockedSide.depositFromFiat,
+    final container = await _open(tester,
         orchestra: () => _orchestra(delay: const Duration(seconds: 5)),
         cachedRate: true,
         lastRead: _read(predictions: 60, investing: 40),
         settle: false);
     // First frame: $10 of Dollars + $60 + $40 of venue cash net of the
-    // moves' costs (60 x 0.98 + 40 x 0.98 - 0.30), under the Investments
+    // moves' costs (60 x 0.98 + 40 x 0.98 - 0.30), under the Dollars
     // name, no "Updating balance", no skeleton.
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(_shown('107.70'), findsOneWidget);
@@ -900,7 +919,7 @@ void main() {
       minimumUsd: (_) async => 1,
     );
     final container =
-        await _open(tester, MoveLockedSide.depositFromFiat, settle: false);
+        await _open(tester, settle: false);
     expect(_shown('10.00'), findsOneWidget);
     expect(find.text('Updating balance'), findsNothing);
     venue.gate.complete();
@@ -914,8 +933,8 @@ void main() {
   });
 
   testWidgets(
-      'no Dollars but venue cash cached: the door still opens on '
-      'Investments with what it can spend', (tester) async {
+      'no Dollars but venue cash cached: Swap still opens on Dollars with '
+      'what it can spend', (tester) async {
     _dollars = 0;
     _puller = VenueCashPuller(
       walletId: () => 'spending',
@@ -923,7 +942,7 @@ void main() {
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat,
+    final container = await _open(tester,
         lastRead: _read(predictions: 60), settle: false);
     expect(_shown('58.80'), findsOneWidget);
     expect(find.text('Cash App'), findsNothing);
@@ -931,7 +950,7 @@ void main() {
   });
 
   testWidgets(
-      'the From row is the Max the engine plan covers; up to it is no '
+      'the From square is the Max the engine plan covers; up to it is no '
       '"insufficient", a cent above it is', (tester) async {
     final venue = _Venue(100);
     _puller = VenueCashPuller(
@@ -940,19 +959,19 @@ void main() {
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    final container = await _open(tester);
     // $10 of Dollars and $100 of Predictions cash less its 2% planned
     // cost: $108 can be bought.
     expect(_shown('108.00'), findsOneWidget);
     expect(_shown('110.00'), findsNothing);
     expect(container.read(investmentsSpendableProvider).maxUsd, 108);
 
-    // Tapping the figure is Max: the same $108.
-    await tester.tap(_shown('108.00'));
+    // Max: the same $108.
+    await tester.tap(find.text('Max').last);
     await tester.pump();
     expect(_big(tester).amountText, '108.00');
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
     final plan = await _puller!
         .plan(neededUsd: 108, destination: VenueCashDestination.bitcoin);
     expect(plan.covers, isTrue);
@@ -965,13 +984,13 @@ void main() {
     await tester.pump();
     expect(_big(tester).amountText, '60');
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
     // Exactly the shown figure: fine.
     typeAmount('108');
     await tester.pump();
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
     // One cent above the shown figure: insufficient.
     typeAmount('108.01');
@@ -986,7 +1005,7 @@ void main() {
   });
 
   testWidgets(
-      'buying exactly the shown figure goes through: the engine plans the '
+      'swapping exactly the shown figure goes through: the engine plans the '
       'whole venue cash under one approval', (tester) async {
     final venue = _Venue(100);
     final approvals = _Approvals(() => venue.pulls.length);
@@ -1000,7 +1019,7 @@ void main() {
       clock: () => now,
       sleep: (d) async => now = now.add(d),
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    final container = await _open(tester);
     expect(_shown('108.00'), findsOneWidget);
     tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('108');
     await tester.pump();
@@ -1015,5 +1034,169 @@ void main() {
     expect(venue.pulls, [100]);
     expect(find.text(_insufficient), findsNothing);
     await _close(tester, container);
+  });
+
+  // ─── the buy doors: Cash App, nothing to pick ───────────────────────
+  group('the buy doors pay with Cash App only', () {
+    late Set<String> blocked;
+    late int revision;
+
+    /// The policy as the backend answers it, read before the door opens:
+    /// a door opened on no policy at all shows no rail either.
+    Future<RuntimeCapabilitiesService> install(WidgetTester tester,
+        {Set<String> withheld = const {}}) async {
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      blocked = {...withheld};
+      revision = 1;
+      final policy =
+          runtimePolicyFixture(blocked: blocked, revisionOf: () => revision);
+      RuntimeCapabilitiesService.debugInstance = policy;
+      expect(await tester.runAsync(policy.refresh), isTrue);
+      return policy;
+    }
+
+    MoveRouteEndpoint from(WidgetTester tester) =>
+        tester.widget<MoveRouteCard>(find.byType(MoveRouteCard)).from!;
+
+    /// Dollars and venue cash on hand throughout: the money these doors
+    /// used to offer, and must not.
+    void moneyOnHand() {
+      _dollars = 10;
+      _puller = VenueCashPuller(
+        walletId: () => 'spending',
+        sources: [_Venue(100)],
+        readDollars: () => _dollars,
+        minimumUsd: (_) async => 1,
+      );
+    }
+
+    final en = lookupAppLocalizations(const Locale('en'));
+
+    // The Purchase buttons and Activity's "Create new purchase" ask for
+    // Cash App; "Deposit more" just opens the door. A Ledger venue buy
+    // ([venueWalletId]) has the rails as its only source.
+    final doors = <String, DepositSheet>{
+      'Buy bitcoin (Purchase)': const DepositSheet(
+          lockedSide: MoveLockedSide.depositFromFiat, cashAppSource: true),
+      'Buy bitcoin (Deposit more)':
+          const DepositSheet(lockedSide: MoveLockedSide.depositFromFiat),
+      'buy to Predictions':
+          const DepositSheet(lockedSide: MoveLockedSide.buyToPredictions),
+      'buy to Investing':
+          const DepositSheet(lockedSide: MoveLockedSide.buyToHyperliquid),
+      'a Ledger buy to Predictions': const DepositSheet(
+          lockedSide: MoveLockedSide.buyToPredictions,
+          venueWalletId: 'ledger',
+          cashAppSource: true),
+    };
+    doors.forEach((name, door) {
+      testWidgets(
+          '$name: From reads Cash App with no picker and no Dollars row, '
+          'with Dollars and venue cash on hand', (tester) async {
+        await install(tester);
+        moneyOnHand();
+        final c = await _open(tester,
+            door: door, lastRead: _read(predictions: 100));
+        final row = from(tester);
+        expect(row.name, 'Cash App');
+        expect(row.onTap, isNull, reason: 'nothing to choose');
+        expect(row.available, isNull, reason: 'no balance is what pays');
+        expect(
+            find.descendant(
+                of: find.byType(MoveRouteCard),
+                matching: find.byIcon(Icons.keyboard_arrow_down_rounded)),
+            findsNothing,
+            reason: 'a pinned row wears no chevron');
+
+        await tester.tap(find.text('Cash App'));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text(en.moveBuyFrom), findsNothing, reason: 'no picker');
+        expect(find.text(en.assetDollars), findsNothing);
+        expect(find.text(en.moveSourceDollarsSubtitle), findsNothing);
+        expect(find.textContaining('available'), findsNothing);
+        await _close(tester, c);
+      });
+    });
+
+    for (final (name, cashAppSource) in [
+      ('Activity\'s "Create new purchase"', true),
+      ('"Deposit more"', false),
+    ]) {
+      testWidgets(
+          'Cash App withheld, $name: Buy bitcoin closes on "Buy unavailable"; '
+          'it never turns into a move of the Dollars', (tester) async {
+        await install(tester, withheld: {kOnrampCashApp});
+        moneyOnHand();
+        final c = await _open(tester,
+            door: DepositSheet(
+                lockedSide: MoveLockedSide.depositFromFiat,
+                cashAppSource: cashAppSource),
+            lastRead: _read(predictions: 100));
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(find.byType(DepositSheet), findsNothing);
+        expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+        expect(find.text(en.buyUnavailableTitle), findsOneWidget);
+        expect(find.text(en.assetDollars), findsNothing);
+        await _close(tester, c);
+      });
+    }
+
+    testWidgets(
+        'Cash App withdrawn while Buy bitcoin is open: it closes on "Buy '
+        'unavailable" too, never onto the Dollars', (tester) async {
+      final policy = await install(tester);
+      moneyOnHand();
+      final c = await _open(tester,
+          door: const DepositSheet(
+              lockedSide: MoveLockedSide.depositFromFiat, cashAppSource: true));
+      expect(from(tester).name, 'Cash App');
+      blocked.add(kOnrampCashApp);
+      revision = 2;
+      expect(await tester.runAsync(policy.refresh), isTrue);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(DepositSheet), findsNothing);
+      expect(find.text(en.buyUnavailableTitle), findsOneWidget);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'Cash App withheld, a Ledger venue buy: its rails are its only '
+        'source, so it closes on "Buy unavailable"', (tester) async {
+      await install(tester, withheld: {kOnrampCashApp});
+      moneyOnHand();
+      final c = await _open(tester,
+          door: const DepositSheet(
+              lockedSide: MoveLockedSide.buyToPredictions,
+              venueWalletId: 'ledger',
+              cashAppSource: true));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(DepositSheet), findsNothing);
+      expect(find.text(en.buyUnavailableTitle), findsOneWidget);
+      await _close(tester, c);
+    });
+
+    for (final (side, name) in [
+      (MoveLockedSide.buyToPredictions, 'Predictions'),
+      (MoveLockedSide.buyToHyperliquid, 'Investing'),
+    ]) {
+      testWidgets(
+          'Cash App withheld, buy to $name: the venue deposit from spending '
+          'Bitcoin, its picker back with neither Cash App nor Dollars',
+          (tester) async {
+        await install(tester, withheld: {kOnrampCashApp});
+        moneyOnHand();
+        final c = await _open(tester, door: DepositSheet(lockedSide: side));
+        final row = from(tester);
+        expect(row.name, 'Bitcoin');
+        expect(row.onTap, isNotNull);
+        row.onTap!();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('Cash App'), findsNothing);
+        expect(find.text(en.moveSourceDollarsSubtitle), findsNothing);
+        await _close(tester, c);
+      });
+    }
   });
 }

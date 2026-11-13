@@ -1,0 +1,90 @@
+{
+  "btc": [
+    {
+      "destinations": [
+        {
+          "value": "6SpYCe23r79x0t8rNvmjWqhrg8hen4xz/YSXhNJ9HLSYrTRPnm+SwAuf6NOKobnwE+3MQBNkyTnCtIWpKKX2E9ZUWVedig==",
+          "type": "bitcoin_address",
+          "primary": true,
+          "zk": true,
+          "zk_id": "181257",
+          "encrypted_dek": null
+        }
+      ],
+      "created_at": "2026-10-29T18:59:58.244Z",
+      "ttl": 31536000,
+      "metadata": null,
+      "platform": "Branta",
+      "platform_logo_url": "https://staging.guardrail.branta.pro/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsiZGF0YSI6OTU5LCJwdXIiOiJibG9iX2lkIn19--fb91946e0989e946702c28217171c3812680a8fd/icon-square-white-2048.png",
+      "platform_logo_light_url": null,
+      "parent_platform": null,
+      "test_data": true
+    }
+  ],
+  "usdc": [
+    {
+      "destinations": [
+        {
+          "value": "8rnGGWZcg/g3He1OK6yZ6OLOEyusldwIDaoPImRzWjoUGguyXKotuF8ZlGbCZN9TRqx3PdXjvHDdwffdVvIZxmZ00xJvxA==",
+          "type": "usdc_polygon",
+          "primary": true,
+          "zk": true,
+          "zk_id": "d7098e",
+          "encrypted_dek": null
+        }
+      ],
+      "created_at": "2026-11-09T20:18:56.095Z",
+      "ttl": 31536000,
+      "metadata": null,
+      "platform": "Branta",
+      "platform_logo_url": "https://staging.guardrail.branta.pro/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsiZGF0YSI6OTU5LCJwdXIiOiJibG9iX2lkIn19--fb91946e0989e946702c28217171c3812680a8fd/icon-square-white-2048.png",
+      "platform_logo_light_url": null,
+      "parent_platform": null,
+      "test_data": true
+    }
+  ],
+  "usdt": [
+    {
+      "destinations": [
+        {
+          "value": "4WYE9J4TjNitdX7AL/w7frpYdKGwSKHCS5zpFXl/lQGwpsQi4/gv5MxgujPFzYMbIKqg2rtyYGpzJCllEA6Qudbi7lLkiA==",
+          "type": "usdt_polygon",
+          "primary": true,
+          "zk": true,
+          "zk_id": "7d96bf",
+          "encrypted_dek": null
+        }
+      ],
+      "created_at": "2026-11-09T17:01:43.093Z",
+      "ttl": 31536000,
+      "metadata": null,
+      "platform": "Branta",
+      "platform_logo_url": "https://staging.guardrail.branta.pro/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsiZGF0YSI6OTU5LCJwdXIiOiJibG9iX2lkIn19--fb91946e0989e946702c28217171c3812680a8fd/icon-square-white-2048.png",
+      "platform_logo_light_url": null,
+      "parent_platform": null,
+      "test_data": true
+    }
+  ],
+  "bolt11": [
+    {
+      "destinations": [
+        {
+          "value": "FhqG4D2dOn5AaRL7c0Xb0LEcFdXBfJjWUQWXmTTjkTnR0qfx6gAW8CH44IoPb4XQBJ2EB91GSn5VrdoRi5qLfwxi3E/HB1vlG1DKb/JsYlFlKPH30LFZ0WAS/Epaq5e0m3aCw0zOKCx7aWrHq/PcKu3ubM6nPPKGYun/fp+IRnYBPJ9A0YYFoRg+ojywIrf8f8pIgHVdM8Air1GMk2t3eQuONx+3SV2AteY8O+/cM15WXyQtw5wMvjLNoaSR6unroJK7WJAwOQT4VC0PGyYfbtNXkQnzW/bOvI0HsCjA4Q8X7cBQ5zCacGrzPvFmhWZCVvigsa1jVxUi3fr/6ETpk2CjW1bVEWJMeLQavT8wNUdqjM26voj6qkiDdNTnot1uLJ+V9zW/mKkFIL9X1LoHQwzPwlA=",
+          "type": "bolt11",
+          "primary": true,
+          "zk": true,
+          "zk_id": "fc985d",
+          "encrypted_dek": null
+        }
+      ],
+      "created_at": "2026-10-31T01:33:22.910Z",
+      "ttl": 31536000,
+      "metadata": null,
+      "platform": "Branta",
+      "platform_logo_url": "https://staging.guardrail.branta.pro/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsiZGF0YSI6OTU5LCJwdXIiOiJibG9iX2lkIn19--fb91946e0989e946702c28217171c3812680a8fd/icon-square-white-2048.png",
+      "platform_logo_light_url": null,
+      "parent_platform": null,
+      "test_data": true
+    }
+  ]
+}

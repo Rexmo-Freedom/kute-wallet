@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart' show AskSalChip;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -28,6 +25,8 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show PredictionsVenueFunder;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
+import 'package:kute/services/polymarket_clob_websocket.dart'
+    show PolymarketBookMessage, PolymarketLiveBooks;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
@@ -41,6 +40,7 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -127,6 +127,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetViewInsets);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -152,27 +153,20 @@ Future<void> _pumpSlip(WidgetTester tester,
         polymarketFeeTermsProvider.overrideWith((ref, _) async => feeTerms),
       ...extraOverrides,
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-            splashFactory: NoSplash.splashFactory,
-            fontFamily: fontFamily,
-            extensions: [AppColorsExtension.light()]),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: BetSlipSheet(
-                marketQuestion: question,
-                outcomes: outcomes,
-                sideLabelPos: sideLabelPos,
-                sideLabelNeg: sideLabelNeg,
-                initialAmountUsd: initialAmountUsd,
-                ledgerWalletId: ledgerWalletId),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      fontFamily: fontFamily,
+      home: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: BetSlipSheet(
+              marketQuestion: question,
+              outcomes: outcomes,
+              sideLabelPos: sideLabelPos,
+              sideLabelNeg: sideLabelNeg,
+              initialAmountUsd: initialAmountUsd,
+              ledgerWalletId: ledgerWalletId),
         ),
       ),
     ),
@@ -262,7 +256,6 @@ void main() {
       aiEnabledProvider.overrideWith((ref) async => true),
     ]);
     expect(find.text('Will it rain?'), findsWidgets);
-    expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
     // Advanced is a pill on the amount's row, right of Max; the default
@@ -290,6 +283,30 @@ void main() {
     await _typeOnKeypad(tester, '20');
     expect(find.text(r'$20'), findsOneWidget);
     expect(find.text(r'Place $20.00 on No'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  // Founder, 12 November 2026, on 2.2.0 (110): "Payout if you win $4.83"
+  // on a $4.83 bet. A side over 95c capped at 99.9c by the slippage paid
+  // the stake back, whatever the odds.
+  testWidgets(
+      'the payout is what the stake buys at the side\'s price, never at the '
+      'slippage cap: a 97c side pays more than the stake', (tester) async {
+    await _pumpSlip(tester, outcomes: const [
+      PolymarketOutcome(name: 'Yes', price: 0.97),
+      PolymarketOutcome(name: 'No', price: 0.03),
+    ]);
+    final payout = find.byKey(const ValueKey('bet-slip-payout-tile'));
+    // $10 at 97c: 10.30 shares, $1 each if it wins (at the 99.9c cap it
+    // read $10.01).
+    expect(find.descendant(of: payout, matching: find.text(r'$10.30')),
+        findsOneWidget);
+    expect(find.descendant(of: payout, matching: find.text(r'$10.01')),
+        findsNothing);
+    // At 50c the stake doubles, as the odds say.
+    await _pumpSlip(tester);
+    expect(find.descendant(of: payout, matching: find.text(r'$20.00')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -394,7 +411,7 @@ void main() {
       expect(
           find.text(
               'Your money is on its way. This button unlocks when it lands.'),
-          findsOneWidget);
+          findsNothing);
       expect(find.text('Add more'), findsNothing);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
@@ -550,10 +567,9 @@ void main() {
       expect(find.text('Will it rain?'), findsOneWidget);
       expect(find.text('Payout if you win'), findsOneWidget);
       expect(find.text('Predictions unavailable here'), findsNothing);
-      final place = tester.widget<PolySlipCta>(find.ancestor(
-          of: find.text(r'Place $10.00 on Yes'),
-          matching: find.byType(PolySlipCta)));
-      expect(place.enabled, isFalse);
+      // The bar is the slip's button: it reads the stake and is disabled.
+      expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+      expect(barPrimaryEnabled(tester), isFalse);
       final note = find.byType(CapabilityBlockNote);
       expect(note, findsOneWidget);
       expect(
@@ -750,13 +766,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('small screen with keyboard retains a reachable action',
-      (tester) async {
+  testWidgets(
+      'small screen: the action is the bar, reachable over the keypad; the '
+      'OS keyboard (which the compact slip never raises) hides the bar, '
+      'and it comes back when the keyboard goes', (tester) async {
     await _pumpSlip(tester, width: 320, keyboard: 300);
     expect(tester.takeException(), isNull);
-    final action = tester.getRect(find.text(r'Place $10.00 on Yes'));
-    expect(action.bottom, lessThanOrEqualTo(544));
+    // As the slip's button the bar RIDES ABOVE the keyboard (founder, 31
+    // October 2026; kute_shell_bar.dart): up, its bottom above the keys.
+    expect(barIsUp(tester), isTrue);
+    expect(find.text(r'Place $10.00 on Yes'), findsOneWidget);
+    expect(tester.getRect(find.text(r'Place $10.00 on Yes')).bottom,
+        lessThanOrEqualTo(tester.view.physicalSize.height /
+                tester.view.devicePixelRatio -
+            300));
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(barIsUp(tester), isTrue);
+    expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+    final action = tester.getRect(barPrimaryText(r'Place $10.00 on Yes'));
+    expect(action.bottom, lessThanOrEqualTo(844));
     expect(action.top, greaterThan(0));
+    expect(findBarPrimary().hitTestable(), findsOneWidget);
     final scroll = tester
         .widget<SingleChildScrollView>(find.byType(SingleChildScrollView));
     expect(scroll.physics, isA<ClampingScrollPhysics>());
@@ -781,22 +812,29 @@ void main() {
       await tester.pumpAndSettle();
       final scroll =
           find.byKey(const ValueKey('prediction-advanced-form-scroll'));
-      final action = find.textContaining(RegExp(r'^Place \$[^ ]+ on '));
+      final action =
+          barPrimaryTextContaining(RegExp(r'^Place \$[^ ]+ on '));
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
               .first)
           .position;
-      // The long form scrolls; the action is pinned as a bottom bar
-      // outside it (3d8c274c), so it is reachable without scrolling and
-      // the form never runs underneath it.
+      // The long form scrolls; the action is the bar, outside it
+      // (kute_shell_bar.dart), so it is reachable without scrolling. The
+      // bar floats over the form, which pads its own end clear of it.
       expect(position.maxScrollExtent, greaterThan(0));
       expect(find.ancestor(of: action, matching: scroll), findsNothing);
       expect(position.pixels, 0);
+      if (keyboard > 0) {
+        // The slip's button rides above the keyboard (founder, 31
+        // October 2026): up, and still up when the keys go.
+        expect(barIsUp(tester), isTrue);
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+      }
+      expect(barIsUp(tester), isTrue);
       expect(action.hitTestable(), findsOneWidget);
-      expect(tester.getRect(action).bottom, lessThanOrEqualTo(700 - keyboard));
-      expect(tester.getRect(scroll).bottom,
-          lessThanOrEqualTo(tester.getRect(action).top));
+      expect(tester.getRect(action).bottom, lessThanOrEqualTo(700));
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
     });
@@ -816,12 +854,11 @@ void main() {
             .first)
         .position;
     expect(position.maxScrollExtent, 0);
-    final action = find
-        .ancestor(
-            of: find.textContaining(RegExp(r'^Place \$[^ ]+ on ')),
-            matching: find.byType(InkWell))
-        .first;
-    expect(tester.getRect(action).bottom, closeTo(1600 - 16 * 1600 / 932, 1));
+    // The action is the bar, resting at the foot (its 2.h of air).
+    expect(barPrimaryTextContaining(RegExp(r'^Place \$[^ ]+ on ')),
+        findsOneWidget);
+    expect(tester.getRect(findBarPrimary()).bottom,
+        closeTo(1600 - 2 * 1600 / 932, 1));
     expect(tester.takeException(), isNull);
     await _release(tester, policy);
   });
@@ -837,11 +874,10 @@ void main() {
     expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
-        findsOneWidget);
+    // The sheet's "Got it" is the bar (kute_bar_context.dart).
+    expect(barPrimaryText('Got it'), findsOneWidget);
     expect(find.text('Advanced prediction'), findsNothing);
-    await tester
-        .tap(find.byKey(const ValueKey('capability-unavailable-got-it')));
+    await tester.tap(findBarPrimary());
     await tester.pumpAndSettle();
     expect(find.text('Advanced prediction'), findsNothing);
     expect(find.text(r'Place $10.00 on Yes'), findsOneWidget);
@@ -854,8 +890,8 @@ void main() {
     await _pumpSlip(tester);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
-        findsOneWidget);
+    // The sheet's "Got it" is the bar (kute_bar_context.dart).
+    expect(barPrimaryText('Got it'), findsOneWidget);
     expect(find.text('Advanced prediction'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -938,7 +974,7 @@ void main() {
       expect(cta(tester).enabled, isTrue);
       expect(find.textContaining('Place'), findsNothing);
       events.clear();
-      await tester.tap(find.byType(PolySlipCta));
+      await tapBarPrimary(tester, settle: false);
       await tester.pumpAndSettle();
       // The minimum went into the figure and on into the placement, once,
       // the way a typed $1.00 would.
@@ -983,7 +1019,7 @@ void main() {
             ]);
         await _typeOnKeypad(tester, '0.5');
         expect(cta(tester).label, r'Minimum $1.00');
-        await tester.tap(find.byType(PolySlipCta));
+        await tapBarPrimary(tester, settle: false);
         await tester.pump();
         await tester.pump();
         expect(find.text(r'$1'), findsOneWidget);
@@ -1013,7 +1049,7 @@ void main() {
       ]);
       await _typeOnKeypad(tester, '3');
       expect(cta(tester).label, r'Place $3.00 on Yes');
-      await tester.tap(find.byType(PolySlipCta));
+      await tapBarPrimary(tester, settle: false);
       await tester.pumpAndSettle();
       expect(controller.amounts, [3.0]);
       expect(find.text(r'$3'), findsOneWidget);
@@ -1152,7 +1188,7 @@ void main() {
       expect(find.text(r'Minimum $5.00'), findsOneWidget);
       expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
-      await tester.tap(find.byType(PolySlipCta));
+      await tapBarPrimary(tester, settle: false);
       await tester.pumpAndSettle();
       expect(controller.amounts, [5.0]);
       expect(find.text(r'$5'), findsOneWidget);
@@ -1231,6 +1267,137 @@ void main() {
       expect(cta(tester).enabled, isTrue);
       expect(find.byType(PolySlipCta), findsOneWidget);
       expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
+      await _release(tester, policy);
+    });
+  });
+
+  // Founder, 13 November 2026, on 2.2.0 (122): $500 on a 0.45c Yes read
+  // "Payout if you win $111,111.11", the stake over the mid. While typing
+  // the payout is the live ask book walked at the cap the order is sent
+  // with; a book that cannot take the stake shuts Place before the tap.
+  group('the payout walks the live book', () {
+    const outcomes = [
+      PolymarketOutcome(name: 'Yes', price: 0.0045, tokenId: 'walk-yes'),
+      PolymarketOutcome(name: 'No', price: 0.9955, tokenId: 'walk-no'),
+    ];
+    const terms = PolymarketFeeTerms(
+        rate: 0, exponent: 1, builderTakerBps: 0, builderMakerBps: 0);
+
+    void seed(List<(String, String)> asks) {
+      PolymarketLiveBooks.instance.debugSeed(PolymarketBookMessage.fromJson({
+        'event_type': 'book',
+        'asset_id': 'walk-yes',
+        'market': 'm',
+        'asks': [for (final (p, s) in asks) {'price': p, 'size': s}],
+        'bids': [
+          {'price': '0.004', 'size': '5000'},
+        ],
+        'hash': 'h',
+      }));
+    }
+
+    // The cheap end of the founder's book: $0.70 at or under 1c.
+    const cheapEnd = [
+      ('0.005', '20'),
+      ('0.006', '14'),
+      ('0.007', '20'),
+      ('0.01', '38'),
+    ];
+
+    setUp(PolymarketLiveBooks.instance.reset);
+    tearDown(PolymarketLiveBooks.instance.reset);
+
+    PolySlipCta cta(WidgetTester tester) =>
+        tester.widget<PolySlipCta>(find.byType(PolySlipCta));
+    Finder payoutTile() => find.byKey(const ValueKey('bet-slip-payout-tile'));
+
+    testWidgets('a deep book: \$500 pays the ~8.1k shares it buys, not 111k',
+        (tester) async {
+      final policy = await _allowEverything();
+      seed([
+        ...cheapEnd,
+        ('0.019', '38'),
+        ('0.02', '50'),
+        ('0.03', '1200'),
+        ('0.05', '2000'),
+        ('0.06', '2000'),
+        ('0.09', '5000'),
+        ('0.79', '1000'),
+      ]);
+      await _pumpSlip(tester,
+          balance: 1000, outcomes: outcomes, feeTerms: terms);
+      await _typeOnKeypad(tester, '500');
+      // $500 walks to the 9c level: 8,064.15 shares, $1 each.
+      expect(
+          find.descendant(of: payoutTile(), matching: find.text(r'$8,064.15')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: payoutTile(), matching: find.text(r'$111,111.11')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-thin-book-note')),
+          findsNothing);
+      expect(cta(tester).label, r'Place $500.00 on Yes');
+      expect(cta(tester).enabled, isTrue);
+      expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+
+    testWidgets(
+        'a book that cannot take the stake: the slip says so and Place is '
+        'shut before the tap', (tester) async {
+      final policy = await _allowEverything();
+      // $2.43 for sale in all.
+      const twoDollars = [...cheapEnd, ('0.019', '38'), ('0.02', '50')];
+      seed(twoDollars);
+      await _pumpSlip(tester,
+          balance: 1000, outcomes: outcomes, feeTerms: terms);
+      await _typeOnKeypad(tester, '500');
+      expect(
+          find.text('Up to \$2.42 fills now at this price. Nothing was '
+              'bought. Try that amount or less.'),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-thin-book')), findsOneWidget);
+      expect(cta(tester).label, r'Place $500.00 on Yes');
+      expect(cta(tester).enabled, isFalse);
+      // A tap on the shut button starts nothing.
+      await tester.tap(find.byType(PolySlipCta), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(cta(tester).enabled, isFalse);
+
+      // Only the $0.70 under 1c: under the venue's $1 floor, the plain
+      // not-enough-shares words.
+      seed(cheapEnd);
+      await _typeOnKeypad(tester, '500');
+      expect(
+          find.text('There are not enough shares available at this price. '
+              'Try a smaller amount or wait.'),
+          findsOneWidget);
+      expect(cta(tester).enabled, isFalse);
+
+      // A stake the book takes opens Place again.
+      seed(twoDollars);
+      await _typeOnKeypad(tester, '2');
+      expect(find.byKey(const ValueKey('bet-slip-thin-book-note')),
+          findsNothing);
+      expect(cta(tester).label, r'Place $2.00 on Yes');
+      expect(cta(tester).enabled, isTrue);
+      expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+
+    testWidgets('no book known yet: the estimate at the side\'s price, '
+        'nothing shut', (tester) async {
+      final policy = await _allowEverything();
+      await _pumpSlip(tester,
+          balance: 1000, outcomes: outcomes, feeTerms: terms);
+      await _typeOnKeypad(tester, '10');
+      expect(find.descendant(of: payoutTile(), matching: find.text(r'$2,222.22')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-thin-book-note')),
+          findsNothing);
+      expect(cta(tester).enabled, isTrue);
+      expect(tester.takeException(), isNull);
       await _release(tester, policy);
     });
   });

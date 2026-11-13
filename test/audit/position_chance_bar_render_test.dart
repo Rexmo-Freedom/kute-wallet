@@ -36,6 +36,7 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../helpers/balance_privacy.dart';
 
 const _enabled = bool.fromEnvironment('CHANCE_BAR_RENDER');
 const _outDefine = String.fromEnvironment('CHANCE_BAR_RENDER_OUT');
@@ -117,6 +118,7 @@ Future<void> _show(WidgetTester tester, PolymarketPosition position,
   await tester.pumpWidget(ProviderScope(
     key: UniqueKey(),
     overrides: [
+      balancePrivacyOverride(),
       polymarketClaimablePositionsProvider.overrideWithValue(const []),
       polymarketActivePositionsProvider.overrideWithValue(const []),
       livePriceProvider.overrideWith(_Prices.new),

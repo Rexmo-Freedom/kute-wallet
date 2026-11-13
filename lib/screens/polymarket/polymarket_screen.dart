@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
@@ -12,7 +14,6 @@ import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
     show CryptoPriceFeed;
 import 'package:kute/providers/polymarket_trading_provider.dart';
-import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
@@ -25,12 +26,23 @@ import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
+import 'package:kute/providers/crypto_next_round_provider.dart';
+import 'package:kute/screens/polymarket/components/crypto_round_card.dart';
+import 'package:kute/screens/polymarket/components/crypto_round_strip.dart';
+import 'package:kute/services/polymarket/crypto_round_strip.dart';
+import 'package:kute/services/polymarket/crypto_live_odds.dart'
+    show cryptoShownUp, cryptoOddsSane;
+import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
+import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_feed_utils.dart';
+import 'package:kute/screens/polymarket/components/poly_game_days.dart';
+import 'package:kute/screens/polymarket/components/top_markets_strip.dart';
 import 'package:kute/screens/polymarket/group_landing_screen.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
@@ -48,6 +60,8 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/btc_predict_chart.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,9 +69,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
+import 'package:kute/providers/placing_polymarket_bet_provider.dart'
+    show placingPolymarketBetProvider;
 
 /// THE deposit door for Predictions (user decision: always the Move sheet,
 /// never the legacy quote sheet). When a bet intent is parked waiting on
@@ -70,7 +85,8 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 /// A refusal is asked again before it is shown ([confirmCapability]). A
 /// region refusal's "Check connection" that finds the door open goes on
 /// into the deposit.
-Future<void> _openPredictionsDeposit(BuildContext context, WidgetRef ref) async {
+Future<void> openPredictionsDeposit(
+    BuildContext context, WidgetRef ref) async {
   final decision = await confirmCapability(
       ref.read(runtimeCapabilitiesProvider), 'polymarket.deposit');
   if (!context.mounted) return;
@@ -92,6 +108,20 @@ Future<void> _openPredictionsDeposit(BuildContext context, WidgetRef ref) async 
 
 const Color _kPolyGreen = AppColors.marketUp;
 const Color _kPolyRed = AppColors.marketDown;
+
+/// The round length, in minutes, of the Crypto page [selection] is on:
+/// 5 Min, 15 Min, 1 Hour and 4 Hours are each the live round card of that
+/// length and the other coins' rows; null for any other page.
+int? polyCryptoPageMinutes(PolyBrowseSelection selection) =>
+    selection.pill != PolyPill.crypto
+        ? null
+        : switch (selection.sub) {
+            '5m' => 5,
+            '15m' => 15,
+            '1h' => 60,
+            '4h' => 240,
+            _ => null,
+          };
 
 /// The Live pill's "Streams" subcategory: games in play with a stream.
 const String _kLiveStreams = 'streams';
@@ -129,8 +159,9 @@ class PolymarketScreen extends ConsumerStatefulWidget {
         ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
     final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
     // The list on screen and its chips; the other lists keep what they
-    // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
-    // roll every 5 minutes, so they're deliberately left out.
+    // hold. The round cards and rows refresh themselves on a 10s cadence
+    // and roll with their rounds, so they're deliberately left out (the
+    // longer lengths' "More markets" list under them is read again).
     polyRefreshBrowse(
       query: !canBrowse || fiveMinOnly
           ? null
@@ -276,6 +307,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// of the categories ([PolyDrillRow]); null shows the categories.
   PolyPill? _drilledInto;
 
+  /// Sports one level further down: the sport whose leagues the row shows
+  /// ("‹ Soccer", All, the leagues; [polySportLeagueSubsProvider]); null
+  /// shows the sports.
+  String? _drilledSport;
+
   /// A selection that names a subcategory other than its category's
   /// default (a deep link, a pick on "More") shows that category's row,
   /// so the chip that is on screen can be seen.
@@ -287,7 +323,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   @override
   void initState() {
     super.initState();
-    _drilledInto = _drillFor(ref.read(polyBrowseSelectionProvider));
+    final initial = ref.read(polyBrowseSelectionProvider);
+    _drilledInto = _drillFor(initial);
+    // A link to a sport with leagues (predictions/sports/soccer) opens on
+    // its league row, as the site's page does.
+    if (initial.pill == PolyPill.sports && polySportHasLeagues(initial.sub)) {
+      _drilledSport = initial.sub;
+    }
     // Embedded, the list scrolls inside the Investments page, which
     // drives the nav bar itself; paging reads the notifications instead.
     if (!widget.embedded) _scrollController.addListener(_onScroll);
@@ -296,9 +338,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // callback (fast navigation in/out of Predictions). Touching `ref`
       // after disposal throws `_assertNotDisposed`, so bail early.
       if (!mounted) return;
-      // The 5-min BTC hero is the screen's above-the-fold anchor —
-      // one event per screen mount, no market data attached.
-      TrackingService.track('predict_hero_viewed');
       // Warm the builder code now so a slow connection has already
       // answered by the time the person places an order.
       unawaited(PolymarketBackendService.prefetchBuilderCode());
@@ -317,7 +356,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
           if (widget.autoShowDeposit) {
-            _openPredictionsDeposit(context, ref);
+            openPredictionsDeposit(context, ref);
           } else {
             _showWithdrawSheet(context, ref);
           }
@@ -407,7 +446,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// categories when it has any (the row stays put when it has none).
   void _onPill(PolyPill pill) {
     HapticFeedback.selectionClick();
-    setState(() => _drilledInto = pill);
+    setState(() {
+      _drilledInto = pill;
+      _drilledSport = null;
+    });
     final current = ref.read(polyBrowseSelectionProvider);
     if (pill == current.pill) return;
     TrackingService.track('category_pill_tapped',
@@ -415,9 +457,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     _select(current.copyWith(pill: pill));
   }
 
+  /// A subcategory: its list. A sport with leagues (Soccer, Tennis …)
+  /// also drills the row one level further, into its leagues, the
+  /// sport's own list on screen meanwhile (as a category does).
   void _onSub(PolySub sub) {
     HapticFeedback.selectionClick();
     final current = ref.read(polyBrowseSelectionProvider);
+    if (current.pill == PolyPill.sports && polySportHasLeagues(sub.key)) {
+      setState(() => _drilledSport = sub.key);
+    }
     if (sub.key == current.sub) return;
     TrackingService.track('category_pill_tapped', params: {
       'section': current.pill.key,
@@ -434,11 +482,47 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       'surface': 'predictions',
       'parent': parent.key,
     });
-    setState(() => _drilledInto = null);
+    setState(() {
+      _drilledInto = null;
+      _drilledSport = null;
+    });
     final current = ref.read(polyBrowseSelectionProvider);
     if (current.sub != parent.defaultSub) {
       _select(current.copyWith(sub: parent.defaultSub));
     }
+  }
+
+  /// The league row's back pill ("‹ Soccer"): the sports again, the sport
+  /// still on screen at its own list.
+  void _onSportBack(String sport) {
+    HapticFeedback.selectionClick();
+    TrackingService.track('category_row_back_tapped', params: {
+      'surface': 'predictions',
+      'parent': PolyPill.sports.key,
+      'subcategory': sport,
+    });
+    setState(() => _drilledSport = null);
+    final current = ref.read(polyBrowseSelectionProvider);
+    if (current.sub != sport) _select(current.copyWith(sub: sport));
+  }
+
+  /// The league row a selection made elsewhere (a deep link, the category
+  /// sheet, "More") belongs on: the sport of a league that is not pinned
+  /// on the Sports row itself; null for a chip of the Sports row.
+  String? _sportDrillFor(PolyBrowseSelection s) {
+    if (s.pill != PolyPill.sports) return null;
+    var sub = s.subs[PolyPill.sports] ?? '';
+    if (sub.startsWith('route:')) {
+      final route = sub.substring(6);
+      sub = ref
+              .read(polySportsLeaguesProvider)
+              .where((l) => l.route == route)
+              .firstOrNull
+              ?.key ??
+          sub;
+    }
+    return polySportOfLeague(
+        sub, ref.read(polySportsDirectoryProvider).valueOrNull ?? const []);
   }
 
   /// "More": every category with its subcategories; a row shows its list.
@@ -455,7 +539,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           'section': pill.key,
           'subcategory': sub.route,
         });
-        if (mounted) setState(() => _drilledInto = pill);
+        if (mounted) {
+          setState(() {
+            _drilledInto = pill;
+            // A sport with leagues opens on its league row.
+            _drilledSport = pill == PolyPill.sports && polySportHasLeagues(sub.key)
+                ? sub.key
+                : null;
+          });
+        }
         _select(current.copyWith(pill: pill).copyWith(sub: sub.key));
       },
     );
@@ -472,16 +564,36 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final hasWatchlist = ref.watch(polyWatchlistProvider).isNotEmpty;
     final pills = [
       for (final p in PolyPill.values)
-        if (polyPillOffered(p, policy) &&
-            (p != PolyPill.watchlist || hasWatchlist))
+        if (p != PolyPill.watchlist || hasWatchlist)
           p
     ];
     var selection = ref.watch(polyBrowseSelectionProvider);
-    ref.listen<PolyBrowseSelection>(polyBrowseSelectionProvider,
-        (prev, next) {
+    ref.listen<PolyBrowseSelection>(polyBrowseSelectionProvider, (prev, next) {
+      // Moving between the round lengths' pages (Crypto › 5 Min, 15 Min,
+      // 1 Hour, 4 Hours) is the length change the card's chips used to
+      // make: the same event, the same figures.
+      final from = prev == null ? null : polyCryptoPageMinutes(prev);
+      final to = polyCryptoPageMinutes(next);
+      if (from != null && to != null && from != to) {
+        TrackingService.track('crypto_window_changed',
+            params: {'minutes': to, 'from_minutes': from});
+      }
       final drill = _drillFor(next);
-      if (drill != null && drill != _drilledInto) {
+      // A pick drills in; the reset when the pill is left drills out.
+      final reset = next.pill == PolyPill.trending && next.subs.isEmpty;
+      if (drill != _drilledInto && (drill != null || reset)) {
         setState(() => _drilledInto = drill);
+      }
+      // A league picked elsewhere opens its sport's row; another pill, or
+      // a chip of the Sports row itself, closes it.
+      final sport = _sportDrillFor(next);
+      if (sport != null && sport != _drilledSport) {
+        setState(() => _drilledSport = sport);
+      } else if (_drilledSport != null &&
+          (next.pill != PolyPill.sports ||
+              (PolySub(next.sub).seriesId == null &&
+                  next.sub != _drilledSport))) {
+        setState(() => _drilledSport = null);
       }
     });
     if (!pills.contains(selection.pill)) {
@@ -518,28 +630,59 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         !subs.any((s) => s.key == selection.sub)) {
       selection = selection.copyWith(sub: 'all');
     }
-    // A deep link names a tag or league by its readable segment.
+    // A deep link names a tag or league by its readable segment (a
+    // league by its Gamma `/sports` code, whichever row it is on).
     if (selection.sub.startsWith('route:')) {
       final route = selection.sub.substring(6);
-      for (final s in subs) {
+      for (final s in [
+        ...subs,
+        if (pill == PolyPill.sports) ...ref.watch(polySportsLeaguesProvider),
+      ]) {
         if (s.route == route) selection = selection.copyWith(sub: s.key);
       }
     }
+    // Sports › a sport with leagues: the row one level further down, the
+    // sport's chip reading All before its leagues.
+    final sport = pill == PolyPill.sports ? _drilledSport : null;
+    final leagueSubs = sport == null
+        ? const <PolySub>[]
+        : ref.watch(polySportLeagueSubsProvider(sport));
     // The one browse row shows the subcategories of the category drilled
     // into, while it has a row of them.
     final drilled = _drilledInto == pill && subs.length > 1;
+    // A sport or a league: its games by day, then its other markets
+    // (founder, 9 November 2026: "get rid of this props thing").
+    final sportList = pill == PolyPill.sports &&
+        (kPolySportGroups.contains(selection.sub) ||
+            PolySub(selection.sub).seriesId != null);
     // Live always reads the one list of games in play; a league pill
     // narrows it on screen.
     final query = pill == PolyPill.live
         ? const PolyFeedQuery(pill: PolyPill.live)
         : selection.query;
-    final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
-    final showHeroSection = pill == PolyPill.trending || fiveMinOnly;
-    final showHeroPinned =
-        pill == PolyPill.crypto && selection.sub == 'all';
+    // Crypto › 5 Min, 15 Min, 1 Hour, 4 Hours: the live round card of that
+    // length and the other coins' rows (founder, 12 November 2026: "the 15
+    // min markets and 1 h and such [should] have the same live chart
+    // design"); 5 Min is nothing else, the longer lengths keep the rest of
+    // their list under the rows ("More markets").
+    final roundMinutes = polyCryptoPageMinutes(selection);
+    final fiveMinOnly = roundMinutes == 5;
+    final showHeroSection = roundMinutes != null;
+    final showHeroPinned = pill == PolyPill.crypto && selection.sub == 'all';
+    // Where the round card is the point of the page; once per mount, no
+    // market data attached.
+    if (canBrowse && !_heroViewed && (showHeroSection || showHeroPinned)) {
+      _heroViewed = true;
+      Future.microtask(() => TrackingService.track('predict_hero_viewed'));
+    }
     final isLiveList = pill == PolyPill.live ||
         (pill == PolyPill.sports && selection.sub == 'live');
 
+    // The default view (Trending at its default list) opens on the strip;
+    // its list is polymarket.com's own, whole, page after page, as any
+    // other category's.
+    final defaultView =
+        pill == PolyPill.trending && selection.sub == pill.defaultSub;
     final feed = canBrowse && !fiveMinOnly
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
@@ -630,15 +773,37 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                       // under the balance. A category with subcategories
                       // drills in: the row becomes "‹ Category" and its
                       // subcategories. Both filter the list below in place.
+                      // Inside Investments the page's own pill carries
+                      // the category (investments_category_sheet.dart).
+                      if (!embedded)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(top: 4.h),
                           child: PolyDrillRow(
-                            drilledInto: drilled ? pill : null,
-                            builder: (context, revealOnMount) => drilled
+                            drilledInto: drilled ? (sport ?? pill) : null,
+                            builder: (context, revealOnMount) => drilled &&
+                                    sport != null
+                                ? PolySubRow(
+                                    pill: pill,
+                                    subs: leagueSubs,
+                                    selectedKey: selection.sub,
+                                    onSelect: _onSub,
+                                    onBack: () => _onSportBack(sport),
+                                    backLabel:
+                                        polySubLabel(l10n, PolySub(sport)),
+                                    allKey: sport,
+                                    revealOnMount: revealOnMount,
+                                  )
+                                : drilled
                                 ? PolySubRow(
                                     pill: pill,
                                     subs: subs,
+                                    // The site's groups, a divider between
+                                    // them (Crypto, Finance); Live's row
+                                    // is read off its list and stays flat.
+                                    groups: pill == PolyPill.live
+                                        ? null
+                                        : polySubGroups(pill, subs),
                                     selectedKey: selection.sub,
                                     onSelect: _onSub,
                                     onBack: () => _onBack(pill),
@@ -663,12 +828,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                         selection: (pill, selection.sub),
                         slivers: [
                           // ── The BTC Up-or-Down hero card, under its window
-                          // chips and no title (founder, October 2026). On
-                          // the home and under Crypto › 5 Min;
-                          // the other assets' card shows only under Crypto
-                          // (user decision: not on the main screen).
-                          if (showHeroSection)
-                            ..._fiveMinuteSlivers(otherAssets: fiveMinOnly),
+                          // chips and no title (founder, October 2026).
+                          // Under Crypto › 5 Min, with the other assets'
+                          // card. Never on Trending any more (founder, 8
+                          // November 2026): Crypto › 5 Min is its home.
+              if (roundMinutes != null) ..._roundPageSlivers(roundMinutes),
 
                           // No heading over the list: the selected pill
                           // (or subcategory) already names it (October
@@ -677,12 +841,17 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                           // The hero alone pinned first under Crypto › All.
                           if (showHeroPinned) _heroSliver(),
 
-                          if (!fiveMinOnly)
+              if (roundMinutes != null && !fiveMinOnly)
+                ..._moreRoundMarketsSlivers(feed,
+                    query: query, minutes: roundMinutes)
+              else if (!fiveMinOnly)
                             ..._feedSlivers(
                               feed,
                               query: query,
                               isLiveList: isLiveList,
                               liveLeague: liveLeague,
+                              defaultView: defaultView,
+                              sportList: sportList,
                             ),
                         ],
                       ),
@@ -790,37 +959,87 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     );
   }
 
-  /// The window chips and the BTC Up or Down hero (live chart, strike line, countdown, live odds); with
-  /// [otherAssets] (Crypto › 5 Min) the other assets in one card under it.
-  List<Widget> _fiveMinuteSlivers({required bool otherAssets}) => [
-        // No title over the card (founder, October 2026). The 5m / 15m
-        // window chips only on Crypto › 5 Min, never on Trending
-        // (founder, 27 October 2026).
-        if (otherAssets)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-              child: const Align(
-                alignment: Alignment.centerRight,
-                child: _CryptoWindowChips(),
-              ),
-            ),
-          )
-        else
-          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        _heroSliver(),
-        if (otherAssets)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: _MoreCryptoMarketsCard(
+  /// Crypto › 5 Min, 15 Min, 1 Hour, 4 Hours: one page, polymarket.com's
+  /// round page made for a phone (founder, 12 November 2026: "look at how
+  /// it is on the polymarket website, make it better please"): the BTC
+  /// round card of that length, full size ([CryptoRoundHeroCard]: "BTC 5
+  /// min up or down card should be bigger"), the lengths as a row of pills,
+  /// then the other coins' rows at the same length.
+  List<Widget> _roundPageSlivers(int minutes) => [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+            child: RepaintBoundary(
+              child: CryptoPredictBanner(
+                key: ValueKey('crypto-round-page-$minutes'),
+                config: kCryptoPredictAssets.first,
+                roundMinutes: minutes,
+                chartHeight: CryptoPredictBanner.kPageChartHeight,
                 onDeposit: () {
-                  _openPredictionsDeposit(context, ref);
+                  openPredictionsDeposit(context, ref);
                 },
-              ),
             ),
           ),
+        ),
+        ),
+        // The lengths, polymarket.com's "5 Min | 15 Min | 1 Hour" row: the
+        // whole page switches, the same page the Crypto row's length
+        // chips open.
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+            child: _CryptoLengthTabs(
+              selected: minutes,
+              onSelect: (sub) => _onSub(PolySub(sub)),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: _MoreCryptoMarketsCard(
+              minutes: minutes,
+              onDeposit: () {
+                openPredictionsDeposit(context, ref);
+              },
+            ),
+          ),
+        ),
       ];
+
+  /// The rest of a longer length's list under its rows (Crypto › 15 Min,
+  /// 1 Hour, 4 Hours): every market the list holds but the rounds the card
+  /// and the rows already show (BTC, ETH, SOL and XRP at this length):
+  /// the other coins' and metals' rounds and the hourly "above" markets,
+  /// under "More markets". Nothing while there is nothing else.
+  List<Widget> _moreRoundMarketsSlivers(PolyFeedState feed,
+      {required PolyFeedQuery query, required int minutes}) {
+    final shown = {for (final c in kCryptoPredictAssets) c.asset};
+    bool onRows(PolymarketEvent e) {
+      final round = polyCryptoRoundOf(e.slug, endDate: e.endDate);
+      return round != null &&
+          round.window.inMinutes == minutes &&
+          shown.contains(polyRoundTicker(round.asset));
+    }
+
+    final rest = feed.copyWith(events: [
+      for (final e in feed.events)
+        if (!onRows(e)) e,
+    ]);
+    if (rest.events.isEmpty) return const [];
+    return [
+      SliverToBoxAdapter(
+        child: _SectionHeader(
+            key: const ValueKey('crypto-round-more-markets'),
+            label: context.l10n.polyMoreMarkets),
+      ),
+      ..._feedSlivers(rest,
+          query: query, isLiveList: false, source: 'feed_card'),
+    ];
+  }
+
+  /// Once-per-mount flag of `predict_hero_viewed`.
+  bool _heroViewed = false;
 
   Widget _heroSliver() => SliverToBoxAdapter(
         child: Padding(
@@ -829,8 +1048,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             child: CryptoPredictBanner(
               config: kCryptoPredictAssets.first,
               showLiveIndicator: true,
+              compact: true,
               onDeposit: () {
-                _openPredictionsDeposit(context, ref);
+                openPredictionsDeposit(context, ref);
               },
             ),
           ),
@@ -845,6 +1065,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     required PolyFeedQuery query,
     required bool isLiveList,
     String? liveLeague,
+    bool defaultView = false,
+    String source = 'feed_card',
+    bool sportList = false,
   }) {
     if (feed.events.isEmpty) {
       if (feed.loading) {
@@ -878,21 +1101,42 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final List<Widget> body;
     if (isLiveList) {
       body = _liveSlivers(feed.events, only: liveLeague);
+    } else if (sportList) {
+      body = _sportSlivers(feed.events, source: source);
     } else {
       final open = feed.events.where((e) => !e.ended).toList(growable: false);
       final events = collapseByGameId(open);
       final siblings = siblingsByGameId(open);
+      // The list's first Yes/No markets as big cards in a side-scrolling
+      // strip, on the default view only (founder, 1 November 2026). The list
+      // under it is polymarket.com's Trending in the site's order, without
+      // the strip's markets (founder, 9 November 2026: no repeats).
+      final split = polyTrendingSplit(
+          defaultView ? polyTopMarkets(open) : const <PolymarketEvent>[],
+          events);
+      final top = split.top;
+      final listed = split.listed;
       // Plain Yes/No markets share one grouped card like Home's
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).
       body = [
+        // No title over the strip (founder, 1 November 2026): the big
+        // cards simply open the feed.
+        if (top.isNotEmpty) ...[
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+          SliverToBoxAdapter(child: _topMarketsStrip(top)),
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+        ],
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        ..._groupedSlivers(events, (market) => (
-              isSportsCategory: market.category == 'sports',
-              siblings: market.gameId != null
-                  ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
-                  : const <PolymarketEvent>[],
-            )),
+        ..._groupedSlivers(
+            listed,
+            (market) => (
+                  isSportsCategory: market.category == 'sports',
+                  siblings: market.gameId != null
+                      ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
+                      : const <PolymarketEvent>[],
+                ),
+            source: source),
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
       ];
     }
@@ -912,6 +1156,25 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         ),
     ];
   }
+
+  /// The Top markets strip: a card opens the market page as a list card
+  /// does, marked as from the strip.
+  Widget _topMarketsStrip(List<PolymarketEvent> top) => PolyTopMarketsStrip(
+        markets: top,
+        // The chart's history starts reading as the finger comes down.
+        onOpenDown: MarketDetailSheet.prefetch,
+        onOpen: (market) {
+          HapticFeedback.mediumImpact();
+          MarketDetailSheet.show(
+            context,
+            event: market,
+            onDeposit: () async {
+              if (context.mounted) openPredictionsDeposit(context, ref);
+            },
+            source: 'top_markets',
+          );
+        },
+      );
 
   /// The games in play by league, the league with the most games first.
   /// Games of a league Polymarket's league list does not name share one
@@ -937,6 +1200,66 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       return byCount != 0 ? byCount : index[a]!.compareTo(index[b]!);
     });
     return ordered;
+  }
+
+  /// A sport's or a league's list, every market of it in one list
+  /// (founder, 9 November 2026: "Why are we separating games and props?
+  /// Get rid of this props thing"): the matches first, by day in kickoff
+  /// order under the day's heading (the games in play first, under Live;
+  /// poly_game_days.dart), each match one card with its other markets
+  /// folded in; then everything else (season awards, outrights, player
+  /// totals) under the Sports row's own "Futures" heading, the same
+  /// heading the days wear, or with no heading when the list has no match.
+  /// A list with nothing open reads as an empty category.
+  List<Widget> _sportSlivers(List<PolymarketEvent> events,
+      {String source = 'feed_card'}) {
+    final open = events.where((e) => !e.ended).toList(growable: false);
+    if (open.isEmpty) {
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 40.h),
+            child: const _EmptyState(),
+          ),
+        ),
+      ];
+    }
+    final split = polySplitGamesProps(open);
+    final games = split.games;
+    final siblings = siblingsByGameId(games);
+    final locale = Localizations.localeOf(context).toString();
+    final l10n = context.l10n;
+    final slivers = <Widget>[];
+    for (final day
+        in polyGameDays(collapseByGameId(games), now: DateTime.now())) {
+      final label = day.label(l10n, locale);
+      if (label != null) {
+        slivers.add(SliverToBoxAdapter(child: _SectionHeader(label: label)));
+      } else {
+        slivers.add(SliverToBoxAdapter(child: SizedBox(height: 8.h)));
+      }
+      slivers.addAll(_groupedSlivers(
+          day.games,
+          (market) => (
+                isSportsCategory: true,
+                siblings: market.gameId != null
+                    ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
+                    : const <PolymarketEvent>[],
+              ),
+          source: source));
+    }
+    if (split.props.isNotEmpty) {
+      slivers.add(SliverToBoxAdapter(
+          child: games.isEmpty
+              ? SizedBox(height: 8.h)
+              : _SectionHeader(label: l10n.polySubFutures)));
+      slivers.addAll(_groupedSlivers(
+          split.props,
+          (_) => (isSportsCategory: true, siblings: const <PolymarketEvent>[]),
+          source: source));
+    }
+    slivers.add(SliverToBoxAdapter(child: SizedBox(height: 8.h)));
+    return slivers;
   }
 
   /// Games in play under their league headings; with [only] (a league's
@@ -970,13 +1293,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     List<PolymarketEvent> events,
     ({bool isSportsCategory, List<PolymarketEvent> siblings}) Function(
             PolymarketEvent market)
-        rowOf,
-  ) =>
+        rowOf, {
+    String source = 'feed_card',
+  }) =>
       marketGroupSlivers<PolymarketEvent>(
         context,
         items: events,
         groups: (e) => polyCardGroups(e.title, e.outcomes),
         dividerIndent: polyGroupRowIndent(),
+        divider: polyGroupRowDivider,
         build: (market, inGroup) {
           final row = rowOf(market);
           return _PolyFeedCard(
@@ -984,6 +1309,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             isSportsCategory: row.isSportsCategory,
             matchSiblings: row.siblings,
             inGroup: inGroup,
+            source: source,
           );
         },
       );
@@ -1022,11 +1348,15 @@ class _PolyFeedCard extends ConsumerWidget {
   /// A row of a grouped list card ([MarketCard.inGroup]).
   final bool inGroup;
 
+  /// Where the market page and the slip say they were opened from.
+  final String source;
+
   const _PolyFeedCard({
     required this.market,
     required this.isSportsCategory,
     this.matchSiblings = const <PolymarketEvent>[],
     this.inGroup = false,
+    this.source = 'feed_card',
   });
 
   @override
@@ -1082,7 +1412,7 @@ class _PolyFeedCard extends ConsumerWidget {
         child: MarketCard(
           inGroup: inGroup,
           title: roundAsset == null
-              ? market.title
+              ? market.displayTitle
               : '$roundAsset · '
                   '${polyRoundWindowLabel(context.l10n, round!.window)}',
           round: roundAsset == null
@@ -1107,7 +1437,6 @@ class _PolyFeedCard extends ConsumerWidget {
           teams: market.teams,
           slug: market.slug,
           gameId: market.gameId,
-          hasLivestream: market.hasLivestream,
           siblingMarketCount: extraMarketCount,
           dayMove: market.oneDayPriceChange,
           onMoreMarkets: extraMarketCount > 0
@@ -1119,9 +1448,9 @@ class _PolyFeedCard extends ConsumerWidget {
                           'category': market.category.toLowerCase(),
                       });
                   Navigator.of(context, rootNavigator: true).push(
-                    MaterialPageRoute(
+                    KutePageRoute(
                       builder: (_) => GroupLandingScreen.events(
-                        title: market.title,
+                        title: market.displayTitle,
                         events: matchSiblings,
                         slug: market.category,
                       ),
@@ -1139,63 +1468,36 @@ class _PolyFeedCard extends ConsumerWidget {
               context,
               event: market,
               onDeposit: () async {
-                if (context.mounted) _openPredictionsDeposit(context, ref);
+                if (context.mounted) openPredictionsDeposit(context, ref);
               },
-              source: 'feed_card',
+              source: source,
             );
           },
+          // A pill opens the slip straight on its side (a Yes / No, an
+          // outcome's Yes, a team), the way the market page's own buttons
+          // do. Nothing is placed before Confirm there.
+          onPickSide: (pick) => polyCardOpenSlip(
+            context,
+            event: market,
+            pick: pick,
+            onDeposit: () async {
+              if (context.mounted) openPredictionsDeposit(context, ref);
+            },
+            source: source,
+          ),
         ),
       ),
     );
   }
 }
 
-/// Live 5-min Up/Down crypto market banner. Mounted as the Predictions
-/// screen's HERO card (BTC config: live Binance-fed chart, strike line,
-/// countdown, live CLOB odds on the Up/Down buttons) and reused by
-/// `FiveMinMarketDetailSheet` to surface the same widget in detail-sheet
-/// form when a 5-min market is opened from the grid.
-/// Registers its subtree in [cryptoCardsOnScreenProvider] while
-/// tickers are enabled there. A hidden shell branch turns tickers off
-/// (`Offstage` + `TickerMode`), so a banner counts only while it can be
-/// seen; the count is changed after the frame, never during build.
-class _CryptoCardOnScreen extends ConsumerStatefulWidget {
-  const _CryptoCardOnScreen({required this.child});
-
-  final Widget child;
-
-  @override
-  ConsumerState<_CryptoCardOnScreen> createState() =>
-      _CryptoCardOnScreenState();
-}
-
-class _CryptoCardOnScreenState extends ConsumerState<_CryptoCardOnScreen> {
-  late final StateController<int> _cards =
-      ref.read(cryptoCardsOnScreenProvider.notifier);
-  bool _counted = false;
-
-  void _count(bool on) {
-    if (on == _counted) return;
-    _counted = on;
-    Future.microtask(() => _cards.state += on ? 1 : -1);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _count(TickerMode.valuesOf(context).enabled);
-  }
-
-  @override
-  void dispose() {
-    _count(false);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
-}
-
+/// The live crypto Up/Down round card. Full size ([CryptoRoundHeroCard]) on
+/// Predictions › Crypto › 5 Min, 15 Min, 1 Hour and 4 Hours, in the round's
+/// own sheet (`FiveMinMarketDetailSheet`) and on Ledger Predictions;
+/// compact ([CompactCryptoCard]) pinned under Crypto › All. Its buttons bet
+/// the round in play until its cutoff, then the next round by themselves;
+/// the full card's round row lets the person pick another
+/// (crypto_next_round.dart, crypto_round_strip.dart).
 class CryptoPredictBanner extends ConsumerWidget {
   final CryptoAssetConfig config;
   final VoidCallback? onDeposit;
@@ -1212,6 +1514,40 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// by default to keep the banner cleaner.
   final bool showLiveIndicator;
 
+  /// The Predictions browse's card (founder, 1 November 2026: the full
+  /// card stood ~600 px tall over the list): about 180 px, the same data
+  /// and actions in one header row (logo, title, past rounds as dots, the
+  /// countdown pill), one price row (live price, its move against the
+  /// target, the target), a 40 px sparkline with the dashed target line,
+  /// and the Up / Down pills with their odds ([CompactCryptoCard]). The
+  /// market page keeps the full card. On both the round on show is the one
+  /// in play; the buttons bet it until its cutoff, then the next round
+  /// (founder, 12 November 2026; crypto_next_round.dart), the line over
+  /// them naming the round ("Now · Ends in 02:16", "Next · Starts in
+  /// 01:12").
+  final bool compact;
+
+  /// Where the slip says it was opened from (`polymarket_bet_slip_opened`'s
+  /// `source`, `polymarket_bet_placed`'s `entry_source`).
+  final String slipSource;
+
+  /// The round length the card shows, fixed: Predictions › Crypto › 5 Min,
+  /// 15 Min, 1 Hour or 4 Hours and the round sheet opened from their rows,
+  /// read from that length's own round feed ([cryptoRoundProvider], which
+  /// draws a longer round's chart from its start). Null: the shared choice
+  /// ([cryptoPredictWindowProvider]), five minutes for [targetWindowEpoch].
+  final int? roundMinutes;
+
+  /// The full card's chart height: 200 on the round sheet, shorter on the
+  /// Crypto length pages ([kPageChartHeight]).
+  final double chartHeight;
+
+  /// The chart's height on the Crypto length pages' card (founder, 12
+  /// November 2026: "BTC 5 min up or down card should be bigger"): about
+  /// twice the list card's sparkline, so the card stands larger while the
+  /// first coin's row still shows under it on a 393 pt phone.
+  static const double kPageChartHeight = 104;
+
   const CryptoPredictBanner({
     super.key,
     required this.config,
@@ -1219,70 +1555,52 @@ class CryptoPredictBanner extends ConsumerWidget {
     this.ledgerWalletId,
     this.targetWindowEpoch,
     this.showLiveIndicator = false,
+    this.compact = false,
+    this.slipSource = 'crypto_banner',
+    this.roundMinutes,
+    this.chartHeight = 200,
   });
 
-  List<PolymarketOutcome> _eventOutcomes(Btc5MinEvent? event) {
-    if (event == null) {
-      return [
-        const PolymarketOutcome(name: 'Up', price: 0.50),
-        const PolymarketOutcome(name: 'Down', price: 0.50),
-      ];
-    }
-    return [
-      PolymarketOutcome(
-          name: 'Up',
-          price: event.upPrice,
-          tokenId: event.upTokenId,
-          conditionId: event.conditionId),
-      PolymarketOutcome(
-          name: 'Down',
-          price: event.downPrice,
-          tokenId: event.downTokenId,
-          conditionId: event.conditionId),
-    ];
-  }
+  /// A round length written short, as the titles write it: "5m", "15m",
+  /// "1h", "4h".
+  static String lengthLabel(int minutes) =>
+      minutes % 60 == 0 ? '${minutes ~/ 60}h' : '${minutes}m';
 
-  /// A price difference in dollars: cents above $1 (polymarket.com prints
-  /// "$309.98"), four decimals below.
-  static String _formatDiff(double diff) {
-    if (diff >= 1) {
-      return '\$${NumberFormat('#,##0.00', 'en_US').format(diff)}';
-    }
-    return '\$${diff.toStringAsFixed(4)}';
-  }
+  static String _formatDiff(double diff) => formatCryptoRoundDiff(diff);
 
-  String _formatPrice(double? price) {
-    if (price == null) return '—';
-    if (price >= 1000) {
-      return '\$${NumberFormat('#,##0', 'en_US').format(price.round())}';
-    } else if (price >= 1) {
-      return '\$${NumberFormat('#,##0.00', 'en_US').format(price)}';
-    } else {
-      return '\$${price.toStringAsFixed(4)}';
-    }
-  }
+  /// The time until the next round starts, as the card's countdown writes
+  /// it: "02:16" for the minutes-long rounds, "3:59:59" once a round is an
+  /// hour or longer, never "239:59".
+  static String _startsInText(int seconds, int minutes) =>
+      cryptoRoundClockText(seconds, minutes);
+
+  String _formatPrice(double? price) => formatCryptoRoundPrice(price);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     // Route to the window-scoped provider when the caller asked for a
     // specific upcoming round; otherwise keep the legacy current-window
     // provider so the rest of the app is unaffected.
-    final predictAsync = targetWindowEpoch == null
-        ? ref.watch(cryptoPredictProvider(config.asset))
-        : ref.watch(cryptoPredictAtWindowProvider((
+    final fixed = roundMinutes;
+    final ProviderListenable<AsyncValue<CryptoPredictState>> source =
+        fixed != null
+            ? cryptoRoundProvider((asset: config.asset, minutes: fixed))
+            : targetWindowEpoch == null
+                ? cryptoPredictProvider(config.asset)
+                : cryptoPredictAtWindowProvider((
             asset: config.asset,
             epochSeconds: targetWindowEpoch,
-          )));
+                  ));
+    final predictAsync = ref.watch(source);
     final predictState = predictAsync.asData?.value;
-    // The window length on screen: the chips' choice for the rolling
-    // card, five minutes for a specific window.
-    final minutes = targetWindowEpoch == null
+    // The window length on screen: the page's own, the shared choice for
+    // the rolling card, five minutes for a specific window.
+    final int minutes = fixed ??
+        (targetWindowEpoch == null
         ? ref.watch(cryptoPredictWindowProvider)
-        : 5;
-    final upPctPolled = predictState?.upPct ?? 50;
-    final countdown = predictState?.countdownText ??
-        '${minutes.toString().padLeft(2, '0')}:00';
+            : 5);
+    final countdown =
+        _startsInText(predictState?.secondsRemaining ?? minutes * 60, minutes);
     final priceStr = _formatPrice(predictState?.currentPrice);
 
     // Don't render if event couldn't be loaded (asset not on Polymarket)
@@ -1294,14 +1612,8 @@ class CryptoPredictBanner extends ConsumerWidget {
     // event lands so we can verify they're populated end-to-end. If
     // these come through null/empty the live-price subscription is a
     // no-op and the bar stays at the polled-stale 50/50.
-    final debugListenable = targetWindowEpoch == null
-        ? cryptoPredictProvider(config.asset)
-        : cryptoPredictAtWindowProvider((
-            asset: config.asset,
-            epochSeconds: targetWindowEpoch,
-          ));
     ref.listen<AsyncValue<CryptoPredictState>>(
-      debugListenable,
+      source,
       (prev, next) {
         final prevEvent = prev?.asData?.value.event;
         final nextEvent = next.asData?.value.event;
@@ -1320,49 +1632,16 @@ class CryptoPredictBanner extends ConsumerWidget {
 
     // --- LIVE odds wiring ---
     // The [LiveTokenScope] wrapping this banner (see the return below)
-    // keeps the event's up/down CLOB tokens on the order-book socket,
-    // re-registering them when the window rolls to new tokens; the
-    // [CryptoOddsScope] inside it registers the Up token with
-    // [cryptoLiveOddsProvider], which reads the live book raw (midpoint,
-    // or last trade on a book wider than 10¢), with no smoothing window
-    // or band, and the CLOB's REST midpoint every 1.5 s while the socket
-    // has no current book. It drops a chance nobody confirmed for 10 s,
-    // and then the market list's price (Gamma, polled every 10 s) shows.
+    // keeps the round on show's up/down CLOB tokens and the next round's
+    // on the order-book socket, re-registering them when the window rolls
+    // to new tokens; the [CryptoOddsScope] inside it registers the next
+    // round's Up token with [cryptoLiveOddsProvider], whose change
+    // repaints the buttons. Their odds are the next round's live book
+    // ([polyNextRoundUp]), never Gamma's price.
     final upTokenId = predictState?.event?.upTokenId;
     final downTokenId = predictState?.event?.downTokenId;
-    final liveUpPriceRaw = ref.watch(
-      cryptoLiveOddsProvider
-          .select((s) => upTokenId == null ? null : s[upTokenId]?.up),
-    );
 
-    // Resolve "up" probability (0..1):
-    //   1. the live book, raw, else the REST midpoint (1.5 s)
-    //   2. polled state from the 10s notifier
-    //   3. 0.50 fallback
-    final livePctUp = liveUpPriceRaw ?? (upPctPolled / 100.0);
-    final livePctUpClamped = livePctUp.clamp(0.0, 1.0);
-
-    // Round window text — "May 21, 10:10-10:15AM ET" style. Falls back to
-    // a generic "Live round" when the event isn't loaded yet.
     final event = predictState?.event;
-    String roundText;
-    if (event?.endDate != null) {
-      // Gamma's startDate on these auto-created markets is the CREATION
-      // timestamp (up to a day before the round), which produced labels
-      // like "Aug 31, 9:44-9:40PM" on a live Sep 1 window. The real
-      // open is parsed from the slug (windowStartTime); the end minus
-      // five minutes is the fallback.
-      final end = event!.endDate!.toLocal();
-      final start = (event.windowStartTime ??
-              event.endDate!.subtract(Duration(minutes: minutes)))
-          .toLocal();
-      final dateStr = DateFormat('MMM d').format(start);
-      final startTime = DateFormat('h:mm').format(start);
-      final endTime = DateFormat('h:mma').format(end);
-      roundText = '$dateStr, $startTime-$endTime';
-    } else {
-      roundText = context.l10n.predictLiveRound;
-    }
     final priceToBeat = predictState?.priceToBeat;
     final priceToBeatStr = _formatPrice(priceToBeat);
     // How far the live price is from the price to beat, as polymarket.com
@@ -1372,509 +1651,381 @@ class CryptoPredictBanner extends ConsumerWidget {
     final double? diffToBeat = currentPrice != null && priceToBeat != null
         ? currentPrice - priceToBeat
         : null;
-    // The windows before this one, for the results strip under the chart.
-    final windowStart = event?.windowStartTime;
-    final resultsKey = windowStart == null
+    // The round on show: the card's own event while it is one of this
+    // length (it rolls forward a second or two after the clock), else the
+    // clock's.
+    final now = ref.read(cryptoOddsClockProvider)();
+    final nowEpoch = now.toUtc().millisecondsSinceEpoch ~/ 1000;
+    final showing = predictState?.event;
+    final shownFrom = showing?.windowStartTime;
+    final shownTo = showing?.endDate;
+    final liveStart = shownFrom != null &&
+            shownTo != null &&
+            shownTo.difference(shownFrom).inMinutes == minutes
+        ? shownFrom.millisecondsSinceEpoch ~/ 1000
+        : polyRoundStartAt(now, minutes);
+    final nextStart = liveStart + minutes * 60;
+    // The windows before this one, for the round row's dots.
+    final resultsKey = predictState?.event == null
         ? null
-        : (
-            asset: config.asset,
-            minutes: minutes,
-            currentStart: windowStart.millisecondsSinceEpoch ~/ 1000,
-          );
+        : (asset: config.asset, minutes: minutes, currentStart: liveStart);
     final pastResults = resultsKey == null
         ? const <CryptoWindowResult>[]
         : ref.watch(cryptoRecentResultsProvider(resultsKey)).valueOrNull ??
             carriedCryptoResults(
                 resultsKey.asset, resultsKey.minutes, resultsKey.currentStart);
+
+    // Where the buttons bet (founder, 12 November 2026: "the current bet
+    // until some time and then it's the next one"; crypto_next_round.dart,
+    // crypto_round_strip.dart): the round row under the chart offers the
+    // round in play, the next and the one after; by default the buttons
+    // stand on the round in play until its cutoff (two minutes into a
+    // five-minute round, the last 3, 5 and 10 minutes of a 15-minute,
+    // hourly and four-hour one), then on the next one by themselves. A tap
+    // on a round overrides that until it starts (a round ahead) or reaches
+    // its cutoff (the round in play). A round ahead is bet at its live book
+    // once it has real prices, the round in play at its live odds; the line
+    // over the buttons names the round ("Now · Ends in 02:16", "Next ·
+    // Starts in 01:12", "· No prices yet" while it has none). A card of one
+    // given window has no row and bets that window. The tap below bets the
+    // round this very build painted.
+    final hasStrip = targetWindowEpoch == null;
+    final aheadStarts =
+        hasStrip ? polyStripAheadStarts(liveStart, minutes) : const <int>[];
+    final slugAsset = config.asset.toLowerCase();
+    final ahead = <int, Btc5MinEvent?>{
+      for (final start in aheadStarts)
+        start: ref
+            .watch(cryptoNextRoundProvider(
+                (asset: slugAsset, minutes: minutes, start: start)))
+            .valueOrNull,
+    };
+    // A new chance of a round ahead or of the round in play repaints; the
+    // books are read here.
+    for (final e in ahead.values) {
+      final t = e?.upTokenId;
+      ref.watch(
+          cryptoLiveOddsProvider.select((s) => t == null ? null : s[t]?.up));
+    }
+    final liveUp = ref.watch(cryptoLiveOddsProvider
+        .select((s) => upTokenId == null ? null : s[upTokenId]?.up));
+    final books = ref.read(cryptoOddsBooksProvider);
+    // The round in play can be bet only while it runs: Gamma answers with
+    // the round that just ended until the next one is listed.
+    final liveEvent = switch (showing) {
+      final e? when e.endDate?.isAfter(now) ?? false => e,
+      _ => null,
+    };
+    // The rounds the person holds or is buying, marked on the row: the
+    // spending wallet's, so a Ledger's card marks none.
+    final held = hasStrip && ledgerWalletId == null
+        ? <String>{
+            for (final b in ref.watch(placingPolymarketBetProvider))
+              if (b.eventSlug case final s?) s.toLowerCase(),
+            for (final p in ref.watch(polymarketActivePositionsProvider))
+              if (p.eventSlug case final s?) s.toLowerCase(),
+          }
+        : const <String>{};
+    final rounds = polyRoundStrip(
+      asset: config.asset,
+          minutes: minutes,
+      now: now,
+      past: pastResults,
+      live: liveEvent,
+      ahead: ahead,
+      books: books.snapshot,
+      heldSlugs: held,
+      shownStart: liveStart,
+    );
+    final pickKey = (asset: config.asset, minutes: minutes);
+    final picked =
+        hasStrip ? ref.watch(cryptoPickedRoundProvider(pickKey)) : null;
+    final int betStart = hasStrip
+        ? polyRoundSelectedStart(rounds: rounds, now: now, picked: picked)
+        : liveStart;
+    final selected = rounds.firstWhere((r) => r.start == betStart);
+    final onLive = selected.slot == PolyRoundSlot.live;
+    // The chance on the buttons: the round in play's live odds (else
+    // Gamma's polled price) while it takes bets; a round ahead's live book
+    // once it has real prices. Null: the buttons are disabled.
+    final double? betUp = !selected.selectable
+        ? null
+        : onLive
+            ? polyCurrentRoundUp(
+                event: liveEvent, start: liveStart, liveUp: liveUp)
+            : (() {
+                final t = selected.event?.upTokenId;
+                final up = cryptoShownUp(t == null ? null : books.snapshot(t));
+                return cryptoOddsSane(up) ? up : null;
+              })();
+    final Btc5MinEvent? betEvent = onLive ? liveEvent : selected.event;
+    final canBet = betUp != null && betEvent != null;
+    final double buttonsUpFrac = betUp ?? 0.5;
+    final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
+    String clock(DateTime t) =>
+        polyRoundClock(t, locale: context.l10n.localeName, use24h: use24h);
+    DateTime at(int epoch) =>
+        DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true);
+    // The round the buttons bet on, by the same name the slip, the receipt
+    // and the position carry; read out with each button.
+    final String roundName = context.l10n.predictRoundWindow(
+        config.asset, clock(at(betStart)), clock(at(betStart + minutes * 60)));
+    // The line over the buttons: "Now · Ends in 02:16", "Next · Starts in
+    // 01:12", "7:25 · Starts in 06:12"; "· No prices yet" while the round
+    // has none.
+    final String roundLine = switch (selected.slot) {
+      PolyRoundSlot.live => context.l10n.predictRoundNow(context.l10n
+          .predictEndsIn(_startsInText(nextStart - nowEpoch, minutes))),
+      PolyRoundSlot.next => context.l10n.predictNextWindow(context.l10n
+          .predictStartsIn(_startsInText(betStart - nowEpoch, minutes))),
+      _ => '${clock(at(betStart))} · '
+          '${context.l10n.predictStartsIn(_startsInText(betStart - nowEpoch, minutes))}',
+    };
+    final String nextLine = canBet
+        ? roundLine
+        : '$roundLine · ${context.l10n.predictRoundNoPricesYet}';
+
+    void pick(PolyStripRound round) {
+      TrackingService.track('predictions_instant_round_picked', params: {
+        'which': polyRoundPickWhich(round),
+        'length': lengthLabel(minutes),
+        'seconds_to_start': round.start - nowEpoch,
+      });
+      ref.read(cryptoPickedRoundProvider(pickKey).notifier).state = round.start;
+    }
+
     final String? feedName = switch (predictState?.feed) {
       CryptoPriceFeed.binance => 'Binance',
       CryptoPriceFeed.coingecko => 'CoinGecko',
       _ => null,
     };
-    // Per-asset brand color — was hard-coded to BTC orange for every
-    // banner, which made ETH/SOL/XRP cards visually misread as BTC.
-    final brandColor = config.brandColor;
-    // Banner shows "Loading prices…" ONLY while we don't even have an
-    // event slug yet. Previously the gate also required `currentPrice`
-    // and `priceToBeat` — both fed by CoinGecko polling. When CoinGecko
-    // rate-limited or returned empty, the banner stayed loading
-    // indefinitely even though the event + CLOB WS odds were ready.
-    // Now we render the moment the event lands; the BTC price block
-    // falls back to a dash until the first poll/WS tick arrives but
-    // the rest of the banner (countdown, Up/Down buttons, odds bar)
-    // becomes interactive immediately.
+    // The card paints the moment Gamma's event lands; the figures fall
+    // back to a skeleton until the first price arrives.
     final isInitialLoading = predictState == null || predictState.event == null;
 
-    // 5-minute markets resolve fast — the USDC-only funding gate
-    // (PendingBetIntent.isShortMarket) keys off marketEndAt, so the
-    // slip MUST receive it or a BTC→USDC swap could be offered on a
-    // market that resolves before the swap lands. Fall back to the
-    // slug-derived window start + 5 min when Gamma omitted endDate.
-    final DateTime? marketEndAt = event?.endDate ??
-        event?.windowStartTime?.add(Duration(minutes: minutes));
+    // One slip door for every layout, on the round the buttons showed when
+    // they were painted: the slip stays on it whatever the card does while
+    // it is open, at the odds on the button. The round's end goes with it
+    // (the short-round funding rules key off it), the round's own when
+    // Gamma omitted it. [amount] fills the slip's amount in (a quick
+    // amount): nothing is placed, funded or approved until Confirm there.
+    void openSide(String side, {double? amount}) {
+      final up = betUp;
+      final target = betEvent;
+      if (up == null || target == null) return;
+      if (hasStrip) {
+        ref.read(cryptoQuickSideProvider(pickKey).notifier).state = side;
+      }
+      final outcomes = [
+        PolymarketOutcome(
+            name: 'Up',
+            price: up,
+            tokenId: target.upTokenId,
+            conditionId: target.conditionId),
+        PolymarketOutcome(
+            name: 'Down',
+            price: 1 - up,
+            tokenId: target.downTokenId,
+            conditionId: target.conditionId),
+      ];
+      BetSlipSheet.show(context,
+          marketQuestion: target.title.isNotEmpty
+              ? target.title
+              : context.l10n.predictUpOrDown(config.asset, minutes),
+          marketSlug: target.slug,
+          marketImage: target.image,
+          outcomes: outcomes,
+          initialOutcomeIndex: side == 'down' ? 1 : 0,
+          initialAmountUsd: amount,
+          marketEndAt: target.endDate ?? at(betStart + minutes * 60),
+          marketCategory: 'crypto',
+          onDeposit: onDeposit,
+          ledgerWalletId: ledgerWalletId,
+          source: slipSource);
+    }
+
+    // The round on show's tokens and the rounds ahead stay on the feed;
+    // the scopes read their chances.
+    final aheadTokens = [
+      for (final e in ahead.values) ...[
+        if (e?.upTokenId case final t? when t.isNotEmpty) t,
+        if (e?.downTokenId case final t? when t.isNotEmpty) t,
+      ],
+    ];
+    final liveTokens = [
+      if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
+      if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
+      ...aheadTokens,
+    ];
+    Widget oddsScopes(Widget child) {
+      var out = CryptoOddsScope(token: upTokenId, child: child);
+      for (final e in ahead.values) {
+        out = CryptoOddsScope(token: e?.upTokenId, child: out);
+      }
+      return out;
+    }
+
+    final diffText = diffToBeat == null
+        ? null
+        : '${diffToBeat >= 0 ? '▲' : '▼'} ${_formatDiff(diffToBeat.abs())}';
+
+    if (compact) {
+      return CryptoCardOnScreen(
+          child: LiveTokenScope(
+        tokens: liveTokens,
+        child: oddsScopes(
+          CompactCryptoCard(
+            config: config,
+            title: context.l10n
+                .predictUpOrDownLength(config.asset, lengthLabel(minutes)),
+            countdown: countdown,
+            pastResults: pastResults,
+            loading: isInitialLoading,
+            priceText: priceStr,
+            diffText: diffText,
+            diffUp: (diffToBeat ?? 0) >= 0,
+            targetText: context.l10n.predictTargetPrice(priceToBeatStr),
+            history: predictState?.priceHistory,
+            priceToBeat: priceToBeat,
+            roundStart: event?.windowStartTime,
+            upFrac: buttonsUpFrac,
+            nextLabel: nextLine,
+            window: roundName,
+            buttonsEnabled: canBet,
+            onUp: () => openSide('up'),
+            onDown: () => openSide('down'),
+          ),
+        ),
+      ));
+    }
 
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
     // Predictions tab.
-    return _CryptoCardOnScreen(
+    return CryptoCardOnScreen(
         child: LiveTokenScope(
-      tokens: [
-        if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
-        if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
-      ],
-      child: CryptoOddsScope(
-      token: upTokenId,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: c.borderSubtle, width: 0.5),
-          boxShadow: context.isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header row: orange-rounded asset icon, title + date sub,
-            // countdown pill on the right.
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                config.isSvg
-                    ? SizedBox(
-                        width: 44.sp,
-                        height: 44.sp,
-                        child: SvgPicture.asset(
-                          config.logoPath,
-                          width: 40.sp,
-                          height: 40.sp,
-                          fit: BoxFit.contain,
-                        ),
-                      )
-                    : Container(
-                        width: 44.sp,
-                        height: 44.sp,
-                        decoration: BoxDecoration(
-                          color: brandColor,
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        alignment: Alignment.center,
-                        child: Image.asset(
-                          config.logoPath,
-                          width: 30.sp,
-                          height: 30.sp,
+      tokens: liveTokens,
+      child: oddsScopes(
+        CryptoRoundHeroCard(
+          config: config,
+          title: context.l10n
+              .predictUpOrDownLength(config.asset, lengthLabel(minutes)),
+          window: '${clock(at(liveStart))}–${clock(at(nextStart))}',
+          loading: isInitialLoading,
+          beatText: priceToBeatStr,
+          currentText: priceStr,
+          diffText: diffText,
+          diffUp: (diffToBeat ?? 0) >= 0,
+          countdown: predictState?.event == null ? null : countdown,
+          feedName: feedName,
+          history: predictState?.priceHistory,
+          priceToBeat: priceToBeat,
+          roundStart: at(liveStart),
+          chartHeight: chartHeight,
+          chartWindow:
+              minutes > 5 ? Duration(minutes: minutes) : kBtcPredictChartWindow,
+          strip: hasStrip
+              ? CryptoRoundStrip(
+                  rounds: rounds,
+                  selectedStart: betStart,
+                  onPick: pick,
+                )
+              : null,
+          line: nextLine,
+          upFrac: buttonsUpFrac,
+          roundName: roundName,
+          buttonsEnabled: canBet,
+          onUp: () => openSide('up'),
+          onDown: () => openSide('down'),
+          // No quick amounts (founder, 12 November 2026: "the buttons on
+          // the bottom, $5 win $x, do not have it").
+          quick: const [],
+          quickUp: true,
                         ),
                       ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.predictUpOrDown(config.asset, minutes),
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 17.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          height: 1.15,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        roundText,
-                        style: TextStyle(
-                          color: c.textTertiary,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                // Time left as a plain figure, brokerage style: the red
-                // live dot and the clock in the primary text colour, no
-                // tinted chip.
-                Row(
-                  key: const ValueKey('crypto-round-countdown'),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6.w,
-                      height: 6.w,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF4444),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 6.w),
-                    Text(
-                      countdown,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            SizedBox(height: 18.h),
-
-            // Price to beat (hero number) + current live price. While the
-            // event + first WS tick are still loading we show a softer
-            // "Loading prices…" hint so the card never sits on "$—".
-            if (isInitialLoading)
-              // Skeleton mimicking the "Price to beat" hero number below
-              // so the card keeps its loaded shape while prices stream in.
-              KuteSkeleton(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SkeletonBar(88.w, 12.h),
-                    SizedBox(height: 6.h),
-                    SkeletonBar(150.w, 28.h, radius: 8.r),
-                  ],
-                ),
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Phantom-style hero: the LIVE price is the big number,
-                  // the strike sits quietly beneath it. No duplicated
-                  // "Price to beat" rows (the chart's own header is off).
-                  // Both are Polymarket's own numbers; while its Chainlink
-                  // feed is silent the price and chart come from a
-                  // fallback, named in small type beside the price.
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Flexible(
-                        child: RollingNumberText(
-                          text: priceStr,
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 30.sp,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.9,
-                            height: 1.0,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ),
-                      if (diffToBeat != null) ...[
-                        SizedBox(width: 8.w),
-                        Text(
-                          '${diffToBeat >= 0 ? '▲' : '▼'} '
-                          '${_formatDiff(diffToBeat.abs())}',
-                          style: TextStyle(
-                            color: diffToBeat >= 0
-                                ? AppColors.marketUp
-                                : AppColors.marketDown,
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.1,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                      if (feedName != null) ...[
-                        SizedBox(width: 6.w),
-                        Text(
-                          feedName,
-                          style: TextStyle(
-                            color: c.textTertiary,
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    context.l10n.predictTargetPrice(priceToBeatStr),
-                    style: TextStyle(
-                      color: c.textTertiary,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.1,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-            SizedBox(height: 16.h),
-
-            // Live chart with the target line.
-            // While the price history is still seeding (the Chainlink
-            // snapshot lands well under a second) show the line-chart skeleton
-            // so the hero never paints an empty plot area.
-            if ((predictState?.priceHistory.length ?? 0) < 2)
-              const SkeletonLineChart(
-                height: 200,
-                padding: EdgeInsets.zero,
-              )
-            else
-              BtcPredictChart(
-                height: 200,
-                externalHistory: predictState?.priceHistory,
-                externalPriceToBeat: predictState?.priceToBeat,
-                // Clip the plotted window to this round's elapsed span
-                // so the live sweep always fills the card width instead
-                // of bunching into the tail of a fixed 5-minute axis.
-                roundStart: event?.windowStartTime,
-                // The hero prints price + target itself; the chart adds
-                // only the curve (no duplicate header, no Live pill —
-                // the countdown pill already signals live).
-                showLiveIndicator: false,
-                showHeader: false,
-              ),
-            SizedBox(height: 10.h),
-            if (pastResults.isNotEmpty) ...[
-              _CryptoPastRounds(results: pastResults),
-              SizedBox(height: 10.h),
-            ],
-
-            // De-emphasized probability split below the chart. The Up /
-            // Down CTAs now carry the live odds as their labels, so the
-            // bar here is just a 3px supporting strip — no number
-            // labels (those moved onto the buttons).
-            TweenAnimationBuilder<double>(
-              tween:
-                  Tween<double>(begin: livePctUpClamped, end: livePctUpClamped),
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOut,
-              builder: (context, animatedUpFrac, _) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: animatedUpFrac.clamp(0.0, 1.0),
-                    minHeight: 3.h,
-                    backgroundColor: _kPolyRed.withValues(alpha: 0.16),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        _kPolyGreen.withValues(alpha: 0.75)),
-                  ),
-                );
-              },
-            ),
-            SizedBox(height: 12.h),
-
-            // Up / Down CTAs — taller (52h) and rounder (16r) to match
-            // the new bet-slip button language. Labels now carry the
-            // live odds inline (per #156) so the buttons ARE the
-            // primary odds-display surface. Percentages are wrapped in
-            // TweenAnimationBuilder so they roll smoothly between
-            // order-book updates instead of jumping.
-            Row(
-              children: [
-                Expanded(
-                  child: MarketPairButton(
-                    label: context.l10n.upLabel,
-                    value: formatPolyChancePair(livePctUpClamped).first,
-                    icon: Icons.arrow_upward_rounded,
-                    iconDisc: true,
-                    glow: true,
-                    color: AppColors.marketUp,
-                    // MarketPairButton fires its own haptic.
-                    onTap: () {
-                      final outcomes = _eventOutcomes(event);
-                      final upIdx = outcomes
-                          .indexWhere((o) => o.name.toLowerCase() == 'up');
-                      BetSlipSheet.show(context,
-                          marketQuestion:
-                              event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, minutes),
-                          marketSlug: event?.slug,
-                          marketImage: event?.image,
-                          outcomes: outcomes,
-                          initialOutcomeIndex: upIdx >= 0 ? upIdx : 0,
-                          // Required for the 5-minute USDC-only funding
-                          // gate (isShortMarket) — without it the slip
-                          // happily offers a BTC swap that can't land
-                          // before the window resolves.
-                          marketEndAt: marketEndAt,
-                          marketCategory: 'crypto',
-                          onDeposit: onDeposit,
-                          ledgerWalletId: ledgerWalletId,
-                          source: 'crypto_banner');
-                    },
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: MarketPairButton(
-                    label: context.l10n.downLabel,
-                    value: formatPolyChancePair(livePctUpClamped).second,
-                    icon: Icons.arrow_downward_rounded,
-                    iconDisc: true,
-                    glow: true,
-                    color: AppColors.marketDown,
-                    // MarketPairButton fires its own haptic.
-                    onTap: () {
-                      final outcomes = _eventOutcomes(event);
-                      final downIdx = outcomes
-                          .indexWhere((o) => o.name.toLowerCase() == 'down');
-                      BetSlipSheet.show(context,
-                          marketQuestion:
-                              event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, minutes),
-                          marketSlug: event?.slug,
-                          marketImage: event?.image,
-                          outcomes: outcomes,
-                          initialOutcomeIndex: downIdx >= 0 ? downIdx : 0,
-                          // See the Up button — 5-minute USDC-only gate.
-                          marketEndAt: marketEndAt,
-                          marketCategory: 'crypto',
-                          onDeposit: onDeposit,
-                          ledgerWalletId: ledgerWalletId,
-                          source: 'crypto_banner');
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    )));
+    ));
   }
 }
 
-/// How the last few windows ended, oldest first: a quiet label and one
-/// mark per window (an up or down arrow in the market colors, a hairline
-/// circle while a window is still settling), the row polymarket.com shows
-/// beside its "Past" menu.
-class _CryptoPastRounds extends StatelessWidget {
-  const _CryptoPastRounds({required this.results});
+/// The quick amounts under the round card's buttons, in dollars.
+const List<double> kCryptoQuickAmounts = [5, 25, 100];
 
-  final List<CryptoWindowResult> results;
+/// The round lengths as one row of equal pills ("5 Min", "15 Min", "1 Hour",
+/// "4 Hours"), the page's own length picked: a tap switches the whole page
+/// (Crypto › that length). Never cut: where the four do not fit (a narrow
+/// phone, large text) they shrink together, as one row.
+class _CryptoLengthTabs extends StatelessWidget {
+  const _CryptoLengthTabs({required this.selected, required this.onSelect});
+
+  /// The page's length in minutes.
+  final int selected;
+
+  /// The Crypto subcategory of the length tapped ('5m', '15m', '1h', '4h').
+  final void Function(String sub) onSelect;
+
+  static const List<(String, int)> _lengths = [
+    ('5m', 5),
+    ('15m', 15),
+    ('1h', 60),
+    ('4h', 240),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    const size = KutePillSize.compact;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final chipHeight = 2 * size.vPad.h +
+        2 * (isLight ? 1.0 : 0.5) +
+        MediaQuery.textScalerOf(context).scale(size.font.sp);
+    final height = math.max(size.height + 4.0, chipHeight + 4);
     final c = context.colors;
-    Widget mark(bool? up) {
-      final size = 16.sp;
-      if (up == null) {
-        return Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: c.surfaceLight,
-            shape: BoxShape.circle,
-            border: Border.all(color: c.borderSubtle, width: 0.5),
-          ),
+    final restingFill = context.isDark ? c.surface : c.surfaceLight;
+    return SizedBox(
+      key: const ValueKey('crypto-round-lengths'),
+      height: height,
+      child: LayoutBuilder(builder: (context, box) {
+        final gap = 6.w;
+        var each = 44.0;
+        for (final (sub, _) in _lengths) {
+          each = math.max(
+              each,
+              KutePill.naturalWidth(context,
+                      item:
+                          KutePillItem(label: polySubLabel(l10n, PolySub(sub))),
+                      selected: true,
+                      size: size) ??
+                  each);
+        }
+        final need = each * _lengths.length + gap * (_lengths.length - 1);
+        final row = Row(
+                  children: [
+            for (var i = 0; i < _lengths.length; i++) ...[
+              if (i > 0) SizedBox(width: gap),
+              Expanded(
+                child: KutePill(
+                  key: ValueKey('crypto-round-length-${_lengths[i].$1}'),
+                  label: polySubLabel(l10n, PolySub(_lengths[i].$1)),
+                  selected: _lengths[i].$2 == selected,
+                  fillWidth: true,
+                  restingFill: restingFill,
+                  size: size,
+                  onTap: () {
+                    if (_lengths[i].$2 == selected) return;
+                    onSelect(_lengths[i].$1);
+                  },
+                          ),
+                        ),
+                      ],
+                    ],
+                );
+        if (need <= box.maxWidth) return row;
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: SizedBox(width: need, height: height, child: row),
         );
-      }
-      final color = up ? AppColors.marketUp : AppColors.marketDown;
-      return Semantics(
-        label: up ? context.l10n.upLabel : context.l10n.downLabel,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          alignment: Alignment.center,
-          child: Icon(
-            up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-            size: 11.sp,
-            color: contrastingOnColor(color),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        Text(
-          context.l10n.predictPastRounds,
-          style: TextStyle(
-            color: c.textTertiary,
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
-          ),
-        ),
-        SizedBox(width: 8.w),
-        for (var i = 0; i < results.length; i++) ...[
-          if (i > 0) SizedBox(width: 4.w),
-          mark(results[i].up),
-        ],
-      ],
-    );
-  }
-}
-
-/// "5 Minute Markets" tile grid — every 5m asset EXCEPT BTC (the hero
-/// already gives BTC the big square). Tiles are laid out two-up with the
-/// odd remainder as a full-width strip, so the block reads as a varied
-/// mosaic under the hero rather than a uniform list.
-/// The window chips beside the section title: exactly the windows
-/// Polymarket runs today for the hero asset, tapped to switch every
-/// crypto card on the screen at once.
-class _CryptoWindowChips extends ConsumerWidget {
-  const _CryptoWindowChips();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final windows = ref
-            .watch(
-                cryptoPredictWindowsProvider(kCryptoPredictAssets.first.asset))
-            .valueOrNull ??
-        const [5];
-    final selected = ref.watch(cryptoPredictWindowProvider);
-    if (windows.length < 2) return const SizedBox.shrink();
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final minutes in windows)
-          Padding(
-            padding: EdgeInsets.only(left: 6.w),
-            child: GestureDetector(
-              onTap: () {
-                if (selected == minutes) return;
-                HapticFeedback.selectionClick();
-                TrackingService.track('crypto_window_changed',
-                    params: {'minutes': minutes, 'from_minutes': selected});
-                ref.read(cryptoPredictWindowProvider.notifier).state = minutes;
-              },
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                decoration: BoxDecoration(
-                  color: selected == minutes ? c.textPrimary : c.surface,
-                  borderRadius: BorderRadius.circular(10.r),
-                  border: Border.all(color: c.borderSubtle, width: 0.5),
-                ),
-                child: Text(
-                  '${minutes}m',
-                  style: TextStyle(
-                    color: selected == minutes ? c.background : c.textPrimary,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+      }),
     );
   }
 }
@@ -1883,19 +2034,35 @@ class _CryptoWindowChips extends ConsumerWidget {
 /// predictions strip reads: a titled surface with one row per asset.
 class _MoreCryptoMarketsCard extends StatelessWidget {
   final VoidCallback? onDeposit;
-  const _MoreCryptoMarketsCard({this.onDeposit});
+
+  /// The page's round length: every row is that coin's round of it.
+  final int minutes;
+  const _MoreCryptoMarketsCard({required this.minutes, this.onDeposit});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final others = kCryptoPredictAssets.skip(1).toList(growable: false);
     if (others.isEmpty) return const SizedBox.shrink();
+    // The hero's own card (CompactCryptoCard) and its 14 inset, so the
+    // rows' logos stand under the hero's (founder, 12 November 2026:
+    // consistent spacing).
     return Container(
-      padding: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 4.h),
+      key: const ValueKey('crypto-more-rounds'),
+      padding: EdgeInsets.fromLTRB(14.w, 4.h, 14.w, 4.h),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: c.border.withValues(alpha: 0.5), width: 0.5),
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1904,6 +2071,7 @@ class _MoreCryptoMarketsCard extends StatelessWidget {
             if (i > 0) Divider(height: 1, color: c.borderSubtle),
             _FiveMinTile(
                 config: others[i],
+                minutes: minutes,
                 wide: true,
                 bare: true,
                 onDeposit: onDeposit),
@@ -1929,8 +2097,12 @@ class _FiveMinTile extends ConsumerWidget {
   /// Rendered as a plain row inside a card that supplies its own chrome.
   final bool bare;
 
+  /// The round length of the page the row is on.
+  final int minutes;
+
   const _FiveMinTile({
     required this.config,
+    required this.minutes,
     required this.wide,
     this.onDeposit,
     this.bare = false,
@@ -1980,14 +2152,15 @@ class _FiveMinTile extends ConsumerWidget {
         ),
       ],
     );
-    FiveMinMarketDetailSheet.show(context, event: event, onDeposit: onDeposit);
+    FiveMinMarketDetailSheet.show(context,
+        event: event, onDeposit: onDeposit, minutes: minutes);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    final predictAsync = ref.watch(cryptoPredictProvider(config.asset));
-    final minutes = ref.watch(cryptoPredictWindowProvider);
+    final predictAsync =
+        ref.watch(cryptoRoundProvider((asset: config.asset, minutes: minutes)));
     final st = predictAsync.asData?.value;
     final ev = st?.event;
 
@@ -2023,40 +2196,67 @@ class _FiveMinTile extends ConsumerWidget {
 
     final upToken = ev.upTokenId;
     final downToken = ev.downTokenId;
-    // Live odds, raw from the book (see [cryptoLiveOddsProvider]), via a
-    // narrowed select — the tile only repaints when ITS Up chance moves.
-    final liveUp = ref.watch(
-      cryptoLiveOddsProvider.select(
-        (s) => upToken != null ? s[upToken]?.up : null,
-      ),
+    // The chips are the round the coin's card would bet (founder, 12
+    // November 2026; crypto_next_round.dart): the round in play until its
+    // cutoff, at its live odds, then the next one, at its live book odds
+    // once it has real prices, the chips dimmed with no figure until then.
+    // The clock is the round in play's time left.
+    final now = ref.read(cryptoOddsClockProvider)();
+    final shownFrom = ev.windowStartTime;
+    final shownTo = ev.endDate;
+    final liveStart = shownFrom != null &&
+            shownTo != null &&
+            shownTo.difference(shownFrom).inMinutes == minutes
+        ? shownFrom.millisecondsSinceEpoch ~/ 1000
+        : polyRoundStartAt(now, minutes);
+    final nextStart = liveStart + minutes * 60;
+    final next = ref
+        .watch(cryptoNextRoundProvider((
+          asset: config.asset.toLowerCase(),
+          minutes: minutes,
+          start: nextStart,
+        )))
+        .valueOrNull;
+    final nextUpToken = next?.upTokenId;
+    final nextDownToken = next?.downTokenId;
+    // Narrowed select: the row repaints only when ITS next Up chance moves.
+    ref.watch(cryptoLiveOddsProvider
+        .select((s) => nextUpToken == null ? null : s[nextUpToken]?.up));
+    final books = ref.read(cryptoOddsBooksProvider);
+    final nextUp = polyNextRoundUp(
+      next: next,
+      start: nextStart,
+      upBook: nextUpToken == null ? null : books.snapshot(nextUpToken),
+      downBook: nextDownToken == null ? null : books.snapshot(nextDownToken),
+      now: now,
     );
-    final upFrac = (liveUp ?? ev.upPrice).clamp(0.0, 1.0).toDouble();
+    final rolled = polyRoundButtonsRolled(
+        liveStart: liveStart, minutes: minutes, now: now);
+    final liveUp = rolled
+        ? null
+        : ref.watch(cryptoLiveOddsProvider
+            .select((s) => upToken == null ? null : s[upToken]?.up));
+    final betUp = rolled
+        ? nextUp
+        : polyCurrentRoundUp(event: ev, start: liveStart, liveUp: liveUp);
     // Up and Down written off the one price, so they add up to 100.
-    final odds = formatPolyChancePair(upFrac);
-    final countdown = st?.countdownText ?? '--:--';
+    final odds = betUp == null ? null : formatPolyChancePair(betUp);
+    final countdown = st == null
+        ? '--:--'
+        : cryptoRoundClockText(st.secondsRemaining, minutes);
     final spot = _formatSpot(st?.currentPrice);
 
-    Widget logo(double size) => config.isSvg
-        ? SvgPicture.asset(
-            config.logoPath,
-            width: size,
-            height: size,
-            fit: BoxFit.contain,
-          )
-        : Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: config.brandColor,
-              borderRadius: BorderRadius.circular(9.r),
-            ),
-            alignment: Alignment.center,
-            child: Image.asset(
-              config.logoPath,
-              width: size * 0.68,
-              height: size * 0.68,
-            ),
-          );
+    // Every coin the same circle (crypto_asset_logo.dart; founder, 12
+    // November 2026: XRP's bare X stood oversized beside the discs).
+    Widget logo(double size) => CryptoAssetLogo(config: config, size: size);
+
+    final countdownStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
     // Time left as a plain figure (no chip): the red live dot is the only
     // colour, the clock in the primary text colour.
@@ -2074,102 +2274,189 @@ class _FiveMinTile extends ConsumerWidget {
                 ),
               ),
               SizedBox(width: 5.w),
-              Text(
-                countdown,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
+              Text(countdown, maxLines: 1, style: countdownStyle),
             ],
           ),
         );
 
+    TextStyle oddsStyle(Color color) => TextStyle(
+          color: color,
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
+
     // Direction entry buttons: solid market colors, no pastel tint
-    // (app-wide rule).
-    Widget oddsChip({required bool isUp, required String text}) {
+    // (app-wide rule). Without the next round's prices: the arrow alone,
+    // dimmed as a disabled pair button is (0.35).
+    Widget oddsChip({required bool isUp, required String? text}) {
       final accent = isUp ? _kPolyGreen : _kPolyRed;
       final onColor = contrastingOnColor(accent);
-      return Container(
-        padding: EdgeInsets.symmetric(vertical: 6.h),
+      return Opacity(
+        key: ValueKey('five-min-chip-${config.asset}-${isUp ? 'up' : 'down'}'),
+        opacity: text == null ? 0.35 : 1,
+        child: Container(
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: accent,
           borderRadius: BorderRadius.circular(10.r),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-              size: 14.sp,
-              color: onColor,
-            ),
-            SizedBox(width: 3.w),
-            RollingNumberText(
-              text: text,
-              style: TextStyle(
+        padding: EdgeInsets.symmetric(vertical: 6.h, horizontal: 6.w),
+        // Whole at any text size: the arrow and the figure shrink together
+        // rather than run past the chip.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isUp
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded,
+                size: 14.sp,
                 color: onColor,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-            ),
-          ],
+              if (text != null) ...[
+                SizedBox(width: 3.w),
+                RollingNumberText(text: text, style: oddsStyle(onColor)),
+              ],
+            ],
+          ),
         ),
+      ),
       );
     }
 
+    final nameStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.3,
+    );
+    final spotStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    // "Ethereum up or down · 5m", polymarket.com's own row; its live price
+    // under it.
+    final nameText = context.l10n.predictUpOrDownLength(
+        config.displayName, CryptoPredictBanner.lengthLabel(minutes));
+    final spotText = spot.isEmpty ? '—' : spot;
+    // The name and the price under it. In the row (wide) neither is ever
+    // cut: a line too long for its room wraps (founder, 12 November 2026).
     final nameBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          config.displayName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: c.textPrimary,
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
-          ),
+          nameText,
+          maxLines: wide ? null : 1,
+          overflow: wide ? null : TextOverflow.ellipsis,
+          style: nameStyle,
         ),
         SizedBox(height: 2.h),
         Text(
-          spot.isEmpty ? '${minutes}m' : '${minutes}m · $spot',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: c.textTertiary,
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+          spotText,
+          maxLines: wide ? null : 1,
+          overflow: wide ? null : TextOverflow.ellipsis,
+          style: spotStyle,
         ),
       ],
     );
 
     final Widget body;
     if (wide) {
-      body = Row(
-        children: [
-          logo(34.sp),
-          SizedBox(width: 12.w),
-          Expanded(child: nameBlock),
-          SizedBox(width: 8.w),
-          countdownPill(),
-          SizedBox(width: 10.w),
-          SizedBox(width: 74.w, child: oddsChip(isUp: true, text: odds.first)),
-          SizedBox(width: 6.w),
-          SizedBox(width: 74.w, child: oddsChip(isUp: false, text: odds.second)),
-        ],
-      );
+      // One row while everything fits whole on it: the coin (the hero's
+      // 32 logo, under it), its name and price, the time left, Up and
+      // Down. Where it does not (a narrow phone, large text) the row
+      // wraps, never cuts: the coin, its name and the time left on the
+      // first line, Up and Down across the second. Measured with every
+      // digit as wide as the widest, so a tick never flips the shape.
+      body = LayoutBuilder(builder: (context, box) {
+        double widthOf(String text, TextStyle style) {
+          final painter = TextPainter(
+            text: TextSpan(
+                text: text.replaceAll(RegExp(r'\d'), '0'),
+                style: DefaultTextStyle.of(context).style.merge(style)),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        }
+
+        final logoSize = 32.sp;
+        final names = math.max(
+            widthOf(nameText, nameStyle), widthOf(spotText, spotStyle));
+        final clock = 10.w + widthOf(countdown, countdownStyle);
+        // A chip holds its arrow and "100.0%" whole.
+        final chip = math.max(
+            74.w,
+            14.sp +
+                3.w +
+                widthOf('100.0%', oddsStyle(c.textPrimary)) +
+                12.w +
+                2);
+        final oneRow = logoSize +
+                12.w +
+                names +
+                8.w +
+                clock +
+                10.w +
+                chip * 2 +
+                6.w +
+                1 <=
+            box.maxWidth;
+        if (oneRow) {
+          return Row(
+            children: [
+              logo(logoSize),
+              SizedBox(width: 12.w),
+              Expanded(child: nameBlock),
+              SizedBox(width: 8.w),
+              countdownPill(),
+              SizedBox(width: 10.w),
+              SizedBox(
+                  width: chip, child: oddsChip(isUp: true, text: odds?.first)),
+              SizedBox(width: 6.w),
+              SizedBox(
+                  width: chip,
+                  child: oddsChip(isUp: false, text: odds?.second)),
+            ],
+          );
+        }
+        return Column(
+          key: const ValueKey('five-min-row-wrapped'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                logo(logoSize),
+                SizedBox(width: 12.w),
+                Expanded(child: nameBlock),
+                SizedBox(width: 8.w),
+                countdownPill(),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            Row(
+              children: [
+                Expanded(child: oddsChip(isUp: true, text: odds?.first)),
+                SizedBox(width: 6.w),
+                Expanded(child: oddsChip(isUp: false, text: odds?.second)),
+              ],
+            ),
+          ],
+        );
+      });
     } else {
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2186,29 +2473,36 @@ class _FiveMinTile extends ConsumerWidget {
           SizedBox(height: 10.h),
           Row(
             children: [
-              Expanded(child: oddsChip(isUp: true, text: odds.first)),
+              Expanded(child: oddsChip(isUp: true, text: odds?.first)),
               SizedBox(width: 6.w),
-              Expanded(child: oddsChip(isUp: false, text: odds.second)),
+              Expanded(child: oddsChip(isUp: false, text: odds?.second)),
             ],
           ),
         ],
       );
     }
 
+    final tokens = [
+      if (upToken != null && upToken.isNotEmpty) upToken,
+      if (downToken != null && downToken.isNotEmpty) downToken,
+      if (nextUpToken case final t? when t.isNotEmpty) t,
+      if (nextDownToken case final t? when t.isNotEmpty) t,
+    ];
     if (bare) {
       return LiveTokenScope(
-        tokens: [
-          if (upToken != null && upToken.isNotEmpty) upToken,
-          if (downToken != null && downToken.isNotEmpty) downToken,
-        ],
+        tokens: tokens,
         child: CryptoOddsScope(
-          token: upToken,
+          token: nextUpToken,
+          child: CryptoOddsScope(
+            token: upToken,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => _openDetail(context, ev, minutes),
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
+              key: ValueKey('five-min-row-${config.asset}'),
+              padding: EdgeInsets.symmetric(vertical: 10.h),
               child: body,
+              ),
             ),
           ),
         ),
@@ -2238,14 +2532,14 @@ class _FiveMinTile extends ConsumerWidget {
     );
 
     return LiveTokenScope(
-      tokens: [
-        if (upToken != null && upToken.isNotEmpty) upToken,
-        if (downToken != null && downToken.isNotEmpty) downToken,
-      ],
+      tokens: tokens,
       child: CryptoOddsScope(
-        token: upToken,
+        token: nextUpToken,
+        child: CryptoOddsScope(
+          token: upToken,
         child: RepaintBoundary(
           child: wide ? card : AspectRatio(aspectRatio: 1.15, child: card),
+          ),
         ),
       ),
     );
@@ -2258,7 +2552,7 @@ class _FiveMinTile extends ConsumerWidget {
 class _SectionHeader extends StatelessWidget {
   final String label;
 
-  const _SectionHeader({required this.label});
+  const _SectionHeader({super.key, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -2577,7 +2871,7 @@ class HeroEventCardState extends ConsumerState<HeroEventCard> {
                   SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
-                      event.title,
+                      event.displayTitle,
                       style: TextStyle(
                         color: c.textPrimary,
                         fontSize: 17.sp,

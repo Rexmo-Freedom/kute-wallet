@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
 import 'package:kute/services/polymarket_order_v2.dart';
 
@@ -19,8 +21,28 @@ class PendingPolymarketOrder implements Exception {
 /// Its row keeps protecting the outcome like any [PendingPolymarketOrder];
 /// the type only tells analytics that the order itself went out, rather
 /// than an earlier one blocking it.
+///
+/// [orderId] is the order's hash (computed locally before the POST, the
+/// id the venue files it under), so the placement can look the order up
+/// (`GET /data/order/{id}`) before it says anything. Local only: never
+/// tracked, logged or shown.
+///
+/// [lookedUp]: the placement already spent its retry window looking the order
+/// up, so nobody needs to ask again before saying it is pending.
 class PolymarketOrderOutcomeUnknown extends PendingPolymarketOrder {
-  const PolymarketOrderOutcomeUnknown();
+  const PolymarketOrderOutcomeUnknown({this.orderId, this.lookedUp = false});
+  final String? orderId;
+  final bool lookedUp;
+}
+
+/// Every attempt at this order failed before a connection to the venue even
+/// opened (no DNS, no route, no TLS), so the venue cannot have it. The one
+/// network ending where "did not go through" is proven, so this is NOT a
+/// [PendingPolymarketOrder] and its journal row is settled.
+class PolymarketOrderNeverSent implements Exception {
+  const PolymarketOrderNeverSent();
+  @override
+  String toString() => 'Could not open a connection to Polymarket.';
 }
 
 /// The earlier submission is still unaccounted for because the venue could
@@ -68,10 +90,46 @@ typedef GuardedPolymarketOrderSubmit = Future<Map<String, dynamic>> Function({
       send,
 });
 
+/// How a hot order rides out a connection that drops: for up to [window] from
+/// its first POST, it is looked up by its hash and, only if the venue does not
+/// know it, the SAME signed order is sent again. The hash is the order's
+/// identity at the venue and on the exchange contract, so however many copies
+/// arrive, it can only match once. A different order is never signed here.
+class HotOrderResendPolicy {
+  const HotOrderResendPolicy({
+    this.window = const Duration(seconds: 60),
+    this.lookupTimeout = const Duration(seconds: 8),
+    this.now = DateTime.now,
+    this.sleep = _sleep,
+  });
+
+  final Duration window;
+
+  /// One lookup's budget, under the 15 s of the read itself: a dead read
+  /// should not spend a quarter of the window.
+  final Duration lookupTimeout;
+  final DateTime Function() now;
+  final Future<void> Function(Duration) sleep;
+
+  /// The wait before each retry: quick for a blip, then steady, so a long dip
+  /// still gets a try every 8 s without hammering a link that is struggling.
+  Duration backoff(int round) => Duration(seconds: switch (round) {
+        0 => 2,
+        1 => 4,
+        _ => 8,
+      });
+
+  static Future<void> _sleep(Duration d) => Future<void>.delayed(d);
+}
+
 /// Serializes orders for an account and persists their locally computed hash
 /// before POST. A missing response or a 404 never permits a replacement order.
 /// Stores public references only; credentials and signatures remain in memory.
 class HotPolymarketOrderGuard {
+  /// [resend]: null keeps the old behaviour, one POST and no retries.
+  HotPolymarketOrderGuard({this.resend});
+  final HotOrderResendPolicy? resend;
+
   static const boxName = 'polymarket_order_submissions';
 
   /// How long a submission the venue does not know stays protected before
@@ -340,12 +398,49 @@ class HotPolymarketOrderGuard {
         // Flush must succeed before the transport is allowed to run.
         await _write(box, submissionKey, row);
         var postStarted = false;
+        final firstPost = (resend ?? const HotOrderResendPolicy()).now();
+        Future<Map<String, dynamic>> post() => send(() {
+              // Re-check after persistence and the transport's capability await.
+              ensureCurrent();
+              postStarted = true;
+              PolymarketOrderAttempts.last++;
+            });
+        // A retry's row says when the latest copy went out: the grace period
+        // for a lost POST counts from there.
+        Future<Map<String, dynamic>> postAgain() async {
+          row['submittedAtMs'] = resend!.now().millisecondsSinceEpoch;
+          await _write(box, submissionKey, row);
+          return post();
+        }
+
+        Future<Map<String, dynamic>> rideOut(Object failure) => _rideOut(
+              policy: resend!,
+              id: id,
+              key: key,
+              firstPost: firstPost,
+              firstFailure: failure,
+              lookup: lookup,
+              ensureCurrent: ensureCurrent,
+              postAgain: postAgain,
+            );
         try {
-          final response = await send(() {
-            // Re-check after persistence and the transport's capability await.
-            ensureCurrent();
-            postStarted = true;
-          });
+          Map<String, dynamic> response;
+          try {
+            response = await post();
+            if (resend != null &&
+                postStarted &&
+                response['success'] == false &&
+                isPolymarketDuplicateOrder(response['errorMsg'])) {
+              response = await rideOut(const PolymarketOrderDuplicated());
+            }
+          } catch (error) {
+            final canRide = resend != null &&
+                postStarted &&
+                (error is PolymarketOrderDuplicated ||
+                    isPolymarketOrderNoAnswer(error));
+            if (!canRide) rethrow;
+            response = await rideOut(error);
+          }
           final returned = (response['orderID'] ??
                   response['orderId'] ??
                   response['order_id'])
@@ -363,7 +458,7 @@ class HotPolymarketOrderGuard {
               !const {'matched', 'live', 'delayed', 'unmatched'}
                   .contains(response['status']?.toString().toLowerCase())) {
             throw postStarted
-                ? const PolymarketOrderOutcomeUnknown()
+                ? PolymarketOrderOutcomeUnknown(orderId: id)
                 : const PendingPolymarketOrder();
           }
           row['stage'] = 'accepted';
@@ -374,6 +469,7 @@ class HotPolymarketOrderGuard {
           return response;
         } catch (error) {
           if (!postStarted ||
+              error is PolymarketOrderNeverSent ||
               error is PolymarketOrderNotAcceptedException ||
               error is InvalidApiKeyException ||
               error is GeoBlockException) {
@@ -384,7 +480,7 @@ class HotPolymarketOrderGuard {
           }
           // Leave the persisted order blocking; arbitrary errors prove nothing.
           if (error is PendingPolymarketOrder) rethrow;
-          throw const PolymarketOrderOutcomeUnknown();
+          throw PolymarketOrderOutcomeUnknown(orderId: id);
         }
       }
 
@@ -400,5 +496,150 @@ class HotPolymarketOrderGuard {
     } finally {
       _busy.remove(key);
     }
+  }
+
+  /// The POST got no answer. Until the window ends: wait, look the order up,
+  /// and only if the venue does not know it, send the same order again.
+  ///
+  /// Returns the venue's answer in the shape of a POST's. Throws
+  /// [PolymarketOrderOutcomeUnknown] (the row keeps blocking) when the order
+  /// is still unaccounted for, [PolymarketOrderNeverSent] when no attempt ever
+  /// left the phone, [PolymarketOrderNotAcceptedException] when the venue ended
+  /// the order with nothing matched.
+  ///
+  /// A refusal in answer to a RESEND is not proof: the first copy may have
+  /// filled and the venue may check the balance before it checks for a
+  /// duplicate. So it only counts when no earlier copy can have arrived.
+  Future<Map<String, dynamic>> _rideOut({
+    required HotOrderResendPolicy policy,
+    required String id,
+    required String key,
+    required DateTime firstPost,
+    required Object firstFailure,
+    required Future<Map<String, dynamic>?> Function(String orderId) lookup,
+    required void Function() ensureCurrent,
+    required Future<Map<String, dynamic>> Function() postAgain,
+  }) async {
+    final deadline = firstPost.add(policy.window);
+    Duration remaining() => deadline.difference(policy.now());
+    // The venue said it has this order: never sent again, only looked up.
+    var venueHasIt = firstFailure is PolymarketOrderDuplicated;
+    var mayBeOut = venueHasIt || !polymarketPostNeverLeftDevice(firstFailure);
+    Never giveUp() {
+      PolymarketPlacementDiagnostics.note('order_resend_gave_up', {
+        'attempts': PolymarketOrderAttempts.last,
+        'mayBeOut': mayBeOut,
+      });
+      throw mayBeOut
+          ? PolymarketOrderOutcomeUnknown(orderId: id, lookedUp: true)
+          : const PolymarketOrderNeverSent();
+    }
+
+    Future<({bool answered, Map<String, dynamic>? found})> look() async {
+      final left = remaining();
+      final budget = left < policy.lookupTimeout && left > Duration.zero
+          ? left
+          : policy.lookupTimeout;
+      try {
+        final evidence = await lookup(id).timeout(budget);
+        return (answered: true, found: evidence);
+      } catch (e) {
+        PolymarketPlacementDiagnostics.note(
+            'order_resend_lookup_failed', {'error': '${e.runtimeType}'});
+        return (answered: false, found: null);
+      }
+    }
+
+    for (var round = 0;; round++) {
+      final left = remaining();
+      if (left <= Duration.zero) giveUp();
+      final wait = policy.backoff(round);
+      await policy.sleep(wait < left ? wait : left);
+      if (remaining() <= Duration.zero) giveUp();
+      try {
+        ensureCurrent();
+      } catch (_) {
+        // The approval ran out or the account changed: nothing more goes out.
+        giveUp();
+      }
+      final read = await look();
+      if (read.found != null) {
+        final answer = _venueAnswer(read.found!, id: id, key: key);
+        if (answer != null) return answer;
+        // Something answered that is not this order. Nothing is proven.
+        continue;
+      }
+      if (!read.answered || venueHasIt) continue;
+      if (remaining() <= Duration.zero) giveUp();
+      try {
+        PolymarketPlacementDiagnostics.note(
+            'order_resend', {'attempt': PolymarketOrderAttempts.last + 1});
+        final again = await postAgain().timeout(remaining());
+        if (again['success'] != false) return again;
+        final said = again['errorMsg'];
+        if (isPolymarketDuplicateOrder(said)) {
+          throw const PolymarketOrderDuplicated();
+        }
+        if (isDefinitivePolymarketOrderRejection(said)) {
+          throw PolymarketOrderNotAcceptedException(said as String);
+        }
+        return again;
+      } catch (e) {
+        if (e is PolymarketOrderDuplicated) {
+          venueHasIt = true;
+          mayBeOut = true;
+          continue;
+        }
+        if (isPolymarketOrderNoAnswer(e)) {
+          if (!polymarketPostNeverLeftDevice(e)) mayBeOut = true;
+          continue;
+        }
+        // No earlier copy can have arrived, so this answer is the order's.
+        if (!mayBeOut) {
+          if (e is PolymarketOrderNotAcceptedException ||
+              e is InvalidApiKeyException ||
+              e is GeoBlockException) {
+            rethrow;
+          }
+          giveUp();
+        }
+        // An earlier copy may be out there: one more read, then unknown.
+        final last = await look();
+        if (last.found != null) {
+          final answer = _venueAnswer(last.found!, id: id, key: key);
+          if (answer != null) return answer;
+        }
+        giveUp();
+      }
+    }
+  }
+
+  /// The venue's record of this order as a POST's answer, or null when the
+  /// record proves nothing. An order that ended with nothing matched is the
+  /// venue's kill; one that ended after a part fill goes on as accepted and
+  /// the settlement reads how much.
+  Map<String, dynamic>? _venueAnswer(Map<String, dynamic> evidence,
+      {required String id, required String key}) {
+    final status = evidence['status']?.toString().toUpperCase();
+    final mine = evidence['id']?.toString().toLowerCase() == id &&
+        evidence['maker_address']?.toString().toLowerCase() == key;
+    if (!mine || status == null) return null;
+    Map<String, dynamic> accepted(String answer) => {
+          'success': true,
+          'orderID': id,
+          'status': answer,
+          // Found rather than acknowledged: no fill amounts in this answer.
+          'recovered': true,
+        };
+    if (const {'LIVE', 'MATCHED', 'DELAYED', 'UNMATCHED'}.contains(status)) {
+      return accepted(status.toLowerCase());
+    }
+    if (const {'CANCELED', 'CANCELLED', 'EXPIRED'}.contains(status)) {
+      final matched = double.tryParse('${evidence['size_matched']}') ?? 0;
+      if (matched > 0) return accepted('matched');
+      throw const PolymarketOrderNotAcceptedException(
+          'no orders found to match with FAK order. FAK orders are partially filled or killed if no match is found.');
+    }
+    return null;
   }
 }

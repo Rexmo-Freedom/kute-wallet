@@ -42,19 +42,10 @@ class HlWatchStar extends ConsumerWidget {
         onTap: () {
           HapticFeedback.selectionClick();
           final added = ref.read(hlWatchlistProvider.notifier).toggle(market);
-          // The Predictions event, with this venue's public market facts:
-          // the symbol and what kind of market it is. Never an id.
-          TrackingService.track('watchlist_toggled', params: {
-            'venue': 'hyperliquid',
-            'action': added ? 'added' : 'removed',
-            'category': market.category,
-            'source': source,
-            'list_size': ref.read(hlWatchlistProvider).length,
-            'coin': market.coin,
-            'kind': market.isSpot ? 'spot' : 'perp',
-            ...VenueAnalytics.hlAssetParams(market.coin,
-                kind: market.isSpot ? 'spot' : 'perp'),
-          });
+          trackHlWatchlistToggled(market,
+              added: added,
+              source: source,
+              listSize: ref.read(hlWatchlistProvider).length);
         },
         child: Padding(
           padding: EdgeInsets.all(4.w),
@@ -67,4 +58,23 @@ class HlWatchStar extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// `watchlist_toggled` for an Investing market: the Predictions event,
+/// with this venue's public market facts, the symbol and what kind of
+/// market it is. Never an id. The star sends it, and the watchlist sheet
+/// once per market a save adds or removes (hl_watchlist_sheet.dart).
+void trackHlWatchlistToggled(HlMarket market,
+    {required bool added, required String source, required int listSize}) {
+  TrackingService.track('watchlist_toggled', params: {
+    'venue': 'hyperliquid',
+    'action': added ? 'added' : 'removed',
+    'category': market.category,
+    'source': source,
+    'list_size': listSize,
+    'coin': market.coin,
+    'kind': market.isSpot ? 'spot' : 'perp',
+    ...VenueAnalytics.hlAssetParams(market.coin,
+        kind: market.isSpot ? 'spot' : 'perp'),
+  });
 }

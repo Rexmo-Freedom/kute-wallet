@@ -1489,6 +1489,13 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning-osoite';
 
   @override
+  String get sendVerifiedByBranta => 'Brantan vahvistama';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta ilmoittaa, että tämä osoite on vaihdettu. Tarkista se vastaanottajalta ennen lähettämistä.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin-osoite';
 
   @override
@@ -1754,12 +1761,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Ystävä kutsui sinut';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Ansaitset $rate %';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Kutsu $count ystävää lisää ansaitaksesi $rate %';
   }
 
@@ -2667,9 +2669,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Koodiasi käyttäneet';
-
-  @override
   String get accountPendingPayout => 'Odottava maksu';
 
   @override
@@ -2687,16 +2686,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Ansaitset $rate ystäviesi tuottamista maksuista.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Ansaitset $rate ystäviesi tuottamista maksuista, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate, kun ystäviä on $count';
   }
@@ -2704,6 +2693,54 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Ystäväsi saavat $discount alennusta Kuten maksuista, kun he ovat kanssasi.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Ansaitse $rate ystäviesi maksuista';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'He saavat $discount alennusta Kuten maksuista';
+  }
+
+  @override
+  String get referralShareInvite => 'Jaa kutsu';
+
+  @override
+  String get referralFriendsJoined => 'Liittyneet ystävät';
+
+  @override
+  String get referralYourRate => 'Osuutesi';
+
+  @override
+  String get referralTopRate => 'Sinulla on korkein osuus';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ystävää',
+      one: '1 ystävä',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Jaa linkkisi';
+
+  @override
+  String get referralStepShareLine =>
+      'Lähetä linkkisi tai koodisi ystävillesi.';
+
+  @override
+  String get referralStepJoin => 'He liittyvät ja käyvät kauppaa';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Ansaitset $rate heidän maksuistaan';
   }
 
   @override
@@ -3182,7 +3219,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Bitcoin-, Lightning- tai Spark-osoite';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Automaattinen vaihto Bitcoinista';
+  String get sendAutoSwapFromBitcoin => 'Bitcoinistasi';
 
   @override
   String get sendAddressNotIdentified => 'Osoitetta ei tunnistettu';
@@ -3252,12 +3289,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Allekirjoita tapahtuma laitteellasi.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit käytettävissä · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Lasketaan…';
 
   @override
@@ -3308,11 +3339,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get sendPaymentRequestOnlySupportsLightning =>
       'Tämä maksupyyntö tukee vain Lightningia. Vaihda Lightningia tukevaan lompakkoon maksaaksesi.';
-
-  @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset-osoite verkossa $network';
-  }
 
   @override
   String get sendPasteBitcoinAddress => 'Liitä Bitcoin-osoite';
@@ -3399,7 +3425,10 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Lisätään automaattisesti 3 vahvistuksen jälkeen.';
+      'Lisätään automaattisesti, usein muutamassa minuutissa ja viimeistään 3 vahvistuksen jälkeen. Ensimmäisestä vahvistuksesta alkaen voit ehkä lunastaa sen aiemmin maksua vastaan.';
+
+  @override
+  String get activityClaimNowAvailable => 'Lunastettavissa nyt';
 
   @override
   String get depositReasonFeeHigh =>
@@ -3618,11 +3647,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Suljettu · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Pienennetty · $coin';
   }
@@ -3688,7 +3712,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Vaihto · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4067,6 +4091,15 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hubReferrals => 'Suosittelut';
 
   @override
+  String get hubReferralsSubtitle => 'Kutsu ystäviä';
+
+  @override
+  String get hubSupportSubtitle => 'Pyydä apua';
+
+  @override
+  String get hubSettingsSubtitle => 'Turvallisuus ja muuta';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Ansaitse osuus siitä, mitä Kute tienaa ystävistäsi';
 
@@ -4180,6 +4213,16 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Lähetetty lompakkoon $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Siirretty kohteeseen $walletName';
+  }
+
+  @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Vaihdettu kohteeseen $walletName';
   }
 
   @override
@@ -4877,6 +4920,14 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get slipDepositIncomingNote =>
       'Rahasi ovat matkalla. Painike aktivoituu, kun ne saapuvat.';
+
+  @override
+  String get slipOtherOrderPlacingNote =>
+      'Toista toimeksiantoasi asetetaan vielä. Voit asettaa tämän, kun se on valmis.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Toista ennustettasi asetetaan vielä. Voit tehdä tämän, kun se on valmis.';
 
   @override
   String get slipDepositAddMore => 'Lisää vielä';
@@ -5796,6 +5847,40 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlAdvancedChart => 'Laajennettu kaavio';
 
   @override
+  String get optionAdvancedChartSub => 'Piirrokset ja indikaattorit';
+
+  @override
+  String get optionAboutMarketSub => 'Tilastot ja tilauskirja';
+
+  @override
+  String get optionAddMarginSub => 'Kauemmas likvidaatiosta';
+
+  @override
+  String get optionPositionDetailsSub => 'Koko, avaus ja rahoitus';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Päättyy $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Päättyi $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Miten se ratkaistaan';
+
+  @override
+  String get optionViewMarketSub => 'Kaavio ja todennäköisyydet';
+
+  @override
+  String get optionPredictionDetailsSub => 'Osuudet ja maksettu hinta';
+
+  @override
+  String get optionProtectSellSub => 'Myy omaan hintaasi';
+
+  @override
   String get chartStyleCandles => 'Kynttilät';
 
   @override
@@ -5904,13 +5989,52 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartVwapWindow => 'VWAP näytettyjen kynttilöiden ajalta';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikaattorit';
 
   @override
   String get chartInterval => 'Aikaväli';
+
+  @override
+  String get chartIntervalMinute => '1 minuutti';
+
+  @override
+  String get chartIntervalMinuteHint => 'Liikkeet reaaliajassa';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minuuttia';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Päivän heilahtelut';
+
+  @override
+  String get chartIntervalFifteenMinutes => '15 minuuttia';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Viime päivä';
+
+  @override
+  String get chartIntervalHour => '1 tunti';
+
+  @override
+  String get chartIntervalHourHint => 'Viime päivät';
+
+  @override
+  String get chartIntervalFourHours => '4 tuntia';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Viime viikot';
+
+  @override
+  String get chartIntervalDay => '1 päivä';
+
+  @override
+  String get chartIntervalDayHint => 'Viime kuukaudet';
+
+  @override
+  String get chartIntervalWeek => '1 viikko';
+
+  @override
+  String get chartIntervalWeekHint => 'Pitkällä aikavälillä';
 
   @override
   String get chartSelectTool => 'Valitse ja muokkaa piirroksia';
@@ -5932,7 +6056,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Tuotto ei saatavilla';
 
   @override
-  String get portfolioStatRealized => 'Toteutunut voitto / tappio';
+  String get portfolioStatRealized => 'Toteutuneet voitot';
 
   @override
   String get portfolioStatAmountPredicted => 'Summa ennusteissa';
@@ -6095,6 +6219,12 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get moveTransfer => 'Siirrä rahaa';
+
+  @override
+  String get moveVerb => 'Siirrä';
+
+  @override
+  String get moveToBitcoin => 'Siirrä Bitcoiniin';
 
   @override
   String get moveAdd => 'Lisää';
@@ -6279,6 +6409,17 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get investingSubmissionUnknown =>
       'Markkinapaikka ei ole vahvistanut tulosta. Tarkista toimeksiantosi ja saldosi ennen kuin yrität uudelleen.';
+
+  @override
+  String get betConfirmingWithVenue => 'Vahvistetaan Polymarketin kanssa…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Vahvistetaan markkinapaikan kanssa…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Toimeksianto ei mennyt läpi. Mitään ei tehty.';
 
   @override
   String get investingApprovalExpired =>
@@ -6474,6 +6615,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get walletPortfolioAction => 'Salkku';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Näytä koko salkku ja toiminta';
+
+  @override
   String get walletActionsWalletChanged =>
       'Lompakko vaihtui. Avaa toimintovalikko uudelleen jatkaaksesi.';
 
@@ -6618,9 +6762,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
-  String get sendDollarAccountAddressHint => 'Dollaritilin osoite';
-
-  @override
   String hwSignKeepDeviceNearby(String device) {
     return 'Pidä $device lähellä ja lukitus avattuna.';
   }
@@ -6690,7 +6831,11 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Myöhemmin saapuva talletus voi saada eri hinnan.';
+      'Myöhäiset talletukset voivat saada eri hinnan.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Väärä kolikko tai verkko? Rahasi voivat kadota.';
 
   @override
   String get receiveOneOffNewAddress => 'Hae uusi osoite';
@@ -6816,6 +6961,11 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String betBuyPartialMarket(String bought, String total, String price) {
     return 'Ostettu $bought/$total osuutta hintaan $price. Hinnallasi ei ollut enempää myyjiä, joten loppua ei ostettu.';
+  }
+
+  @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Myyty $sold/$total osuutta hintaan $price. Hinnallasi ei ollut enempää ostajia, joten loppua ei myyty.';
   }
 
   @override
@@ -6972,6 +7122,10 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get betConnectionUnavailable =>
       'Polymarketiin ei saatu yhteyttä. Tarkista yhteytesi ja yritä uudelleen.';
+
+  @override
+  String get betConnectionSlowNotSent =>
+      'Yhteytesi on hidas, eikä tämä toimeksianto mennyt läpi.';
 
   @override
   String get betFeesUnavailable =>
@@ -7155,6 +7309,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Ei saatavilla alueellasi';
+
+  @override
+  String get capabilityNotAvailableNow => 'Ei saatavilla juuri nyt';
 
   @override
   String capabilityRegionTitleNamed(String regions) {
@@ -7352,6 +7509,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get addWalletOther => 'Muu lompakko';
+
+  @override
+  String get addWalletOtherSubtitle => 'QR-koodi, tiedosto tai liittäminen';
 
   @override
   String get addWalletTrackSubtitle =>
@@ -7558,32 +7718,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Lompakon nimi';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Tätä toimeksiantoa ei voi enää muuttaa.';
-
-  @override
   String get salControlUnavailable =>
       'Tämä säädin ei ole käytettävissä tässä näkymässä.';
 
   @override
-  String get salSwitchToLimitTitle => 'Vaihdetaanko limiittitoimeksiantoon?';
-
-  @override
-  String get salOpenLeverageTitle => 'Avataanko vipuasetukset?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Tämä muuttaa toimeksiannon tyyppiä. Tarkista hinta ja määrä ennen toimeksiannon tekemistä.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Valitset vivun itse. Tämä avaa säätimet muuttamatta arvoa.';
-
-  @override
   String get salChatWith => 'Keskustele Salin kanssa';
-
-  @override
-  String get salAsk => 'Kysy Salilta';
 
   @override
   String get salUnavailable => 'Sal ei ole nyt käytettävissä.';
@@ -7703,20 +7842,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get salStubLiveUnavailable => 'Ajantasaista tietoa ei ole saatavilla.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Ei osumia haulle ”$query”. Lähetä se kysyäksesi Salilta.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Ei tuloksia haulle ”$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Hae markkinoita kirjoittamalla';
-
-  @override
-  String get searchOrAskSal => 'Hae tai kysy Salilta mitä vain';
 
   @override
   String get searchMarketsHint => 'Hae markkinoita';
@@ -7730,6 +7861,17 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String searchYourPosition(String outcome) {
     return 'Positiosi · $outcome';
+  }
+
+  @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$ticker: vielä $count tapaa käydä kauppaa',
+      one: '$ticker: vielä 1 tapa käydä kauppaa',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -7859,7 +8001,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get tnNetProfit => 'Nettovoitto';
 
   @override
-  String get tnTradingPnl => 'Positioiden V/T';
+  String get tnTradingPnl => 'Positioiden voitot';
 
   @override
   String get tnAllTradingFees => 'Kaikki toimeksiantomaksut';
@@ -7875,7 +8017,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Avaus, osittaiset sulkemiset ja lopullinen sulkeminen';
 
   @override
-  String get tnClosedPnlExchange => 'Suljettu V/T (markkinapaikka)';
+  String get tnClosedPnlExchange => 'Suljetut voitot (markkinapaikka)';
 
   @override
   String get tnFillFee => 'Toteutusmaksu';
@@ -8059,6 +8201,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Ennusteet-lompakko ei ole vielä valmis.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Ennusteisiin ei saada yhteyttä juuri nyt. Mitään ei lähetetty. Tarkista yhteytesi ja yritä uudelleen.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Tämä talletusreitti ei ole tilapäisesti käytettävissä. Yritä myöhemmin uudelleen.';
 
@@ -8118,20 +8264,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveAddFunds => 'Lisää varoja';
 
   @override
-  String get movePickPayOrDollars =>
-      'Valitse, miten haluat maksaa, tai käytä dollarisaldoasi.';
-
-  @override
   String get moveHintAWallet => 'lompakko';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first tai $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list tai $last';
   }
 
   @override
@@ -8250,12 +8387,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get marketCardSoon => 'pian';
-
-  @override
-  String get marketCardEsportsLive => 'E-urheilu live';
-
-  @override
-  String get marketCardLiveStream => 'Suora lähetys';
 
   @override
   String get pmOrdersConnectLedger =>
@@ -8769,6 +8900,14 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlPositionYouPutIn => 'Sijoitit';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x vipu';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Ei vipua';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Arvo nyt $amount';
   }
@@ -8846,6 +8985,70 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get hlChartYouSold => 'Myit tässä';
+
+  @override
+  String hlChartOpenedLong(String size) {
+    return 'Avattu long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Avattu short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Lisätty long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Lisätty short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Pienennetty long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Pienennetty short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Suljettu long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Suljettu short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Käännetty long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Käännetty short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvidoitu $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Avasit longin tässä';
+
+  @override
+  String get hlChartYouWentShort => 'Avasit shortin tässä';
+
+  @override
+  String get hlChartYouClosedHere => 'Suljit tässä';
 
   @override
   String get hlWithdrawalsUnavailable =>
@@ -9598,6 +9801,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polyPillElections => 'Vaalit';
 
   @override
+  String get polyPillArt => 'Taide';
+
+  @override
   String get polySubTargets => 'Tavoitteet';
 
   @override
@@ -9703,6 +9909,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polySportDarts => 'Tikanheitto';
 
   @override
+  String get polySportVolleyball => 'Lentopallo';
+
+  @override
   String get polySportHandball => 'Käsipallo';
 
   @override
@@ -9719,6 +9928,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get polySportChess => 'Shakki';
+
+  @override
+  String get polyDayTomorrow => 'Huomenna';
 
   @override
   String get polyMoreTitle => 'Kaikki kategoriat';
@@ -9762,6 +9974,63 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polyCountNow => 'Nyt';
 
   @override
+  String get polyMapRepublican => 'Republikaanit';
+
+  @override
+  String get polyMapDemocratic => 'Demokraatit';
+
+  @override
+  String get polyMapIndependent => 'Sitoutumattomat';
+
+  @override
+  String get polyMapNotRepublican => 'Ei republikaanit';
+
+  @override
+  String get polyMapNotDemocratic => 'Ei demokraatit';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Republikaanit johtavat $count/$total osavaltiossa';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Demokraatit johtavat $count/$total osavaltiossa';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Kyllä johtaa $count/$total osavaltiossa';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Ei avointa markkinaa';
+
+  @override
+  String get polyMapChanceOfYes => 'Kyllä-todennäköisyys';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Napauta osavaltioita ja rakenna oma karttasi';
+
+  @override
+  String get polyMapMostLikely => 'Todennäköisin kartta';
+
+  @override
+  String get polyMapYourMap => 'Oma karttasi';
+
+  @override
+  String get polyMapNoSuchMap => 'Tälle kartalle ei ole markkinaa';
+
+  @override
+  String get polyMapBackToMostLikely => 'Takaisin todennäköisimpään karttaan';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side kartallasi';
+  }
+
+  @override
   String get polyPillWatchlist => 'Seurantalista';
 
   @override
@@ -9769,6 +10038,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get polyWatchlistRemove => 'Poista seurantalistalta';
+
+  @override
+  String get hlWatchlistCreate => 'Luo seurantalista';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Valitse seuraamasi markkinat. Sijoita avautuu niihin.';
 
   @override
   String get livestreamInMiniPlayer => 'Toistetaan minisoittimessa';
@@ -9858,6 +10134,16 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String polyKickoffTomorrow(String time) {
     return 'Huomenna $time';
+  }
+
+  @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Päättyy tänään klo $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Päättyy huomenna klo $time';
   }
 
   @override
@@ -10387,153 +10673,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlRejectOracle => 'Hinta on liian kaukana markkinahinnasta.';
 
   @override
-  String get salIntroGeneral =>
-      'Tutustu julkisiin markkinoihin ja opi, miten kaikki toimii.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Tutustu kohteeseen $market ja opi, miten se toimii.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Tutustu tähän markkinaan ja opi, miten se toimii.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Opi, miten toimeksiantotyyppi $orderType toimii.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'markkina',
-        'limit': 'limiitti',
-        'scale': 'porrastus',
-        'stopMarket': 'stop-markkina',
-        'stopLimit': 'stop-limiitti',
-        'takeProfitMarket': 'take profit -markkina',
-        'takeProfitLimit': 'take profit -limiitti',
-        'twap': 'TWAP',
-        'other': 'toimeksianto',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Miksi $market liikkuu tänään?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Miksi rahoitus on negatiivinen kohteessa $market?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Miten rahoitus toimii kohteessa $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Miten voin suojata position kohteessa $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Miten likvidaatio toimii kohteessa $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Mikä ohjaa kohteen $market hintaa?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Miten $market vertautuu samankaltaisiin markkinoihin?';
-  }
-
-  @override
-  String get salChipPmOddsMoving =>
-      'Miksi tämän markkinan kertoimet liikkuvat?';
-
-  @override
-  String get salChipPmClosingSoon =>
-      'Mitä tapahtuu, kun tämä markkina sulkeutuu?';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Miten käynnissä oleva ottelu liikuttaa näitä kertoimia?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Mikä voisi liikuttaa tämän markkinan kertoimia?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Mitkä ovat tämän markkinan ratkaisusäännöt?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Mitkä markkinat liittyvät tähän?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Mitä uutta kohteesta $market on kuulunut?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Miten toimeksiantotyyppi $orderType toimii kohteessa $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Miten markkina- ja limiittitoimeksiannot eroavat?';
-
-  @override
-  String get salChipEduLeverage => 'Miten vipu muuttaa likvidaatioriskiä?';
-
-  @override
-  String get salChipEduFunding =>
-      'Mitä rahoitus tarkoittaa perpetuaalisessa sopimuksessa?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Miten ennustemarkkinat toimivat?';
-
-  @override
-  String get salChipWalletReceive => 'Miten vastaanotan bitcoinia Kutessa?';
-
-  @override
-  String get salChipWalletSend => 'Miten lähetän bitcoinia Kutessa?';
-
-  @override
-  String get salChipStocksVsPerps => 'Mitä eroa on osakkeilla ja perpseillä?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Mikä on palautuslauseke?';
-
-  @override
-  String get salChipBackupHow => 'Miten lompakon varmuuskopio toimii?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Miksi palautuslauseke pitää pitää yksityisenä?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Mikä on verkkovahvistus?';
-
-  @override
-  String get salChipNetworkFees => 'Miten Bitcoin-verkon maksut toimivat?';
-
-  @override
-  String get salChipTxPending => 'Miksi tapahtuma voi jäädä odottamaan?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Vähintään $amount';
   }
@@ -10562,55 +10701,149 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get searchOrAskSalShort => 'Hae tai kysy Salilta';
+  String get shareHeaderLabel => 'Lähetä ystävälle';
+
+  @override
+  String get bragPositionAction => 'Esittele tätä positiota';
+
+  @override
+  String get bragPositionActionSub => 'Kortti tuloksestasi';
+
+  @override
+  String get bragPortfolioAction => 'Esittele salkkuasi';
+
+  @override
+  String get bragBarLabel => 'Jaa ja leveile';
+
+  @override
+  String get bragPortfolioBarLabel => 'Jaa salkku';
+
+  @override
+  String get bragPnlBarLabel => 'Jaa voitot';
+
+  @override
+  String get bragMyPnl => 'Omat voitot';
+
+  @override
+  String bragShareText(String title, String link) {
+    return '$title Kutessa $link';
+  }
+
+  @override
+  String get bragMyPortfolio => 'Oma salkku';
+
+  @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count lisää',
+      one: '+$count lisää',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bragCodeLabel => 'Koodi';
+
+  @override
+  String get bragSinceYouBought => 'Ostosta lähtien';
+
+  @override
+  String get bragAboutIt => 'Leveile sillä';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
+
+  @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
+  String get barNeedAmount => 'Enter an amount';
+
+  @override
+  String get barNeedLowerAmount => 'Lower the amount';
+
+  @override
+  String get barNeedRaiseAmount => 'Raise the amount';
+
+  @override
+  String get barNeedRecipient => 'Add who to send to';
+
+  @override
+  String get barNeedNetwork => 'Pick a network';
+
+  @override
+  String get barNeedCoin => 'Pick a coin';
+
+  @override
+  String get barNeedAddress => 'Paste an address';
+
+  @override
+  String get barNeedValidAddress => 'Check the address';
+
+  @override
+  String get barNeedTick => 'Tick the box to continue';
+
+  @override
+  String get barNeedPin => 'Enter your 6-digit PIN';
+
+  @override
+  String get barNeedPinAgain => 'Enter the PIN again';
+
+  @override
+  String get barNeedName => 'Enter a name';
+
+  @override
+  String get barNeedCode => 'Enter a code';
+
+  @override
+  String get barNeedPhrase => 'Enter your 12 words';
+
+  @override
+  String get barNeedPublicKey => 'Paste a public key';
+
+  @override
+  String get barNeedNote => 'Write a note';
+
+  @override
+  String get barNeedFee => 'Pick a fee';
+
+  @override
+  String get barNeedPrice => 'Getting a price…';
+
+  @override
+  String get barNeedOption => 'Pick an option';
+
+  @override
+  String get barNeedWallet => 'Pick a wallet';
+
+  @override
+  String get barNeedCheckAmount => 'Check the amount';
+
+  @override
+  String get barNeedWait => 'One moment…';
+
+  @override
+  String get searchPredictionsOrManageAi =>
+      'Hae ennusteita tai hallitse tekoälyllä';
+
+  @override
+  String get searchInvestmentsOrManageAi =>
+      'Hae sijoituksia tai hallitse tekoälyllä';
+
+  @override
+  String get searchOrManageAi => 'Hae tai hallitse tekoälyllä';
+
+  @override
+  String get connectOwnAiTitle => 'Yhdistä oma tekoälysi';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Anna Clauden, ChatGPT:n tai Grokin hallita lompakkoasi';
 
   @override
   String get financialHubAndSettings => 'Raha-asiat ja asetukset';
-
-  @override
-  String get analyticsInOutTab => 'Sisään ja ulos';
-
-  @override
-  String get inOutMonth => 'Kuukausi';
-
-  @override
-  String get inOutYear => 'Vuosi';
-
-  @override
-  String get inOutIn => 'Sisään';
-
-  @override
-  String get inOutOut => 'Ulos';
-
-  @override
-  String get inOutWhereItWent => 'Minne meni';
-
-  @override
-  String get inOutWhereItCameFrom => 'Mistä tuli';
-
-  @override
-  String get inOutSentToPeople => 'Lähetetty muille';
-
-  @override
-  String get inOutIntoInvestments => 'Investmentsiin';
-
-  @override
-  String get inOutIntoDollars => 'Dollareihin';
-
-  @override
-  String get inOutFromPeople => 'Muilta';
-
-  @override
-  String get inOutFromInvestments => 'Investmentsistä';
-
-  @override
-  String get inOutFromDollars => 'Dollareista';
-
-  @override
-  String get inOutBought => 'Ostettu';
-
-  @override
-  String get inOutEmpty => 'Ei rahaa sisään eikä ulos';
 
   @override
   String get portfolioStatsActive => 'Aktiiviset';
@@ -10622,7 +10855,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioStatAtStake => 'Panoksena oleva summa';
 
   @override
-  String get portfolioProfitLoss => 'Voitto ja tappio';
+  String get portfolioProfitLoss => 'Voitot';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10881,19 +11114,11 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get depositFromAnotherWallet => 'Toinen lompakko tai pörssi';
-
-  @override
   String get depositFromAnotherWalletSubtitle =>
       'Hae osoite, johon lähettää dollareita';
 
   @override
-  String get portfolioStatOpenPnl => 'Avoin voitto / tappio';
-
-  @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Valmistele $amount ennuste';
-  }
+  String get portfolioStatOpenPnl => 'Avoimet voitot';
 
   @override
   String multiMoveSendTitle(String amount) {
@@ -10920,7 +11145,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return '$amount on kohteessa $balance. Osta Bitcoinia napauttamalla';
+    return '$amount on kohteessa $balance. Siirrä se Bitcoiniin napauttamalla';
   }
 
   @override
@@ -10936,6 +11161,19 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Toisesta lompakosta tai pörssistä';
+
+  @override
+  String get receiveAnotherCrypto => 'Muu krypto';
+
+  @override
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins ja muita';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first ja $second';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Lompakkoosi';
@@ -11008,16 +11246,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Asetetaan $amount vaihtoehdolle $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Avataan $amount $market -toimeksianto';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Lisätään $amount marginaalia kohteeseen $coin';
   }
@@ -11026,9 +11254,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return '$amount on tililläsi Investments. Napauta lisätäksesi marginaalia.';
   }
-
-  @override
-  String get salWhyMoving => 'Miksi se liikkuu?';
 
   @override
   String get positionProtectIt => 'Suojaa se';
@@ -11159,12 +11384,12 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Ostetaan Bitcoinia $amount arvosta';
+    return 'Siirretään $amount Bitcoiniin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Ostettu Bitcoinia $amount arvosta';
+    return 'Siirretty $amount Bitcoiniin';
   }
 
   @override
@@ -11215,10 +11440,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Siirtääksesi sen ota yhteyttä tukeen.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L-kaaviot';
+  String get portfolioSectionPnlCharts => 'Voitot';
 
   @override
-  String get portfolioSectionBalances => 'Salkku';
+  String get portfolioSectionBalances => 'Positiot';
 
   @override
   String balanceChangePastWeek(String change) {
@@ -11288,8 +11513,34 @@ class AppLocalizationsFi extends AppLocalizations {
       'Saldosi kehitys näkyy tässä, kun sinulla on dollareita';
 
   @override
+  String get chartPeriodPastWeek => 'Viime viikko';
+
+  @override
+  String get chartPeriodPastMonth => 'Viime kuukausi';
+
+  @override
+  String get chartPeriodPast3Months => 'Viimeiset 3 kuukautta';
+
+  @override
+  String get chartPeriodPastYear => 'Viime vuosi';
+
+  @override
+  String get chartPeriodAllTime => 'Koko ajalta';
+
+  @override
+  String get chartNoChange => 'Ei muutosta';
+
+  @override
+  String get pnlChartNoHistory =>
+      'Voittosi näkyvät ensimmäisen position jälkeen.';
+
+  @override
+  String get balanceChartNoHistory =>
+      'Saldohistoriasi alkaa ensimmäisestä tapahtumastasi.';
+
+  @override
   String get pnlChartEmpty =>
-      'Voittosi ja tappiosi näkyvät tässä, kun käyt kauppaa tai ennustat';
+      'Voittosi näkyvät tässä, kun käyt kauppaa tai ennustat';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11317,4 +11568,2927 @@ class AppLocalizationsFi extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'avaus $price';
   }
+
+  @override
+  String get activityOnItsWay => 'Matkalla';
+
+  @override
+  String get investingTradfi => 'Perinteiset';
+
+  @override
+  String get purchaseShort => 'Osta';
+
+  @override
+  String get categoryGroupDiscover => 'Löydä';
+
+  @override
+  String get categoryGroupMarkets => 'Markkinat';
+
+  @override
+  String get categoryGroupTopics => 'Aiheet';
+
+  @override
+  String get categoryGroupTrendingNow => 'Nyt pinnalla';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count markkinaa',
+      one: '1 markkina',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Aktiivisimmat';
+
+  @override
+  String get categoryStatToday => 'tänään';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return '$amount vol. tänään';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'Kaikki: $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'Liikkeessä nyt';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Suositut ennusteet';
+
+  @override
+  String get barPickMarketGroup => 'Valitse markkinaryhmä';
+
+  @override
+  String get barPickMarketGroupSub => 'tai pyydä Salia etsimään sellainen';
+
+  @override
+  String get barShareWithFriends => 'Lähetä ystävälle';
+
+  @override
+  String get barShareMarketSub => 'Lähetä markkina tai ennuste';
+
+  @override
+  String get barSharePositionSub => 'Lähetä markkina tai positiosi';
+
+  @override
+  String get shareTheMarket => 'Lähetä markkina';
+
+  @override
+  String get shareTheMarketSub => 'He saavat linkin, josta katsoa sitä';
+
+  @override
+  String get shareThisPosition => 'Lähetä tämä positio';
+
+  @override
+  String get shareThisPositionSub => 'Markkina ja miten sinulla menee';
+
+  @override
+  String get sendThisPrediction => 'Lähetä tämä ennuste';
+
+  @override
+  String get sendThisInvestment => 'Lähetä tämä sijoitus';
+
+  @override
+  String get sendThisPickSub => 'Valintasi saapuu valmiina tehtäväksi';
+
+  @override
+  String sharePickOn(String outcome, String title) {
+    return '$title: $outcome';
+  }
+
+  @override
+  String get portfolioInvestedLabel => 'Sijoitettu';
+
+  @override
+  String get portfolioAvailableLabel => 'Käytettävissä';
+
+  @override
+  String get balanceNoHistoryTitle => 'Ei vielä saldohistoriaa';
+
+  @override
+  String get balanceNoHistorySub => 'Se alkaa ensimmäisestä tapahtumastasi.';
+
+  @override
+  String balanceGoalLevel(int level) {
+    return 'Taso $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Kute Nokoset';
+
+  @override
+  String get balanceLevelName1 => 'Kute Kolikko';
+
+  @override
+  String get balanceLevelName2 => 'Kute Pino';
+
+  @override
+  String get balanceLevelName3 => 'Kute Koroke';
+
+  @override
+  String get balanceLevelName4 => 'Kute Salkku';
+
+  @override
+  String get balanceLevelName5 => 'Kute Holvi';
+
+  @override
+  String get balanceLevelName6 => 'Kute Torni';
+
+  @override
+  String get balanceLevelName7 => 'Kute Harkot';
+
+  @override
+  String get balanceLevelName8 => 'Kute Kasa';
+
+  @override
+  String get balanceLevelName9 => 'Kute Kruunu';
+
+  @override
+  String get balanceLevelName10 => 'Kute Legenda';
+
+  @override
+  String get balanceLevelName11 => 'Kuten kaavioiden ulkopuolella';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent % tavoitteesta $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Tavoitteet';
+
+  @override
+  String get balanceGoalsTab => 'Tavoitteet';
+
+  @override
+  String get balanceLadderTitle => 'Tasot';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Alkaen $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Alle $amount';
+  }
+
+  @override
+  String get balanceGoalNext => 'Seuraava tavoite';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return '$amount jäljellä';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Seuraava: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Siirrä $amount dollareihin';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Siirrä dollareihin';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Ohitit $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin ja dollarit yhteensä. Sal esittää, ettei tämä ole mitään.';
+
+  @override
+  String get pnlNoHistoryTitle => 'Ei vielä voittoja';
+
+  @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get portfolioPnlAllVenues => 'Kaikki';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positiota ei ole kaaviossa (historiaa ei saatavilla)',
+      one: '1 positio ei ole kaaviossa (historiaa ei saatavilla)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioHeroUp(String amount) {
+    return 'Nousu $amount';
+  }
+
+  @override
+  String portfolioHeroDown(String amount) {
+    return 'Lasku $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Olet $amount plussalla';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Olet $amount miinuksella';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Suljetuista positioista';
+
+  @override
+  String get portfolioPnlOnOpen => 'Avoimissa positioissa';
+
+  @override
+  String get portfolioPnlByProduct => 'Tuotteittain';
+
+  @override
+  String get portfolioClosedPositions => 'Suljetut positiot';
+
+  @override
+  String get portfolioBrowseInvesting => 'Selaa sijoituskohteita';
+
+  @override
+  String get activityFilterTrades => 'Kaupat';
+
+  @override
+  String get activityFilterPayouts => 'Voitonmaksut';
+
+  @override
+  String get activityFilterTransfers => 'Siirrot';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Suljettu · $coin long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Suljettu · $coin short';
+  }
+
+  @override
+  String get pnlStatRealisedAllTime => 'All time realised';
+
+  @override
+  String get pnlStatUnrealisedAllTime => 'All time unrealised';
+
+  @override
+  String portfolioInvestedInVenue(String venue) {
+    return 'Invested in $venue';
+  }
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
+  String get portfolioAllTime => 'Koko ajalta';
+
+  @override
+  String get barWhatIsThis => 'Mikä tämä on?';
+
+  @override
+  String get barReceiveExplainSub =>
+      'Sal kertoo, miten vastaanottaminen toimii';
+
+  @override
+  String get barReceiveQuestion =>
+      'Selitä tämä vastaanottonäkymä: QR-koodi, Lightning-osoite, Yhdistetty vs Vain Bitcoin vs Vain Lightning, ja mitä ”Hyväksyy myös” tarkoittaa';
+
+  @override
+  String get barScannerLabel => 'Mitä voin skannata?';
+
+  @override
+  String get barScannerQuestion =>
+      'Mitä voin skannata Kuten skannerilla: osoitteita, laskuja, QR-koodeja, ja mitä skannauksen jälkeen tapahtuu?';
+
+  @override
+  String get barBackupLabel => 'Miksi varmuuskopioida?';
+
+  @override
+  String get barBackupQuestion =>
+      'Miksi minun pitäisi varmuuskopioida lompakkoni, mikä palautuslauseke on ja miten säilytän sen turvassa?';
+
+  @override
+  String get barReceiptLabel => 'Mitä tässä tapahtui?';
+
+  @override
+  String get barReceiptQuestion =>
+      'Selitä tämä tapahtumakuitti: mitä siirtyi, kulut, tila ja mitä kukin rivi tarkoittaa';
+
+  @override
+  String get barAskSalSub => 'Kysy Salilta tästä näkymästä';
+
+  @override
+  String get barMoveMoney => 'Siirrä rahaa';
+
+  @override
+  String get barMoveMoneySub => 'kysy Salilta, minne sen pitäisi mennä';
+
+  @override
+  String get barAskWhatNext => 'Kysy Salilta, mitä seuraavaksi tapahtuu';
+
+  @override
+  String get barAskAboutKute => 'Kysy Salilta Kutesta';
+
+  @override
+  String get searchHomeRecent => 'Viimeisimmät';
+
+  @override
+  String get searchHomeClear => 'Tyhjennä';
+
+  @override
+  String get searchScopeTitle => 'Hakukohde';
+
+  @override
+  String get searchShowMore => 'Näytä lisää';
+
+  @override
+  String get shareSendToAnyone => 'Lähetä kenelle tahansa';
+
+  @override
+  String get shareSendToAnyoneSubtitle => 'Linkki, joka lunastetaan Kutella';
+
+  @override
+  String get shareWhoIsItFor => 'Kenelle se on?';
+
+  @override
+  String get shareFirstNameHint => 'Etunimi (valinnainen)';
+
+  @override
+  String get shareCreateLink => 'Luo linkki';
+
+  @override
+  String get shareCreatingLink => 'Luodaan linkkiä';
+
+  @override
+  String get shareCreateFailed => 'Linkkiä ei voitu luoda. Yritä uudelleen.';
+
+  @override
+  String shareAmountInBitcoin(String amount) {
+    return '$amount Bitcoinina';
+  }
+
+  @override
+  String shareMessageNamed(String name, String amount, String url) {
+    return '$name, lähetin sinulle $amount Kutella. Lunasta se täältä: $url';
+  }
+
+  @override
+  String shareMessageUnnamed(String amount, String url) {
+    return 'Lähetin sinulle $amount Kutella. Lunasta se täältä: $url';
+  }
+
+  @override
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, lähetin sinulle ennusteen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
+  }
+
+  @override
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Lähetin sinulle ennusteen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
+  }
+
+  @override
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, lähetin sinulle sijoituksen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
+  }
+
+  @override
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Lähetin sinulle sijoituksen Kutessa: $title: $outcome, $amount. Lunasta se: $url';
+  }
+
+  @override
+  String shareLinkSentWaiting(String name) {
+    return 'Linkki lähetetty · odottaa, että $name lunastaa';
+  }
+
+  @override
+  String get shareLinkSentWaitingUnnamed =>
+      'Linkki lähetetty · odottaa lunastusta';
+
+  @override
+  String get shareLinkClaimedReady => 'Lunastettu · valmis lähetettäväksi';
+
+  @override
+  String get shareLinkPaid => 'Lähetetty';
+
+  @override
+  String get shareLinkCancelled => 'Peruttu';
+
+  @override
+  String get shareLinkExpired => 'Vanhentunut';
+
+  @override
+  String get shareLinkCancel => 'Peru linkki';
+
+  @override
+  String get shareLinkCancelFailed =>
+      'Linkkiä ei voitu perua. Yritä uudelleen.';
+
+  @override
+  String get shareLinkShareAgain => 'Jaa uudelleen';
+
+  @override
+  String get sharePendingLinksTitle => 'Lähettämäsi linkit';
+
+  @override
+  String shareClaimedPromptTitle(String name, String amount) {
+    return '$name lunasti $amount';
+  }
+
+  @override
+  String shareClaimedPromptTitleUnnamed(String amount) {
+    return '$amount on lunastettu';
+  }
+
+  @override
+  String get shareClaimedPromptBody =>
+      'Lähetä nyt viimeistelläksesi. Varat lähtevät lompakostasi vasta, kun vahvistat.';
+
+  @override
+  String get shareSendNow => 'Lähetä nyt';
+
+  @override
+  String get shareLater => 'Myöhemmin';
+
+  @override
+  String get shareSendFailed =>
+      'Lähetys epäonnistui. Kute kysyy uudelleen, kun se avataan seuraavan kerran.';
+
+  @override
+  String claimTitle(String sender, String amount) {
+    return '$sender lähetti sinulle $amount';
+  }
+
+  @override
+  String get claimSomeone => 'Joku';
+
+  @override
+  String claimMarketLine(String market) {
+    return 'ennusteeseen: $market';
+  }
+
+  @override
+  String get claimButton => 'Lunasta';
+
+  @override
+  String get claimClaiming => 'Lunastetaan';
+
+  @override
+  String get claimOnItsWay => 'Matkalla';
+
+  @override
+  String claimArrivesWhenOpens(String sender) {
+    return 'Se saapuu, kun $sender avaa Kuten.';
+  }
+
+  @override
+  String claimSentPrediction(String sender) {
+    return '$sender lähetti sinulle ennusteen';
+  }
+
+  @override
+  String claimSentInvestment(String sender) {
+    return '$sender lähetti sinulle sijoituksen';
+  }
+
+  @override
+  String claimPickAmount(String outcome, String amount) {
+    return '$outcome · $amount';
+  }
+
+  @override
+  String claimWaitingForSender(String sender) {
+    return 'Odotetaan, että $sender lähettää sen';
+  }
+
+  @override
+  String claimArrivedInDollars(String amount) {
+    return '$amount on nyt Dollareissasi';
+  }
+
+  @override
+  String get claimPlacePrediction => 'Tee ennuste';
+
+  @override
+  String get claimPlaceInvestment => 'Tee sijoitus';
+
+  @override
+  String get claimOpenMarket => 'Avaa markkina';
+
+  @override
+  String get claimAlreadyClaimed => 'Tämä linkki on jo lunastettu.';
+
+  @override
+  String get claimExpired => 'Tämä linkki on vanhentunut.';
+
+  @override
+  String get claimUnavailable => 'Tämä linkki ei ole käytettävissä.';
+
+  @override
+  String get claimFailed => 'Lunastus epäonnistui. Yritä uudelleen.';
+
+  @override
+  String get claimNeedsWallet =>
+      'Lompakkoasi valmistellaan vielä. Yritä hetken päästä uudelleen.';
+
+  @override
+  String get shareMarketShareLink => 'Lähetä linkki';
+
+  @override
+  String shareMarketLookAt(String title, String link) {
+    return 'Katso tämä Kutessa: $title $link';
+  }
+
+  @override
+  String shareMarketChance(String chance) {
+    return '$chance %:n todennäköisyys';
+  }
+
+  @override
+  String get sendRecipientSearchHint => 'Nimi, puhelin tai kryptoosoite';
+
+  @override
+  String get sendMoveToYourDollars => 'Siirrä Dollareihisi';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Siirrä Bitcoiniisi';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Vastaanottaja: $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Mitä lähetät?';
+
+  @override
+  String get sendWhatGift => 'Ennuste tai sijoitus';
+
+  @override
+  String get sendDollarsTitle => 'Lähetä dollareita';
+
+  @override
+  String sendCoinTitle(String coin) {
+    return 'Lähetä $coin';
+  }
+
+  @override
+  String get sendContacts => 'Yhteystiedot';
+
+  @override
+  String get sendToAFriend => 'Lähetä ystävälle';
+
+  @override
+  String get sendToAFriendSub => 'Lunastus Kutella, lompakkoa ei tarvita';
+
+  @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
+  String get sendSomeoneElse => 'Joku muu';
+
+  @override
+  String get sendAllowContactsInSettings => 'Salli yhteystiedot asetuksissa';
+
+  @override
+  String get sendAllowContactsInSettingsSub =>
+      'Kute voi näyttää vain sallimasi yhteystiedot';
+
+  @override
+  String get sendNoContactsMatch => 'Ei osuvia yhteystietoja';
+
+  @override
+  String get sendContactsSearchHint => 'Hae yhteystietoja';
+
+  @override
+  String get sendContactsSeeYours => 'See your contacts';
+
+  @override
+  String get sendContactsSeeYoursSub => 'Send to friends from your phone book';
+
+  @override
+  String sendLinkToPhone(String phone) {
+    return 'Send a link to $phone';
+  }
+
+  @override
+  String get sendBadgeKute => 'On Kute';
+
+  @override
+  String get sendBadgeLightning => 'Lightning address';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Bitcoinistasi';
+
+  @override
+  String get receiveFromYourDollars => 'Dollareistasi';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dollareissa';
+  }
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin ja Lightning';
+
+  @override
+  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+
+  @override
+  String get sendRailLightning => 'Lightning';
+
+  @override
+  String get sendRailSpark => 'Spark';
+
+  @override
+  String usdSendNotNetworkAddress(String network) {
+    return 'Ei $network-osoite';
+  }
+
+  @override
+  String usdSendResolvedRail(String network, String asset) {
+    return '$network · $asset';
+  }
+
+  @override
+  String get sendPickMarket => 'Lähetä ennuste tai sijoitus';
+
+  @override
+  String get sendPickMarketSub => 'Hae markkina ja valitse sitten puoli';
+
+  @override
+  String get sendPickMarketSearchHint => 'Hae ennusteista ja sijoituksista';
+
+  @override
+  String get sendPickMarketNoResults => 'Ei osumia';
+
+  @override
+  String get sendPickSideSub => 'Valitse puoli, jonka he saavat';
+
+  @override
+  String get shareSendAgainWhatsApp => 'Lähetä uudelleen WhatsAppilla';
+
+  @override
+  String get shareSendAgainSms => 'Lähetä uudelleen tekstiviestillä';
+
+  @override
+  String get sendToLabel => 'Vastaanottaja';
+
+  @override
+  String get predictionsChance => 'todennäköisyys';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get buyDollarsAction => 'Osta dollareita';
+
+  @override
+  String get passkeyPrfUnsupportedTitle =>
+      'This password manager can\'t hold your Kute wallet';
+
+  @override
+  String get passkeyPrfUnsupportedBody =>
+      'It doesn\'t support the key Kute needs, so nothing was created.';
+
+  @override
+  String get passkeyPrfUseApplePasswords => 'Use Apple Passwords';
+
+  @override
+  String get passkeyPrfUseGooglePasswordManager =>
+      'Use Google Password Manager';
+
+  @override
+  String get passkeyPrfPickApplePasswords => 'Pick Passwords when asked';
+
+  @override
+  String get passkeyPrfPickGooglePasswordManager =>
+      'Pick Google Password Manager when asked';
+
+  @override
+  String get passkeyPrfUsePhraseInstead => 'Use a recovery phrase instead';
+
+  @override
+  String get passkeyPrfTryAgain => 'Try again';
+
+  @override
+  String get passkeyPrfSignInTitle =>
+      'This password manager didn\'t return your Kute key';
+
+  @override
+  String get passkeyPrfSignInBody =>
+      'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.';
+
+  @override
+  String get passkeyPrfRestoreBody =>
+      'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.';
+
+  @override
+  String get passkeyPrfRestoreWithPhrase => 'Restore with your recovery phrase';
+
+  @override
+  String get passkeyChoiceWorksWithApple => 'Works with Apple Passwords';
+
+  @override
+  String get passkeyChoiceWorksWithGoogle =>
+      'Works with Google Password Manager';
+
+  @override
+  String get sendRecipientSendingTo => 'Sending to';
+
+  @override
+  String get sendRecipientChange => 'Change';
+
+  @override
+  String get sendOtherContacts => 'Other contacts';
+
+  @override
+  String get chartSheetTitle => 'Kaavio';
+
+  @override
+  String get chartIndEmaNote => 'Lyhyen aikavälin trendi, kääntyy nopeasti';
+
+  @override
+  String get chartIndBb => 'Bollinger-nauhat';
+
+  @override
+  String get chartIndBbNote => 'Kuinka paljon hinta yleensä heiluu';
+
+  @override
+  String get chartIndRsiNote => 'Onko osto tai myynti ylivenytetty';
+
+  @override
+  String get chartIndMacdNote => 'Momentum kääntyy ylös tai alas';
+
+  @override
+  String get chartIndVwapNote =>
+      'Keskimääräinen maksettu hinta volyymilla painotettuna';
+
+  @override
+  String get chartIndVolumeNote =>
+      'Kuinka paljon kullakin jaksolla vaihdettiin';
+
+  @override
+  String get chartReset => 'Palauta';
+
+  @override
+  String chartPaneLimit(String name) {
+    return '$name pois päältä: kaavion alle mahtuu kaksi';
+  }
+
+  @override
+  String get chartToolCursor => 'Osoitin';
+
+  @override
+  String get chartToolHorizontalLine => 'Vaakaviiva';
+
+  @override
+  String get chartToolPriceLine => 'Hintaviiva';
+
+  @override
+  String get chartPriceLines => 'Hintaviivat';
+
+  @override
+  String get chartPriceLineNew => 'Uusi viiva';
+
+  @override
+  String get chartPriceLineNewNote => 'Tarkistetaan vain, kun Kute on auki';
+
+  @override
+  String get chartPriceLineAbove => 'Hinnan yläpuolella';
+
+  @override
+  String get chartPriceLineBelow => 'Hinnan alapuolella';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Saavutettu $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin saavutti hinnan $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Sinulla on $count hintaviivaa. Poista yksi, jotta voit lisätä uuden.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Se on nykyinen hinta. Valitse taso sen ylä- tai alapuolelta.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Se on liian kaukana hinnasta. Valitse lähempi taso.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Poistetaanko tämä hintaviiva?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin hintaan $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Poista';
+
+  @override
+  String get chartMoreTools => 'Lisää';
+
+  @override
+  String get chartColor => 'Väri';
+
+  @override
+  String get chartBlueColor => 'Sininen';
+
+  @override
+  String get chartLineSolid => 'Yhtenäinen viiva';
+
+  @override
+  String get chartLineDashed => 'Katkoviiva';
+
+  @override
+  String get chartExtendLine => 'Jatka oikealle';
+
+  @override
+  String get chartLock => 'Lukitse';
+
+  @override
+  String get chartUnlock => 'Avaa lukitus';
+
+  @override
+  String get chartDuplicate => 'Monista';
+
+  @override
+  String chartHintTapFirstPoint(String tool) {
+    return 'Napauta ensimmäistä pistettä: $tool';
+  }
+
+  @override
+  String get chartHintTapSecondPoint => 'Napauta nyt toista pistettä.';
+
+  @override
+  String chartHintToolKept(String tool) {
+    return '$tool pysyy valittuna. Lopeta napauttamalla sitä.';
+  }
+
+  @override
+  String get chartHintLocked => 'Lukittu. Avaa lukitus siirtääksesi.';
+
+  @override
+  String get chartHintPickToolKeep =>
+      'Valitse työkalu. Kaksoisnapauta pitääksesi sen valittuna.';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String receiptCardOnSide(String side) {
+    return 'Valintani: $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Todennäköisyys, kun tulin mukaan';
+
+  @override
+  String get receiptCardCashedOut => 'Kotiutettu';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Myyty hintaan $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Ei tällä kertaa';
+
+  @override
+  String get receiptCardPaidOut => 'Maksettu';
+
+  @override
+  String get receiptCardMoved => 'Siirretty';
+
+  @override
+  String get receiptEdgeNoBank => 'Yksikään pankki ei vahingoittunut.';
+
+  @override
+  String get receiptEdgeSentNext => 'Lähetetty. Seuraava.';
+
+  @override
+  String get receiptEdgeLanded => 'Perillä. Ei lomakkeita.';
+
+  @override
+  String get receiptEdgeIncoming => 'Tulossa. Kärsivällisyys on ominaisuus.';
+
+  @override
+  String get receiptEdgeMoved => 'Samat rahat. Parempi paikka.';
+
+  @override
+  String get receiptEdgeStacked => 'Vähän lisää kasaan.';
+
+  @override
+  String get receiptEdgeTookSome => 'Otin vähän pöydältä.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Lukittu. Nyt odotetaan.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Minun ennusteeni. Virallisesti.';
+
+  @override
+  String get receiptEdgeTookWin => 'Otin voiton ja lähdin.';
+
+  @override
+  String get receiptEdgeCutIt => 'Katkaisin. Eteenpäin.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Sisään ja ulos.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Tänään väärin. Huomenna uudestaan.';
+
+  @override
+  String get receiptEdgeLesson => 'Oppirahat maksettu täysin.';
+
+  @override
+  String get receiptEdgeCollected => 'Ennustin. Kotiutin.';
+
+  @override
+  String get receiptEdgeOpened => 'Mukana. Nyt on markkinan vuoro.';
+
+  @override
+  String get receiptResult => 'Result';
+
+  @override
+  String get categoryFilterPrompt => 'Filter';
+
+  @override
+  String activityPaidFrom(String source) {
+    return 'Paid from $source';
+  }
+
+  @override
+  String activityPaidFromBoth(String first, String second) {
+    return 'Paid from $first and $second';
+  }
+
+  @override
+  String predictNextWindow(String time) {
+    return 'Seuraava · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset ylös vai alas · $start–$end';
+  }
+
+  @override
+  String predictUpOrDownCompact(String asset, int minutes) {
+    return '$asset up or down · ${minutes}m';
+  }
+
+  @override
+  String get sendFrequent => 'Frequent';
+
+  @override
+  String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'Korttisi on valmis';
+
+  @override
+  String shareCardToday(String change) {
+    return '$change tänään';
+  }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, sinulle';
+  }
+
+  @override
+  String get shareCardForYou => 'Sinulle';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, vinkki sinulle';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Vinkki sinulle';
+
+  @override
+  String get shareCardInvestmentForYou => 'Sijoitus sinulle';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, sijoitus sinulle';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return '$outcome voittaa';
+  }
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'bitcoinina · $amount';
+  }
+
+  @override
+  String get shareCardClaimOnKute => 'Lunasta Kutessa';
+
+  @override
+  String get shareEdgeStockEarly => 'Jotkut ostavat ennen otsikoita.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Nousua $change. Ole hyvä.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Mitäs minä sanoin.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Alennus, ei katastrofi.';
+
+  @override
+  String get shareEdgeStockPanic => 'Ostan, kun sinä panikoit.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance sanoo, että olen etuajassa, en väärässä.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '$chance joukosta on väärässä.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Valitse toinen puoli. Uskallatko.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'Mielipidemittaukset ovat mielipiteitä. Tämä on rahaa.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome tai ei mitään.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Käytä viisaasti. Tai älä.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Pidä tätä flexinä.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Ilmaista bitcoinia. Harvinainen näky.';
+
+  @override
+  String get shareEdgeBragPattern => 'Ei tuuria. Kuvioiden tunnistusta.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount sillä aikaa kun skrollasit.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading =>
+      'Pahasti miinuksella, silti kaupoilla.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Luonteenkasvatusta, $amount kerrallaan.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Kärsivällisyys on positio.';
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcome: todennäköisyys';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount: $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Oma positio';
+
+  @override
+  String get shareCardOutcomeYes => 'Kyllä';
+
+  @override
+  String get shareCardOutcomeNo => 'Ei';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, nousua tänään $change';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, laskua tänään $change';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: implisiittinen hinta $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price tynnyriltä';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price unssilta';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return '$outcome: markkinoiden mukaan $chance todennäköisyys';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Markkinoiden mukaan $chance todennäköisyys';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Suosikki: $outcome ($chance) vs $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Suosikki: $outcome ($chance)';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: voiton todennäköisyys $chance';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance todennäköisyys, että se tapahtuu';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$outcome: todennäköisyys $chance';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance todennäköisyys, että se tapahtuu';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$outcome: todennäköisyys $chance';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance sanoo kyllä';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance sanoo ei';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: todennäköisyys $chance';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, ystävä lähetti sinulle';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Ystävä lähetti sinulle';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, ystävä lähetti sinulle vinkin';
+  }
+
+  @override
+  String get claimCardPick => 'Ystävä lähetti sinulle vinkin';
+
+  @override
+  String get claimCardTapClaim => 'Se on sinun. Napauta Lunasta.';
+
+  @override
+  String get bragWonCaps => 'Sanoinhan';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Voitto hinnasta $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Maksoin $paid · Sain $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Leveile tällä voitolla';
+
+  @override
+  String get bragEdgeWonReceipts => 'Ratkaistu. Kuitit liitteenä.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Sisään hintaan $entry. Vanheni hyvin.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount siitä, että olin oikeassa.';
+  }
+
+  @override
+  String get challengeToggle => 'Haasta';
+
+  @override
+  String get challengeToggleSub => 'Haasta valitsemaan toinen puoli';
+
+  @override
+  String get challengeCaps => 'Haastan sinut';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, haastan sinut';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Ystävä haastaa sinut';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, haaste sinulle';
+  }
+
+  @override
+  String get challengeMySide => 'Minun puoleni';
+
+  @override
+  String get challengeFriendSide => 'Ystävän puoli';
+
+  @override
+  String get challengeYourSide => 'Sinun puolesi?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount pelattavaksi, minä tarjoan';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Valitsin $side. Väärin? Valitse toinen puoli.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Sanon $side. Uskallatko vastaan?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Todista, että olen väärässä.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Valintani on $side. Sinun vuorosi.';
+  }
+
+  @override
+  String get shareEdgeMoneyNoStrings => 'Ei ehtoja. Tarkistin.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Rahaa, mutta tekstiviestinä.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Nopeampi kuin pankki. Matala rima.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Ei lomakkeita. Ei jutustelua.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Yllätys. Käyttäydy normaalisti.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Ole hyvä. Etukäteen.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, ei kysymyksiä.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Lahja. Ei laina. Luultavasti.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Älä tuhlaa kaikkea kerralla.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Älä totu tähän.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Rakkaudella. Ja pienellä egolla.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Pankilta ei kysytty.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience =>
+      'Bitcoin. Käsittele kärsivällisesti.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Kasaa vastuullisesti.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Luento ei sisälly.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Pieniä satseja. Suuri vastuu.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digidollarit. Samat dollarit.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Käteistä, ilman kirjekuorta.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dollareita. Ei lentokentän kurssia.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Valintani. Ota kuvakaappaus.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Arkistoon: minä sanoin ensin.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Lopullinen vastaus.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Ei neuvo. Vain vahva mielipide.';
+
+  @override
+  String get shareEdgePickDidReading => 'Tein kotiläksyt. Melkein.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Tämä talteen. Mitäs minä sanoin.';
+
+  @override
+  String get shareEdgePickConviction => 'Vakaumus pukee minua.';
+
+  @override
+  String get shareEdgePickNotFree => 'Mielipiteet ovat ilmaisia. Tämä ei.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount sanoo: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Vähän draamaa. Paljon vakaumusta.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Jos tämä osuu, olen sietämätön.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Valitsin suosikin. Mullistavaa.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance samaa mieltä. Fiksua porukkaa.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Varma valinta. Silti valinta.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Menin lukujen mukaan. Järkyttävää.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Altavastaaja. Tarkoituksella.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Vain $chance näkee sen. Sopii minulle.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Kaukolaukaus. Lyhyt selitys.';
+
+  @override
+  String get shareEdgePickContrarian => 'Vastarannan kiiski, ei sekaisin.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Väittelyt ovat melua. Luvut eivät.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Tänään kaikki ovat valmentajia.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatiliteetti kuuluu hintaan.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Lue pöytäkirjat. Kaikki.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Valitse puoli. Tai seuraa sivusta.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Mielipide on ilmainen. Tässä on luvut.';
+
+  @override
+  String get shareEdgeMarketUntilResolves =>
+      'Jokainen on ekspertti. Tulokseen asti.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Ryhmächat, tässä luvut.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Kuumat näkemykset? Luvut liitteenä.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Ei neuvo. Vain markkina.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Luvut liikkuvat. Kysymys ei.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Sinun valintasi. Ei paineita.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Keskustelkaa. Rauhallisesti.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Mihin sinä päädyt?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance sanoo: $side. Keskustelkaa.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Kyllä vai ei. Vaikeampaa kuin luulisi.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Yksi kysymys. Kaksi vastausta.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance ei ole tae.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings =>
+      'Helppo kysymys. Monimutkaiset tunteet.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Todennäköinen ei ole varma.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader johtaa. Kisa on yhä auki.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance ei ole kruunajaiset.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Käyrä: $leader. Historia: odota hetki.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Tänään kärjessä. Kysy huomenna.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Paljon ehdokkaita. Yksi vastaus.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader: $chance. Pysy kuulolla.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Johto ei ole voitto.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Suosikki, ei varma nakki.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Altavastaajat voittavat. Suosikit myös.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Peli ratkaisee. Eivät kommentit.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Luvut eivät pelaa ottelua.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Puhetta nyt. Tulostaulu myöhemmin.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Anna tulla.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Valintani: $side. Olet varoitettu.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Puhe on halpaa. Valitse puoli.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Pelottaako? Ymmärrettävää.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Ellet tiedä paremmin.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return '$side. Sinun vuorosi olla väärässä.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, enkä pyydä anteeksi.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return '$side minulle. Toinen puoli sinulle.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Vakuuta minut muusta.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Nähdään, kun se ratkeaa.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Valitsin $side. Tuo todisteet.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Ei neuvo. Vain käyrä.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Käyrä ei välitä tunteista.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Olet ehkä kuullut siitä.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Vihreä päivä. Käyttäydy normaalisti.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Rauhoitu. Se on vain $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'En sano, että tiesin. Mutta tiesin.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Tänään nousua. Huomisesta en vastaa.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name. Vihreä pukee.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Käyrä nousee. Ego pysyy.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Älä taputa. Katso vain.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Kaksinumeroinen. Sallittakoon.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Ylös $change. Shorttaajat, kaikki ok?';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Punainen päivä. Tyyni kuin aina.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Laskua $change. Katso isoa kuvaa.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Laskuja sattuu. Paniikki on valinnaista.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Laskua $change. Hahmon kasvua.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Notkahdus, ei juonenkäänne.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Tänään alas. Yhä täällä.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatiliteetti toimii kuten pitää.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Jokaisella käyrällä on huono päivä.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Laskua $change. Hengitä syvään.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Mitään ei tapahtunut. Jännittävää.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Tasaista. Tylsyys on aliarvostettua.';
+
+  @override
+  String get shareEdgeStockSideways => 'Sivuttain on myös suunta.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Ei draamaa tänään. Epäilyttävää.';
+
+  @override
+  String get shareEdgeStockNap => 'Käyrä otti nokoset.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Maalin kuivumista, ammattimaisesti.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Ennallaan. Huoletta.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Shortissa ja huoletta.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Kaikki ei nouse.';
+
+  @override
+  String get shareEdgeStockGravity => 'Painovoimakin on strategia.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Shorttaan hypeä. Kohteliaasti.';
+
+  @override
+  String get shareEdgeStockShortContrarian =>
+      'Vastarannan kiiski, käyrän kanssa.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Jonkun on otettava toinen puoli.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Laskua $change. Kuten suunniteltu.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Tänään nousua. Jaksan odottaa.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Hiljaa vihreällä.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Vihreä pukee minua.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Selittäisin, mutta matkisit minua.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Nöyrä? Työn alla.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Tuloksia, ei fiiliksiä.';
+
+  @override
+  String get shareEdgeBragMildlyPleased =>
+      'En yllättynyt. Lievästi tyytyväinen.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Mennyt tuotto. Ei lupaus.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges =>
+      'Kuvakaappaus ennen kuin se muuttuu.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Päähenkilön energiaa.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Nyt olen sietämätön.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Tämä olen minä rauhallisena.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Iso luku. Pieni ego. Väitetysti.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Pieni voitto. Silti voitto.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Rooma ei syntynyt päivässä.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Vaatimaton. Kuten minä.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Väliaikaisesti nöyrtynyt.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Punainen on vaihe.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Miinusta $amount. Opit kaupan päälle.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Alhaalla, ei ulkona.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Julkaisen tappioni. Kasvua.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Elän nöyrää kautta.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Otin iskun leukaan. Tyylikkäästi.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Ei parhaani. Ei viimeiseni.';
+
+  @override
+  String get shareEdgeBragDignified => 'Punaista, mutta arvokkaasti.';
+
+  @override
+  String get shareEdgeBragTuition => 'Tappiot ovat oppirahoja.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Netto nolla. Netto rauha.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Tasan. Täydellisessä tasapainossa.';
+
+  @override
+  String get shareEdgeBragDidntPanic =>
+      'Ei voittoa. Ei tappiota. Ei paniikkia.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Nollatulos on voittamaton.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Sivuttain, tyylillä.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Ei mitään nähtävää. Jaoin silti.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Suora viiva. Vakaat kädet.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Markkina räpäytti. Minä en.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Tasainen. Kuten luonteeni.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Nolla draamaa. Nolla muutosta.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Mitäs sanoin. Kohteliaasti.';
+
+  @override
+  String get bragEdgeWonNormal => 'Olin oikeassa. Pysyn silti normaalina.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Ratkesi minun edukseni.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Oikeassa oleminen kannattaa. Joskus.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Markkina oli samaa mieltä. Lopulta.';
+
+  @override
+  String get bragEdgeWonMySide => 'Minun puoleni piti.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Kärsivällisyys, sitten tilitys.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Ei huomautettavaa.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Kuvakaappaus tulevalle itselleni.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Etuajassa. Sitten oikeassa.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Kotiutan hiljaa.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Esittäisin yllättynyttä. En ole.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Lähetetty. Ei jonotusmusiikkia.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Valmis ennen kuin pankki aukesi.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Raha liikkui. Draama ei.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Sekunteja, ei pankkipäiviä.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Lähetetty. Kiitä myöhemmin.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Antelias ja tehokas.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Yksi napautus. Ei lomakkeita.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Maksettu. Eteenpäin.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Hoidettu. Kuin aikuinen.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, poissa sekunneissa.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Rahan lähetys ei ole mikään saaga.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Rahaa tuli. Esitän rentoa.';
+
+  @override
+  String get receiptEdgeReceivedNoted =>
+      'Vastaanotettu. Huomioitu. Arvostettu.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount rikkaampi. Silti rento.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Perillä ennen kiitosviestiä.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Raha tuli. Mieli nousi.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Vastaanotettu arvokkaasti.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice =>
+      'Ei tarvinnut edes pyytää kahdesti.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Ylimääräinen palkkapäivä.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Perillä. Ei pankkia välissä.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Otan vastaan kehuja ja siirtoja.';
+
+  @override
+  String get receiptEdgeIncomingAlmost =>
+      'Melkein perillä. Älä hengitä niskaan.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Latautuu. Pysy rauhallisena.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing => 'Tulossa. Päivittäminen ei auta.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Se on tulossa. En tarkistele.';
+
+  @override
+  String get receiptEdgeIncomingPending =>
+      'Odottaa. Kuten useimmat hyvät asiat.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Matkalla. Kärsivällisyys päällä.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Matkalla. Eväät eivät sisälly.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Hyvää kannattaa odottaa.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Raha liikkeessä.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Vahdittu siirto ei koskaan saavu.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Järjestelen huonekaluja.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Siirsin. En hukannut.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Vasen tasku, oikea tasku.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Raha, uudessa osoitteessa.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Sama omistaja. Uusi huone.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Kotitöitä, mutta rahalle.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Strateginen siirto.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Siirrän rahaa kuin aikuinen.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Järjestyksessä. Hetken.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Siivoilen vain.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Allokoin. Hyvin rauhallisesti.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'En miettinyt liikaa.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Lisää kasaan.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Hiljaista kerryttämistä.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne =>
+      'En kertonut kenellekään. Tähän asti.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Ostan, en ajoita.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount vakaumusta.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Ensin osta. Sitten odota.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Ostan. Ohitan melun.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Ostettu. Takaisin päivän pariin.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Jotkut ostavat kenkiä.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Myin vähän. Pidin pään kylmänä.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Vaihdettu. Ei kaduta. Vielä.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Myyty. En katso hintaa enää.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likviditeetti hankittu.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Otin rahat. Jätin draaman.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Myyty. Uni maittaa.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Käteinenkin on positio.';
+
+  @override
+  String get receiptEdgeSoldDeliberately =>
+      'Siirsin käteiseen. Tarkoituksella.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Myyntinappi: painettu. Rauhassa.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Vähän käteistä ei ole pahitteeksi.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Sitoutunut. Enimmäkseen.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Odottaminen on se vaikea osa.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Mielipide, nyt omalla rahalla.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Tehty. Kynnet ehjinä.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Valitsin puolen. Pysyin tyynenä.';
+
+  @override
+  String get receiptEdgePredictedJustMySide => 'Ei neuvo. Vain minun puoleni.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Nähdään, kun se ratkeaa.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount: $side. Siinä koko postaus.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Sisään. Ylös. Ulos.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Voitto otettu. Ego jätetty.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Lähdin, kun oli vihreää.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Lähteminen on taitolaji.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Tämä oli tässä.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Kirjattu.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Vihreä lähtö. Ei encorea.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Ahneus ei ole strategia.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Lähdin plussalla. Harvinaista kuria.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Voitto on voitto.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Katkaisin tappion. Pidin arvokkuuden.';
+
+  @override
+  String get receiptEdgeDownExits => 'Poistuminenkin on taito.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Väärässä. Ja nopeasti ulos.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Ulos ajoissa. Opetus talteen.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Mieluummin ulos kuin jääräpäinen.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Otin tappion. Pidin kuitin.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Suljin. Ei minun päiväni.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Punainen lähtö. Nolla kyyneltä.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Myöntäminen on puoli taitoa.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Oppirahat maksettu.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip =>
+      'Edestakainen matka. Ei matkamuistoja.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Lähtöruudussa. Viisaampana.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nollasumma. Nolla stressiä.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Ei vahinkoa, ei haittaa.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Markkina kohautti olkia. Minäkin.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Nettotulos: tarina.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Seuraava kysymys.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Markkina oli eri mieltä. Töykeästi.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Hävisin yhden. Huumorintaju säilyi.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Väärässä, mutta hyvässä seurassa.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Se meni minun piikkiini.';
+
+  @override
+  String get receiptEdgeLostConfidence =>
+      'Kevyempi lompakko. Sama itsevarmuus.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Ennustin sen. Väärin.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Arvokas häviäminen on flexi.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Luvut olivat mitä olivat.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Jatketaan. Olen jo jatkanut.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Ennuste miinus. Opetus plus.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Ratkaistu. Vastaanotettu.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Maksu tuli. Esitän normaalia.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, maksettu kokonaan.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Palkkapäivä, koska olin oikeassa.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Positio auki. Pulssi normaali.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Sisään rauhassa. Ulos rauhassa.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Sisään hintaan $price. Merkitty.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Sisällä. En päivitä minuutin välein.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Vakaumus, vastuullisesti mitoitettu.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Ei neuvo. Vain minun kauppani.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding =>
+      'Käyrä ja minä ymmärrämme toisiamme.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Oma sisääntulo. Oma ongelma.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Valmis kumpaan suuntaan tahansa.';
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, valintani: $outcome, $title. Valitse toinen puoli tai liity mukaan. $amount minä tarjoan: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Valintani: $outcome, $title. Valitse toinen puoli tai liity mukaan. $amount minä tarjoan: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Valitse toinen puoli';
+
+  @override
+  String get claimChallengeSameSide => 'Sama puoli kuin ystävälläsi';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Ystäväsi valitsi: $outcome';
+  }
+
+  @override
+  String get activityLatest => 'Latest';
+
+  @override
+  String get activityEarlier => 'Earlier';
+
+  @override
+  String polyRowLeads(String leader, String chance) {
+    return '$leader leads · $chance';
+  }
+
+  @override
+  String get predictAboveTarget => 'above target';
+
+  @override
+  String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Lähetä ennuste';
+
+  @override
+  String get sendAnInvestment => 'Lähetä sijoitus';
+
+  @override
+  String get sendAPredictionSub => 'He saavat valitsemasi ennusteen';
+
+  @override
+  String get sendAnInvestmentSub => 'He saavat valitsemasi sijoituksen';
+
+  @override
+  String get sendPickOutcomeSub => 'Valitse lopputulos, jonka he saavat';
+
+  @override
+  String get sendPickAmountSub => 'Kuinka paljon he saavat?';
+
+  @override
+  String get sendToAFriendLabel => 'Ystävälle';
+
+  @override
+  String get sendPickRowSub => 'Tai sijoitus. Hae markkina, valitse puoli';
+
+  @override
+  String get chartSheetChartType => 'Kaaviotyyppi';
+
+  @override
+  String get chartGroupTrend => 'Trendi';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatiliteetti';
+
+  @override
+  String get chartGroupDisplay => 'Näkymä';
+
+  @override
+  String get chartLogScaleNote => 'Sama % liike, sama korkeus';
+
+  @override
+  String get chartYourTrades => 'Kauppasi';
+
+  @override
+  String get chartYourTradesNote => 'Ostosi ja myyntisi täällä';
+
+  @override
+  String get chartIndSmaNote => 'Pitkän aikavälin trendi, kääntyy hitaasti';
+
+  @override
+  String get chartIndStNote => 'Seuraava stop, joka kääntyy trendin mukana';
+
+  @override
+  String get chartIndSrsiNote => 'Nopeat yliostetun ja ylimyydyn heilahdukset';
+
+  @override
+  String get chartIndAtrNote => 'Kuinka paljon yksi jakso yleensä liikkuu';
+
+  @override
+  String get chartIndIchimokuNote => 'Trendi ja tasot yhdessä pilvessä';
+
+  @override
+  String get chartIndPivotNote => 'Tämän päivän tasot eilisestä';
+
+  @override
+  String get chartIndAdxNote => 'Kuinka vahva trendi on';
+
+  @override
+  String get chartIndObvNote => 'Tukeeko volyymi liikettä';
+
+  @override
+  String get chartIndVp => 'Volyymiprofiili';
+
+  @override
+  String get chartIndVpNote => 'Hinnat, joilla käytiin eniten kauppaa';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name pois päältä: hinnan päälle mahtuu neljä';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name-asetukset';
+  }
+
+  @override
+  String get chartParamLength => 'Pituus';
+
+  @override
+  String get chartParamFast => 'Nopea';
+
+  @override
+  String get chartParamSlow => 'Hidas';
+
+  @override
+  String get chartParamSignal => 'Signaali';
+
+  @override
+  String get chartParamMultiplier => 'Kerroin';
+
+  @override
+  String get chartParamRsiLength => 'RSI:n pituus';
+
+  @override
+  String get chartParamStochLength => 'Stokastisen pituus';
+
+  @override
+  String get chartParamSmoothK => '%K-tasoitus';
+
+  @override
+  String get chartParamSmoothD => '%D-tasoitus';
+
+  @override
+  String get chartParamRows => 'Rivit';
+
+  @override
+  String get chartParamSmoothing => 'Tasoitus';
+
+  @override
+  String get chartParamConversion => 'Muuntoviiva';
+
+  @override
+  String get chartParamBase => 'Perusviiva';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Siirtymä';
+
+  @override
+  String get polyPeriodMatch => 'Ottelu';
+
+  @override
+  String get polyPeriodFullGame => 'Koko ottelu';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Peli $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Kartta $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Erä $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. puoliaika';
+
+  @override
+  String get polyPeriodSecondHalf => '2. puoliaika';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. erä';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Ensimmäiset 5 vuoroparia';
+
+  @override
+  String get polyPeriodFirstInning => '1. vuoropari';
+
+  @override
+  String get polyLineSetHandicap => 'Erätasoitus';
+
+  @override
+  String get polyLineTotalGames => 'Pelejä yhteensä';
+
+  @override
+  String get polyLineTotalSets => 'Eriä yhteensä';
+
+  @override
+  String get polyLineTotalKills => 'Tappoja yhteensä';
+
+  @override
+  String get polyLineTotalRounds => 'Kierroksia yhteensä';
+
+  @override
+  String get polyLineDuration => 'Kesto';
+
+  @override
+  String get polyLineTeamTotals => 'Joukkueen määrät';
+
+  @override
+  String get polyLinePlayers => 'Pelaajat';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Ei vielä kaupankäyntiä · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Ratkenneet · $count';
+  }
+
+  @override
+  String get polySideOver => 'Yli';
+
+  @override
+  String get polySideUnder => 'Alle';
+
+  @override
+  String get sendPickCardSub => 'Valitse markkina, puoli ja summa';
+
+  @override
+  String get sendPredictionCta => 'Lähetä ennuste';
+
+  @override
+  String get sendInvestmentCta => 'Lähetä sijoitus';
+
+  @override
+  String get sendPickYourFriend => 'Ystäväsi';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who saa $amount: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side, todennäköisyys $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks =>
+      'Hän lunastaa sen ja tekee sen yhdellä napautuksella';
+
+  @override
+  String get shareCardPredictionForYou => 'Ennuste sinulle';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, ennuste sinulle';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Syötä lähetettävä summa';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Syötä vähintään $amount lähettääksesi';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Vain Kyllä kohteeseen $outcome voidaan lähettää. Vaihda Kyllä lähettääksesi.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Etsi markkina, valitse puoli ja summa ja napauta sitten Salia lähettääksesi';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Lähetä $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Vain Kyllä kohteeseen $outcome voidaan lähettää';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Lähetetään ystävälle';
+
+  @override
+  String get sendPickSearchHint => 'Hae ennusteita ja sijoituksia';
+
+  @override
+  String get sendPickSheetTitle => 'Valitse lahja';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Valitse lahja saajalle $name';
+  }
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'Saaja: $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Lähetä $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Valitse lopputulos';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Ostat sen, ja $name saa sen';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Ostat sen ystävälle';
+
+  @override
+  String get inviteCardCaps => 'Sinut on kutsuttu';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount alennus';
+  }
+
+  @override
+  String get inviteCardFees => 'Kuten maksuista';
+
+  @override
+  String get inviteCardJoin => 'Liity kanssani Kuteen';
+
+  @override
+  String get inviteCardUseCode => 'Käytä koodiani liittyessäsi';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Toin sinut tänne. Ole hyvä.';
+
+  @override
+  String get shareEdgeInviteGroupChat => 'Ryhmächattisi tarvitsi tätä.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Sinua on suositeltu. Esitä yllättynyttä.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Älä pakota kysymään kahdesti.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'Ei ketjukirje. Vähän parempi.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Minä saan osuuden. Sinä alennuksen. Kaikilla on hyvin.';
+
+  @override
+  String get shareEdgeInviteFees =>
+      'Pienemmät maksut. Yhtä monta mielipidettä.';
+
+  @override
+  String get shareEdgeInviteDog => 'Alennus on aito. Koira on välinpitämätön.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Jaa tasoni';
+
+  @override
+  String get goalCardCaps => 'Tasoni';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Ei kehuskelua. Pelkkä taso.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal tarkisti. Ei vieläkään vaikuttunut.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Taso kerrallaan. Ei kiirettä.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Kukaan ei kysynyt. Jaan silti.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal sanoo, ettei tämä ole mitään. Sanoo niin usein.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Hidas nousu. Tahallaan.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Ei pokaalia. Vain koira ja taso.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Sinun vuorosi. Sal odottaa.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Saapuu bitcoinina';
+
+  @override
+  String get sendEmailNoLightning => 'Sähköposti, ei Lightning-osoitetta';
+
+  @override
+  String get barNeedLightningAddress => 'Ei Lightning-osoitetta';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Tehdään ennustettasi';
+
+  @override
+  String get orderNoticePlacingOrder => 'Tehdään toimeksiantoasi';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Odotetaan rahojesi saapumista';
+
+  @override
+  String get orderNoticeConverting => 'Vaihdetaan dollareitasi';
+
+  @override
+  String get orderNoticeSettingUp => 'Määritetään tiliäsi';
+
+  @override
+  String get orderNoticeSending => 'Lähetetään toimeksiantoasi';
+
+  @override
+  String get orderNoticeConfirming => 'Vahvistetaan alustan kanssa';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Ennuste tehty';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Toimeksianto tehty';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Ennustetta ei tehty';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Toimeksiantoa ei tehty';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Ei vielä vahvistettu';
+
+  @override
+  String get orderNoticeOpenToSee => 'Avaa Kute nähdäksesi, mitä tapahtui.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Käsiteltävät toimeksiannot';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Ennusteen tai toimeksiannon eteneminen, kun Kute on taustalla.';
+
+  @override
+  String get orderNoticeResultChannel => 'Toimeksiantojen tulokset';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Menikö Kuten ollessa taustalla tehty ennuste tai toimeksianto läpi.';
+
+  @override
+  String get predictionsInstant => 'Pikaiset';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 tunti · 4 tuntia';
+
+  @override
+  String get categoryFiveMinuteMarkets => '5 minuutin markkinat';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Nyt · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Ei vielä hintoja';
+
+  @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · voitto $payout';
+  }
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset ylös vai alas · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Ennustettasi asetetaan';
+
+  @override
+  String get standingPlacingOrder => 'Toimeksiantoasi asetetaan';
+
+  @override
+  String get standingPlacingInvestment => 'Sijoitustasi asetetaan';
+
+  @override
+  String get standingPredictionPlaced => 'Ennuste asetettu';
+
+  @override
+  String get standingOrderPlaced => 'Toimeksianto asetettu';
+
+  @override
+  String get standingPredictionFailed =>
+      'Ennustettasi ei asetettu. Rahat ovat Ennusteissa, käytettävissä.';
+
+  @override
+  String get standingOrderFailed =>
+      'Toimeksiantoasi ei asetettu. Rahat ovat Sijoittamisessa, käytettävissä.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Peruttu. Rahat pysyvät Ennusteissa, käytettävissä.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Peruttu. Rahat pysyvät Sijoittamisessa, käytettävissä.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Hinta muuttui: $price. Napauta asettaaksesi uuteen hintaan.';
+  }
+
+  @override
+  String get standingStagePlacing => 'Asetetaan';
+
+  @override
+  String get standingStageApproval => 'Vaatii hyväksyntäsi';
 }

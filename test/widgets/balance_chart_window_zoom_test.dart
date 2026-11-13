@@ -11,6 +11,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/shared/charts/kute_chart_viewport.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// How the Balance charts open and zoom (the founder's 2026-10-25
@@ -55,7 +56,8 @@ void main() {
       ];
 
   group('how it opens', () {
-    test('never on weeks of zero or a pass-through: the money that stayed, '
+    test(
+        'never on weeks of zero or a pass-through: the money that stayed, '
         'rising from nothing, ending now', () {
       final s = balanceSeries(founder(), now);
       final w = opening(s);
@@ -71,7 +73,8 @@ void main() {
       expect(drawn.last, 6938);
     });
 
-    test('a pass-through inside one bucket never reaches the line or the '
+    test(
+        'a pass-through inside one bucket never reaches the line or the '
         'scale', () {
       // Funded three weeks ago and steady; yesterday 110,000 sats came in
       // and left again within 20 minutes.
@@ -169,8 +172,8 @@ void main() {
     });
 
     test('a line flat at zero sits in the middle with one level, zero', () {
-      final d = kuteLineDomain([0, 0, 0], const KuteIndexWindow(0, 2),
-          minShare: 0.2);
+      final d =
+          kuteLineDomain([0, 0, 0], const KuteIndexWindow(0, 2), minShare: 0.2);
       expect(kuteLineY(0, 200, d), closeTo(100, 1e-6));
       expect(kuteScaleLevels(d.minY, d.maxY), [0]);
     });
@@ -230,8 +233,8 @@ void main() {
         int pointer = 10}) async {
       final rect = tester.getRect(find.byType(KuteLineChart));
       final c = Offset(rect.left + rect.width * x, rect.center.dy);
-      final a = await tester.startGesture(c - Offset(from / 2, 0),
-          pointer: pointer);
+      final a =
+          await tester.startGesture(c - Offset(from / 2, 0), pointer: pointer);
       final b = await tester.startGesture(c + Offset(from / 2, 0),
           pointer: pointer + 1);
       await tester.pump();
@@ -261,7 +264,8 @@ void main() {
       expect(window(), const KuteIndexWindow(n - 401, n - 1));
     });
 
-    testWidgets('a pinch keeps the point under the fingers under them, and '
+    testWidgets(
+        'a pinch keeps the point under the fingers under them, and '
         'never drifts', (tester) async {
       await pumpLine(tester, line(values));
       final under = indexAt(tester, 0.3);
@@ -315,7 +319,8 @@ void main() {
       expect(window().span, closeTo(span, 1e-6));
     });
 
-    testWidgets('data landing late re-fits the opening view only until the '
+    testWidgets(
+        'data landing late re-fits the opening view only until the '
         'first pinch', (tester) async {
       final short = values.sublist(0, 1000);
       await pumpLine(tester, line(short, defaultSpan: 200));
@@ -328,8 +333,7 @@ void main() {
       final zoomed = window();
       // A point more (time passing) and a new opening span: the window
       // stays where the pinch left it.
-      await pumpLine(
-          tester, line([...values, 1500], defaultSpan: 300));
+      await pumpLine(tester, line([...values, 1500], defaultSpan: 300));
       expect(window(), zoomed);
     });
 
@@ -398,7 +402,6 @@ void main() {
                 child: BalanceHistoryChart(
                   history: founder(),
                   format: (v) => '₿${v.round()}',
-                  emptyMessage: 'Nothing held yet',
                   trackingChart: 'valuation',
                   now: now,
                 ),
@@ -408,37 +411,15 @@ void main() {
         ),
       ));
       await tester.pump(const Duration(milliseconds: 400));
-      final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
-      expect(chart.stepped, isFalse);
-      expect(chart.animateChanges, isFalse);
-      expect(chart.zoomAroundFingers, isTrue);
-      expect(chart.resetViewOnLengthChange, isFalse);
-      final w = KuteIndexWindow(
-          chart.values.length - 1 - chart.defaultSpan!,
-          (chart.values.length - 1).toDouble());
-      final drawn = [
-        for (final i in chart.buckets!.indicesFor(chart.values.length, w))
-          if (i >= w.start - 1e-6) chart.values[i]
-      ];
-      // Nothing, then what stayed; never the 110,000 that passed on.
-      expect(drawn.toSet(), {0, 6938});
-      expect(
-          tester
-              .widget<Text>(find.byKey(const ValueKey('kute-time-axis-start')))
-              .data,
-          'Oct 24');
-      expect(
-          tester
-              .widget<Text>(find.byKey(const ValueKey('kute-time-axis-end')))
-              .data,
-          'Now');
-      // Up from nothing this month: the amount, no percent.
-      expect(
-          tester
-              .widget<Text>(find.byKey(const ValueKey('balance-chart-header')))
-              .textSpan!
-              .toPlainText(),
-          '+₿6938 past month');
+      final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
+      // The month's bucket closes: nothing, then what stayed; never the
+      // 110,000 that passed on.
+      expect(chart.values.toSet(), {0, 6938});
+      expect(chart.values.last, 6938);
+      // Up from nothing this month: the change is the whole balance, so
+      // the quiet line under the figure says nothing of it.
+      expect(find.byKey(const ValueKey('balance-chart-header')), findsNothing);
+      expect(find.textContaining('%'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 8));
     });

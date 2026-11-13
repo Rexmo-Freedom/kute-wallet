@@ -276,19 +276,29 @@ void main() {
       expect(merge.dx, greaterThan(xs.first.dx));
       expect(merge.dx, lessThan(poly.dx));
       expect(_motion(tester).mergeLitOf('predictions'), 0);
-      // Each source's amount under the start of its leg.
+      // Each station's amount under its own logo disc (the destination's
+      // the legs' total), in place of the names.
       for (final (id, amount) in [
         ('bitcoin', '\$8.00'),
         ('dollars', '\$5.00'),
         ('investing', '\$2.00'),
+        ('predictions', '\$15.00'),
       ]) {
-        final label = find.byKey(ValueKey('money-steps-leg-amount-$id'));
+        final label = find.byKey(ValueKey('money-steps-station-amount-$id'));
         expect(label, findsOneWidget);
         expect(find.descendant(of: label, matching: find.text(amount)),
             findsOneWidget);
+        final disc = find.byKey(ValueKey('money-steps-station-$id'));
+        expect(tester.getTopLeft(label).dy,
+            greaterThanOrEqualTo(tester.getBottomLeft(disc).dy),
+            reason: 'under its disc');
+        final cx = tester.getCenter(disc).dx;
+        expect(tester.getTopLeft(label).dx, lessThanOrEqualTo(cx),
+            reason: 'across its centre');
+        expect(tester.getTopRight(label).dx, greaterThanOrEqualTo(cx),
+            reason: 'across its centre');
       }
-      // Their names together under the column, moved in from the edge.
-      expect(find.text('Bitcoin · Dollars · Investing'), findsOneWidget);
+      expect(find.text('Bitcoin · Dollars · Investing'), findsNothing);
       final plan = MoneyJourneyPlan.of(
           moneyStepLines(_en, _three(), _usd, placeLine: 'Place'),
           graph: _three(),
@@ -408,16 +418,14 @@ void main() {
     expect(lit, greaterThan(0));
     expect(lit, lessThan(1), reason: 'it waits for the leg to land');
     expect(_motion(tester).coin!.place, MoneyPlace.bitcoin);
-    // In Bitcoin it wears the app's Bitcoin mark, as the station does.
+    // In Bitcoin it wears the app's Bitcoin mark; the station itself is
+    // a plain matte dot on the line (1 November 2026), the coin the one
+    // place the balance's mark shows.
     expect(_motion(tester).coinMarkAsset, 'lib/assets/bitcoin-icon.svg');
     expect(
         find.descendant(
-            of: _station('bitcoin'),
-            matching: find.byWidgetPredicate((w) =>
-                w is SvgPicture &&
-                (w.bytesLoader as SvgAssetLoader).assetName ==
-                    'lib/assets/bitcoin-icon.svg')),
-        findsOneWidget);
+            of: _station('bitcoin'), matching: find.byType(SvgPicture)),
+        findsNothing);
     expect(find.byIcon(Icons.currency_bitcoin_rounded), findsNothing);
     // Sal walks behind the coin; once it parks he walks up and fetches
     // it, and waits with it in his mouth.
@@ -469,11 +477,15 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
     final poly = _at(tester, _station('predictions'));
     final r = tester.getSize(_station('predictions')).width / 2;
-    final k = r / 14; // the screen's scale
+    final k = r / 14; // the screen's scale (the station's 14)
     expect((mapAt + beside).dy, closeTo(poly.dy, 0.5));
-    expect((mapAt + beside).dx + 9 * k, lessThan(poly.dx - r - 4 * k - 0.75),
-        reason: 'left of the ring');
-    expect((mapAt + beside).dx, greaterThan(poly.dx - r - 40 * k));
+    // His right edge (0.3 of his 64 box) left of the station's dot and
+    // of its pulse (up to 9 past the edge).
+    expect((mapAt + beside).dx + 19.2 * k, lessThan(poly.dx - r),
+        reason: 'left of the dot');
+    expect((mapAt + beside).dx + 19.2 * k, lessThan(poly.dx - r - 9 * k),
+        reason: 'left of the pulse');
+    expect((mapAt + beside).dx, greaterThan(poly.dx - r - 60 * k));
     expect(_motion(tester).walking, isFalse);
     expect(count('lightImpact'), 1);
     expect(count('selectionClick'), 1);

@@ -47,9 +47,9 @@ import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdSdkBalanceProvider;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/shared/receive_surface.dart' show SheetTitleHeader;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show BigAmountDisplay;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart'
@@ -58,12 +58,45 @@ import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolymarketReadException;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
     show HypercoreBalanceShortfall;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegSent;
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCircleButton;
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show kUsdHomeSwapSource;
+import 'package:kute/screens/usd/usd_withdraw_screen.dart'
+    show kUsdWithdrawSearchSource;
+import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart'
+    show BitcoinPurchaseFanout, bitcoinPurchaseFanoutProvider;
+import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
+    show DollarsToBitcoinSent;
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show investmentsSpendable, venueCashLastReadProvider;
+import 'package:kute/services/one_balance/multi_source_move.dart'
+    show MultiSourceMoveStore;
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
+    show
+        BitcoinPurchaseFinisher,
+        PendingBitcoinPurchaseStore,
+        bitcoinPurchaseFinisherProvider;
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show
+        VenueCashCandidate,
+        VenueCashPuller,
+        VenueCashSource,
+        kVenuePullEta,
+        planDollarsShortfall,
+        venueCashPullerProvider;
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show VenueMoveResult;
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
     show OrchestraQuoteFailure;
 import 'package:kute/models/orchestra_route_limits.dart';
@@ -77,6 +110,8 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
+import '../../gating_audit/market_gating_fixtures.dart';
 
 const _usdPerBtc = 100000.0;
 const _ownSpark =
@@ -162,16 +197,51 @@ class _Trading extends PolymarketTradingNotifier {
       _deposit?.future ?? Future.value(_pmWallet);
 
   @override
-  Future<BigInt> spendableMicroUsdc() async =>
-      BigInt.from((_predictions * 1e6).round());
+  Future<BigInt> spendableMicroUsdc() async {
+    final failure = _readFailure;
+    if (failure != null) throw failure;
+    return BigInt.from((_predictions * 1e6).round());
+  }
 
   @override
-  Future<BigInt> payableMicroUsdc(double amount) async =>
-      BigInt.from((amount * 1e6).round());
+  Future<BigInt> payableMicroUsdc(double amount) async {
+    final failure = _readFailure;
+    if (failure != null) throw failure;
+    return BigInt.from((amount * 1e6).round());
+  }
+
+  /// The watch that converts a delivered deposit: started by every rail
+  /// into Predictions.
+  @override
+  void wrapIncomingUsdcEToPusd({
+    Duration timeout = const Duration(minutes: 8),
+    Duration interval = const Duration(seconds: 4),
+    Duration lateInterval = const Duration(seconds: 15),
+  }) {
+    _arrivalWatches++;
+  }
+
+  /// The account's one-time setup, asked for before a move leaves
+  /// Predictions. Done, unless [_setupFailure] says it cannot finish.
+  @override
+  Future<void> enableTrading({
+    void Function(String status)? onProgress,
+    bool force = false,
+  }) async {
+    _setupAsked++;
+    final failure = _setupFailure;
+    if (failure != null) throw failure;
+  }
 }
 
 bool _proxyKnown = true;
 Completer<String?>? _deposit;
+Object? _setupFailure;
+int _setupAsked = 0;
+
+/// What the live balance read throws, when it cannot be read.
+Object? _readFailure;
+int _arrivalWatches = 0;
 double _predictions = 20;
 double _dollars = 20;
 
@@ -411,10 +481,63 @@ int get _railCalls =>
     _cctp.moves.length +
     _btcToDollars.length;
 
+/// Venue cash the test sets, recording each pull home to Dollars (fw46).
+class _VenueCash implements VenueCashSource {
+  _VenueCash(this.venue);
+
+  @override
+  final OneBalanceVenue venue;
+  double available = 0;
+  final pulls = <double>[];
+
+  @override
+  Duration get estimatedArrival => kVenuePullEta[venue]!;
+
+  @override
+  Future<double> availableUsd() async => available;
+
+  @override
+  Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
+    pulls.add(usd);
+    return VenueMoveResult(
+        quoteId: 'q-${venue.name}',
+        sentUsd: usd,
+        arrivingUsdEstimate: usd * 0.99);
+  }
+}
+
+/// Each venue's route minimum, as the engine reads it here.
+double _venueMinimum(OneBalanceVenue venue) =>
+    venue == OneBalanceVenue.investing ? 5 : 1;
+
+/// The venues' free cash as the engine reads it: [p] on Predictions, [i]
+/// on Investing.
+List<VenueCashCandidate> _venueCash({double p = 0, double i = 0}) => [
+      if (p > 0)
+        (
+          venue: OneBalanceVenue.predictions,
+          availableUsd: p,
+          eta: kVenuePullEta[OneBalanceVenue.predictions]!,
+          minimumUsd: _venueMinimum(OneBalanceVenue.predictions),
+        ),
+      if (i > 0)
+        (
+          venue: OneBalanceVenue.investing,
+          availableUsd: i,
+          eta: kVenuePullEta[OneBalanceVenue.investing]!,
+          minimumUsd: _venueMinimum(OneBalanceVenue.investing),
+        ),
+    ];
+
 // ─── harness ────────────────────────────────────────────────────────
 
 Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
-    {Completer<String?>? hlAddress, OrchestraRoutesCatalog? catalog}) async {
+    {Completer<String?>? hlAddress,
+    OrchestraRoutesCatalog? catalog,
+    bool pinned = false,
+    double? initialTargetUsd,
+    List<Override> overrides = const [],
+    String? ownMoveEntrySource}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -444,6 +567,7 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
         .overrideWith((_) => DollarsToBitcoinMinimum(fetch: (_) async => null)),
     if (catalog != null)
       orchestraSupportedRoutesProvider.overrideWith((_) => _Routes(catalog)),
+    ...overrides,
   ]);
   _setSats(container, 20000); // $20.00 at the sample price.
   SharedHttpClient.debugOverride = _orchestra();
@@ -453,6 +577,9 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // sheet's button is the bar (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
           theme:
               buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -464,8 +591,16 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     )),
     _orchestra,
   );
-  unawaited(showMoneyMovementSheet(_nav.currentContext!,
-      initialSource: route.from, initialDestination: route.to));
+  // An own-account door's own call (showOwnMoneyMove), or the Portfolio's.
+  final entrySource = ownMoveEntrySource;
+  unawaited(entrySource != null
+      ? showOwnMoneyMove(_nav.currentContext!,
+          from: route.from, entrySource: entrySource)
+      : showMoneyMovementSheet(_nav.currentContext!,
+          initialSource: route.from,
+          initialDestination: route.to,
+          pinned: pinned,
+          initialTargetUsd: initialTargetUsd));
   await _frames(tester, 12);
   container.read(sparkHypercoreFundingServiceProvider);
   return container;
@@ -489,8 +624,14 @@ Future<void> _type(WidgetTester tester, String amount) async {
   await _frames(tester, 4);
 }
 
-Finder get _cta => find.byType(AppButton).last;
-AppButton _button(WidgetTester tester) => tester.widget<AppButton>(_cta);
+/// The sheet's title as drawn: the first step's big title
+/// (SheetTitleHeader).
+Finder _title(String text) =>
+    find.descendant(of: find.byType(SheetTitleHeader), matching: find.text(text));
+
+Finder get _cta => kuteBarPrimary;
+KuteBarPrimaryProbe _button(WidgetTester tester) =>
+    kuteBarPrimaryProbe(tester);
 
 Future<void> _confirm(WidgetTester tester) async {
   await tester.tap(_cta);
@@ -527,6 +668,10 @@ void main() {
     _events.clear();
     TrackingService.debugTrackObserver = (e, p) => _events.add((e, p));
     _proxyKnown = true;
+    _setupFailure = null;
+    _setupAsked = 0;
+    _readFailure = null;
+    _arrivalWatches = 0;
     _deposit = null;
     _predictions = 20;
     _dollars = 20;
@@ -564,21 +709,61 @@ void main() {
     expect(_last('move_direction_changed')['to'], 'bitcoin');
     expect(_last('move_direction_changed')['reversed'], false);
 
-    // The flip.
-    await tester.tap(find.byIcon(Icons.swap_vert_rounded));
+    // The flip: the swap circle on the squares' shared edge.
+    await tester.tap(find.byKey(const ValueKey('money-movement-swap')));
     await _frames(tester);
     expect(_last('move_direction_changed')['from'], 'bitcoin');
     expect(_last('move_direction_changed')['to'], 'predictions');
     expect(_last('move_direction_changed')['reversed'], true);
 
     await _type(tester, '5');
+    // The Portfolio's Move money keeps its title and its verb.
+    expect(_title('Move money'), findsOneWidget);
+    expect(_button(tester).text, startsWith('Move \$'));
     expect(_railCalls, 0);
     expect(_approvals.intents, isEmpty);
     await _close(tester, c);
   });
 
+  testWidgets(
+      'an own-account door pins the route: Dollars to Bitcoin, each end by '
+      'its account\'s name, "Swap" over "Swap \$5", no pickers, the swap '
+      'circle, and the move still runs', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+        pinned: true);
+    expect(find.text('Dollars'), findsOneWidget);
+    expect(find.text('Investments'), findsNothing);
+    expect(find.text('Bitcoin'), findsOneWidget);
+    // Swap (founder, 7 November 2026): the title, and the bar's verb.
+    expect(_title('Swap'), findsOneWidget);
+    expect(find.text('Move money'), findsNothing);
+    expect(find.textContaining('Buy'), findsNothing);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+    expect(find.byKey(const ValueKey('money-movement-swap')), findsOneWidget);
+    // Tapping an end picks nothing.
+    await tester.tap(find.text('Dollars').first);
+    await _frames(tester);
+    expect(find.text('Move from'), findsNothing);
+    await _type(tester, '5');
+    expect(_button(tester).text, r'Swap $5');
+    await _confirm(tester);
+    expect(_railCalls, 1);
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'the Goals nudge\'s door: Bitcoin to Dollars, pinned, the dollars it '
+      'asked for filled in once the price is up', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_b, _d),
+        pinned: true, initialTargetUsd: 5);
+    expect(_title('Swap'), findsOneWidget);
+    expect(find.byKey(const ValueKey('money-movement-swap')), findsOneWidget);
+    expect(_button(tester).text, r'Swap $5');
+    await _close(tester, c);
+  });
+
   group('every pair runs on its own rail, from the selected account only', () {
-    for (final route in MoneyMovementRoute.all) {
+    for (final route in MoneyMovementRoute.offered) {
       testWidgets('$route', (tester) async {
         final c = await _open(tester, route);
         await _type(tester, '5');
@@ -723,7 +908,8 @@ void main() {
     await tester.pump();
     expect(_button(tester).isLoading, isTrue);
     await tester.tap(_cta, warnIfMissed: false);
-    await tester.tap(find.byIcon(Icons.swap_vert_rounded), warnIfMissed: false);
+    await tester.tap(find.byKey(const ValueKey('money-movement-swap')),
+        warnIfMissed: false);
     await tester.tap(find.text('9').last, warnIfMissed: false);
     await _frames(tester);
     expect(
@@ -766,7 +952,7 @@ void main() {
   testWidgets(
       'a wallet switch while the approval is up revokes it: nothing is '
       'funded', (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await _type(tester, '5');
     final settings = c.read(settingsProvider.notifier);
     _approvals.whileUp =
@@ -815,9 +1001,55 @@ void main() {
   });
 
   testWidgets(
+      'a Predictions move asks for the account setup first; a setup that '
+      'cannot read Polygon stops it before any quote, named, with Retry',
+      (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
+    await _type(tester, '5');
+    _setupFailure =
+        const PolymarketReadException('eth_getCode: no Polygon RPC answered');
+    await _confirm(tester);
+    expect(_setupAsked, 1);
+    expect(_runner.plans, isEmpty, reason: 'nothing was quoted or sent');
+    expect(
+        find.text("Predictions couldn't be reached right now. Nothing was "
+            'sent. Check your connection and try again.'),
+        findsOneWidget);
+    expect(_button(tester).text, 'Retry');
+    expect(_last('move_failed')['reason'], 'not_sent');
+    // The read works again: the same tap goes through.
+    _setupFailure = null;
+    await _confirm(tester);
+    expect(_setupAsked, 2);
+    expect(_runner.plans, hasLength(1));
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'a live balance that cannot be read stops a Predictions move before '
+      'the quote, as unreachable, never as insufficient', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
+    await _type(tester, '5');
+    _readFailure =
+        const PolymarketReadException('eth_call: no Polygon RPC answered');
+    await _confirm(tester);
+    expect(_runner.plans, isEmpty, reason: 'nothing was quoted or sent');
+    expect(
+        find.text("Predictions couldn't be reached right now. Nothing was "
+            'sent. Check your connection and try again.'),
+        findsOneWidget);
+    expect(find.text('Insufficient balance'), findsNothing);
+    expect(_button(tester).text, 'Retry');
+    _readFailure = null;
+    await _confirm(tester);
+    expect(_runner.plans, hasLength(1));
+    await _close(tester, c);
+  });
+
+  testWidgets(
       'an unknown outcome locks the move: no second send, no edits, and the '
       'button opens Activity', (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _i));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await _type(tester, '5');
     _runner.afterApproval =
         (_) async => throw const SettlementFundingUnknown('op', 'timeout');
@@ -830,7 +1062,8 @@ void main() {
     expect(failed['surface'], 'money_movement');
     // No edits.
     await tester.tap(find.text('9').last, warnIfMissed: false);
-    await tester.tap(find.byIcon(Icons.swap_vert_rounded), warnIfMissed: false);
+    await tester.tap(find.byKey(const ValueKey('money-movement-swap')),
+        warnIfMissed: false);
     await _frames(tester);
     expect(
         tester
@@ -900,6 +1133,8 @@ void main() {
         InvestingWithdrawalDestination.predictions);
     expect(_cctp.moves.single.usd, 5);
     expect(_approvals.intents, hasLength(1));
+    // The CCTP arrival converts to pUSD like any other deposit.
+    expect(_arrivalWatches, 1);
     expect(find.byKey(const ValueKey('money-movement-sheet')), findsNothing);
     final completed = _last('move_completed');
     expect(completed['route'], 'cctp');
@@ -1049,19 +1284,51 @@ void main() {
     });
 
     testWidgets(
-        'Predictions → Investing asks for its own route, to the own '
-        'Investing account', (tester) async {
+        'out of Predictions only Bitcoin is offered: asked for Investing, '
+        'the sheet opens on Bitcoin, prices that route and the picker '
+        'lists no other door', (tester) async {
       final c = await _open(tester, const MoneyMovementRoute(_p, _i));
       await _type(tester, '5');
       await _frames(tester, 12);
+      expect(
+          _estimates.where((q) =>
+              q['sourceChain'] == 'polygon' && q['destinationChain'] == 'hypercore'),
+          isEmpty);
       final asked = _estimates.where((q) =>
           q['sourceChain'] == 'polygon' &&
           q['sourceAsset'] == 'USDC.e' &&
-          q['destinationChain'] == 'hypercore' &&
-          q['destinationAsset'] == 'USDC');
+          q['destinationChain'] == 'spark' &&
+          q['destinationAsset'] == 'BTC');
       expect(asked, isNotEmpty);
       expect(asked.last['amount'], '5000000');
+      // The destination picker: Bitcoin, already selected, and nothing else.
+      await tester.tap(find.text('Bitcoin').first);
+      await _frames(tester);
+      expect(find.text('Move to'), findsOneWidget);
+      expect(find.byKey(const ValueKey('movement-account-bitcoin')),
+          findsOneWidget);
+      expect(find.text('SELECTED'), findsOneWidget);
+      expect(find.byKey(const ValueKey('movement-account-dollars')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('movement-account-investing')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('movement-account-predictions')),
+          findsNothing);
+      await tester.tap(find.byKey(const ValueKey('movement-account-bitcoin')),
+          warnIfMissed: false);
+      await _frames(tester);
+      // Picking Predictions as the source while Dollars is the destination
+      // brings its one door along: the route becomes Predictions → Bitcoin.
       await _close(tester, c);
+      final c2 = await _open(tester, const MoneyMovementRoute(_i, _d));
+      await tester.tap(find.text('Investing').first);
+      await _frames(tester);
+      await tester
+          .tap(find.byKey(const ValueKey('movement-account-predictions')));
+      await _frames(tester);
+      expect(_last('move_direction_changed')['from'], 'predictions');
+      expect(_last('move_direction_changed')['to'], 'bitcoin');
+      await _close(tester, c2);
     });
 
     testWidgets('Bitcoin → Predictions prices sats on its own route',
@@ -1081,7 +1348,7 @@ void main() {
 
   testWidgets('Max and the quick chips are tracked with the surface',
       (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await tester.tap(find.text('Max').last);
     await _frames(tester);
     final tap = _last('move_amount_percent_tapped');
@@ -1168,7 +1435,8 @@ void main() {
       await tester.tap(_cta);
       await _frames(tester, 12);
       expect(restricted(), findsNothing);
-      expect(_button(tester).text, r'Move money $10');
+      // The person's own money moves: "Move $10", never "Buy".
+      expect(_button(tester).text, r'Move $10');
       await _confirm(tester);
       expect(_hypercore.deposits, hasLength(1));
       await _close(tester, c);
@@ -1252,6 +1520,490 @@ void main() {
       expect(failed['reason'], 'restricted');
       expect(failed['capability'], 'polymarket.deposit');
       await _close(tester, c);
+    });
+  });
+
+  // Gating audit (fw36, v2.2): the Sends' own-account moves that open this
+  // sheet pinned, read against a real backend policy (the Receives' "From
+  // your Bitcoin" and "From your Dollars" are gone: founder, 7 November
+  // 2026). "Move to your Dollars" (Bitcoin Send) is a swap: a swap block
+  // stops it, a region block naming its regions over the one VPN
+  // sentence. "Move to your Bitcoin" (Dollars Send) is an exit: a COUNTRY
+  // block on the swap master never stops it (the backend exempts the route
+  // from country rules); the master off, a platform rule or coming soon
+  // still does, exactly as the backend's operation guard refuses it then.
+  group('The Sends\' own-account moves under a backend block (fw36)', () {
+    late InvestmentProviderAvailability venues;
+
+    setUp(() {
+      venues = InvestmentProviderAvailability(
+        client: MockClient((request) async => request.url.host ==
+                'api.hyperliquid.xyz'
+            ? http.Response(
+                '{"acceptedTerms":true,"userAllowed":true,"restrictions":"n"}',
+                200)
+            : http.Response('{"blocked":false}', 200)),
+        report: ({
+          required String venue,
+          required String trigger,
+          required bool changed,
+          required String result,
+        }) {},
+      );
+      RegionFreshness.debugVenues = venues;
+    });
+    tearDown(() {
+      RegionFreshness.debugVenues = null;
+      venues.dispose();
+    });
+
+    Future<void> install(WidgetTester tester, MarketDenial how,
+        {Set<String> targets = const {}}) async {
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance = null;
+      await tester
+          .runAsync(() => installMarketGatingPolicy(how, targets: targets));
+    }
+
+    Finder restricted() =>
+        find.byKey(const ValueKey('money-movement-restricted'));
+
+    testWidgets(
+        'swap country block: Move to your Dollars (Bitcoin → Dollars) names '
+        'the regions over the VPN sentence, Check connection, nothing sent',
+        (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c =
+          await _open(tester, const MoneyMovementRoute(_b, _d), pinned: true);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsOneWidget);
+      expect(
+          find.text('$kGatingNamedTitle\n$kGatingVpnSentence'), findsOneWidget);
+      expect(find.textContaining('use a VPN'), findsNothing);
+      expect(_button(tester).text, 'Check connection');
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(_btcToDollars, isEmpty);
+      expect(_railCalls, 0);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'swap country block: Move to your Bitcoin (Dollars → Bitcoin) is an '
+        'exit and moves', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c =
+          await _open(tester, const MoneyMovementRoute(_d, _b), pinned: true);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      expect(_button(tester).onPressed, isNotNull);
+      await _confirm(tester);
+      expect(_railCalls, 1);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'swap country block: Investing → Bitcoin (the withdrawal door) '
+        'still moves', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c =
+          await _open(tester, const MoneyMovementRoute(_i, _b), pinned: true);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      await _confirm(tester);
+      expect(_hypercore.withdrawals.single.usd, 5);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'Swap under a swap country block: the circle still turns Dollars → '
+        'Bitcoin (open) into Bitcoin → Dollars, which says why and offers '
+        'Check connection; turned back, it moves again. Never silently '
+        'disabled', (tester) async {
+      await install(tester, MarketDenial.swapCountryBlock);
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          ownMoveEntrySource: kUsdHomeSwapSource);
+      final swap = find.byKey(const ValueKey('money-movement-swap'));
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      expect(_button(tester).text, r'Swap $5');
+      expect(tester.widget<KuteCircleButton>(swap).enabled, isTrue);
+
+      // Into the blocked direction: the swap goes through, the screen says
+      // why in place of the fee, and the bar is its own state.
+      await tester.tap(swap);
+      await _frames(tester, 12);
+      expect(_last('move_direction_changed')['from'], 'bitcoin');
+      expect(_last('move_direction_changed')['to'], 'dollars');
+      expect(restricted(), findsOneWidget);
+      expect(
+          find.text('$kGatingNamedTitle\n$kGatingVpnSentence'), findsOneWidget);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(_button(tester).text, 'Check connection');
+      expect(tester.widget<KuteCircleButton>(swap).enabled, isTrue);
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(_railCalls, 0);
+      expect(_btcToDollars, isEmpty);
+
+      // And back: the exit is open again.
+      await tester.tap(swap);
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      expect(_button(tester).text, r'Swap $5');
+      expect(_button(tester).onPressed, isNotNull);
+      await _close(tester, c);
+    });
+
+    for (final how in [
+      MarketDenial.masterOff,
+      MarketDenial.platform,
+      MarketDenial.comingSoon,
+    ]) {
+      testWidgets(
+          '${how.label} on the swap master: Bitcoin → Dollars and Dollars → '
+          'Bitcoin both say why, the button cannot move', (tester) async {
+        await install(tester, how, targets: {kSwapMaster});
+        for (final route in const [
+          MoneyMovementRoute(_b, _d),
+          MoneyMovementRoute(_d, _b),
+        ]) {
+          final c = await _open(tester, route, pinned: true);
+          await _type(tester, '5');
+          await _frames(tester, 12);
+          expect(restricted(), findsOneWidget, reason: '$route');
+          expect(find.text(how.message), findsOneWidget, reason: '$route');
+          expect(_button(tester).onPressed, isNull, reason: '$route');
+          expect(_button(tester).text, isNot('Check connection'));
+          expect(_railCalls, 0);
+          expect(_btcToDollars, isEmpty);
+          await _close(tester, c);
+        }
+      });
+    }
+  });
+
+  // ─── fw46: the own-account doors spend all the dollar money ─────────
+  //
+  // Founder, 7 November 2026: "from your Dollars should and must be all
+  // the available balances, not just the Dollars balance, it is the same
+  // behaviour we had before on Investments buy Bitcoin". The Dollars →
+  // Bitcoin door (the Dollars Send's "Move to your Bitcoin"; the Bitcoin
+  // Receive's "From your Dollars" is gone, founder, 7 November 2026)
+  // opens this pinned move (showOwnMoneyMove): its From row and Max are
+  // Dollars plus the venue cash in reach, and it pays Dollars first, then
+  // the venues, under one approval, as the Investments' Buy bitcoin did.
+  // The Portfolio's unpinned Move money still spends only the account
+  // picked.
+  group(
+      'Move to your Bitcoin spends all the dollar money, as the '
+      "Investments' Buy bitcoin (fw46)", () {
+    late _VenueCash predictions;
+    late _VenueCash investing;
+    late List<double> initialBuys;
+    late List<double> finished;
+    late bool finisherStopped;
+
+    setUp(() {
+      predictions = _VenueCash(OneBalanceVenue.predictions);
+      investing = _VenueCash(OneBalanceVenue.investing);
+      initialBuys = [];
+      finished = [];
+      finisherStopped = false;
+      MultiSourceMoveStore.reset();
+      PendingBitcoinPurchaseStore.reset();
+    });
+
+    /// The venues holding [p] (Predictions) and [i] (Investing), as the
+    /// engine last read them and as they answer now, with the sheet's
+    /// puller over them, the multi-source purchase's Dollars leg and the
+    /// background finisher recorded instead of sent.
+    List<Override> venues({double p = 0, double i = 0}) {
+      predictions.available = p;
+      investing.available = i;
+      final puller = VenueCashPuller(
+        walletId: () => 'spending',
+        sources: [predictions, investing],
+        readDollars: () => _dollars,
+        minimumUsd: (venue) async => _venueMinimum(venue),
+      );
+      return [
+        venueCashPullerProvider.overrideWith((_) => puller),
+        venueCashLastReadProvider.overrideWith(
+            (_) => (walletId: 'spending', candidates: _venueCash(p: p, i: i))),
+        bitcoinPurchaseFanoutProvider.overrideWith((_) => BitcoinPurchaseFanout(
+                buy: (usd, grant, id, onFunding) async {
+              initialBuys.add(usd);
+              onFunding();
+              _dollars -= usd;
+              return DollarsToBitcoinSent(
+                  sentUsd: usd, registered: true, operationId: 'initial_$id');
+            })),
+        bitcoinPurchaseFinisherProvider.overrideWith((_) =>
+            BitcoinPurchaseFinisher(
+              readDollars: () => _dollars,
+              buy: (usd, stepUp, {required moveId, required onFunding}) async {
+                finished.add(usd);
+                onFunding();
+              },
+              sleep: (_) async {
+                if (finisherStopped) throw StateError('test over');
+                await Future<void>.delayed(const Duration(milliseconds: 100));
+              },
+            )),
+      ];
+    }
+
+    Future<void> done(WidgetTester tester, ProviderContainer c) async {
+      finisherStopped = true;
+      await _close(tester, c);
+    }
+
+    // The Dollars Send's "Move to your Bitcoin" (the Bitcoin Receive's
+    // "From your Dollars" door is gone: founder, 7 November 2026).
+    for (final (door, source) in [
+      ('Move to your Bitcoin', kUsdWithdrawSearchSource),
+    ]) {
+      testWidgets(
+          '$door: the From row and Max are Dollars plus the venue cash in '
+          'reach (net of the move costs), and an amount past Dollars is '
+          'not insufficient', (tester) async {
+        _dollars = 10;
+        final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+            overrides: venues(p: 60), ownMoveEntrySource: source);
+        expect(_last('move_sheet_opened')['entry_source'], source);
+        expect(_title('Swap'), findsOneWidget);
+        // $10 of Dollars and $60 of Predictions cash: 10 + 60 x 0.98, the
+        // figure the engine's plan covers, the card's figure too.
+        final reach = investmentsSpendable(
+                dollarsUsd: 10, sources: _venueCash(p: 60))
+            .maxUsd;
+        expect(reach, closeTo(68.80, 1e-9));
+        expect(find.text(r'$68.80 available'), findsOneWidget);
+        expect(find.textContaining(r'$10.00'), findsNothing);
+
+        await tester.tap(find.text('Max').last);
+        await _frames(tester);
+        expect(_button(tester).text, r'Swap $68.80');
+        expect(find.text('Insufficient balance'), findsNothing);
+        expect(_button(tester).onPressed, isNotNull);
+        expect(_railCalls, 0);
+        await done(tester, c);
+      });
+    }
+
+    testWidgets(
+        'it pays as the Investments\' Buy bitcoin did: one approval before '
+        'anything moves, Dollars first in full, then Predictions, then '
+        'Investing for the rest; the sheet closes once every leg is '
+        'submitted and the rest is bought as it lands', (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 15, i: 40),
+          ownMoveEntrySource: kUsdWithdrawSearchSource);
+      await _type(tester, '40');
+      expect(find.text('Insufficient balance'), findsNothing);
+      expect(_button(tester).text, r'Swap $40');
+      await _confirm(tester);
+      await _frames(tester, 8);
+
+      // One approval, for the whole purchase into the own Bitcoin, asked
+      // before any venue cash moved.
+      expect(_approvals.intents, hasLength(1));
+      expect(_approvals.intents.single.action, SensitiveAction.moveTransfer);
+      expect(_approvals.intents.single.destination, _ownSpark);
+      // The plan the Investments' Buy bitcoin always made: Dollars first,
+      // then the venues fastest first, each only for what is missing.
+      final plan = planDollarsShortfall(
+          neededUsd: 40, dollarsUsd: 10, sources: _venueCash(p: 15, i: 40));
+      expect(plan.pulls.map((leg) => leg.venue),
+          [OneBalanceVenue.predictions, OneBalanceVenue.investing]);
+      expect(initialBuys, [10], reason: 'Dollars first, in full');
+      expect(
+          predictions.pulls, [plan.pullFrom(OneBalanceVenue.predictions)!.usd]);
+      expect(predictions.pulls, [15]);
+      expect(investing.pulls, [plan.pullFrom(OneBalanceVenue.investing)!.usd]);
+      // No single-source purchase ran beside it.
+      expect(_runner.plans, isEmpty);
+      // One move, its Activity row, with the Dollars leg on it.
+      final move = MultiSourceMoveStore.all().single;
+      expect(move.isParallelPurchase, isTrue);
+      expect(move.initialDollarsSentUsd, 10);
+      // Submitted: the band snaps and the sheet is gone; the rest is
+      // bought once it lands.
+      await tester.pump(const Duration(milliseconds: 600));
+      await _frames(tester);
+      expect(find.byKey(const ValueKey('money-movement-sheet')), findsNothing);
+      final completed = _last('move_completed');
+      expect(completed['outcome'], 'purchase_queued');
+      expect(completed['surface'], 'money_movement');
+      expect(completed['from'], 'dollars');
+      expect(completed['to'], 'bitcoin');
+      expect(_last('move_submitted')['amount_usd'], closeTo(40, 1e-9));
+      await done(tester, c);
+    });
+
+    testWidgets(
+        'a venue whose withdraw a platform rule withholds is left out: not '
+        'in the From row, no leg from it, the other venue covers the rest',
+        (tester) async {
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance = null;
+      await tester.runAsync(() => installMarketGatingPolicy(
+          MarketDenial.platform,
+          targets: {'polymarket.withdraw'}));
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 60, i: 40),
+          ownMoveEntrySource: kUsdWithdrawSearchSource);
+      // 10 + 40 x 0.98 - 0.30: Investing only.
+      expect(find.text(r'$48.90 available'), findsOneWidget);
+      await _type(tester, '30');
+      await _confirm(tester);
+      await _frames(tester, 8);
+      expect(predictions.pulls, isEmpty);
+      expect(investing.pulls, [
+        planDollarsShortfall(
+                neededUsd: 30, dollarsUsd: 10, sources: _venueCash(i: 40))
+            .pullFrom(OneBalanceVenue.investing)!
+            .usd
+      ]);
+      expect(initialBuys, [10]);
+      await done(tester, c);
+    });
+
+    testWidgets(
+        'with Dollars enough it buys from Dollars alone, as before: no '
+        'venue leg, no venue approval', (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 60),
+          ownMoveEntrySource: kUsdWithdrawSearchSource);
+      await _type(tester, '5');
+      await _confirm(tester);
+      expect(predictions.pulls, isEmpty);
+      expect(initialBuys, isEmpty);
+      // The single purchase from Dollars, on its own rail.
+      expect(_runner.plans.single.flow, SettlementFlow.moveDollarsToBtc);
+      expect(_runner.plans.single.amountUsd, closeTo(5, 1e-9));
+      await done(tester, c);
+    });
+
+    testWidgets(
+        "the Portfolio's Move money (unpinned) still spends only the "
+        'account picked: Dollars alone, and past it is insufficient',
+        (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+          overrides: venues(p: 60));
+      expect(find.text(r'$10.00 available'), findsOneWidget);
+      expect(find.textContaining(r'$68.80'), findsNothing);
+      // Bitcoin and Dollars here too, yet still Move money: its title and
+      // its verb (the Swap screen is the own-account doors').
+      expect(_title('Move money'), findsOneWidget);
+      await _type(tester, '5');
+      expect(_button(tester).text, r'Move $5');
+      await tester.tap(find.byIcon(Icons.backspace_rounded));
+      await _frames(tester);
+      await _type(tester, '30');
+      expect(find.text('Insufficient balance'), findsOneWidget);
+      expect(_button(tester).onPressed, isNull);
+      expect(predictions.pulls, isEmpty);
+      expect(_approvals.intents, isEmpty);
+      await done(tester, c);
+    });
+
+    // Swap (founder, 7 November 2026: "a button in a reversible way"):
+    // the Dollars home's Swap opens Bitcoin → Dollars; the circle turns it
+    // into Dollars → Bitcoin and back, and the available figure, Max and
+    // the checks follow the direction on screen.
+    testWidgets(
+        "Swap: the circle reverses the move; From, its figure, Max and the "
+        'over-balance check follow; nothing is sent', (tester) async {
+      _dollars = 10;
+      final c = await _open(tester, const MoneyMovementRoute(_b, _d),
+          overrides: venues(p: 60),
+          ownMoveEntrySource: kUsdHomeSwapSource);
+      expect(_last('move_sheet_opened')['entry_source'], kUsdHomeSwapSource);
+      expect(_title('Swap'), findsOneWidget);
+      final from = find.byKey(const ValueKey('money-movement-from'));
+      final to = find.byKey(const ValueKey('money-movement-to'));
+      final swap = find.byKey(const ValueKey('money-movement-swap'));
+      Finder inFrom(String text) =>
+          find.descendant(of: from, matching: find.text(text));
+      Finder inTo(String text) =>
+          find.descendant(of: to, matching: find.text(text));
+      // The Bitcoin figure: 20,000 sats at the sheet's price, rounded
+      // down to the cent ($19.99 or $20.00 as the price is read).
+      bool bitcoinLine() => find
+          .descendant(of: from, matching: find.byType(Text))
+          .evaluate()
+          .map((e) => (e.widget as Text).data)
+          .any((t) => t == r'$19.99 available' || t == r'$20.00 available');
+      bool bitcoinMax() =>
+          {r'Swap $19.99', r'Swap $20'}.contains(_button(tester).text);
+      String typed() => tester
+          .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+          .amountText;
+
+      // Bitcoin → Dollars: 20,000 sats, $20 at the sample price (the
+      // figure rounds down, never promising a cent). To says no figure.
+      expect(inFrom('Bitcoin'), findsOneWidget);
+      expect(bitcoinLine(), isTrue);
+      expect(inTo('Dollars'), findsOneWidget);
+      expect(find.descendant(of: to, matching: find.textContaining(r'$')),
+          findsNothing);
+      await tester.tap(find.text('Max').last);
+      await _frames(tester);
+      expect(bitcoinMax(), isTrue);
+
+      // Swapped: Dollars → Bitcoin, all the dollar money (10 + 60 x 0.98).
+      await tester.tap(swap);
+      await _frames(tester);
+      final changed = _last('move_direction_changed');
+      expect(changed['from'], 'dollars');
+      expect(changed['to'], 'bitcoin');
+      expect(changed['reversed'], true);
+      expect(inFrom('Dollars'), findsOneWidget);
+      expect(inFrom(r'$68.80 available'), findsOneWidget);
+      expect(inTo('Bitcoin'), findsOneWidget);
+      // The amount clears, as any change of route does.
+      expect(typed(), '');
+      await tester.tap(find.text('Max').last);
+      await _frames(tester);
+      expect(_button(tester).text, r'Swap $68.80');
+      // $50 is past Dollars ($10) but within reach: not insufficient.
+      await tester.tap(find.text(r'$50').last);
+      await _frames(tester);
+      expect(find.text('Insufficient balance'), findsNothing);
+
+      // And back: Bitcoin's own figure and Max again; $50 is past it.
+      await tester.tap(swap);
+      await _frames(tester);
+      expect(_last('move_direction_changed')['from'], 'bitcoin');
+      expect(inFrom('Bitcoin'), findsOneWidget);
+      expect(bitcoinLine(), isTrue);
+      expect(inFrom(r'$68.80 available'), findsNothing);
+      expect(typed(), '');
+      await tester.tap(find.text(r'$50').last);
+      await _frames(tester);
+      expect(find.text('Insufficient balance'), findsOneWidget);
+      expect(_button(tester).onPressed, isNull);
+      await tester.tap(find.text('Max').last);
+      await _frames(tester);
+      expect(bitcoinMax(), isTrue);
+
+      expect(_railCalls, 0);
+      expect(_approvals.intents, isEmpty);
+      expect(predictions.pulls, isEmpty);
+      await done(tester, c);
     });
   });
 }

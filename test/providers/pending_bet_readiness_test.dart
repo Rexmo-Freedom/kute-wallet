@@ -14,7 +14,9 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/services/polymarket/usdce_wrap_gate.dart'
-    show FundedConversionHold;
+    show FundedConversionHold, UsdceWrapGate;
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolygonPollReadFailed;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
@@ -112,11 +114,43 @@ class _Trading extends PolymarketTradingNotifier {
     return reads;
   }
 
-  @override
-  void nudgeConversion() => nudges++;
+  /// What the funded bet's chain watch reads; null = nothing to read.
+  ({BigInt pusd, BigInt usdce, int endpoint, int rpcErrors})? chain;
+  Object? chainError;
+  var chainReads = 0;
 
   @override
-  Future<void> readyCollateralForBuy(double costUsd) async {}
+  Future<({BigInt pusd, BigInt usdce, int endpoint, int rpcErrors})?>
+      readCollateralNow() async {
+    chainReads++;
+    final e = chainError;
+    if (e != null) throw e;
+    return chain;
+  }
+
+  /// When set, every nudge converts through the real single-flight gate.
+  UsdceWrapGate? gate;
+  var wraps = 0;
+
+  /// How many readiness reads had gone out at the first nudge.
+  int? firstNudgeAtReads;
+
+  @override
+  void nudgeConversion() {
+    nudges++;
+    firstNudgeAtReads ??= refreshAsks.length;
+    final g = gate;
+    if (g != null) {
+      unawaited(g.run('0xdeposit', () async {
+        wraps++;
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        return BigInt.one;
+      }));
+    }
+  }
+
+  @override
+  Future<bool> readyCollateralForBuy(double costUsd) async => false;
 
   @override
   Future<void> refresh() async {}
@@ -197,13 +231,15 @@ Settings _settings() => Settings(
 PendingBetIntent _queued(
         {DateTime? endAt,
         String? slug,
+        String? roundWindow,
+        String question = 'Bitcoin Up or Down - October 13, 2:00PM-2:05PM ET',
         Map<String, Object?>? btcLeg,
         Map<String, Object?>? directLegs}) =>
     PendingBetIntent(
       tokenId: _token,
       amount: 10,
       slippagePct: 5,
-      marketQuestion: 'Bitcoin Up or Down - October 13, 2:00PM-2:05PM ET',
+      marketQuestion: question,
       outcomeName: 'Up',
       expectedPrice: 0.5,
       status: PendingBetStatus.awaitingBalance,
@@ -216,6 +252,7 @@ PendingBetIntent _queued(
       btcLeg: btcLeg,
       directLegs: directLegs,
       eventSlug: slug,
+      roundWindow: roundWindow,
     );
 
 void main() {
@@ -345,6 +382,7 @@ void main() {
       Map<String, Object?>? btcLeg,
       Map<String, Object?>? directLegs,
       String? slug,
+      String? roundWindow,
       String Function()? ask}) async {
     final askNow = ask ?? () => '0.48';
     final trading = _Trading([...refusals])
@@ -383,7 +421,11 @@ void main() {
     });
 
     final intent = _queued(
-        endAt: endAt, slug: slug, btcLeg: btcLeg, directLegs: directLegs);
+        endAt: endAt,
+        slug: slug,
+        roundWindow: roundWindow,
+        btcLeg: btcLeg,
+        directLegs: directLegs);
     final review = PmGrants.betReview(
       walletId: 'spending',
       tokenId: _token,
@@ -407,6 +449,18 @@ void main() {
     c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
     return (c: c, trading: trading, atPlacing: atPlacing);
   }
+
+  /// [start] for a bet the slip opened on the next window.
+  Future<
+      ({
+        ProviderContainer c,
+        _Trading trading,
+        List<PredictionsReadiness?> atPlacing
+      })> start_(DateTime windowStart,
+          {required String slug,
+          String Function()? ask,
+          required DateTime endAt}) =>
+      start(slug: slug, ask: ask, endAt: endAt, roundWindow: 'next');
 
   Future<void> settle(ProviderContainer c) async {
     for (var i = 0; i < 300; i++) {
@@ -505,6 +559,130 @@ void main() {
     expect(r.trading.orderCosts.single, lessThanOrEqualTo(10.6));
   });
 
+  group('the funded bet\'s own chain watch', () {
+    ({BigInt pusd, BigInt usdce, int endpoint, int rpcErrors}) chain(
+            {double pusd = 0, double usdce = 0, int endpoint = 2}) =>
+        (pusd: _usd(pusd), usdce: _usd(usdce), endpoint: endpoint, rpcErrors: 0);
+
+    void journey() => OrderFundingJourney.instance.start(
+        OneBalanceVenue.predictions,
+        orderUsd: 10,
+        fundUsd: 10,
+        readyUsd: 0,
+        dollarsUsd: 10);
+
+    test(
+        'sees every leg\'s money on chain before any other read: the hold '
+        'released, the conversion started at once, detected_by chain_poll',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.chain = chain(usdce: 10.6);
+      final watch = r.c.read(pendingBetAutoFireProvider).chainWatch;
+      expect(watch.active, isTrue);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      // The conversion was asked for before the readiness look read the
+      // wallet: straight from the chain read that saw the money.
+      expect(r.trading.firstNudgeAtReads, 0);
+      expect(r.trading.chainReads, 1);
+      expect(FundedConversionHold.held, isFalse);
+      expect(watch.active, isFalse);
+      final done =
+          events.singleWhere((e) => e.$1 == 'order_funding_completed').$2!;
+      expect(done['detected_by'], 'chain_poll');
+      expect(done['chain_reads'], 1);
+      expect(done['chain_rpc_errors'], 0);
+      expect(done['chain_rpc_endpoint'], 2);
+      expect(done['ms_funded_to_onchain_seen'], isA<int>());
+      expect(done['ms_funded_to_onchain_seen'] as int, greaterThanOrEqualTo(0));
+    });
+
+    test('part of the money on chain: still held; all of it: released',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.chain = chain(usdce: 4);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(FundedConversionHold.held, isTrue);
+      expect(r.trading.nudges, 0);
+      expect(r.trading.orders, isEmpty);
+      // The next tick (1 s) sees all of it.
+      r.trading.chain = chain(pusd: 4, usdce: 6.6);
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      expect(FundedConversionHold.held, isFalse);
+      expect(r.trading.nudges, greaterThan(0));
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.chainReads, 2);
+    });
+
+    test('the release and the readiness look both ask: one conversion',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.gate = UsdceWrapGate();
+      // The readiness look still sees USDC.e: it asks again (converting).
+      r.trading.reads = _reads(usdce: 10.6, counted: 0);
+      r.trading.chain = chain(usdce: 10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(r.trading.nudges, greaterThanOrEqualTo(2));
+      expect(r.trading.wraps, 1);
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.wraps, 1);
+    });
+
+    test('an RPC failure is counted and backed off, never taken for empty',
+        () async {
+      journey();
+      final r = await start();
+      r.trading.chainError = const PolygonPollReadFailed(2);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      // 0 s, then the 1 s backoff: two tries, nothing released.
+      expect(r.trading.chainReads, 2);
+      expect(FundedConversionHold.held, isTrue);
+      r.trading.chainError = null;
+      r.trading.chain = chain(usdce: 10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 2500));
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      final done =
+          events.singleWhere((e) => e.$1 == 'order_funding_completed').$2!;
+      expect(done['detected_by'], 'chain_poll');
+      expect(done['chain_rpc_errors'], 4);
+      expect(done['chain_reads'], 3);
+    });
+
+    test('stops when the bet is cancelled or fails', () async {
+      journey();
+      final r = await start();
+      final watch = r.c.read(pendingBetAutoFireProvider).chainWatch;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(watch.active, isTrue);
+      r.c.read(pendingPolymarketBetProvider.notifier).updateStatus(
+          PendingBetStatus.failed,
+          errorMessage: 'x',
+          failureCode: 'funds_timeout');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(watch.active, isFalse);
+      final reads = r.trading.chainReads;
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      expect(r.trading.chainReads, reads);
+    });
+
+    test('stops once the bet is done', () async {
+      final r = await start();
+      r.c.read(pendingPolymarketBetProvider.notifier).setIntent(r.c
+          .read(pendingPolymarketBetProvider)!
+          .copyWith(status: PendingBetStatus.done));
+      final watch = r.c.read(pendingBetAutoFireProvider).chainWatch;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(watch.active, isFalse);
+    });
+  });
+
   for (final fallback in [false, true]) {
     test(
         'proved ${fallback ? 'via Dollars' : 'direct'} mixed delivery, no '
@@ -577,6 +755,129 @@ void main() {
     await settle(r.c);
     expect(r.trading.orders, hasLength(1));
     expect(r.trading.orderCosts.single, lessThanOrEqualTo(10.45 + 1e-6));
+  });
+
+  group('a short reading is not a short landing until it holds (founder, 11 '
+      'November 2026: "we place the bet, then an error comes saying that '
+      'there is no money")', () {
+    // The wallet's pUSD and USDC.e are two separate chain reads, answered
+    // by whichever endpoint is first. Around the block a conversion is
+    // mined in (or right after Orchestra says "delivered"), one can show
+    // the wallet before and the other after: pUSD not yet there, USDC.e
+    // already gone. With every leg reported done that read used to be
+    // taken for a short landing: "Add funds to predict" with the money
+    // there, or a smaller bet than the one accepted.
+    Future<({ProviderContainer c, _Trading trading})> delivered(
+        {required double held, required double arriving}) async {
+      final r = await start();
+      final id = graph(r.c, [
+        MoneyStep(
+            id: 'leg:dollars',
+            kind: MoneyStepKind.leg,
+            from: MoneyPlace.dollars,
+            usd: arriving,
+            status: MoneyStepStatus.done),
+      ]);
+      r.c.read(pendingPolymarketBetProvider.notifier).setIntent(r.c
+          .read(pendingPolymarketBetProvider)!
+          .copyWith(
+              fundedRunId: id,
+              fundReadyUsd: held,
+              fundArrivingUsd: arriving));
+      return (c: r.c, trading: r.trading);
+    }
+
+    setUp(() => PendingBetAutoFire.debugShortLandingGrace =
+        const Duration(milliseconds: 300));
+    tearDown(() => PendingBetAutoFire.debugShortLandingGrace = null);
+
+    test(
+        'cents of pUSD in the wallet, the conversion read torn: never "Add '
+        'funds", the bet waits and is placed in full', () async {
+      final r = await delivered(held: 0.3, arriving: 10.3);
+      // Landed as USDC.e, every leg done: the one conversion starts.
+      r.trading.reads = _reads(pusd: 0.3, usdce: 10.3, counted: 0.3);
+      r.trading.land(10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(r.trading.nudges, greaterThan(0));
+      // The torn read: USDC.e already converted, pUSD not shown yet.
+      r.trading.reads = _reads(pusd: 0.3, counted: 0.3);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      final waiting = r.c.read(pendingPolymarketBetProvider)!;
+      expect(waiting.status, PendingBetStatus.awaitingBalance,
+          reason: waiting.failureCode);
+      expect(r.trading.orders, isEmpty);
+      // The next reads show the converted money.
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, greaterThan(10));
+      expect(r.c.read(pendingPolymarketBetProvider)?.status,
+          isNot(PendingBetStatus.failed));
+    });
+
+    test(
+        'delivered by its status before our read shows it: waits for the '
+        'chain, never "Add funds" on the cents that were there', () async {
+      final r = await delivered(held: 0.3, arriving: 10.3);
+      r.trading.reads = _reads(pusd: 0.3, counted: 0.3);
+      r.trading.land(0.3);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      final waiting = r.c.read(pendingPolymarketBetProvider)!;
+      expect(waiting.status, PendingBetStatus.awaitingBalance,
+          reason: waiting.failureCode);
+      r.trading.reads = _reads(usdce: 10.3, pusd: 0.3, counted: 0.3);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, greaterThan(10));
+    });
+
+    test(
+        'dollars already in Predictions, the conversion read torn: the bet '
+        'accepted is the bet placed, never a smaller one on the old cash',
+        () async {
+      final r = await delivered(held: 3, arriving: 7.6);
+      r.trading.reads = _reads(pusd: 3, usdce: 7.6, counted: 3);
+      r.trading.land(10.6);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      r.trading.reads = _reads(pusd: 3, counted: 3);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(r.trading.orders, isEmpty);
+      expect(r.c.read(pendingPolymarketBetProvider)!.status,
+          PendingBetStatus.awaitingBalance);
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, greaterThan(10));
+    });
+
+    test(
+        'a landing that stays short is still what it was: sized from what '
+        'landed once the reading has held, "Add funds" under the minimum',
+        () async {
+      PendingBetAutoFire.debugShortLandingGrace =
+          const Duration(milliseconds: 250);
+      final r = await delivered(held: 0, arriving: 10.6);
+      r.trading.reads = _reads(pusd: 8, counted: 8);
+      r.trading.land(8);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orderCosts.single, lessThanOrEqualTo(8 + 1e-6));
+
+      final s = await delivered(held: 0, arriving: 10.6);
+      s.trading.reads = _reads(pusd: 0.4, counted: 0.4);
+      s.trading.land(0.4);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(s.c.read(pendingPolymarketBetProvider)!.status,
+          PendingBetStatus.awaitingBalance);
+      await settle(s.c);
+      final stopped = s.c.read(pendingPolymarketBetProvider)!;
+      expect(stopped.status, PendingBetStatus.failed);
+      expect(stopped.failureCode, 'insufficient_usdc');
+      expect(s.trading.orders, isEmpty);
+    });
   });
 
   test('skipped or previous legs alone cannot certify a short landing',
@@ -756,6 +1057,28 @@ void main() {
         'placed');
   });
 
+  test(
+      'refused for balance and the wallet reads short for good: the next '
+      'order is sized to what is there, never the whole funds wait', () async {
+    PendingBetAutoFire.debugShortLandingGrace =
+        const Duration(milliseconds: 60);
+    addTearDown(() => PendingBetAutoFire.debugShortLandingGrace = null);
+    final r = await start(refusals: [const PolymarketBalanceRefused(_balance)]);
+    r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+    // By the post the wallet holds less than the order costs (another
+    // order of the person's took part of it): the venue refuses it.
+    r.trading.onRefused = () => r.trading.reads = _reads(pusd: 8, counted: 8);
+    r.trading.land(10.6);
+    await settle(r.c);
+    expect(r.trading.orders, hasLength(2),
+        reason: 'sent again for what is there, in seconds');
+    expect(r.trading.orderCosts.last, lessThanOrEqualTo(8));
+    expect(r.trading.orderCosts.last, greaterThan(7));
+    expect(r.c.read(pendingPolymarketBetProvider)!.status,
+        PendingBetStatus.awaitingConfirmation);
+    expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+  });
+
   group('funded from Bitcoin: the executor\'s own grant check', () {
     // Founder, 19 October 2026: "Moved \$5.30 from Bitcoin", then
     // `[pm-autofire] failed: ReauthRequired(other)` at placeOrder's
@@ -927,9 +1250,16 @@ void main() {
       expect(pending.retryMaxPrice, isNotNull);
       expect(pending.errorMessage,
           'Price changed to 70% while your money was moving.');
-      // The round is still open: the retry is on it, at the price now.
-      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+      // The round not started yet: the retry is on it, at the price now.
+      final before = DateTime.fromMillisecondsSinceEpoch(
+          (1791152100 - 60) * 1000,
+          isUtc: true);
+      expect(betSlipStopAction(l10nForLanguage('en'), pending, now: before),
           (label: 'Retry at 70%', nextRound: false));
+      // In play by now: never on it (founder, 12 November 2026), the retry
+      // opens the series' next round.
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry', nextRound: true));
       // Once it has ended, the retry opens the series' round in play.
       expect(
           betSlipStopAction(l10nForLanguage('en'), pending,
@@ -1106,6 +1436,92 @@ void main() {
   // sends again were spent within seconds because the readiness read
   // looked ready at once. The waits below take well past those five
   // sends' worth of time; the fix waits them out, spaced, bounded by time.
+  group('a bet for the next window whose money lands late (founder, 8 '
+      'November 2026)', () {
+    // The card's buttons roll to the next window partway through this one,
+    // so a funded bet can land before that window starts or after. The
+    // existing rules apply unchanged: on the tokens it was approved for,
+    // from a fresh book, under the approved worst price, or not at all.
+    String nextSlug(DateTime start) =>
+        'btc-updown-5m-${start.millisecondsSinceEpoch ~/ 1000}';
+    Map<String, Object> failedEvent() =>
+        events.where((e) => e.$1 == 'polymarket_bet_failed').single.$2!;
+
+    test('landed before it starts: placed on its own tokens under the '
+        'approval, reported as the next window', () async {
+      final start = DateTime.now().add(const Duration(minutes: 2));
+      final r = await start_(
+          start, slug: nextSlug(start), ask: () => '0.48',
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.trading.orders.single, lessThanOrEqualTo(0.55 + 1e-9));
+      expect(r.c.read(pendingPolymarketBetProvider)!.failureCode, isNull);
+    });
+
+    test('landed after it started, the price inside the approval: placed '
+        'as any open round', () async {
+      final start = DateTime.now().subtract(const Duration(seconds: 40));
+      final r = await start_(
+          start, slug: nextSlug(start), ask: () => '0.50',
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.c.read(pendingPolymarketBetProvider)!.failureCode, isNull);
+    });
+
+    test('landed after it started, the price moved past the approval: '
+        'nothing placed, the price now said, the retry asks again', () async {
+      final start = DateTime.now().subtract(const Duration(seconds: 40));
+      final r = await start_(
+          start, slug: nextSlug(start), ask: () => '0.81',
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, isEmpty, reason: 'never at a price not seen');
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.failureCode, 'round_price_moved');
+      expect(pending.errorMessage,
+          'Price changed to 81% while your money was moving.');
+      // The round is in play by now, still before its two-minute cutoff
+      // (founder, 12 November 2026: the round in play is bet until then):
+      // the retry asks again on this round, at the price now.
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry at 81%', nextRound: false));
+      final failed = failedEvent();
+      expect(failed['window'], 'next',
+          reason: 'still the window the slip opened on');
+      expect(failed['seconds_to_window_end'], isA<int>());
+      expect(failed['seconds_to_window_end'] as int, inInclusiveRange(200, 260));
+    });
+
+    test('landed after that window ended: nothing placed, the money in '
+        'Predictions, Retry on the round in play', () async {
+      final start = DateTime.now().subtract(const Duration(minutes: 6));
+      final r = await start_(
+          start, slug: nextSlug(start),
+          endAt: start.add(const Duration(minutes: 5)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, isEmpty);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.failureCode, 'round_ended');
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry', nextRound: true));
+      expect(failedEvent()['window'], 'next');
+    });
+
+    test('a round is known by its slug, whatever the question reads', () {
+      final ended = _queued(
+          endAt: DateTime.now().subtract(const Duration(seconds: 1)),
+          slug: 'btc-updown-5m-1791152100',
+          question: 'BTC hoch oder runter · 7:20–7:25');
+      expect(autofireRoundClosed(ended), isTrue);
+    });
+  });
+
   group('confirming late, after the money landed', () {
     test(
         'the spend approval mined late: waited out under the same approval, '

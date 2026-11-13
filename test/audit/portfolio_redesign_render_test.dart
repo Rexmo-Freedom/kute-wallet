@@ -1,8 +1,9 @@
 // Render harness for the Investments → Portfolio redesign (October 2026):
-// the Balances section (Available to invest with the small ring, Move
-// money on the right, Predictions and Investing with their position rows in
-// grouped cards; also
-// with nothing open at Investing, and its split opened), at
+// the Balances section (lighter since 28 October 2026: the 40 ring,
+// Available to invest with its amount at the line's end, Move money under
+// it, Predictions and Investing with their first 3 position rows in grouped
+// cards and "See all", folded and opened; also with nothing open at
+// Investing, and its split opened), at
 // 390 x 844 in the app's real themes and Inter, light and dark. Writes
 // PNGs.
 //
@@ -67,9 +68,15 @@ import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../helpers/euro_settings.dart';
 import '../helpers/portfolio_overrides.dart';
 
 const _out = String.fromEnvironment('PORTFOLIO_REDESIGN_OUT');
+
+/// The Settings currency: dollars money reads in dollars whatever this is
+/// (--dart-define=PORTFOLIO_REDESIGN_CURRENCY=EUR).
+const _currency =
+    String.fromEnvironment('PORTFOLIO_REDESIGN_CURRENCY', defaultValue: 'USD');
 const _images = String.fromEnvironment('PORTFOLIO_REDESIGN_IMAGES');
 const _key = ValueKey('shot');
 const _dpr = 3.0;
@@ -374,8 +381,9 @@ Future<ui.Image> _shoot(WidgetTester tester, bool dark,
   await tester.pumpWidget(ProviderScope(
     overrides: [
       ...portfolioOverrides(),
+      if (_currency == 'EUR') euroRateOverride(),
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
-          currency: 'USD',
+          currency: _currency,
           language: 'en',
           btcFormat: 'sats',
           backup: false,
@@ -435,10 +443,22 @@ Widget _section(PortfolioSection section) => ProviderScope(
       child: InvestmentsPortfolio(onSection: (_) {}),
     );
 
-/// Balances scrolled to its end ([scroll]) or with the split opened
-/// ([split]).
+/// Balances scrolled to its end ([scroll]), with the split opened
+/// ([split]) or Predictions' "See all" opened ([expand]).
 Future<void> _prepare(WidgetTester tester,
-    {bool scroll = false, bool split = false}) async {
+    {bool scroll = false, bool split = false, bool expand = false}) async {
+  if (expand) {
+    await tester.tap(
+        find.byKey(const ValueKey('portfolio-balance-predictions-see-all')));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 250)));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+  }
   if (split) {
     await tester
         .tap(find.byKey(const ValueKey('portfolio-balance-split-toggle')));
@@ -507,11 +527,13 @@ void main() {
     });
   }
 
-  for (final (name, empty, split, scroll) in [
-    ('balances', false, false, false),
-    ('balances_split', false, true, false),
-    ('balances_empty_investing', true, false, false),
-    ('hero_balances', false, false, false),
+  for (final (name, empty, split, scroll, expand) in [
+    ('balances', false, false, false, false),
+    ('balances_expanded', false, false, false, true),
+    ('balances_expanded_end', false, false, true, true),
+    ('balances_split', false, true, false, false),
+    ('balances_empty_investing', true, false, false, false),
+    ('hero_balances', false, false, false, false),
   ]) {
     testWidgets('$name, light and dark', (tester) async {
       tester.view.devicePixelRatio = _dpr;
@@ -530,7 +552,7 @@ void main() {
                     Expanded(child: _section(PortfolioSection.balances)),
                   ])
                 : _section(PortfolioSection.balances));
-        await _prepare(tester, scroll: scroll, split: split);
+        await _prepare(tester, scroll: scroll, split: split, expand: expand);
         final boundary =
             tester.renderObject<RenderRepaintBoundary>(find.byKey(_key));
         final img =

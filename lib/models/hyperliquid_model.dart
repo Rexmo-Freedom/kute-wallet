@@ -761,11 +761,9 @@ class HyperliquidModel {
       if (d is! Map) continue; // index 0 is null → the default dex
       final name = (d['name'] as String?)?.trim() ?? '';
       if (name.isEmpty) continue;
-      out.add(HlPerpDex(
-        name: name,
-        fullName: (d['fullName'] as String?)?.trim() ?? '',
-        index: i,
-      ));
+      final fullName = (d['fullName'] as String?)?.trim() ?? '';
+      out.add(HlPerpDex(name: name, fullName: fullName, index: i));
+      HlDexNames.remember(name, fullName);
     }
     return out;
   }
@@ -870,6 +868,12 @@ class HyperliquidModel {
     return result;
   }
 
+  /// How long a full read's builder-DEX part may stand in for a fresh one
+  /// ([getPortfolioSnapshot]'s `reuseDexes`).
+  static const Duration kDexReuseFor = Duration(seconds: 15);
+  final Map<String, ({Map<String, HlAccountSnapshot> dexes, DateTime at})>
+      _dexAccountsCache = {};
+
   /// Portfolio positions span the default and builder perpetual DEXs.
   /// Withdrawable USDC includes builder DEX cash. Execution explicitly moves
   /// the required collateral within the same account before spending it.
@@ -877,14 +881,38 @@ class HyperliquidModel {
   /// The main account and the builder DEXs are independent reads: both
   /// go at once, so an account read (a deposit's credit, the slip's
   /// order) costs one round of requests, not two in a row.
-  Future<HlAccountSnapshot> getPortfolioSnapshot(String address) async {
+  Future<HlAccountSnapshot> getPortfolioSnapshot(String address) =>
+      _portfolioSnapshot(address, reuseDexes: false);
+
+  /// [getPortfolioSnapshot] for a credit watch reading every second: the
+  /// builder DEXs' part is taken from this account's last full read when
+  /// it is younger than [kDexReuseFor], so a read costs only the main
+  /// account's two light reads (`clearinghouseState` +
+  /// `spotClearinghouseState`, weight 2 each on the info API: 4 in all)
+  /// instead of one more per builder DEX. A move into Investing credits
+  /// the main account, never a builder DEX.
+  Future<HlAccountSnapshot> getCreditSnapshot(String address) =>
+      _portfolioSnapshot(address, reuseDexes: true);
+
+  Future<HlAccountSnapshot> _portfolioSnapshot(String address,
+      {required bool reuseDexes}) async {
+    final key = address.toLowerCase();
+    final cached = _dexAccountsCache[key];
+    final reuse = reuseDexes &&
+        cached != null &&
+        DateTime.now().difference(cached.at) < kDexReuseFor;
     final baseRead = getAccountSnapshot(address);
-    final dexesRead = getUsdcDexAccounts(address);
+    final dexesRead = reuse
+        ? Future<Map<String, HlAccountSnapshot>>.value(cached.dexes)
+        : getUsdcDexAccounts(address);
     // Both settle before either error is rethrown (no unhandled future).
     await Future.wait<Object?>([baseRead, dexesRead], eagerError: false)
         .catchError((Object _) => const <Object?>[]);
     final base = await baseRead;
     final dexes = await dexesRead;
+    if (!reuse) {
+      _dexAccountsCache[key] = (dexes: dexes, at: DateTime.now());
+    }
     return HlAccountSnapshot(
         accountValue: base.accountValue + dexes.values.fold<double>(0, (v, s) => v + s.accountValue),
         withdrawable: base.withdrawable + dexes.values.fold<double>(0, (v, s) => v + s.withdrawable),

@@ -55,15 +55,17 @@
 // says Dollars, USD or $.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
+import 'package:kute/models/advisor_context.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/orchestra_router.dart'
@@ -79,7 +81,7 @@ import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show AssetIcon, kInvestmentsIcon, kUsdMarkAsset;
+    show AssetIcon, kInvestmentsIcon;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -92,11 +94,9 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/kute_motion.dart' show StepsReveal;
-import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
-    show AmountKeypad, AmountPercentChips;
+    show AmountKeypad;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -104,9 +104,22 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart'
     show PaymentTransactionOverlay;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCardIcon, kKuteActionCardVisualSize;
+import 'package:kute/screens/shared/send/send_contacts_list.dart'
+    show SendBrantaPayeeVisual, SendReviewRoute;
+import 'package:kute/services/branta/branta_payee_records.dart';
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
-import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
+import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
+    show SharedStepCta;
+import 'package:kute/screens/share/send_pick_market_sheet.dart';
+import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/services/contacts/send_contacts_service.dart'
+    show SendContact, sendContactsProvider;
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/background_sync_service.dart';
@@ -122,8 +135,7 @@ import 'package:kute/services/orchestra_routes.dart'
     show
         kOrchestraUsdAssetCode,
         kOrchestraUsdChain,
-        orchestraAssetCodeFor,
-        orchestraChainDisplayName;
+        orchestraAssetCodeFor;
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore, multiSourceMovesProvider, trackMultiSourceMoveRetry;
@@ -179,6 +191,13 @@ final usdSendEstimatorProvider = Provider<UsdSendEstimator>(
       ),
 );
 
+/// Test seam: stands in for the send's one step-up prompt, whichever
+/// moment asks it (before venue cash comes home, or at the send itself).
+/// Receives the intent and answers with a grant for it, or null
+/// (declined).
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugUsdSendApproval;
+
 /// The live limits the send's minimum is read from (a test seam).
 final usdSendRouteLimitsProvider = Provider<RouteLimitsFetcher>(
     (ref) => (route) => OrchestraService.getRouteLimits(route));
@@ -203,8 +222,12 @@ const int _kReviewStep = 2;
 /// Typed over what can be sent, the amount step says "more than
 /// available" and Continue stays dead; nothing is offered to top it up.
 class UsdSendScreen extends ConsumerStatefulWidget {
-  const UsdSendScreen(
-      {super.key, this.initialRecipient, this.initialDestination});
+  const UsdSendScreen({
+    super.key,
+    this.initialRecipient,
+    this.initialDestination,
+    this.startOnAmount = false,
+  });
 
   /// A recipient handed over on open (a deep link or a scanner
   /// hand-off), raw. A payment request that names its own network
@@ -218,9 +241,86 @@ class UsdSendScreen extends ConsumerStatefulWidget {
   /// the coin as the chip that reopens the picker.
   final UsdSendDestination? initialDestination;
 
+  /// The Withdraw sheet's Who step already answered Send to (the coin and
+  /// an address it accepts, [initialDestination] and [initialRecipient]):
+  /// the send opens on its amount (founder, 7 November 2026: Who, then
+  /// What). Back still reaches Send to.
+  final bool startOnAmount;
+
   @override
   ConsumerState<UsdSendScreen> createState() => _UsdSendScreenState();
 }
+
+/// One recent dollar recipient: the address, the coin on its network,
+/// the amount sent and when.
+typedef UsdSendRecent = ({
+  String address,
+  UsdSendDestination destination,
+  String amount,
+  DateTime when
+});
+
+/// The last few recipients this wallet sent dollars to, newest first,
+/// from the dollar send's own activity rows; [only] keeps one coin on its
+/// network. Only rows whose destination is still offered are listed, so
+/// a tap always lands on a live route. Watched through [ref].
+List<UsdSendRecent> usdSendRecentRecipients(
+    WidgetRef ref, List<UsdSendDestination> offered,
+    {UsdSendDestination? only, int limit = 5}) {
+  final walletId = pickSpendingWallet(ref.watch(settingsProvider))?.id;
+  final orders = ref.watch(swapOrdersProvider);
+  final rows = orders
+      .where((o) =>
+          o.activityDirection == 'send' &&
+          o.coinFrom.toUpperCase() == kOrchestraUsdAssetCode &&
+          o.networkFrom.toUpperCase() == 'SPARK' &&
+          o.withdrawalAddress.trim().isNotEmpty &&
+          (o.walletId == null || o.walletId == walletId))
+      .toList()
+    ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  final seen = <String>{};
+  final out = <UsdSendRecent>[];
+  for (final o in rows) {
+    final chain = o.networkTo.toLowerCase();
+    final destination = offered
+        .where((d) =>
+            d.chain == chain &&
+            d.assetCode.toUpperCase() == o.coinTo.toUpperCase())
+        .firstOrNull;
+    if (destination == null) continue;
+    if (only != null && destination.id != only.id) continue;
+    final address = o.withdrawalAddress.trim();
+    if (!usdSendDestinationAccepts(destination, address)) continue;
+    if (!seen.add('${destination.id}|${address.toLowerCase()}')) continue;
+    out.add((
+      address: address,
+      destination: destination,
+      amount: o.depositAmount,
+      when: DateTime.fromMillisecondsSinceEpoch(o.timestamp),
+    ));
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/// A dollar destination's mark: the coin with its network as a badge.
+Widget usdSendDestinationMark(UsdSendDestination destination,
+        {required double size}) =>
+    PickerCoinBadgeIcon(
+      size: size,
+      coinIcon: ChainAvatarIcon(
+        chainId: destination.assetCode,
+        label: destination.displaySymbol,
+        iconUrl: destination.assetIconUrl,
+        size: size,
+      ),
+      badge: ChainAvatarIcon(
+        chainId: destination.chain,
+        label: destination.chainDisplayName,
+        iconUrl: destination.chainIconUrl,
+        size: size / 2,
+      ),
+    );
 
 /// [d] as the coin pickers' option row.
 OrchestraReceiveOption usdSendDestinationOption(UsdSendDestination d) =>
@@ -287,6 +387,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
 
   /// [UsdSendScreen.initialRecipient] while it still waits for a coin.
   String? _pendingRecipient;
+
+  /// The contact picked from "Send to a friend" (send_recipient_step
+  /// .dart), kept so a pick made after it ("Send a prediction or
+  /// investment") carries the label. Never leaves the device.
+  SendContact? _pickedContact;
 
   /// The EIP-155 chain id the committed payment request named, if any.
   int? _chainId;
@@ -361,7 +466,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       vsync: this,
       duration: const Duration(milliseconds: 220),
     );
+    // The 3D Sal of the steps under Review and of the result sheet after
+    // Send, decoded from here so he is there on their first frame
+    // (send_flow_widgets.dart).
+    warmSendSal(journey: true);
     TrackingService.screenView('usd_send');
+    // The contacts permission as it stands (never a prompt here).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(sendContactsProvider.notifier).refresh());
+    });
     TrackingService.moneyFlowStarted(
       'usd_send',
       event: 'usd_send_opened',
@@ -387,6 +501,13 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             selection: 'withdraw_sheet', preselected: true);
       }
       _applyInitialRecipient();
+      // The Who step answered on the Withdraw sheet: on to the amount.
+      if (widget.startOnAmount && _recipientReady && _pageCtrl.hasClients) {
+        _completedSteps.add(_kSendToStep);
+        TrackingService.moneyFlowStep('usd_send', 'amount',
+            props: _flowInputs());
+        _pageCtrl.jumpToPage(_kAmountStep);
+      }
     });
     // A dollar send is a money decision on a live route, so nudge the
     // catalog rather than waiting for its 6 h cadence. Fire and forget:
@@ -420,11 +541,21 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     }
   }
 
+  /// The Branta lookup's rail for [d] (services/branta): USDC or USDT on
+  /// Polygon, Ethereum, BNB Smart Chain or Solana, USDT on Tron; null for
+  /// every other coin and network.
+  static BrantaRail? _brantaRail(UsdSendDestination d) =>
+      brantaRailFor(assetCode: d.assetCode, chain: d.chain);
+
   /// What has been entered so far (funnel props); never the address.
   Map<String, Object> _flowInputs() {
     final d = _destination;
     final usd = _amountUsd;
     return {
+      // Branta named the payee (a yes/no only: never the payee, never the
+      // address).
+      'verified_payee': d != null &&
+          brantaVerifiedPayee(_address.text.trim(), _brantaRail(d)),
       'source_asset': 'usd',
       if (d != null)
         ...TrackingService.routeParams(
@@ -662,6 +793,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// request keeps the chain id it named). The picked destination never
   /// moves: an address for another network is refused by the field.
   void _commitRecipient(String raw, {required String method}) {
+    // The code as scanned or pasted, for Branta's payee lookup.
+    brantaNoteInput(raw);
     final address = bareRecipientAddress(raw);
     if (address.isEmpty) return;
     HapticFeedback.selectionClick();
@@ -678,6 +811,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   }
 
   void _onAddressTyped(String value) {
+    brantaNoteInput(value);
     // A request typed or pasted from the keyboard is reduced exactly as
     // the Paste button reduces it.
     if (bareRecipientAddress(value) != value.trim() && value.contains(':')) {
@@ -734,64 +868,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   }
 
   /// Last few recipients this wallet sent dollars to as [only] (the
-  /// picked coin on its network), newest first, from the dollar send's
-  /// own activity rows. Only rows whose destination is still offered are
-  /// shown, so a tap always lands on a live route.
-  List<
-          ({
-            String address,
-            UsdSendDestination destination,
-            String amount,
-            DateTime when
-          })>
-      _recentRecipients(
-          List<UsdSendDestination> offered, UsdSendDestination only) {
-    final walletId = pickSpendingWallet(ref.watch(settingsProvider))?.id;
-    final orders = ref.watch(swapOrdersProvider);
-    final rows = orders
-        .where((o) =>
-            o.activityDirection == 'send' &&
-            o.coinFrom.toUpperCase() == kOrchestraUsdAssetCode &&
-            o.networkFrom.toUpperCase() == 'SPARK' &&
-            o.withdrawalAddress.trim().isNotEmpty &&
-            (o.walletId == null || o.walletId == walletId))
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final seen = <String>{};
-    final out = <({
-      String address,
-      UsdSendDestination destination,
-      String amount,
-      DateTime when
-    })>[];
-    for (final o in rows) {
-      final chain = o.networkTo.toLowerCase();
-      final destination = offered
-          .where((d) =>
-              d.chain == chain &&
-              d.assetCode.toUpperCase() == o.coinTo.toUpperCase())
-          .firstOrNull;
-      if (destination == null || destination.id != only.id) continue;
-      final address = o.withdrawalAddress.trim();
-      if (!usdSendDestinationAccepts(destination, address)) continue;
-      if (!seen.add('${destination.id}|${address.toLowerCase()}')) continue;
-      out.add((
-        address: address,
-        destination: destination,
-        amount: o.depositAmount,
-        when: DateTime.fromMillisecondsSinceEpoch(o.timestamp),
-      ));
-      if (out.length >= 5) break;
-    }
-    return out;
-  }
+  /// picked coin on its network), newest first ([usdSendRecentRecipients]).
+  List<UsdSendRecent> _recentRecipients(
+          List<UsdSendDestination> offered, UsdSendDestination only) =>
+      usdSendRecentRecipients(ref, offered, only: only);
 
   // ─── Build ────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final spending = pickSpendingWallet(ref.watch(settingsProvider));
     // A catalog that lands after the sheet opened can still place a
     // recipient handed over on open.
     ref.listen(orchestraSupportedRoutesProvider, (_, __) {
@@ -825,27 +911,24 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             shadowColor: Colors.transparent,
             scrolledUnderElevation: 0,
             centerTitle: true,
-            // The balance the dollars leave from, read-only, in the place
-            // the bitcoin send names its wallet: "Investments", never the
-            // spending wallet that holds it (founder decision).
-            title: spending == null
-                ? null
-                : AccountSwitcherPill(
-                    pickerTitle: context.l10n.sendFromPickerTitle,
-                    readOnly: true,
-                    label: context.l10n.assetDollars,
-                  ),
-            leading: onFirstStep
-                ? KuteBareCloseButton(onPressed: _onLeadingTap)
-                : KuteBackButton(onPressed: _onLeadingTap),
+            // "Send dollars" until a coin is picked, then "Send USDC"
+            // (founder, 31 October 2026: the recipient-first step).
+            title: SendStepTitle(_destination == null
+                ? context.l10n.sendDollarsTitle
+                : context.l10n.sendCoinTitle(_destination!.displaySymbol)),
+            leadingWidth: 64.w,
+            leading: Padding(
+              padding: EdgeInsets.only(left: 16.w),
+              child: Center(
+                child: onFirstStep
+                    ? KuteCloseButton(onPressed: _onLeadingTap)
+                    : KuteCircleBackButton(onPressed: _onLeadingTap),
+              ),
+            ),
           ),
           body: SendStepperFrame(
-            progress: StepperProgress(
-              totalSteps: 3,
-              currentStep: _step,
-              completedSteps: _completedSteps,
-              colors: c,
-            ),
+            // No step bar (founder, 31 October 2026).
+            progress: const SizedBox.shrink(),
             controller: _pageCtrl,
             onPageChanged: (i) {
               setState(() => _step = i);
@@ -864,22 +947,51 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               ),
               SendStepPage(
                 title: context.l10n.sendReview,
-                trailing: const AskSalChip(
-                  advisorContext: AdvisorContext(surface: 'send_review'),
+                // Sal is the bar (founder, 1 November 2026): a long press on
+                // Send asks with the review's public context, no circle here.
+                child: KuteBarContextScope(
+                  active: _step == _kReviewStep,
+                  barContext: KuteBarContext(
+                    label: context.l10n.searchOrManageAi,
+                    source: 'send_review',
+                    advisorContext: const AdvisorContext(surface: 'send_review'),
+                  ),
+                  child: _reviewPage(c),
                 ),
-                child: _reviewPage(c),
               ),
             ],
             cta: SharedStepCta(
               step: _step,
               colors: c,
               visibleSteps: const {_kSendToStep, _kAmountStep},
+              // Both steps' Continue is the bar (kute_shell_bar.dart;
+              // founder: every pinned button is Sal).
+              barSteps: const {_kSendToStep, _kAmountStep},
+              source: 'dollar_send_amount',
               enabled: _step == _kAmountStep
                   ? _amountStepValid
                   : _step == _kSendToStep && _recipientReady,
+              // The step to take while Continue is off (founder, 1
+              // November 2026).
+              disabledLabel: _step == _kAmountStep
+                  ? (_amountExceedsBalance
+                      ? context.l10n.barNeedLowerAmount
+                      : _amountBelowMinimum
+                          ? context.l10n.barNeedRaiseAmount
+                          : context.l10n.barNeedAmount)
+                  : _destination == null
+                      ? context.l10n.barNeedCoin
+                      : _address.text.trim().isEmpty
+                          ? context.l10n.barNeedRecipient
+                          : context.l10n.barNeedValidAddress,
               onContinue: () {
                 if (_step == _kAmountStep) _confirmAmount();
-                if (_step == _kSendToStep) _confirmRecipient();
+                if (_step == _kSendToStep) {
+                  if (_addressMethod != 'recent') {
+                    trackSendRecipientPicked('address');
+                  }
+                  _confirmRecipient();
+                }
               },
             ),
           ),
@@ -901,83 +1013,44 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Hero ── the one big number with its unit pill and the
-        // available balance, scrolling so the pinned keypad always fits.
+        // ── Hero ── one figure, centred in the room over the keypad
+        // (send_flow_widgets.dart, "CALM, ONE FIGURE"), its $ naming the
+        // unit, and its one line: the coin the recipient gets, changeable
+        // from here (as under the Review's figure). Scrolls so the pinned
+        // keypad always fits.
         Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // What the recipient gets, changeable from here.
-                if (_destination != null) ...[
-                  _destinationChip(_destination!),
-                  SizedBox(height: 14.h),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnimatedBuilder(
-                        animation: _amountPulse,
-                        builder: (context, child) {
-                          final t = _amountPulse.value;
-                          final scale =
-                              0.94 + Curves.easeOutBack.transform(t) * 0.06;
-                          return Transform.scale(scale: scale, child: child);
-                        },
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: SendTypedAmountHero(
-                            prefix: '\$',
-                            typed: _typed,
-                            overBalance: overBalance,
-                          ),
-                        ),
-                      ),
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    minHeight: math.max(0.0, constraints.maxHeight - 12.h)),
+                child: Center(
+                  child: SendAmountHeroStack(
+                    pulse: _amountPulse,
+                    figure: SendTypedAmountHero(
+                      prefix: '\$',
+                      typed: _typed,
+                      overBalance: overBalance,
                     ),
-                    SizedBox(width: 10.w),
-                    // Dollars only: the pill names the unit and has
-                    // nothing to switch to.
-                    SendAmountUnitPill(
-                      code: 'USD',
-                      icon: SvgPicture.asset(kUsdMarkAsset,
-                          width: 20.sp, height: 20.sp),
-                    ),
-                  ],
-                ),
-                if (overBalance || _amountBelowMinimum) ...[
-                  SizedBox(height: 8.h),
-                  Text(
-                    overBalance
+                    below: _destination == null
+                        ? null
+                        : _destinationChip(_destination!),
+                    warning: overBalance
                         ? context.l10n.sendMoreThanAvailable
-                        : _minimumText,
-                    style: TextStyle(
-                      color: AppColors.marketDown,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-                SizedBox(height: 10.h),
-                Text(
-                  context.l10n.hlYieldAvailableLine(
-                      '\$${available.toStringAsFixed(2)}'),
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.1,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                        : _amountBelowMinimum
+                            ? _minimumText
+                            : null,
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
-        // ── Bottom, pinned: percent chips + keypad ──
-        AmountPercentChips(
+        // ── Bottom, pinned: the balance, percent chips + keypad ──
+        SendAmountBalanceRow(
+          available: context.l10n
+              .hlYieldAvailableLine('\$${available.toStringAsFixed(2)}'),
           enabled: !_processing,
           onPercent: _onPercent,
         ),
@@ -1062,9 +1135,13 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     return true;
   }
 
-  /// Send to: the coin grid until a coin is picked, then the picked coin
-  /// as a chip over the recipient field, its Paste and Scan, and the
-  /// recents for that coin.
+  /// Send to: the coin grid until a coin is picked (with the link rows
+  /// under it, [_coinStep]), then the picked coin as a chip over the
+  /// recipient field, its Paste and Scan, and the recents for that coin.
+  /// ADDRESSES ONLY from here (founder, 31 October 2026): a coin on a
+  /// network is a destination a friend's link does not have, so neither
+  /// the friend row, the prediction row nor the contacts appear on this
+  /// step.
   Widget _sendToPage(AppColorsExtension c) {
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final offered = _offeredDestinations(catalog);
@@ -1077,57 +1154,70 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     final accepted = addr.isNotEmpty &&
         usdSendDestinationAccepts(destination, addr, chainId: _chainId);
 
-    // What the field says about itself, in the bitcoin send's words. The
-    // picked network is the only one it is checked against.
+    // What the field says about itself. The picked network is the only
+    // one it is checked against: "Not an Arbitrum address".
+    // A short word with no address shape is a SEARCH (a name in the
+    // recents or the contacts), never an address to refuse.
+    final looksLikeAddress =
+        match.recognised || sendTextLooksLikeAddress(addr);
     String? error;
-    if (addr.isNotEmpty && !accepted) {
+    if (addr.isNotEmpty && !accepted && looksLikeAddress) {
       if (!match.recognised) {
         error = l10n.sendAddressNotIdentified;
       } else if (match.candidates.isEmpty) {
         error = offered.hiddenReason ?? l10n.usdSendAddressUnsupported;
       } else {
-        error = l10n.usdSendAddressWrongNetwork(destination.chainDisplayName);
+        error = l10n.usdSendNotNetworkAddress(destination.chainDisplayName);
       }
     }
-    final recents = addr.isEmpty
-        ? _recentRecipients(offered.offered, destination)
-        : const <({
-            String address,
-            UsdSendDestination destination,
-            String amount,
-            DateTime when
-          })>[];
+    // While the field is not an address it is a search: it filters the
+    // recents by their short address.
+    final query = accepted || looksLikeAddress ? '' : addr;
+    final recents = [
+      for (final r in _recentRecipients(offered.offered, destination))
+        SendRecentItem(
+          id: '${r.destination.id}|${r.address}',
+          label: sendShortAddress(r.address),
+          mark: _destinationMark(r.destination, size: 28),
+          onTap: () {
+            trackSendRecipientPicked('recent');
+            _commitRecipient(r.address, method: 'recent');
+          },
+        ),
+    ].where((item) => item.matches(query)).toList();
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(bottom: 8.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The picked coin on its network, a small chip under the title:
+          // tap to change it (the existing picker).
           Align(
             alignment: Alignment.centerLeft,
             child: _destinationChip(destination),
           ),
-          SizedBox(height: 16.h),
-          SendRecipientField(
+          SizedBox(height: 14.h),
+          SendRecipientSearchField(
             controller: _address,
-            colors: c,
-            hintText: l10n.sendAssetOnNetworkAddressHint(
-                destination.displaySymbol, destination.chainDisplayName),
-            isValid: accepted,
+            // The coin is chosen: this field only takes its address
+            // (founder, 8 November 2026: "here is just Address also").
+            hintText: l10n.address,
             onPaste: _paste,
             onScan: _scan,
             onChanged: _onAddressTyped,
           ),
           if (error != null) ...[
             SizedBox(height: 10.h),
-            SendRecipientError(message: error),
-          ] else if (accepted && match.recognised) ...[
-            SizedBox(height: 10.h),
-            SendDetectedBadge(
-              label: _familyLabel(match.family),
-              icon: _familyIcon(match.family),
-              color: const Color(0xFF2775CA),
-              identity: match.family,
+            SendInlineError(message: error),
+          ] else if (accepted) ...[
+            SizedBox(height: 12.h),
+            SendResolvedRow(
+              leading: _destinationMark(destination, size: 28),
+              address: addr,
+              brantaRail: _brantaRail(destination),
+              rail: l10n.usdSendResolvedRail(
+                  destination.chainDisplayName, destination.displaySymbol),
             ),
           ],
           if (_clipboardCandidate != null && addr.isEmpty) ...[
@@ -1141,31 +1231,83 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               }),
             ),
           ],
-          if (recents.isNotEmpty) ...[
-            SizedBox(height: 24.h),
-            SendToSectionHeader(title: l10n.sendRecentRecipients),
-            SendToListCard(
-              colors: c,
-              rows: [
-                for (final r in recents)
-                  SendToListRow(
-                    colors: c,
-                    leading: _destinationMark(r.destination, size: 32),
-                    title: sendShortAddress(r.address),
-                    subtitle:
-                        '${r.destination.displaySymbol} · ${r.destination.chainDisplayName}',
-                    trailingTitle: '\$${r.amount}',
-                    trailingSubtitle: DateFormat.MMMd(
-                            Localizations.localeOf(context).toString())
-                        .format(r.when),
-                    onTap: () => _commitRecipient(r.address, method: 'recent'),
-                  ),
-              ],
-            ),
+          if (!accepted && error == null && recents.isNotEmpty) ...[
+            SizedBox(height: 20.h),
+            SendSectionLabel(l10n.sendRecentRecipients),
+            SendRecentCircles(items: recents),
           ],
         ],
       ),
     );
+  }
+
+  /// The "To a friend" card of the coin step (the Dollars Send's words,
+  /// usd_withdraw_screen.dart): a prediction or investment on a link (the
+  /// market search, send_pick_market_sheet.dart) and "Send dollars to a
+  /// friend" (the contacts picker, "Someone else" at its top, then
+  /// send_to_anyone_sheet.dart). The prediction row follows the What step's
+  /// rule (send_pick_market_sheet.dart): there and opening the search with a
+  /// venue's browse open, a refused trade told on the market's slip alone.
+  Widget _sendToCard(AppColorsExtension c) {
+    final l10n = context.l10n;
+    final policy = ref.watch(runtimeCapabilitiesProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SendSectionLabel(l10n.sendToAFriendLabel),
+        SendToListCard(
+          colors: c,
+          rows: [
+            if (sendGiftShown(policy))
+              SendPickMarketRow(
+                onTap: () async {
+                  if (await sendGiftStoppedByBrowse(context, policy) ||
+                      !mounted) {
+                    return;
+                  }
+                  unawaited(_afterLink(showSendPickMarketSheet(
+                    context,
+                    entrySource: 'dollar_send',
+                    senderLabel: _pickedContact?.firstName,
+                    recipientPhone: _pickedContact?.phone,
+                  )));
+                },
+              ),
+            SendToFriendRow(
+              title: context.l10n.sendDollarsToAFriend,
+              onPick: _pickContact,
+              onSomeoneElse: () => unawaited(_afterLink(showSendToAnyoneSheet(
+                context,
+                kind: ShareLinkKind.dollars,
+                entrySource: 'dollar_send',
+              ))),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// A contact picked from "Send to a friend": Send to anyone for dollars
+  /// with the first name as the link's label and the number kept in the
+  /// local row (send_contacts_service.dart).
+  Future<void> _pickContact(SendContact contact) {
+    trackSendRecipientPicked('contact');
+    setState(() => _pickedContact = contact);
+    return _afterLink(showSendToAnyoneSheet(
+      context,
+      kind: ShareLinkKind.dollars,
+      senderLabel: contact.firstName,
+      recipientPhone: contact.phone,
+      entrySource: 'dollar_send_contact',
+    ));
+  }
+
+  /// A link created closes the send as a send that went out: the money
+  /// is on the link now (the Withdraw sheet reads the true).
+  Future<void> _afterLink(Future<bool?> created) async {
+    final done = await created;
+    if (done == true && mounted) Navigator.of(context).pop(true);
   }
 
   /// The first thing on Send to: the coins dollars can be sent as, one
@@ -1180,23 +1322,41 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       groupCoinsByAsset([for (final d in offered) _asOption(d)]),
       otherLegAsset: kOrchestraUsdAssetCode,
     ).groups;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SendToSectionHeader(title: l10n.usdFlowStepCoin),
-        Expanded(
-          child: CoinAssetGrid(
-            key: const ValueKey('usd-send-coin-grid'),
-            groups: groups,
-            emptyLabel: loading
-                ? l10n.usdSendRoutesUnavailable
-                : l10n.usdSendDestinationsUnavailable,
-            markBuilder: (g, size) =>
-                AssetIcon(assetCode: g.assetCode, size: size),
-            onPick: _pickGroup,
-          ),
-        ),
-      ],
+    // One scroll: the grid sized to its tiles, the Send to card under it.
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: 8.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SendToSectionHeader(title: l10n.usdFlowStepCoin),
+          groups.isEmpty
+              ? SizedBox(
+                  height: 120.h,
+                  child: CoinAssetGrid(
+                    key: const ValueKey('usd-send-coin-grid'),
+                    groups: groups,
+                    emptyLabel: loading
+                        ? l10n.usdSendRoutesUnavailable
+                        : l10n.usdSendDestinationsUnavailable,
+                    markBuilder: (g, size) =>
+                        AssetIcon(assetCode: g.assetCode, size: size),
+                    onPick: _pickGroup,
+                  ),
+                )
+              : CoinAssetGrid(
+                  key: const ValueKey('usd-send-coin-grid'),
+                  shrinkWrap: true,
+                  groups: groups,
+                  emptyLabel: l10n.usdSendDestinationsUnavailable,
+                  markBuilder: (g, size) =>
+                      AssetIcon(assetCode: g.assetCode, size: size),
+                  onPick: _pickGroup,
+                ),
+          // A link needs no coin: the Send to card sits under the grid.
+          SizedBox(height: 16.h),
+          _sendToCard(context.colors),
+        ],
+      ),
     );
   }
 
@@ -1232,27 +1392,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         icon: _destinationMark(destination, size: 22),
         onTap: _processing ? null : _openDestinationPicker,
       );
-
-  /// Plain words for the badge under the field, shared with the bitcoin
-  /// send's copy.
-  String _familyLabel(String family) {
-    final l10n = context.l10n;
-    return switch (family) {
-      'evm' => l10n.sendDetectedEthereumStyleAddress,
-      'solana' => l10n.sendDetectedSolanaAddress,
-      'bitcoin' => l10n.sendDetectedBitcoinAddress,
-      'spark' => l10n.sendDetectedSpendingWalletAddress,
-      _ => orchestraChainDisplayName(family),
-    };
-  }
-
-  IconData _familyIcon(String family) => switch (family) {
-        'evm' => Icons.account_tree_rounded,
-        'solana' => Icons.brightness_7_rounded,
-        'bitcoin' => Icons.currency_bitcoin_rounded,
-        'spark' => Icons.flash_on_rounded,
-        _ => Icons.account_balance_wallet_outlined,
-      };
 
   /// The coin sheet every money screen opens, asset first and network
   /// second, over every destination the dollars can be sent to; open on
@@ -1594,63 +1733,37 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                   Center(child: _destinationChip(destination)),
                 ],
                 SizedBox(height: 20.h),
-                // ─── From → To card ───
-                SendReviewCard(
-                  child: Column(
-                    children: [
-                      SendReviewSummaryRow(
-                        label: l10n.from,
-                        title: l10n.assetDollars,
-                        subtitle: l10n.sendAvailableBalanceSubtitle(
-                            '\$${available.toStringAsFixed(2)}'),
-                        // The dollar balance as a source row wears the
-                        // Investments arrow, never the USDB coin.
-                        icon: Icon(kInvestmentsIcon,
-                            size: 24.sp, color: c.textPrimary),
-                      ),
-                      Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: c.borderSubtle,
-                          indent: 14.w),
-                      InkWell(
-                        onTap: addr.isEmpty
-                            ? null
-                            : () {
-                                HapticFeedback.selectionClick();
-                                setState(() =>
-                                    _reviewToExpanded = !_reviewToExpanded);
-                              },
-                        borderRadius: BorderRadius.vertical(
-                            bottom: Radius.circular(18.r)),
-                        child: SendReviewSummaryRow(
-                          label: l10n.to,
-                          title: addr.isEmpty ? '…' : sendShortAddress(addr),
-                          subtitle: destination == null
-                              ? ''
-                              : '${destination.displaySymbol} · ${destination.chainDisplayName}',
-                          icon: destination == null
-                              ? const SizedBox.shrink()
-                              : _destinationMark(destination, size: 24),
-                          trailing: addr.isEmpty
-                              ? null
-                              : Icon(
-                                  _reviewToExpanded
-                                      ? Icons.keyboard_arrow_up_rounded
-                                      : Icons.keyboard_arrow_down_rounded,
-                                  size: 18.sp,
-                                  color: c.textTertiary),
-                        ),
-                      ),
-                      if (_reviewToExpanded && addr.isNotEmpty)
-                        SendReviewFullAddress(
+                // ─── From and To, two squares (the Bitcoin Send's
+                // Review layout, send_contacts_list.dart) ───
+                SendReviewRoute(
+                  // The dollar balance as a source wears the Investments
+                  // arrow, never the USDB coin.
+                  fromVisual: KuteActionCardIcon(kInvestmentsIcon,
+                      size: SendReviewRoute.visualSize),
+                  fromTitle: l10n.assetDollars,
+                  fromLine: l10n.sendAvailableBalanceSubtitle(
+                      '\$${available.toStringAsFixed(2)}'),
+                  toVisual: destination == null
+                      ? const SizedBox.shrink()
+                      : SendBrantaPayeeVisual(
                           address: addr,
-                          onCopied: () => TrackingService.track(
-                              'pay_review_address_copied',
-                              params: {'address_type': 'usd_recipient'}),
+                          brantaRail: _brantaRail(destination),
+                          size: kKuteActionCardVisualSize,
+                          child: _destinationMark(destination,
+                              size: kKuteActionCardVisualSize),
                         ),
-                    ],
-                  ),
+                  address: addr,
+                  brantaRail:
+                      destination == null ? null : _brantaRail(destination),
+                  // No line under the address: the coin chip over the
+                  // squares already names the coin and its network, and
+                  // the mark wears the network's badge.
+                  expanded: _reviewToExpanded,
+                  onToggle: () =>
+                      setState(() => _reviewToExpanded = !_reviewToExpanded),
+                  onCopied: () => TrackingService.track(
+                      'pay_review_address_copied',
+                      params: {'address_type': 'usd_recipient'}),
                 ),
                 if (feeRows.isNotEmpty) ...[
                   SizedBox(height: 14.h),
@@ -1667,6 +1780,24 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               ],
             ),
           ),
+        ),
+        // Venue cash coming home for the send: its steps, each leg on its
+        // own line, then the send. They grow in, never popping in. Above the
+        // action, whose footnote keeps the room clear of the floating bar.
+        StepsReveal(
+          child: _stepsMoveId != null && _processing && _error == null
+              ? Consumer(builder: (context, ref, _) {
+                  final move = ref
+                      .watch(multiSourceMovesProvider)
+                      .where((m) => m.id == _stepsMoveId)
+                      .firstOrNull;
+                  return move == null
+                      ? const SizedBox.shrink()
+                      // The send's own failure tap is the stop's
+                      // ([_sendFailedFeedback]).
+                      : MoveStepsSection(move: move, failureHaptic: false);
+                })
+              : null,
         ),
         SizedBox(height: 16.h),
         // The bitcoin send's rubber band, on the same block: it eases up
@@ -1688,51 +1819,21 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     : l10n.withdraw,
             loading: _processing,
             onPressed: canSend ? _confirmSend : null,
+            // Off only while the fee is still being read.
+            disabledLabel: l10n.barNeedWait,
             footnote: (_stepsMoveId == null ? _pullProgress : null) ??
                 (waiting
                     ? l10n.sendWaitForFee
                     : l10n.sendFundsLeaveYourWalletImmediately),
           ),
         ),
-        // Venue cash coming home for the send: its steps, each leg on its
-        // own line, then the send. They grow in, never popping in.
-        StepsReveal(
-          child: _stepsMoveId != null && _processing && _error == null
-              ? Consumer(builder: (context, ref, _) {
-                  final move = ref
-                      .watch(multiSourceMovesProvider)
-                      .where((m) => m.id == _stepsMoveId)
-                      .firstOrNull;
-                  return move == null
-                      ? const SizedBox.shrink()
-                      // The send's own failure tap is the stop's
-                      // ([_sendFailedFeedback]).
-                      : MoveStepsSection(move: move, failureHaptic: false);
-                })
-              : null,
-        ),
       ],
     );
   }
 
   Widget _destinationMark(UsdSendDestination destination,
-      {required double size}) {
-    return PickerCoinBadgeIcon(
-      size: size,
-      coinIcon: ChainAvatarIcon(
-        chainId: destination.assetCode,
-        label: destination.displaySymbol,
-        iconUrl: destination.assetIconUrl,
-        size: size,
-      ),
-      badge: ChainAvatarIcon(
-        chainId: destination.chain,
-        label: destination.chainDisplayName,
-        iconUrl: destination.chainIconUrl,
-        size: size / 2,
-      ),
-    );
-  }
+          {required double size}) =>
+      usdSendDestinationMark(destination, size: size);
 
   // ─── Navigation ───────────────────────────────────────────────────
 
@@ -1829,6 +1930,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       return;
     }
     final recipient = _address.text.trim();
+    // The payee Branta verified on this Review (from memory, never a
+    // lookup), stored with the payment once it goes out.
+    final payeeRail = _brantaRail(destination);
+    final confirmedPayee = brantaVerifiedPayeeShown(recipient, payeeRail);
     // Dollars only ever for the analytics bucket and the step-up sheet;
     // the money itself is the BigInt above.
     final usdForDisplay = amountBaseUnits.toDouble() / 1e6;
@@ -1843,17 +1948,48 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         });
 
     // Dollars first: when they do not hold the amount, the shortfall
-    // comes home from venue cash before the send asks for its one
-    // approval. Nothing is sent until Dollars hold the whole amount.
+    // comes home from venue cash. The send's ONE approval comes before
+    // any of it moves (founder rule: money moves only after the person
+    // accepts): declined, nothing is pulled and nothing is sent; accepted,
+    // the pull and then the send run under that same grant, never a
+    // second prompt. Nothing is sent until Dollars hold the whole amount.
     if (_retryPull && _error != null && _moveId != null) {
       trackMultiSourceMoveRetry(
           MultiSourceMoveStore.get(_moveId!)?.remainingUsd ?? 0);
     }
     _retryPull = false;
+    AuthGrant? approved;
     if (!_drain && amountBaseUnits > _availableBaseUnits) {
-      final ready =
-          await _pullVenueCash(usdForDisplay, amountBaseUnits, destination);
-      if (!ready) return;
+      var declined = false;
+      final ready = await _pullVenueCash(
+          usdForDisplay, amountBaseUnits, destination, approve: () async {
+        approved = await _approveBeforeVenueCash(
+            destination, recipient, amountBaseUnits, usdForDisplay);
+        declined = approved == null;
+        return !declined;
+      });
+      if (!ready) {
+        approved?.revoke();
+        if (declined) {
+          // As a step-up declined at the send: nothing moved, no tap.
+          TrackingService.sendFailed(
+            flow: 'usd_send',
+            network: destination.chain.toLowerCase(),
+            asset: destination.assetCode.toLowerCase(),
+            error: 'declined',
+            walletKind: _walletKind(),
+            provider: 'orchestra',
+            amountUsd: usdForDisplay,
+            amount: usdForDisplay,
+            currency: 'USD',
+            amountFiat: usdForDisplay,
+            stage: 'sign',
+          );
+          TrackingService.moneyFlowError('usd_send',
+              const SettlementStopped(SettlementStopReason.declined));
+        }
+        return;
+      }
     } else if (_moveUsd != usdForDisplay) {
       _moveId = null;
     }
@@ -1921,6 +2057,14 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           idempotencyKey: key,
         ),
         stepUp: (auth) async {
+          // Venue cash came home for this send under its one approval:
+          // the send goes under that same grant, with no second prompt,
+          // only within what was approved (else nothing is sent).
+          final held = approved;
+          if (held != null) {
+            return OrchestraGrants.takeSend(held, auth,
+                asset: kOrchestraUsdAssetCode);
+          }
           if (!mounted) return false;
           // The person decided on Review and the step-up prompt below is
           // the confirmation. The runner's own drift check still refuses
@@ -1930,24 +2074,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             action: SensitiveAction.send,
             asset: kOrchestraUsdAssetCode,
           );
-          if (mounted) setState(() => _approving = true);
-          final AuthGrant? grant;
-          try {
-            grant = await requireFreshAuthGrant(
-              context,
-              ref,
-              intent: intent,
-              reason: context.l10n.stepUpReasonSend(
-                  '\$${(auth.amountIn.toDouble() / 1e6).toStringAsFixed(2)}'),
-              amountUsd: auth.amountIn.toDouble() / 1e6,
-            );
-          } finally {
-            if (mounted) {
-              setState(() => _approving = false);
-            } else {
-              _approving = false;
-            }
-          }
+          final grant =
+              await _askApproval(intent, auth.amountIn.toDouble() / 1e6);
           if (grant == null) return false;
           try {
             AuthGrants.consume(grant, intent);
@@ -2009,6 +2137,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       ref
           .read(walletTransactionCacheProvider.notifier)
           .mergeSwapOrder(exchange);
+      // A payee Branta verified: kept with the order, so its row and
+      // receipt show the logo and name (branta_payee_records.dart).
+      if (confirmedPayee != null) {
+        unawaited(ref
+            .read(brantaPayeeRecordsProvider.notifier)
+            .record(
+                paymentIds: [orderId, settled.operation.operationId],
+                payee: confirmedPayee,
+                rail: payeeRail)
+            .then((_) {}, onError: (_) {}));
+      }
       // Backend attribution for the REAL order only — a quote id (q_…)
       // would create a row the completion can never reconcile with.
       if (orderId.startsWith('ord_')) {
@@ -2114,6 +2253,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         );
         TrackingService.moneyFlowError('usd_send', e);
       }
+      // An approval the send never used dies with it.
+      approved?.revoke();
       if (!mounted) return;
       if (e is SettlementStopped && e.reason == SettlementStopReason.declined) {
         setState(() {
@@ -2137,10 +2278,62 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   void _sendFailedFeedback() =>
       moneyFailureFeedbackAfterBand(() => mounted && _processing);
 
+  /// The send's one step-up prompt for [intent] ([usd] in its reason).
+  /// Null when declined.
+  Future<AuthGrant?> _askApproval(SensitiveIntent intent, double usd) async {
+    if (mounted) setState(() => _approving = true);
+    try {
+      final seam = debugUsdSendApproval;
+      if (seam != null) return await seam(intent);
+      if (!mounted) return null;
+      return await requireFreshAuthGrant(
+        context,
+        ref,
+        intent: intent,
+        reason: context.l10n.stepUpReasonSend('\$${usd.toStringAsFixed(2)}'),
+        amountUsd: usd,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _approving = false);
+      } else {
+        _approving = false;
+      }
+    }
+  }
+
+  /// The send's ONE approval when venue cash must come home for it, asked
+  /// before any of that cash moves ([OrchestraGrants.sendWithVenueCash]):
+  /// this wallet, [recipient], the route to [destination] and at most
+  /// [units]. The send then runs under it with no second prompt. Null
+  /// when declined (or no spending wallet): nothing moves.
+  Future<AuthGrant?> _approveBeforeVenueCash(UsdSendDestination destination,
+      String recipient, BigInt units, double usd) async {
+    final String walletId;
+    try {
+      walletId = HotSettlement.spendingWalletId(ref.read);
+    } catch (_) {
+      return null;
+    }
+    return _askApproval(
+        OrchestraGrants.sendWithVenueCash(
+          walletId: walletId,
+          recipient: recipient,
+          routeLabel: usdSendRouteKey(destination).label,
+          asset: kOrchestraUsdAssetCode,
+          amountMax: units,
+        ),
+        usd);
+  }
+
   /// Brings the shortfall of [usd] home from venue cash and waits,
   /// bounded, for Dollars to hold it. True to go on with the send; false
   /// when it stopped (the reason is on screen, and whatever was pulled
   /// stays in Dollars: the send never goes twice).
+  ///
+  /// [approve] asks the send's one approval BEFORE any leg goes (after the
+  /// minimum below, so a send that would be refused asks nothing). False
+  /// (declined): nothing moved, the sheet goes back quietly.
   ///
   /// The send is the last stage, so it is held to its route's minimum
   /// ([units] against [destination]'s) before any leg goes: venue cash is
@@ -2150,7 +2343,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// comes home to Dollars, the line under the card says where it is,
   /// and Retry takes only what is missing.
   Future<bool> _pullVenueCash(
-      double usd, BigInt units, UsdSendDestination destination) async {
+      double usd, BigInt units, UsdSendDestination destination,
+      {required Future<bool> Function() approve}) async {
     final pull = ++_pullSeq;
     setState(() {
       _processing = true;
@@ -2166,6 +2360,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         _error = context.l10n.usdSendMinimum(_formatMinimum(minimum));
       });
       _sendFailedFeedback();
+      return false;
+    }
+    // The send's one approval, before any venue cash moves.
+    final approved = await approve();
+    if (!mounted) return false;
+    if (!approved) {
+      setState(() {
+        _processing = false;
+        _pullProgress = null;
+      });
       return false;
     }
     VenueCashPlan? planned;

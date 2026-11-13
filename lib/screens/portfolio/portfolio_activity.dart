@@ -1,7 +1,7 @@
 // lib/screens/portfolio/portfolio_activity.dart
 //
-// The Portfolio screen's Activity, at its bottom (it was the Portfolio's
-// Activity tab): ONE list, everything the spending account's investments
+// The older Portfolio page's Activity (OpenInvestmentsScreen), at its
+// bottom (it was the Portfolio's Activity tab): ONE list, everything the spending account's investments
 // did, newest first (owner decision October 2026, replacing the Investing
 // | Predictions switch over two lists).
 //
@@ -27,8 +27,41 @@
 // pill opens the Activity screen in its Investments scope
 // (PortfolioActivityList), the whole list (founder request, October 2026:
 // the Portfolio was building every row).
+//
+// THE PORTFOLIO SCREEN'S ACTIVITY TAB (the redesign of 7 November 2026
+// after the Robinhood / Public / Webull / Polymarket / Kalshi review;
+// founder: "yes build this"): [PortfolioActivitySection], ONE feed by day
+// on the app's day cards (allActivityDaySections: the day's name, its rows
+// on one card), every row the widget its own surface draws, reading as
+// what happened, to what, for how much and how it ended ("Closed BTC long
+// … +$1.20", "Won · Lakers … $5.00"). What it lists is the Investments
+// activity (watchAllActivity with ActivityScope.investments: every
+// prediction placed, sold, won or lost, every Investing open and close,
+// every move into or out of Investing or Predictions, each funding chain
+// folded into the bet or trade it paid for, the venues' twin records
+// dropped: activity_curation.dart), newest first, the newest
+// [kPortfolioActivityShown]. Over it the filter chips, the app's pills
+// (KutePill): All, Trades (the fills and the predictions placed or
+// sold), Payouts (a prediction won, lost or redeemed) and Transfers (the
+// money moving in and out), [PortfolioActivityFilter]. The whole list is
+// the section pill's second tap ("→ See all", investments_portfolio.dart).
+// A tap on a row opens its receipt, as on the home. Nothing yet: the
+// sections' one empty state (Sal, "No activity yet"), under the chips once
+// a filter is picked; the Investing history still on its way with nothing
+// else to show: skeleton rows. No funding rows: no activity source carries
+// a funding payment.
 
+import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
+import 'package:kute/screens/shared/all_activity.dart'
+    show
+        ActivityScope,
+        AllActivityEntry,
+        allActivityDaySections,
+        watchAllActivity;
+import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/swap_activity.dart'
@@ -44,7 +77,8 @@ import 'package:kute/providers/transactions_provider.dart'
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, KutePillSize;
 import 'package:kute/screens/shared/multi_source_move_activity.dart'
     show multiSourceMoveLegIds;
 import 'package:kute/services/one_balance/multi_source_move.dart'
@@ -207,15 +241,22 @@ class PortfolioActivitySliver extends ConsumerWidget {
             onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),
             icon: const Icon(Icons.refresh_rounded),
             label: Text(context.l10n.hlActivityRefreshFailedRetry)),
-      // Same day cards as Home and the wallets.
-      ...activityDaySections<PortfolioActivityEntry>(
-        shown,
-        timeOf: (e) => e.time,
-        rowOf: (e) => e.fill != null
-            ? HyperliquidFillActivityRow(
-                fill: e.fill!, compareWithSpendingWallet: true)
-            : buildUnifiedTransactionItem(e.tx!, context, ref),
-      ),
+      // Same day cards as Home and the wallets; the first rows arrive
+      // staggered on first paint (KuteStaggerIn).
+      ...() {
+        var index = 0;
+        return activityDaySections<PortfolioActivityEntry>(
+          shown,
+          timeOf: (e) => e.time,
+          rowOf: (e) => KuteStaggerIn(
+            index: index++,
+            child: e.fill != null
+                ? HyperliquidFillActivityRow(
+                    fill: e.fill!, compareWithSpendingWallet: true)
+                : buildUnifiedTransactionItem(e.tx!, context, ref),
+          ),
+        );
+      }(),
       // Home's "See all" pill (its Activity pill once selected), as is.
       if (more && seeAll != null)
         Padding(
@@ -263,5 +304,165 @@ class PortfolioActivityList extends ConsumerWidget {
       SliverPadding(
           padding: EdgeInsets.only(top: 8.h, bottom: 24.h), sliver: body),
     ]);
+  }
+}
+
+// ─────────────────── the Portfolio screen's Activity ───────────────────
+
+/// How many entries the Portfolio screen's Activity builds (the rest are
+/// the section pill's "See all").
+const int kPortfolioActivityShown = 30;
+
+/// The Activity tab's filter chips (see the file header), in order.
+enum PortfolioActivityFilter { all, trades, payouts, transfers }
+
+/// Whether [filter] lists [e]: All, everything; Trades, an Investing fill
+/// or a prediction placed, sold, merged or split; Payouts, a prediction
+/// won, lost or redeemed; Transfers, the rest (money moving into or out
+/// of the venues, from anywhere). Pure, for the tests.
+bool portfolioActivityMatches(
+    AllActivityEntry e, PortfolioActivityFilter filter) {
+  if (filter == PortfolioActivityFilter.all) return true;
+  return _kindOf(e) == filter;
+}
+
+PortfolioActivityFilter _kindOf(AllActivityEntry e) {
+  if (e.fill != null) return PortfolioActivityFilter.trades;
+  final tx = e.tx;
+  if (tx is PolymarketTransaction) {
+    if (tx.result != null) return PortfolioActivityFilter.payouts;
+    ActivityType? type;
+    try {
+      type = tx.activityType;
+    } catch (_) {
+      type = null;
+    }
+    return switch (type) {
+      ActivityType.redeem => PortfolioActivityFilter.payouts,
+      ActivityType.deposit ||
+      ActivityType.withdraw =>
+        PortfolioActivityFilter.transfers,
+      _ => PortfolioActivityFilter.trades,
+    };
+  }
+  return PortfolioActivityFilter.transfers;
+}
+
+/// A filter's chip label.
+String _filterLabel(AppLocalizations l10n, PortfolioActivityFilter f) =>
+    switch (f) {
+      PortfolioActivityFilter.all => l10n.searchFilterAll,
+      PortfolioActivityFilter.trades => l10n.activityFilterTrades,
+      PortfolioActivityFilter.payouts => l10n.activityFilterPayouts,
+      PortfolioActivityFilter.transfers => l10n.activityFilterTransfers,
+    };
+
+/// The Portfolio screen's Activity tab (see the file header). It carries
+/// its own 16 gutters for the chips (the day cards carry theirs) and
+/// starts [kPortfolioSectionEmptyTop] under the strip.
+class PortfolioActivitySection extends ConsumerStatefulWidget {
+  const PortfolioActivitySection({super.key});
+
+  @override
+  ConsumerState<PortfolioActivitySection> createState() =>
+      _PortfolioActivitySectionState();
+}
+
+class _PortfolioActivitySectionState
+    extends ConsumerState<PortfolioActivitySection> {
+  PortfolioActivityFilter _filter = PortfolioActivityFilter.all;
+
+  void _pick(PortfolioActivityFilter next) {
+    if (next == _filter) return;
+    HapticFeedback.selectionClick();
+    setState(() => _filter = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final activity = watchAllActivity(ref, scope: ActivityScope.investments);
+    final everything = activity.curated.entries;
+    final gutter = EdgeInsets.symmetric(horizontal: 16.w);
+    final retry = activity.failed
+        ? Padding(
+            padding: gutter,
+            child: TextButton.icon(
+                key: const ValueKey('portfolio-activity-retry'),
+                onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(l10n.hlActivityRefreshFailedRetry)),
+          )
+        : null;
+    final empty = Padding(
+      key: const ValueKey('portfolio-activity-empty'),
+      padding: EdgeInsets.only(top: kPortfolioSectionEmptyTop.h),
+      child: PortfolioSectionEmpty(
+          title: l10n.ledgerActivityEmpty,
+          tagline: PortfolioSectionTagline.activity),
+    );
+    if (everything.isEmpty) {
+      if (activity.loading) {
+        return Padding(
+          key: const ValueKey('portfolio-activity-loading'),
+          padding: EdgeInsets.only(top: kPortfolioSectionEmptyTop.h),
+          child: SkeletonRowList(count: 4, padding: gutter),
+        );
+      }
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [if (retry != null) retry, empty],
+      );
+    }
+    final shown = [
+      for (final e in everything)
+        if (portfolioActivityMatches(e, _filter)) e,
+    ].take(kPortfolioActivityShown).toList(growable: false);
+    final chips = SingleChildScrollView(
+      key: const ValueKey('portfolio-activity-filters'),
+      scrollDirection: Axis.horizontal,
+      padding: gutter,
+      child: Row(
+        children: [
+          for (final f in PortfolioActivityFilter.values) ...[
+            if (f != PortfolioActivityFilter.all) SizedBox(width: 8.w),
+            KutePill(
+              key: ValueKey('portfolio-activity-filter-${f.name}'),
+              label: _filterLabel(l10n, f),
+              selected: _filter == f,
+              size: KutePillSize.compact,
+              onTap: () => _pick(f),
+            ),
+          ],
+        ],
+      ),
+    );
+    // The rows as the Activity screen draws them: the result under a
+    // close's amount ("+$1.20"), so each reads as what, for how much and
+    // how it ended.
+    return Column(
+        key: const ValueKey('portfolio-activity'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: kPortfolioSectionEmptyTop.h),
+          if (retry != null) retry,
+          chips,
+          if (shown.isEmpty)
+            empty
+          else
+            // The app's day cards, the rows their own surfaces' widgets
+            // with "Paid from …" where a funding chain folded in.
+            KeyedSubtree(
+              key: ValueKey('portfolio-activity-list-${_filter.name}'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: allActivityDaySections(context, ref, shown,
+                    curated: activity.curated),
+              ),
+            ),
+        ],
+    );
   }
 }

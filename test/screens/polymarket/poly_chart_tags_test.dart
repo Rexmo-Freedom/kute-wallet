@@ -85,6 +85,18 @@ void main() {
       expect(polyChartShortName('Viktoria Hruncakova'), 'Hruncakova');
       expect(polyChartShortName('  '), '');
     });
+
+    test(
+        'a deadline keeps its month, three letters ("March 31, 2027" -> '
+        '"Mar 31, 2027"; the founder saw "31, 2027 18.5%")', () {
+      expect(polyChartShortName('March 31, 2027'), 'Mar 31, 2027');
+      expect(polyChartShortName('December 31, 2026'), 'Dec 31, 2026');
+      expect(polyChartShortName('September 30'), 'September 30');
+      expect(polyChartShortName('November 15 2026'), 'Nov 15 2026');
+      // Short enough as it is.
+      expect(polyChartShortName('May 31, 2027'), 'May 31, 2027');
+      expect(polyChartShortName('June 30'), 'June 30');
+    });
   });
 
   group('polyChartOutcomeName', () {
@@ -130,6 +142,24 @@ void main() {
                   10 +
                   kPolyTagLead,
               0.01));
+    });
+
+    test(
+        'two deadlines (Święczkowski reinstated as Constitutional Tribunal '
+        'President?): each pill names its date with the month, never cut '
+        'from the left', () {
+      final s = style(['March 31, 2027', 'December 31, 2026']);
+      expect(s.names, ['Mar 31, 2027', 'Dec 31, 2026']);
+      for (final n in s.names) {
+        expect(n, isNot(startsWith('31')));
+      }
+      // On a narrow chart the date that cannot fit is left out whole (the
+      // chance alone), never "31, 2027".
+      final narrow = style(['March 31, 2027', 'December 31, 2026'],
+          width: 150);
+      for (final n in narrow.names) {
+        expect(n == '' || n.startsWith(RegExp('[A-Z]')), isTrue, reason: n);
+      }
     });
 
     test('never wider than its share of the chart, never an ellipsis', () {

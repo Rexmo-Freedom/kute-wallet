@@ -31,6 +31,9 @@
 //               venue and reachable by the engine, so always Available
 //               (founder decision 13 October 2026: one balance), never
 //               Invested. Dust only tells the sweeper to leave it alone.
+//               Before the sweeper's first pass has looked at a venue (a
+//               cold start, a recovered wallet), its live idle cash counts
+//               as held, less what is already in flight home from it.
 //
 // Waiting, dust and venue cash are the sweeper's classification from its
 // last pass, each capped by the venue's live unreserved cash
@@ -55,8 +58,15 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show
+        CommittedFundsNotifier,
+        committedDollarsInFlight,
+        committedFundsProvider,
+        watchCommittedUsd;
 import 'package:kute/services/one_balance/funded_orders.dart'
     show FundedOrdersNotifier, fundedOrdersProvider;
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyPlace;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show kSweepDustUsd, kVenueMoveMaxAge, pendingVenueMoveOf;
@@ -84,6 +94,13 @@ const double kDollarArrivalMatchTolerance = 0.10;
 /// A receive may carry a timestamp this much before its row's own (the
 /// SDK stamps payments to the second).
 const Duration kDollarArrivalClockSkew = Duration(seconds: 10);
+
+/// Whether [row] pays out of dollars (the spending account's, or a
+/// venue's): its deposit figure is then dollars.
+bool _dollarSource(SwapOrder row) {
+  final c = row.coinFrom.toUpperCase();
+  return c == 'USDB' || c == 'USDC' || c == 'USDC.E';
+}
 
 bool _landsInDollars(SwapOrder row) =>
     row.isOrchestra &&
@@ -150,12 +167,28 @@ Set<String> dollarRowsAlreadyCounted(
 /// its move into the venue), so the header can name the order. A row
 /// whose dollars a receive in [dollarReceives] already shows is not in
 /// flight (see [dollarRowsAlreadyCounted]). Pure for the tests.
+///
+/// NEVER TWICE ONCE THE ORDER IS PLACED (founder, 4 November 2026:
+/// "balance wrong in dollars"). A funded order fires the moment its venue
+/// is credited, whatever Orchestra's status for the move says
+/// (bitcoin_funded_order.dart, the placement wait), so the position (or
+/// the cash its resting order reserves) is in the venue's read, and so in
+/// Invested, while the move's row can still read pending for a while. A
+/// move into a venue that [placedOrderRow] says paid for an order already
+/// placed is that order's money in the venue: it is not in flight too.
+///
+/// A move into a venue counts what left Dollars ([SwapOrder.depositAmount])
+/// when it left Dollars, and what the venue receives
+/// ([SwapOrder.withdrawalAmount]) when it came from elsewhere: a Bitcoin
+/// leg straight into a venue sends bitcoin, and its deposit figure is
+/// bitcoin, never dollars.
 List<InFlightMove> inFlightMovesFrom(
   Iterable<SwapOrder> rows, {
   required String? walletId,
   required int nowMs,
   Iterable<DollarReceive> dollarReceives = const [],
   InFlightOrder? Function(String rowId)? orderOf,
+  bool Function(String rowId)? placedOrderRow,
 }) {
   final counted = dollarRowsAlreadyCounted(rows, dollarReceives,
       walletId: walletId, nowMs: nowMs);
@@ -175,9 +208,15 @@ List<InFlightMove> inFlightMovesFrom(
     final move = pendingVenueMoveOf(row, walletId: walletId, nowMs: nowMs);
     if (move != null) {
       final (venue, kind) = move;
-      // Dollars leaving show what left; dollars coming back show what the
-      // quote said would arrive.
-      final usd = kind == InFlightKind.toVenue
+      // The order this move paid for is placed: its money is in the
+      // venue's read (see above).
+      if (kind == InFlightKind.toVenue &&
+          (placedOrderRow?.call(row.id) ?? false)) {
+        continue;
+      }
+      // Dollars leaving show what left; dollars coming back, or arriving
+      // from Bitcoin, show what the quote said would arrive.
+      final usd = kind == InFlightKind.toVenue && _dollarSource(row)
           ? _parse(row.depositAmount)
           : _parse(row.withdrawalAmount);
       add(kind, venue, row.id, usd);
@@ -223,20 +262,46 @@ double? _liveIdleCash(UnifiedVenueBalances venues, OneBalanceVenue venue) =>
 /// Predictions cash takes the cash off the live read at the fill, and the
 /// position onto it, while the sweeper's `held` still said $3.55 until
 /// its next pass: the spent cash stayed in Available next to the position
-/// it bought. The live read can only lower a bucket here, never raise it
-/// (cash a read shows that the sweeper has not classified yet can be a
-/// sweep that left a moment ago and is counted in flight), and the sweeper
-/// re-classifies on its next pass.
+/// it bought. Once the sweeper has classified a venue, the live read can
+/// only lower its buckets here, never raise them (cash a read shows that
+/// the last pass did not see can be a sweep that left a moment ago and is
+/// counted in flight), and the sweeper re-classifies on its next pass.
+///
+/// BEFORE THE FIRST CLASSIFICATION (founder, 10 November 2026: a wallet
+/// recovered from its 12 words showed $15.65 less Available than the same
+/// wallet on the phone, until a bet woke the sweeper). On a cold start the
+/// sweeper's state is empty until its first pass, which waits for an
+/// event, a venue's cash moving, a resume or the 3-minute heartbeat; the
+/// venues' cash was then counted nowhere. A venue the sweeper has not
+/// classified yet ([VenueSweeperState.isClassified]) counts its live idle
+/// cash as held (Available), less what [inFlight] already counts coming
+/// home from it (a sweep a previous run started, which the venue's read
+/// can still show): never twice. Nothing moves; the sweeper classifies it
+/// on its first pass.
 ({
   Map<OneBalanceVenue, double> waiting,
   Map<OneBalanceVenue, double> dust,
   Map<OneBalanceVenue, double> held,
-}) cappedVenueCash(UnifiedVenueBalances venues, VenueSweeperState sweeper) {
+}) cappedVenueCash(UnifiedVenueBalances venues, VenueSweeperState sweeper,
+    {Iterable<InFlightMove> inFlight = const []}) {
   final waiting = <OneBalanceVenue, double>{};
   final dust = <OneBalanceVenue, double>{};
   final held = <OneBalanceVenue, double>{};
   for (final venue in OneBalanceVenue.values) {
-    var room = _liveIdleCash(venues, venue) ?? double.infinity;
+    final live = _liveIdleCash(venues, venue);
+    if (!sweeper.isClassified(venue)) {
+      if (live == null) continue;
+      var leaving = 0.0;
+      for (final move in inFlight) {
+        if (move.kind == InFlightKind.fromVenue && move.venue == venue) {
+          leaving += _clean(move.usd);
+        }
+      }
+      final h = _clean(live - leaving);
+      if (h >= kSweepDustUsd) held[venue] = h;
+      continue;
+    }
+    var room = live ?? double.infinity;
     double take(double? usd) {
       final want = usd == null ? 0.0 : _clean(usd);
       final got = want < room ? want : room;
@@ -275,7 +340,7 @@ OneBalanceState oneBalanceStateFrom({
   required VenueSweeperState sweeper,
   OneBalanceLiveMarks marks = OneBalanceLiveMarks.zero,
 }) {
-  final cash = cappedVenueCash(venues, sweeper);
+  final cash = cappedVenueCash(venues, sweeper, inFlight: inFlight);
   // Dust is venue cash like any other: the sweeper leaves it where it is,
   // and a bet or an order there spends it.
   final venueCash = <OneBalanceVenue, double>{};
@@ -325,14 +390,28 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     // Rows carrying a funded order's money name the order.
     orderOf: (rowId) =>
         FundedOrdersNotifier.liveOwnerOf(funded, rowId)?.toInFlightOrder(),
+    // A move whose order is placed is in the venue's read already.
+    placedOrderRow: (rowId) =>
+        FundedOrdersNotifier.placedOrderOwns(funded, rowId),
   );
+  // Dollars an accepted order has committed and not yet seen leave are
+  // money on its way into that order (Invested), never Available: a
+  // second order accepted meanwhile sees only the rest
+  // (committed_funds.dart).
+  final committed =
+      watchCommittedUsd(ref, MoneyPlace.dollars, dollarsUsd: dollars);
+  final commitments = ref.watch(committedFundsProvider);
+  final committedInFlight = commitments.isEmpty
+      ? const <InFlightMove>[]
+      : committedDollarsInFlight(commitments,
+          now: CommittedFundsNotifier.clock(), runs: funded);
   return oneBalanceStateFrom(
-    dollarsUsd: dollars,
+    dollarsUsd: dollars - committed,
     dollarsKnown: !usdReading.isLoading &&
         !usdReading.hasError &&
         !ref.watch(usdBalanceUnknownProvider),
     venues: venues,
-    inFlight: inFlight,
+    inFlight: [...inFlight, ...committedInFlight],
     // Waiting, and the cash a venue keeps or cannot move (dust), both
     // Available, from the sweeper's passes, capped by the venues' reads.
     sweeper: ref.watch(venueSweeperProvider),

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -44,6 +45,7 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/portfolio/portfolio_screen.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
     show PortfolioActivitySliver;
@@ -53,8 +55,7 @@ import 'package:kute/providers/portfolio_performance_provider.dart'
     show portfolioPerformanceProvider;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
-import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
@@ -158,11 +159,27 @@ Future<void> _pump(WidgetTester tester,
     PortfolioVenues venues = kPortfolioBothVenues,
     List<Override> overrides = const [],
     bool settle = true,
+    bool routed = false,
     int balancePrivacy = 0}) async {
   tester.view.physicalSize = const Size(400, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  final theme = ThemeData(
+      splashFactory: NoSplash.splashFactory,
+      fontFamily: 'Inter',
+      extensions: [AppColorsExtension.light()]);
+  // [routed]: [home] at `/` under the app's router, with the Portfolio
+  // screen on its route (the shell pushes it there, app_router.dart).
+  final router = routed
+      ? GoRouter(routes: [
+          GoRoute(path: '/', builder: (_, __) => home),
+          GoRoute(
+              path: PortfolioScreen.route,
+              builder: (_, __) => const PortfolioScreen()),
+        ])
+      : null;
+  if (router != null) addTearDown(router.dispose);
   await tester.pumpWidget(ProviderScope(
       overrides: [
         ...portfolioOverrides(trading: state, placing: placing, venues: venues),
@@ -189,15 +206,21 @@ Future<void> _pump(WidgetTester tester,
       ],
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(
-              splashFactory: NoSplash.splashFactory,
-              fontFamily: 'Inter',
-              extensions: [AppColorsExtension.light()]),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: home,
-        ),
+        builder: (_, __) => routed
+            ? MaterialApp.router(
+                theme: theme,
+                localizationsDelegates:
+                    AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                routerConfig: router!,
+              )
+            : MaterialApp(
+                theme: theme,
+                localizationsDelegates:
+                    AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: home,
+              ),
       )));
   if (settle) {
     await tester.pumpAndSettle();
@@ -542,9 +565,11 @@ void main() {
     });
 
     testWidgets(
-        'a placed order\'s "View positions" opens the Portfolio on Balances, '
-        'where the positions are, pushing nothing', (tester) async {
+        'a placed order\'s "View positions" pushes the Portfolio screen on '
+        'Balances, where the positions are; the page\'s pill stays',
+        (tester) async {
       await _pump(tester,
+          routed: true,
           overrides: [
             activeShellTabProvider.overrideWith((_) => ActiveNavTab.usd),
           ],
@@ -555,12 +580,19 @@ void main() {
                       child: const Text('View positions')))));
       final container =
           ProviderScope.containerOf(tester.element(find.byType(TextButton)));
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+      // The page's pill stays where it was: Overview, the default (8
+      // November 2026).
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       await tester.tap(find.text('View positions'));
       await tester.pumpAndSettle();
-      expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+      // The Portfolio is its own screen (portfolio_screen.dart, founder,
+      // 31 October 2026), pushed on its route over the page, on Balances.
+      expect(find.byType(PortfolioScreen), findsOneWidget);
       expect(
           container.read(portfolioSectionProvider), PortfolioSection.balances);
+      // The page's pill stays where it was: Overview, the default (8
+      // November 2026).
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(find.byType(OpenInvestmentsScreen), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -569,8 +601,8 @@ void main() {
   group('the Portfolio screen (from the balance)', () {
     testWidgets(
         'its app bar and back, no total header, no deposit or withdrawal, '
-        'no tabs: the chart, the pair, the donut and the figures, then the '
-        'Activity at the bottom', (tester) async {
+        'no tabs: the P&L card (Historic only, no pair), then the Activity '
+        'at the bottom', (tester) async {
       final events = _events();
       await _pump(tester,
           state: _withFill,
@@ -591,9 +623,10 @@ void main() {
       // Top down.
       expect(find.byType(PortfolioStatisticsOverview), findsOneWidget);
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
-      final pair = find.byKey(const ValueKey('statistics-active'));
-      expect(_top(tester, find.byType(PortfolioPnlChart)),
-          lessThan(_top(tester, pair)));
+      // Founder, 28 October 2026: no Active | Historic pair.
+      expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
+      expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
+      final card = find.byKey(const ValueKey('statistics-pnl-section'));
       final heading = find.byKey(const ValueKey('portfolio-activity-heading'));
       await tester.scrollUntilVisible(heading, 200,
           scrollable: find
@@ -605,45 +638,35 @@ void main() {
       expect(find.descendant(of: heading, matching: find.text('Activity')),
           findsOneWidget);
       expect(find.byType(PortfolioActivitySliver), findsOneWidget);
-      expect(_top(tester, heading), greaterThan(_top(tester, pair)));
+      expect(_top(tester, heading), greaterThan(_top(tester, card)));
       expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2,
           {'source': 'test'});
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'one P&L chart whose venue rows switch the series, headline and '
-        'change', (tester) async {
+        'one P&L card, Historic only: the realised figure, the chart and its '
+        'ranges, the venue lines that switch the series', (tester) async {
       final events = _events();
       await _pump(tester,
           overrides: _performance(),
           home: const OpenInvestmentsScreen(source: 'test'));
       expect(find.byType(PortfolioStatistics), findsNothing);
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
-      // Active with nothing open: no chart (founder, 28 October 2026), the
-      // venue rows stay to pick from; Historic charts.
-      expect(find.byType(KuteLineChart), findsNothing);
-      expect(find.byType(KuteRangePills), findsNothing);
-      await tester
-          .ensureVisible(find.byKey(const ValueKey('statistics-historic')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('statistics-historic')));
-      await tester.pumpAndSettle();
-      expect(events.last.$1, 'portfolio_allocation_view_changed');
-      expect(events.last.$2, {'view': 'historic'});
-      expect(find.byType(KuteLineChart), findsOneWidget);
-      // The range row under the plot, 1W to ALL.
-      expect(find.byType(KuteRangePills), findsOneWidget);
-      expect(find.text('Profit and loss'), findsOneWidget);
+      // Charted at once: no Active | Historic pair to pick first.
+      expect(find.byType(KuteTrendChart), findsOneWidget);
+      expect(find.byType(KuteChartRangeRow), findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
+      expect(find.text('Profits'), findsOneWidget);
       String headline() => tester
           .widget<RollingNumberText>(
               find.byKey(const ValueKey('statistics-pnl-headline')))
           .text;
-      // All: the venues added on the moments either published,
-      // Investing's 15 and Predictions' 4.
-      expect(headline(), r'+$19.00');
-      // No All · Investing · Predictions control: the venue rows in the
-      // card pick the series.
+      // The P&L over the month picked: Investing −5 a month ago to 15 now,
+      // Predictions' 4 (nothing closed yet, all of it open): +24.
+      expect(headline(), r'+$24.00');
+      // Each venue's line with its own "No … yet".
+      expect(find.text('No predictions yet'), findsOneWidget);
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
       for (final venue in ['investing', 'predictions']) {
         expect(
@@ -655,27 +678,23 @@ void main() {
       // No Earn, ever.
       expect(find.text('Earn', skipOffstage: false), findsNothing);
 
+      // All: the venues added on the moments either published,
+      // Investing's 15 and Predictions' 4.
       double lineEnd() =>
-          tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values.last;
+          tester.widget<KuteTrendChart>(find.byType(KuteTrendChart)).values.last;
       expect(lineEnd(), 19);
+      await tester.ensureVisible(
+          find.byKey(const ValueKey('pnl-venue-predictions-pick')));
+      await tester.pumpAndSettle();
       await tester
           .tap(find.byKey(const ValueKey('pnl-venue-predictions-pick')));
       await tester.pumpAndSettle();
-      expect(headline(), r'+$4.00');
-      // The row filters the line: Predictions' alone.
+      // The line filters the chart: Predictions' alone.
       expect(lineEnd(), 4);
       expect(events.last.$1, 'portfolio_statistics_venue_toggled');
       expect(events.last.$2, {'venue': 'polymarket'});
-
-      // Back to Active: nothing open at Predictions, so no chart.
-      await tester
-          .ensureVisible(find.byKey(const ValueKey('statistics-active')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('statistics-active')));
-      await tester.pumpAndSettle();
-      expect(events.last.$1, 'portfolio_allocation_view_changed');
-      expect(events.last.$2, {'view': 'active'});
-      expect(find.byType(KuteLineChart), findsNothing);
+      expect(events.where((e) => e.$1 == 'portfolio_allocation_view_changed'),
+          isEmpty);
       expect(tester.takeException(), isNull);
     });
 
@@ -683,7 +702,7 @@ void main() {
         'never traded and nothing in the Activity: the one empty state, no '
         'pills over nothing', (tester) async {
       await _pump(tester, home: const OpenInvestmentsScreen(source: 'test'));
-      expect(find.byType(KuteLineChart), findsNothing);
+      expect(find.byType(KuteTrendChart), findsNothing);
       expect(
           find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
       expect(find.byType(NoActivityState), findsOneWidget);
@@ -706,19 +725,14 @@ void main() {
               .widget<RollingNumberText>(
                   find.byKey(const ValueKey('statistics-pnl-headline')))
               .text,
-          r'+$15.00');
+          // Investing's month: −5 to 15.
+          r'+$20.00');
       // One venue: no toggle (it would only say the headline again).
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
-      // Nothing open: Historic charts it.
-      await tester
-          .ensureVisible(find.byKey(const ValueKey('statistics-historic')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('statistics-historic')));
-      await tester.pumpAndSettle();
+      expect(
+          find.byKey(const ValueKey('pnl-venue-investing-pick')), findsNothing);
       // The scrub event names the one venue charted (a press on the plot).
-      await tester.longPress(find.byWidgetPredicate((w) =>
-          w is CustomPaint &&
-          w.painter.runtimeType.toString() == '_KuteLinePainter'));
+      await tester.longPress(find.byKey(const ValueKey('trend-chart-plot')));
       await tester.pumpAndSettle();
       expect(
           events
@@ -750,7 +764,7 @@ void main() {
             ],
             home: const OpenInvestmentsScreen(source: 'test'));
         expect(find.byType(PortfolioPnlChart), findsOneWidget);
-        expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
+        expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
         expect(find.text('Earn', skipOffstage: false), findsNothing);
         expect(find.textContaining('1,500 sats', skipOffstage: false),
             findsNothing);
@@ -779,7 +793,7 @@ void main() {
         expect(find.byKey(const ValueKey('statistics-chart-empty')),
             findsOneWidget);
         expect(find.byType(NoActivityState), findsOneWidget);
-        expect(find.byType(KuteLineChart), findsNothing);
+        expect(find.byType(KuteTrendChart), findsNothing);
         expect(find.text('Earn', skipOffstage: false), findsNothing);
         expect(events.where((e) => e.$1.startsWith('usd_earn_')), isEmpty);
         expect(events.where((e) => e.$1 == 'usd_chart_range_changed'), isEmpty);
@@ -826,8 +840,8 @@ void main() {
         await tester.tap(find.text('Portfolio'));
         await tester.pumpAndSettle();
         expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
-        expect(
-            container.read(investmentsTabProvider), InvestmentsTab.investing);
+        // The page's pill stays at its default, Overview.
+        expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
         expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2, {
           'source': product == InvestmentsProduct.predictions
               ? 'dock_predictions'

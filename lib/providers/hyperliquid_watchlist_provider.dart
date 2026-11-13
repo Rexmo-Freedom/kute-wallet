@@ -108,6 +108,19 @@ class HlWatchlistNotifier extends Notifier<List<String>> {
     return added;
   }
 
+  /// The whole list at once, in [keys]' order (newest first): what the
+  /// watchlist sheet saves (hl_watchlist_sheet.dart). Duplicates go, the
+  /// cap holds.
+  void replaceAll(List<String> keys) {
+    final next = <String>[];
+    for (final k in keys) {
+      if (next.length == maxEntries) break;
+      if (!next.contains(k)) next.add(k);
+    }
+    state = next;
+    _pending = _pending.then((_) => _save(next));
+  }
+
   Future<void> _save(List<String> keys) async {
     try {
       final box = Hive.isBoxOpen(boxName)

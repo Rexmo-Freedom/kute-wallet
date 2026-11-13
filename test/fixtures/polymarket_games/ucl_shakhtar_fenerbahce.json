@@ -1,0 +1,121 @@
+{
+  "id": "1190002",
+  "slug": "ucl-sha-fen-2026-11-26",
+  "title": "FK Shakhtar Donetsk vs. Fenerbahçe SK",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+  "active": true,
+  "closed": false,
+  "negRisk": true,
+  "enableNegRisk": true,
+  "gameId": 90200001,
+  "startTime": "2026-11-26T17:45:00Z",
+  "endDate": "2026-11-26T17:45:00Z",
+  "volume": 2700.0,
+  "liquidity": 15000.0,
+  "seriesSlug": "champions-league-2025",
+  "tags": [
+    {
+      "id": "1",
+      "slug": "sports",
+      "label": "Sports"
+    },
+    {
+      "id": "100350",
+      "slug": "soccer",
+      "label": "Soccer"
+    }
+  ],
+  "teams": [
+    {
+      "id": 900011,
+      "name": "FK Shakhtar Donetsk",
+      "league": "ucl",
+      "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Shakhtar.png",
+      "abbreviation": "sha",
+      "ordering": "home"
+    },
+    {
+      "id": 900012,
+      "name": "Fenerbahçe SK",
+      "league": "ucl",
+      "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Fenerbahce.png",
+      "abbreviation": "fen",
+      "ordering": "away"
+    }
+  ],
+  "markets": [
+    {
+      "id": "7200000",
+      "question": "Will FK Shakhtar Donetsk win on 2026-11-26?",
+      "conditionId": "0x0000000000000000000000000000000000000000000000000000000000def000",
+      "slug": "ucl-sha-fen-2026-11-26-0",
+      "groupItemTitle": "FK Shakhtar Donetsk",
+      "groupItemThreshold": "0",
+      "outcomes": "[\"Yes\", \"No\"]",
+      "outcomePrices": "[\"0.365\", \"0.635\"]",
+      "clobTokenIds": "[\"82000000000000000000\", \"82000000000000000001\"]",
+      "sportsMarketType": "moneyline",
+      "active": true,
+      "closed": false,
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+      "negRisk": true,
+      "endDate": "2026-11-26T17:45:00Z",
+      "acceptingOrders": true,
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 5000.0,
+      "volumeNum": 900.0
+    },
+    {
+      "id": "7200001",
+      "question": "Will FK Shakhtar Donetsk vs. Fenerbahçe SK end in a draw?",
+      "conditionId": "0x0000000000000000000000000000000000000000000000000000000000def001",
+      "slug": "ucl-sha-fen-2026-11-26-1",
+      "groupItemTitle": "Draw (FK Shakhtar Donetsk vs. Fenerbahçe SK)",
+      "groupItemThreshold": "1",
+      "outcomes": "[\"Yes\", \"No\"]",
+      "outcomePrices": "[\"0.27\", \"0.73\"]",
+      "clobTokenIds": "[\"82000000000000000002\", \"82000000000000000003\"]",
+      "sportsMarketType": "moneyline",
+      "active": true,
+      "closed": false,
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+      "negRisk": true,
+      "endDate": "2026-11-26T17:45:00Z",
+      "acceptingOrders": true,
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 5000.0,
+      "volumeNum": 900.0
+    },
+    {
+      "id": "7200002",
+      "question": "Will Fenerbahçe SK win on 2026-11-26?",
+      "conditionId": "0x0000000000000000000000000000000000000000000000000000000000def002",
+      "slug": "ucl-sha-fen-2026-11-26-2",
+      "groupItemTitle": "Fenerbahçe SK",
+      "groupItemThreshold": "2",
+      "outcomes": "[\"Yes\", \"No\"]",
+      "outcomePrices": "[\"0.365\", \"0.635\"]",
+      "clobTokenIds": "[\"82000000000000000004\", \"82000000000000000005\"]",
+      "sportsMarketType": "moneyline",
+      "active": true,
+      "closed": false,
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/europa+league.jpg",
+      "negRisk": true,
+      "endDate": "2026-11-26T17:45:00Z",
+      "acceptingOrders": true,
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "liquidityNum": 5000.0,
+      "volumeNum": 900.0
+    }
+  ]
+}

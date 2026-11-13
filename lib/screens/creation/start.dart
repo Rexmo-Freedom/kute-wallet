@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'dart:math';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +11,9 @@ import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/creation/set_pin.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteBarPrimaryButton;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
 
 class Start extends ConsumerStatefulWidget {
@@ -215,7 +220,13 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
                               // animated; Sal himself was a still GIF loop.
                               // He now breathes, wags, blinks and glances
                               // around inside the same burst.
-                              KuteDogIdle(size: 160.w),
+                              // The 3D Sal idling; the rig until the
+                              // sheets exist.
+                              SalSprite(
+                                clip: 'body_idle',
+                                size: 160.w,
+                                fallback: KuteDogIdle(size: 160.w),
+                              ),
                             ],
                           ),
                         ),
@@ -341,35 +352,36 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
         position: _buttonsSlide,
         child: Column(
           children: [
-            CustomButton(
-              text: context.l10n.createAccount,
-              primaryColor: context.ctaFill,
-              // Let the button pick a contrasting label (white on the light
-              // mode blue, black on the dark mode yellow). Was hardcoding
-              // white-in-light / background-in-dark, which drifted from the
-              // other CTAs and left the perma-dark onboarding inconsistent.
-              textColor: contrastingOnColor(accentColor),
-              onPressed: () {
-                TrackingService.onboardingCtaTapped('get_started');
-                ref.read(recoveryModeProvider.notifier).state = false;
-                context.push('/set_pin');
-              },
-            ),
-
-            SizedBox(height: 12.h),
-
-            // Quiet alternative — the secondary tier (AppButton fires
-            // the light haptic itself).
-            AppButton(
+            // Quiet alternative: a text button above the bar.
+            AppTextButton(
               text: context.l10n.iAlreadyHaveAnAccount,
-              variant: AppButtonVariant.secondary,
               textColor: c.textSecondary,
-              fontSize: 15.sp,
               onPressed: () {
                 TrackingService.onboardingCtaTapped('already_have_wallet');
                 ref.read(recoveryModeProvider.notifier).state = true;
                 context.push('/set_pin');
               },
+            ),
+            // THE BAR IS THE BUTTON (kute_bar_context.dart): Create account
+            // is the floating Sal bar's primary action.
+            KuteBarContextScope(
+              barContext: KuteBarContext.primary(
+                label: context.l10n.createAccount,
+                onPrimary: () {
+                  TrackingService.onboardingCtaTapped('get_started');
+                  ref.read(recoveryModeProvider.notifier).state = false;
+                  context.push('/set_pin');
+                },
+                source: 'start',
+                disabledLabel: null,
+              ),
+              // The link 12 above the bar (founder, 1 November 2026), the
+              // bar centred at its own width: the room the bar takes, less
+              // the 20 the column keeps under it.
+              child: SizedBox(
+                  height: KuteBarPrimaryButton.roomUnder(context,
+                          pageToFoot: !Platform.isAndroid) -
+                      20.h),
             ),
           ],
         ),

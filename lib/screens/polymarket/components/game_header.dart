@@ -32,6 +32,7 @@ import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/polymarket/live_game/game_sides.dart';
 import 'package:kute/services/polymarket/live_game/local_game_events.dart'
     show gameTimelineId;
+import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The two sides of a match as its header names them, with each side's
@@ -483,11 +484,12 @@ class PolyGameTeamsHeader extends StatelessWidget {
                   )
                 : _teamInitial(name),
             SizedBox(height: 10.h),
-            Text(
+            // Never cut: a long club name ("FK Shakhtar Donetsk" at 320 pt
+            // and a large text size) shrinks to keep its two lines whole.
+            FittedTitle(
               name,
               textAlign: TextAlign.center,
               maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: c.textPrimary,
                 fontSize: 15.sp,

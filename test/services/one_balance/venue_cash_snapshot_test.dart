@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/services/one_balance/investments_spendable.dart';
@@ -12,6 +14,8 @@ import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/route_minimums.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
+
+import '../../helpers/fake_swap_orders.dart';
 
 const _venue = OneBalanceVenue.investing;
 
@@ -77,13 +81,19 @@ void main() {
   late ProviderContainer container;
   late _Source source;
   late _Settings settings;
+  late FakeSwapOrders rows;
+  late DateTime now;
 
   setUp(() {
     MultiSourceMoveStore.reset();
     source = _Source();
     settings = _Settings();
+    rows = FakeSwapOrders();
+    now = DateTime(2026, 11, 10, 12);
     container = ProviderContainer(overrides: [
       settingsProvider.overrideWith((_) => settings),
+      swapOrdersProvider.overrideWith((_) => rows),
+      venueCashClockProvider.overrideWithValue(() => now),
       usdBalanceProvider.overrideWithValue(0),
       venueCashSourcesProvider.overrideWithValue([source]),
       routeMinimumsProvider
@@ -251,5 +261,96 @@ void main() {
         neededUsd: 20, forAction: VenueCashFor.send, waitFor: Duration.zero);
     expect(result.anyPulled, isTrue);
     expect(result.failedLegs, isEmpty);
+  });
+
+  // Founder, 10 November 2026: a Swap had pulled the Predictions cash; a
+  // sale later left $18.62 there. The home counted it in Available, Swap
+  // offered Dollars alone ($0.03): the Swap's debit was never released,
+  // since Swap and the Dollars send pull without a delivery watch.
+  group('a debit never outlives its own leg', () {
+    SwapOrder ownRow(String id, String status, {String? operationId}) =>
+        SwapOrder(
+          id: id,
+          coinFrom: 'USDC.E',
+          networkFrom: 'POLYGON',
+          coinTo: 'USDB',
+          networkTo: 'SPARK',
+          depositAddress: 'deposit',
+          depositAmount: '20.00',
+          withdrawalAmount: '19.80',
+          status: status,
+          timestamp: now.millisecondsSinceEpoch,
+          withdrawalAddress: 'recipient',
+          depositMin: '0',
+          depositMax: '0',
+          rate: '0',
+          refundAddress: 'refund',
+          provider: 'Orchestra',
+          operationId: operationId,
+        );
+
+    Future<void> openAmountScreen() async {
+      // Each screen that opens reads the venues afresh.
+      container.invalidate(venueCashRefreshProvider);
+      final sub = container.listen(venueCashRefreshProvider, (_, __) {});
+      await container.read(venueCashRefreshProvider.future);
+      sub.close();
+    }
+
+    test('its own Orchestra row finishing releases it when a screen opens',
+        () async {
+      scope().cashMoved(_sent('first', 100), 100);
+      expect(cash(), 0);
+      source.usd = 18.62; // a sale's proceeds, after the pull left
+
+      rows.set([ownRow('first', 'processing')]);
+      await openAmountScreen();
+      expect(cash(), 0, reason: 'the leg is still on its way');
+
+      rows.set([ownRow('first', 'settled')]);
+      await openAmountScreen();
+      expect(cash(), 18.62);
+      expect(container.read(dollarsToBitcoinSpendableProvider).venueCashUsd,
+          18.62);
+    });
+
+    test('a row is matched by the operation it carries', () async {
+      scope().cashMoved(_sent('op-1', 100), 100);
+      source.usd = 18.62;
+      rows.set([ownRow('order-9', 'success', operationId: 'op-1')]);
+      await openAmountScreen();
+      expect(cash(), 18.62);
+    });
+
+    test('another row finishing releases nothing', () async {
+      scope().cashMoved(_sent('first', 100), 100);
+      source.usd = 18.62;
+      rows.set([ownRow('someone-else', 'settled')]);
+      await openAmountScreen();
+      expect(cash(), 0);
+    });
+
+    test('with no proof at all it lapses after the pending lifetime',
+        () async {
+      scope().cashMoved(_sent('first', 100), 100);
+      source.usd = 18.62;
+      now = now.add(kVenueCashPendingTtl - const Duration(minutes: 1));
+      await openAmountScreen();
+      expect(cash(), 0, reason: 'still within the pull\'s lifetime');
+      now = now.add(const Duration(minutes: 1));
+      await openAmountScreen();
+      expect(cash(), 18.62);
+    });
+
+    test('pure: only final statuses prove a ref', () {
+      final refs = {'a', 'b', 'c'};
+      expect(
+          venueCashRefsSettledByRows(refs, [
+            ownRow('a', 'refunded'),
+            ownRow('b', 'exchanging'),
+            ownRow('x', 'expired', operationId: 'c'),
+          ]),
+          {'a', 'c'});
+    });
   });
 }

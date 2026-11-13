@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/hyperliquid/components/hl_portfolio_card.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart';
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart';
@@ -144,7 +145,7 @@ class LedgerPortfolioScreen extends StatelessWidget {
     required String walletId,
     required InvestmentsProduct product,
   }) =>
-      Navigator.of(context, rootNavigator: true).push<void>(MaterialPageRoute(
+      Navigator.of(context, rootNavigator: true).push<void>(KutePageRoute(
           builder: (_) =>
               LedgerPortfolioScreen(walletId: walletId, product: product)));
 }
@@ -307,7 +308,7 @@ class _LedgerSpotRow extends ConsumerWidget {
         trailing: PortfolioCardValue(
           value: value == null || !value.isFinite
               ? '—'
-              : formatPolyAmount(ref, value),
+              : formatDollars(value),
         ),
         footer: [
           context.l10n

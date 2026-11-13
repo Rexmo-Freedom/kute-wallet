@@ -12,8 +12,8 @@ extension HlBrowsePresentation on HlBrowseTab {
         HlBrowseTab.perps => l10n.investingPerps,
         HlBrowseTab.spot => l10n.investingSpot,
         HlBrowseTab.crypto => l10n.investingCrypto,
-        // The site's own word, written the same in every language.
-        HlBrowseTab.tradfi => 'Tradfi',
+        // The site says Tradfi; the pill says it in a plain word.
+        HlBrowseTab.tradfi => l10n.investingTradfi,
         HlBrowseTab.prelaunch => l10n.investingPrelaunch,
       };
 }

@@ -127,15 +127,36 @@ class CapabilityDecision {
   final CapabilityRegions? regions;
 
   /// A region block whose regions the backend named.
-  bool get regionNamed => regionRestricted && (regions?.named ?? false);
+  bool get regionNamed => regionBlocked && (regions?.named ?? false);
 
-  /// A region block: this capability's own (`country_blocked`,
-  /// `country_not_allowed`), or one inherited ([blockedBy]) from a
-  /// capability blocked for named regions.
+  /// A denial by where the connection appears to be: this capability's own
+  /// (`country_blocked`, `country_not_allowed`), or one inherited
+  /// ([blockedBy]) from a capability refused for named regions. The answer
+  /// belongs to the network it was asked on, so the trust and re-check
+  /// logic reads every one of them; what the person is shown follows
+  /// [regionBlocked] and [notOfferedHere].
   bool get regionRestricted =>
       reason == 'country_blocked' ||
       reason == 'country_not_allowed' ||
       (blockedBy.isNotEmpty && (regions?.named ?? false));
+
+  /// Not offered where the person is: an allow list ("only in" these
+  /// places, as `onramp.cashapp` is US-only) leaves their country out
+  /// (`country_not_allowed`, the capability's own rule or one inherited
+  /// through [blockedBy]). The backend's regions then name where the
+  /// feature IS offered, so Kute names none and asks nothing about a VPN
+  /// (founder, 7 November 2026: "not avaliable in usa? my vpn is in
+  /// lisbon. please just say not avaliable right now"): it reads "Not
+  /// available right now" with the plain "Got it", and is never counted
+  /// as a region block.
+  bool get notOfferedHere => reason == 'country_not_allowed';
+
+  /// A region block shown as one: a block list covers where the person
+  /// is (`country_blocked`, or the same inherited, as the `orchestra.swap`
+  /// cascade). The named regions over the one VPN sentence, "Check
+  /// connection", and `capability_region_blocked`. Every
+  /// [regionRestricted] denial but [notOfferedHere].
+  bool get regionBlocked => regionRestricted && !notOfferedHere;
 
   bool get updateRequired =>
       reason == 'app_update_required' ||
@@ -180,10 +201,13 @@ class CapabilityDecision {
 
   /// The whole explanation where there is no title to put it under (an
   /// inline note beside a disabled control, a picker row, an error line):
-  /// a named region block reads as its title over the VPN sentence; else
-  /// the operator's own words when the policy carries some, otherwise
-  /// Kute's wording for the reason code, in [l10n]'s language.
+  /// a denial by an allow list ([notOfferedHere]) reads "Not available
+  /// right now" and nothing more; a named region block reads as its title
+  /// over the VPN sentence; else the operator's own words when the policy
+  /// carries some, otherwise Kute's wording for the reason code, in
+  /// [l10n]'s language.
   String messageIn(AppLocalizations l10n) {
+    if (notOfferedHere) return l10n.capabilityNotAvailableNow;
     if (regionTitleIn(l10n) case final title?) {
       return '$title\n${l10n.capabilityRegionCheckVpn}';
     }
@@ -331,17 +355,6 @@ class RuntimeCapabilities {
   /// The only source for these: no analytics remote value or feature flag
   /// may steer them.
   final Map<String, dynamic> security;
-
-  /// Small-action step-up allowance (D-11): a Polymarket bet or Hyperliquid
-  /// spot buy at or below this many US cents may skip the PIN or biometric
-  /// check while the session is unlocked. 0, absent or malformed means off.
-  /// `SmallActionAllowance` applies its own per-action and per-session caps
-  /// on top.
-  int get smallActionAllowanceCents {
-    final v = security['smallActionAllowanceCents'];
-    if (v is num && v.isFinite && v > 0) return v.toInt();
-    return 0;
-  }
 
   /// Investing settings resolved by the backend for this connection's
   /// region.
@@ -530,6 +543,17 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// The public policy, fresh or not, and when it was fetched.
   RuntimeCapabilities? _public;
   DateTime? _publicFetchedAt;
+
+  /// What [_snapshot] and [_public] say, minus their timestamps
+  /// ([_contentOf]), to tell a refetch that changed something from the
+  /// once-a-minute one that only moved the expiry.
+  String? _snapshotContent;
+  String? _publicContent;
+
+  /// [body] without `evaluatedAt` and `expiresAt`: two fetches with the
+  /// same content answer every question the same while both are fresh.
+  static String _contentOf(Map<String, dynamic> body) => jsonEncode(
+      {...body}..remove('evaluatedAt')..remove('expiresAt'));
 
   /// Bumped by [networkChanged]. Each policy remembers the epoch its fetch
   /// started in; a region denial from an older network is not trusted
@@ -1022,15 +1046,28 @@ class RuntimeCapabilitiesService extends ChangeNotifier
           value.revision < _snapshot!.revision) {
         return false;
       }
+      // The once-a-minute refetch mostly answers what the policy on hand
+      // already says, with a later expiry. Listeners are told only when
+      // an answer can differ: new content, another owner or network, or
+      // a policy on hand that had already expired. Every notification
+      // rebuilds every screen and provider watching the policy (the
+      // Predictions list was read again and swapped its rows each minute).
+      final content = _contentOf(body);
+      final unchanged = _snapshot != null &&
+          _snapshotOwner == owner &&
+          _snapshotEpoch == epoch &&
+          _snapshotContent == content &&
+          now.isBefore(_snapshot!.expiresAt);
       _snapshot = value;
       _snapshotOwner = owner;
       _snapshotFetchedAt = now;
       _snapshotEpoch = epoch;
+      _snapshotContent = content;
       _store.write(RuntimePolicySlot.session,
           StoredRuntimePolicy(owner: owner, fetchedAt: now, policy: body));
       _expiryTimer?.cancel();
       _expiryTimer = _notifyAt(value.expiresAt, now);
-      if (!_disposed) notifyListeners();
+      if (!unchanged && !_disposed) notifyListeners();
       return snapshot != null;
     } catch (_) {
       return false;
@@ -1054,16 +1091,23 @@ class RuntimeCapabilitiesService extends ChangeNotifier
           generation != _fetchGeneration ||
           _disposed) return false;
       if (_public != null && value.revision < _public!.revision) return false;
+      // As for the session policy: an unchanged refetch tells nobody.
+      final content = _contentOf(body);
+      final unchanged = _public != null &&
+          _publicEpoch == epoch &&
+          _publicContent == content &&
+          now.isBefore(_public!.expiresAt);
       _public = value;
       _publicFetchedAt = now;
       _publicEpoch = epoch;
+      _publicContent = content;
       _store.write(
           RuntimePolicySlot.public,
           StoredRuntimePolicy(
               owner: kPublicPolicyOwner, fetchedAt: now, policy: body));
       _publicExpiryTimer?.cancel();
       _publicExpiryTimer = _notifyAt(value.expiresAt, now);
-      if (!_disposed) notifyListeners();
+      if (!unchanged && !_disposed) notifyListeners();
       return publicSnapshot != null;
     } catch (_) {
       return false;

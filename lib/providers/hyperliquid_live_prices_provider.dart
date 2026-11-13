@@ -34,10 +34,12 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/services/device_performance.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/hl_price_lines_provider.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
@@ -560,8 +562,20 @@ class HlLivePricesNotifier extends AutoDisposeNotifier<HlLivePriceState> {
       previousMids: {...state.previousMids, ..._pendingPrev},
       isLive: state.isLive,
     );
+    // The person's price lines read this frame's fresh ticks; they never
+    // add a coin to the watch-set or keep the socket up themselves.
+    ref.read(hlPriceLinesProvider.notifier).applyLiveTicks(
+        _pendingMids, (coin) => _displayToWire[coin] ?? coin);
     _pendingMids.clear();
     _pendingPrev.clear();
+  }
+
+  /// Tests: [coin] ticks to [price] and the frame commits, with no socket.
+  @visibleForTesting
+  void debugCommitTick(String coin, double price) {
+    _pendingMids[coin] = price;
+    _dirty = true;
+    _commitFrame();
   }
 
   /// Immediate (uncoalesced) liveness flip — a stale cue must not wait

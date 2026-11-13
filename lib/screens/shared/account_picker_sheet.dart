@@ -18,6 +18,8 @@
 // `home_wallet_switcher.dart`'s `WalletSwitcherSheet` so the user
 // never has to relearn the layout.
 
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show KuteSheetBarFit, showKuteModalSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,16 +51,20 @@ class AccountPickerSheet extends ConsumerWidget {
     bool Function(Account)? filter,
     String? selectedAccountId,
   }) {
-    return showModalBottomSheet<Account>(
+    return showKuteModalSheet<Account>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       isDismissible: true,
       enableDrag: true,
-      builder: (_) => AccountPickerSheet(
-        title: title,
-        filter: filter ?? ((_) => true),
-        selectedAccountId: selectedAccountId,
+      // Content-sized: a short list hides the floating bar while it is up,
+      // a long one keeps it (KuteSheetBarFit, the app's short-sheet rule).
+      builder: (_) => KuteSheetBarFit(
+        child: AccountPickerSheet(
+          title: title,
+          filter: filter ?? ((_) => true),
+          selectedAccountId: selectedAccountId,
+        ),
       ),
     );
   }
@@ -268,13 +274,12 @@ class _AccountRow extends StatelessWidget {
         : null;
     Widget leadingIcon;
     if (visual?.svgAsset != null) {
-      leadingIcon = SvgPicture.asset(
-        visual!.svgAsset!,
-        width: 28.sp,
-        height: 28.sp,
-        colorFilter: visual.color == Colors.white ||
+      leadingIcon = BrandMark(
+        asset: visual!.svgAsset!,
+        size: 28.sp,
+        tint: visual.color == Colors.white ||
                 visual.color == const Color(0xFF333333)
-            ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn)
+            ? c.textPrimary
             : null,
       );
     } else if (visual != null) {

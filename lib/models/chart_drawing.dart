@@ -59,6 +59,11 @@ enum ChartDrawingTool {
 
   /// Two anchors; a box measuring both price and time.
   dateAndPriceRange,
+
+  /// One anchor; a price line (models/hl_price_line.dart). Only what the
+  /// rail places and the chart paints: a line is stored with the price
+  /// lines, never among the saved drawings.
+  priceLine,
 }
 
 /// How many anchors a tool needs to be valid.
@@ -68,6 +73,7 @@ int chartDrawingPointCount(ChartDrawingTool tool) {
     case ChartDrawingTool.text:
     case ChartDrawingTool.horizontalRay:
     case ChartDrawingTool.verticalLine:
+    case ChartDrawingTool.priceLine:
       return 1;
     case ChartDrawingTool.parallelChannel:
     case ChartDrawingTool.longPosition:
@@ -109,9 +115,12 @@ class ChartDrawingPoint {
 }
 
 /// One saved drawing. [colorValue] is the ARGB of a user-picked accent
-/// (marketUp / marketDown / warning); null means the neutral default,
-/// resolved from the live theme at paint time so a theme change re-skins
-/// old drawings too.
+/// (marketUp / marketDown / warning / blue); null means the neutral
+/// default, resolved from the live theme at paint time so a theme change
+/// re-skins old drawings too.
+///
+/// [dashed], [locked] and [extend] came later: absent in older records,
+/// they read as false, and are only written when on.
 class ChartDrawing {
   final String id;
   final ChartDrawingTool tool;
@@ -119,29 +128,49 @@ class ChartDrawing {
   final int? colorValue;
   final String? text;
 
+  /// Stroke drawn dashed instead of solid.
+  final bool dashed;
+
+  /// Locked against moving: no handles, no body drag. Still selectable
+  /// (to unlock, recolour or delete it).
+  final bool locked;
+
+  /// A trend line carried on past its later point to the right edge.
+  final bool extend;
+
   const ChartDrawing({
     required this.id,
     required this.tool,
     required this.points,
     this.colorValue,
     this.text,
+    this.dashed = false,
+    this.locked = false,
+    this.extend = false,
   });
 
   /// The picked color, or null for "use the theme neutral".
   Color? get color => colorValue == null ? null : Color(colorValue!);
 
   ChartDrawing copyWith({
+    String? id,
     List<ChartDrawingPoint>? points,
     int? colorValue,
     bool clearColor = false,
     String? text,
+    bool? dashed,
+    bool? locked,
+    bool? extend,
   }) =>
       ChartDrawing(
-        id: id,
+        id: id ?? this.id,
         tool: tool,
         points: points ?? this.points,
         colorValue: clearColor ? null : (colorValue ?? this.colorValue),
         text: text ?? this.text,
+        dashed: dashed ?? this.dashed,
+        locked: locked ?? this.locked,
+        extend: extend ?? this.extend,
       );
 
   /// Replace one anchor point (handle drag).
@@ -158,6 +187,9 @@ class ChartDrawing {
         'points': [for (final p in points) p.toJson()],
         if (colorValue != null) 'color': colorValue,
         if (text != null) 'text': text,
+        if (dashed) 'dash': true,
+        if (locked) 'lock': true,
+        if (extend) 'ext': true,
       };
 
   factory ChartDrawing.fromJson(Map<String, dynamic> json) => ChartDrawing(
@@ -171,6 +203,9 @@ class ChartDrawing {
         ],
         colorValue: (json['color'] as num?)?.toInt(),
         text: json['text'] is String ? json['text'] as String : null,
+        dashed: json['dash'] == true,
+        locked: json['lock'] == true,
+        extend: json['ext'] == true,
       );
 
   /// Structurally usable — enough points for its tool and a real price on

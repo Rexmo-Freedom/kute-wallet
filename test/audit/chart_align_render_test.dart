@@ -55,6 +55,7 @@ import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/usd/components/usd_balance_chart.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
@@ -419,7 +420,7 @@ void main() {
     await _tapText(tester, '1M');
     final name = 'home_balance_${dark ? 'dark' : 'light'}_$locale';
     await _shot(tester, name);
-    await _scrubShot(tester, '${name}_scrub', find.byType(KuteLineChart),
+    await _scrubShot(tester, '${name}_scrub', find.byType(KuteTrendChart),
         at: 0.5);
   });
 
@@ -456,7 +457,7 @@ void main() {
     );
     final name = 'home_balance_passthrough_${dark ? 'dark' : 'light'}_$locale';
     await _shot(tester, name);
-    await _pannedShot(tester, '${name}_panned', find.byType(KuteLineChart));
+    await _scrubShot(tester, '${name}_scrub', find.byType(KuteTrendChart));
   });
 
   // Home: the Price tab.
@@ -491,8 +492,7 @@ void main() {
     await _tapText(tester, '1M');
     final name = 'watch_only_${dark ? 'dark' : 'light'}_$locale';
     await _shot(tester, name);
-    await _scrubShot(tester, '${name}_scrub', find.byType(KuteLineChart));
-    await _pannedShot(tester, '${name}_panned', find.byType(KuteLineChart));
+    await _scrubShot(tester, '${name}_scrub', find.byType(KuteTrendChart));
   });
 
   // Dollars: the Balance tab's dollar chart.
@@ -531,8 +531,7 @@ void main() {
     await _tapText(tester, '1M');
     final name = 'dollars_${dark ? 'dark' : 'light'}_$locale';
     await _shot(tester, name);
-    await _scrubShot(tester, '${name}_scrub', find.byType(KuteLineChart));
-    await _pannedShot(tester, '${name}_panned', find.byType(KuteLineChart));
+    await _scrubShot(tester, '${name}_scrub', find.byType(KuteTrendChart));
   });
 
   for (final predictions in [false, true]) {
@@ -604,11 +603,10 @@ void main() {
     await showData(data);
     await _tapText(tester, '3M');
     await _shot(tester, '${name}_3m');
-    await _scrubShot(tester, '${name}_3m_scrub', find.byType(KuteLineChart),
+    await _scrubShot(tester, '${name}_3m_scrub', find.byType(KuteTrendChart),
         at: 0.4);
     await _tapText(tester, '1M');
     await _shot(tester, '${name}_1m');
-    await _pannedShot(tester, '${name}_panned', find.byType(KuteLineChart));
     await showData(const PortfolioPerformance(
         points: [],
         sourceLabel: 'Hyperliquid',
@@ -742,7 +740,7 @@ void main() {
       if (find.text(ranges.first).evaluate().isEmpty) {
         // No range row: the one view.
         await _shot(tester, base);
-        await _scrubShot(tester, '${base}_scrub', find.byType(KuteLineChart),
+        await _scrubShot(tester, '${base}_scrub', find.byType(KuteTrendChart),
             at: 0.7);
         return;
       }

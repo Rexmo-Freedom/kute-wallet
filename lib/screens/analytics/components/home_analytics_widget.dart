@@ -28,12 +28,15 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/screens/analytics/components/bitcoin_price_chart.dart';
 import 'package:kute/screens/analytics/components/analytics_card.dart';
+import 'package:kute/screens/analytics/components/balance_goals.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/analytics/components/chart.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
 import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart'
+    show KuteTrendGoal;
 import 'package:kute/screens/analytics/components/fee_chart.dart';
 import 'package:kute/screens/analytics/components/utxo_map.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -52,16 +55,16 @@ enum AnalyticsTab {
   activity,
   balance,
   valuation,
-
-  /// Where the money went and where it came from, all time, as a donut.
-  /// Only Home (the spending wallet) and Dollars offer it, via
-  /// [HomeAnalyticsWidget.breakdownChild].
-  breakdown,
   price,
   utxo,
   allocation,
   fees
 }
+
+/// Whether the Activity pill reads "See all": it is the selected pill and
+/// a second tap opens the full list.
+bool activityPillSeesAll({required bool selected, required bool hasSeeAll}) =>
+    selected && hasSeeAll;
 
 class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// When true, the Split (allocation) tab is shown. Home keeps it
@@ -103,30 +106,28 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// wrong money entirely.
   final Widget? valuationChild;
 
-  /// When non-null, an "In & out" tab follows Balance and renders this:
-  /// the money in and out of the account by month or year. Home passes it
-  /// for the spending wallet; no hardware, Ledger, watch-only or on-chain
-  /// wallet ever does.
-  final Widget? breakdownChild;
-
   /// When false the Price tab is left out. Home passes false (owner
   /// decision: no price chart on the main screen); the other wallets'
   /// screens keep it.
   final bool showPrice;
 
-  /// When true the strip is the caller's own short strip — Activity and
-  /// Balance (and In & out when passed) — whatever the
-  /// scope filters would otherwise allow. The Dollars tab passes it: a
-  /// cash account has no price chart and no coins map, so Price / Coins
   /// Tapping Activity while Activity is already showing. The pill
-  /// relabels itself to "See all" in that state, because the preview is
-  /// capped at four rows and tapping the pill again is the obvious way
-  /// to ask for the rest. Null leaves the pill inert once selected,
-  /// which is what every surface did before.
+  /// relabels itself to "See all" (with the arrow) in that state, because
+  /// the preview is capped and tapping the pill again is the obvious way
+  /// to ask for the rest; on Balance it reads Activity again. Null leaves
+  /// the pill inert once selected.
   final VoidCallback? onSeeAllActivity;
 
-  /// / Split would be dead pills. Requires [activityChild]; ignored by
-  /// the Portfolio modes, which hardcode their own tab lists.
+  /// A request to show the Activity tab (the home's `?tab=activity` link):
+  /// whenever it changes to a new non-null value, Activity is selected.
+  final Object? selectActivityRequest;
+
+  /// When true the strip is the caller's own short strip — Activity and
+  /// Balance — whatever the scope filters would otherwise allow. The
+  /// Dollars tab passes it: a cash account has no price chart and no coins
+  /// map, so Price / Coins / Split would be dead pills. Requires
+  /// [activityChild]; ignored by the Portfolio modes, which hardcode their
+  /// own tab lists.
   final bool activityAndBalanceOnly;
 
   /// Categorical analytics surface ('home' | 'wallet_detail' | 'usd' |
@@ -141,19 +142,26 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// headline either way.
   final bool showBalanceHeadline;
 
+  /// The Bitcoin home's milestones on the Balance tab (balance_goals.dart):
+  /// the pill reads "Goals"; the goal line on the plot; under the card,
+  /// the Next goal square (the Move to Dollars) and the Level square (the
+  /// ladder sheet). Only the Bitcoin home's spending wallet passes true.
+  final bool balanceGoals;
+
   const HomeAnalyticsWidget({
     super.key,
     this.surface,
     this.showBalanceHeadline = false,
+    this.balanceGoals = false,
     this.showSplit = false,
     this.onlySplit = false,
     this.includeFees = false,
     this.activityChild,
     this.valuationChild,
-    this.breakdownChild,
     this.showPrice = true,
     this.activityAndBalanceOnly = false,
     this.onSeeAllActivity,
+    this.selectActivityRequest,
   });
 
   @override
@@ -171,6 +179,18 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
       // Activity is the landing tab everywhere else — the list is the
       // primary content, the charts are the drill-down.
       _selectedTab = AnalyticsTab.activity;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeAnalyticsWidget old) {
+    super.didUpdateWidget(old);
+    final request = widget.selectActivityRequest;
+    if (request != null &&
+        request != old.selectActivityRequest &&
+        widget.activityChild != null &&
+        _selectedTab != AnalyticsTab.activity) {
+      setState(() => _selectedTab = AnalyticsTab.activity);
     }
   }
 
@@ -239,19 +259,14 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
     } else if (widget.activityAndBalanceOnly && widget.activityChild != null) {
       // The short strip: the list the caller passed, then the balance
       // over time. Same pills, same switching, no scope filtering.
-      tabs = [
-        AnalyticsTab.activity,
-        AnalyticsTab.valuation,
-        if (widget.breakdownChild != null) AnalyticsTab.breakdown,
-      ];
+      tabs = const [AnalyticsTab.activity, AnalyticsTab.valuation];
     } else if (widget.showSplit && widget.includeFees) {
       tabs = const [AnalyticsTab.allocation, AnalyticsTab.fees];
     } else {
       tabs = AnalyticsTab.values.where((t) {
         if (t == AnalyticsTab.activity) return widget.activityChild != null;
         if (t == AnalyticsTab.balance) return false; // legacy
-        // In & out is the caller's own child; Price is opt-out.
-        if (t == AnalyticsTab.breakdown) return widget.breakdownChild != null;
+        // Price is opt-out.
         if (t == AnalyticsTab.price && !widget.showPrice) return false;
         // Split is opt-in via the `showSplit` constructor flag. Home
         // (the default) hides it because the always-BTC model means
@@ -320,8 +335,6 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
         _selectedTab == AnalyticsTab.activity && widget.activityChild != null;
     final showingValuationChild =
         _selectedTab == AnalyticsTab.valuation && widget.valuationChild != null;
-    final showingBreakdownChild =
-        _selectedTab == AnalyticsTab.breakdown && widget.breakdownChild != null;
     return Padding(
       // Horizontal padding moves onto the strip/charts individually:
       // the Activity list carries its own row insets (it used to sit
@@ -345,15 +358,14 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
           else
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: showingBreakdownChild
-                  ? widget.breakdownChild!
-                  : showingValuationChild
-                      ? widget.valuationChild!
-                      : _InternalAnalyticsView(
-                          currentTab: _selectedTab,
-                          surface: _surface,
-                          showBalanceHeadline: widget.showBalanceHeadline,
-                        ),
+              child: showingValuationChild
+                  ? widget.valuationChild!
+                  : _InternalAnalyticsView(
+                      currentTab: _selectedTab,
+                      surface: _surface,
+                      showBalanceHeadline: widget.showBalanceHeadline,
+                      balanceGoals: widget.balanceGoals,
+                    ),
             ),
         ],
       ),
@@ -362,10 +374,13 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
 
   /// The tab strip is the shared [KutePillTabs] row (same chrome as
   /// the category pills on the Predictions and Investing screens, user
-  /// decision). Three tabs (Home: Activity/Balance/In & out) share the
+  /// decision). Two tabs (Home: Activity/Balance) share the
   /// width; hardware wallets add Coins and the strip side-scrolls.
   Widget _buildTypeSelector(List<AnalyticsTab> tabs) {
+    // The app's switch size (kutePillSwitchSize, the Dollars halves'),
+    // on the same 16 gutters as the Dollars strip.
     return KutePillTabs(
+      horizontalPadding: 0,
       items: [for (final t in tabs) _pillItem(t)],
       selectedIndex: tabs.indexOf(_selectedTab),
       onTap: (i) {
@@ -385,10 +400,13 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
   KutePillItem _pillItem(AnalyticsTab tab) {
     switch (tab) {
       case AnalyticsTab.activity:
-        // Already showing it: the pill stops naming the tab and starts
-        // naming what a second tap does.
-        final seeAll = _selectedTab == AnalyticsTab.activity &&
-            widget.onSeeAllActivity != null;
+        // Already showing it: the pill stops naming the tab and names what
+        // a second tap does, "See all" with the arrow (founder, 1 November
+        // 2026, reversing 31 October's "always Activity"). On Balance it
+        // reads Activity again.
+        final seeAll = activityPillSeesAll(
+            selected: _selectedTab == AnalyticsTab.activity,
+            hasSeeAll: widget.onSeeAllActivity != null);
         return KutePillItem(
           label: seeAll ? context.l10n.seeAll : context.l10n.activity,
           icon:
@@ -399,18 +417,20 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
         // Spending balance over time → piggy bank reads as "savings/
         // balance" without the asset-specific connotation a BTC mark
         // would carry. Both legacy enum cases map here so existing
-        // settings/tracking keep working.
+        // settings/tracking keep working. On the Bitcoin home the tab
+        // climbs the milestones and the pill reads "Goals" with the flag
+        // (founder, 8 November 2026: the hero above already shows the
+        // balance); the tab's key and its analytics value ('valuation')
+        // and the `?tab=` links are unchanged.
+        if (widget.balanceGoals) {
+          return KutePillItem(
+            label: context.l10n.balanceGoalsTab,
+            icon: Icons.flag_rounded,
+          );
+        }
         return KutePillItem(
           label: context.l10n.balance,
           icon: Icons.savings_rounded,
-        );
-      case AnalyticsTab.breakdown:
-        // "In & out" (founder, 2026-10-28): the bitcoin that came in and
-        // went out, by month or year. The enum keeps its name, so the
-        // tab event still reports `breakdown`.
-        return KutePillItem(
-          label: context.l10n.analyticsInOutTab,
-          icon: Icons.swap_vert_rounded,
         );
       case AnalyticsTab.price:
         return KutePillItem(
@@ -546,10 +566,12 @@ class _InternalAnalyticsView extends ConsumerStatefulWidget {
   final AnalyticsTab currentTab;
   final String surface;
   final bool showBalanceHeadline;
+  final bool balanceGoals;
   const _InternalAnalyticsView({
     required this.currentTab,
     required this.surface,
     this.showBalanceHeadline = false,
+    this.balanceGoals = false,
   });
 
   @override
@@ -694,6 +716,74 @@ class _InternalAnalyticsViewState
     // wallet-type checks are moot — always zero on the home surface.
     const double stablesFiat = 0.0;
     const double nonBtcFiatOffset = 0.0;
+
+    // The Balance tab's card is as tall as its chart (founder, 6 November
+    // 2026: "card bottom is not great, it expands too much"): the header,
+    // the plot, the range row and the card's own 16 under it. No fixed
+    // height, no dead space. On the Bitcoin home the milestones stand
+    // under the card, never inside it (balance_goals.dart).
+    if (tab == AnalyticsTab.valuation) {
+      Widget card(KuteTrendGoal? goal) => AnalyticsCard(
+        key: const ValueKey('balance-card'),
+        height: null,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_shouldShowValueHeader(tab) && marketDataAsync is AsyncData)
+                _ValueHeader(
+                  scrubValue: _scrubValue,
+                  scrubDate: _scrubDate,
+                  scrubCounterpart: _computeScrubCounterpart(
+                    tab: tab,
+                    btcFormat: btcFormat,
+                    currency: currency,
+                    fiatPerBtc: fiatPerBtc,
+                  ),
+                  scrubPrimaryOverride: _computeScrubPrimaryValuation(
+                    tab: tab,
+                    btcFormat: btcFormat,
+                  ),
+                  tab: tab,
+                  btcFormat: btcFormat,
+                  currency: currency,
+                  c: c,
+                  latestValue: _getLatestValue(
+                      tab, selectedDays, btcFormat, nonBtcFiatOffset,
+                      liveBtcFiat: btcFiat,
+                      liveStablesFiat: stablesFiat,
+                      liveBtcSatsTotal: btcSatsTotal),
+                  latestDate: null,
+                  btcFiat: btcFiat,
+                  btcSats: btcSatsTotal,
+                  stablesFiat: stablesFiat,
+                  showBitcoin: false,
+                  showStables: false,
+                ),
+              _buildTabContent(
+                tab: tab,
+                marketDataAsync: marketDataAsync,
+                utxosAsync: utxosAsync,
+                selectedDays: selectedDays,
+                btcFormat: btcFormat,
+                currency: currency,
+                c: c,
+                nonBtcFiatOffset: nonBtcFiatOffset,
+                balanceGoal: goal,
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!widget.balanceGoals) return card(null);
+      final history = ref.watch(bitcoinBalanceStepsProvider);
+      return BalanceGoals(
+        hasHistory: history.changes.isNotEmpty || history.opening > 0,
+        card: card,
+      );
+    }
 
     return AnalyticsCard(
       // Fees tab gets more vertical room than other charts because
@@ -1000,6 +1090,7 @@ class _InternalAnalyticsViewState
     required String currency,
     required AppColorsExtension c,
     required double nonBtcFiatOffset,
+    KuteTrendGoal? balanceGoal,
   }) {
     // Tabs that do NOT need market data
     switch (tab) {
@@ -1036,7 +1127,7 @@ class _InternalAnalyticsViewState
       case AnalyticsTab.valuation:
         // The Balance tab: its own range row under the plot (the range
         // row above and LIVE are the Price tab's).
-        return _BitcoinBalanceHistory(btcFormat: btcFormat);
+        return _BitcoinBalanceHistory(btcFormat: btcFormat, goal: balanceGoal);
       default:
         break;
     }
@@ -1180,18 +1271,34 @@ class _InternalAnalyticsViewState
 class _BitcoinBalanceHistory extends ConsumerWidget {
   final String btcFormat;
 
-  const _BitcoinBalanceHistory({required this.btcFormat});
+  /// The Bitcoin home's next milestone, drawn as the plot's goal line
+  /// (balance_goals.dart); null draws none.
+  final KuteTrendGoal? goal;
+
+  const _BitcoinBalanceHistory({required this.btcFormat, this.goal});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(bitcoinBalanceStepsProvider);
+    final currency = ref.watch(settingsProvider.select((s) => s.currency));
+    final fiatPerBtc = ref.watch(selectedCurrencyProvider(currency)).toDouble();
+    final fiat = NumberFormat.simpleCurrency(name: currency, decimalDigits: 2);
+    // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520"; its
+    // worth in the display currency at today's price.
+    String btc(double sats) => '₿${sats.round().toFormattedString(btcFormat)}';
+    String? worth(double sats) =>
+        fiatPerBtc > 0 ? fiat.format(sats / 1e8 * fiatPerBtc) : null;
+    // The figure in the person's hero unit (Settings.mainDenomination),
+    // the other unit in the quiet line under it.
+    final fiatFirst = fiatPerBtc > 0 &&
+        ref.watch(settingsProvider.select((s) => s.mainDenomination)) == 'fiat';
     return BalanceHistoryChart(
       history: history,
-      // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520".
-      format: (sats) => '₿${sats.round().toFormattedString(btcFormat)}',
-      emptyMessage: context.l10n.balanceChartEmptyBitcoin,
+      format: fiatFirst ? (sats) => worth(sats)! : btc,
+      secondary: fiatFirst ? btc : (fiatPerBtc > 0 ? worth : null),
       rangeKey: 'bitcoin',
       trackingChart: 'valuation',
+      goal: goal,
     );
   }
 }

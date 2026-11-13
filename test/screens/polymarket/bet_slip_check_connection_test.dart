@@ -3,16 +3,29 @@
 // dead one. A tap asks the venues and Kute's policy again; allowed now,
 // the refusal goes and the button is the bet, ready to place; still
 // restricted, the refusal stays with a soft failure tap.
+//
+// NO SHARE BUTTON ON THE SLIP (founder, 7 November 2026: "just get rid of
+// the button to share the actual prediction on the buy, just keep it on
+// the send"). In SEND MODE (opened from Send; slip_share.dart,
+// send_pick_session.dart) the slip's one primary is the send: "Send $10 ·
+// Yes" sends THIS prediction (the side and the amount typed), never an
+// order; nothing typed, it is disabled and says what to do. THE SLIP IS THE
+// GATE (founder, 8 November 2026: "only on the last screen, the bet slip,
+// show this error"): refused for a region, the slip's own reason and "Check
+// connection", the send again once that finds it open; refused otherwise,
+// the reason over the send disabled; never a link for a refused market.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountMaxChip;
+import 'package:kute/services/one_balance/gift_funding.dart'
+    show giftSpendableProvider;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -28,6 +41,8 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
+import 'package:kute/screens/share/slip_share.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/investment_provider_availability.dart';
@@ -37,10 +52,11 @@ import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
-import 'package:kute/theme/app_theme.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -78,6 +94,7 @@ const _regionSentence =
 
 void main() {
   late bool blocked;
+  late String refusal;
   late List<String> triggers;
   late List<ContinuousHapticsCall> haptics;
   late RuntimeCapabilitiesService policy;
@@ -88,6 +105,7 @@ void main() {
     PredictionsVenueFunder.debugRouteShare = (_) async => 0;
     AffiliateService.debugSessionToken = 'test-session';
     blocked = true;
+    refusal = 'country_blocked';
     triggers = [];
     haptics = ContinuousHaptics.debugLog = [];
     KuteHaptics.debugReset();
@@ -115,7 +133,7 @@ void main() {
                 ])
                   id: {'allowed': true},
                 'polymarket.trade': blocked
-                    ? {'allowed': false, 'reason': 'country_blocked'}
+                    ? {'allowed': false, 'reason': refusal}
                     : {'allowed': true},
               },
             }),
@@ -165,11 +183,15 @@ void main() {
     }
   }
 
-  Future<void> pumpSlip(WidgetTester tester) async {
+  Future<void> pumpSlip(WidgetTester tester,
+      {double? amountUsd = 10,
+      SendPickSession? sendPick,
+      double? giftReach}) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    installShellBar();
     await tester.pumpWidget(ProviderScope(
       overrides: [
         settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -192,25 +214,21 @@ void main() {
         usdBalanceProvider.overrideWithValue(0),
         polymarketFeeTermsProvider
             .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
+        if (giftReach != null)
+          giftSpendableProvider.overrideWith((ref) => giftReach),
       ],
-      child: ScreenUtilInit(
-        designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(
-              splashFactory: NoSplash.splashFactory,
-              fontFamily: 'Inter',
-              extensions: [AppColorsExtension.light()]),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const Scaffold(
-            resizeToAvoidBottomInset: false,
-            body: Align(
-              alignment: Alignment.bottomCenter,
-              child: BetSlipSheet(
-                  marketQuestion: 'Will it rain?',
-                  outcomes: _outcomes,
-                  initialAmountUsd: 10),
-            ),
+      // The bar over the slip is the slip's button (shell_bar_harness.dart).
+      child: shellBarApp(
+        home: Scaffold(
+          resizeToAvoidBottomInset: false,
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: BetSlipSheet(
+                marketQuestion: 'Will it rain?',
+                marketSlug: 'will-it-rain',
+                outcomes: _outcomes,
+                initialAmountUsd: amountUsd,
+                sendPick: sendPick),
           ),
         ),
       ),
@@ -226,8 +244,13 @@ void main() {
     policy.dispose();
   }
 
+  /// "Check connection" is the bar (the slip declares it through the
+  /// keyed PolySlipCta): the tap lands on the bar's button.
   Future<void> tapCheck(WidgetTester tester) async {
-    await tester.tap(find.byKey(const ValueKey('bet-slip-check-connection')));
+    expect(find.byKey(const ValueKey('bet-slip-check-connection')),
+        findsOneWidget);
+    expect(barPrimaryLabel(tester), 'Check connection');
+    await tapBarPrimary(tester, settle: false);
     await frames(tester, 20);
   }
 
@@ -241,6 +264,9 @@ void main() {
         findsOneWidget);
     expect(cta(tester).label, 'Check connection');
     expect(cta(tester).enabled, isTrue);
+    // The bar is that button, live.
+    expect(barPrimaryLabel(tester), 'Check connection');
+    expect(barPrimaryEnabled(tester), isTrue);
     await release(tester);
   });
 
@@ -258,6 +284,8 @@ void main() {
     expect(find.byType(CapabilityBlockNote), findsNothing);
     expect(cta(tester).label, r'Place $10.00 on Yes');
     expect(cta(tester).enabled, isTrue);
+    expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(policy.allows('polymarket.trade'), isTrue);
     // Both venues asked live, reported as a manual check.
     expect(triggers, containsAll(['polymarket:manual', 'hyperliquid:manual']));
@@ -283,5 +311,194 @@ void main() {
     await tapCheck(tester);
     expect(cta(tester).label, r'Place $10.00 on Yes');
     await release(tester);
+  });
+
+  final share = find.byKey(const ValueKey('kute-bar-share'));
+
+  testWidgets(
+      'the ordinary slip has no share button: Place alone, allowed or '
+      'refused here', (tester) async {
+    blocked = false;
+    expect(await policy.refresh(), isTrue);
+    await pumpSlip(tester);
+    expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+    expect(share, findsNothing);
+    expect(find.byKey(const ValueKey('send-pick-chip')), findsNothing);
+    await release(tester);
+  });
+
+  group('send mode', () {
+    late List<(SlipSendRoute, SlipSharePick)> sends;
+    setUp(() {
+      sends = [];
+      SlipShare.debugRoute = (r, p) => sends.add((r, p));
+      SlipShare.debugOpen = false;
+    });
+    tearDown(() {
+      SlipShare.debugRoute = null;
+      SlipShare.debugOpen = true;
+    });
+
+    SendPickSession session({String? name}) =>
+        SendPickSession(entrySource: 'dollar_send', recipientName: name);
+
+    testWidgets(
+        'over what the person can reach: refused like an order, no link; Max '
+        'and Available are the reach', (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session(), giftReach: 7.5);
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(find.textContaining('Lower the amount'), findsWidgets);
+      expect(find.textContaining(r'$7.50'), findsWidgets);
+      expect(sends, isEmpty);
+      await tester.tap(find.byType(AmountMaxChip));
+      await frames(tester, 2);
+      expect(barPrimaryLabel(tester), r'Send $7.50 · Yes');
+      expect(barPrimaryEnabled(tester), isTrue);
+      await tapBarPrimary(tester, settle: false);
+      await frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.pick);
+      expect(pick.amountUsd, 7.5);
+      expect(pick.reachUsd, 7.5);
+      await release(tester);
+    });
+
+    testWidgets('within reach, Dollars short: it goes; nothing moves here',
+        (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session(), giftReach: 200);
+      expect(barPrimaryEnabled(tester), isTrue);
+      // No move fee on a slip that moves nothing.
+      expect(find.text('Move fee'), findsNothing);
+      await release(tester);
+    });
+
+    testWidgets(
+        'the primary is the send: "Send \$10 · Yes" sends THIS prediction, '
+        'the side and the amount; the chip says who it is for; no share '
+        'button, nothing placed', (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session(name: 'Ana'));
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      expect(barPrimaryEnabled(tester), isTrue);
+      expect(share, findsNothing);
+      expect(find.byKey(const ValueKey('send-pick-chip')), findsOneWidget);
+      expect(find.text('For Ana'), findsOneWidget);
+      await tapBarPrimary(tester, settle: false);
+      await frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.pick);
+      expect(pick.investing, isFalse);
+      expect(pick.slug, 'will-it-rain');
+      expect(pick.title, 'Will it rain?');
+      expect(pick.outcome, 'Yes');
+      expect(pick.outcomeIndex, 0);
+      expect(pick.side, 'buy');
+      expect(pick.amountUsd, 10);
+      expect(pick.blocked, isFalse);
+      expect(pick.entrySource, kSendModeSlipSource);
+      await release(tester);
+    });
+
+    testWidgets(
+        'nothing typed: disabled, it says to enter an amount; no contact '
+        'picked, the chip says a friend', (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, amountUsd: null, sendPick: session());
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(barPrimaryContext(tester).disabledLabel,
+          'Enter an amount to send');
+      expect(find.text('Sending to a friend'), findsOneWidget);
+      expect(sends, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets(
+        'refused for a region: the slip\'s own reason and "Check connection", '
+        'no send and no link; the refusal reports the gift\'s surface',
+        (tester) async {
+      final events = <(String, Map<String, Object?>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session());
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-check-connection')),
+          findsOneWidget);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(barPrimaryEnabled(tester), isTrue);
+      expect(find.byKey(const ValueKey('bet-slip-send')), findsNothing);
+      expect(share, findsNothing);
+      expect(events.map((e) => e.$1), contains('polymarket_geoblocked_shown'));
+      expect(
+          events.firstWhere((e) => e.$1 == 'capability_region_blocked').$2,
+          containsPair('surface', kSendModeSlipSource));
+      // Still refused: the refusal stays.
+      await tapCheck(tester);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
+      expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
+      expect(sends, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets(
+        'Check connection finding it open: the refusal lifts and the send '
+        'goes on', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session());
+      blocked = false;
+      await tapCheck(tester);
+      expect(find.byType(CapabilityBlockNote), findsNothing);
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      expect(barPrimaryEnabled(tester), isTrue);
+      await tapBarPrimary(tester, settle: false);
+      await frames(tester, 2);
+      final (route, pick) = sends.single;
+      expect(route, SlipSendRoute.pick);
+      expect(pick.blocked, isFalse);
+      await release(tester);
+    });
+
+    testWidgets(
+        'a refusal that is no region\'s: the reason over the send disabled, '
+        'no Check connection, a tap sends nothing', (tester) async {
+      refusal = 'disabled';
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session());
+      expect(find.byType(CapabilityBlockNote), findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-check-connection')),
+          findsNothing);
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      expect(barPrimaryEnabled(tester), isFalse);
+      await tester.tap(findBarPrimary(), warnIfMissed: false);
+      await frames(tester, 2);
+      expect(sends, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets(
+        'refused only by the time of the tap: asked again, it stops there '
+        'and says why; no link', (tester) async {
+      blocked = false;
+      expect(await policy.refresh(), isTrue);
+      await pumpSlip(tester, sendPick: session());
+      expect(barPrimaryLabel(tester), r'Send $10 · Yes');
+      blocked = true;
+      await tapBarPrimary(tester, settle: false);
+      await frames(tester);
+      expect(sends, isEmpty);
+      expect(barPrimaryLabel(tester), 'Check connection');
+      expect(find.widgetWithText(CapabilityBlockNote, _regionSentence),
+          findsOneWidget);
+      await release(tester);
+    });
   });
 }

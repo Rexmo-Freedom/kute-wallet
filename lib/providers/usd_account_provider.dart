@@ -46,6 +46,7 @@ import 'package:flutter/foundation.dart'
     show debugPrint, kDebugMode, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
@@ -645,6 +646,8 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
             (id: tx.id, at: tx.timestamp),
       ])) {
         KuteHaptics.play(KuteHaptic.moneyIn);
+        // Sal in the bar cheers with it (sal_reactions.dart).
+        SalReactions.play(SalReaction.cheer);
       }
     },
     fireImmediately: true,

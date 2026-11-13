@@ -60,7 +60,8 @@ import 'package:kute/services/one_balance/venue_funder.dart'
         RouteUnavailable,
         UserGrantAuthorization,
         VenueCashDestination,
-        VenueFunder;
+        VenueFunder,
+        VenueMoveQuote;
 import 'package:kute/services/tracking_service.dart';
 
 /// The funding journey's `entry_source` for a margin change.
@@ -83,16 +84,19 @@ double _cents(double usd) =>
 
 /// The move into Investing for [shortfallUsd] more margin than the
 /// Investing cash holds: the engine's target (the shortfall plus its
-/// buffer, never under $1), sized on what ARRIVES. Throws when the route
+/// buffer, never under $1), sized on what ARRIVES. [first] is a fresh
+/// estimate the sheet already read for that target, when it has one
+/// ([HyperliquidVenueFunder.freshFirstQuote]). Throws when the route
 /// cannot land the shortfall. A read: nothing moves.
 Future<FundingSize> sizeMarginFunding(
   VenueFunder funder, {
   required double shortfallUsd,
+  VenueMoveQuote? first,
 }) async {
   final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
-  final size =
-      await HyperliquidVenueFunder.sizeFunding(funder, neededUsd: target)
-          .timeout(const Duration(seconds: 12));
+  final size = await HyperliquidVenueFunder.sizeFunding(funder,
+          neededUsd: target, first: first)
+      .timeout(const Duration(seconds: 12));
   if (!size.covers(shortfallUsd)) {
     throw const RouteUnavailable('arriving_below_needed');
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
@@ -7,6 +8,8 @@ import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
 
 HlPerpPosition _held(double szi) => HlPerpPosition(
       coin: 'BTC',
@@ -66,16 +69,18 @@ void main() {
     HlPositionPlan? plan,
     double? realizedPnl,
   }) async {
-    await tester.pumpWidget(ScreenUtilInit(
+    await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         navigatorKey: rootKey,
         theme: buildLightTheme(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // Done is the shell bar over the navigator.
+        builder: withKuteShellBar,
         home: const Scaffold(body: Text('host')),
       ),
-    ));
+    )));
     pushHlOrderPlacedOverlay(
       navigator: rootKey.currentState!,
       coin: 'BTC',
@@ -102,7 +107,7 @@ void main() {
       // Done closes; View positions is the one quiet button.
       expect(find.text('Done'), findsOneWidget);
       expect(find.text('View positions'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Realized profits'), findsNothing);
     });
 
     testWidgets('a reduce says what is left of the long and what it realised',
@@ -116,7 +121,7 @@ void main() {
       // An exit is valued as the total it closed, as the hero.
       expect(find.text(r'$3,000.00'), findsOneWidget);
       expect(find.text('Position size'), findsNothing);
-      expect(find.text('Realized P&L'), findsOneWidget);
+      expect(find.text('Realized profits'), findsOneWidget);
       expect(find.text(r'+$12.50'), findsOneWidget);
     });
 
@@ -126,7 +131,7 @@ void main() {
       expect(plan!.effect, HlPositionEffect.close);
       await pumpReceipt(tester, sizeFilled: 0.1, plan: plan, realizedPnl: -3.2);
       expect(find.text('Closed long'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsOneWidget);
+      expect(find.text('Realized profits'), findsOneWidget);
       expect(find.text(r'−$3.20'), findsOneWidget);
     });
 
@@ -137,7 +142,7 @@ void main() {
       expect(find.text('Closed short'), findsOneWidget);
       expect(find.text(r'Long $6,000.00'), findsNothing);
       // No fills in hand: no realised line rather than a guess.
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Realized profits'), findsNothing);
     });
 
     testWidgets('a flip names the new side and its size', (tester) async {
@@ -156,7 +161,7 @@ void main() {
       await pumpReceipt(tester, isLong: true, plan: plan, realizedPnl: 1);
       expect(find.text('Added to long'), findsOneWidget);
       expect(find.text('Position size'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Realized profits'), findsNothing);
     });
 
     testWidgets('spot keeps Bought / Sold', (tester) async {

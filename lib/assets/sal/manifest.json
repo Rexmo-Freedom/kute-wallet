@@ -1,0 +1,2444 @@
+{
+  "search": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "search@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "search@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "pill"
+  },
+  "share": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "share@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "share@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "pill"
+  },
+  "idle": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "idle@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "idle@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "pill"
+  },
+  "blink": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 24,
+    "columns": 8,
+    "rows": 3,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "blink@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 288
+      },
+      "3x": {
+        "file": "blink@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 432
+      }
+    },
+    "group": "pill"
+  },
+  "happy": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "happy@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "happy@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "sad": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "sad@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "sad@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "curious": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "curious@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "curious@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "surprise": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 36,
+    "columns": 8,
+    "rows": 5,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "surprise@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 480
+      },
+      "3x": {
+        "file": "surprise@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 720
+      }
+    },
+    "group": "reaction"
+  },
+  "body_idle": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_idle@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_idle@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_walk": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_walk@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_walk@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sit_down": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_sit_down@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sit_down@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sit": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sit@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sit@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_lie_down": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_lie_down@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_lie_down@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_lie": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_lie@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_lie@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_wag": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_wag@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_wag@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_cheer": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_cheer@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_cheer@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sad": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sad@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sad@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sniff": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sniff@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sniff@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_nudge": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_nudge@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_nudge@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_search": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_search@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_search@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_hero": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_hero@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "body_hero@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_stretch": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_stretch@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_stretch@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_look_around": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "hero_look_around@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_look_around@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_scratch": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_scratch@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_scratch@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_tail_chase": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_tail_chase@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_tail_chase@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_sleep": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "hero_sleep@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_sleep@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "hero_wake": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "hero_wake@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "hero_wake@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    },
+    "group": "hero"
+  },
+  "body_dig": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_dig@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_dig@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_pace": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_pace@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_pace@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_sniff_trail": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_sniff_trail@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_sniff_trail@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_point": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_point@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_point@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_think": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_think@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_think@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_nod": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_nod@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_nod@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_shake_no": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_shake_no@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_shake_no@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_shake_off": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_shake_off@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_shake_off@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "body_jump": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_jump@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_jump@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting"
+  },
+  "wink": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "wink@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "wink@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "yawn": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "yawn@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "yawn@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "nod": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "nod@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "nod@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "shake_no": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "shake_no@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "shake_no@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "think": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "think@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "think@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "cheer": {
+    "framing": "face",
+    "fps": 24,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
+    "cell": 48,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "cheer@2x.webp",
+        "cell": 96,
+        "width": 768,
+        "height": 576
+      },
+      "3x": {
+        "file": "cheer@3x.webp",
+        "cell": 144,
+        "width": 1152,
+        "height": 864
+      }
+    },
+    "group": "reaction"
+  },
+  "body_carry": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_carry@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_carry@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting",
+    "coin": "coin_anchors.json"
+  },
+  "body_pickup": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_pickup@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_pickup@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "coin",
+    "coin": "coin_anchors.json"
+  },
+  "body_drop": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_drop@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_drop@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "coin",
+    "coin": "coin_anchors.json"
+  },
+  "card_bigwin": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_bigwin@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_bigwin@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_flat": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_flat@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_flat@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_loss": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_loss@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_loss@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_predict": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_predict@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_predict@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_send": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_send@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_send@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_win": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_win@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_win@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_claim": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_claim@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_claim@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "level_1": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 12,
+    "sequence": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      5,
+      5,
+      5,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      7,
+      8,
+      9,
+      9,
+      9,
+      9,
+      10,
+      11,
+      11,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 2,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_1@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 256
+      },
+      "3x": {
+        "file": "level_1@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 384
+      }
+    },
+    "group": "level"
+  },
+  "level_2": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 18,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      4,
+      5,
+      6,
+      7,
+      8,
+      8,
+      9,
+      10,
+      10,
+      10,
+      11,
+      11,
+      11,
+      11,
+      11,
+      12,
+      13,
+      14,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      4,
+      4,
+      15,
+      16,
+      16,
+      17,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 3,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_2@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 384
+      },
+      "3x": {
+        "file": "level_2@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 576
+      }
+    },
+    "group": "level"
+  },
+  "level_3": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 15,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      5,
+      6,
+      6,
+      5,
+      7,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      8,
+      9,
+      9,
+      10,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      4,
+      4,
+      4,
+      11,
+      12,
+      12,
+      13,
+      14,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 3,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_3@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 384
+      },
+      "3x": {
+        "file": "level_3@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 576
+      }
+    },
+    "group": "level"
+  },
+  "level_4": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 22,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      5,
+      6,
+      7,
+      8,
+      8,
+      8,
+      9,
+      10,
+      10,
+      10,
+      11,
+      11,
+      11,
+      11,
+      12,
+      13,
+      1,
+      1,
+      2,
+      3,
+      14,
+      15,
+      16,
+      17,
+      4,
+      4,
+      4,
+      18,
+      19,
+      19,
+      20,
+      21,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 4,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_4@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 512
+      },
+      "3x": {
+        "file": "level_4@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 768
+      }
+    },
+    "group": "level"
+  },
+  "level_5": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 17,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      5,
+      6,
+      7,
+      8,
+      8,
+      8,
+      9,
+      10,
+      10,
+      10,
+      11,
+      11,
+      11,
+      11,
+      12,
+      13,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      14,
+      15,
+      15,
+      16,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 3,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_5@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 384
+      },
+      "3x": {
+        "file": "level_5@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 576
+      }
+    },
+    "group": "level"
+  },
+  "level_6": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 19,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      4,
+      4,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      9,
+      9,
+      10,
+      11,
+      12,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      13,
+      14,
+      14,
+      15,
+      4,
+      16,
+      17,
+      17,
+      18,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 4,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_6@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 512
+      },
+      "3x": {
+        "file": "level_6@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 768
+      }
+    },
+    "group": "level"
+  },
+  "level_7": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 11,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      5,
+      6,
+      6,
+      5,
+      7,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      8,
+      9,
+      9,
+      10,
+      4,
+      4,
+      4,
+      4,
+      4,
+      3,
+      3,
+      3,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 2,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_7@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 256
+      },
+      "3x": {
+        "file": "level_7@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 384
+      }
+    },
+    "group": "level"
+  },
+  "level_8": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 12,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      4,
+      5,
+      6,
+      6,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      6,
+      6,
+      5,
+      4,
+      4,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      8,
+      8,
+      8,
+      8,
+      9,
+      10,
+      10,
+      11,
+      2,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 2,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_8@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 256
+      },
+      "3x": {
+        "file": "level_8@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 384
+      }
+    },
+    "group": "level"
+  },
+  "level_9": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 19,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      5,
+      6,
+      7,
+      7,
+      8,
+      8,
+      8,
+      9,
+      10,
+      10,
+      11,
+      12,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      13,
+      14,
+      14,
+      15,
+      15,
+      4,
+      3,
+      3,
+      3,
+      16,
+      17,
+      17,
+      18,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 4,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_9@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 512
+      },
+      "3x": {
+        "file": "level_9@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 768
+      }
+    },
+    "group": "level"
+  },
+  "level_10": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 16,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      3,
+      3,
+      4,
+      5,
+      5,
+      6,
+      6,
+      7,
+      7,
+      7,
+      8,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      9,
+      10,
+      10,
+      11,
+      8,
+      7,
+      7,
+      7,
+      6,
+      6,
+      6,
+      6,
+      6,
+      12,
+      13,
+      13,
+      14,
+      15,
+      1,
+      1,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 3,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_10@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 384
+      },
+      "3x": {
+        "file": "level_10@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 576
+      }
+    },
+    "group": "level"
+  },
+  "level_11": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 12,
+    "sequence": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      4,
+      5,
+      5,
+      5,
+      6,
+      7,
+      7,
+      8,
+      8,
+      8,
+      8,
+      8,
+      3,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2,
+      9,
+      10,
+      10,
+      11,
+      11,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 2,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_11@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 256
+      },
+      "3x": {
+        "file": "level_11@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 384
+      }
+    },
+    "group": "level"
+  },
+  "level_12": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 20,
+    "sequence": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      6,
+      6,
+      6,
+      6,
+      7,
+      7,
+      7,
+      8,
+      9,
+      10,
+      11,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      12,
+      13,
+      13,
+      13,
+      14,
+      15,
+      15,
+      16,
+      16,
+      3,
+      3,
+      3,
+      17,
+      18,
+      18,
+      19,
+      0,
+      0
+    ],
+    "columns": 6,
+    "rows": 4,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "level_12@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 512
+      },
+      "3x": {
+        "file": "level_12@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 768
+      }
+    },
+    "group": "level"
+  },
+  "goal_next": {
+    "framing": "body",
+    "fps": 12,
+    "frames": 48,
+    "cells": 28,
+    "sequence": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      0,
+      1,
+      2,
+      3,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      14,
+      15,
+      26,
+      27,
+      10,
+      11,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "columns": 6,
+    "rows": 5,
+    "cell": 64,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "goal_next@2x.webp",
+        "cell": 128,
+        "width": 768,
+        "height": 640
+      },
+      "3x": {
+        "file": "goal_next@3x.webp",
+        "cell": 192,
+        "width": 1152,
+        "height": 960
+      }
+    },
+    "group": "goal"
+  },
+  "level_card_1": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_1@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_2": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_2@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_3": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_3@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_4": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_4@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_5": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_5@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_6": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_6@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_7": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_7@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_8": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_8@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_9": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_9@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_10": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_10@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_11": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_11@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  },
+  "level_card_12": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "3x": {
+        "file": "level_card_12@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "level_card"
+  }
+}

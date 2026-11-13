@@ -2,6 +2,7 @@
 // under the order's own grant, a sweep never deposits, the flat cost is
 // folded into the fee, and the rail's credit stream reaches the caller.
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/auth_grant.dart';
@@ -250,6 +251,106 @@ void main() {
     });
   });
 
+  group('sizing on a fresh first quote (the slip read it already)', () {
+    // Every estimate is one Orchestra round trip, 800 ms here.
+    const trip = Duration(milliseconds: 800);
+
+    test('without one: the sizing estimate, then the verifying one (1.6 s)',
+        () {
+      fakeAsync((async) {
+        final f = _CostFunder(flat: 1.24, rate: 0.0008, latency: trip);
+        FundingSize? size;
+        HyperliquidVenueFunder.sizeFunding(f, neededUsd: 10.25)
+            .then((s) => size = s);
+        async.elapse(trip);
+        expect(size, isNull, reason: 'the verifying estimate is still out');
+        async.elapse(trip);
+        expect(size, isNotNull);
+        expect(f.estimates, 2);
+        expect(async.elapsed, const Duration(milliseconds: 1600));
+        expect(size!.covers(10.25), isTrue);
+        expect(f.arriving(size!.fundUsd), greaterThanOrEqualTo(10.25));
+      });
+    });
+
+    test('with one: only the verifying estimate at the amount sent (0.8 s)',
+        () {
+      fakeAsync((async) {
+        final f = _CostFunder(flat: 1.24, rate: 0.0008, latency: trip);
+        // The ticket's own read, moments ago, for the same target.
+        final first = f.quoteFor(10.25);
+        FundingSize? size;
+        HyperliquidVenueFunder.sizeFunding(f, neededUsd: 10.25, first: first)
+            .then((s) => size = s);
+        async.elapse(trip);
+        expect(size, isNotNull);
+        expect(f.estimates, 1, reason: 'the sizing round trip is spared');
+        expect(async.elapsed, trip);
+        // The exact-amount rule holds: what is sent was priced itself.
+        expect(f.estimatedFor, [size!.fundUsd]);
+        expect(size!.covers(10.25), isTrue);
+        expect(f.arriving(size!.fundUsd), greaterThanOrEqualTo(10.25));
+        // The same answer as the two-trip sizing.
+        final twoTrips = _CostFunder(flat: 1.24, rate: 0.0008);
+        FundingSize? plain;
+        HyperliquidVenueFunder.sizeFunding(twoTrips, neededUsd: 10.25)
+            .then((s) => plain = s);
+        async.flushMicrotasks();
+        expect(plain!.fundUsd, size!.fundUsd);
+      });
+    });
+
+    test('a first quote that moved is still caught by the verifying estimate',
+        () async {
+      // The ticket's quote was read on a cheaper route than the one the
+      // accept finds: the verification lands short, the top-up round
+      // sizes it right, and the amount sent is still a priced one.
+      final cheap = _CostFunder(flat: 0.5, rate: 0);
+      final f = _CostFunder(flat: 1.24, rate: 0.0008);
+      final size = await HyperliquidVenueFunder.sizeFunding(f,
+          neededUsd: 10.25, first: cheap.quoteFor(10.25));
+      expect(size.covers(10.25), isTrue);
+      expect(f.estimatedFor.last, size.fundUsd);
+      expect(f.estimates, 2);
+    });
+
+    test('freshFirstQuote: the same target within a minute, else nothing', () {
+      final now = DateTime.utc(2026, 11, 9, 12);
+      final quote = _CostFunder(flat: 1.24, rate: 0.0008).quoteFor(10.25);
+      VenueMoveQuote? fresh({
+        double quotedFor = 10.25,
+        Duration age = const Duration(seconds: 20),
+        VenueMoveQuote? q,
+      }) =>
+          HyperliquidVenueFunder.freshFirstQuote(
+            quote: q ?? quote,
+            readAt: now.subtract(age),
+            quotedForUsd: quotedFor,
+            neededUsd: 10.25,
+            now: now,
+          );
+      expect(fresh(), same(quote));
+      expect(fresh(age: const Duration(seconds: 59)), same(quote));
+      expect(fresh(age: const Duration(seconds: 60)), isNull,
+          reason: 'as old as the rail keeps a route\'s limits: read again');
+      expect(fresh(quotedFor: 10.30), isNull,
+          reason: 'priced for another target');
+      expect(fresh(quotedFor: 10.254), same(quote),
+          reason: 'the same target to the cent');
+      expect(fresh(age: const Duration(seconds: -5)), isNull);
+      expect(
+          HyperliquidVenueFunder.freshFirstQuote(
+              quote: null,
+              readAt: now,
+              quotedForUsd: 10.25,
+              neededUsd: 10.25,
+              now: now),
+          isNull);
+      expect(HyperliquidVenueFunder.kFirstQuoteFreshFor,
+          HyperCoreMoveRail.kLimitsFreshFor);
+    });
+  });
+
   test('the credit stream is the rail\'s', () async {
     final seen = <void>[];
     final sub = funder.credited.listen(seen.add);
@@ -270,27 +371,42 @@ void main() {
 }
 
 /// A funder whose route keeps [flat] (plus [activation]) and [rate] of
-/// what is sent, the way the HyperCore route's live quotes do.
+/// what is sent, the way the HyperCore route's live quotes do. Each
+/// estimate takes [latency] (one Orchestra round trip) and is counted.
 class _CostFunder implements VenueFunder {
   _CostFunder(
       {required this.flat,
       required this.rate,
       this.activation = 0,
-      this.max = 1e6});
+      this.max = 1e6,
+      this.latency = Duration.zero});
   final double flat;
   final double rate;
   final double activation;
   final double max;
+  final Duration latency;
+
+  /// How many estimates were asked, and the amounts they were priced for.
+  int estimates = 0;
+  final List<double> estimatedFor = [];
 
   double arriving(double usd) => usd * (1 - rate) - flat - activation;
 
-  @override
-  Future<VenueMoveQuote> estimate(double usd) async => VenueMoveQuote(
+  /// The quote for [usd] without a round trip (what the ticket holds).
+  VenueMoveQuote quoteFor(double usd) => VenueMoveQuote(
       arrivingUsd: arriving(usd),
       feeUsd: usd - arriving(usd),
       fixedCostUsd: 0,
       minUsd: 1,
       maxUsd: max);
+
+  @override
+  Future<VenueMoveQuote> estimate(double usd) async {
+    estimates++;
+    estimatedFor.add(usd);
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+    return quoteFor(usd);
+  }
 
   @override
   Future<VenueMoveResult> fund(

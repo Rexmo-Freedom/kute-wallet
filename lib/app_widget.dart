@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:kute/screens/home/components/kute_shell_bar.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart' show kuteBarScroll;
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab, activeShellTabProvider;
 import 'package:kute/providers/auth_provider.dart';
@@ -19,13 +21,17 @@ import 'package:kute/screens/app_shell.dart'
     show applyShellTabLivePolicy, pauseShellLiveSockets, resumeShellLiveSockets;
 import 'package:kute/screens/polymarket/components/floating_stream_player.dart';
 import 'package:kute/screens/shared/lock_overlay.dart';
+import 'package:kute/screens/shared/standing_orders_shell.dart';
 import 'package:kute/screens/home/components/wallet_cards.dart'
     show WalletCardType, persistSelectedWalletCard, selectedWalletCardProvider;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/passkey_service.dart' show PasskeyService;
+import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +42,9 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/main.dart' show appColdStartStopwatch;
 import './app_router.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
+import 'package:kute/services/platform/order_activity.dart';
+import 'package:kute/services/platform/order_activity_binder.dart';
 
 /// NavigatorObserver that (1) feeds the crash breadcrumb ring buffer
 /// with screen NAMES only (no params — PII-free per the tracking rule)
@@ -99,6 +108,20 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   @override
   void initState() {
     super.initState();
+    // An order still being placed when the person leaves
+    // (lib/services/platform/): the binder starts listening to today's
+    // pending bet and trade now, and a tap on one of its notifications
+    // opens the home's Activity list, including the tap that started
+    // this process.
+    ref.read(orderActivityBinderProvider);
+    OrderActivity.onOpenActivity = _openActivityFromNotice;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final local = OrderActivity.local;
+      if (local == null) return;
+      unawaited(local.launchedFromNotice().then((yes) {
+        if (yes) _openActivityFromNotice();
+      }));
+    });
     // Background sync (and any other route-aware service) needs to know
     // which screen the user is currently on. We feed the route name
     // through Riverpod via [currentRouteProvider], updated by an
@@ -157,6 +180,19 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     // PostHog's GoRouter observer emits a `$screen` event on every
     // route push/pop. Pairs with the `PostHogWidget` wrapper below
     // (autocapture of taps + screens) for the funnel views.
+    // Share links (services/share_link_claims.dart): the moment the
+    // session is unlocked (a cold start past the PIN, the lock overlay
+    // down, onboarding done) open a parked `/c/{id}` claim and pay the
+    // links this wallet's recipients claimed. A claim that arrives while
+    // unlocked (AppsFlyer UDL parks it) opens on the store's own signal.
+    ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
+      if (next && prev != true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _shareLinksWhenBack('unlock');
+        });
+      }
+    });
+    ShareLinksStore.revision.addListener(_onShareLinksStoreChanged);
     _router = AppRouter.createRouter(
       '/splash',
       // No unlocked session (a cold start, or a wipe) keeps navigation on
@@ -334,6 +370,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
         // paused → hidden double fire is harmless.
         if (state != AppLifecycleState.inactive) {
           pauseShellLiveSockets(ref);
+          OrderPollGate.appBackgrounded();
         }
         break;
       case AppLifecycleState.detached:
@@ -356,7 +393,17 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   ///     (the LockOverlay, drawn as the Welcome back screen). Cold start
   ///     still locks through splash → open_pin: the unlocked session is
   ///     memory-only.
+  /// A tap on an order notification (lib/services/platform/order_activity.dart):
+  /// the home's Activity list, under the lock overlay if the app is locked.
+  void _openActivityFromNotice() {
+    if (!mounted) return;
+    _router.go(kHomeActivityLocation);
+  }
+
   void _handleAppResume() {
+    // An order still in flight whose background grace expired while the
+    // app was away is held again, for the next trip out.
+    ref.read(orderActivityBinderProvider).onResumed();
     // NOTE: an earlier version short-circuited on a first-resume flag
     // and never evaluated the elapsed time on the first lifecycle
     // resume — that swallowed every relock decision after the first
@@ -429,8 +476,9 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                 .read(polymarketTradingProvider.notifier)
                 .wrapIdleUsdcE(trigger: 'resume'));
           }
-          // Idle venue cash that freed while the app was away: one
-          // sweeper pass now (its own rules decide what moves).
+          // The venues read again after the app was away, so the
+          // Portfolio follows them. Nothing moves: venue cash comes home
+          // only from Rebalance (no automatic sweeps since 2026-10-15).
           if (ref.exists(venueSweeperProvider)) {
             unawaited(ref.read(venueSweeperProvider.notifier).trigger('resume'));
           }
@@ -439,10 +487,37 @@ class _AppWidgetState extends ConsumerState<AppWidget>
           // prompt); a no-op otherwise. The unlock path covers the
           // relock branch above.
           unawaited(PasskeyService.retryPendingLabels());
+          // Share links claimed while the app was away: ask to pay them.
+          _shareLinksWhenBack('resume');
         });
       }
     }
     _pauseTime = null;
+  }
+
+  /// The share-link pass for one "we are back" moment (see the listener
+  /// in initState and the resume branch). Never while locked: the unlock
+  /// is its own trigger.
+  void _shareLinksWhenBack(String trigger) {
+    if (!ref.read(sessionUnlockedProvider)) return;
+    BuildContext? rootContext() => AppRouter.rootNavigatorKey.currentContext;
+    if (ShareLinkClaims.openParkedClaim(rootContext())) return;
+    unawaited(ShareLinkClaims.check(
+      read: ref.read,
+      contextOf: rootContext,
+      trigger: trigger,
+    ));
+  }
+
+  void _onShareLinksStoreChanged() {
+    if (!mounted || ShareLinksStore.parkedClaimId == null) return;
+    if (!ref.read(sessionUnlockedProvider)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ShareLinkClaims.openParkedClaim(
+            AppRouter.rootNavigatorKey.currentContext);
+      }
+    });
   }
 
   void _handleAppPause() {
@@ -457,6 +532,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   @override
   void dispose() {
     _capabilities?.removeListener(_onCapabilitiesChanged);
+    ShareLinksStore.revision.removeListener(_onShareLinksStoreChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -529,6 +605,10 @@ class _AppWidgetState extends ConsumerState<AppWidget>
               routerConfig: _router,
               locale: Locale(language),
               themeMode: resolvedThemeMode,
+              // The light/dark switch lerps the theme on the settle, never
+              // a spring (KuteMotion.textCurve: a lerp past 1 drives a
+              // shadow's blur negative).
+              themeAnimationCurve: KuteMotion.textCurve,
               theme: buildLightTheme(),
               darkTheme: buildDarkTheme(),
               debugShowCheckedModeBanner: false,
@@ -549,10 +629,22 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                       ),
                       child: Stack(
                         children: [
-                          child!,
+                          // The pages' vertical scroll reaches the bar
+                          // (kute_bar_context.dart, kuteBarScroll).
+                          NotificationListener<ScrollNotification>(
+                            onNotification: kuteBarScroll.report,
+                            child: child!,
+                          ),
                           // Picture-in-picture livestream — persists across
                           // routes so the user can watch while betting.
                           const FloatingStreamPlayer(),
+                          // The context-aware Sal bar over every pushed
+                          // page and sheet (kute_shell_bar.dart).
+                          const KuteShellBar(),
+                          // Standing orders: resumed on start and unlock,
+                          // their results said by Sal
+                          // (standing_orders_shell.dart). Draws nothing.
+                          const StandingOrdersShell(),
                           // In-place app lock: covers the live navigation
                           // stack when the background gap exceeded the
                           // auto-lock grace; unlocking dismisses it in

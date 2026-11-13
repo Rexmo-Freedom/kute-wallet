@@ -71,7 +71,9 @@ enum FundedMoneyAt {
 /// margin the margin sheet adds to an isolated Investing position. Both
 /// run the same funding chain; the screens name them differently.
 // Keep transfer only to decode/display records from the retired separate
-// Bitcoin five-minute prefund flow. New predictions always create order runs.
+// Bitcoin five-minute "transfer first" flow. New predictions always create
+// order runs, from Confirm (founder decision, 11 November 2026: money
+// moves only after Confirm).
 enum FundedOrderKind { order, margin, transfer }
 
 /// What the order is, in the words the screens show.
@@ -105,7 +107,10 @@ class FundedOrderLabel {
 
   /// The market's name cut to [max] characters for one line.
   static String shortName(String name, {int max = 32}) {
-    final t = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    // Word joiners (round_window_label.dart) are invisible: not characters
+    // to count on a line that does not wrap.
+    final t =
+        name.replaceAll('\u2060', '').trim().replaceAll(RegExp(r'\s+'), ' ');
     if (t.length <= max) return t;
     return '${t.substring(0, max - 1).trimRight()}…';
   }
@@ -707,6 +712,20 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
       if (r.stage.active && r.ownsRow(rowId)) return r;
     }
     return null;
+  }
+
+  /// Whether [rowId] carried the money of an order that is placed
+  /// ([FundedOrderStage.done] by its own run, not a "Tap to place" note
+  /// closed by a newer try): the venue's read holds that money now, as the
+  /// position or the cash its resting order reserves (one_balance_provider:
+  /// never in flight as well).
+  static bool placedOrderOwns(List<FundedOrderRecord> records, String rowId) {
+    for (final r in records) {
+      if (r.stage == FundedOrderStage.done && !r.cleared && r.ownsRow(rowId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// The venue whose Bitcoin leg row [rowId] is, for any record still

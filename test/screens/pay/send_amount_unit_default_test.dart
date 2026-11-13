@@ -3,6 +3,11 @@
 // never dollars, whatever the display currency, the unit last picked on
 // Receive, or the unit a previous send was flipped to. Fiat stays one
 // flip away within the flow; the next send opens in Bitcoin again.
+//
+// The step is calm (founder, 7 November 2026: "they seem soo dense, to
+// many numbers"): one figure, centred, no unit pill; the line under it is
+// the other unit and flips the entry unit when tapped; the balance is one
+// number in the figure's unit over the percent row.
 
 import 'dart:io';
 
@@ -16,15 +21,37 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:money2/money2.dart' show Fixed;
+import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/address_receive_provider.dart';
+import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show
+        SendAmountConversionLine,
+        SendAmountUnitPill,
+        SendBitcoinAmountHero;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
 
 final _l10n = AppLocalizationsEn();
+
+class _Rates extends StateNotifier<CurrencyState> implements CurrencyNotifier {
+  _Rates(super.state);
+
+  @override
+  Future<void> updateRates() async {}
+}
+
+/// 1 BTC = $100,000 and $1 = 10.5 kronor, with [sek] left out on request.
+CurrencyState _sekRates({bool sek = true}) => CurrencyState({
+      'USD': Fixed.fromInt(100),
+      'BTC': Fixed.parse('0.00001', decimalDigits: 16),
+      if (sek) 'SEK': Fixed.parse('10.5', decimalDigits: 16),
+    });
 
 Settings _settings({required String btcFormat, String currency = 'USD'}) =>
     Settings(
@@ -65,14 +92,17 @@ void _emptyClipboard(WidgetTester tester) {
 }
 
 Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester,
-    {required String btcFormat}) async {
+    {required String btcFormat,
+    String currency = 'USD',
+    CurrencyState? rates}) async {
   tester.view.physicalSize = const Size(1125, 2436);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   _emptyClipboard(tester);
   final container = ProviderContainer(overrides: [
-    settingsProvider
-        .overrideWith((_) => SettingsModel(_settings(btcFormat: btcFormat))),
+    settingsProvider.overrideWith((_) =>
+        SettingsModel(_settings(btcFormat: btcFormat, currency: currency))),
+    if (rates != null) currencyProvider.overrideWith((_) => _Rates(rates)),
   ]);
   addTearDown(container.dispose);
   final router = GoRouter(routes: [
@@ -227,6 +257,50 @@ void main() {
         });
       }
 
+      testWidgets(
+          'calm: the figure centred, no unit pill, the line under it flips '
+          'the unit, the balance one number in the figure\'s unit',
+          (tester) async {
+        final (container, router) = await _pump(tester, btcFormat: format);
+        await _open(tester, container, router, _onChain);
+        expect(_step(_l10n.amount), findsOneWidget);
+        // No unit pill and no unit sheet: Settings holds sats or BTC.
+        expect(find.byType(SendAmountUnitPill), findsNothing);
+        expect(find.byIcon(Icons.expand_more_rounded), findsNothing);
+        final screen = tester.getRect(find.byType(ConfirmSend));
+        expect(tester.getRect(find.byType(SendBitcoinAmountHero)).center.dx,
+            moreOrLessEquals(screen.center.dx, epsilon: 1));
+        // One number: the balance in the Bitcoin unit, no money after it.
+        String available() => tester
+            .widget<Text>(find.byKey(const ValueKey('send-amount-available')))
+            .data!;
+        expect(available(), endsWith(' ${format == 'BTC' ? 'BTC' : 'sats'} '
+            'available'));
+        expect(available(), isNot(contains('·')));
+        // Nothing typed: the line is the quiet one.
+        expect(
+            tester
+                .widget<SendAmountConversionLine>(
+                    find.byType(SendAmountConversionLine))
+                .zero,
+            isTrue);
+
+        // The line itself (its figure) flips; the balance follows.
+        final line = tester
+            .widget<SendAmountConversionLine>(
+                find.byType(SendAmountConversionLine))
+            .secondary;
+        await tester.tap(find.text(line));
+        await _frames(tester);
+        expect(container.read(inputCurrencyProvider), 'USD');
+        expect(available(), startsWith('\$'));
+        expect(available(), isNot(contains('sats')));
+        await tester.tap(find.byType(SendAmountConversionLine));
+        await _frames(tester);
+        expect(container.read(inputCurrencyProvider), unit);
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('flipping to dollars lasts for this send only',
           (tester) async {
         final (container, router) = await _pump(tester, btcFormat: format);
@@ -247,4 +321,47 @@ void main() {
       });
     });
   }
+
+  group('a Settings currency beyond the first five (SEK)', () {
+    Future<void> tapKey(WidgetTester tester, String key) async {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+
+    testWidgets('the line and the keypad are in kronor at their rate',
+        (tester) async {
+      final (container, router) = await _pump(tester,
+          btcFormat: 'sats', currency: 'SEK', rates: _sekRates());
+      await _open(tester, container, router, _onChain);
+      expect(find.textContaining('kr'), findsWidgets);
+
+      await tester.tap(find.byIcon(Icons.swap_vert_rounded));
+      await _frames(tester);
+      expect(container.read(inputCurrencyProvider), 'SEK');
+
+      // 105 kronor is $10, which is 10,000 sats.
+      await tapKey(tester, '1');
+      await tapKey(tester, '0');
+      await tapKey(tester, '5');
+      expect(container.read(sendTxProvider).amount, 10000);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with no rate yet, the flip goes to dollars, not "kronor"',
+        (tester) async {
+      final (container, router) = await _pump(tester,
+          btcFormat: 'sats', currency: 'SEK', rates: _sekRates(sek: false));
+      await _open(tester, container, router, _onChain);
+
+      await tester.tap(find.byIcon(Icons.swap_vert_rounded));
+      await _frames(tester);
+      expect(container.read(inputCurrencyProvider), 'USD');
+
+      // \$10 is 10,000 sats.
+      await tapKey(tester, '1');
+      await tapKey(tester, '0');
+      expect(container.read(sendTxProvider).amount, 10000);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

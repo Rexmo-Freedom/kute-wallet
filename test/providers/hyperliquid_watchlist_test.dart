@@ -114,4 +114,41 @@ void main() {
     expect(HlBrowseTab.values.first, HlBrowseTab.watchlist);
     expect(HlBrowseTab.watchlist.key, 'watchlist');
   });
+
+  test(
+      'Investing opens on the Watchlist once it holds a market, after a '
+      'restart too (the box opened at boot), and on Trending once emptied',
+      () async {
+    // Nothing starred: Trending.
+    final first = ProviderContainer();
+    await Hive.openBox<String>(HlWatchlistNotifier.boxName);
+    first.read(hlWatchlistProvider);
+    await _settle(first);
+    expect(first.read(hlBrowseSelectionProvider).tab, HlBrowseTab.trending);
+    // The sheet's save: the whole list at once, deduplicated, kept.
+    first
+        .read(hlWatchlistProvider.notifier)
+        .replaceAll(['perp:ETH', 'perp:BTC', 'perp:ETH']);
+    expect(first.read(hlWatchlistProvider), ['perp:ETH', 'perp:BTC']);
+    await _settle(first);
+    first.dispose();
+
+    // A restart: the box is open before anything reads it (hive_boot).
+    final again = ProviderContainer();
+    expect(again.read(hlBrowseSelectionProvider).tab, HlBrowseTab.watchlist);
+    expect(hlDefaultBrowseSelection(again.read(hlWatchlistProvider)).tab,
+        HlBrowseTab.watchlist);
+    // Emptied while on screen: Trending at once.
+    again.read(hlWatchlistProvider.notifier).replaceAll(const []);
+    expect(again.read(hlBrowseSelectionProvider).tab, HlBrowseTab.trending);
+    // Another category is left alone when the stars change.
+    again.read(hlBrowseSelectionProvider.notifier).state =
+        const HlBrowseSelection(tab: HlBrowseTab.perps);
+    again.read(hlWatchlistProvider.notifier).toggle(_m('SOL'));
+    again.read(hlWatchlistProvider.notifier).toggle(_m('SOL'));
+    expect(again.read(hlBrowseSelectionProvider).tab, HlBrowseTab.perps);
+    await _settle(again);
+    again.dispose();
+    expect(hlDefaultBrowseSelection(const []).tab, HlBrowseTab.trending);
+  });
 }

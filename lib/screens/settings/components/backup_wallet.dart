@@ -9,7 +9,7 @@ import 'package:kute/helpers/secure_screen.dart';
 import 'package:kute/helpers/seed_clipboard.dart';
 import 'package:kute/helpers/stored_seed_reveal.dart';
 import 'package:kute/providers/auth_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
+import 'package:kute/models/advisor_context.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -19,6 +19,7 @@ import 'package:kute/screens/shared/seed_word_tile.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -387,7 +388,20 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    return SecureScreen(
+    // The bar explains the screen (founder, 31 October 2026): "Why back
+    // up?", tapping sends the backup question to Sal. The reveal step's
+    // Continue is the bar too (its own primary scope, deeper).
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: context.l10n.barBackupLabel,
+        sublabel: context.l10n.barAskSalSub,
+        clip: 'curious',
+        question: context.l10n.barBackupQuestion,
+        source: 'backup',
+        // The public context the small Ask Sal circle on the words carried.
+        advisorContext: const AdvisorContext(surface: 'backup_reveal'),
+      ),
+      child: SecureScreen(
       surface: 'backup_wallet',
       child: Scaffold(
       backgroundColor: c.background,
@@ -461,7 +475,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
           ],
         ),
       ),
-    ));
+    )));
   }
 
   /// Shared sticky-footer inset for both steps so the footer chrome does
@@ -485,17 +499,6 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
           child: _IntroCard(
             title: context.l10n.writeTheseDown,
             subtitle: context.l10n.wordsInOrderWarning(words.length),
-          ),
-        ),
-        SizedBox(height: 10.h),
-
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: AskSalChip(
-              advisorContext: const AdvisorContext(surface: 'backup_reveal'),
-            ),
           ),
         ),
         SizedBox(height: 10.h),
@@ -567,17 +570,22 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
                   ],
                 ),
               ),
-              SizedBox(height: 14.h),
-              AppButton(
-                text: context.l10n.continueLabel,
-                onPressed: _revealAcknowledged
-                    ? () {
-                        TrackingService.backupRevealAcknowledged();
-                        TrackingService.backupVerifyViewed();
-                        TrackingService.setFlowStep('verify');
-                        setState(() => _step = _BackupStep.verify);
-                      }
-                    : null,
+              // The bar is Continue (kute_shell_bar.dart), on once the
+              // phrase is acknowledged; Sal is curious until then.
+              KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.continueLabel,
+                  enabled: _revealAcknowledged,
+                  onPrimary: () {
+                    TrackingService.backupRevealAcknowledged();
+                    TrackingService.backupVerifyViewed();
+                    TrackingService.setFlowStep('verify');
+                    setState(() => _step = _BackupStep.verify);
+                  },
+                  source: 'backup_reveal',
+                  disabledLabel: context.l10n.barNeedTick,
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               ),
             ],
           ),
@@ -620,12 +628,20 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
             ),
           ),
         ),
+        // The bar is Verify backup (kute_shell_bar.dart), busy while the
+        // backup is recorded; the same footer the reveal step keeps.
         Padding(
           padding: _footerPadding,
-          child: AppButton(
-            text: context.l10n.verifyBackup,
-            isLoading: _isSaving,
-            onPressed: _isSaving ? null : _verifyBackup,
+          child: KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: context.l10n.verifyBackup,
+              onPrimary: _verifyBackup,
+              enabled: !_isSaving,
+              busy: _isSaving,
+              source: 'backup_verify',
+              disabledLabel: null,
+            ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ),
       ],
@@ -660,8 +676,10 @@ class _IntroCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(color: c.borderSubtle, width: 0.5),
             ),
+            // The Settings icon family (kute_list_row.dart): monochrome,
+            // textPrimary, 20 px on the surface tile.
             child: Icon(Icons.shield_rounded,
-                color: c.textSecondary, size: 22.sp),
+                color: c.textPrimary, size: 20.sp),
           ),
           SizedBox(width: 12.w),
           Expanded(

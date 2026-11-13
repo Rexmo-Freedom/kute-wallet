@@ -1,5 +1,7 @@
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -20,7 +22,6 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kute/screens/shared/animated_balance.dart';
-import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -36,7 +37,6 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
-import 'package:kute/screens/analytics/components/money_in_out.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
@@ -46,6 +46,8 @@ import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
+import 'package:kute/screens/shared/all_activity.dart'
+    show ActivityScope, AllActivityPreview;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -57,6 +59,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -111,7 +114,8 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     super.initState();
     _headerAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      // The chrome's hide and reveal, on the app's settle timing.
+      duration: KuteMotion.settleDuration,
       value: 1.0,
     );
     _entranceController = AnimationController(
@@ -426,9 +430,10 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     // soon as they turn redeemable (user decision: auto-claim is back,
     // the Claim tap is no longer required).
     ref.read(claimAutoFireProvider);
-    // The swap-back sweeper — brings idle venue cash home to Dollars on
-    // every close, claim, cancel, resume and heartbeat, under the
-    // never-sweep rules; and the once-per-session balance snapshot.
+    // The venue sweeper — reads and classifies venue cash on close,
+    // claim, cancel, resume and heartbeat so the Portfolio follows it;
+    // nothing moves on its own (cash comes home only from Rebalance,
+    // since 2026-10-15). And the once-per-session balance snapshot.
     ref.read(venueSweeperProvider);
     ref.read(balanceSnapshotReporterProvider);
 
@@ -483,6 +488,8 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
               child: const SavingsModeAppTopTint(),
             ),
             KuteDockHost(
+              // The dock is the one search pill; it frosts itself.
+              frostBand: false,
               dockBuilder: (onHeightChanged) =>
                   HomeDock(onHeightChanged: onHeightChanged),
               body: SafeArea(
@@ -693,7 +700,7 @@ class _ClaimablePositionRowState extends ConsumerState<_ClaimablePositionRow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  pos.marketQuestion,
+                  polyShownQuestion(context, pos.marketQuestion, pos.eventSlug),
                   style: TextStyle(
                     color: c.textPrimary,
                     fontSize: 15.sp,
@@ -836,12 +843,9 @@ class _ActivitySection extends ConsumerWidget {
           // header + a small empty-state below; gating the header on
           // tx-present made the home feel anchorless for new wallets.
           // ONE merged section behind a pill strip (user decision):
-          // Activity | Balance | In & out (plus whatever the wallet
-          // scope adds) — the old stacked Activity header + separate
-          // analytics block are gone. No Price on the main screen
-          // (owner decision). In & out is the spending wallet's money
-          // in and out by month or year, so only the hot Spark wallet
-          // gets it.
+          // Activity | Balance (plus whatever the wallet scope adds) —
+          // the old stacked Activity header + separate analytics block
+          // are gone. No Price on the main screen (owner decision).
           // The activity child is pre-resolved here because its
           // skeleton/empty states hang off Home-local providers.
           // A deposit waiting for a lower fee: one quiet line (the
@@ -851,21 +855,57 @@ class _ActivitySection extends ConsumerWidget {
             child: HomeAnalyticsWidget(
               surface: 'home',
               showPrice: false,
-              breakdownChild: homeBreakdownChild(activeWallet),
-              onSeeAllActivity: () =>
-                  showActivityHistory(context, source: 'home'),
+              // The spending wallet's Balance tab climbs the milestones
+              // (balance_goals.dart); a Ledger or watch-only home does not.
+              balanceGoals: !isSavings,
+              // `/home?tab=activity` (kHomeActivityLocation) lands on the
+              // Activity tab, whatever was selected.
+              selectActivityRequest: homeActivityRequest(context),
+              // The Bitcoin home's See all: its bitcoin, in full.
+              onSeeAllActivity: () => showActivityHistory(context,
+                  source: 'home', scope: ActivityScope.bitcoin),
               activityChild: breezWaking
                   ? const _ActivitySkeleton()
-                  : showEmptyState
-                      ? const NoActivityState()
-                      : const RepaintBoundary(
-                          child: TransactionList(emptyState: NoActivityState()),
-                        ),
+                  // The spending wallet's Activity is its bitcoin: sends,
+                  // receives and money moving into or out of bitcoin,
+                  // merged by time (all_activity.dart, the Bitcoin scope);
+                  // a Ledger or watch-only wallet keeps its own history.
+                  // Compact rows on Home: one line of context and one
+                  // figure each; the rest is in the row's detail.
+                  : !isSavings
+                      ? const RepaintBoundary(
+                          child: ActivityRowStyle(
+                            compact: true,
+                            child: AllActivityPreview(
+                                scope: ActivityScope.bitcoin,
+                                emptyState: NoActivityState()),
+                          ),
+                        )
+                      : showEmptyState
+                          ? const NoActivityState()
+                          : const RepaintBoundary(
+                              child: ActivityRowStyle(
+                                compact: true,
+                                child: TransactionList(
+                                    emptyState: NoActivityState()),
+                              ),
+                            ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+/// The `/home?tab=activity` request in the current location (its whole
+/// location, so a new link asks again), or null. Null outside a router.
+String? homeActivityRequest(BuildContext context) {
+  try {
+    final uri = GoRouterState.of(context).uri;
+    return uri.queryParameters['tab'] == 'activity' ? uri.toString() : null;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -962,10 +1002,9 @@ class _WalletDeckWrapper extends ConsumerWidget {
     // (sub-Orchestra-minimum residual from claims) lives on the
     // Portfolio Split tab, never on the home card.
     return AnimatedSwitcher(
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 280),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      duration: reduceMotion ? Duration.zero : KuteMotion.settleDuration,
+      switchInCurve: KuteMotion.settle,
+      switchOutCurve: KuteMotion.sheetOut,
       transitionBuilder: _deckTransition,
       child: KeyedSubtree(
         key: ValueKey('front-${activeWallet?.id ?? 'none'}'),
@@ -991,8 +1030,8 @@ class _WalletDeckWrapper extends ConsumerWidget {
   static Widget _deckTransition(Widget child, Animation<double> anim) {
     final eased = CurvedAnimation(
       parent: anim,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: KuteMotion.settle,
+      reverseCurve: KuteMotion.sheetOut,
     );
     return AnimatedBuilder(
       animation: eased,
@@ -1300,7 +1339,7 @@ class _HomeActions extends ConsumerWidget {
       if (!decision.allowed) {
         TrackingService.track('feature_unavailable_shown', params: {
           'feature': deposit ? 'predictions_deposit' : 'predictions_withdraw',
-          'reason': decision.regionRestricted
+          'reason': decision.regionBlocked
               ? 'region_restricted'
               : 'capability_disabled',
           'surface': 'home_dock',
@@ -1319,40 +1358,17 @@ class _HomeActions extends ConsumerWidget {
               : MoveLockedSide.withdrawFromPredictions);
     }
 
+    final source = isUsdc ? 'home_predictions' : 'home';
     if (bottomBar) {
-      // Home's dock verbs follow the card it is showing: Send and Receive on
-      // the bitcoin cards, Portfolio and Withdraw on the Predictions (USDC)
-      // card, whose Deposit is the top button (owner decision: each job has
-      // one home).
-      final source = isUsdc ? 'home_predictions' : 'home';
+      // The money verbs sit under the balance, each once (see below); the
+      // dock is the one quiet door to search and Sal, scoped to the card:
+      // everything on the bitcoin cards, the prediction markets on the
+      // Predictions card. The same results-first sheet every venue dock
+      // opens (searchFirst): only the category differs.
       return KuteBottomActionBar(
         source: source,
         onHeightChanged: onHeightChanged,
-        actions: activeWallet == null
-            ? const []
-            : isUsdc
-                ? [
-                    KuteDockAction(
-                        icon: Icons.pie_chart_rounded,
-                        label: context.l10n.walletPortfolioAction,
-                        trackingId: 'portfolio',
-                        strongIcon: true,
-                        onTap: () => Navigator.of(context, rootNavigator: true)
-                            .push(MaterialPageRoute(
-                                builder: (_) => const OpenInvestmentsScreen(
-                                    source: 'home')))),
-                    KuteDockAction(
-                        icon: Icons.north_east_rounded,
-                        label: context.l10n.withdraw,
-                        trackingId: 'withdraw',
-                        onTap: () => fundPredictions(false)),
-                  ]
-                : bitcoinWalletDockActions(context, ref, activeWallet),
-        // The square is search, scoped to the card: everything on the
-        // bitcoin cards, the prediction markets on the Predictions card.
-        // The same results-first sheet every venue dock opens (searchFirst):
-        // only the category differs. On the bitcoin cards it used to open
-        // the Sal intro instead, which read as a different screen.
+        actions: const [],
         onSearch: activeWallet == null
             ? null
             : () => showKuteSearch(context,
@@ -1366,17 +1382,38 @@ class _HomeActions extends ConsumerWidget {
       );
     }
     if (activeWallet == null) return const SizedBox.shrink();
+    // ONE compact row under the balance, every action once: Purchase ·
+    // Scan · Receive · Send (founder, 31 October 2026: "all in one row and
+    // shrink the button"; 10 November 2026: Scan back on the Bitcoin home,
+    // Swap only on the Dollars home). The dock is search alone.
     if (!isUsdc) {
-      return BitcoinWalletPrimaryActions(wallet: activeWallet, source: 'home');
+      return KuteCompactActions(
+          source: source,
+          actions:
+              bitcoinHomeDockActions(context, ref, activeWallet, source: source));
     }
-    // The Predictions card's top button is the venue's own Deposit button,
-    // the one the Predictions tab wears; Portfolio is in the dock below.
-    // Build was asked to go from Predictions and this row was the last
-    // place it survived. The builder screen and its route stay.
-    return VenueDepositButton(
-        product: InvestmentsProduct.predictions,
-        source: 'home_predictions',
-        onTap: () => fundPredictions(true));
+    // The Predictions (USDC) card: Deposit · Portfolio · Withdraw.
+    return KuteCompactActions(source: source, actions: [
+      KuteDockAction(
+          icon: Icons.south_west_rounded,
+          label: context.l10n.deposit,
+          trackingId: 'deposit',
+          onTap: () => fundPredictions(true)),
+      KuteDockAction(
+          icon: Icons.pie_chart_rounded,
+          label: context.l10n.walletPortfolioAction,
+          trackingId: 'portfolio',
+          strongIcon: true,
+          onTap: () => Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute(
+                  builder: (_) =>
+                      const OpenInvestmentsScreen(source: 'home')))),
+      KuteDockAction(
+          icon: Icons.north_east_rounded,
+          label: context.l10n.withdraw,
+          trackingId: 'withdraw',
+          onTap: () => fundPredictions(false)),
+    ]);
   }
 }
 

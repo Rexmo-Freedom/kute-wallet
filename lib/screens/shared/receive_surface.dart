@@ -10,16 +10,24 @@
 // one and an unsized code on the other, a chromeless monospace address
 // with its own copy button on one and a bordered plate with a plain
 // glyph on the other, an action row under the address on one and a
-// stacked pair pinned to the floor on the other.
+// stacked pair pinned to the floor on the other. Their Share is the bar now
+// (KuteBarContext.primary, founder, 8 November 2026): each screen says what the
+// bar reads in each of its states, so no button lives here.
 //
 // The bitcoin screen is the reference. Everything it does that the other
 // one should do too lives here, as a widget rather than as a number
 // copied across two files, because a shared number is the only thing
 // that keeps two screens from drifting apart again.
 //
+// The one-time receive of another coin (`screens/receive/
+// quoted_receive_screen.dart`) wears the plate and the address line too,
+// and fits its plate to the room left ([ReceiveQrPlate.side]).
+//
 // Presentation only. Nothing here knows about a rail, a provider or a
 // balance: the screens resolve their own payloads and pass finished
 // strings and callbacks in.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,8 +36,12 @@ import 'package:shimmer/shimmer.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart'
-    show AppBottomSheetContainer;
-import 'package:kute/screens/shared/custom_button.dart';
+    show
+        AppBottomSheetCloseButton,
+        AppBottomSheetContainer,
+        AppBottomSheetHeader;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show kKuteNavHitSize, kuteNavTitleLift;
 import 'package:kute/theme/app_theme.dart';
 
 /// How tall the receive sheet stands, as a share of the screen.
@@ -44,20 +56,53 @@ const double kReceiveSheetMaxHeight = 0.9;
 /// [title] unless the slot carries something to act on (the bitcoin
 /// receive's "Receive into" pill). Without one, [semanticTitle] still
 /// names the sheet to a screen reader, as a header, from the same slot.
+///
+/// [fitContent] sizes the sheet to its content instead (still capped at
+/// the same height): a body of a few choices, the Dollars Add's two cards
+/// (founder, 5 November 2026: a tall sheet with "a big empty area"). Being
+/// short, such a sheet hides the floating bar while it is up (the
+/// container's short-sheet rule, KuteSheetBarFit). Its [child] must size
+/// itself (no Expanded inside).
 class ReceiveSheetFrame extends StatelessWidget {
   const ReceiveSheetFrame({
     super.key,
-    required this.leading,
+    required Widget this.leading,
     this.title,
     this.semanticTitle,
+    this.fitContent = false,
     required this.child,
-  });
+  })  : heading = null,
+        onClose = null;
 
-  final Widget leading;
+  /// A sheet's FIRST step (the Bitcoin and Dollars Receives, the Dollars
+  /// Send's Who step): the [SheetTitleHeader], [heading] big on the left
+  /// and the compact close X at the top right ([onClose]), in place of the
+  /// row with the X on the left. Its [child] starts [sheetStepContentTop]
+  /// under it.
+  const ReceiveSheetFrame.titled({
+    super.key,
+    required String this.heading,
+    required VoidCallback this.onClose,
+    this.fitContent = false,
+    required this.child,
+  })  : leading = null,
+        title = null,
+        semanticTitle = null;
+
+  final Widget? leading;
   final Widget? title;
 
   /// What a screen reader calls the sheet when [title] is null.
   final String? semanticTitle;
+
+  /// The first step's big title ([ReceiveSheetFrame.titled]).
+  final String? heading;
+
+  /// The first step's close ([ReceiveSheetFrame.titled]).
+  final VoidCallback? onClose;
+
+  /// As tall as the content rather than the full receive height.
+  final bool fitContent;
 
   final Widget child;
 
@@ -70,11 +115,15 @@ class ReceiveSheetFrame extends StatelessWidget {
       // mode keeps the theme's sheet surface.
       color: context.isDark ? null : Colors.white,
       child: Column(
+        mainAxisSize: fitContent ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ReceiveSheetHeader(
-              leading: leading, title: title, semanticTitle: semanticTitle),
-          Expanded(child: child),
+          if (heading != null)
+            SheetTitleHeader(title: heading!, onClose: onClose!)
+          else
+            ReceiveSheetHeader(
+                leading: leading!, title: title, semanticTitle: semanticTitle),
+          if (fitContent) Flexible(child: child) else Expanded(child: child),
         ],
       ),
     );
@@ -138,6 +187,130 @@ class ReceiveSheetHeader extends StatelessWidget {
   }
 }
 
+/// The diameter of the first steps' compact close X ([SheetTitleHeader]),
+/// in design units: smaller than the canonical 40 circle, as an iOS sheet's
+/// close is, its touch target still 44.
+const double kSheetTitleCloseSize = 32;
+
+/// Where a first step's content starts under its [SheetTitleHeader]: the
+/// send steps' own start under their header (SendStepPage,
+/// send_flow_widgets.dart: 4 and its one-pixel heading line), so the Bitcoin
+/// Send, whose Who step is a page of its stepper, and the sheets whose first
+/// step is the whole sheet start their content at the same height.
+double get sheetStepContentTop => 4.h + 1;
+
+/// THE FIRST STEP'S HEADER (founder, 7 November 2026, twice, of the Send
+/// and Receive sheets' headers, a big round X on the left over a small
+/// centred "Send": "here the send buttons and such as i said it is strange
+/// the size"). The first step of both Sends (the Who step) and of both
+/// Receives wears the What sheet's own heading (AppBottomSheetHeader,
+/// send_what_step.dart): the drag handle, the title big on the left (28,
+/// w800), and the close X at its top right, iOS-sheet style: the app's
+/// round X ([AppBottomSheetCloseButton]) at the compact
+/// [kSheetTitleCloseSize], its circle's right edge on the content's right
+/// edge, centred on the title's first line; then the content,
+/// [sheetStepContentTop] under it. [handleAbove]: the sheet's frame drew
+/// the handle (the send sheet, send_sheet.dart), in the same place.
+///
+/// [SheetTitleHeader.inner] is an inner step of the same sheet (the
+/// Bitcoin Send's Amount and Review): the inner steps' own header, [leading]
+/// (the back chevron, or the X where that step opened the send) at the
+/// left and [innerTitle] centred, laid on the line the big title sits on,
+/// in a header exactly as tall, so nothing under it moves between steps.
+class SheetTitleHeader extends StatelessWidget {
+  const SheetTitleHeader({
+    super.key,
+    required this.title,
+    required VoidCallback this.onClose,
+    this.handleAbove = false,
+  })  : leading = null,
+        innerTitle = null;
+
+  const SheetTitleHeader.inner({
+    super.key,
+    required this.title,
+    required Widget this.leading,
+    required Widget this.innerTitle,
+    this.handleAbove = false,
+  }) : onClose = null;
+
+  /// The first step's title; on an inner step, what sizes the header.
+  final String title;
+  final VoidCallback? onClose;
+  final bool handleAbove;
+  final Widget? leading;
+  final Widget? innerTitle;
+
+  /// The key of the compact close X.
+  static const Key closeKey = ValueKey('sheet-title-close');
+
+  /// How far the close's box sits under where the heading puts it: the
+  /// heading centres a 44 point target on the title's first line, and the
+  /// box is 44 design units, smaller on a narrow phone; half the difference
+  /// centres it exactly.
+  static double _boxDrop() => (kKuteNavHitSize - kKuteNavHitSize.w) / 2;
+
+  Widget _heading(BuildContext context, {required bool inner}) {
+    // The X's 44 box is wider than its circle: shifted by the difference so
+    // the circle's right edge meets the content's right edge, and centred
+    // on the title's first line.
+    final inset = (kKuteNavHitSize - kSheetTitleCloseSize).w / 2;
+    return AppBottomSheetHeader(
+      title: title,
+      showDragHandle: !handleAbove,
+      handleAbove: handleAbove,
+      titleIsHeader: !inner,
+      trailing: Transform.translate(
+        offset: Offset(inset, _boxDrop()),
+        child: AppBottomSheetCloseButton(
+          key: inner ? null : closeKey,
+          size: kSheetTitleCloseSize,
+          onPressed: onClose ?? () {},
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lead = leading;
+    if (lead == null) return _heading(context, inner: false);
+    // The row AppBottomSheetHeader lays its close in: the handle's room
+    // (when it draws one), then its title's top less the lift that centres
+    // a 44 target on the title's first line, centred as the close is.
+    final top = 20.h;
+    final lift = math.min(top, kuteNavTitleLift(context, 28.sp, height: 1.05));
+    final handle = handleAbove ? 0.0 : 12.h + 4.h;
+    return Stack(
+      children: [
+        // The first step's header, unseen: the room this one takes.
+        ExcludeSemantics(
+          child: Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: _heading(context, inner: true),
+          ),
+        ),
+        Positioned(
+          left: 12.w,
+          right: 12.w,
+          top: handle + top - lift + _boxDrop(),
+          height: kKuteNavHitSize.w,
+          child: Row(
+            children: [
+              SizedBox(width: 44.w, child: Center(child: lead)),
+              Expanded(child: Center(child: innerTitle)),
+              SizedBox(width: 44.w),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// The receive surface's vertical rhythm, so the two screens cannot
 /// disagree about how far apart their own parts sit.
 abstract final class ReceiveGaps {
@@ -147,7 +320,7 @@ abstract final class ReceiveGaps {
   /// QR plate to the address under it.
   static double get qrToAddress => 24.h;
 
-  /// Address to the Share button.
+  /// Address to what stands under it.
   static double get addressToActions => 14.h;
 
   /// Between any two blocks below the actions.
@@ -160,25 +333,31 @@ abstract final class ReceiveGaps {
 /// The QR plate's side: as large as the receive sheet allows, 87% of
 /// its width, never under 260 nor over 380 points. The sheet spans the
 /// screen, so the screen's width is the sheet's. At 390pt that is about
-/// 339pt, which still leaves the address and the Share button above
-/// the fold on a 390x844 phone, and still fits inside both screens'
-/// side padding.
+/// 339pt, which still leaves the address above the fold on a 390x844
+/// phone, and still fits inside both screens' side padding.
 double receiveQrSide(BuildContext context) =>
     (MediaQuery.sizeOf(context).width * 0.87).clamp(260.0, 380.0);
 
-/// The white plate the QR sits on. A square [receiveQrSide] wide,
-/// generous radius, and a small inner padding so the code dominates the
-/// frame instead of floating in a bed of whitespace (the code keeps its
-/// own quiet zone inside it). White is not a themed colour here on
-/// purpose: a QR needs the contrast in both themes.
-class ReceiveQrPlate extends StatelessWidget {
-  const ReceiveQrPlate({super.key, required this.child});
+/// The least a plate fitted to its page shrinks to ([ReceiveQrPlate.side]).
+/// An address's code is about 33 modules a side, so even here each module
+/// is about 4 points across, well inside what a phone camera reads.
+const double kReceiveQrMinSide = 176;
 
+/// The white plate the QR sits on. A square [receiveQrSide] wide (or
+/// [side], for a page that fits it to the room left), generous radius, and
+/// a small inner padding so the code dominates the frame instead of
+/// floating in a bed of whitespace (the code keeps its own quiet zone
+/// inside it). White is not a themed colour here on purpose: a QR needs
+/// the contrast in both themes.
+class ReceiveQrPlate extends StatelessWidget {
+  const ReceiveQrPlate({super.key, this.side, required this.child});
+
+  final double? side;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final side = receiveQrSide(context);
+    final side = this.side ?? receiveQrSide(context);
     return Center(
       child: Container(
         width: side,
@@ -490,39 +669,6 @@ class ReceiveAddressIconButton extends StatelessWidget {
         ),
         child: Icon(icon, size: iconSize, color: c.textPrimary),
       ),
-    );
-  }
-}
-
-/// Share, full width, directly under the address. Copy lives on the
-/// address line itself (the row and its copy button), so the row under
-/// it is Share alone (founder decision October 2026: a second Copy was
-/// redundant).
-///
-/// It sits in the page rather than pinned to the floor because it acts
-/// on the thing above it: the exact payload the QR encodes. A pinned
-/// button reads as "finish the flow", which is the wrong promise on a
-/// screen where the job is done the moment the code is on screen.
-///
-/// Anything else the receive can do with that code (the bitcoin
-/// screen's request amount) sits under it as a quiet text action, never
-/// as a second button beside it.
-class ReceiveActionPills extends StatelessWidget {
-  const ReceiveActionPills({
-    super.key,
-    required this.onShare,
-  });
-
-  final VoidCallback? onShare;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppButton(
-      onPressed: onShare,
-      text: context.l10n.share,
-      icon: Icons.ios_share_rounded,
-      compact: true,
-      fontSize: 15.sp,
     );
   }
 }

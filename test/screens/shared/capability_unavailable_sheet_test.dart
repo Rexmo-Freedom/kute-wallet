@@ -3,10 +3,16 @@
 // network / VPN sentence, and its one button is "Check connection";
 // anything else reads the generic title over the policy's own reason, and
 // one "Got it" closes it. Never a reason code.
+//
+// The button is the floating Sal bar (kute_bar_context.dart,
+// KuteBarContext.primary): the host mounts the shell bar the way the app
+// does (kute_bar_test_support.dart) and reads it through the probe.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,7 +21,6 @@ import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/kute_haptics.dart';
@@ -24,6 +29,9 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
+import '../../helpers/shell_bar_harness.dart' show installShellBar;
 
 final _en = lookupAppLocalizations(const Locale('en'));
 final _pt = lookupAppLocalizations(const Locale('pt'));
@@ -37,21 +45,30 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // The tab shell counts as mounted, as in the app: the bar is the
+    // default pill again once a sheet closes (else it keeps the closed
+    // sheet's button, a busy ring spinning off screen).
+    installShellBar();
     late BuildContext captured;
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        locale: locale,
-        theme: ThemeData(
-            splashFactory: NoSplash.splashFactory,
-            fontFamily: 'Inter',
-            extensions: [AppColorsExtension.light()]),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Builder(builder: (context) {
-          captured = context;
-          return const Scaffold();
-        }),
+    await tester.pumpWidget(ProviderScope(
+      child: ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // sheet's button is the bar (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
+          locale: locale,
+          theme: ThemeData(
+              splashFactory: NoSplash.splashFactory,
+              fontFamily: 'Inter',
+              extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(builder: (context) {
+            captured = context;
+            return const Scaffold();
+          }),
+        ),
       ),
     ));
     return captured;
@@ -80,8 +97,10 @@ void main() {
     expect(_en.capabilityRegionRestricted, contains('VPN'));
     expect(find.text(_en.gateUnavailableTitle), findsNothing);
     expect(find.textContaining('country_blocked'), findsNothing);
-    // Its one button asks again, never "Got it".
+    // Its one button asks again, never "Got it": the bar, not a button
+    // of the sheet's own.
     expect(find.text(_en.checkConnection), findsOneWidget);
+    expect(kuteBarPrimaryWithText(_en.checkConnection), findsOneWidget);
     expect(find.text(_en.gotIt), findsNothing);
 
     await dismiss(tester);
@@ -152,6 +171,12 @@ void main() {
     expect(find.text(_en.capabilityRegionTitle), findsNothing);
     expect(find.text(_en.capabilityRegionRestricted), findsNothing);
     expect(find.textContaining('switched_off'), findsNothing);
+    // One "Got it", the bar, and it closes the sheet.
+    expect(kuteBarPrimaryWithText(_en.gotIt), findsOneWidget);
+    expect(kuteBarPrimaryEnabled(tester), isTrue);
+    await tester.tap(kuteBarPrimary);
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -168,11 +193,138 @@ void main() {
     await tester.pumpAndSettle();
 
     showCapabilityDecisionSheet(context,
-        const CapabilityDecision(allowed: false, reason: 'country_not_allowed'),
+        const CapabilityDecision(allowed: false, reason: 'country_blocked'),
         title: _en.gatePredictionsUnavailable);
     await tester.pumpAndSettle();
     expect(find.text(_en.capabilityRegionTitle), findsOneWidget);
     expect(find.text(_en.gatePredictionsUnavailable), findsNothing);
+  });
+
+  group('an allow list is not a region block', () {
+    // Founder, 7 November 2026 ("not avaliable in usa? my vpn is in
+    // lisbon. please just say not avaliable right now"): an "only in"
+    // rule (Cash App is US-only) refuses with `country_not_allowed`, and
+    // the regions the backend sends are where the feature IS offered.
+    final usOnly = CapabilityDecision.fromJson({
+      'allowed': false,
+      'reason': 'country_not_allowed',
+      'regions': {
+        'label': 'the United States',
+        'labels': {'pt': 'nos Estados Unidos'},
+        'countries': ['US'],
+      },
+    });
+
+    late List<(String, Map<String, Object>?)> events;
+    setUp(() {
+      events = [];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    });
+    tearDown(() => TrackingService.debugTrackObserver = null);
+
+    void expectNotAvailableNow(WidgetTester tester, AppLocalizations l10n) {
+      expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+      expect(find.text(l10n.capabilityNotAvailableNow), findsOneWidget);
+      // The title alone: no body under it.
+      expect(
+          tester
+              .widget<AppBottomSheetHeader>(find.byType(AppBottomSheetHeader))
+              .subtitle,
+          isNull);
+      expect(find.textContaining('United States'), findsNothing);
+      expect(find.textContaining('Estados Unidos'), findsNothing);
+      expect(find.textContaining('VPN'), findsNothing);
+      expect(find.text(l10n.capabilityRegionTitle), findsNothing);
+      expect(find.text(l10n.capabilityRegionCheckVpn), findsNothing);
+      expect(find.text(l10n.capabilityRegionRestricted), findsNothing);
+      // The plain dismiss, never "Check connection".
+      expect(kuteBarPrimaryWithText(l10n.gotIt), findsOneWidget);
+      expect(find.text(l10n.checkConnection), findsNothing);
+      expect(events.where((e) => e.$1 == 'capability_region_blocked'),
+          isEmpty);
+    }
+
+    testWidgets(
+        'it reads just "Not available right now": no region, no VPN '
+        'sentence, Got it, nothing counted', (tester) async {
+      final context = await pumpHost(tester);
+      bool? result;
+      showCapabilityDecisionSheet(context, usOnly,
+              title: _en.buyUnavailableTitle,
+              capability: 'onramp.cashapp',
+              surface: 'bitcoin_purchase')
+          .then((value) => result = value);
+      await tester.pumpAndSettle();
+      expectNotAvailableNow(tester, _en);
+      expect(find.text('Not available right now'), findsOneWidget);
+      expect(find.text(_en.buyUnavailableTitle), findsNothing);
+      await tester.tap(kuteBarPrimary);
+      await tester.pumpAndSettle();
+      expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+      expect(result, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'whatever the caller passed (a region flag, its own title and '
+        'sentence), the denial decides', (tester) async {
+      final context = await pumpHost(tester);
+      showCapabilityUnavailableSheet(context,
+          message: usOnly.bodyIn(_en),
+          regionRestricted: true,
+          title: _en.gatePredictionsUnavailable,
+          capabilities: const ['polymarket.trade'],
+          denial: (capability: 'polymarket.trade', decision: usOnly),
+          surface: 'predictions_gate_sheet');
+      await tester.pumpAndSettle();
+      expectNotAvailableNow(tester, _en);
+      expect(find.text(_en.gatePredictionsUnavailable), findsNothing);
+      await dismiss(tester);
+    });
+
+    testWidgets('European Portuguese copy', (tester) async {
+      final context = await pumpHost(tester, locale: const Locale('pt'));
+      showCapabilityDecisionSheet(context, usOnly,
+          capability: 'onramp.cashapp');
+      await tester.pumpAndSettle();
+      expectNotAvailableNow(tester, _pt);
+      expect(_pt.capabilityNotAvailableNow,
+          isNot(_en.capabilityNotAvailableNow));
+      await dismiss(tester);
+    });
+
+    test('the decision: location-based, but never named nor a region block',
+        () {
+      expect(usOnly.notOfferedHere, isTrue);
+      expect(usOnly.regionRestricted, isTrue,
+          reason: 'still tied to the network it was asked on');
+      expect(usOnly.regionBlocked, isFalse);
+      expect(usOnly.regionNamed, isFalse);
+      expect(usOnly.regionTitleIn(_en), isNull);
+      expect(usOnly.messageIn(_en), _en.capabilityNotAvailableNow);
+      expect(usOnly.bodyIn(_pt), _pt.capabilityNotAvailableNow);
+      // Inherited through a cascade, it reads the same.
+      final inherited = CapabilityDecision.fromJson({
+        'allowed': false,
+        'reason': 'country_not_allowed',
+        'blockedBy': 'onramp.cashapp',
+        'regions': {'label': 'the United States'},
+      });
+      expect(inherited.regionBlocked, isFalse);
+      expect(inherited.messageIn(_en), _en.capabilityNotAvailableNow);
+      // A block list is untouched.
+      final swap = CapabilityDecision.fromJson({
+        'allowed': false,
+        'reason': 'country_blocked',
+        'blockedBy': 'orchestra.swap',
+        'regions': {'label': 'the European Union, the UK and Switzerland'},
+      });
+      expect(swap.notOfferedHere, isFalse);
+      expect(swap.regionBlocked, isTrue);
+      expect(swap.messageIn(_en),
+          'Not available in the European Union, the UK and Switzerland\n'
+          "If this isn't where you are, check your VPN settings.");
+    });
   });
 
   testWidgets('the venue\'s own region answer reads as a region block',
@@ -220,6 +372,8 @@ void main() {
     // Kute's policy and both venues, answering as the test says.
     late bool policyBlocked;
     late bool venueBlocked;
+    // Holds the policy's answer while set: the re-check in flight.
+    Completer<void>? gate;
     late List<String> triggers;
     late List<ContinuousHapticsCall> haptics;
     late RuntimeCapabilitiesService policy;
@@ -228,12 +382,14 @@ void main() {
     setUp(() {
       policyBlocked = true;
       venueBlocked = false;
+      gate = null;
       triggers = [];
       haptics = ContinuousHaptics.debugLog = [];
       KuteHaptics.debugReset();
       KuteHaptics.debugForeground = () => true;
       policy = RuntimeCapabilitiesService.forTesting(
         client: MockClient((_) async {
+          await gate?.future;
           final now = DateTime.now().toUtc();
           return http.Response(
               jsonEncode({
@@ -303,13 +459,9 @@ void main() {
           .then((value) => result = value);
       await tester.pumpAndSettle();
       expect(find.text(_en.checkConnection), findsOneWidget);
-      // Not a dead button.
-      expect(
-          tester
-              .widget<AppButton>(find.byKey(const ValueKey(
-                  'capability-unavailable-check-connection')))
-              .onPressed,
-          isNotNull);
+      // Not a dead button: the bar, taking a tap.
+      expect(kuteBarPrimaryWithText(_en.checkConnection), findsOneWidget);
+      expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
       return result;
     }
 
@@ -355,12 +507,8 @@ void main() {
       expect(find.text(_en.capabilityRegionRestricted), findsOneWidget);
       // Still "Check connection", ready for another try.
       expect(find.text(_en.checkConnection), findsOneWidget);
-      expect(
-          tester
-              .widget<AppButton>(find.byKey(const ValueKey(
-                  'capability-unavailable-check-connection')))
-              .onPressed,
-          isNotNull);
+      expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
+      expect(kuteBarPrimaryProbe(tester).isLoading, isFalse);
       expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
 
       // The VPN changes again; the next tap lifts it.
@@ -369,6 +517,35 @@ void main() {
       await frames(tester);
       await tester.pumpAndSettle();
       expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+      await release(tester);
+    });
+
+    testWidgets(
+        'while the re-check runs the bar is busy under the same label and '
+        'takes no second tap', (tester) async {
+      await open(tester);
+      gate = Completer<void>();
+      await tester.tap(find.text(_en.checkConnection));
+      await frames(tester, 4);
+      // The bar shows its progress ring beside "Check connection" (the
+      // band the drawn button wore); a second tap does nothing.
+      expect(kuteBarPrimaryProbe(tester).isLoading, isTrue);
+      expect(kuteBarPrimaryProbe(tester).text, _en.checkConnection);
+      expect(kuteBarPrimaryProbe(tester).onPressed, isNull);
+      expect(kuteBarPrimaryWithText(_en.checkConnection), findsOneWidget);
+      await tester.tap(kuteBarPrimary, warnIfMissed: false);
+      await frames(tester, 2);
+      expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+      expect(triggers, ['manual', 'manual']);
+      // Allowed once the answer lands: the sheet closes.
+      policyBlocked = false;
+      gate!.complete();
+      await frames(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+      // The bar is the pill again, not the sheet's busy button.
+      expect(kuteBarPrimary, findsNothing);
+      expect(haptics.where((c) => c.method == 'softTap'), isEmpty);
       await release(tester);
     });
 

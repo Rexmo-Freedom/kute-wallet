@@ -1,7 +1,7 @@
 // Opening a game's market sheet: the board is drawn from the event the
-// card already has (never waiting on a second read of the game), the rows
+// card already has (never waiting on a second read of the game), the lines
 // of "More markets" are built as they scroll into view, and a price tick
-// repaints the one row it moved.
+// repaints the one line it moved.
 
 import 'dart:async';
 
@@ -15,32 +15,23 @@ import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/advisor_provider.dart'
-    show advisorStreamRequestProvider, aiEnabledProvider;
+    show aiEnabledProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/providers/polymarket_game_timeline_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
+import 'package:kute/screens/polymarket/components/game_side_button.dart';
 import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
-import 'package:kute/models/advisor_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlLiveDot;
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
     show KuteDogGlance, SalAiRing;
-import 'package:kute/screens/polymarket/components/market_chart.dart'
-    show MarketChart;
-import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/services/advisor/advisor_input_guard.dart';
-import 'package:kute/services/advisor/advisor_service.dart'
-    show AdvisorPrompt, AdvisorStreamEvent;
-import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/theme/app_theme.dart';
 
 /// No stars: the watchlist box is never opened in a test.
@@ -172,16 +163,21 @@ void main() {
       expect(built, greaterThan(0));
       expect(built, lessThan(40));
 
-      // A tick on the first prop's token repaints that row's figure.
-      final row = find.text('Player 0: Anytime touchdown?');
+      // A tick on the first prop's token repaints that line's buttons: its
+      // label without the "?", its Yes and No.
+      final row = find.text('Player 0: Anytime touchdown');
       expect(row, findsOneWidget);
-      Finder figure(String text) => find.byWidgetPredicate(
-          (w) => w is RollingFigure && w.identity == 'p0a' && w.text == text);
-      expect(figure('90%'), findsOneWidget);
+      Finder figure(int side, String text) => find.byWidgetPredicate((w) =>
+          w is PolyGameSideButton &&
+          w.key == ValueKey('game-line-side-p0a-$side') &&
+          w.pctText == text);
+      expect(figure(0, '90%'), findsOneWidget);
+      expect(figure(1, '10%'), findsOneWidget);
       prices.tick('p0a', 0.95);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      expect(figure('95%'), findsOneWidget);
+      expect(figure(0, '95%'), findsOneWidget);
+      expect(figure(1, '5%'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });
@@ -277,11 +273,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
+  // The "Why is it moving?" row is gone (31 October 2026): the question is
+  // the Sal sheet's first chip. Its old key, asserted absent below.
   final row = find.byKey(const ValueKey('sal-why-moving-row'));
-  Finder rowText() => find.descendant(
-      of: row,
-      matching: find.byWidgetPredicate(
-          (w) => w is Text && w.data != null && w.data!.isNotEmpty));
 
   // The owner's screenshot: a long game title was cut at "ESL Pro…".
   const longTitle = 'Counter-Strike: PARIVISION vs Natus Vincere (BO3) - '
@@ -334,8 +328,11 @@ void main() {
         expect(star, findsOneWidget);
         expect(tester.getRect(star).left,
             greaterThanOrEqualTo(tester.getRect(title).right));
-        expect(find.byType(AskSalChip), findsNothing);
         expect(find.byKey(const ValueKey('ask-sal-pill')), findsNothing);
+        // Nothing to share in the header or beside the leader's chance
+        // (founder, 4 November 2026): Send to a friend floats at the foot.
+        expect(find.byKey(const ValueKey('kute-sal-header-button')),
+            findsNothing);
         // Gone: the market count line, the change / LIVE row, the end date.
         expect(find.textContaining('Tap a market'), findsNothing);
         expect(find.textContaining('markets ·'), findsNothing);
@@ -359,41 +356,26 @@ void main() {
   }
 
   for (final locale in ['de', 'fi', 'pt', 'hu', 'el']) {
-    testWidgets('in $locale at 375 wide, text x1.3, a big move: the row shows '
-        'whole under the chart, the Rules row stays', (tester) async {
+    testWidgets('in $locale at 375 wide, text x1.3, a big move: no "Why is '
+        'it moving?" row under the chart', (tester) async {
       await loadInter(tester);
       await http.runWithClient(() async {
         await pumpRace(tester,
             width: 375, locale: Locale(locale), oneDay: 0.12, textScale: 1.3);
-        await tester.ensureVisible(row);
-        await tester.pump();
-        expect(row, findsOneWidget);
-        expect(tester.renderObject<RenderParagraph>(rowText())
-            .didExceedMaxLines, isFalse);
+        expect(row, findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       }, () => MockClient((_) async => http.Response('{}', 404)));
     });
   }
 
-  testWidgets('a big move in the odds (12 points): one quiet "Why is it '
-      'moving?" row under the chart, a one-colour dog; Rules and resolution '
-      'keeps its own row', (tester) async {
+  testWidgets('a big move in the odds (12 points): no "Why is it moving?" '
+      'row under the chart; Rules and resolution keeps its own row',
+      (tester) async {
     await loadInter(tester);
     await http.runWithClient(() async {
       await pumpRace(tester, oneDay: -0.12);
-      await tester.ensureVisible(row);
-      await tester.pump();
-      expect(row, findsOneWidget);
-      expect(find.text('Why is it moving?'), findsOneWidget);
-      final chart = find.byType(MarketChart);
-      if (chart.evaluate().isNotEmpty) {
-        expect(tester.getRect(row).top,
-            greaterThanOrEqualTo(tester.getRect(chart).bottom));
-      }
-      final glyph = tester.widget<KuteDogGlance>(
-          find.descendant(of: row, matching: find.byType(KuteDogGlance)));
-      expect(glyph.color, AppColorsExtension.light().textPrimary);
+      expect(find.text('Why is it moving?'), findsNothing);
       expect(find.byType(SalAiRing), findsNothing);
       await tester.scrollUntilVisible(find.text('Rules and resolution'), 300,
           scrollable: find.byType(Scrollable).first);
@@ -414,92 +396,21 @@ void main() {
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });
 
-  testWidgets('a game in play shows the row and asks how the live game is '
-      'moving the odds', (tester) async {
-    OpenOnce.reset();
-    addTearDown(OpenOnce.reset);
-    final prompts = <AdvisorPrompt?>[];
-    await tester.runAsync(() => AdvisorInputGuard.isSafe('Public question'));
+  testWidgets('a game in play: no "Why is it moving?" row to tap (the live '
+      'game question lives in the Sal sheet)', (tester) async {
     await http.runWithClient(() async {
-      await pumpRace(tester, score: '1-0', period: '2H', extra: [
-        advisorStreamRequestProvider.overrideWithValue((
-            {required query,
-            context,
-            history = const [],
-            required cancellation,
-            locale,
-            prompt}) {
-          prompts.add(prompt);
-          return Stream.value(const AdvisorStreamEvent.done(
-              AdvisorResponse(blocks: [
-            AdvisorBlock(
-                id: 'answer',
-                kind: AdvisorBlockKind.answer,
-                markdown: 'The early goal moved it.')
-          ])));
-        }),
-      ]);
-      await tester.ensureVisible(row);
-      await tester.pump();
-      expect(row, findsOneWidget);
-      await tester.tap(row);
-      await tester.pump();
-      await tester.runAsync(() async {});
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      expect(prompts.single?.template, 'pm.live_game');
+      await pumpRace(tester, score: '1-0', period: '2H');
+      expect(find.text('Why is it moving?'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });
 
-  testWidgets('a tap on the row opens Sal asking why the odds are moving, '
-      'from market_why_moving', (tester) async {
-    OpenOnce.reset();
-    addTearDown(OpenOnce.reset);
-    final events = <(String, Map<String, Object>?)>[];
-    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-    addTearDown(() => TrackingService.debugTrackObserver = null);
-    final prompts = <AdvisorPrompt?>[];
-    await tester.runAsync(() => AdvisorInputGuard.isSafe('Public question'));
+  testWidgets('a big move (10 points) with Sal on: no "Why is it moving?" '
+      'row to tap (the odds question lives in the Sal sheet)',
+      (tester) async {
     await http.runWithClient(() async {
-      await pumpRace(tester, oneDay: 0.1, extra: [
-        advisorStreamRequestProvider.overrideWithValue((
-            {required query,
-            context,
-            history = const [],
-            required cancellation,
-            locale,
-            prompt}) {
-          prompts.add(prompt);
-          return Stream.value(const AdvisorStreamEvent.done(
-              AdvisorResponse(blocks: [
-            AdvisorBlock(
-                id: 'answer',
-                kind: AdvisorBlockKind.answer,
-                markdown: 'The race is wide open.')
-          ])));
-        }),
-      ]);
-      await tester.ensureVisible(row);
-      await tester.pump();
-      await tester.tap(row);
-      await tester.pump();
-      await tester.runAsync(() async {});
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      expect(prompts, hasLength(1));
-      expect(find.textContaining('The race is wide open.'), findsOneWidget);
-      expect(find.text('Why are the odds moving on this market?'),
-          findsWidgets);
-      expect(prompts.single?.template, 'pm.odds_moving');
-      final opened = events.firstWhere((e) => e.$1 == 'sal_opened').$2!;
-      expect(opened['entry'], 'market_why_moving');
-      expect(opened['surface'], 'polymarket_market_detail');
-      final asked = events.firstWhere((e) => e.$1 == 'sal_question_asked').$2!;
-      expect(asked['input'], 'suggested');
-      expect(asked['template'], 'pm.odds_moving');
-      expect(asked['chip_index'], 0);
-      expect(asked['entry_source'], 'market_why_moving');
+      await pumpRace(tester, oneDay: 0.1);
+      expect(find.text('Why is it moving?'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
   });

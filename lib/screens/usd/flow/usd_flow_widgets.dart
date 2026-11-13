@@ -19,6 +19,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard, SendToListRow;
@@ -382,6 +383,11 @@ class UsdFlowNote extends StatelessWidget {
 
 /// The one pinned action. A thin wrapper so both screens cannot drift
 /// on height, width or loading behaviour.
+///
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the primary is the floating Sal bar's primary action; the
+/// optional secondary (Skip) is a text button above it, over the bar's
+/// clearance.
 class UsdFlowAction extends StatelessWidget {
   const UsdFlowAction({
     super.key,
@@ -390,10 +396,19 @@ class UsdFlowAction extends StatelessWidget {
     this.loading = false,
     this.secondaryLabel,
     this.onSecondary,
+    this.disabledLabel,
+    this.source = 'usd_flow',
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// The screen the bar's Sal sheet says it was opened from.
+  final String source;
+
+  /// What the bar says while [onPressed] is null (KuteBarContext
+  /// .disabledLabel): "Paste an address".
+  final String? disabledLabel;
   final bool loading;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
@@ -404,15 +419,19 @@ class UsdFlowAction extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppButton(text: label, isLoading: loading, onPressed: onPressed),
-        if (secondaryLabel != null) ...[
-          SizedBox(height: 10.h),
-          AppButton(
-            text: secondaryLabel!,
-            variant: AppButtonVariant.secondary,
-            onPressed: onSecondary,
+        if (secondaryLabel != null)
+          AppTextButton(text: secondaryLabel!, onPressed: onSecondary),
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: label,
+            onPrimary: onPressed,
+            enabled: onPressed != null && !loading,
+            busy: loading,
+            source: source,
+            disabledLabel: disabledLabel,
           ),
-        ],
+          child: SizedBox(height: kuteBarScrollClearance.h),
+        ),
       ],
     );
   }

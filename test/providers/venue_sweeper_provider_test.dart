@@ -415,6 +415,39 @@ void main() {
     expect(state.predictionsKnown, isTrue);
   });
 
+  for (final autoSweep in [false, true]) {
+    test(
+        'first boot: the venues are classified with no event, cash move or '
+        'heartbeat, and nothing is sent (automatic sweeping $autoSweep)',
+        () async {
+      // The founder's recovered wallet (10 November 2026): Predictions sale
+      // proceeds at the venue, read before Home built the sweeper, and no
+      // bet yet to wake it.
+      final b = bind(
+          const PolymarketTradingState(
+              isAuthenticated: true, balanceKnown: true, usdcBalance: 15.65),
+          autoSweep: autoSweep);
+      await b.c.read(polymarketTradingProvider.future);
+      b.c.read(venueSweeperProvider);
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        if (b.c.read(venueSweeperProvider).classified.length == 2) break;
+      }
+      final sweeper = b.c.read(venueSweeperProvider);
+      expect(sweeper.classified,
+          {OneBalanceVenue.investing, OneBalanceVenue.predictions});
+      expect(b.pm.calls, isEmpty, reason: 'a first-boot read never sweeps');
+      expect(b.rail.calls, isEmpty);
+      final state = b.c.read(oneBalanceProvider);
+      // Off (the app): the venue's Available cash. On: owed back, waiting
+      // for a pass of its own; either way in the total.
+      final pm = autoSweep
+          ? state.waiting[OneBalanceVenue.predictions]
+          : state.venueCash[OneBalanceVenue.predictions];
+      expect(pm, closeTo(15.65, 1e-9));
+    });
+  }
+
   group('Predictions cash after a funded bet that failed', () {
     PendingBetIntent failedBet() => const PendingBetIntent(
           tokenId: '1',

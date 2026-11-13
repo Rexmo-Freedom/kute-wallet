@@ -133,7 +133,15 @@ void main() {
           (subscribe['subscriptions'] as List).cast<Map<String, dynamic>>();
       expect(subs.map((s) => s['channel']).toSet(), {'price.crypto.twap'});
       expect(subs.map((s) => s['filter']).toList(), [
-        for (final s in ['btcusd', 'ethusd', 'solusd', 'xrpusd'])
+        for (final s in [
+          'btcusd',
+          'ethusd',
+          'solusd',
+          'xrpusd',
+          'dogeusd',
+          'bnbusd',
+          'hypeusd',
+        ])
           {'symbol': s, 'window_seconds': 60},
       ]);
 

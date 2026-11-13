@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/services/http/http_timeout_policy.dart';
+import 'package:kute/services/http/connection_health.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -165,5 +166,35 @@ void main() {
     final p = events.singleWhere((e) => e.$1 == 'http_request_latency').$2!;
     expect(p['outcome'], 'timeout');
     expect(p.containsKey('status_class'), isFalse);
+  });
+
+  test('every request feeds the connection health, whatever the sampling',
+      () async {
+    final health = ConnectionHealth.instance..reset();
+    addTearDown(health.reset);
+    Future<void> fail(String host) => SharedHttpClient.get(
+            Uri.parse('https://$host/x'),
+            kind: HttpCallKind.submit,
+            client: MockClient(
+                (_) async => throw http.ClientException('connection lost')))
+        .then<void>((_) {}, onError: (_) {});
+    SharedHttpClient.debugReportEveryRequest = false;
+    for (final host in ['a.test', 'a.test', 'b.test', 'b.test']) {
+      await fail(host);
+    }
+    expect(health.isSlow, isTrue);
+    // An answer, even a bad one, is a working connection.
+    await SharedHttpClient.get(Uri.parse('https://a.test/x'),
+        kind: HttpCallKind.submit,
+        client: MockClient((_) async => http.Response('down', 503)));
+    expect(health.isSlow, isFalse);
+  });
+
+  test('a network change forgets what the old one did', () {
+    final health = ConnectionHealth.instance..debugMakeSlow();
+    addTearDown(health.reset);
+    expect(health.isSlow, isTrue);
+    SharedHttpClient.recycle();
+    expect(health.isSlow, isFalse);
   });
 }

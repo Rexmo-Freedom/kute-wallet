@@ -1,0 +1,848 @@
+// lib/screens/search/components/search_rows.dart
+//
+// THE SAL SHEET'S PARTS (founder, 31 October 2026: "it must be and look
+// much better", "still too dense", then the tile idea judged "2019
+// fintech"): a FLAT, typographic search. No cards, no boxes, no
+// hairlines between rows: everything sits on the sheet's own surface and
+// is told apart by type and air. One vocabulary for the home (Recent,
+// Moving now, Trending predictions) and the results while typing
+// (Predictions, Investing, Transactions).
+//
+//   * a BLOCK is a 13 sp w600 textPrimary title ([SearchBlockHeader]) with
+//     a small textSecondary action at its end when it has one ("Clear",
+//     "See all ›"), 12 px over its rows; blocks sit 28 apart
+//     ([kSearchBlockGap]);
+//   * ROWS stand 14 px apart with nothing drawn between them
+//     ([SearchRowList], [kSearchRowGap]);
+//   * a ROW is 56 px at least ([SearchListRow]): a 36 logo, a 16 w500
+//     title (two lines in the results, one on the home), a 13
+//     textSecondary line under it when there is one, and the figure at
+//     the right in 16 w600 tabular; the market rows are this row with the
+//     venue's own logo and figures: a prediction keeps its chance gauge
+//     ([SearchPredictionRow], [SearchChanceGauge]), an Investing market
+//     its 48 by 20 sparkline ([SearchInvestingRow]);
+//   * an Investing market that trades more than one way (Nvidia on two
+//     builders' exchanges and as two tokens) is ONE row with a quiet
+//     "2 more ways to trade NVDA ›" under it ([SearchMoreWaysRow], the
+//     header action's style at the text's inset); tapped, the other
+//     listings open in place under it, each row saying what sets it
+//     apart ("NVDA · EntropyIO", "NVDAX · Spot");
+//   * "MOVING NOW" is a two-column grid of six flat rows, the ticker and
+//     the day's move ([SearchMoverGrid], [SearchMoverRow]); only markets
+//     with a logo of their own are listed ([searchMoversWithLogos];
+//     founder, 11 November 2026: "don't show Moving now without svg,
+//     means that they have low liquidity"), never a letter tile;
+//   * the EMPTY state is Sal's `sad` face at 40 over one small centred
+//     line ([SearchEmptyState]).
+//
+// Every row presses on the app's spring (KutePressable) and announces
+// itself as one button.
+
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart'
+    show HlDexNames, HlMarket, HlMarketKind, kHlLowLiquidityDayVolumeUsd;
+import 'package:kute/models/polymarket_model.dart'
+    show PolymarketEvent, PolymarketOutcome;
+import 'package:kute/providers/hyperliquid_search_provider.dart'
+    show HlMarketSearchResult;
+import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolymarketPosition;
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlLineSparkline;
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show formatHlPrice, formatHlPct, formatHlUsd, hlPrimaryListings;
+import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show KutePressable, kuteMotion;
+import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
+    show hlSparklineWithLivePrice;
+import 'package:kute/theme/app_theme.dart';
+
+/// The sheet's gutters, the space between its blocks and between rows.
+const double kSearchSheetGutter = 16;
+const double kSearchBlockGap = 28;
+const double kSearchRowGap = 14;
+
+/// A row's least height, and its logo's side.
+const double kSearchRowHeight = 56;
+const double kSearchRowLogo = 36;
+
+/// The sheet's height as a share of the screen, and the row at its top
+/// with the drag handle and the close X (the composer line sits right
+/// under it; search_morph.dart lands the pill there).
+const double kSearchSheetFraction = 0.96;
+const double kSearchSheetHandleRow = 56;
+
+/// The space between the two columns of the "Moving now" grid.
+const double kSearchGridGap = 12;
+
+/// A block's title: 13 sp w600 textPrimary, with [trailing] (a small text
+/// action) at the row's end. 12 px over its rows.
+class SearchBlockHeader extends StatelessWidget {
+  const SearchBlockHeader({super.key, required this.text, this.trailing});
+
+  final String text;
+  final Widget? trailing;
+
+  /// The title's style.
+  static TextStyle style(BuildContext context) => TextStyle(
+        color: context.colors.textPrimary,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+      );
+
+  /// The action's style: the title's size in textSecondary, not bold.
+  static TextStyle actionStyle(BuildContext context) => TextStyle(
+        color: context.colors.textSecondary,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.2,
+      );
+
+  /// The space between the title's line and the rows, 12.
+  static double gapBelow(BuildContext context) => 12.h;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        // 12 under the line: the header's own padding, or the action's
+        // (SearchBlockAction pads its label by the same 12 above and
+        // below, and the row is as tall as the action, the two labels
+        // centred on one line).
+        padding:
+            EdgeInsets.only(bottom: trailing == null ? gapBelow(context) : 0),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style(context)),
+            ),
+            if (trailing != null) trailing!,
+          ],
+        ),
+      );
+}
+
+/// A header's trailing action ("Clear", "See all ›"): small textSecondary,
+/// a chevron after it when [chevron].
+class SearchBlockAction extends StatelessWidget {
+  const SearchBlockAction(
+      {super.key,
+      required this.label,
+      required this.onTap,
+      this.chevron = false,
+      this.expanded});
+
+  final String label;
+  final VoidCallback onTap;
+  final bool chevron;
+
+  /// For an action that opens rows in place: whether they are open. The
+  /// chevron then turns down, and assistive tech hears the state.
+  final bool? expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      button: true,
+      label: label,
+      expanded: expanded,
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: Padding(
+            // A ~40 pt target on a 13 sp word, the 12 below doubling as the
+            // header's gap to its rows (SearchBlockHeader).
+            padding: EdgeInsets.symmetric(
+                horizontal: 4.w, vertical: SearchBlockHeader.gapBelow(context)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: SearchBlockHeader.actionStyle(context)),
+                if (chevron)
+                  AnimatedRotation(
+                    turns: expanded == true ? 0.25 : 0,
+                    duration:
+                        kuteMotion(context, const Duration(milliseconds: 200)),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(Icons.chevron_right_rounded,
+                        size: 16.sp, color: c.textSecondary),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A block's rows, 14 px of air between them and nothing drawn.
+class SearchRowList extends StatelessWidget {
+  const SearchRowList({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: kSearchRowGap.h,
+        children: children,
+      );
+}
+
+/// A row of the sheet: [leading] (36), [title] on up to [titleLines]
+/// lines, [subtitle] under it, [trailing] at the end. At least 56 tall,
+/// flat on the sheet (no inset of its own: the list wears the gutters).
+class SearchListRow extends StatelessWidget {
+  const SearchListRow({
+    super.key,
+    required this.title,
+    required this.onTap,
+    this.leading,
+    this.subtitle,
+    this.trailing,
+    this.titleLines = 2,
+    this.semanticLabel,
+    this.padding,
+  });
+
+  final Widget? leading;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final int titleLines;
+  final VoidCallback onTap;
+  final String? semanticLabel;
+
+  /// The row's inset; none by default.
+  final EdgeInsetsGeometry? padding;
+
+  /// The title's style (16 w500) and the line under it (13 textSecondary).
+  static TextStyle titleStyle(BuildContext context) => TextStyle(
+        color: context.colors.textPrimary,
+        fontSize: 16.sp,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.3,
+        height: 1.2,
+      );
+  static TextStyle subtitleStyle(BuildContext context) => TextStyle(
+        color: context.colors.textSecondary,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.1,
+      );
+
+  /// A figure at a row's end: 16 w600, tabular.
+  static TextStyle figureStyle(BuildContext context, {Color? color}) =>
+      TextStyle(
+        color: color ?? context.colors.textPrimary,
+        fontSize: 16.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel ?? (subtitle == null ? title : '$title, $subtitle'),
+      excludeSemantics: semanticLabel != null,
+      child: KutePressable(
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: kSearchRowHeight),
+            child: Padding(
+              padding: padding ?? EdgeInsets.zero,
+              child: Row(
+                children: [
+                  if (leading != null) ...[
+                    SizedBox(
+                        width: kSearchRowLogo,
+                        height: kSearchRowLogo,
+                        child: Center(child: leading)),
+                    SizedBox(width: 12.w),
+                  ],
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title,
+                            maxLines: titleLines,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle(context)),
+                        if (subtitle != null && subtitle!.isNotEmpty) ...[
+                          SizedBox(height: 2.h),
+                          Text(subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: subtitleStyle(context)),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    SizedBox(width: 12.w),
+                    trailing!,
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An event's picture at a row's size, or a blank square.
+Widget searchEventLogo(BuildContext context, String? imageUrl,
+    {double size = kSearchRowLogo}) {
+  if (imageUrl != null && imageUrl.isNotEmpty) {
+    return PolyCrestImage(url: imageUrl, size: size, radius: size / 4);
+  }
+  return Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+        color: context.colors.surfaceElevated,
+        borderRadius: BorderRadius.circular(size / 4)),
+  );
+}
+
+/// The chance gauge the Predictions list's rows wear (market_card.dart):
+/// a half ring, 40 by 24 with a 4 stroke, its track in the border colour
+/// and the chance's share of it in the primary text colour (neutral: a
+/// chance is not good or bad).
+class SearchChanceGauge extends StatelessWidget {
+  const SearchChanceGauge({super.key, required this.chance});
+
+  /// 0 to 1.
+  final double chance;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return SizedBox(
+      width: 40.w,
+      height: 24.h,
+      child: CustomPaint(
+        painter: _HalfRingPainter(
+          fraction: chance,
+          track: c.border,
+          fill: c.textPrimary,
+          stroke: 4,
+        ),
+      ),
+    );
+  }
+}
+
+/// The gauge's ring: the upper half of a circle, open at the bottom, the
+/// track whole and the fill from the left end for [fraction] of it.
+class _HalfRingPainter extends CustomPainter {
+  final double fraction;
+  final Color track;
+  final Color fill;
+  final double stroke;
+  const _HalfRingPainter({
+    required this.fraction,
+    required this.track,
+    required this.fill,
+    required this.stroke,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = (size.width - stroke) / 2;
+    final rect = Rect.fromCircle(
+        center: Offset(size.width / 2, size.height - stroke / 2), radius: r);
+    Paint paint(Color color) => Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, math.pi, math.pi, false, paint(track));
+    final sweep = math.pi * fraction.clamp(0.0, 1.0);
+    if (sweep > 0) canvas.drawArc(rect, math.pi, sweep, false, paint(fill));
+  }
+
+  @override
+  bool shouldRepaint(covariant _HalfRingPainter old) =>
+      old.fraction != fraction ||
+      old.track != track ||
+      old.fill != fill ||
+      old.stroke != stroke;
+}
+
+/// A prediction market: its picture, the question on [titleLines] lines
+/// (two in the results, one on the home), the chance gauge and the chance
+/// in 16 w600 at the right.
+class SearchPredictionRow extends StatelessWidget {
+  const SearchPredictionRow({
+    super.key,
+    required this.event,
+    required this.onTap,
+    this.titleLines = 2,
+    this.padding,
+    this.outcome,
+  });
+
+  final PolymarketEvent event;
+  final VoidCallback onTap;
+  final int titleLines;
+
+  /// The one outcome among many a search named ("Porto" in "UEFA
+  /// Champions League: 2027 Champion"): its name under the title and its
+  /// chance at the right, never the leader's. Null shows the event's.
+  final PolymarketOutcome? outcome;
+
+  /// The row's inset ([SearchListRow.padding]).
+  final EdgeInsetsGeometry? padding;
+
+  /// The chance the row shows, 0 to 1 (null without prices): a Yes/No
+  /// question's Yes, even when No leads, as the list's own cards do
+  /// (founder, 8 November 2026: "we should show the yes"; a row reading 85%
+  /// over a market page saying Yes 15.5% was the No); otherwise the leading
+  /// outcome.
+  /// With an [outcome], that outcome's chance (none while Polymarket
+  /// shows it none, [PolymarketOutcome.unpriced]).
+  static double? chanceFractionOf(PolymarketEvent event,
+      {PolymarketOutcome? outcome}) {
+    if (outcome != null) return outcome.unpriced ? null : outcome.price;
+    if (event.outcomes.isEmpty) return null;
+    if (event.isBinary) return event.yesPrice;
+    return event.outcomes.map((o) => o.price).reduce(math.max);
+  }
+
+  /// The chance the row shows ("15%"), null without prices.
+  static String? chanceOf(PolymarketEvent event,
+      {PolymarketOutcome? outcome}) {
+    final fraction = chanceFractionOf(event, outcome: outcome);
+    return fraction == null ? null : '${(fraction * 100).round()}%';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = chanceFractionOf(event, outcome: outcome);
+    final chance = chanceOf(event, outcome: outcome);
+    final named = outcome?.name.trim();
+    final subtitle = named == null || named.isEmpty ? null : named;
+    final label = [
+      event.displayTitle,
+      if (subtitle != null) subtitle,
+      if (chance != null) chance,
+    ].join(', ');
+    return SearchListRow(
+      leading: searchEventLogo(context, event.imageUrl),
+      title: event.displayTitle,
+      titleLines: titleLines,
+      subtitle: subtitle,
+      padding: padding,
+      trailing: fraction == null || chance == null
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SearchChanceGauge(chance: fraction),
+                SizedBox(width: 8.w),
+                Text(chance, style: SearchListRow.figureStyle(context)),
+              ],
+            ),
+      semanticLabel: label,
+      onTap: onTap,
+    );
+  }
+}
+
+/// An Investing market from the search: the coin's logo, its name over
+/// its ticker ("TSLA · Spot" for a spot token), the 48 by 20 sparkline
+/// the Investing cards draw (hyperliquid_sparkline_provider.dart) and,
+/// at the right, the price in 16 w600 over the day's move.
+class SearchInvestingRow extends ConsumerWidget {
+  const SearchInvestingRow(
+      {super.key,
+      required this.result,
+      required this.onTap,
+      this.alternative = false});
+
+  final HlMarketSearchResult result;
+  final VoidCallback onTap;
+
+  /// One of the other listings under a result's [SearchMoreWaysRow]: its
+  /// line says what sets it apart, the exchange a perp trades on ("NVDA ·
+  /// EntropyIO") or that it is a token ("NVDAX · Spot"), always with its
+  /// own ticker.
+  final bool alternative;
+
+  /// The line under the name: the ticker when it is not the name, "Spot"
+  /// for a token, and for an [alternative] perp its exchange
+  /// ([HlDexNames.venueOf]).
+  static String tickerLine(BuildContext context, HlMarketSearchResult r,
+      {bool alternative = false}) {
+    final name =
+        (r.name?.trim().isNotEmpty ?? false) ? r.name!.trim() : r.coin;
+    final spot = r.kind == HlMarketKind.spot;
+    final market = r.market;
+    return [
+      if (name != r.coin || alternative) r.coin,
+      if (spot) context.l10n.investingSpot,
+      if (alternative && !spot && market != null) HlDexNames.venueOf(market),
+    ].join(' · ');
+  }
+
+  /// The sparkline's size.
+  static const double sparklineWidth = 48;
+  static const double sparklineHeight = 20;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final r = result;
+    final name = (r.name?.trim().isNotEmpty ?? false) ? r.name!.trim() : r.coin;
+    final ticker = tickerLine(context, r, alternative: alternative);
+    final change = r.dayChangePct;
+    final changeColor = change == 0
+        ? c.textSecondary
+        : (change > 0 ? AppColors.marketUp : AppColors.marketDown);
+    final series = ref.watch(hyperliquidSparklineProvider(r.wireCoin));
+    final closes = series == null
+        ? const <double>[]
+        : hlSparklineWithLivePrice(series.closes, r.markPx);
+    return SearchListRow(
+      leading: HlCoinIcon(
+          coin: r.coin,
+          wireCoin: r.wireCoin,
+          iconUrl: r.iconUrl,
+          category: r.category,
+          size: kSearchRowLogo),
+      title: name,
+      titleLines: 1,
+      subtitle: ticker.isEmpty ? null : ticker,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The line alone, coloured by the day's move; its place is kept
+          // while the series loads.
+          HlLineSparkline(
+            closes: closes,
+            width: sparklineWidth,
+            height: sparklineHeight,
+            upColor: change >= 0 ? changeColor : AppColors.marketUp,
+            downColor: change >= 0 ? AppColors.marketDown : changeColor,
+            baseline: false,
+          ),
+          SizedBox(width: 12.w),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(formatHlPrice(r.markPx, decimalCap: r.pxDecimalCap),
+                  style: SearchListRow.figureStyle(context)),
+              SizedBox(height: 2.h),
+              Text(formatHlPct(change),
+                  style: SearchListRow.subtitleStyle(context).copyWith(
+                      color: changeColor, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// Under an Investing result that trades more than one way: "2 more ways
+/// to trade NVDA ›" in the header action's style ([SearchBlockAction]),
+/// at the row's text inset. Tapped, [onTap] opens the other listings in
+/// place under it and the chevron turns down; tapped again, they close.
+class SearchMoreWaysRow extends StatelessWidget {
+  const SearchMoreWaysRow({
+    super.key,
+    required this.count,
+    required this.ticker,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  /// How many other listings there are.
+  final int count;
+
+  /// The ticker they trade ([HlMarketSearchResult.groupTicker]).
+  final String ticker;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        // The row's text column, less the action's own 4 of padding, so
+        // the words start under the name.
+        padding: EdgeInsetsDirectional.only(
+            start: math.max(0, kSearchRowLogo + 12.w - 4.w)),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: SearchBlockAction(
+            label: context.l10n.searchMoreWaysToTrade(count, ticker),
+            chevron: true,
+            expanded: expanded,
+            onTap: onTap,
+          ),
+        ),
+      );
+}
+
+/// One of the person's own prediction positions: the market's picture,
+/// its question, "Your position · Yes" under it, the value in 16 w600
+/// over the profit or loss (or "Settled") at the right.
+class SearchPositionRow extends StatelessWidget {
+  const SearchPositionRow({
+    super.key,
+    required this.position,
+    required this.price,
+    required this.onTap,
+  });
+
+  final PolymarketPosition position;
+
+  /// The held outcome's price now (live when the feed has it).
+  final double price;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final p = position;
+    final value = p.size * price;
+    final pnl = (price - p.avgPrice) * p.size;
+    final pnlColor = pnl == 0
+        ? c.textSecondary
+        : (pnl > 0 ? AppColors.marketUp : AppColors.marketDown);
+    return SearchListRow(
+      leading: searchEventLogo(context, p.marketImage),
+      title: polyShownQuestion(context, p.marketQuestion, p.eventSlug),
+      subtitle: l10n.searchYourPosition(p.outcome),
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(formatHlUsd(value), style: SearchListRow.figureStyle(context)),
+          // No cost known yet (PolymarketPosition.costKnown): no P&L, as
+          // on its Positions row.
+          if (p.isResolved || p.costKnown) ...[
+            SizedBox(height: 2.h),
+            Text(
+              p.isResolved
+                  ? l10n.activitySettled
+                  : '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
+              style: SearchListRow.subtitleStyle(context).copyWith(
+                  color: p.isResolved ? c.textSecondary : pnlColor,
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// A "Moving now" row, flat: the logo at 36, the ticker (16 w500), the
+/// day's move in 16 w600 coloured at the right. 56 tall, half the sheet
+/// wide in the grid.
+class SearchMoverRow extends StatelessWidget {
+  const SearchMoverRow({super.key, required this.market, required this.onTap});
+
+  final HlMarket market;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final change = market.markPx / market.prevDayPx - 1;
+    final move = formatHlPct(change);
+    return SearchListRow(
+      // A blank plate, never the letter tile or a glyph, until the logo
+      // paints (only markets with a logo are listed here).
+      leading: HlCoinIcon(
+          coin: market.coin,
+          wireCoin: market.wireCoin,
+          iconUrl: market.iconUrl,
+          category: market.category,
+          size: kSearchRowLogo,
+          placeholder: searchEventLogo(context, null)),
+      title: market.coin,
+      titleLines: 1,
+      trailing: Text(
+        move,
+        style: SearchListRow.figureStyle(context,
+            color: change >= 0 ? AppColors.marketUp : AppColors.marketDown),
+      ),
+      semanticLabel: '${market.coin}, $move',
+      onTap: onTap,
+    );
+  }
+}
+
+/// "Moving now": [markets] (six at most) in two columns of flat rows, 14
+/// between the grid's rows and 12 between its columns; an odd last row
+/// leaves its second cell empty.
+class SearchMoverGrid extends StatelessWidget {
+  const SearchMoverGrid(
+      {super.key, required this.markets, required this.onTap});
+
+  final List<HlMarket> markets;
+  final void Function(HlMarket market) onTap;
+
+  /// How many the grid shows.
+  static const int count = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = markets.take(count).toList();
+    final rows = <Widget>[];
+    for (var i = 0; i < shown.length; i += 2) {
+      rows.add(Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+              child: SearchMoverRow(
+                  market: shown[i], onTap: () => onTap(shown[i]))),
+          SizedBox(width: kSearchGridGap.w),
+          Expanded(
+            child: i + 1 < shown.length
+                ? SearchMoverRow(
+                    market: shown[i + 1], onTap: () => onTap(shown[i + 1]))
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ));
+    }
+    return SearchRowList(children: rows);
+  }
+}
+
+/// How many of the day's largest movers "Moving now" looks through for
+/// [SearchMoverGrid.count] with a logo of their own.
+const int kSearchMoverPool = 30;
+
+/// The markets "Moving now" chooses from, best first: of [universe], the
+/// liquid ones ([kHlLowLiquidityDayVolumeUsd] traded in 24h) with a price
+/// and a previous-day price, one per underlying ([hlPrimaryListings]),
+/// by the size of the day's move, the first [kSearchMoverPool].
+List<HlMarket> searchMoverPool(Iterable<HlMarket> universe) =>
+    hlPrimaryListings([
+      for (final m in universe)
+        if (m.prevDayPx > 0 &&
+            m.markPx > 0 &&
+            m.dayNtlVlm >= kHlLowLiquidityDayVolumeUsd)
+          m,
+    ]..sort((a, b) => (b.markPx / b.prevDayPx - 1)
+          .abs()
+          .compareTo((a.markPx / a.prevDayPx - 1).abs())))
+        .take(kSearchMoverPool)
+        .toList();
+
+/// What "Moving now" draws from [ranked] ([searchMoverPool]): the first
+/// [count] markets in rank order whose logo is a known hit
+/// ([HlIconAvailability.of]; CoinCap's guess, a glyph or a letter tile
+/// is no logo), skipping known misses. [pending] are the markets whose
+/// logo is not known yet ranked before the last one [shown] needs: they
+/// are settled with [HlIconAvailability.ensure] and may take a place.
+/// While they could still fill a grid that is short, nothing is [shown]
+/// and the block is [loading] (its skeleton, never letter tiles); with
+/// enough known logos the grid shows them meanwhile. Fewer than [count]
+/// with every logo known: fewer rows; none: no block.
+({List<HlMarket> shown, List<HlMarket> pending, bool loading})
+    searchMoversWithLogos(
+  List<HlMarket> ranked, {
+  int count = SearchMoverGrid.count,
+  HlLogoStatus Function(HlMarket market) status = HlIconAvailability.of,
+}) {
+  final hits = <HlMarket>[];
+  final pending = <HlMarket>[];
+  for (final m in ranked) {
+    if (hits.length >= count) break;
+    switch (status(m)) {
+      case HlLogoStatus.hit:
+        hits.add(m);
+      case HlLogoStatus.unknown:
+        pending.add(m);
+      case HlLogoStatus.miss:
+        break;
+    }
+  }
+  final loading = hits.length < count && pending.isNotEmpty;
+  return (
+    shown: loading ? const <HlMarket>[] : hits,
+    pending: pending,
+    loading: loading,
+  );
+}
+
+/// Nothing found: Sal's `sad` face at 40 over one small centred line.
+class SearchEmptyState extends StatelessWidget {
+  const SearchEmptyState({super.key, required this.text, this.sad = true});
+
+  final String text;
+
+  /// Sal's face over the line; false for a line alone ("Searching…").
+  final bool sad;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 8.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (sad) ...[
+              SalSprite(
+                clip: 'sad',
+                size: 40,
+                fallback: KuteDogGlance(size: 40, color: c.textTertiary),
+              ),
+              SizedBox(height: 10.h),
+            ],
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

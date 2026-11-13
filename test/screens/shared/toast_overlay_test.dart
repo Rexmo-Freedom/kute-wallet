@@ -1,21 +1,17 @@
 // A toast draws on the root overlay and quietly does nothing when there
 // is none. `Overlay.of` threw on the root navigator's own context (its
 // overlay is a descendant) and on a context whose sheet had closed:
-// cancelling a Cash App purchase from Activity was a fatal on iOS.
+// cancelling a Cash App purchase from Activity was a fatal on iOS. Since
+// 9 November 2026 the toast is the Sal toast (sal_toast.dart); the rule
+// is the same.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/sal_toast.dart';
 import 'package:kute/theme/app_theme.dart';
-
-ToastMessage _toast(String text) => ToastMessage(
-      message: text,
-      icon: Icons.check_circle_rounded,
-      accentColor: Colors.green,
-      duration: const Duration(seconds: 2),
-    );
 
 Widget _app(Widget home) => ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -23,11 +19,20 @@ Widget _app(Widget home) => ScreenUtilInit(
     );
 
 void main() {
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    SalToast.debugSuccessFeedbackOverride = () async {};
+    SalToast.debugFailureFeedbackOverride = () async {};
+  });
+  tearDown(() {
+    SalToast.debugReset();
+    SalToast.debugSuccessFeedbackOverride = null;
+    SalToast.debugFailureFeedbackOverride = null;
+  });
 
   Future<void> settle(WidgetTester tester) async {
-    // Past the toast's own duration and exit animation.
-    await tester.pump(const Duration(seconds: 3));
+    // Past the toast's own time and its leave.
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
   }
 
@@ -39,9 +44,10 @@ void main() {
       return const SizedBox();
     }))));
     final rootContext = Navigator.of(page, rootNavigator: true).context;
-    expect(ToastService.overlayFor(rootContext), isNotNull);
+    expect(SalToast.overlayFor(rootContext), isNotNull);
 
-    ToastService.show(rootContext, _toast('Purchase cancelled'));
+    showMessageSnackBar(
+        context: rootContext, message: 'Purchase cancelled', error: false);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Purchase cancelled'), findsOneWidget);
@@ -59,8 +65,8 @@ void main() {
         return const SizedBox();
       }),
     ));
-    expect(ToastService.overlayFor(bare), isNull);
-    ToastService.show(bare, _toast('Nowhere to draw'));
+    expect(SalToast.overlayFor(bare), isNull);
+    showMessageSnackBar(context: bare, message: 'Nowhere to draw', error: false);
     await tester.pump();
     expect(find.text('Nowhere to draw'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -87,8 +93,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(sheet!.mounted, isFalse);
 
-    expect(ToastService.overlayFor(sheet!), isNull);
-    ToastService.show(sheet!, _toast('Too late'));
+    expect(SalToast.overlayFor(sheet!), isNull);
+    showMessageSnackBar(context: sheet!, message: 'Too late', error: false);
     await tester.pump();
     expect(find.text('Too late'), findsNothing);
     expect(tester.takeException(), isNull);

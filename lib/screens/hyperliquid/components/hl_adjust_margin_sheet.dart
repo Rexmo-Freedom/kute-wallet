@@ -49,6 +49,8 @@
 // reports through the slips' `order_funding_*` journey. No ids or
 // addresses.
 
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -72,8 +74,8 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show orderDollarsProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/home/components/deposit/deposit_quick_amounts.dart';
@@ -159,7 +161,7 @@ class HlAdjustMarginSheet extends ConsumerStatefulWidget {
     required String source,
   }) {
     // One margin ticket at a time.
-    return OpenOnce.run(routeName, () => showModalBottomSheet<void>(
+    return OpenOnce.run(routeName, () => showKuteModalSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -324,7 +326,10 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   /// Dollars on the spending account, read live. Zero when unreadable.
   double _dollars({bool watch = false}) {
     try {
-      final v = watch ? ref.watch(usdBalanceProvider) : ref.read(usdBalanceProvider);
+      // Less what other accepted orders hold (committed_funds.dart).
+      final v = watch
+          ? ref.watch(orderDollarsProvider)
+          : ref.read(orderDollarsProvider);
       return v.isFinite && v > 0 ? v : 0;
     } catch (_) {
       return 0;
@@ -557,6 +562,8 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       intent: change,
       reason: l10n.hlMarginStepUp(_market.coin),
       amountUsd: amount,
+      // Only an Add qualifies (SmallActionAllowance.inScope).
+      smallAction: SmallActionContext.usd(amount),
     );
     if (grant == null || !mounted) return;
     _submitted = true;
@@ -745,6 +752,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
             intent: approved,
             reason: reason,
             amountUsd: amount,
+            smallAction: SmallActionContext.usd(amount),
           );
         }
         declined = grant == null;
@@ -1137,16 +1145,11 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                             ],
                           ),
                         ),
-                        IconButton(
-                          tooltip: MaterialLocalizations.of(context)
-                              .closeButtonTooltip,
-                          // A funded change on its way keeps going when
-                          // the ticket closes.
-                          onPressed: _busy
-                              ? null
-                              : () => Navigator.of(context).maybePop(),
-                          icon: Icon(Icons.close_rounded,
-                              color: c.textPrimary, size: 22.sp),
+                        // A funded change on its way keeps going when
+                        // the ticket closes.
+                        KuteCloseButton(
+                          enabled: !_busy,
+                          onPressed: () => Navigator.of(context).maybePop(),
                         ),
                       ],
                     ),
@@ -1372,6 +1375,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                                   ? l10n.feeUiCalculating
                                   : l10n.loading,
                               color: _side,
+                              disabledLabel: canConfirm ? null : l10n.barNeedAmount,
                             ),
                           StepsReveal(
                             child: runSteps != null && runStep != null

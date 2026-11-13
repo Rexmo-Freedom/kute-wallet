@@ -22,6 +22,8 @@ import 'package:kute/screens/usd/usd_account_screen.dart'
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 void main() {
   late GlobalKey<NavigatorState> rootKey;
 
@@ -60,6 +62,8 @@ void main() {
               .copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          // The sheet's Done is the shell bar, over the navigator.
+          builder: withKuteShellBar,
         ),
       ),
     ));
@@ -70,7 +74,7 @@ void main() {
 
   Future<void> tapDoneAndExpectHost(WidgetTester tester) async {
     // Done is always the primary button; a "View ..." is the quiet one.
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('host'), findsOneWidget);
@@ -176,16 +180,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(isClose ? 'Close order placed' : 'Order placed'),
           findsOneWidget);
-      expect(find.widgetWithText(AppButton, 'Done'), findsOneWidget);
+      expect(kuteBarPrimaryWithText('Done'), findsOneWidget);
       final view = find.widgetWithText(AppTextButton, 'View orders');
       expect(view, findsOneWidget);
 
       await tester.tap(view);
       await tester.pumpAndSettle();
       expect(find.byType(KuteConfirmation), findsNothing);
-      final container =
-          ProviderScope.containerOf(tester.element(find.text('host')));
-      expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+      // The Portfolio screen may be over the host now: look under it.
+      final container = ProviderScope.containerOf(
+          tester.element(find.text('host', skipOffstage: false)));
+      // The Portfolio is its own screen (31 October 2026): the Dollars
+      // pill stays where it was, Overview to start (8 November 2026).
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
       expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
       expect(
           events
@@ -206,7 +213,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('View orders'), findsNothing);
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('host'), findsOneWidget);
@@ -224,11 +231,32 @@ void main() {
     openInvestmentsOrders(context,
         product: 'predictions', orderKind: 'limit_sell');
     final container = ProviderScope.containerOf(context);
-    expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+    // The Portfolio is its own screen (31 October 2026): the Dollars
+    // pill stays where it was, Overview to start (8 November 2026).
+    expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
     expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
     expect(events.single.$1, 'order_confirmation_view_orders_tapped');
     expect(events.single.$2,
         {'product': 'predictions', 'order_kind': 'limit_sell'});
+  });
+
+  testWidgets(
+      "Swap's confirmation says Swapped (founder, 7 November 2026: the "
+      'screen is Swap)', (tester) async {
+    await pumpHost(tester);
+    pushMoveSentOverlay(
+      navigator: nav(),
+      amount: r'$25.00',
+      fromWalletName: 'Bitcoin',
+      toWalletName: 'Dollars',
+      note: 'Conversion ongoing',
+      swapped: true,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Swapped to Dollars'), findsOneWidget);
+    expect(find.text('Moved to Dollars'), findsNothing);
+    expect(find.text(r'$25.00'), findsOneWidget);
+    await tapDoneAndExpectHost(tester);
   });
 
   testWidgets('pushMoveSentOverlay shows the destination and the pending note',
@@ -242,7 +270,8 @@ void main() {
       note: 'Arriving in ~2 min',
     );
     await tester.pumpAndSettle();
-    expect(find.text('Sent to Savings'), findsOneWidget);
+    // Own money moved between accounts: "Moved to", never "Sent to".
+    expect(find.text('Moved to Savings'), findsOneWidget);
     expect(find.text('Arriving in ~2 min'), findsOneWidget);
     // The amount is the hero again (the old wrapper dropped it).
     expect(find.text('0.001 BTC'), findsOneWidget);
@@ -278,7 +307,7 @@ void main() {
       overlay: const KuteSuccessOverlay(headlineLabel: 'Received', amount: ''),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
   });
@@ -305,7 +334,7 @@ void main() {
     expect(find.text('send sheet'), findsNothing);
     expect(find.text('home screen'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('home screen'), findsOneWidget);

@@ -8,6 +8,8 @@
 //    deposit sheet in transactions_builder.dart).
 // One approval (the step-up used for sends), then the shared result sheet.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,6 +25,9 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart'
+    show ReceiptBarAction;
+import 'package:kute/screens/share/receipt_share.dart' show ReceiptShare;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -157,17 +162,100 @@ void showDepositClaimFailure(
 /// the provider offers none (the deposit then waits for its 3
 /// confirmations). [vout] may be unknown for a mempool row: the SDK's
 /// pending deposit for [txid] supplies it.
+/// What the provider offers to claim [txid] now, ahead of its 3
+/// confirmations: the fee and output when Claim now can be offered, else
+/// why not (`not_listed_yet`, `unconfirmed`, `needs_more_confirmations`,
+/// `no_early_quote`, `fee_not_below_amount`, `quote_failed`). Never at 0
+/// confirmations, never before the provider's own minimum for an early
+/// claim. Shared by the sheet's button and the Activity row's hint, so
+/// both say the same. Never throws.
+Future<({int? feeSats, int? vout, String? reason})> earlyClaimOffer(
+  SparkDepositActions actions, {
+  required String walletId,
+  required String txid,
+  int? vout,
+  required int amountSats,
+}) async {
+  try {
+    var out = vout;
+    if (out == null) {
+      final deposit =
+          await actions.depositForTxid(walletId: walletId, txid: txid);
+      out = deposit?.vout;
+    }
+    if (out == null) {
+      return (feeSats: null, vout: null, reason: 'not_listed_yet');
+    }
+    final quote = await actions.quote(walletId: walletId, txid: txid, vout: out);
+    if (quote.confirmations < 1) {
+      return (feeSats: null, vout: out, reason: 'unconfirmed');
+    }
+    if (quote.confirmations < (quote.earlyConfirmations ?? 1)) {
+      return (feeSats: null, vout: out, reason: 'needs_more_confirmations');
+    }
+    final fee = quote.earlyFeeSats;
+    if (fee == null) return (feeSats: null, vout: out, reason: 'no_early_quote');
+    if (fee <= 0 || fee >= amountSats) {
+      return (feeSats: null, vout: out, reason: 'fee_not_below_amount');
+    }
+    return (feeSats: fee, vout: out, reason: null);
+  } catch (_) {
+    return (feeSats: null, vout: vout, reason: 'quote_failed');
+  }
+}
+
+/// Whether Claim now is available for a confirming deposit, for its
+/// Activity row: the fee when it is, null otherwise. Keyed by the txid and
+/// the confirmations the row shows, so each new confirmation asks again.
+final depositEarlyClaimOfferProvider = FutureProvider.autoDispose
+    .family<int?, ({String txid, int confirmations, int amountSats})>(
+        (ref, key) async {
+  if (key.confirmations < 1 || key.confirmations >= 3) return null;
+  final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+  if (walletId == null) return null;
+  final offer = await earlyClaimOffer(ref.read(sparkDepositActionsProvider),
+      walletId: walletId, txid: key.txid, amountSats: key.amountSats);
+  return offer.feeSats;
+});
+
+/// How often, and how many times, Claim now asks again while its sheet is
+/// open (about ten minutes in all).
+abstract final class DepositEarlyClaimRetry {
+  static const every = Duration(seconds: 20);
+  static const maxAttempts = 30;
+}
+
+/// Claim now on a confirming deposit's sheet. THE BAR IS THE BUTTON
+/// (founder, 31 October 2026 and 4 November 2026: "the claim button on
+/// Bitcoin receives is still the old button"): while the provider offers
+/// an early claim, "Claim now · fee" is the floating bar's primary button
+/// ([ReceiptBarAction]), busy while the claim runs, and the sheet's own
+/// action ([otherLabel], View on blockchain) steps down to a text button
+/// above the bar; until then, and when no offer comes, that action is the
+/// bar, as on any receipt. The sheet draws no button of its own. [share]:
+/// the receipt's round Sal button beside the bar, whichever it is
+/// (ReceiptBarAction.share).
 class DepositEarlyClaim extends ConsumerStatefulWidget {
   const DepositEarlyClaim({
     super.key,
     required this.txid,
     this.vout,
     required this.amountSats,
+    this.otherLabel,
+    this.onOther,
+    this.share,
   });
 
   final String txid;
   final int? vout;
   final int amountSats;
+
+  /// The sheet's one other action (View on blockchain); null for none.
+  final String? otherLabel;
+  final VoidCallback? onOther;
+
+  /// What the round Sal button beside the bar shares; null: none.
+  final ReceiptShare? share;
 
   @override
   ConsumerState<DepositEarlyClaim> createState() => _DepositEarlyClaimState();
@@ -179,6 +267,14 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
   int? _feeSats;
   bool _busy = false;
 
+  /// Asks again while the sheet stays open: the SDK lists a deposit only
+  /// some time after it is broadcast, and the provider may start (or stop)
+  /// quoting an early claim as it confirms. Checking once, at open, left a
+  /// second deposit with no Claim now for as long as the sheet was up.
+  Timer? _retry;
+  int _attempts = 0;
+  String? _reportedReason;
+
   @override
   void initState() {
     super.initState();
@@ -187,31 +283,43 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _retry?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRetry(String reason) {
+    // Once per sheet and reason: why this deposit offers no Claim now.
+    if (_reportedReason != reason) {
+      _reportedReason = reason;
+      TrackingService.track('deposit_early_claim_unavailable', params: {
+        'reason': reason,
+        'amount_sats': widget.amountSats,
+        'attempt': _attempts,
+      });
+    }
+    if (!mounted || _attempts >= DepositEarlyClaimRetry.maxAttempts) return;
+    _retry?.cancel();
+    _retry = Timer(DepositEarlyClaimRetry.every, _load);
+  }
+
   Future<void> _load() async {
     final walletId = _walletId;
-    if (walletId == null || widget.txid.isEmpty) return;
-    final actions = ref.read(sparkDepositActionsProvider);
-    try {
-      var vout = _vout;
-      if (vout == null) {
-        final deposit =
-            await actions.depositForTxid(walletId: walletId, txid: widget.txid);
-        vout = deposit?.vout;
-      }
-      if (vout == null) return;
-      final quote = await actions.quote(
-          walletId: walletId, txid: widget.txid, vout: vout);
-      if (!mounted) return;
-      final fee = quote.earlyFeeSats;
-      // Only a quote the provider made, below the deposit itself.
-      if (fee == null || fee <= 0 || fee >= widget.amountSats) return;
-      setState(() {
-        _vout = vout;
-        _feeSats = fee;
-      });
-    } catch (_) {
-      // No quote: the deposit simply waits for its confirmations.
-    }
+    if (walletId == null || widget.txid.isEmpty || !mounted) return;
+    _attempts++;
+    final offer = await earlyClaimOffer(ref.read(sparkDepositActionsProvider),
+        walletId: walletId,
+        txid: widget.txid,
+        vout: _vout,
+        amountSats: widget.amountSats);
+    if (!mounted) return;
+    final fee = offer.feeSats;
+    if (fee == null) return _scheduleRetry(offer.reason ?? 'quote_failed');
+    setState(() {
+      _vout = offer.vout;
+      _feeSats = fee;
+    });
   }
 
   Future<void> _claim() async {
@@ -306,24 +414,46 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
   @override
   Widget build(BuildContext context) {
     final fee = _feeSats;
-    if (fee == null) return const SizedBox.shrink();
-    final feeText = ref.watch(conversionProvider(fee));
-    return Padding(
-      padding: EdgeInsets.only(top: 16.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    final other = widget.otherLabel;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (fee != null) ...[
+          SizedBox(height: 16.h),
           DepositFeeRow(feeSats: fee),
-          SizedBox(height: 12.h),
-          AppButton(
-            text: context.l10n.depositClaimNowFee(feeText),
-            onPressed: _busy ? null : _claim,
-            isLoading: _busy,
-            compact: true,
-          ),
+          if (other != null) ...[
+            SizedBox(height: 4.h),
+            AppTextButton(
+              key: const ValueKey('deposit-claim-other'),
+              text: other,
+              onPressed: _busy ? null : widget.onOther,
+            ),
+          ],
         ],
-      ),
+        SizedBox(height: 8.h),
+        // One bar scope across both states (keyed), so the bar changes
+        // its words in place when the offer lands.
+        if (fee != null)
+          ReceiptBarAction(
+            key: const ValueKey('deposit-claim-bar'),
+            label: context.l10n
+                .depositClaimNowFee(ref.watch(conversionProvider(fee))),
+            onPrimary: _claim,
+            busy: _busy,
+            share: widget.share,
+          )
+        else if (other != null)
+          ReceiptBarAction(
+            key: const ValueKey('deposit-claim-bar'),
+            label: other,
+            onPrimary: widget.onOther,
+            share: widget.share,
+          )
+        else
+          ReceiptBarAction.none(
+              key: const ValueKey('deposit-claim-bar'), share: widget.share),
+      ],
     );
   }
 }

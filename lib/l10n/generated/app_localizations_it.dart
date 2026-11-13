@@ -1489,6 +1489,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Indirizzo Lightning';
 
   @override
+  String get sendVerifiedByBranta => 'Verificato da Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta segnala che questo indirizzo è stato sostituito. Controllalo con il destinatario prima di inviare.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Indirizzo Bitcoin';
 
   @override
@@ -1759,12 +1766,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Un amico ti ha invitato';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Guadagni il $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Invita altri $count amici per guadagnare il $rate%';
   }
 
@@ -2681,9 +2683,6 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Utenti con il tuo codice';
-
-  @override
   String get accountPendingPayout => 'Pagamento in sospeso';
 
   @override
@@ -2701,16 +2700,6 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Guadagni il $rate delle commissioni generate dai tuoi amici.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Guadagni il $rate delle commissioni generate dai tuoi amici, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate con $count amici';
   }
@@ -2718,6 +2707,53 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Gli amici hanno $discount di sconto sulle commissioni Kute finché restano con te.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Guadagna il $rate delle commissioni dei tuoi amici';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Loro hanno il $discount di sconto sulle commissioni Kute';
+  }
+
+  @override
+  String get referralShareInvite => 'Condividi invito';
+
+  @override
+  String get referralFriendsJoined => 'Amici iscritti';
+
+  @override
+  String get referralYourRate => 'La tua percentuale';
+
+  @override
+  String get referralTopRate => 'Hai la percentuale massima';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count amici',
+      one: '1 amico',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Condividi il tuo link';
+
+  @override
+  String get referralStepShareLine => 'Invia il tuo link o codice agli amici.';
+
+  @override
+  String get referralStepJoin => 'Si iscrivono e fanno trading';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Guadagni il $rate delle loro commissioni';
   }
 
   @override
@@ -3196,7 +3232,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Indirizzo Bitcoin, Lightning o Spark';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Scambio automatico da Bitcoin';
+  String get sendAutoSwapFromBitcoin => 'Dal tuo Bitcoin';
 
   @override
   String get sendAddressNotIdentified => 'Indirizzo non riconosciuto';
@@ -3266,12 +3302,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'Firma la transazione sul dispositivo.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit disponibili · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Calcolo…';
 
   @override
@@ -3323,11 +3353,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get sendPaymentRequestOnlySupportsLightning =>
       'Questa richiesta di pagamento supporta solo Lightning. Passa a un wallet compatibile con Lightning per pagare.';
-
-  @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Indirizzo $asset su $network';
-  }
 
   @override
   String get sendPasteBitcoinAddress => 'Incolla un indirizzo Bitcoin';
@@ -3415,7 +3440,10 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Aggiunto automaticamente dopo 3 conferme.';
+      'Viene aggiunto in automatico, spesso in pochi minuti e al più tardi dopo 3 conferme. Dalla prima conferma potresti riscattarlo prima, pagando una commissione.';
+
+  @override
+  String get activityClaimNowAvailable => 'Riscattabile ora';
 
   @override
   String get depositReasonFeeHigh =>
@@ -3633,11 +3661,6 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Chiuso · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Ridotto · $coin';
   }
@@ -3703,7 +3726,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Scambio · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4084,6 +4107,15 @@ class AppLocalizationsIt extends AppLocalizations {
   String get hubReferrals => 'Inviti';
 
   @override
+  String get hubReferralsSubtitle => 'Invita amici';
+
+  @override
+  String get hubSupportSubtitle => 'Ricevi aiuto';
+
+  @override
+  String get hubSettingsSubtitle => 'Sicurezza e altro';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Guadagna una parte di ciò che Kute guadagna dai tuoi amici';
 
@@ -4197,6 +4229,16 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Inviato a $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Spostato in $walletName';
+  }
+
+  @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Scambiato in $walletName';
   }
 
   @override
@@ -4892,6 +4934,14 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get slipDepositIncomingNote =>
       'Il tuo denaro è in arrivo. Il pulsante si sblocca appena arriva.';
+
+  @override
+  String get slipOtherOrderPlacingNote =>
+      'Il tuo altro ordine è ancora in fase di piazzamento. Potrai piazzare questo quando sarà completato.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'La tua altra previsione è ancora in fase di piazzamento. Potrai piazzare questa quando sarà completata.';
 
   @override
   String get slipDepositAddMore => 'Aggiungi altro';
@@ -5815,6 +5865,40 @@ class AppLocalizationsIt extends AppLocalizations {
   String get hlAdvancedChart => 'Grafico avanzato';
 
   @override
+  String get optionAdvancedChartSub => 'Disegni e indicatori';
+
+  @override
+  String get optionAboutMarketSub => 'Statistiche e book degli ordini';
+
+  @override
+  String get optionAddMarginSub => 'Più lontano dalla liquidazione';
+
+  @override
+  String get optionPositionDetailsSub => 'Dimensione, ingresso e funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Termina il $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Terminato il $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Come si risolve';
+
+  @override
+  String get optionViewMarketSub => 'Grafico e probabilità';
+
+  @override
+  String get optionPredictionDetailsSub => 'Quote e prezzo pagato';
+
+  @override
+  String get optionProtectSellSub => 'Vendi al tuo prezzo';
+
+  @override
   String get chartStyleCandles => 'Candele';
 
   @override
@@ -5923,13 +6007,52 @@ class AppLocalizationsIt extends AppLocalizations {
   String get chartVwapWindow => 'VWAP sulle candele visualizzate';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indicatori';
 
   @override
   String get chartInterval => 'Intervallo';
+
+  @override
+  String get chartIntervalMinute => '1 minuto';
+
+  @override
+  String get chartIntervalMinuteHint => 'Movimenti in diretta';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 minuti';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Le oscillazioni di oggi';
+
+  @override
+  String get chartIntervalFifteenMinutes => '15 minuti';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'L\'ultimo giorno';
+
+  @override
+  String get chartIntervalHour => '1 ora';
+
+  @override
+  String get chartIntervalHourHint => 'Gli ultimi giorni';
+
+  @override
+  String get chartIntervalFourHours => '4 ore';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Le ultime settimane';
+
+  @override
+  String get chartIntervalDay => '1 giorno';
+
+  @override
+  String get chartIntervalDayHint => 'Gli ultimi mesi';
+
+  @override
+  String get chartIntervalWeek => '1 settimana';
+
+  @override
+  String get chartIntervalWeekHint => 'Sul lungo periodo';
 
   @override
   String get chartSelectTool => 'Seleziona e modifica i disegni';
@@ -5951,7 +6074,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Rendimento non disponibile';
 
   @override
-  String get portfolioStatRealized => 'Profitto / perdita realizzato';
+  String get portfolioStatRealized => 'Profitti realizzati';
 
   @override
   String get portfolioStatAmountPredicted => 'Importo delle previsioni';
@@ -6115,6 +6238,12 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get moveTransfer => 'Sposta denaro';
+
+  @override
+  String get moveVerb => 'Sposta';
+
+  @override
+  String get moveToBitcoin => 'Sposta in Bitcoin';
 
   @override
   String get moveAdd => 'Aggiungi';
@@ -6299,6 +6428,17 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get investingSubmissionUnknown =>
       'La piattaforma non ha confermato il risultato. Controlla ordini e saldo prima di riprovare.';
+
+  @override
+  String get betConfirmingWithVenue => 'Conferma con Polymarket in corso…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Conferma con la piattaforma in corso…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Questo ordine non è andato a buon fine. Non è stato inviato nulla.';
 
   @override
   String get investingApprovalExpired =>
@@ -6495,6 +6635,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get walletPortfolioAction => 'Portafoglio';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Vedi tutto il portafoglio e le attività';
+
+  @override
   String get walletActionsWalletChanged =>
       'Il wallet è cambiato. Riapri il menu delle azioni per continuare.';
 
@@ -6641,9 +6785,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
-  String get sendDollarAccountAddressHint => 'Indirizzo del conto in dollari';
-
-  @override
   String hwSignKeepDeviceNearby(String device) {
     return 'Tieni $device vicino e sbloccato.';
   }
@@ -6713,7 +6854,11 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Un deposito che arriva dopo può ottenere un prezzo diverso.';
+      'I depositi in ritardo possono avere un prezzo diverso.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Moneta o rete sbagliata? Puoi perdere i tuoi soldi.';
 
   @override
   String get receiveOneOffNewAddress => 'Ottieni un nuovo indirizzo';
@@ -6840,6 +6985,11 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String betBuyPartialMarket(String bought, String total, String price) {
     return 'Acquistate $bought quote su $total a $price. Non c\'erano altri venditori al tuo prezzo, quindi il resto non è stato acquistato.';
+  }
+
+  @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Vendute $sold quote su $total a $price. Non c\'erano altri acquirenti al tuo prezzo, quindi il resto non è stato venduto.';
   }
 
   @override
@@ -6996,6 +7146,10 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get betConnectionUnavailable =>
       'Impossibile raggiungere Polymarket. Controlla la connessione e riprova.';
+
+  @override
+  String get betConnectionSlowNotSent =>
+      'La tua connessione è lenta e questo ordine non è andato a buon fine.';
 
   @override
   String get betFeesUnavailable =>
@@ -7180,6 +7334,9 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Non disponibile nella tua regione';
+
+  @override
+  String get capabilityNotAvailableNow => 'Non disponibile al momento';
 
   @override
   String capabilityRegionTitleNamed(String regions) {
@@ -7376,6 +7533,9 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get addWalletOther => 'Altro wallet';
+
+  @override
+  String get addWalletOtherSubtitle => 'Codice QR, file o copia e incolla';
 
   @override
   String get addWalletTrackSubtitle =>
@@ -7586,32 +7746,11 @@ class AppLocalizationsIt extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Nome del wallet';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Quell\'ordine non è più modificabile.';
-
-  @override
   String get salControlUnavailable =>
       'Quel controllo non è disponibile in questa schermata.';
 
   @override
-  String get salSwitchToLimitTitle => 'Passare a un ordine limite?';
-
-  @override
-  String get salOpenLeverageTitle => 'Aprire le impostazioni della leva?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Cambia il tipo di ordine. Controlla prezzo e importo prima di inviare l\'ordine.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'La leva la scegli tu. Si aprono i controlli senza cambiare il valore.';
-
-  @override
   String get salChatWith => 'Chatta con Sal';
-
-  @override
-  String get salAsk => 'Chiedi a Sal';
 
   @override
   String get salUnavailable => 'Sal non è disponibile al momento.';
@@ -7733,20 +7872,12 @@ class AppLocalizationsIt extends AppLocalizations {
       'Le informazioni in tempo reale non sono disponibili.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nessun risultato per “$query”. Invialo per chiedere a Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nessun risultato per “$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Scrivi per cercare mercati';
-
-  @override
-  String get searchOrAskSal => 'Cerca o chiedi qualsiasi cosa a Sal';
 
   @override
   String get searchMarketsHint => 'Cerca mercati';
@@ -7760,6 +7891,17 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String searchYourPosition(String outcome) {
     return 'La tua posizione · $outcome';
+  }
+
+  @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Altri $count modi per fare trading su $ticker',
+      one: '1 altro modo per fare trading su $ticker',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -7891,7 +8033,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get tnNetProfit => 'Profitto netto';
 
   @override
-  String get tnTradingPnl => 'P&L delle operazioni';
+  String get tnTradingPnl => 'Profitti delle operazioni';
 
   @override
   String get tnAllTradingFees => 'Tutte le commissioni di negoziazione';
@@ -7907,7 +8049,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Apertura, chiusure parziali e chiusura finale';
 
   @override
-  String get tnClosedPnlExchange => 'P&L chiuso (piattaforma)';
+  String get tnClosedPnlExchange => 'Profitti chiusi (piattaforma)';
 
   @override
   String get tnFillFee => 'Commissione di esecuzione';
@@ -8090,6 +8232,10 @@ class AppLocalizationsIt extends AppLocalizations {
       'Il wallet Previsioni non è ancora pronto.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Al momento non è possibile raggiungere Previsioni. Non è stato inviato nulla. Controlla la connessione e riprova.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Questo percorso di deposito non è momentaneamente disponibile. Riprova più tardi.';
 
@@ -8150,20 +8296,11 @@ class AppLocalizationsIt extends AppLocalizations {
   String get moveAddFunds => 'Aggiungi fondi';
 
   @override
-  String get movePickPayOrDollars =>
-      'Scegli come vuoi pagare, o usa il tuo saldo in dollari.';
-
-  @override
   String get moveHintAWallet => 'un wallet';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first o $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list o $last';
   }
 
   @override
@@ -8282,12 +8419,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get marketCardSoon => 'a breve';
-
-  @override
-  String get marketCardEsportsLive => 'Esport live';
-
-  @override
-  String get marketCardLiveStream => 'Diretta streaming';
 
   @override
   String get pmOrdersConnectLedger =>
@@ -8799,6 +8930,14 @@ class AppLocalizationsIt extends AppLocalizations {
   String get hlPositionYouPutIn => 'Hai investito';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Leva ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Senza leva';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Vale $amount ora';
   }
@@ -8876,6 +9015,70 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get hlChartYouSold => 'Hai venduto qui';
+
+  @override
+  String hlChartOpenedLong(String size) {
+    return 'Aperto long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Aperto short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Aggiunto al long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Aggiunto allo short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Ridotto long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Ridotto short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Chiuso long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Chiuso short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Passato long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Passato short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Liquidato $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Qui sei andato long';
+
+  @override
+  String get hlChartYouWentShort => 'Qui sei andato short';
+
+  @override
+  String get hlChartYouClosedHere => 'Qui hai chiuso';
 
   @override
   String get hlWithdrawalsUnavailable =>
@@ -9632,6 +9835,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get polyPillElections => 'Elezioni';
 
   @override
+  String get polyPillArt => 'Arte';
+
+  @override
   String get polySubTargets => 'Obiettivi di prezzo';
 
   @override
@@ -9737,6 +9943,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get polySportDarts => 'Freccette';
 
   @override
+  String get polySportVolleyball => 'Pallavolo';
+
+  @override
   String get polySportHandball => 'Pallamano';
 
   @override
@@ -9753,6 +9962,9 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get polySportChess => 'Scacchi';
+
+  @override
+  String get polyDayTomorrow => 'Domani';
 
   @override
   String get polyMoreTitle => 'Tutte le categorie';
@@ -9796,6 +10008,62 @@ class AppLocalizationsIt extends AppLocalizations {
   String get polyCountNow => 'Ora';
 
   @override
+  String get polyMapRepublican => 'Repubblicano';
+
+  @override
+  String get polyMapDemocratic => 'Democratico';
+
+  @override
+  String get polyMapIndependent => 'Indipendente';
+
+  @override
+  String get polyMapNotRepublican => 'Non repubblicano';
+
+  @override
+  String get polyMapNotDemocratic => 'Non democratico';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Repubblicani in vantaggio in $count stati su $total';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Democratici in vantaggio in $count stati su $total';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Sì in vantaggio in $count stati su $total';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nessun mercato aperto';
+
+  @override
+  String get polyMapChanceOfYes => 'Probabilità del Sì';
+
+  @override
+  String get polyMapTapToBuild => 'Tocca gli stati per costruire la tua mappa';
+
+  @override
+  String get polyMapMostLikely => 'Mappa più probabile';
+
+  @override
+  String get polyMapYourMap => 'La tua mappa';
+
+  @override
+  String get polyMapNoSuchMap => 'Nessun mercato per questa mappa';
+
+  @override
+  String get polyMapBackToMostLikely => 'Torna alla mappa più probabile';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side sulla tua mappa';
+  }
+
+  @override
   String get polyPillWatchlist => 'Preferiti';
 
   @override
@@ -9803,6 +10071,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get polyWatchlistRemove => 'Rimuovi dai preferiti';
+
+  @override
+  String get hlWatchlistCreate => 'Crea i preferiti';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Scegli i mercati che segui. Investire si aprirà su di loro.';
 
   @override
   String get livestreamInMiniPlayer => 'In riproduzione nel mini player';
@@ -9892,6 +10167,16 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String polyKickoffTomorrow(String time) {
     return 'Domani $time';
+  }
+
+  @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Termina oggi alle $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Termina domani alle $time';
   }
 
   @override
@@ -10422,157 +10707,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'Quel prezzo è troppo lontano dal prezzo di mercato.';
 
   @override
-  String get salIntroGeneral =>
-      'Esplora i mercati pubblici e scopri come funziona tutto.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Esplora $market e scopri come funziona.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Esplora questo mercato e scopri come funziona.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Scopri come funzionano gli ordini di tipo $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'a mercato',
-        'limit': 'limite',
-        'scale': 'scale',
-        'stopMarket': 'stop a mercato',
-        'stopLimit': 'stop limite',
-        'takeProfitMarket': 'take profit a mercato',
-        'takeProfitLimit': 'take profit limite',
-        'twap': 'TWAP',
-        'other': 'ordine',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Perché $market si muove oggi?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Perché il funding è negativo su $market?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Come funziona il funding su $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Come posso proteggere una posizione su $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Come funziona la liquidazione su $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Cosa muove il prezzo di $market?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Come si confronta $market con mercati simili?';
-  }
-
-  @override
-  String get salChipPmOddsMoving =>
-      'Perché le quote di questo mercato si muovono?';
-
-  @override
-  String get salChipPmClosingSoon =>
-      'Cosa succede quando questo mercato chiude?';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Come sta muovendo queste quote la partita in diretta?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Cosa potrebbe muovere le quote di questo mercato?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Quali sono le regole di risoluzione di questo mercato?';
-
-  @override
-  String get salChipPmRelatedMarkets =>
-      'Quali mercati sono collegati a questo?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Quali sono le ultime notizie su $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Come funziona un ordine di tipo $orderType su $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Che differenza c’è tra ordini a mercato e ordini limite?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Come cambia la leva il rischio di liquidazione?';
-
-  @override
-  String get salChipEduFunding => 'Cos’è il funding in un contratto perpetuo?';
-
-  @override
-  String get salChipEduPredictionBasics =>
-      'Come funzionano i mercati di previsione?';
-
-  @override
-  String get salChipWalletReceive => 'Come ricevo bitcoin in Kute?';
-
-  @override
-  String get salChipWalletSend => 'Come invio bitcoin in Kute?';
-
-  @override
-  String get salChipStocksVsPerps => 'Qual è la differenza tra azioni e perps?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Cos’è una frase di recupero?';
-
-  @override
-  String get salChipBackupHow => 'Come funziona il backup di un wallet?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Perché una frase di recupero deve restare privata?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Cos’è una conferma di rete?';
-
-  @override
-  String get salChipNetworkFees =>
-      'Come funzionano le commissioni della rete Bitcoin?';
-
-  @override
-  String get salChipTxPending =>
-      'Perché una transazione può restare in sospeso?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minimo $amount';
   }
@@ -10601,55 +10735,149 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get searchOrAskSalShort => 'Cerca o chiedi a Sal';
+  String get shareHeaderLabel => 'Invia a un amico';
+
+  @override
+  String get bragPositionAction => 'Sfoggia questa posizione';
+
+  @override
+  String get bragPositionActionSub => 'Una card con il tuo risultato';
+
+  @override
+  String get bragPortfolioAction => 'Sfoggia il tuo portafoglio';
+
+  @override
+  String get bragBarLabel => 'Condividi e vantati';
+
+  @override
+  String get bragPortfolioBarLabel => 'Condividi il portafoglio';
+
+  @override
+  String get bragPnlBarLabel => 'Condividi i profitti';
+
+  @override
+  String get bragMyPnl => 'I miei profitti';
+
+  @override
+  String bragShareText(String title, String link) {
+    return '$title su Kute $link';
+  }
+
+  @override
+  String get bragMyPortfolio => 'Il mio portafoglio';
+
+  @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count altre',
+      one: '+$count altra',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bragCodeLabel => 'Codice';
+
+  @override
+  String get bragSinceYouBought => 'Dall\'acquisto';
+
+  @override
+  String get bragAboutIt => 'Vantatene';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
+
+  @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
+  String get barNeedAmount => 'Enter an amount';
+
+  @override
+  String get barNeedLowerAmount => 'Lower the amount';
+
+  @override
+  String get barNeedRaiseAmount => 'Raise the amount';
+
+  @override
+  String get barNeedRecipient => 'Add who to send to';
+
+  @override
+  String get barNeedNetwork => 'Pick a network';
+
+  @override
+  String get barNeedCoin => 'Pick a coin';
+
+  @override
+  String get barNeedAddress => 'Paste an address';
+
+  @override
+  String get barNeedValidAddress => 'Check the address';
+
+  @override
+  String get barNeedTick => 'Tick the box to continue';
+
+  @override
+  String get barNeedPin => 'Enter your 6-digit PIN';
+
+  @override
+  String get barNeedPinAgain => 'Enter the PIN again';
+
+  @override
+  String get barNeedName => 'Enter a name';
+
+  @override
+  String get barNeedCode => 'Enter a code';
+
+  @override
+  String get barNeedPhrase => 'Enter your 12 words';
+
+  @override
+  String get barNeedPublicKey => 'Paste a public key';
+
+  @override
+  String get barNeedNote => 'Write a note';
+
+  @override
+  String get barNeedFee => 'Pick a fee';
+
+  @override
+  String get barNeedPrice => 'Getting a price…';
+
+  @override
+  String get barNeedOption => 'Pick an option';
+
+  @override
+  String get barNeedWallet => 'Pick a wallet';
+
+  @override
+  String get barNeedCheckAmount => 'Check the amount';
+
+  @override
+  String get barNeedWait => 'One moment…';
+
+  @override
+  String get searchPredictionsOrManageAi =>
+      'Cerca previsioni o gestisci con l\'IA';
+
+  @override
+  String get searchInvestmentsOrManageAi =>
+      'Cerca investimenti o gestisci con l\'IA';
+
+  @override
+  String get searchOrManageAi => 'Cerca o gestisci con l\'IA';
+
+  @override
+  String get connectOwnAiTitle => 'Collega la tua IA';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Lascia che Claude, ChatGPT o Grok gestiscano il tuo wallet';
 
   @override
   String get financialHubAndSettings => 'Hub finanziario e impostazioni';
-
-  @override
-  String get analyticsInOutTab => 'Entrate/uscite';
-
-  @override
-  String get inOutMonth => 'Mese';
-
-  @override
-  String get inOutYear => 'Anno';
-
-  @override
-  String get inOutIn => 'Entrate';
-
-  @override
-  String get inOutOut => 'Uscite';
-
-  @override
-  String get inOutWhereItWent => 'Dove è andato';
-
-  @override
-  String get inOutWhereItCameFrom => 'Da dove è arrivato';
-
-  @override
-  String get inOutSentToPeople => 'Inviato a persone';
-
-  @override
-  String get inOutIntoInvestments => 'In Investments';
-
-  @override
-  String get inOutIntoDollars => 'In Dollari';
-
-  @override
-  String get inOutFromPeople => 'Da persone';
-
-  @override
-  String get inOutFromInvestments => 'Da Investments';
-
-  @override
-  String get inOutFromDollars => 'Da Dollari';
-
-  @override
-  String get inOutBought => 'Acquistato';
-
-  @override
-  String get inOutEmpty => 'Nessuna entrata o uscita';
 
   @override
   String get portfolioStatsActive => 'Attive';
@@ -10661,7 +10889,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get portfolioStatAtStake => 'Importo in gioco';
 
   @override
-  String get portfolioProfitLoss => 'Profitti e perdite';
+  String get portfolioProfitLoss => 'Profitti';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10920,19 +11148,11 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get depositFromAnotherWallet => 'Un altro wallet o exchange';
-
-  @override
   String get depositFromAnotherWalletSubtitle =>
       'Ottieni un indirizzo a cui inviare dollari';
 
   @override
-  String get portfolioStatOpenPnl => 'Profitto / perdita aperto';
-
-  @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Prepara una previsione di $amount';
-  }
+  String get portfolioStatOpenPnl => 'Profitti aperti';
 
   @override
   String multiMoveSendTitle(String amount) {
@@ -10959,7 +11179,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'I tuoi $amount sono in $balance. Tocca per comprare Bitcoin';
+    return 'I tuoi $amount sono in $balance. Tocca per spostarli in Bitcoin';
   }
 
   @override
@@ -10975,6 +11195,19 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Da un altro wallet o exchange';
+
+  @override
+  String get receiveAnotherCrypto => 'Altra crypto';
+
+  @override
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins e altre';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first e $second';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Al tuo wallet';
@@ -11047,16 +11280,6 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Puntata di $amount su $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Apertura ordine da $amount su $market';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Aggiunta di $amount di margine a $coin';
   }
@@ -11065,9 +11288,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'I tuoi $amount sono in Investments. Tocca per aggiungere margine.';
   }
-
-  @override
-  String get salWhyMoving => 'Perché si muove?';
 
   @override
   String get positionProtectIt => 'Proteggila';
@@ -11198,12 +11418,12 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Acquisto di $amount di Bitcoin';
+    return 'Spostamento di $amount in Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Acquistati $amount di Bitcoin';
+    return '$amount spostati in Bitcoin';
   }
 
   @override
@@ -11253,10 +11473,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get cctpRefundContactSupport => 'Per spostarlo, contatta il supporto.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Grafici P&L';
+  String get portfolioSectionPnlCharts => 'Profitti';
 
   @override
-  String get portfolioSectionBalances => 'Portafoglio';
+  String get portfolioSectionBalances => 'Posizioni';
 
   @override
   String balanceChangePastWeek(String change) {
@@ -11326,8 +11546,34 @@ class AppLocalizationsIt extends AppLocalizations {
       'Il tuo saldo nel tempo apparirà qui quando avrai dollari';
 
   @override
+  String get chartPeriodPastWeek => 'Ultima settimana';
+
+  @override
+  String get chartPeriodPastMonth => 'Ultimo mese';
+
+  @override
+  String get chartPeriodPast3Months => 'Ultimi 3 mesi';
+
+  @override
+  String get chartPeriodPastYear => 'Ultimo anno';
+
+  @override
+  String get chartPeriodAllTime => 'Da sempre';
+
+  @override
+  String get chartNoChange => 'Nessuna variazione';
+
+  @override
+  String get pnlChartNoHistory =>
+      'I tuoi profitti compaiono dopo la tua prima posizione.';
+
+  @override
+  String get balanceChartNoHistory =>
+      'Lo storico del saldo inizia con la tua prima transazione.';
+
+  @override
   String get pnlChartEmpty =>
-      'I tuoi profitti e perdite appariranno qui quando farai trading o previsioni';
+      'I tuoi profitti appariranno qui quando farai trading o previsioni';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11355,4 +11601,2934 @@ class AppLocalizationsIt extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'ingresso $price';
   }
+
+  @override
+  String get activityOnItsWay => 'In arrivo';
+
+  @override
+  String get investingTradfi => 'Tradizionale';
+
+  @override
+  String get purchaseShort => 'Compra';
+
+  @override
+  String get categoryGroupDiscover => 'Scopri';
+
+  @override
+  String get categoryGroupMarkets => 'Mercati';
+
+  @override
+  String get categoryGroupTopics => 'Argomenti';
+
+  @override
+  String get categoryGroupTrendingNow => 'Di tendenza ora';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count mercati',
+      one: '1 mercato',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Più attivi';
+
+  @override
+  String get categoryStatToday => 'oggi';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return '$amount vol oggi';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'Tutto in $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'In movimento';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Previsioni di tendenza';
+
+  @override
+  String get barPickMarketGroup => 'Scegli un gruppo di mercati';
+
+  @override
+  String get barPickMarketGroupSub => 'o chiedi a Sal di trovarne uno';
+
+  @override
+  String get barShareWithFriends => 'Invia a un amico';
+
+  @override
+  String get barShareMarketSub => 'Invia il mercato o una previsione';
+
+  @override
+  String get barSharePositionSub => 'Invia il mercato o la tua posizione';
+
+  @override
+  String get shareTheMarket => 'Invia il mercato';
+
+  @override
+  String get shareTheMarketSub => 'Ricevono un link per guardarlo';
+
+  @override
+  String get shareThisPosition => 'Invia questa posizione';
+
+  @override
+  String get shareThisPositionSub => 'Il mercato e come sta andando';
+
+  @override
+  String get sendThisPrediction => 'Invia questa previsione';
+
+  @override
+  String get sendThisInvestment => 'Invia questo investimento';
+
+  @override
+  String get sendThisPickSub => 'Ricevono la tua scelta, pronta da piazzare';
+
+  @override
+  String sharePickOn(String outcome, String title) {
+    return '$outcome su $title';
+  }
+
+  @override
+  String get portfolioInvestedLabel => 'Investito';
+
+  @override
+  String get portfolioAvailableLabel => 'Disponibile';
+
+  @override
+  String get balanceNoHistoryTitle => 'Ancora nessuno storico del saldo';
+
+  @override
+  String get balanceNoHistorySub => 'Inizia con la tua prima transazione.';
+
+  @override
+  String balanceGoalLevel(int level) {
+    return 'Livello $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Pisolino Kute';
+
+  @override
+  String get balanceLevelName1 => 'Moneta Kute';
+
+  @override
+  String get balanceLevelName2 => 'Pila Kute';
+
+  @override
+  String get balanceLevelName3 => 'Podio Kute';
+
+  @override
+  String get balanceLevelName4 => 'Valigetta Kute';
+
+  @override
+  String get balanceLevelName5 => 'Caveau Kute';
+
+  @override
+  String get balanceLevelName6 => 'Torre Kute';
+
+  @override
+  String get balanceLevelName7 => 'Lingotti Kute';
+
+  @override
+  String get balanceLevelName8 => 'Mucchio Kute';
+
+  @override
+  String get balanceLevelName9 => 'Corona Kute';
+
+  @override
+  String get balanceLevelName10 => 'Leggenda Kute';
+
+  @override
+  String get balanceLevelName11 => 'Fuori dai grafici Kute';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% verso $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Obiettivi';
+
+  @override
+  String get balanceGoalsTab => 'Obiettivi';
+
+  @override
+  String get balanceLadderTitle => 'Livelli';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Da $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Meno di $amount';
+  }
+
+  @override
+  String get balanceGoalNext => 'Prossimo obiettivo';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Mancano $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Prossimo: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Sposta $amount in Dollari';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Sposta in Dollari';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Hai superato $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin e dollari insieme. Sal fa finta di niente.';
+
+  @override
+  String get pnlNoHistoryTitle => 'Ancora nessun profitto';
+
+  @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get portfolioPnlAllVenues => 'Tutto';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posizioni fuori dal grafico (storico non disponibile)',
+      one: '1 posizione fuori dal grafico (storico non disponibile)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioHeroUp(String amount) {
+    return 'Su di $amount';
+  }
+
+  @override
+  String portfolioHeroDown(String amount) {
+    return 'Giù di $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Sei in guadagno di $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Sei in perdita di $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Da posizioni chiuse';
+
+  @override
+  String get portfolioPnlOnOpen => 'Su posizioni aperte';
+
+  @override
+  String get portfolioPnlByProduct => 'Per prodotto';
+
+  @override
+  String get portfolioClosedPositions => 'Posizioni chiuse';
+
+  @override
+  String get portfolioBrowseInvesting => 'Esplora gli investimenti';
+
+  @override
+  String get activityFilterTrades => 'Operazioni';
+
+  @override
+  String get activityFilterPayouts => 'Pagamenti';
+
+  @override
+  String get activityFilterTransfers => 'Trasferimenti';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Chiuso · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Chiuso · $coin Short';
+  }
+
+  @override
+  String get pnlStatRealisedAllTime => 'All time realised';
+
+  @override
+  String get pnlStatUnrealisedAllTime => 'All time unrealised';
+
+  @override
+  String portfolioInvestedInVenue(String venue) {
+    return 'Invested in $venue';
+  }
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
+  String get portfolioAllTime => 'Da sempre';
+
+  @override
+  String get barWhatIsThis => 'Cos\'è questo?';
+
+  @override
+  String get barReceiveExplainSub => 'Sal spiega come funziona la ricezione';
+
+  @override
+  String get barReceiveQuestion =>
+      'Spiegami questa schermata di ricezione: il QR, l\'indirizzo Lightning, Unificato vs Solo Bitcoin vs Solo Lightning, e cosa significa «Accetta anche»';
+
+  @override
+  String get barScannerLabel => 'Cosa posso scansionare?';
+
+  @override
+  String get barScannerQuestion =>
+      'Cosa posso scansionare con lo scanner di Kute: indirizzi, fatture, codici QR, e cosa succede dopo una scansione?';
+
+  @override
+  String get barBackupLabel => 'Perché fare il backup?';
+
+  @override
+  String get barBackupQuestion =>
+      'Perché dovrei fare il backup del mio wallet, cos\'è la frase di recupero e come la tengo al sicuro?';
+
+  @override
+  String get barReceiptLabel => 'Cos\'è successo qui?';
+
+  @override
+  String get barReceiptQuestion =>
+      'Spiegami questa ricevuta di transazione: cosa si è mosso, le commissioni, lo stato e cosa significa ogni riga';
+
+  @override
+  String get barAskSalSub => 'Chiedi a Sal di questa schermata';
+
+  @override
+  String get barMoveMoney => 'Sposta denaro';
+
+  @override
+  String get barMoveMoneySub => 'chiedi a Sal dove dovrebbe andare';
+
+  @override
+  String get barAskWhatNext => 'Chiedi a Sal cosa succede ora';
+
+  @override
+  String get barAskAboutKute => 'Chiedi a Sal di Kute';
+
+  @override
+  String get searchHomeRecent => 'Recenti';
+
+  @override
+  String get searchHomeClear => 'Cancella';
+
+  @override
+  String get searchScopeTitle => 'Cerca in';
+
+  @override
+  String get searchShowMore => 'Mostra altri';
+
+  @override
+  String get shareSendToAnyone => 'Invia a chiunque';
+
+  @override
+  String get shareSendToAnyoneSubtitle => 'Un link da riscuotere con Kute';
+
+  @override
+  String get shareWhoIsItFor => 'Per chi è?';
+
+  @override
+  String get shareFirstNameHint => 'Nome (facoltativo)';
+
+  @override
+  String get shareCreateLink => 'Crea link';
+
+  @override
+  String get shareCreatingLink => 'Creazione del link';
+
+  @override
+  String get shareCreateFailed => 'Impossibile creare il link. Riprova.';
+
+  @override
+  String shareAmountInBitcoin(String amount) {
+    return '$amount in Bitcoin';
+  }
+
+  @override
+  String shareMessageNamed(String name, String amount, String url) {
+    return '$name, ti ho inviato $amount con Kute. Riscuoti qui: $url';
+  }
+
+  @override
+  String shareMessageUnnamed(String amount, String url) {
+    return 'Ti ho inviato $amount con Kute. Riscuoti qui: $url';
+  }
+
+  @override
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, ti ho inviato una previsione su Kute: $outcome su $title, $amount. Riscuotila: $url';
+  }
+
+  @override
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Ti ho inviato una previsione su Kute: $outcome su $title, $amount. Riscuotila: $url';
+  }
+
+  @override
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, ti ho inviato un investimento su Kute: $outcome su $title, $amount. Riscuotilo: $url';
+  }
+
+  @override
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Ti ho inviato un investimento su Kute: $outcome su $title, $amount. Riscuotilo: $url';
+  }
+
+  @override
+  String shareLinkSentWaiting(String name) {
+    return 'Link inviato · in attesa che $name lo riscuota';
+  }
+
+  @override
+  String get shareLinkSentWaitingUnnamed =>
+      'Link inviato · in attesa di riscossione';
+
+  @override
+  String get shareLinkClaimedReady => 'Riscosso · pronto da inviare';
+
+  @override
+  String get shareLinkPaid => 'Inviato';
+
+  @override
+  String get shareLinkCancelled => 'Annullato';
+
+  @override
+  String get shareLinkExpired => 'Scaduto';
+
+  @override
+  String get shareLinkCancel => 'Annulla link';
+
+  @override
+  String get shareLinkCancelFailed => 'Impossibile annullare il link. Riprova.';
+
+  @override
+  String get shareLinkShareAgain => 'Condividi di nuovo';
+
+  @override
+  String get sharePendingLinksTitle => 'Link che hai inviato';
+
+  @override
+  String shareClaimedPromptTitle(String name, String amount) {
+    return '$name ha riscosso i tuoi $amount';
+  }
+
+  @override
+  String shareClaimedPromptTitleUnnamed(String amount) {
+    return 'I tuoi $amount sono stati riscossi';
+  }
+
+  @override
+  String get shareClaimedPromptBody =>
+      'Invialo ora per completare. Lascia il tuo wallet solo quando confermi.';
+
+  @override
+  String get shareSendNow => 'Invia ora';
+
+  @override
+  String get shareLater => 'Più tardi';
+
+  @override
+  String get shareSendFailed =>
+      'Invio non riuscito. Kute te lo richiederà alla prossima apertura.';
+
+  @override
+  String claimTitle(String sender, String amount) {
+    return '$sender ti ha inviato $amount';
+  }
+
+  @override
+  String get claimSomeone => 'Qualcuno';
+
+  @override
+  String claimMarketLine(String market) {
+    return 'per una previsione su $market';
+  }
+
+  @override
+  String get claimButton => 'Riscuoti';
+
+  @override
+  String get claimClaiming => 'Riscossione';
+
+  @override
+  String get claimOnItsWay => 'In arrivo';
+
+  @override
+  String claimArrivesWhenOpens(String sender) {
+    return 'Arriva quando $sender apre Kute.';
+  }
+
+  @override
+  String claimSentPrediction(String sender) {
+    return '$sender ti ha inviato una previsione';
+  }
+
+  @override
+  String claimSentInvestment(String sender) {
+    return '$sender ti ha inviato un investimento';
+  }
+
+  @override
+  String claimPickAmount(String outcome, String amount) {
+    return '$outcome · $amount';
+  }
+
+  @override
+  String claimWaitingForSender(String sender) {
+    return 'In attesa che $sender lo invii';
+  }
+
+  @override
+  String claimArrivedInDollars(String amount) {
+    return '$amount è nei tuoi Dollari';
+  }
+
+  @override
+  String get claimPlacePrediction => 'Piazza la previsione';
+
+  @override
+  String get claimPlaceInvestment => 'Piazza l\'investimento';
+
+  @override
+  String get claimOpenMarket => 'Apri il mercato';
+
+  @override
+  String get claimAlreadyClaimed => 'Questo link è già stato riscosso.';
+
+  @override
+  String get claimExpired => 'Questo link è scaduto.';
+
+  @override
+  String get claimUnavailable => 'Questo link non è disponibile.';
+
+  @override
+  String get claimFailed => 'Riscossione non riuscita. Riprova.';
+
+  @override
+  String get claimNeedsWallet =>
+      'Il tuo wallet è ancora in preparazione. Riprova tra un attimo.';
+
+  @override
+  String get shareMarketShareLink => 'Invia il link';
+
+  @override
+  String shareMarketLookAt(String title, String link) {
+    return 'Guarda questo su Kute: $title $link';
+  }
+
+  @override
+  String shareMarketChance(String chance) {
+    return '$chance% di probabilità';
+  }
+
+  @override
+  String get sendRecipientSearchHint => 'Nome, telefono o indirizzo cripto';
+
+  @override
+  String get sendMoveToYourDollars => 'Sposta nei tuoi Dollari';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Sposta nel tuo Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Invia a $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Cosa invii?';
+
+  @override
+  String get sendWhatGift => 'Una previsione o un investimento';
+
+  @override
+  String get sendDollarsTitle => 'Invia dollari';
+
+  @override
+  String sendCoinTitle(String coin) {
+    return 'Invia $coin';
+  }
+
+  @override
+  String get sendContacts => 'Contatti';
+
+  @override
+  String get sendToAFriend => 'Invia a un amico';
+
+  @override
+  String get sendToAFriendSub =>
+      'Lo riscuotono con Kute, senza bisogno di wallet';
+
+  @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
+  String get sendSomeoneElse => 'Qualcun altro';
+
+  @override
+  String get sendAllowContactsInSettings =>
+      'Consenti i contatti nelle Impostazioni';
+
+  @override
+  String get sendAllowContactsInSettingsSub =>
+      'Kute può mostrare solo i contatti che consenti';
+
+  @override
+  String get sendNoContactsMatch => 'Nessun contatto corrispondente';
+
+  @override
+  String get sendContactsSearchHint => 'Cerca contatti';
+
+  @override
+  String get sendContactsSeeYours => 'See your contacts';
+
+  @override
+  String get sendContactsSeeYoursSub => 'Send to friends from your phone book';
+
+  @override
+  String sendLinkToPhone(String phone) {
+    return 'Send a link to $phone';
+  }
+
+  @override
+  String get sendBadgeKute => 'On Kute';
+
+  @override
+  String get sendBadgeLightning => 'Lightning address';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Dal tuo Bitcoin';
+
+  @override
+  String get receiveFromYourDollars => 'Dai tuoi Dollari';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount in Dollari';
+  }
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin e Lightning';
+
+  @override
+  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+
+  @override
+  String get sendRailLightning => 'Lightning';
+
+  @override
+  String get sendRailSpark => 'Spark';
+
+  @override
+  String usdSendNotNetworkAddress(String network) {
+    return 'Non è un indirizzo $network';
+  }
+
+  @override
+  String usdSendResolvedRail(String network, String asset) {
+    return '$network · $asset';
+  }
+
+  @override
+  String get sendPickMarket => 'Invia una previsione o un investimento';
+
+  @override
+  String get sendPickMarketSub => 'Cerca un mercato, poi scegli il lato';
+
+  @override
+  String get sendPickMarketSearchHint => 'Cerca in previsioni e investimenti';
+
+  @override
+  String get sendPickMarketNoResults => 'Nessun risultato';
+
+  @override
+  String get sendPickSideSub => 'Scegli il lato che ricevono';
+
+  @override
+  String get shareSendAgainWhatsApp => 'Invia di nuovo via WhatsApp';
+
+  @override
+  String get shareSendAgainSms => 'Invia di nuovo via SMS';
+
+  @override
+  String get sendToLabel => 'Invia a';
+
+  @override
+  String get predictionsChance => 'probabilità';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get buyDollarsAction => 'Compra dollari';
+
+  @override
+  String get passkeyPrfUnsupportedTitle =>
+      'This password manager can\'t hold your Kute wallet';
+
+  @override
+  String get passkeyPrfUnsupportedBody =>
+      'It doesn\'t support the key Kute needs, so nothing was created.';
+
+  @override
+  String get passkeyPrfUseApplePasswords => 'Use Apple Passwords';
+
+  @override
+  String get passkeyPrfUseGooglePasswordManager =>
+      'Use Google Password Manager';
+
+  @override
+  String get passkeyPrfPickApplePasswords => 'Pick Passwords when asked';
+
+  @override
+  String get passkeyPrfPickGooglePasswordManager =>
+      'Pick Google Password Manager when asked';
+
+  @override
+  String get passkeyPrfUsePhraseInstead => 'Use a recovery phrase instead';
+
+  @override
+  String get passkeyPrfTryAgain => 'Try again';
+
+  @override
+  String get passkeyPrfSignInTitle =>
+      'This password manager didn\'t return your Kute key';
+
+  @override
+  String get passkeyPrfSignInBody =>
+      'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.';
+
+  @override
+  String get passkeyPrfRestoreBody =>
+      'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.';
+
+  @override
+  String get passkeyPrfRestoreWithPhrase => 'Restore with your recovery phrase';
+
+  @override
+  String get passkeyChoiceWorksWithApple => 'Works with Apple Passwords';
+
+  @override
+  String get passkeyChoiceWorksWithGoogle =>
+      'Works with Google Password Manager';
+
+  @override
+  String get sendRecipientSendingTo => 'Sending to';
+
+  @override
+  String get sendRecipientChange => 'Change';
+
+  @override
+  String get sendOtherContacts => 'Other contacts';
+
+  @override
+  String get chartSheetTitle => 'Grafico';
+
+  @override
+  String get chartIndEmaNote => 'Trend di breve, cambia in fretta';
+
+  @override
+  String get chartIndBb => 'Bande di Bollinger';
+
+  @override
+  String get chartIndBbNote => 'Quanto oscilla di solito il prezzo';
+
+  @override
+  String get chartIndRsiNote => 'Se acquisti o vendite sono eccessivi';
+
+  @override
+  String get chartIndMacdNote => 'Il momentum gira al rialzo o al ribasso';
+
+  @override
+  String get chartIndVwapNote => 'Prezzo medio pagato, ponderato per volume';
+
+  @override
+  String get chartIndVolumeNote => 'Quanto è stato scambiato in ogni periodo';
+
+  @override
+  String get chartReset => 'Ripristina';
+
+  @override
+  String chartPaneLimit(String name) {
+    return '$name disattivato: sotto il grafico ne stanno due';
+  }
+
+  @override
+  String get chartToolCursor => 'Cursore';
+
+  @override
+  String get chartToolHorizontalLine => 'Linea orizzontale';
+
+  @override
+  String get chartToolPriceLine => 'Linea di prezzo';
+
+  @override
+  String get chartPriceLines => 'Linee di prezzo';
+
+  @override
+  String get chartPriceLineNew => 'Nuova linea';
+
+  @override
+  String get chartPriceLineNewNote => 'Controllata solo con Kute aperta';
+
+  @override
+  String get chartPriceLineAbove => 'Sopra il prezzo';
+
+  @override
+  String get chartPriceLineBelow => 'Sotto il prezzo';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Raggiunta il $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin ha raggiunto $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Hai $count linee di prezzo. Rimuovine una per aggiungerne un\'altra.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Questo è il prezzo attuale. Scegli un livello sopra o sotto.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'È troppo lontano dal prezzo. Scegli un livello più vicino.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Rimuovere questa linea di prezzo?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin a $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Rimuovi';
+
+  @override
+  String get chartMoreTools => 'Altro';
+
+  @override
+  String get chartColor => 'Colore';
+
+  @override
+  String get chartBlueColor => 'Blu';
+
+  @override
+  String get chartLineSolid => 'Linea continua';
+
+  @override
+  String get chartLineDashed => 'Linea tratteggiata';
+
+  @override
+  String get chartExtendLine => 'Estendi a destra';
+
+  @override
+  String get chartLock => 'Blocca';
+
+  @override
+  String get chartUnlock => 'Sblocca';
+
+  @override
+  String get chartDuplicate => 'Duplica';
+
+  @override
+  String chartHintTapFirstPoint(String tool) {
+    return 'Tocca il primo punto: $tool';
+  }
+
+  @override
+  String get chartHintTapSecondPoint => 'Ora tocca il secondo punto.';
+
+  @override
+  String chartHintToolKept(String tool) {
+    return '$tool resta attivo. Toccalo per smettere.';
+  }
+
+  @override
+  String get chartHintLocked => 'Bloccato. Sbloccalo per spostarlo.';
+
+  @override
+  String get chartHintPickToolKeep =>
+      'Scegli uno strumento. Tocca due volte per tenerlo attivo.';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String receiptCardOnSide(String side) {
+    return 'Sto con $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Probabilità al mio ingresso';
+
+  @override
+  String get receiptCardCashedOut => 'Incassato';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Venduto per $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Non stavolta';
+
+  @override
+  String get receiptCardPaidOut => 'Pagato';
+
+  @override
+  String get receiptCardMoved => 'Spostato';
+
+  @override
+  String get receiptEdgeNoBank => 'Nessuna banca è stata maltrattata.';
+
+  @override
+  String get receiptEdgeSentNext => 'Inviato. Avanti il prossimo.';
+
+  @override
+  String get receiptEdgeLanded => 'Arrivato. Nessun modulo compilato.';
+
+  @override
+  String get receiptEdgeIncoming => 'In arrivo. La pazienza è una funzione.';
+
+  @override
+  String get receiptEdgeMoved => 'Stessi soldi. Posto migliore.';
+
+  @override
+  String get receiptEdgeStacked => 'Accumulato un altro po\'.';
+
+  @override
+  String get receiptEdgeTookSome => 'Tolto qualcosa dal tavolo.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Deciso. Ora si aspetta.';
+
+  @override
+  String get receiptEdgeOnRecord => 'La mia previsione. Agli atti.';
+
+  @override
+  String get receiptEdgeTookWin => 'Preso il guadagno e via.';
+
+  @override
+  String get receiptEdgeCutIt => 'Tagliato. Si va avanti.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Dentro e fuori.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Sbagliato oggi. Si torna domani.';
+
+  @override
+  String get receiptEdgeLesson => 'Lezione pagata per intero.';
+
+  @override
+  String get receiptEdgeCollected => 'Previsto. Incassato.';
+
+  @override
+  String get receiptEdgeOpened => 'Dentro. Ora tocca al mercato.';
+
+  @override
+  String get receiptResult => 'Result';
+
+  @override
+  String get categoryFilterPrompt => 'Filter';
+
+  @override
+  String activityPaidFrom(String source) {
+    return 'Paid from $source';
+  }
+
+  @override
+  String activityPaidFromBoth(String first, String second) {
+    return 'Paid from $first and $second';
+  }
+
+  @override
+  String predictNextWindow(String time) {
+    return 'Prossimo · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset Sale o Scende · $start–$end';
+  }
+
+  @override
+  String predictUpOrDownCompact(String asset, int minutes) {
+    return '$asset up or down · ${minutes}m';
+  }
+
+  @override
+  String get sendFrequent => 'Frequent';
+
+  @override
+  String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'La tua card è pronta';
+
+  @override
+  String shareCardToday(String change) {
+    return '$change oggi';
+  }
+
+  @override
+  String shareCardForNamed(String name) {
+    return 'Per $name';
+  }
+
+  @override
+  String get shareCardForYou => 'Per te';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, una dritta per te';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Una dritta per te';
+
+  @override
+  String get shareCardInvestmentForYou => 'Un investimento per te';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, un investimento per te';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return 'Vince $outcome';
+  }
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'in bitcoin · $amount';
+  }
+
+  @override
+  String get shareCardClaimOnKute => 'Riscattalo su Kute';
+
+  @override
+  String get shareEdgeStockEarly =>
+      'Alcuni di noi comprano prima dei titoli dei giornali.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Su del $change. Prego.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Te l\'avevo detto.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Uno sconto, non un disastro.';
+
+  @override
+  String get shareEdgeStockPanic => 'Compro mentre tu vai nel panico.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance dice che sono in anticipo, non in errore.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return 'Il $chance della folla si sbaglia.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Prendi l’altra parte. Ti sfido.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'I sondaggi sono opinioni. Questi sono soldi.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome o niente.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Spendili con giudizio. O no.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Consideralo un flex.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Bitcoin gratis. Roba rara.';
+
+  @override
+  String get shareEdgeBragPattern => 'Non è fortuna. È fiuto.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount mentre scrollavi.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading => 'In rosso, ma ancora in partita.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Formazione del carattere, $amount alla volta.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Anche la pazienza è una posizione.';
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return 'Probabilità di $outcome';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount su $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'La mia posizione';
+
+  @override
+  String get shareCardOutcomeYes => 'Sì';
+
+  @override
+  String get shareCardOutcomeNo => 'No';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name a $price, in rialzo del $change oggi';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name a $price, in calo del $change oggi';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name vale $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name tratta a un prezzo implicito di $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name a $price al barile';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name a $price l\'oncia';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name a $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return '$outcome: $chance di probabilità secondo i mercati';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Secondo i mercati: $chance di probabilità';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Favorito $outcome: $chance contro $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Favorito $outcome: $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance di vittoria';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance di probabilità che accada';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$chance di probabilità per $outcome';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance di probabilità che succeda';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$chance di probabilità per $outcome';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance per il Sì';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance per il No';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance di probabilità';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, un amico ti ha inviato';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Un amico ti ha inviato';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, un amico ti ha inviato una dritta';
+  }
+
+  @override
+  String get claimCardPick => 'Un amico ti ha inviato una dritta';
+
+  @override
+  String get claimCardTapClaim => 'È tuo. Tocca Riscuoti.';
+
+  @override
+  String get bragWonCaps => 'L\'avevo detto';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Vinta da $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Pagato $paid · Incassato $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Sfoggia questa vincita';
+
+  @override
+  String get bragEdgeWonReceipts => 'Risolto. Prove allegate.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Ingresso a $entry. Invecchiata bene.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount per aver avuto ragione.';
+  }
+
+  @override
+  String get challengeToggle => 'Lancia una sfida';
+
+  @override
+  String get challengeToggleSub => 'Sfidalo a prendere l’altra parte';
+
+  @override
+  String get challengeCaps => 'Ti sfido';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, ti sfido';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Un amico ti sfida';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, un amico ti sfida';
+  }
+
+  @override
+  String get challengeMySide => 'La mia parte';
+
+  @override
+  String get challengeFriendSide => 'Il tuo amico';
+
+  @override
+  String get challengeYourSide => 'La tua parte?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount per giocare, offro io';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Sto con $side. Pensi che sbagli? Prendi l’altra parte.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Dico $side. Hai il coraggio?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Dimostrami che sbaglio.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Ho scelto $side. Tocca a te.';
+  }
+
+  @override
+  String get shareEdgeMoneyNoStrings => 'Senza vincoli. Ho controllato.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Soldi, ma come un messaggio.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Più veloce di una banca. Facile.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Niente moduli. Niente chiacchiere.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Sorpresa. Fai finta di niente.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Prego, in anticipo.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, senza fare domande.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Un regalo. Non un prestito. Credo.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Non spenderli tutti subito.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Non ci fare l\'abitudine.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Con affetto. E un po\' di ego.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Nessuna banca è stata consultata.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience =>
+      'Bitcoin. Maneggiare con pazienza.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Accumula con moderazione.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Senza la predica.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Pochi sats. Grande responsabilità.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Dollari digitali. Stessi dollari.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Contanti, senza la busta.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dollari. Niente cambio da aeroporto.';
+
+  @override
+  String get shareEdgePickScreenshot => 'La mia scelta. Fai uno screenshot.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Archiviato in: l\'ho detto prima io.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Risposta definitiva.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion =>
+      'Non un consiglio. Un\'opinione decisa.';
+
+  @override
+  String get shareEdgePickDidReading => 'Ho studiato. Più o meno.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Lo tengo per il «te l\'avevo detto».';
+
+  @override
+  String get shareEdgePickConviction => 'La convinzione mi dona.';
+
+  @override
+  String get shareEdgePickNotFree => 'Le opinioni sono gratis. Questa no.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount dicono $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Poco dramma. Tanta convinzione.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Se ci prendo, sarò insopportabile.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Con il favorito. Rivoluzionario.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return 'Il $chance è d\'accordo. Folla saggia.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Scelta sicura. Sempre una scelta.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Seguo il pronostico. Che audacia.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Sfavorito. Apposta.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Solo il $chance ci crede. Mi va bene.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Tiro da lontano. Spiegazione corta.';
+
+  @override
+  String get shareEdgePickContrarian => 'Controcorrente, non confuso.';
+
+  @override
+  String get shareEdgeTopicDebates => 'I dibattiti sono rumore. I numeri no.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Oggi sono tutti CT.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatilità inclusa. Nessun extra.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Leggi i verbali. Tutti.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch =>
+      'Scegli da che parte stare. O guarda.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Opinioni gratis. Questa ha i numeri.';
+
+  @override
+  String get shareEdgeMarketUntilResolves =>
+      'Tutti esperti, finché non si risolve.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Gruppo, vi presento le probabilità.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Opinioni forti? Numeri allegati.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Non è un consiglio. È il mercato.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'I numeri cambiano. La domanda no.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Decidi tu. Senza pressione.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Discutiamone. Con calma.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'E tu, da che parte stai?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return 'Il $chance dice $side. Discutiamone.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Sì o no. Non è così semplice.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Una domanda. Due risposte.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return 'Il $chance non è una garanzia.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Domanda facile. Emozioni complicate.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Probabile non vuol dire certo.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader è avanti. Nulla è deciso.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return 'Il $chance non è un\'incoronazione.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Grafico: $leader. Storia: aspetta.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow =>
+      'Favorito oggi. Ne riparliamo domani.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Tanti candidati. Una risposta.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader al $chance. Da seguire.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning =>
+      'Essere in testa non è vincere.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorito, non vincitore sicuro.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Capitano le sorprese. E i favoriti.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Decide la partita. Non i commenti.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay =>
+      'Le probabilità non scendono in campo.';
+
+  @override
+  String get shareEdgeMarketScoreboard =>
+      'Ora le chiacchiere. Poi il tabellone.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Fatti sotto.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Sto con $side. Sei avvisato.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Parlare è facile. Scegli.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Paura? Ti capisco.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Se ne sai di più, dimmelo.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Sto con $side. Tocca a te sbagliare.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, e non mi scuso.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Ho preso $side. L\'altra parte è tua.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Convincimi del contrario.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Ci vediamo alla risoluzione.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Sto con $side. Porta le prove.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Non un consiglio. Solo un grafico.';
+
+  @override
+  String get shareEdgeStockFeelings => 'I grafici non hanno sentimenti.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Forse ne hai sentito parlare.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Giornata verde. Niente scene.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Calma. È solo il $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Non dico che lo sapevo. Ma lo sapevo.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'In rialzo oggi. Domani? Affari suoi.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return 'Il verde dona a $name.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Grafico su. Ego stabile.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Non applaudire. Guarda e basta.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Doppia cifra. Concesso.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return '+$change. Un pensiero per gli short.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Giornata rossa. Calmo come sempre.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Giù del $change. Allarga lo sguardo.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Si scende. Il panico è facoltativo.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Giù del $change. Crescita personale.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Un calo, non un colpo di scena.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Giù oggi. Ancora qui.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatilità: funziona come previsto.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Ogni grafico ha la sua giornata no.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Giù del $change. Respiri profondi.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Non è successo niente. Avvincente.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Giornata piatta. Noia sottovalutata.';
+
+  @override
+  String get shareEdgeStockSideways => 'Anche il laterale è una direzione.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Niente drammi oggi. Sospetto.';
+
+  @override
+  String get shareEdgeStockNap => 'Il grafico fa un pisolino.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Guardo l\'erba crescere. Da pro.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Invariato. Imperturbabile.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Short e sereno.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Non tutto sale.';
+
+  @override
+  String get shareEdgeStockGravity => 'Anche la gravità è una strategia.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Short sull\'hype. Con educazione.';
+
+  @override
+  String get shareEdgeStockShortContrarian =>
+      'Controcorrente, grafico alla mano.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Qualcuno deve stare dall\'altra parte.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Giù del $change. Come previsto.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Su oggi. Posso aspettare.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'In verde, senza fare rumore.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Il verde mi dona.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Te lo spiegherei, ma mi copieresti.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Umile? Ci sto lavorando.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Risultati, non vibes.';
+
+  @override
+  String get shareEdgeBragMildlyPleased =>
+      'Non sorpreso. Vagamente soddisfatto.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Risultati passati. Non una promessa.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Screenshot prima che cambi.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Energia da protagonista.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Ora sarò insopportabile.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Questo sono io, calmo.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Numero grosso. Ego piccolo. Pare.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Vittoria piccola. Sempre vittoria.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Chi va piano va lontano.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Modesto. Come me.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Temporaneamente umile.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Il rosso è una fase.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return '$amount in meno. Lezioni incluse.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'A terra, non KO.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Pubblico le mie perdite. Crescita.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Questa è la mia era dell\'umiltà.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Incassato. Con eleganza.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Non il mio meglio. Non l\'ultimo.';
+
+  @override
+  String get shareEdgeBragDignified => 'In rosso, ma con dignità.';
+
+  @override
+  String get shareEdgeBragTuition => 'Le perdite sono lezioni pagate.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Saldo zero. Calma totale.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Piatto. Perfettamente bilanciato.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Né vinto. Né perso. Né panico.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Il pareggio è imbattuto.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Laterale, con stile.';
+
+  @override
+  String get shareEdgeBragSharedAnyway =>
+      'Niente da vedere. Condiviso comunque.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Linea piatta. Mani ferme.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Il mercato ha battuto ciglio. Io no.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Stabile. Come il mio umore.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Zero drammi. Zero variazioni.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Te l\'avevo detto. Con garbo.';
+
+  @override
+  String get bragEdgeWonNormal => 'Avevo ragione. Resto tranquillo.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Risolto a mio favore.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Avere ragione paga. A volte.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Il mercato era d\'accordo. Alla fine.';
+
+  @override
+  String get bragEdgeWonMySide => 'La mia scelta ha retto.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Pazienza, poi pagamento.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Niente da aggiungere.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Screenshot per il me del futuro.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'In anticipo, poi nel giusto.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Incasso in silenzio.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Farei il sorpreso. Non lo sono.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Inviato. Niente musichetta d\'attesa.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Fatto prima che aprisse la banca.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Soldi spostati. Drammi no.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Secondi, non giorni lavorativi.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Inviato. Mi ringrazierai dopo.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Generoso ed efficiente.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Un tocco. Niente moduli.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Saldato. Si va avanti.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Sistemato. Da adulto.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, partiti in pochi secondi.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Un bonifico, non una saga.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Pagato. Faccio il vago.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Ricevuto. Notato. Apprezzato.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount in più. Imperturbabile.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Arrivato prima del grazie.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Soldi in entrata. Umore in salita.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Ricevuto con grazia.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Neanche chiesto due volte.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled =>
+      'Giorno di paga, fuori programma.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Arrivato. Nessuna banca in mezzo.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Accetto complimenti e bonifici.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Quasi qui. Non fissare lo schermo.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Caricamento. Stai calmo.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'In arrivo. Aggiornare non serve.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking =>
+      'È in arrivo. Non sto controllando.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'In sospeso. Come le cose belle.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'In entrata. Modalità pazienza attiva.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'In viaggio. Snack non inclusi.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Le cose belle richiedono tempo.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Soldi in movimento.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Tutto arriva a chi sa aspettare.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Sposto un po\' i mobili.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Spostati. Non persi.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Tasca sinistra, tasca destra.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Soldi, traslocati.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Stesso padrone. Stanza nuova.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Pulizie di casa, ma per i soldi.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Un rimpasto strategico.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Sposto soldi da persona adulta.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Organizzato. Per ora.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Solo un po\' di ordine.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Allocazione in corso. Con calma.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Non ci ho pensato troppo.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Aggiunto al mucchio.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Accumulo silenzioso.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne =>
+      'Non l\'ho detto a nessuno. Fino a ora.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Compro, non indovino il momento.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount di convinzione.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Uno: comprare. Due: pazienza.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Compro. Ignoro il rumore.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Comprato. Torno alla mia giornata.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'C\'è chi compra scarpe.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Venduto un po\'. Calma intatta.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Convertito. Zero rimpianti. Per ora.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Venduto. Non guardo più il prezzo.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Liquidità: acquisita.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Presi i soldi. Lasciato il dramma.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Venduto. Dormo benissimo.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Anche il cash è una posizione.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Passato al cash. Di proposito.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Tasto vendi: premuto. Con calma.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Un po\' di liquidità non guasta.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Deciso. Più o meno.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Il difficile è aspettare.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Un\'opinione, con i soldi dietro.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Fatto. Unghie intatte.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Scelta fatta. Calma mantenuta.';
+
+  @override
+  String get receiptEdgePredictedJustMySide =>
+      'Non un consiglio. Solo la mia scelta.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Ci vediamo alla risoluzione.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount su $side. Fine del post.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Dentro. Su. Fuori.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Profitto preso. Ego lasciato a casa.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Uscito finché era verde.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Sapere quando uscire è un talento.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Qui ho finito.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Incassato.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Uscita in verde. Niente bis.';
+
+  @override
+  String get receiptEdgeUpGreed => 'L\'avidità non è una strategia.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Uscito in attivo. Disciplina rara.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Una vittoria è una vittoria.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Perdita tagliata. Dignità salva.';
+
+  @override
+  String get receiptEdgeDownExits => 'Anche uscire è un talento.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Sbagliato, ma veloce a uscire.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Uscito presto. Lezione imparata.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Meglio fuori che testardo.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Perdita incassata. Ricevuta tenuta.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Chiuso. Non era la mia giornata.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Uscita in rosso. Zero lacrime.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Ammetterlo è metà del talento.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Lezione pagata.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Andata e ritorno. Niente souvenir.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Al punto di partenza. Più saggio.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Somma zero. Zero stress.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Nessun danno. Nessun fallo.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Il mercato fa spallucce. Anch\'io.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Risultato netto: un aneddoto.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Prossima domanda.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Il mercato ha detto no. Bruscamente.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Persa una. Umorismo intatto.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Sbagliato, ma in buona compagnia.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Questa me la prendo io.';
+
+  @override
+  String get receiptEdgeLostConfidence =>
+      'Wallet più leggero. Stessa sicurezza.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Previsto. Al contrario.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Perdere con classe è un flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Le probabilità erano quelle.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Si va avanti. Già fatto.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Meno una previsione. Più una lezione.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Risolto. Incassato.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Pagamento arrivato. Resto calmo.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, pagati per intero.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Giorno di paga, grazie al mio fiuto.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Posizione aperta. Battito normale.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Entrato con calma. Uscirò con calma.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Ingresso a $price. Preso nota.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Dentro. Non aggiorno ogni minuto.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Convinzione, dosata con giudizio.';
+
+  @override
+  String get receiptEdgeOpenedJustMine =>
+      'Non un consiglio. Solo il mio trade.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'Io e il grafico ci capiamo.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Il mio ingresso. Il mio problema.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Pronto per entrambe le direzioni.';
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, la mia scelta: $outcome su $title. Prendi l’altra parte o unisciti a me. $amount offro io: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'La mia scelta: $outcome su $title. Prendi l’altra parte o unisciti a me. $amount offro io: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Prendi l’altra parte';
+
+  @override
+  String get claimChallengeSameSide => 'Stessa parte del tuo amico';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Il tuo amico sta con $outcome';
+  }
+
+  @override
+  String get activityLatest => 'Latest';
+
+  @override
+  String get activityEarlier => 'Earlier';
+
+  @override
+  String polyRowLeads(String leader, String chance) {
+    return '$leader leads · $chance';
+  }
+
+  @override
+  String get predictAboveTarget => 'above target';
+
+  @override
+  String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Invia una previsione';
+
+  @override
+  String get sendAnInvestment => 'Invia un investimento';
+
+  @override
+  String get sendAPredictionSub => 'Ricevono la previsione che scegli';
+
+  @override
+  String get sendAnInvestmentSub => 'Ricevono l\'investimento che scegli';
+
+  @override
+  String get sendPickOutcomeSub => 'Scegli l\'esito che ricevono';
+
+  @override
+  String get sendPickAmountSub => 'Quanto ricevono?';
+
+  @override
+  String get sendToAFriendLabel => 'A un amico';
+
+  @override
+  String get sendPickRowSub =>
+      'O un investimento. Cerca un mercato, scegli il lato';
+
+  @override
+  String get chartSheetChartType => 'Tipo di grafico';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatilità';
+
+  @override
+  String get chartGroupDisplay => 'Visualizzazione';
+
+  @override
+  String get chartLogScaleNote => 'Stessa variazione %, stessa altezza';
+
+  @override
+  String get chartYourTrades => 'Le tue operazioni';
+
+  @override
+  String get chartYourTradesNote => 'I tuoi acquisti e vendite qui';
+
+  @override
+  String get chartIndSmaNote => 'Trend di lungo, cambia lentamente';
+
+  @override
+  String get chartIndStNote => 'Uno stop mobile che si gira con il trend';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Oscillazioni rapide tra ipercomprato e ipervenduto';
+
+  @override
+  String get chartIndAtrNote => 'Quanto si muove di solito un periodo';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend e livelli in una nuvola';
+
+  @override
+  String get chartIndPivotNote => 'I livelli di oggi, dal range di ieri';
+
+  @override
+  String get chartIndAdxNote => 'Quanto è forte il trend';
+
+  @override
+  String get chartIndObvNote => 'Se il volume sostiene il movimento';
+
+  @override
+  String get chartIndVp => 'Profilo volumi';
+
+  @override
+  String get chartIndVpNote => 'I prezzi con più scambi';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name disattivato: sul prezzo ne stanno quattro';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Impostazioni $name';
+  }
+
+  @override
+  String get chartParamLength => 'Lunghezza';
+
+  @override
+  String get chartParamFast => 'Veloce';
+
+  @override
+  String get chartParamSlow => 'Lenta';
+
+  @override
+  String get chartParamSignal => 'Segnale';
+
+  @override
+  String get chartParamMultiplier => 'Moltiplicatore';
+
+  @override
+  String get chartParamRsiLength => 'Lunghezza RSI';
+
+  @override
+  String get chartParamStochLength => 'Lunghezza stocastico';
+
+  @override
+  String get chartParamSmoothK => 'Smussamento %K';
+
+  @override
+  String get chartParamSmoothD => 'Smussamento %D';
+
+  @override
+  String get chartParamRows => 'Righe';
+
+  @override
+  String get chartParamSmoothing => 'Smussamento';
+
+  @override
+  String get chartParamConversion => 'Linea di conversione';
+
+  @override
+  String get chartParamBase => 'Linea base';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Spostamento';
+
+  @override
+  String get polyPeriodMatch => 'Incontro';
+
+  @override
+  String get polyPeriodFullGame => 'Intero incontro';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Partita $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Mappa $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Set $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1° tempo';
+
+  @override
+  String get polyPeriodSecondHalf => '2° tempo';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Periodo $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Primi 5 inning';
+
+  @override
+  String get polyPeriodFirstInning => '1° inning';
+
+  @override
+  String get polyLineSetHandicap => 'Handicap set';
+
+  @override
+  String get polyLineTotalGames => 'Totale game';
+
+  @override
+  String get polyLineTotalSets => 'Totale set';
+
+  @override
+  String get polyLineTotalKills => 'Totale uccisioni';
+
+  @override
+  String get polyLineTotalRounds => 'Totale round';
+
+  @override
+  String get polyLineDuration => 'Durata';
+
+  @override
+  String get polyLineTeamTotals => 'Totali squadra';
+
+  @override
+  String get polyLinePlayers => 'Giocatori';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Non ancora scambiato · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Decisi · $count';
+  }
+
+  @override
+  String get polySideOver => 'Over';
+
+  @override
+  String get polySideUnder => 'Under';
+
+  @override
+  String get sendPickCardSub => 'Scegli un mercato, il lato e l\'importo';
+
+  @override
+  String get sendPredictionCta => 'Invia previsione';
+
+  @override
+  String get sendInvestmentCta => 'Invia investimento';
+
+  @override
+  String get sendPickYourFriend => 'Il tuo amico';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who riceve $amount su $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side al $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Lo riscuote e lo piazza con un tocco';
+
+  @override
+  String get shareCardPredictionForYou => 'Una previsione per te';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, una previsione per te';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Inserisci un importo da inviare';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Inserisci almeno $amount per inviare';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Si può inviare solo Sì su $outcome. Passa a Sì per inviarlo.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Trova un mercato, scegli lato e importo, poi tocca Sal per inviarlo';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Invia $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Si può inviare solo Sì su $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Invio a un amico';
+
+  @override
+  String get sendPickSearchHint => 'Cerca previsioni e investimenti';
+
+  @override
+  String get sendPickSheetTitle => 'Scegli un regalo';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Scegli un regalo per $name';
+  }
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'Per $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Invia $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Scegli un esito';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Lo compri per $name';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Lo compri per un amico';
+
+  @override
+  String get inviteCardCaps => 'Sei invitato';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount di sconto';
+  }
+
+  @override
+  String get inviteCardFees => 'sulle commissioni Kute';
+
+  @override
+  String get inviteCardJoin => 'Unisciti a me su Kute';
+
+  @override
+  String get inviteCardUseCode => 'Usa il mio codice quando ti iscrivi';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Ti ho portato qui. Prego.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'La tua chat di gruppo ne aveva bisogno.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Sei stato segnalato. Fai finta di stupirti.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Non farmelo chiedere due volte.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'Non è una catena. È un po\' meglio.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Io prendo una quota. Tu uno sconto. Stiamo tutti bene.';
+
+  @override
+  String get shareEdgeInviteFees =>
+      'Commissioni più basse. Stesso numero di opinioni.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'Lo sconto è vero. Il cane resta impassibile.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Condividi il mio livello';
+
+  @override
+  String get goalCardCaps => 'Il mio livello';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Non è per vantarmi. È solo un livello.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal ha controllato. Ancora non è colpito.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Un livello alla volta. Nessuna fretta.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked =>
+      'Nessuno l\'ha chiesto. Condivido lo stesso.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal dice che non è niente. Lo dice spesso.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Salita lenta. Di proposito.';
+
+  @override
+  String get shareEdgeGoalNoTrophy =>
+      'Niente trofeo. Solo un cane e un livello.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Tocca a te. Sal aspetta.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Arriva come bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'Email, nessun indirizzo Lightning';
+
+  @override
+  String get barNeedLightningAddress => 'Nessun indirizzo Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Invio della tua previsione';
+
+  @override
+  String get orderNoticePlacingOrder => 'Invio del tuo ordine';
+
+  @override
+  String get orderNoticeWaitingMoney => 'In attesa che arrivino i tuoi soldi';
+
+  @override
+  String get orderNoticeConverting => 'Conversione dei tuoi dollari';
+
+  @override
+  String get orderNoticeSettingUp => 'Configurazione del tuo account';
+
+  @override
+  String get orderNoticeSending => 'Invio dell\'ordine alla piattaforma';
+
+  @override
+  String get orderNoticeConfirming => 'Conferma con la piattaforma';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Previsione inviata';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Ordine inviato';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Previsione non inviata';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Ordine non inviato';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Non ancora confermato';
+
+  @override
+  String get orderNoticeOpenToSee => 'Apri Kute per vedere cosa è successo.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Ordini in corso';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'L\'avanzamento di una previsione o di un ordine mentre Kute è in background.';
+
+  @override
+  String get orderNoticeResultChannel => 'Risultati degli ordini';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Se una previsione o un ordine inviato mentre Kute era in background è andato a buon fine.';
+
+  @override
+  String get predictionsInstant => 'Istantanee';
+
+  @override
+  String get categoryInstantLengths => '5 min · 15 min · 1 ora · 4 ore';
+
+  @override
+  String get categoryFiveMinuteMarkets => 'Mercati a 5 minuti';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Ora · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Ancora senza prezzi';
+
+  @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · vinci $payout';
+  }
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Sale o Scende · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Stiamo piazzando la tua previsione';
+
+  @override
+  String get standingPlacingOrder => 'Stiamo piazzando il tuo ordine';
+
+  @override
+  String get standingPlacingInvestment =>
+      'Stiamo piazzando il tuo investimento';
+
+  @override
+  String get standingPredictionPlaced => 'Previsione piazzata';
+
+  @override
+  String get standingOrderPlaced => 'Ordine piazzato';
+
+  @override
+  String get standingPredictionFailed =>
+      'La tua previsione non è stata piazzata. I soldi sono in Previsioni, disponibili.';
+
+  @override
+  String get standingOrderFailed =>
+      'Il tuo ordine non è stato piazzato. I soldi sono in Investimenti, disponibili.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Annullato. I soldi restano in Previsioni, disponibili.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Annullato. I soldi restano in Investimenti, disponibili.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Il prezzo è passato a $price. Tocca per piazzare al nuovo prezzo.';
+  }
+
+  @override
+  String get standingStagePlacing => 'Piazzamento';
+
+  @override
+  String get standingStageApproval => 'Serve la tua approvazione';
 }

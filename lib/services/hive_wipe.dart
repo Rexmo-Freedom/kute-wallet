@@ -72,11 +72,13 @@ const List<String> hiveBoxesWipedOnWipe = [
   'wallet_transaction_cache',
   'spark_address_ring',
   'runtime_policy_cache',
+  'branta_payees_v1',
   // Opened on demand.
   'currency_rates_v2',
   'hl_chart_preferences',
   'hl_chart_candle_interval',
   'hl_chart_drawings',
+  'hl_price_lines',
   'trade_results_v1',
   'orchestraRoutesCatalog',
   'hyperliquid_watchlist',
@@ -108,6 +110,9 @@ const List<String> hiveBoxesWipedOnWipe = [
   'pending_receive_quotes_v1',
   'onetime_refund_addresses_v1',
   'venue_analytics',
+  // A wiped wallet's standing orders can never be placed; their signed
+  // secrets live in secure storage, cleared with the wallet.
+  'standing_orders',
 ];
 
 /// Deletes every box in [hiveBoxesWipedOnWipe] from disk, best-effort:

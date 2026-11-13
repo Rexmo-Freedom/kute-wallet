@@ -1,9 +1,12 @@
 // The Bitcoin receive sheet's layout: the header row (close + "Receive
 // into") is the top, with no "Receive" title under it; the QR plate is as
-// large as the sheet allows; the address and the Copy / Share row sit
-// right under it, above the fold on a 390x844 phone; request amount is a
-// quiet text action under the row; the format chips and "also accepts"
-// follow, reachable by scroll. The wallet never answers here, so nothing
+// large as the sheet allows; the address sits right under it, above the
+// fold on a 390x844 phone, with no Copy or Share button by it (the address
+// line copies, Share is the bar: confirm_receive_bar_test.dart reads it in
+// every state); request amount is a quiet text action under the address; the
+// format chips follow, and no "Also accepts" line any more (founder, 6 November 2026: the other coins are
+// "From another asset" on Receive or swap, the sheet before this one).
+// The wallet never answers here, so nothing
 // reaches a money call: the address and the Lightning address are
 // stubbed.
 
@@ -40,6 +43,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart' show kuteBarPrimaryContext;
 import '../../helpers/runtime_policy_fixture.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart'
     show standingDestinationsProvider;
@@ -194,46 +198,44 @@ void main() {
   });
 
   testWidgets(
-      'Share is one full-width filled button under the address, with no '
-      'Copy beside it (the address line copies), and request amount is a '
-      'text action under it; all of it above the fold at 390x844',
+      'no Share or Copy button in the page (the bar shares, the address line '
+      'copies), and request amount is a text action under the address; all '
+      'of it above the fold at 390x844',
       (tester) async {
     await _pump(tester);
     final address = find.byType(ReceiveAddressLine);
-    final share = _button(_l10n.share);
     final request = find.byKey(const ValueKey('receive-request-amount'));
     expect(address, findsOneWidget);
-    expect(share, findsOneWidget);
+    expect(_button(_l10n.share), findsNothing);
     expect(_button(_l10n.copy), findsNothing);
+    expect(kuteBarPrimaryContext(tester).label, _l10n.share);
     expect(request, findsOneWidget);
 
-    expect(tester.widget<AppButton>(share).variant, AppButtonVariant.primary);
     expect(tester.widget(request), isA<AppTextButton>());
     expect(find.text(_l10n.receiveRequestAmount), findsOneWidget);
     // Request amount is not a big button.
     expect(find.widgetWithText(AppButton, _l10n.receiveRequestAmount),
         findsNothing);
 
-    final shareRect = tester.getRect(share);
     final addressRect = tester.getRect(address);
-    // Full width: as wide as the address line's column.
-    expect(shareRect.width, greaterThan(addressRect.width * 0.9));
-    expect(shareRect.top, greaterThan(addressRect.bottom));
-    expect(tester.getRect(request).top, greaterThan(shareRect.bottom));
+    final requestRect = tester.getRect(request);
+    expect(requestRect.top, greaterThan(addressRect.bottom));
 
-    // Above the fold: the address and Share end inside the screen
-    // without a scroll.
+    // Above the fold: the address and request amount end inside the
+    // screen without a scroll.
     expect(addressRect.bottom, lessThan(844));
-    expect(shareRect.bottom, lessThan(844));
+    expect(requestRect.bottom, lessThan(844));
 
-    // Format chips and "also accepts" follow, reachable by scroll.
+    // Format chips follow; no "Also accepts" line under them, even with
+    // coins on offer.
     final chips = find.text(_l10n.receiveQrFormatUnified);
     expect(chips, findsOneWidget);
-    expect(tester.getTopLeft(chips).dy, greaterThan(shareRect.bottom));
-    final accepts = find.byType(CoinMarksLine);
-    await tester.scrollUntilVisible(accepts, 200,
-        scrollable: find.byType(Scrollable).first);
-    expect(accepts, findsOneWidget);
+    expect(tester.getTopLeft(chips).dy, greaterThan(requestRect.bottom));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+    await tester.pump();
+    expect(find.byType(CoinMarksLine, skipOffstage: false), findsNothing);
+    expect(find.text(_l10n.receiveAlsoAccepts, skipOffstage: false),
+        findsNothing);
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
@@ -277,7 +279,8 @@ void main() {
     // Under the sheet's 5 s balance watch, which would reach real storage.
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.tap(_button(_l10n.share));
+    expect(kuteBarPrimaryContext(tester).label, _l10n.share);
+    kuteBarPrimaryContext(tester).onPrimary!();
     await tester.pump();
     expect(shared, isNotEmpty);
     expect(shared.single.arguments.toString(),
@@ -290,7 +293,7 @@ void main() {
   testWidgets(
       'swaps blocked for a region (and the cascade): plain bitcoin is '
       'untouched (the on-chain address, the Lightning address and LNURL, '
-      'Share), and "also accepts" still lists its coins', (tester) async {
+      'Share)', (tester) async {
     const regions = {'label': 'the European Union, the UK and Switzerland'};
     const cascade = [
       'orchestra.swap.stablecoins',
@@ -329,9 +332,9 @@ void main() {
     await _pump(tester);
     expect(find.byType(ReceiveQrPlate), findsOneWidget);
     expect(find.byType(ReceiveAddressLine), findsOneWidget);
-    expect(_button(_l10n.share), findsOneWidget);
-    expect(tester.widget<AppButton>(_button(_l10n.share)).onPressed,
-        isNotNull);
+    final bar = kuteBarPrimaryContext(tester);
+    expect(bar.label, _l10n.share);
+    expect(bar.enabled && !bar.busy, isTrue);
     expect(find.textContaining('Not available'), findsNothing);
     await tester.tap(find.descendant(
         of: find.byType(ReceiveAddressLine),
@@ -348,10 +351,7 @@ void main() {
     await tester.pump();
     expect(copied.last, contains(_address));
 
-    final accepts = find.byType(CoinMarksLine);
-    await tester.scrollUntilVisible(accepts, 200,
-        scrollable: find.byType(Scrollable).first);
-    expect(accepts, findsOneWidget);
+    expect(find.byType(CoinMarksLine, skipOffstage: false), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(milliseconds: 300));
     await _unmount(tester);
@@ -364,10 +364,10 @@ void main() {
     expect(tester.takeException(), isNull);
     final side = _plate(tester);
     expect(side.width, closeTo(375 * 0.87, 0.5));
-    expect(_button(_l10n.share), findsOneWidget);
+    expect(kuteBarPrimaryContext(tester).label, _l10n.share);
     expect(_button(_l10n.copy), findsNothing);
-    await tester.scrollUntilVisible(find.byType(CoinMarksLine), 200,
-        scrollable: find.byType(Scrollable).first);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+    await tester.pump();
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });

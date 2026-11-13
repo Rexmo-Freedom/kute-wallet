@@ -22,7 +22,9 @@ import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/money_steps_view.dart'
+    show debugResetSalJourneyWarm;
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -30,6 +32,7 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_scanner_camera.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 final _l10n = AppLocalizationsEn();
 
@@ -115,6 +118,9 @@ Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester) async {
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp.router(
+        // The shell bar over the page (kute_bar_test_support.dart): the
+        // steps' Continue and Send are the bar.
+        builder: withKuteShellBar,
         routerConfig: router,
         theme: ThemeData(
             splashFactory: NoSplash.splashFactory,
@@ -167,6 +173,34 @@ void main() {
         moreOrLessEquals(812 * kSendSheetMediumFraction));
   });
 
+  testWidgets(
+      'opening the send decodes the 3D Sal of the result sheet, before '
+      'anyone taps Send; no journey follows this send, so none of its clips',
+      (tester) async {
+    // Founder, 9 November 2026: the last send screen shows the 3D Sal,
+    // never the pixel one; the result sheet after Send reads its clips
+    // here, on open (send_flow_widgets.dart, warmSendSal).
+    _clipboard(tester, null);
+    // Staged in the test body (the test's own zone), so the warm-up's
+    // awaits run on the test's pumps.
+    SalSpriteCache.debugSetManifest(null);
+    // Back to the config's (no sheets), never the bundle's: a real
+    // looping sheet would keep later pumpAndSettles from settling.
+    addTearDown(() => SalSpriteCache.debugSetManifest(null));
+    await _pump(tester);
+    SalSpriteCache.debugRequestLog = [];
+    addTearDown(() => SalSpriteCache.debugRequestLog = null);
+    debugResetSalJourneyWarm();
+    await tester.tap(find.text('Open send'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConfirmSend), findsOneWidget);
+    final asked = SalSpriteCache.debugRequestLog!;
+    expect(asked, containsAll(['happy', 'nod', 'shake_no', 'blink']),
+        reason: 'the result sheet\'s clips');
+    expect(asked.where((c) => c.startsWith('body_')), isEmpty,
+        reason: 'no journey on the Bitcoin send');
+  });
+
   testWidgets('a payment link with its recipient opens it full, on Amount',
       (tester) async {
     final (container, router) = await _pump(tester);
@@ -185,9 +219,10 @@ void main() {
   });
 
   testWidgets(
-      'a recipient expands it and moves on to Amount; past Send to a drag '
-      'does not close it, system back steps back, and the funnel says it '
-      'is a sheet', (tester) async {
+      'a pasted recipient expands it and goes straight on to Amount (the '
+      'input decides the rail); past Send to a drag does not close it, '
+      'system back steps back, and the funnel says it is a sheet',
+      (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -201,8 +236,6 @@ void main() {
     await tester.tap(find.byTooltip(_l10n.paste));
     await tester.pumpAndSettle();
     expect(tester.getSize(_sheet).height, moreOrLessEquals(_full));
-    await tester.tap(find.text(_l10n.continueLabel));
-    await tester.pumpAndSettle();
     expect(_step(_l10n.amount), findsOneWidget);
     expect(events.where((e) => e.$1 == 'send_step').map((e) => e.$2?['step']),
         contains('amount'));
@@ -255,8 +288,9 @@ void main() {
     expect(_cameras.last.disposed, isTrue);
   });
 
-  testWidgets('the scanner opens over the sheet and fills its recipient',
-      (tester) async {
+  testWidgets(
+      'the scanner opens over the sheet, fills its recipient and goes '
+      'straight on to Amount', (tester) async {
     _clipboard(tester, null);
     await _pump(tester);
     await tester.tap(find.text('Open send'));
@@ -271,8 +305,12 @@ void main() {
     expect(find.byType(ScannerSheet), findsNothing);
     expect(_cameras.last.disposed, isTrue);
     expect(find.byType(ConfirmSend), findsOneWidget);
-    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+    expect(
+        ProviderScope.containerOf(tester.element(find.byType(ConfirmSend)))
+            .read(sendTxProvider)
+            .address,
         _btc);
+    expect(_step(_l10n.amount), findsOneWidget);
     expect(tester.getSize(_sheet).height, moreOrLessEquals(_full));
   });
 
@@ -302,8 +340,6 @@ void main() {
     await _pump(tester);
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
-    final cta = find.ancestor(
-        of: find.text(_l10n.continueLabel), matching: find.byType(AppButton));
     for (final recipient in [
       'lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq',
       'satoshi@paykute.com',
@@ -313,12 +349,12 @@ void main() {
     ]) {
       await tester.enterText(find.byType(TextField), recipient);
       await tester.pumpAndSettle();
-      expect(tester.widget<AppButton>(cta).onPressed, isNotNull,
+      expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull,
           reason: recipient);
       expect(find.textContaining('Not available'), findsNothing,
           reason: recipient);
     }
-    await tester.tap(cta);
+    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
     await tester.pumpAndSettle();
     expect(_step(_l10n.amount), findsOneWidget);
     expect(find.byType(CapabilityUnavailableSheet), findsNothing);
@@ -349,14 +385,13 @@ void main() {
     const keyboardTop = 812 - keyboard;
     expect(tester.getRect(find.byType(TextField)).bottom,
         lessThanOrEqualTo(keyboardTop));
-    final cta = find.ancestor(
-        of: find.text(_l10n.continueLabel), matching: find.byType(AppButton));
-    expect(tester.getRect(cta).bottom, lessThanOrEqualTo(keyboardTop));
-    expect(tester.widget<AppButton>(cta).onPressed, isNotNull);
+    // Continue is the bar, away under the keyboard and back once it goes.
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
-    await tester.tap(cta);
-    await tester.pumpAndSettle();
+    // The keyboard gone, the bar is back: Continue.
     tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(_step(_l10n.amount), findsOneWidget);

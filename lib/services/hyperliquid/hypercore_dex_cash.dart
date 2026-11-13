@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:async';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 
@@ -23,6 +24,13 @@ abstract final class OwnDexReadiness {
 class OwnDexCreditPending implements Exception {
   const OwnDexCreditPending();
 }
+
+/// How long an order waits for the builder dex to show the collateral it
+/// was just sent ([waitForOwnDexCash]'s [maxWait] on the order path).
+/// Nothing moves during the wait: it is long enough for a slow dex read,
+/// so the first order on a builder market does not give up while its cash
+/// is on the way, only to work the second time.
+const Duration kOwnDexCreditWait = Duration(seconds: 30);
 
 /// A transfer acknowledgement precedes its clearinghouse read becoming usable.
 /// Never submit the order against stale collateral, or resend a transfer while
@@ -53,7 +61,13 @@ Future<void> waitForOwnDexCash({
 /// Collect only withdrawable collateral for a reviewed action. Exchange
 /// withdrawal caps preserve margin; the destination is always the same owner.
 /// A failed or ambiguous transfer aborts, without trying another route.
-Future<void> collectOwnDexCash({
+/// Returns what it moved into the main perpetuals account (0: nothing).
+///
+/// Each leg is the shortfall rounded UP to the transfer's micro-dollar (never
+/// more than that dex's whole micro-dollars): flooring it left the main
+/// account a fraction of a micro-dollar short of an exact eight-decimal
+/// requirement, and the send that followed then asked spot for the rest.
+Future<double> collectOwnDexCash({
   required HyperliquidModel model,
   required HyperliquidExchangeService exchange,
   required double requiredDefaultUsd,
@@ -63,13 +77,13 @@ Future<void> collectOwnDexCash({
   if (!requiredDefaultUsd.isFinite || requiredDefaultUsd < 0) {
     throw ArgumentError('Invalid collateral requirement');
   }
-  if (requiredDefaultUsd == 0) return;
+  if (requiredDefaultUsd == 0) return 0;
   final base = await model.getAccountSnapshot(exchange.walletAddress);
   if (!base.withdrawable.isFinite || base.withdrawable < 0) {
     throw const FormatException('Collateral unavailable');
   }
   var shortfall = requiredDefaultUsd - base.withdrawable;
-  if (shortfall <= 0) return;
+  if (shortfall <= 0) return 0;
   final dexes = await model.getUsdcDexAccounts(exchange.walletAddress);
   // Validate the complete reserve before moving any collateral. Holdings
   // reserved for positions or open orders are never included.
@@ -80,22 +94,152 @@ Future<void> collectOwnDexCash({
     throw const HyperliquidInsufficientMarginException(
         'Insufficient withdrawable USDC');
   }
+  var moved = 0.0;
   for (final entry in dexes.entries) {
     if (entry.key == excludeDex) continue;
-    final amount =
-        (math.min(shortfall, entry.value.withdrawable) * 1e6).floorToDouble() /
-            1e6;
+    final whole = (entry.value.withdrawable * 1e6 + 1e-3).floorToDouble();
+    final wanted = (shortfall * 1e6 - 1e-3).ceilToDouble();
+    final amount = math.min(wanted, whole) / 1e6;
     if (amount <= 0) continue;
     await exchange.moveOwnUsdc(
         sourceDex: entry.key,
         destinationDex: '',
         amount: amount,
         beforeSend: beforeSend);
+    moved += amount;
     shortfall -= amount;
-    if (shortfall <= 1e-6) return;
+    if (shortfall <= 1e-6) return moved;
   }
   if (shortfall > 1e-6) {
     throw const HyperliquidInsufficientMarginException(
         'Insufficient withdrawable USDC');
   }
+  return moved;
+}
+
+/// How long a send out of the main perpetuals account waits for the main
+/// account's read to show cash just moved into it from the person's own
+/// builder dex or spot balance ([gatherOwnPerpCash]). Reads only. Shorter
+/// than an order's [kOwnDexCreditWait]: the one-time CCTP quote in hand has
+/// at least 75 s left when the send starts and must keep 30 s at the POST.
+const Duration kOwnPerpCreditWait = Duration(seconds: 20);
+
+/// Gathers the person's own Investing cash into the main perpetuals account
+/// before a send out of it (a CCTP burn, a native `usdSend`): first
+/// [requiredDefaultBaseUnits] (eight-decimal USDC) from the builder dexes
+/// ([collectOwnDexCash]), then whatever [spotMove] still asks of unheld
+/// spot USDC, and after each internal move it WAITS (reads only, bounded by
+/// [maxWait]) until the main account's own read shows [requiredBaseUnits]
+/// there. Never touches a position's margin; every move stays in the same
+/// account.
+///
+/// Why the wait: an acknowledged same-account transfer is not yet in the
+/// clearinghouse read. Without it, a Swap right after a stock round-trip
+/// (its cash back on the builder dex) moved the cash home, read the main
+/// account at once, found it short and stopped the leg as "not sent"; the
+/// Retry, finding the cash already home, went through (founder, 12
+/// November 2026). The order path learnt the same lesson
+/// ([waitForOwnDexCash]).
+///
+/// [beforeSend] runs right before each internal POST, [afterSend] right
+/// after each one is acknowledged. Throws (nothing external sent) when the
+/// cash is not there: [HyperliquidInsufficientMarginException],
+/// [OwnDexCreditPending], or what [spotMove] throws.
+Future<void> gatherOwnPerpCash({
+  required HyperliquidModel model,
+  required HyperliquidExchangeService exchange,
+  required BigInt requiredBaseUnits,
+  required BigInt requiredDefaultBaseUnits,
+  required Future<BigInt> Function() spotMove,
+  void Function()? beforeSend,
+  void Function()? afterSend,
+  Duration maxWait = kOwnPerpCreditWait,
+  Duration pollEvery = const Duration(milliseconds: 300),
+}) async {
+  final clock = Stopwatch()..start();
+  Duration left() {
+    final rest = maxWait - clock.elapsed;
+    return rest > Duration.zero ? rest : Duration.zero;
+  }
+
+  Future<void> settled(BigInt required) => waitForOwnDexCash(
+        requiredUsd: required.toDouble() / 1e8,
+        maxWait: left(),
+        pollEvery: pollEvery,
+        availableUsd: () async =>
+            (await model.getAccountSnapshot(exchange.walletAddress))
+                .withdrawable,
+      );
+
+  final fromDexes = await collectOwnDexCash(
+      model: model,
+      exchange: exchange,
+      requiredDefaultUsd: requiredDefaultBaseUnits.toDouble() / 1e8,
+      beforeSend: beforeSend);
+  afterSend?.call();
+  if (fromDexes > 0) await settled(requiredDefaultBaseUnits);
+  final fromSpot = await spotMove();
+  if (fromSpot > BigInt.zero) {
+    await exchange.usdClassTransfer(
+      amount: fromSpot.toDouble() / 1e8,
+      toPerp: true,
+      beforeSend: beforeSend,
+    );
+    afterSend?.call();
+    await settled(requiredBaseUnits);
+  }
+}
+
+/// How long a send out of Investing waits for an order on the same cash
+/// ([InvestingCashLock]) before it stops as not sent ([InvestingCashBusy]).
+/// With [kOwnPerpCreditWait] it fits the one-time CCTP quote's validity.
+const Duration kInvestingCashLockWait = Duration(seconds: 20);
+
+/// The send that cannot wait for an Investing order (or the order for the
+/// send) any longer: nothing of it moved.
+class InvestingCashBusy implements Exception {
+  const InvestingCashBusy();
+
+  @override
+  String toString() => 'InvestingCashBusy';
+}
+
+/// One money-moving action at a time on the Investing account's own cash:
+/// an order's funding and placement, and a send out of it (a Swap's or a
+/// Send's Investing leg, a sweep home). The second waits for the first
+/// (a queue), then reads the account afresh: a stock order and a Swap at
+/// the same moment no longer move the same cash in opposite directions
+/// (the order main → builder dex, the send builder dex → main), each
+/// failing the other. Re-entrant within the action that holds it.
+abstract final class InvestingCashLock {
+  static final Object _heldKey = Object();
+  static Future<void> _tail = Future<void>.value();
+
+  /// Whether the current action already holds the lock.
+  static bool get held => Zone.current[_heldKey] == true;
+
+  /// Runs [body] once every earlier holder is done. With [maxWait], a
+  /// holder that takes longer stops this one before [body] runs
+  /// ([InvestingCashBusy]), and the queue behind it keeps its order.
+  static Future<T> run<T>(Future<T> Function() body,
+      {Duration? maxWait}) async {
+    if (held) return body();
+    final before = _tail;
+    final mine = Completer<void>();
+    _tail = mine.future;
+    try {
+      await (maxWait == null ? before : before.timeout(maxWait));
+    } on TimeoutException {
+      before.whenComplete(mine.complete);
+      throw const InvestingCashBusy();
+    }
+    try {
+      return await runZoned(body, zoneValues: {_heldKey: true});
+    } finally {
+      mine.complete();
+    }
+  }
+
+  @visibleForTesting
+  static void reset() => _tail = Future<void>.value();
 }

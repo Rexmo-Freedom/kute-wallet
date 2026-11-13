@@ -1,4 +1,4 @@
-import 'package:kute/screens/shared/money_steps_view.dart' show moneyStepLine;
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:flutter/material.dart';
@@ -16,10 +16,19 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show kBalancesCentUsd;
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show pnlResultColor;
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/shared/charts/kute_chart_format.dart'
+    show kuteSignedPercent;
+import 'package:kute/screens/shared/charts/kute_trend_window.dart'
+    show kuteTrendArrow;
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressScale;
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/portfolio_arrow_glyph.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
 import 'package:kute/screens/shared/portfolio_builder/portfolio_builder_screen.dart';
@@ -45,10 +54,14 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ExcludeSemantics(
-              child: KuteDogNotHere(
-                width: 220,
-                ink: context.colors.textPrimary,
-                accent: context.colors.accent,
+              child: SalSprite(
+                clip: 'body_sad',
+                size: 220,
+                fallback: KuteDogNotHere(
+                  width: 220,
+                  ink: context.colors.textPrimary,
+                  accent: context.colors.accent,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -77,19 +90,26 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     2026): the total stands alone, Dollars plus the open positions of
 ///     every venue, the portfolio glyph (an arrow with a pie badge, built
 ///     like the hub's + gear) right after it
-///     ([PortfolioArrowGlyph]); under it "Available $X · Invested $Y"
-///     (Available: Dollars plus the venues' unreserved cash; Invested:
-///     positions, reserved order cash and pending fills; back on
-///     27 October 2026, founder). While anything is on a rail that line
-///     gives way to the in-flight lines, in order:
-///     the order money
-///     on a rail is for ("Placing $5 on Yes · Lakers"), incoming from
-///     outside, unavailable until balancing completes (venue cash the
-///     sweeper still owes back). Money on a rail between the person's
+///     ([PortfolioArrowGlyph]); under it "Invested $X · Available $Y"
+///     ([OneBalanceSplitLine]; founder, 4 November 2026), all in dollars
+///     whatever the Settings currency (founder, 8 November 2026: "dollars
+///     balance do not convert to currency"), the two adding
+///     up to the total ([oneBalanceSplit]; Invested: positions, reserved
+///     order cash, pending fills and money on its way into an order;
+///     Available: the rest, Dollars and the venues' cash). Never a line
+///     for an order on its way (founder, 10 November 2026: "under the
+///     main balance what is happening. Do not have this"; the Overview's
+///     card says Placing). The other in-flight lines follow under it, and
+///     Available leaves their money out: incoming from outside,
+///     unavailable until balancing completes (venue cash the sweeper
+///     still owes back). Money on a rail between the person's
 ///     own accounts for no order (a sweep home) stays in the total with
 ///     no line: it is plumbing. Venue dust
 ///     below every route minimum is no line at all: it is part of the
-///     total like the rest of the venues' cash. No Deposit button:
+///     total like the rest of the venues' cash. Under the split, while
+///     positions with a known cost are open, their P&L: "Open profits
+///     ▲ $1.23 (+4.8%)" ([OneBalanceOpenPnlLine]; founder, 13 November
+///     2026), the Overview card's own figure. No Deposit button:
 ///     money only reaches a venue through an order. The whole block, the
 ///     total and the line under it, is one tap ([onTap]: the Portfolio),
 ///     with the cards' press feedback ([KutePressScale]).
@@ -106,12 +126,18 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   /// Portfolio). Null: the block is not tappable and wears no chevron.
   final VoidCallback? onTap;
 
+  /// One balance only: the open positions' P&L under the split
+  /// ([OneBalanceOpenPnlLine]). The Dollars page sets it; it reads the
+  /// venues' positions, so a hero mounted without them leaves it off.
+  final bool showOpenPnl;
+
   const InvestmentBalanceHeader({
     super.key,
     required this.product,
     this.showDepositButton = true,
     this.oneBalance = false,
     this.onTap,
+    this.showOpenPnl = false,
   });
 
   @override
@@ -124,7 +150,7 @@ class InvestmentBalanceHeader extends ConsumerWidget {
         ? '••••••'
         : value == null
             ? '—'
-            : formatPolyAmount(ref, value);
+            : formatDollars(value);
     final pending = ref.watch(predictions
         ? pendingPredictionsDepositUsdProvider
         : pendingTradingDepositUsdProvider);
@@ -199,12 +225,12 @@ class InvestmentBalanceHeader extends ConsumerWidget {
               investedText: '',
               pendingText: pending > 0
                   ? visible
-                      ? formatPolyFiatForced(ref, pending)
+                      ? formatDollars(pending)
                       : '••••••'
                   : null,
               leavingText: leaving > 0
                   ? visible
-                      ? formatPolyFiatForced(ref, leaving)
+                      ? formatDollars(leaving)
                       : '••••••'
                   : null,
             )
@@ -215,14 +241,11 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   /// The in-flight lines, in order, for [state]. Public so a test can pin
   /// the order and the wording without a widget tree.
   ///
-  /// The lines name what the person is doing, never the plumbing
-  /// (founder decision 14 October 2026):
-  ///   * money on a rail for an order (its Bitcoin leg or its move into
-  ///     the venue): the order itself, once ("Placing $5 on Yes · Lakers",
-  ///     "Opening $5 NVDA order", "Adding $5 margin to BTC"), then each of
-  ///     its sources in its own state, from the order's step graph
-  ///     ("Moving $8.00 from Bitcoin", "Moved $5.00 from Dollars"), so the
-  ///     person sees every source land with the slip closed;
+  /// Never an order on its way (founder, 10 November 2026, on 2.2.0 (98):
+  /// "we also have in the dollars under the main balance what is
+  /// happening. Do not have this"): money on a rail for an order counts in
+  /// Invested at once ([oneBalanceSplitFigures]) and the order's one card
+  /// on the Overview says Placing. What is left:
   ///   * dollars arriving from outside: "Incoming $X";
   ///   * venue cash the sweeper still owes back: "unavailable until
   ///     balancing completes".
@@ -232,32 +255,16 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   static List<String> inFlightLines(BuildContext context, OneBalanceState state,
       String Function(double) amount) {
     final l10n = context.l10n;
-    final named = <String>{};
     return [
       for (final move in state.inFlight)
-        if (move.order case final order? when named.add(order.id)) ...[
-          switch (order.venue) {
-            OneBalanceVenue.predictions => order.transfer
-                ? l10n.slipStepPreparingPrediction
-                : l10n.oneBalancePlacingBet(
-                    amount(order.orderUsd), order.side, order.market),
-            OneBalanceVenue.investing => order.margin
-                ? l10n.hlMarginStepAdding(amount(order.orderUsd), order.market)
-                : l10n.oneBalanceOpeningOrder(
-                    amount(order.orderUsd), order.market),
-          },
-          for (final leg in order.legs) moneyStepLine(l10n, leg, amount),
-        ],
-      for (final move in state.inFlight)
-        if (move.order == null && move.kind == InFlightKind.incomingDollars)
-          l10n.oneBalanceIncoming(amount(move.usd)),
+        if (move.hasLine) l10n.oneBalanceIncoming(amount(move.usd)),
       for (final usd in state.waiting.values)
         if (usd > 0) l10n.oneBalanceWaitingToWithdraw(amount(usd)),
     ];
   }
 
-  /// Whether [state] puts the in-flight lines where the split would be:
-  /// whenever [inFlightLines] has one.
+  /// Whether [state] puts in-flight lines under the split: whenever
+  /// [inFlightLines] has one.
   static bool showsInFlight(OneBalanceState state) =>
       state.inFlight.any((move) => move.hasLine) ||
       state.waiting.values.any((usd) => usd > 0);
@@ -279,28 +286,53 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     );
   }
 
+  /// The hero's "Invested · Available" under its total, as printed: the
+  /// split of the total the hero prints ([oneBalanceSplit]: they add up to
+  /// it, less the money the in-flight lines name, to the cent; money on
+  /// its way into an order is Invested already), from the
+  /// same snapshot as the figure (a saved one, dimmed, while a venue is
+  /// still on its way). In dollars, whatever the Settings currency.
+  static ({double investedUsd, double availableUsd, bool stale})
+      oneBalanceSplitFigures(WidgetRef ref) {
+    final display = _oneBalanceDisplay(ref);
+    final state = ref.watch(oneBalanceProvider);
+    final split = oneBalanceSplit(
+      totalUsd: display.total,
+      investedUsd: display.invested,
+      forOrdersUsd: state.forOrdersUsd,
+      onLinesUsd: state.onLinesUsd,
+    );
+    return (
+      investedUsd: split.investedUsd,
+      availableUsd: split.availableUsd,
+      stale: display.stale,
+    );
+  }
+
   /// The hero's displayed total, also used by the collapsed Investments bar.
   static ({String text, bool stale}) oneBalanceFigure(WidgetRef ref) {
     final display = _oneBalanceDisplay(ref);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     return (
-      text: visible ? formatPolyFiatForced(ref, display.total) : '••••••',
+      text: visible ? formatDollars(display.total) : '••••••',
       stale: display.stale,
     );
   }
 
   Widget _buildOneBalance(BuildContext context, WidgetRef ref) =>
-      _OneBalanceHero(onTap: onTap);
+      _OneBalanceHero(onTap: onTap, showOpenPnl: showOpenPnl);
 }
 
 /// The one-balance hero: the total with the portfolio glyph after
-/// it and "Available $X · Invested $Y" under it, or the in-flight lines in
-/// that line's place. Stateful only to ping the arrow's quick play on each
-/// press.
+/// it, "Invested $X · Available $Y" under it ([OneBalanceSplitLine]), the
+/// open P&L under that ([OneBalanceOpenPnlLine]) and the in-flight lines
+/// last. Stateful only to ping the arrow's quick
+/// play on each press.
 class _OneBalanceHero extends ConsumerStatefulWidget {
-  const _OneBalanceHero({this.onTap});
+  const _OneBalanceHero({this.onTap, this.showOpenPnl = false});
 
   final VoidCallback? onTap;
+  final bool showOpenPnl;
 
   @override
   ConsumerState<_OneBalanceHero> createState() => _OneBalanceHeroState();
@@ -320,14 +352,10 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String amount(double value) =>
-        visible ? formatPolyFiatForced(ref, value) : '••••••';
+        visible ? formatDollars(value) : '••••••';
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
-    final display = InvestmentBalanceHeader._oneBalanceDisplay(ref);
+    final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
-    // With nothing on a rail the total is Available plus Invested, so the
-    // split is read off the same display snapshot as the total (cached
-    // together while a venue reconnects) and always adds up to it.
-    final available = display.total - display.invested;
     final tap = widget.onTap;
     // The tap affordance: an arrow to the right with the Portfolio's pie
     // as its badge, right after the big total (it opens the Portfolio;
@@ -352,18 +380,35 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
       investedLabel: context.l10n.betInvested,
       amountTrailing: arrow,
       amountTrailingWidth: arrow == null ? 0 : arrowGap + arrowSize,
-      // "Available $X · Invested $Y" under the total at rest (founder,
-      // 27 October 2026: back after a day without it); the in-flight
-      // lines in its place while anything is on a rail.
-      availableFirst: true,
-      availableText: lines.isEmpty
-          ? amount(available.isFinite && available > 0 ? available : 0)
-          : null,
-      investedText: lines.isEmpty ? amount(display.invested) : null,
+      // "Invested $X · Available $Y" under the total, always (founder,
+      // 4 November 2026: "it should show invested and available in a good
+      // way at the bottom, don't make it sloppy"; it read Invested alone
+      // since 28 October). The two add up to the total ([oneBalanceSplit]);
+      // while money is on a rail its lines follow, under the split, and
+      // the split leaves their money out, so the three still add up.
+      availableText: null,
+      investedText: null,
       showActionRow: false,
-      investedChild: lines.isEmpty
-          ? null
-          : Row(
+      investedChild: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: 2.h),
+            child: OneBalanceSplitLine(
+              invested: amount(split.investedUsd),
+              available: amount(split.availableUsd),
+              investedLabel: context.l10n.betInvested,
+              availableLabel: context.l10n.available,
+              stale: split.stale,
+            ),
+          ),
+          // "Open profits ▲ $1.23 (+4.8%)" under the split, while
+          // positions with a known cost are open (founder, 13 November
+          // 2026).
+          if (widget.showOpenPnl) const OneBalanceOpenPnlLine(),
+          if (lines.isNotEmpty) ...[
+            SizedBox(height: 4.h),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Flexible(
@@ -377,6 +422,9 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
                 ),
               ],
             ),
+          ],
+        ],
+      ),
     );
     if (tap == null) return header;
     return Semantics(
@@ -387,6 +435,163 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
           key: const ValueKey('investments-balance'),
           onTap: tap,
           child: header,
+        ),
+      ),
+    );
+  }
+}
+
+/// "Invested $X · Available $Y" under the Dollars total
+/// ([InvestmentBalanceHeader.oneBalanceSplitFigures]), drawn so it never
+/// jitters: the dot is fixed at the centre, right under the total, the
+/// Invested half ends at it and the Available half starts at it, each
+/// figure in tabular digits rolling like the total. A figure that ticks,
+/// or grows a digit, moves only its own half outwards; the dot and the
+/// other half stay where they are. Too wide for its half (a large text
+/// size), a half scales down rather than wrapping or cutting. The words
+/// stay quiet (textTertiary), the amounts carry the line (textSecondary,
+/// w600); a saved figure still updating is dimmed, as the total is.
+class OneBalanceSplitLine extends StatelessWidget {
+  const OneBalanceSplitLine({
+    super.key,
+    required this.invested,
+    required this.available,
+    required this.investedLabel,
+    required this.availableLabel,
+    this.stale = false,
+  });
+
+  final String invested;
+  final String available;
+  final String investedLabel;
+  final String availableLabel;
+  final bool stale;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final labelStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.2,
+    );
+    final valueStyle = TextStyle(
+      color: stale ? c.textTertiary : c.textSecondary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    Widget half(Key key, String label, String value, Alignment align) =>
+        Expanded(
+          child: Align(
+            alignment: align,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: align,
+              child: Row(
+                key: key,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$label ', maxLines: 1, style: labelStyle),
+                  RollingNumberText(text: value, style: valueStyle),
+                ],
+              ),
+            ),
+          ),
+        );
+    return Semantics(
+      container: true,
+      label: '$investedLabel $invested, $availableLabel $available',
+      excludeSemantics: true,
+      child: Row(
+        key: const ValueKey('investments-balance-split'),
+        children: [
+          half(const ValueKey('investments-balance-invested'), investedLabel,
+              invested, Alignment.centerRight),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.w),
+            child: Text('·', style: labelStyle),
+          ),
+          half(const ValueKey('investments-balance-available'),
+              availableLabel, available, Alignment.centerLeft),
+        ],
+      ),
+    );
+  }
+}
+
+/// The open positions' P&L under the Dollars split (founder, 13 November
+/// 2026: "on the main balance we should have a % of up and down of open
+/// positions also, to know how much we earned"): "Open profits ▲ $1.23
+/// (+4.8%)", the Overview's "Open profits" card's own figure
+/// ([dollarsOpenPnl]: the open Predictions and Investing positions at the
+/// live prices, a position whose cost is not known yet counting for none),
+/// the percent of what those positions cost ([openPnlPercent]), written as
+/// the Portfolio hero writes a change ("▲ $4.10 (+1.2%)"). Drawn like the
+/// split line over it: the word quiet (textTertiary), the figure carrying
+/// the line in its result colour, tabular digits rolling, the line scaled
+/// down rather than cut. Nothing open with a known cost: no line. Balances
+/// hidden: dots, no arrow, no colour.
+class OneBalanceOpenPnlLine extends ConsumerWidget {
+  const OneBalanceOpenPnlLine({super.key});
+
+  /// What the line writes for [usd] over [percent], as shown: the arrow,
+  /// the amount and the signed percent ("▲ $1.23 (+4.8%)"); under a cent,
+  /// "$0.00" alone.
+  static String figure(double usd, double? percent) {
+    final pnl = usd.abs() < kBalancesCentUsd ? 0.0 : usd;
+    final pct =
+        pnl == 0 || percent == null ? '' : ' (${kuteSignedPercent(percent)})';
+    return '${kuteTrendArrow(pnl)}${formatDollars(pnl.abs())}$pct';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final open = dollarsOpenPnl(ref);
+    if (open == null) return const SizedBox.shrink();
+    final c = context.colors;
+    final label = context.l10n.portfolioStatOpenPnl;
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final usd = open.usd.abs() < kBalancesCentUsd ? 0.0 : open.usd;
+    final text = visible ? figure(usd, openPnlPercent(open)) : '••••••';
+    final labelStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.2,
+    );
+    final valueStyle = TextStyle(
+      color: !visible || usd == 0 ? c.textSecondary : pnlResultColor(c, usd),
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Padding(
+      padding: EdgeInsets.only(top: 4.h),
+      child: Semantics(
+        container: true,
+        label: '$label $text',
+        excludeSemantics: true,
+        child: FittedBox(
+          key: const ValueKey('investments-balance-open-pnl'),
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$label ', maxLines: 1, style: labelStyle),
+              RollingNumberText(
+                  key: const ValueKey('investments-balance-open-pnl-figure'),
+                  text: text,
+                  style: valueStyle),
+            ],
+          ),
         ),
       ),
     );

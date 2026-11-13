@@ -161,9 +161,9 @@ class PolyPositionCard extends ConsumerWidget {
       }
     }
 
-    final valueText = formatPolyAmount(ref, value);
+    final valueText = formatDollars(value);
     final pnlText = PortfolioCardValue.pnlText(
-        formatPolyAmount(ref, pnl.abs()), pnl,
+        formatDollars(pnl.abs()), pnl,
         percent: pnlPercent);
     final amount =
         PortfolioCardValue(value: valueText, pnl: pnlText, up: pnl >= 0);

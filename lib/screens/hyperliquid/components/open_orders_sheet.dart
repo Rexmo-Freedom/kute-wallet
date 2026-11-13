@@ -7,9 +7,11 @@
 // order-wire asset id — resolved here from the order's WIRE coin
 // ('xyz:TSLA', '@107', 'PURR/USDC'), exactly, never by display name.
 
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show KuteDockClearance, kuteDockScrollClearance;
+import 'package:kute/helpers/hyperliquid_activity.dart' show hlOrderSideLabel;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -65,7 +67,7 @@ void _showCancellationReceipt(
 
 /// Show the Hyperliquid open-orders bottom sheet.
 Future<void> showHlOpenOrdersSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showKuteModalSheet<void>(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
@@ -378,8 +380,7 @@ class _HlTwapRowState extends ConsumerState<HlTwapRow> {
       iconUrl: market?.iconUrl,
       category: market?.category,
       name: hlFriendlyName(coin) ?? market?.unitAssetName ?? coin,
-      caption:
-          '$coin · ${t.isBuy ? context.l10n.buy : context.l10n.sell}',
+      caption: '$coin · ${hlOrderSideLabel(context.l10n, coin: t.coin, isBuy: t.isBuy, reduceOnly: t.reduceOnly)}',
       footer: [
         '${context.l10n.hlTwapOver(formatHlSize(t.size), t.durationMinutes)}'
             ' · ${(progress * 100).clamp(0, 100).toStringAsFixed(0)}% elapsed',
@@ -493,8 +494,8 @@ class _HlOrderRowState extends ConsumerState<HlOrderRow> {
       iconUrl: market?.iconUrl,
       category: market?.category,
       name: hlFriendlyName(coin) ?? market?.unitAssetName ?? coin,
-      caption:
-          '$coin · ${o.isBuy ? context.l10n.buy : context.l10n.sell}',
+      // "Close short" for a stop on a short, never "Buy".
+      caption: '$coin · ${hlOrderSideLabel(context.l10n, coin: o.coin, isBuy: o.isBuy, reduceOnly: o.reduceOnly || o.isPositionTpsl)}',
       // Trigger orders show the TRIGGER price the user set — for a stop
       // market the exchange's limitPx is just the aggressive fill guard,
       // not what the user typed. A trailing stop has no fixed price.
@@ -566,7 +567,7 @@ class HlEndedOrderRow extends ConsumerWidget {
       category: market?.category,
       name: hlFriendlyName(coin) ?? market?.unitAssetName ?? coin,
       caption: '$coin · '
-          '${u.isBuy ? context.l10n.buy : context.l10n.sell} '
+          '${hlOrderSideLabel(context.l10n, coin: u.coin, isBuy: u.isBuy, reduceOnly: u.reduceOnly)} '
           '${formatHlSize(u.origSz)}',
       trailing: PortfolioCardValue(
         value: formatHlPrice(u.limitPx, decimalCap: market?.pxDecimalCap),

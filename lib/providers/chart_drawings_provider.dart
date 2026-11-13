@@ -18,6 +18,7 @@ import 'package:hive_ce/hive.dart';
 
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
 
 /// Max drawings kept per market — a sanity bound so the box can't grow
 /// without limit; further creations wait until a drawing is removed.
@@ -186,31 +187,55 @@ final hlChartDrawingsProvider =
 class ChartPreferences {
   const ChartPreferences({
     this.indicators = const {'vol'},
-    this.magnet = false,
+    this.magnet = true,
+    this.params = const {},
+    this.logScale = false,
   });
+
+  /// The indicators on, in the order they were switched on (the oldest
+  /// first: the sheet's limits turn that one off).
   final Set<String> indicators;
+
+  /// The drawing magnet (snap to candle prices). On by default; stored
+  /// as 'snap', so the old 'magnet' key (written false for everyone
+  /// while it defaulted off) is ignored.
   final bool magnet;
+
+  /// Each indicator's settings where they differ from its defaults
+  /// (hl_chart_indicator_catalog.dart: hlIndParams resolves them).
+  final Map<String, List<num>> params;
+
+  /// The price axis maps ln(price): equal percentage moves look equal.
+  final bool logScale;
 
   ChartPreferences copyWith({
     Set<String>? indicators,
     bool? magnet,
+    Map<String, List<num>>? params,
+    bool? logScale,
   }) =>
       ChartPreferences(
         indicators: indicators ?? this.indicators,
         magnet: magnet ?? this.magnet,
+        params: params ?? this.params,
+        logScale: logScale ?? this.logScale,
       );
 
   Map<String, Object> toJson() => {
         'indicators': indicators.toList(),
-        'magnet': magnet,
+        'snap': magnet,
+        if (params.isNotEmpty) 'params': params,
+        if (logScale) 'log': true,
       };
 }
 
-/// The Hyperliquid chart's market-signal layers. They are toggled in the
-/// same list as the indicators and stored beside them, per market. All
-/// are OFF until switched on, except the buy/sell pressure strip, which
-/// is on until [kHlLayerPressureOff] is stored.
+/// The Hyperliquid chart's layers. They are toggled in the same list as
+/// the indicators and stored beside them, per market. All are OFF until
+/// switched on, except the buy/sell pressure strip and the person's own
+/// trades, each on until its off key ([kHlLayerPressureOff],
+/// [kHlLayerMyTradesOff]) is stored.
 const String kHlLayerPressureOff = 'nopressure';
+const String kHlLayerMyTradesOff = 'nomytrades';
 const String kHlLayerBigTrades = 'bigtrades';
 const String kHlLayerFunding = 'fundflip';
 const String kHlLayerOi = 'oisignal';
@@ -219,25 +244,28 @@ const String kHlLayerMacro = 'macro';
 
 class ChartPreferencesNotifier
     extends FamilyNotifier<ChartPreferences, String> {
-  static const supportedIndicators = {
-    'ma',
-    'ema',
-    'bb',
-    'vol',
-    'log',
-    'vwap',
-    'rsi',
-    'macd',
-    'atr',
-    'stoch',
-    'volma',
+  /// The indicators the Chart sheet offers (the curated catalog, founder
+  /// 4 November 2026) and the market-signal layers stored beside them.
+  /// Anything else a record still carries (MA 20/50 under 'ma' before it
+  /// became SMA 50/200, Stoch, Vol MA) loads as off.
+  static final supportedIndicators = {
+    ...kHlIndicatorKeys,
     kHlLayerPressureOff,
+    kHlLayerMyTradesOff,
     kHlLayerBigTrades,
     kHlLayerFunding,
     kHlLayerOi,
     kHlLayerCrowd,
     kHlLayerMacro,
   };
+
+  /// What a stored record may switch on: the catalog, and the layer the
+  /// Chart sheet offers.
+  static final Set<String> shownIndicators = {
+    ...kHlIndicatorKeys,
+    kHlLayerMyTradesOff,
+  };
+
   bool _disposed = false;
   late Future<void> _loaded;
   Future<void> _writes = Future.value();
@@ -268,9 +296,13 @@ class ChartPreferencesNotifier
         indicators: indicators is List
             ? Set.unmodifiable(indicators
                 .whereType<String>()
-                .where(supportedIndicators.contains))
+                .where(shownIndicators.contains))
             : const {'vol'},
-        magnet: raw['magnet'] == true,
+        magnet: raw['snap'] != false,
+        params: _readParams(raw['params']),
+        // An older build kept the log axis among the indicators.
+        logScale: raw['log'] == true ||
+            (indicators is List && indicators.contains('log')),
       );
       if (encoded == null) await box.put(arg, jsonEncode(state.toJson()));
     } catch (_) {
@@ -302,7 +334,63 @@ class ChartPreferencesNotifier
     });
   }
 
+  /// Replaces the whole set at once (the sheet's two-pane rule and its
+  /// Reset), keeping the given order: the oldest pane comes first.
+  void setIndicators(Iterable<String> keys) {
+    _update((old) => old.copyWith(
+        indicators: Set.unmodifiable(keys.where(supportedIndicators.contains))));
+  }
+
   void toggleMagnet() => _update((old) => old.copyWith(magnet: !old.magnet));
+
+  void setLogScale(bool on) => _update((old) => old.copyWith(logScale: on));
+
+  /// Sets [key]'s settings; its defaults (or null) drop the stored entry.
+  void setParams(String key, List<num>? values) {
+    final spec = hlIndSpec(key);
+    if (spec == null) return;
+    _update((old) {
+      final next = {...old.params};
+      final clamped = values == null
+          ? null
+          : [
+              for (var i = 0; i < spec.params.length; i++)
+                spec.params[i].clamp(i < values.length
+                    ? values[i]
+                    : spec.params[i].defaultValue),
+            ];
+      if (clamped == null || _sameList(clamped, spec.defaults)) {
+        next.remove(key);
+      } else {
+        next[key] = List.unmodifiable(clamped);
+      }
+      return old.copyWith(params: Map.unmodifiable(next));
+    });
+  }
+
+  /// Every indicator back to its defaults.
+  void clearParams() =>
+      _update((old) => old.copyWith(params: const <String, List<num>>{}));
+
+  static bool _sameList(List<num> a, List<num> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  static Map<String, List<num>> _readParams(Object? raw) {
+    if (raw is! Map) return const {};
+    final out = <String, List<num>>{};
+    raw.forEach((key, value) {
+      if (key is! String || value is! List || hlIndSpec(key) == null) return;
+      out[key] = List.unmodifiable(hlIndParams(key, {
+        key: [for (final v in value) v is num ? v : double.nan],
+      }));
+    });
+    return Map.unmodifiable(out);
+  }
 }
 
 final hlChartPreferencesProvider =

@@ -35,6 +35,7 @@ import 'package:kute/screens/ledger/ledger_investment_gate.dart'
 import 'package:kute/screens/shared/components/sheet_detail_row.dart'
     show SheetNerdDataSection;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/ledger_device_picker.dart';
@@ -361,20 +362,26 @@ class _LedgerInvestingSetupScreenState
                       ),
                     ),
                   ),
-                  AppButton(
-                    text: failure == null
-                        ? l10n.ledgerSetupTurnOnCta
-                        : l10n.ledgerSetupTryAgainCta,
-                    isLoading: _busy,
-                    onPressed: _busy ? null : _verify,
-                  ),
-                  SizedBox(height: 10.h),
-                  AppButton(
+                  // Keep Bitcoin only: a text button above the bar.
+                  AppTextButton(
                     text: l10n.ledgerSetupBitcoinOnlyCta,
-                    variant: AppButtonVariant.secondary,
                     onPressed: _busy ? null : _keepBitcoinOnly,
                   ),
-                  SizedBox(height: 16.h),
+                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Turn on
+                  // / Try again is the floating Sal bar's primary action.
+                  KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: failure == null
+                          ? l10n.ledgerSetupTurnOnCta
+                          : l10n.ledgerSetupTryAgainCta,
+                      onPrimary: _verify,
+                      enabled: !_busy,
+                      busy: _busy,
+                      source: 'ledger_investing_setup',
+                      disabledLabel: null,
+                    ),
+                    child: SizedBox(height: kuteBarScrollClearance.h),
+                  ),
                 ],
               ),
             ),

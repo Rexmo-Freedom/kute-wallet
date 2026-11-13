@@ -3,10 +3,13 @@
 // The small transitions the browse lists, the cards and the slips share,
 // so a screen that changes state eases into it instead of snapping:
 //
-//   * [SliverSelectionFade] / [SelectionFade]: a list under pills fades
+//   * [SliverSelectionFade] / [SelectionFade]: a list under pills switches
 //     its new content in when the selection changes (never on a data
-//     refresh). The list is neither rebuilt nor remounted by it: only an
-//     opacity runs, so paging, scroll position and state are untouched.
+//     refresh), THE SWITCH'S ONE CHOREOGRAPHY (KuteMotion.switchIn): a
+//     fade and 24 px from the side it comes from on the sheet spring, the
+//     same for a pill, a picked category and a sheet's next page. The list
+//     is neither rebuilt nor remounted by it: only an opacity and a paint
+//     offset run, so paging, scroll position and state are untouched.
 //   * [ArrivalSwitcher]: a block that changes shape when its data lands
 //     (a fallback title giving way to a game's rows, a button changing
 //     what it does) cross-fades and eases its height.
@@ -19,6 +22,14 @@
 //     again.
 //   * [KutePressScale]: something tappable that is not a card or a button
 //     (the Investments balance) gives the cards' press feedback.
+//   * [KuteStaggerIn]: a list's first rows (markets, activity) fade and
+//     rise in, 20 ms apart, the first time they are painted; a row past
+//     the eighth, or one that arrives later, is drawn at once.
+//   * [KutePressable]: THE press feedback (founder, 31 October 2026, after
+//     Orchestra): 0.98 while held, back on the press spring
+//     (KuteMotion.press, lib/theme/kute_motion.dart). Wrapped around a
+//     pill, a soft row, an action button: a Listener only, so the child's
+//     own tap, ink, hit area and semantics are untouched.
 //   * [FoldAway] / [StepsReveal]: a slip or sheet whose money steps show
 //     under its button folds its keypad and amount chips away (the
 //     amount cannot change then) and the steps grow into that room and
@@ -27,12 +38,15 @@
 // Every one of them honours Reduce Motion: with it on, the end state is
 // drawn at once.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// Whether the person asked the system for less motion.
 bool kuteReduceMotion(BuildContext context) =>
@@ -42,7 +56,8 @@ bool kuteReduceMotion(BuildContext context) =>
 Duration kuteMotion(BuildContext context, Duration duration) =>
     kuteReduceMotion(context) ? Duration.zero : duration;
 
-/// A list's fade when its pill changes.
+/// A list's fade when its pill changed, before the switch choreography
+/// (KuteMotion.switchIn); still the length of a few small fades.
 const Duration kSelectionFadeDuration = Duration(milliseconds: 170);
 
 /// A block's cross-fade when its data lands.
@@ -51,25 +66,51 @@ const Duration kArrivalDuration = Duration(milliseconds: 180);
 /// A score's pulse.
 const Duration kScorePulseDuration = Duration(milliseconds: 250);
 
-/// Runs a fade-in each time [selection] changes; the first build and any
-/// rebuild with the same selection draw at full opacity.
+/// Runs the switch's arrival (KuteMotion.switchIn: a fade and a slide in
+/// from [direction]'s side) each time [selection] changes; the first build
+/// and any rebuild with the same selection draw at rest.
 mixin _SelectionFadeController<T extends StatefulWidget>
     on State<T>, SingleTickerProviderStateMixin<T> {
   late final AnimationController _fade = AnimationController(
     vsync: this,
-    duration: kSelectionFadeDuration,
+    duration: KuteMotion.switchDuration,
     value: 1,
   );
-  late final Animation<double> opacity =
-      CurvedAnimation(parent: _fade, curve: Curves.easeOut);
 
-  void selectionChanged() {
+  /// The fade: the sheet spring held to 0..1 (an opacity never passes 1).
+  late final Animation<double> opacity = CurvedAnimation(
+      parent: _fade, curve: KuteMotion.clamped(KuteMotion.switchIn));
+
+  /// The slide: the sheet spring itself, its overshoot a hair past rest.
+  late final Animation<double> arrival =
+      CurvedAnimation(parent: _fade, curve: KuteMotion.switchIn);
+
+  /// 1: the new content comes from the right (the next page, a pill to
+  /// the right); -1: from the left.
+  double _from = 1;
+
+  /// How far the content sits from its rest now, in logical pixels.
+  double get shift => _from * KuteMotion.switchSlide * (1 - arrival.value);
+
+  /// The selection changed: from the right, or [from] the side its place
+  /// in the row says ([direction]).
+  void selectionChanged({double from = 1}) {
+    _from = from;
     if (kuteReduceMotion(context)) {
       _fade.value = 1;
     } else {
       _fade.forward(from: 0);
     }
   }
+
+  /// The selection changed with no switch to show: the content at rest at
+  /// once, any switch in flight finished.
+  void selectionSettled() => _fade.value = 1;
+
+  /// Which side the new selection comes from: its [order] against the old
+  /// one's, from the right when either is unknown or they are equal.
+  static double direction(int? from, int? to) =>
+      from != null && to != null && to < from ? -1 : 1;
 
   @override
   void dispose() {
@@ -78,21 +119,31 @@ mixin _SelectionFadeController<T extends StatefulWidget>
   }
 }
 
-/// The slivers of a list under pills, faded in when [selection] changes.
+/// The slivers of a list under pills, switched in when [selection]
+/// changes: the switch's arrival (KuteMotion.switchIn), a fade and 24 px
+/// from the right (or from [order]'s side), the same as a pill switch and
+/// a category pick everywhere.
 ///
 /// The slivers are laid out as one group ([SliverMainAxisGroup]) so a
 /// lazy list inside keeps building only what is on screen; the fade is
-/// an opacity on that group, so nothing is rebuilt or read again for it.
+/// an opacity on that group and the slide a paint offset
+/// ([KuteSliverShift]), so nothing is rebuilt, laid out or read again for
+/// it and the scroll position is untouched.
 class SliverSelectionFade extends StatefulWidget {
   /// What the pills chose (a category, a subcategory). Data refreshes keep
-  /// it equal and so never fade.
+  /// it equal and so never switch.
   final Object? selection;
+
+  /// The selection's place in its row, when it has one: a later one comes
+  /// in from the right, an earlier one from the left. Null: from the right.
+  final int? order;
   final List<Widget> slivers;
 
   const SliverSelectionFade({
     super.key,
     required this.selection,
     required this.slivers,
+    this.order,
   });
 
   @override
@@ -106,23 +157,49 @@ class _SliverSelectionFadeState extends State<SliverSelectionFade>
   @override
   void didUpdateWidget(SliverSelectionFade oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selection != widget.selection) selectionChanged();
+    if (oldWidget.selection != widget.selection) {
+      selectionChanged(
+          from: _SelectionFadeController.direction(
+              oldWidget.order, widget.order));
+    }
   }
 
   @override
-  Widget build(BuildContext context) => SliverFadeTransition(
-        opacity: opacity,
-        sliver: SliverMainAxisGroup(slivers: widget.slivers),
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: arrival,
+        builder: (context, sliver) =>
+            KuteSliverShift(dx: shift, sliver: sliver!),
+        child: SliverFadeTransition(
+          opacity: opacity,
+          sliver: SliverMainAxisGroup(slivers: widget.slivers),
+        ),
       );
 }
 
-/// A box's content faded in when [selection] changes. The child keeps its
-/// element and its state: only an opacity runs.
+/// A box's content switched in when [selection] changes: the switch's
+/// arrival (a fade and 24 px from the right, or from [order]'s side), as
+/// [SliverSelectionFade]. The child keeps its element and its state: only
+/// an opacity and a translation run. The Dollars page's body switches
+/// between Activity, Investing and Predictions this way.
 class SelectionFade extends StatefulWidget {
   final Object? selection;
+
+  /// See [SliverSelectionFade.order].
+  final int? order;
   final Widget child;
 
-  const SelectionFade({super.key, required this.selection, required this.child});
+  /// False: a change of [selection] shows the new content at once, with
+  /// no switch (the Dollars page put back on its default pill as the
+  /// shell brings it on screen, where the shell's own slide is the
+  /// motion).
+  final bool animate;
+
+  const SelectionFade(
+      {super.key,
+      required this.selection,
+      required this.child,
+      this.order,
+      this.animate = true});
 
   @override
   State<SelectionFade> createState() => _SelectionFadeState();
@@ -135,12 +212,90 @@ class _SelectionFadeState extends State<SelectionFade>
   @override
   void didUpdateWidget(SelectionFade oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selection != widget.selection) selectionChanged();
+    if (oldWidget.selection == widget.selection) return;
+    if (!widget.animate) return selectionSettled();
+    selectionChanged(
+        from: _SelectionFadeController.direction(
+            oldWidget.order, widget.order));
   }
 
   @override
-  Widget build(BuildContext context) =>
-      FadeTransition(opacity: opacity, child: widget.child);
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: opacity,
+        child: AnimatedBuilder(
+          animation: arrival,
+          builder: (context, child) =>
+              Transform.translate(offset: Offset(shift, 0), child: child),
+          child: widget.child,
+        ),
+      );
+}
+
+/// Paints its sliver [dx] logical pixels across (right for a positive
+/// [dx]) without laying it out again: the switch's slide on a list
+/// ([SliverSelectionFade]). Taps follow what is painted. Only a vertical
+/// list is shifted; any other is drawn in place.
+class KuteSliverShift extends SingleChildRenderObjectWidget {
+  const KuteSliverShift({super.key, required this.dx, required Widget sliver})
+      : super(child: sliver);
+
+  final double dx;
+
+  @override
+  RenderKuteSliverShift createRenderObject(BuildContext context) =>
+      RenderKuteSliverShift(dx);
+
+  @override
+  void updateRenderObject(
+          BuildContext context, RenderKuteSliverShift renderObject) =>
+      renderObject.dx = dx;
+}
+
+/// [KuteSliverShift]'s render object.
+class RenderKuteSliverShift extends RenderProxySliver {
+  RenderKuteSliverShift(this._dx);
+
+  double _dx;
+  double get dx => _dx;
+  set dx(double value) {
+    if (value == _dx) return;
+    _dx = value;
+    markNeedsPaint();
+  }
+
+  /// The shift on screen: across a vertical list only.
+  Offset get _offset =>
+      constraints.axis == Axis.vertical ? Offset(_dx, 0) : Offset.zero;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child != null && child.geometry!.visible) {
+      context.paintChild(child, offset + _offset);
+    }
+  }
+
+  @override
+  void applyPaintTransform(RenderObject child, Matrix4 transform) {
+    super.applyPaintTransform(child, transform);
+    final o = _offset;
+    transform.translateByDouble(o.dx, o.dy, 0, 1);
+  }
+
+  @override
+  bool hitTestChildren(SliverHitTestResult result,
+      {required double mainAxisPosition, required double crossAxisPosition}) {
+    final child = this.child;
+    if (child == null || child.geometry!.hitTestExtent <= 0) return false;
+    // The cross axis runs right (left in a right-to-left list): the touch
+    // in the child's own frame is the touch less the shift.
+    final across = constraints.axis != Axis.vertical
+        ? 0.0
+        : (constraints.crossAxisDirection == AxisDirection.left ? -_dx : _dx);
+    return child.hitTest(result,
+        mainAxisPosition: mainAxisPosition,
+        crossAxisPosition: crossAxisPosition - across);
+  }
 }
 
 /// How long a keypad takes to fold away for the money's steps, and the
@@ -500,11 +655,165 @@ class _KutePressScaleState extends State<KutePressScale> {
         HapticFeedback.lightImpact();
         widget.onTap();
       },
+      // Down quick and plain, up on the press spring (KuteMotion).
       child: AnimatedScale(
         scale: _pressed && !reduceMotion ? 0.97 : 1.0,
-        duration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 110),
-        curve: Curves.easeOut,
+        duration: reduceMotion
+            ? Duration.zero
+            : (_pressed ? KuteMotion.pressInDuration : KuteMotion.pressDuration),
+        curve: _pressed ? Curves.easeOut : KuteMotion.press,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// The app's press feedback on anything already tappable: the child eases
+/// to [KuteMotion.pressScale] while a finger is down and springs back
+/// ([KuteMotion.press]) on release. A [Listener] under the child's own
+/// gesture handling, so its tap, ink, hit area and semantics are exactly
+/// as they were; a finger that moves on (a scroll) lets go at once. Under
+/// Reduce Motion nothing moves. [enabled] false: nothing moves either (a
+/// disabled button).
+class KutePressable extends StatefulWidget {
+  final Widget child;
+  final bool enabled;
+
+  /// The scale held while pressed; [KuteMotion.pressScale] unless a surface
+  /// asks for a deeper press (none does: the category tiles press as the
+  /// pills and cards do since 6 November 2026).
+  final double scale;
+
+  const KutePressable(
+      {super.key,
+      required this.child,
+      this.enabled = true,
+      this.scale = KuteMotion.pressScale});
+
+  @override
+  State<KutePressable> createState() => _KutePressableState();
+}
+
+class _KutePressableState extends State<KutePressable> {
+  bool _down = false;
+  Offset? _start;
+
+  /// Travel past which the touch is a drag, not a press.
+  static const double _slop = 10;
+
+  void _set(bool value) {
+    if (_down != value && mounted) setState(() => _down = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = !widget.enabled || kuteReduceMotion(context);
+    final pressed = _down && !still;
+    return Listener(
+      onPointerDown: still
+          ? null
+          : (e) {
+              _start = e.position;
+              _set(true);
+            },
+      onPointerMove: still
+          ? null
+          : (e) {
+              final start = _start;
+              if (start != null && (e.position - start).distance > _slop) {
+                _set(false);
+              }
+            },
+      onPointerUp: still ? null : (_) => _set(false),
+      onPointerCancel: still ? null : (_) => _set(false),
+      child: AnimatedScale(
+        scale: pressed ? widget.scale : 1.0,
+        duration: still
+            ? Duration.zero
+            : (pressed ? KuteMotion.pressInDuration : KuteMotion.pressDuration),
+        curve: pressed ? Curves.easeOut : KuteMotion.press,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// How many rows of a list stagger in, and the step between them.
+const int kStaggerRows = 8;
+const Duration kStaggerStep = Duration(milliseconds: 20);
+
+/// A row's arrival on first paint (founder, 31 October 2026): opacity and
+/// a 10 px rise, settled on the app's settle easing, starting
+/// [kStaggerStep] times [index] after the first row. Rows at [index]
+/// [kStaggerRows] or more, and every row under Reduce Motion, are drawn
+/// at once. Runs once per mount: a rebuild with new data does not replay.
+class KuteStaggerIn extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  /// The step between rows, the rise in pixels and how many rows stagger
+  /// (the rest draw at once): the list defaults, or a surface's own (the
+  /// category tiles: 16 ms, 6 px, every tile).
+  final Duration step;
+  final double rise;
+  final int limit;
+
+  const KuteStaggerIn({
+    super.key,
+    required this.index,
+    required this.child,
+    this.step = kStaggerStep,
+    this.rise = 10,
+    this.limit = kStaggerRows,
+  });
+
+  @override
+  State<KuteStaggerIn> createState() => _KuteStaggerInState();
+}
+
+class _KuteStaggerInState extends State<KuteStaggerIn>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _controller;
+  bool _decided = false;
+
+  /// The wait before this row's rise, cancelled with the row (a delayed
+  /// future outlived a sheet closed in a test: "timers pending").
+  Timer? _wait;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_decided) return;
+    _decided = true;
+    if (widget.index >= widget.limit || kuteReduceMotion(context)) return;
+    final c = AnimationController(
+        vsync: this, duration: KuteMotion.settleDuration);
+    _controller = c;
+    _wait = Timer(widget.step * widget.index, () {
+      if (mounted && !c.isAnimating && c.value == 0) c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _wait?.cancel();
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _controller;
+    if (c == null) return widget.child;
+    final curved = CurvedAnimation(parent: c, curve: KuteMotion.settle);
+    return FadeTransition(
+      opacity: curved,
+      child: AnimatedBuilder(
+        animation: curved,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, widget.rise * (1 - curved.value)),
+          child: child,
+        ),
         child: widget.child,
       ),
     );

@@ -1494,6 +1494,13 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Διεύθυνση Lightning';
 
   @override
+  String get sendVerifiedByBranta => 'Επαληθεύτηκε από το Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Το Branta αναφέρει ότι αυτή η διεύθυνση αντικαταστάθηκε. Επιβεβαίωσέ τη με τον παραλήπτη πριν στείλεις.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Διεύθυνση Bitcoin';
 
   @override
@@ -1767,12 +1774,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Σε προσκάλεσε ένας φίλος';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Κερδίζεις $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Προσκάλεσε $count ακόμα φίλους για να κερδίζεις $rate%';
   }
 
@@ -2698,9 +2700,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Χρήστες με τον κωδικό σου';
-
-  @override
   String get accountPendingPayout => 'Πληρωμή σε εκκρεμότητα';
 
   @override
@@ -2718,16 +2717,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Κερδίζεις $rate από τις χρεώσεις που δημιουργούν οι φίλοι σου.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Κερδίζεις $rate από τις χρεώσεις που δημιουργούν οι φίλοι σου, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate με $count φίλους';
   }
@@ -2735,6 +2724,54 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Οι φίλοι σου παίρνουν έκπτωση $discount στις χρεώσεις του Kute όσο είναι μαζί σου.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Κέρδισε $rate από τις χρεώσεις των φίλων σου';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Εκείνοι παίρνουν έκπτωση $discount στις χρεώσεις του Kute';
+  }
+
+  @override
+  String get referralShareInvite => 'Κοινοποίηση πρόσκλησης';
+
+  @override
+  String get referralFriendsJoined => 'Φίλοι που μπήκαν';
+
+  @override
+  String get referralYourRate => 'Το ποσοστό σου';
+
+  @override
+  String get referralTopRate => 'Έχεις το ανώτατο ποσοστό';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count φίλοι',
+      one: '1 φίλος',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Μοιράσου τον σύνδεσμό σου';
+
+  @override
+  String get referralStepShareLine =>
+      'Στείλε τον σύνδεσμο ή τον κωδικό σου σε φίλους.';
+
+  @override
+  String get referralStepJoin => 'Εγγράφονται και κάνουν συναλλαγές';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Κερδίζεις $rate από τις χρεώσεις τους';
   }
 
   @override
@@ -3215,7 +3252,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Διεύθυνση Bitcoin, Lightning ή Spark';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Αυτόματη ανταλλαγή από Bitcoin';
+  String get sendAutoSwapFromBitcoin => 'Από το Bitcoin σου';
 
   @override
   String get sendAddressNotIdentified => 'Η διεύθυνση δεν αναγνωρίστηκε';
@@ -3285,12 +3322,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Υπόγραψε τη συναλλαγή στη συσκευή σου.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit διαθέσιμα · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Υπολογισμός…';
 
   @override
@@ -3342,11 +3373,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get sendPaymentRequestOnlySupportsLightning =>
       'Αυτό το αίτημα πληρωμής υποστηρίζει μόνο Lightning. Άλλαξε σε πορτοφόλι με Lightning για να πληρώσεις.';
-
-  @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Διεύθυνση $asset στο $network';
-  }
 
   @override
   String get sendPasteBitcoinAddress => 'Επικόλληση διεύθυνσης Bitcoin';
@@ -3435,7 +3461,10 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Προστίθεται αυτόματα μετά από 3 επιβεβαιώσεις.';
+      'Προστίθεται αυτόματα, συχνά μέσα σε λίγα λεπτά και το αργότερο μετά από 3 επιβεβαιώσεις. Από την πρώτη επιβεβαίωση ίσως μπορείς να το παραλάβεις νωρίτερα, με χρέωση.';
+
+  @override
+  String get activityClaimNowAvailable => 'Διαθέσιμο για παραλαβή τώρα';
 
   @override
   String get depositReasonFeeHigh =>
@@ -3655,11 +3684,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Κλείσιμο · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Μείωση · $coin';
   }
@@ -3725,7 +3749,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Ανταλλαγή · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4109,6 +4133,15 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hubReferrals => 'Παραπομπές';
 
   @override
+  String get hubReferralsSubtitle => 'Προσκάλεσε φίλους';
+
+  @override
+  String get hubSupportSubtitle => 'Λάβε βοήθεια';
+
+  @override
+  String get hubSettingsSubtitle => 'Ασφάλεια και άλλα';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Κέρδισε ένα μέρος από όσα βγάζει το Kute από τους φίλους σου';
 
@@ -4223,6 +4256,16 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Στάλθηκε στο $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Μεταφέρθηκε στο $walletName';
+  }
+
+  @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Ανταλλάχθηκε με $walletName';
   }
 
   @override
@@ -4921,6 +4964,14 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get slipDepositIncomingNote =>
       'Τα χρήματά σου είναι καθ\' οδόν. Το κουμπί ξεκλειδώνει μόλις φτάσουν.';
+
+  @override
+  String get slipOtherOrderPlacingNote =>
+      'Η άλλη εντολή σου τοποθετείται ακόμα. Μπορείς να τοποθετήσεις αυτήν μόλις ολοκληρωθεί.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Η άλλη πρόβλεψή σου τοποθετείται ακόμα. Μπορείς να τοποθετήσεις αυτήν μόλις ολοκληρωθεί.';
 
   @override
   String get slipDepositAddMore => 'Πρόσθεσε κι άλλα';
@@ -5846,6 +5897,40 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlAdvancedChart => 'Προηγμένο γράφημα';
 
   @override
+  String get optionAdvancedChartSub => 'Σχέδια και δείκτες';
+
+  @override
+  String get optionAboutMarketSub => 'Στατιστικά και βιβλίο εντολών';
+
+  @override
+  String get optionAddMarginSub => 'Πιο μακριά από τη ρευστοποίηση';
+
+  @override
+  String get optionPositionDetailsSub => 'Μέγεθος, είσοδος και funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Λήγει $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Έληξε $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Πώς επιλύεται';
+
+  @override
+  String get optionViewMarketSub => 'Γράφημα και πιθανότητες';
+
+  @override
+  String get optionPredictionDetailsSub => 'Μερίδια και τιμή αγοράς';
+
+  @override
+  String get optionProtectSellSub => 'Πώληση στην τιμή σου';
+
+  @override
   String get chartStyleCandles => 'Κεριά';
 
   @override
@@ -5954,13 +6039,52 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartVwapWindow => 'VWAP στα εμφανιζόμενα κεριά';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Δείκτες';
 
   @override
   String get chartInterval => 'Διάστημα';
+
+  @override
+  String get chartIntervalMinute => '1 λεπτό';
+
+  @override
+  String get chartIntervalMinuteHint => 'Ζωντανές κινήσεις';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 λεπτά';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Οι κινήσεις της ημέρας';
+
+  @override
+  String get chartIntervalFifteenMinutes => '15 λεπτά';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Η τελευταία μέρα';
+
+  @override
+  String get chartIntervalHour => '1 ώρα';
+
+  @override
+  String get chartIntervalHourHint => 'Οι τελευταίες μέρες';
+
+  @override
+  String get chartIntervalFourHours => '4 ώρες';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Οι τελευταίες εβδομάδες';
+
+  @override
+  String get chartIntervalDay => '1 ημέρα';
+
+  @override
+  String get chartIntervalDayHint => 'Οι τελευταίοι μήνες';
+
+  @override
+  String get chartIntervalWeek => '1 εβδομάδα';
+
+  @override
+  String get chartIntervalWeekHint => 'Σε βάθος χρόνου';
 
   @override
   String get chartSelectTool => 'Επιλογή και επεξεργασία σχεδίων';
@@ -5982,7 +6106,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Η απόδοση δεν είναι διαθέσιμη';
 
   @override
-  String get portfolioStatRealized => 'Πραγματοποιημένο κέρδος / ζημιά';
+  String get portfolioStatRealized => 'Πραγματοποιημένα κέρδη';
 
   @override
   String get portfolioStatAmountPredicted => 'Ποσό σε προβλέψεις';
@@ -6145,6 +6269,12 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get moveTransfer => 'Μετακίνηση χρημάτων';
+
+  @override
+  String get moveVerb => 'Μετακίνηση';
+
+  @override
+  String get moveToBitcoin => 'Μετακίνηση στο Bitcoin';
 
   @override
   String get moveAdd => 'Προσθήκη';
@@ -6330,6 +6460,17 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get investingSubmissionUnknown =>
       'Το ανταλλακτήριο δεν έχει επιβεβαιώσει το αποτέλεσμα. Έλεγξε τις εντολές και το υπόλοιπό σου πριν δοκιμάσεις ξανά.';
+
+  @override
+  String get betConfirmingWithVenue => 'Επιβεβαίωση με το Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange =>
+      'Επιβεβαίωση με το ανταλλακτήριο…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Η εντολή δεν ολοκληρώθηκε. Δεν καταχωρίστηκε τίποτα.';
 
   @override
   String get investingApprovalExpired =>
@@ -6525,6 +6666,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get walletPortfolioAction => 'Χαρτοφυλάκιο';
 
   @override
+  String get seeFullPortfolioAndActivity =>
+      'Όλο το χαρτοφυλάκιο και η δραστηριότητα';
+
+  @override
   String get walletActionsWalletChanged =>
       'Το πορτοφόλι άλλαξε. Άνοιξε ξανά το μενού ενεργειών για να συνεχίσεις.';
 
@@ -6672,9 +6817,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
-  String get sendDollarAccountAddressHint => 'Διεύθυνση λογαριασμού δολαρίων';
-
-  @override
   String hwSignKeepDeviceNearby(String device) {
     return 'Κράτα το $device κοντά και ξεκλείδωτο.';
   }
@@ -6744,7 +6886,11 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Μια κατάθεση που φτάνει αργότερα μπορεί να πάρει διαφορετική τιμή.';
+      'Οι καθυστερημένες καταθέσεις μπορεί να πάρουν άλλη τιμή.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Λάθος νόμισμα ή δίκτυο; Τα χρήματά σου μπορεί να χαθούν.';
 
   @override
   String get receiveOneOffNewAddress => 'Νέα διεύθυνση';
@@ -6870,6 +7016,11 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String betBuyPartialMarket(String bought, String total, String price) {
     return 'Αγοράστηκαν $bought από $total μερίδια στα $price. Δεν υπήρχαν άλλοι πωλητές στην τιμή σου, οπότε το υπόλοιπο δεν αγοράστηκε.';
+  }
+
+  @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Πουλήθηκαν $sold από $total μερίδια στα $price. Δεν υπήρχαν άλλοι αγοραστές στην τιμή σου, οπότε το υπόλοιπο δεν πουλήθηκε.';
   }
 
   @override
@@ -7026,6 +7177,10 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get betConnectionUnavailable =>
       'Δεν ήταν δυνατή η σύνδεση με το Polymarket. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.';
+
+  @override
+  String get betConnectionSlowNotSent =>
+      'Η σύνδεσή σου είναι αργή και αυτή η εντολή δεν ολοκληρώθηκε.';
 
   @override
   String get betFeesUnavailable =>
@@ -7210,6 +7365,9 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Μη διαθέσιμο στην περιοχή σου';
+
+  @override
+  String get capabilityNotAvailableNow => 'Μη διαθέσιμο αυτή τη στιγμή';
 
   @override
   String capabilityRegionTitleNamed(String regions) {
@@ -7405,6 +7563,9 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get addWalletOther => 'Άλλο πορτοφόλι';
+
+  @override
+  String get addWalletOtherSubtitle => 'Κωδικός QR, αρχείο ή επικόλληση';
 
   @override
   String get addWalletTrackSubtitle =>
@@ -7613,32 +7774,11 @@ class AppLocalizationsEl extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Όνομα πορτοφολιού';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Αυτή η εντολή δεν μπορεί πλέον να αλλάξει.';
-
-  @override
   String get salControlUnavailable =>
       'Αυτή η ρύθμιση δεν είναι διαθέσιμη σε αυτή την οθόνη.';
 
   @override
-  String get salSwitchToLimitTitle => 'Αλλαγή σε εντολή ορίου;';
-
-  @override
-  String get salOpenLeverageTitle => 'Άνοιγμα ρυθμίσεων μόχλευσης;';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Αυτό αλλάζει τον τύπο εντολής. Έλεγξε την τιμή και το ποσό πριν καταχωρίσεις την εντολή.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Τη μόχλευση την επιλέγεις εσύ. Αυτό ανοίγει τις ρυθμίσεις χωρίς να αλλάξει την τιμή.';
-
-  @override
   String get salChatWith => 'Συνομιλία με τον Sal';
-
-  @override
-  String get salAsk => 'Ρώτα τον Sal';
 
   @override
   String get salUnavailable => 'Ο Sal δεν είναι διαθέσιμος αυτή τη στιγμή.';
@@ -7760,20 +7900,12 @@ class AppLocalizationsEl extends AppLocalizations {
       'Οι ζωντανές πληροφορίες δεν είναι διαθέσιμες.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Κανένα αποτέλεσμα για «$query». Στείλ’ το για να ρωτήσεις τον Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Κανένα αποτέλεσμα για «$query»';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Πληκτρολόγησε για αναζήτηση αγορών';
-
-  @override
-  String get searchOrAskSal => 'Αναζήτησε ή ρώτα τον Sal ό,τι θέλεις';
 
   @override
   String get searchMarketsHint => 'Αναζήτηση αγορών';
@@ -7787,6 +7919,17 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String searchYourPosition(String outcome) {
     return 'Η θέση σου · $outcome';
+  }
+
+  @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ακόμη $count τρόποι για συναλλαγές σε $ticker',
+      one: 'Ακόμη 1 τρόπος για συναλλαγές σε $ticker',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -7919,7 +8062,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get tnNetProfit => 'Καθαρό κέρδος';
 
   @override
-  String get tnTradingPnl => 'Κέρδος/ζημιά συναλλαγών';
+  String get tnTradingPnl => 'Κέρδη συναλλαγών';
 
   @override
   String get tnAllTradingFees => 'Όλες οι χρεώσεις συναλλαγών';
@@ -7935,7 +8078,7 @@ class AppLocalizationsEl extends AppLocalizations {
       'Άνοιγμα, μερικά κλεισίματα και τελικό κλείσιμο';
 
   @override
-  String get tnClosedPnlExchange => 'Κέρδος/ζημιά κλεισίματος (ανταλλακτήριο)';
+  String get tnClosedPnlExchange => 'Κέρδη κλεισίματος (ανταλλακτήριο)';
 
   @override
   String get tnFillFee => 'Χρέωση εκτέλεσης';
@@ -8122,6 +8265,10 @@ class AppLocalizationsEl extends AppLocalizations {
       'Το πορτοφόλι Προβλέψεων δεν είναι ακόμα έτοιμο.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Οι Προβλέψεις δεν είναι προσβάσιμες αυτή τη στιγμή. Δεν στάλθηκε τίποτα. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Αυτή η διαδρομή κατάθεσης δεν είναι προσωρινά διαθέσιμη. Δοκίμασε αργότερα.';
 
@@ -8181,20 +8328,11 @@ class AppLocalizationsEl extends AppLocalizations {
   String get moveAddFunds => 'Προσθήκη κεφαλαίων';
 
   @override
-  String get movePickPayOrDollars =>
-      'Διάλεξε πώς θέλεις να πληρώσεις ή χρησιμοποίησε το υπόλοιπο δολαρίων σου.';
-
-  @override
   String get moveHintAWallet => 'ένα πορτοφόλι';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first ή $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list ή $last';
   }
 
   @override
@@ -8313,12 +8451,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get marketCardSoon => 'σύντομα';
-
-  @override
-  String get marketCardEsportsLive => 'Esports live';
-
-  @override
-  String get marketCardLiveStream => 'Ζωντανή μετάδοση';
 
   @override
   String get pmOrdersConnectLedger =>
@@ -8830,6 +8962,14 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlPositionYouPutIn => 'Επένδυσες';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Μόχλευση ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Χωρίς μόχλευση';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Αξία τώρα $amount';
   }
@@ -8907,6 +9047,70 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get hlChartYouSold => 'Πούλησες εδώ';
+
+  @override
+  String hlChartOpenedLong(String size) {
+    return 'Άνοιγμα long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Άνοιγμα short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Προσθήκη σε long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Προσθήκη σε short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Μείωση long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Μείωση short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Κλείσιμο long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Κλείσιμο short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Αλλαγή σε long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Αλλαγή σε short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Ρευστοποίηση $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Άνοιξες long εδώ';
+
+  @override
+  String get hlChartYouWentShort => 'Άνοιξες short εδώ';
+
+  @override
+  String get hlChartYouClosedHere => 'Έκλεισες εδώ';
 
   @override
   String get hlWithdrawalsUnavailable =>
@@ -9661,6 +9865,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get polyPillElections => 'Εκλογές';
 
   @override
+  String get polyPillArt => 'Τέχνη';
+
+  @override
   String get polySubTargets => 'Στόχοι';
 
   @override
@@ -9766,6 +9973,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get polySportDarts => 'Βελάκια';
 
   @override
+  String get polySportVolleyball => 'Βόλεϊ';
+
+  @override
   String get polySportHandball => 'Χάντμπολ';
 
   @override
@@ -9782,6 +9992,9 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get polySportChess => 'Σκάκι';
+
+  @override
+  String get polyDayTomorrow => 'Αύριο';
 
   @override
   String get polyMoreTitle => 'Όλες οι κατηγορίες';
@@ -9825,6 +10038,63 @@ class AppLocalizationsEl extends AppLocalizations {
   String get polyCountNow => 'Τώρα';
 
   @override
+  String get polyMapRepublican => 'Ρεπουμπλικανοί';
+
+  @override
+  String get polyMapDemocratic => 'Δημοκρατικοί';
+
+  @override
+  String get polyMapIndependent => 'Ανεξάρτητοι';
+
+  @override
+  String get polyMapNotRepublican => 'Όχι Ρεπουμπλικανοί';
+
+  @override
+  String get polyMapNotDemocratic => 'Όχι Δημοκρατικοί';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Οι Ρεπουμπλικανοί προηγούνται σε $count από $total πολιτείες';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Οι Δημοκρατικοί προηγούνται σε $count από $total πολιτείες';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Το «Ναι» προηγείται σε $count από $total πολιτείες';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Καμία ανοιχτή αγορά';
+
+  @override
+  String get polyMapChanceOfYes => 'Πιθανότητα για «Ναι»';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Πάτησε τις πολιτείες για να φτιάξεις τον χάρτη σου';
+
+  @override
+  String get polyMapMostLikely => 'Πιθανότερος χάρτης';
+
+  @override
+  String get polyMapYourMap => 'Ο χάρτης σου';
+
+  @override
+  String get polyMapNoSuchMap => 'Καμία αγορά για αυτόν τον χάρτη';
+
+  @override
+  String get polyMapBackToMostLikely => 'Πίσω στον πιθανότερο χάρτη';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side στον χάρτη σου';
+  }
+
+  @override
   String get polyPillWatchlist => 'Λίστα παρακολούθησης';
 
   @override
@@ -9832,6 +10102,13 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get polyWatchlistRemove => 'Αφαίρεση από τη λίστα παρακολούθησης';
+
+  @override
+  String get hlWatchlistCreate => 'Δημιουργία λίστας παρακολούθησης';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Επιλέξτε τις αγορές που παρακολουθείτε. Οι Επενδύσεις θα ανοίγουν σε αυτές.';
 
   @override
   String get livestreamInMiniPlayer => 'Παίζει στο μίνι πρόγραμμα αναπαραγωγής';
@@ -9921,6 +10198,16 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String polyKickoffTomorrow(String time) {
     return 'Αύριο $time';
+  }
+
+  @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Λήγει σήμερα στις $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Λήγει αύριο στις $time';
   }
 
   @override
@@ -10450,158 +10737,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Αυτή η τιμή απέχει πολύ από την τιμή της αγοράς.';
 
   @override
-  String get salIntroGeneral =>
-      'Εξερεύνησε τις δημόσιες αγορές και μάθε πώς λειτουργούν όλα.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Εξερεύνησε το $market και μάθε πώς λειτουργεί.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Εξερεύνησε αυτή την αγορά και μάθε πώς λειτουργεί.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Μάθε πώς λειτουργούν οι εντολές τύπου $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'market',
-        'limit': 'ορίου',
-        'scale': 'κλιμάκωσης',
-        'stopMarket': 'stop market',
-        'stopLimit': 'stop limit',
-        'takeProfitMarket': 'take profit market',
-        'takeProfitLimit': 'take profit limit',
-        'twap': 'TWAP',
-        'other': 'εντολή',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Γιατί κινείται σήμερα το $market;';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Γιατί το funding στο $market είναι αρνητικό;';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Πώς λειτουργεί το funding στο $market;';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Πώς μπορώ να προστατέψω μια θέση στο $market;';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Πώς λειτουργεί η ρευστοποίηση στο $market;';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Τι κινεί την τιμή του $market;';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Πώς συγκρίνεται το $market με παρόμοιες αγορές;';
-  }
-
-  @override
-  String get salChipPmOddsMoving =>
-      'Γιατί κινούνται οι αποδόσεις σε αυτή την αγορά;';
-
-  @override
-  String get salChipPmClosingSoon => 'Τι συμβαίνει όταν κλείνει αυτή η αγορά;';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Πώς κινεί ο ζωντανός αγώνας αυτές τις αποδόσεις;';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Τι θα μπορούσε να κινήσει τις αποδόσεις σε αυτή την αγορά;';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Ποιοι είναι οι κανόνες επίλυσης αυτής της αγοράς;';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Ποιες αγορές σχετίζονται με αυτή;';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Ποια είναι τα τελευταία νέα για το $market;';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Πώς λειτουργεί μια εντολή τύπου $orderType στο $market;';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Σε τι διαφέρουν οι εντολές market από τις εντολές ορίου;';
-
-  @override
-  String get salChipEduLeverage =>
-      'Πώς αλλάζει η μόχλευση τον κίνδυνο ρευστοποίησης;';
-
-  @override
-  String get salChipEduFunding =>
-      'Τι είναι το funding σε ένα perpetual συμβόλαιο;';
-
-  @override
-  String get salChipEduPredictionBasics =>
-      'Πώς λειτουργούν οι αγορές προβλέψεων;';
-
-  @override
-  String get salChipWalletReceive => 'Πώς λαμβάνω bitcoin στο Kute;';
-
-  @override
-  String get salChipWalletSend => 'Πώς στέλνω bitcoin στο Kute;';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'Ποια είναι η διαφορά μεταξύ μετοχών και perps;';
-
-  @override
-  String get salChipRecoveryPhrase => 'Τι είναι μια φράση ανάκτησης;';
-
-  @override
-  String get salChipBackupHow =>
-      'Πώς λειτουργεί το αντίγραφο ασφαλείας ενός πορτοφολιού;';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Γιατί μια φράση ανάκτησης πρέπει να μένει ιδιωτική;';
-
-  @override
-  String get salChipNetworkConfirmation => 'Τι είναι μια επιβεβαίωση δικτύου;';
-
-  @override
-  String get salChipNetworkFees =>
-      'Πώς λειτουργούν τα τέλη του δικτύου Bitcoin;';
-
-  @override
-  String get salChipTxPending =>
-      'Γιατί μια συναλλαγή μπορεί να μείνει σε εκκρεμότητα;';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Ελάχιστο $amount';
   }
@@ -10630,55 +10765,149 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get searchOrAskSalShort => 'Αναζήτησε ή ρώτα τον Sal';
+  String get shareHeaderLabel => 'Αποστολή σε φίλο';
+
+  @override
+  String get bragPositionAction => 'Κάνε φιγούρα με αυτή τη θέση';
+
+  @override
+  String get bragPositionActionSub => 'Μια κάρτα με το αποτέλεσμά σου';
+
+  @override
+  String get bragPortfolioAction => 'Κάνε φιγούρα με το χαρτοφυλάκιό σου';
+
+  @override
+  String get bragBarLabel => 'Κοινοποίησε και καμάρωσε';
+
+  @override
+  String get bragPortfolioBarLabel => 'Κοινοποίησε το χαρτοφυλάκιο';
+
+  @override
+  String get bragPnlBarLabel => 'Κοινοποίησε τα κέρδη';
+
+  @override
+  String get bragMyPnl => 'Τα κέρδη μου';
+
+  @override
+  String bragShareText(String title, String link) {
+    return '$title στο Kute $link';
+  }
+
+  @override
+  String get bragMyPortfolio => 'Το χαρτοφυλάκιό μου';
+
+  @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count ακόμα',
+      one: '+$count ακόμα',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bragCodeLabel => 'Κωδικός';
+
+  @override
+  String get bragSinceYouBought => 'Από την αγορά';
+
+  @override
+  String get bragAboutIt => 'Κάνε φιγούρα';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
+
+  @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
+  String get barNeedAmount => 'Enter an amount';
+
+  @override
+  String get barNeedLowerAmount => 'Lower the amount';
+
+  @override
+  String get barNeedRaiseAmount => 'Raise the amount';
+
+  @override
+  String get barNeedRecipient => 'Add who to send to';
+
+  @override
+  String get barNeedNetwork => 'Pick a network';
+
+  @override
+  String get barNeedCoin => 'Pick a coin';
+
+  @override
+  String get barNeedAddress => 'Paste an address';
+
+  @override
+  String get barNeedValidAddress => 'Check the address';
+
+  @override
+  String get barNeedTick => 'Tick the box to continue';
+
+  @override
+  String get barNeedPin => 'Enter your 6-digit PIN';
+
+  @override
+  String get barNeedPinAgain => 'Enter the PIN again';
+
+  @override
+  String get barNeedName => 'Enter a name';
+
+  @override
+  String get barNeedCode => 'Enter a code';
+
+  @override
+  String get barNeedPhrase => 'Enter your 12 words';
+
+  @override
+  String get barNeedPublicKey => 'Paste a public key';
+
+  @override
+  String get barNeedNote => 'Write a note';
+
+  @override
+  String get barNeedFee => 'Pick a fee';
+
+  @override
+  String get barNeedPrice => 'Getting a price…';
+
+  @override
+  String get barNeedOption => 'Pick an option';
+
+  @override
+  String get barNeedWallet => 'Pick a wallet';
+
+  @override
+  String get barNeedCheckAmount => 'Check the amount';
+
+  @override
+  String get barNeedWait => 'One moment…';
+
+  @override
+  String get searchPredictionsOrManageAi =>
+      'Βρες προβλέψεις ή διαχειρίσου με AI';
+
+  @override
+  String get searchInvestmentsOrManageAi =>
+      'Βρες επενδύσεις ή διαχειρίσου με AI';
+
+  @override
+  String get searchOrManageAi => 'Αναζήτησε ή διαχειρίσου με AI';
+
+  @override
+  String get connectOwnAiTitle => 'Σύνδεσε το δικό σου AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Άφησε το Claude, το ChatGPT ή το Grok να διαχειρίζεται το πορτοφόλι σου';
 
   @override
   String get financialHubAndSettings => 'Οικονομικό κέντρο και ρυθμίσεις';
-
-  @override
-  String get analyticsInOutTab => 'Έσοδα & έξοδα';
-
-  @override
-  String get inOutMonth => 'Μήνας';
-
-  @override
-  String get inOutYear => 'Έτος';
-
-  @override
-  String get inOutIn => 'Εισερχόμενα';
-
-  @override
-  String get inOutOut => 'Εξερχόμενα';
-
-  @override
-  String get inOutWhereItWent => 'Πού πήγαν';
-
-  @override
-  String get inOutWhereItCameFrom => 'Από πού ήρθαν';
-
-  @override
-  String get inOutSentToPeople => 'Στάλθηκαν σε άτομα';
-
-  @override
-  String get inOutIntoInvestments => 'Προς Investments';
-
-  @override
-  String get inOutIntoDollars => 'Προς Δολάρια';
-
-  @override
-  String get inOutFromPeople => 'Από άτομα';
-
-  @override
-  String get inOutFromInvestments => 'Από Investments';
-
-  @override
-  String get inOutFromDollars => 'Από Δολάρια';
-
-  @override
-  String get inOutBought => 'Αγοράστηκαν';
-
-  @override
-  String get inOutEmpty => 'Καμία κίνηση χρημάτων';
 
   @override
   String get portfolioStatsActive => 'Ενεργά';
@@ -10690,7 +10919,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioStatAtStake => 'Δεσμευμένο ποσό';
 
   @override
-  String get portfolioProfitLoss => 'Κέρδη και ζημίες';
+  String get portfolioProfitLoss => 'Κέρδη';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10949,19 +11178,11 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get depositFromAnotherWallet => 'Άλλο πορτοφόλι ή ανταλλακτήριο';
-
-  @override
   String get depositFromAnotherWalletSubtitle =>
       'Λάβετε μια διεύθυνση για να στείλετε δολάρια';
 
   @override
-  String get portfolioStatOpenPnl => 'Ανοιχτό κέρδος / ζημιά';
-
-  @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Ετοίμασε πρόβλεψη $amount';
-  }
+  String get portfolioStatOpenPnl => 'Ανοιχτά κέρδη';
 
   @override
   String multiMoveSendTitle(String amount) {
@@ -10988,7 +11209,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Τα $amount σας είναι στο $balance. Πατήστε για να αγοράσετε Bitcoin';
+    return 'Τα $amount σας είναι στο $balance. Πατήστε για να τα μεταφέρετε στο Bitcoin';
   }
 
   @override
@@ -11005,6 +11226,19 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get usdReceiveFromAnotherWallet =>
       'Από άλλο πορτοφόλι ή ανταλλακτήριο';
+
+  @override
+  String get receiveAnotherCrypto => 'Άλλο crypto';
+
+  @override
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins και άλλα';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first και $second';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Στο πορτοφόλι σου';
@@ -11077,16 +11311,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Τοποθέτηση $amount στο $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Άνοιγμα εντολής $amount $market';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Προσθήκη περιθωρίου $amount στο $coin';
   }
@@ -11095,9 +11319,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Τα $amount σου είναι στα Investments. Πάτησε για προσθήκη περιθωρίου.';
   }
-
-  @override
-  String get salWhyMoving => 'Γιατί κινείται;';
 
   @override
   String get positionProtectIt => 'Προστάτεψέ τη';
@@ -11228,12 +11449,12 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Αγορά Bitcoin αξίας $amount';
+    return 'Μεταφορά $amount στο Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Αγοράστηκε Bitcoin αξίας $amount';
+    return 'Μεταφέρθηκαν $amount στο Bitcoin';
   }
 
   @override
@@ -11284,10 +11505,10 @@ class AppLocalizationsEl extends AppLocalizations {
       'Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Γραφήματα P&L';
+  String get portfolioSectionPnlCharts => 'Κέρδη';
 
   @override
-  String get portfolioSectionBalances => 'Χαρτοφυλάκιο';
+  String get portfolioSectionBalances => 'Θέσεις';
 
   @override
   String balanceChangePastWeek(String change) {
@@ -11356,8 +11577,34 @@ class AppLocalizationsEl extends AppLocalizations {
       'Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια';
 
   @override
+  String get chartPeriodPastWeek => 'Τελευταία εβδομάδα';
+
+  @override
+  String get chartPeriodPastMonth => 'Τελευταίος μήνας';
+
+  @override
+  String get chartPeriodPast3Months => 'Τελευταίοι 3 μήνες';
+
+  @override
+  String get chartPeriodPastYear => 'Τελευταίος χρόνος';
+
+  @override
+  String get chartPeriodAllTime => 'Όλο το διάστημα';
+
+  @override
+  String get chartNoChange => 'Καμία αλλαγή';
+
+  @override
+  String get pnlChartNoHistory =>
+      'Τα κέρδη σου εμφανίζονται μετά την πρώτη σου θέση.';
+
+  @override
+  String get balanceChartNoHistory =>
+      'Το ιστορικό υπολοίπου ξεκινά με την πρώτη σου συναλλαγή.';
+
+  @override
   String get pnlChartEmpty =>
-      'Τα κέρδη και οι ζημίες σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις';
+      'Τα κέρδη σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11385,4 +11632,2935 @@ class AppLocalizationsEl extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'είσοδος $price';
   }
+
+  @override
+  String get activityOnItsWay => 'Καθ\' οδόν';
+
+  @override
+  String get investingTradfi => 'Παραδοσιακά';
+
+  @override
+  String get purchaseShort => 'Αγορά';
+
+  @override
+  String get categoryGroupDiscover => 'Ανακάλυψε';
+
+  @override
+  String get categoryGroupMarkets => 'Αγορές';
+
+  @override
+  String get categoryGroupTopics => 'Θέματα';
+
+  @override
+  String get categoryGroupTrendingNow => 'Τάσεις τώρα';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count αγορές',
+      one: '1 αγορά',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Πιο ενεργές';
+
+  @override
+  String get categoryStatToday => 'σήμερα';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return 'Όγκος $amount σήμερα';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'Όλα: $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'Κινούνται τώρα';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Δημοφιλείς προβλέψεις';
+
+  @override
+  String get barPickMarketGroup => 'Διάλεξε μια ομάδα αγορών';
+
+  @override
+  String get barPickMarketGroupSub => 'ή ζήτα από τον Sal να βρει μία';
+
+  @override
+  String get barShareWithFriends => 'Αποστολή σε φίλο';
+
+  @override
+  String get barShareMarketSub => 'Στείλε την αγορά ή μια πρόβλεψη';
+
+  @override
+  String get barSharePositionSub => 'Στείλε την αγορά ή τη θέση σου';
+
+  @override
+  String get shareTheMarket => 'Αποστολή της αγοράς';
+
+  @override
+  String get shareTheMarketSub => 'Λαμβάνουν έναν σύνδεσμο για να τη δουν';
+
+  @override
+  String get shareThisPosition => 'Αποστολή αυτής της θέσης';
+
+  @override
+  String get shareThisPositionSub => 'Η αγορά και πώς τα πας';
+
+  @override
+  String get sendThisPrediction => 'Στείλε αυτή την πρόβλεψη';
+
+  @override
+  String get sendThisInvestment => 'Στείλε αυτή την επένδυση';
+
+  @override
+  String get sendThisPickSub =>
+      'Λαμβάνουν την επιλογή σου, έτοιμη για καταχώριση';
+
+  @override
+  String sharePickOn(String outcome, String title) {
+    return '$outcome στο $title';
+  }
+
+  @override
+  String get portfolioInvestedLabel => 'Επενδεδυμένα';
+
+  @override
+  String get portfolioAvailableLabel => 'Διαθέσιμο';
+
+  @override
+  String get balanceNoHistoryTitle => 'Δεν υπάρχει ακόμα ιστορικό υπολοίπου';
+
+  @override
+  String get balanceNoHistorySub => 'Ξεκινά με την πρώτη σου συναλλαγή.';
+
+  @override
+  String balanceGoalLevel(int level) {
+    return 'Επίπεδο $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Kute Υπνάκος';
+
+  @override
+  String get balanceLevelName1 => 'Kute Νόμισμα';
+
+  @override
+  String get balanceLevelName2 => 'Kute Στοίβα';
+
+  @override
+  String get balanceLevelName3 => 'Kute Βάθρο';
+
+  @override
+  String get balanceLevelName4 => 'Kute Χαρτοφύλακας';
+
+  @override
+  String get balanceLevelName5 => 'Kute Θησαυροφυλάκιο';
+
+  @override
+  String get balanceLevelName6 => 'Kute Πύργος';
+
+  @override
+  String get balanceLevelName7 => 'Kute Ράβδοι';
+
+  @override
+  String get balanceLevelName8 => 'Kute Σωρός';
+
+  @override
+  String get balanceLevelName9 => 'Kute Στέμμα';
+
+  @override
+  String get balanceLevelName10 => 'Kute Θρύλος';
+
+  @override
+  String get balanceLevelName11 => 'Εκτός γραφημάτων Kute';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% προς $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Στόχοι';
+
+  @override
+  String get balanceGoalsTab => 'Στόχοι';
+
+  @override
+  String get balanceLadderTitle => 'Επίπεδα';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Από $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Κάτω από $amount';
+  }
+
+  @override
+  String get balanceGoalNext => 'Επόμενος στόχος';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Απομένουν $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Επόμενο: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Μετακίνηση $amount στα Δολάρια';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Μετακίνηση στα Δολάρια';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Ξεπέρασες τα $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin και δολάρια μαζί. Ο Sal κάνει πως δεν είναι τίποτα.';
+
+  @override
+  String get pnlNoHistoryTitle => 'Δεν υπάρχουν ακόμα κέρδη';
+
+  @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get portfolioPnlAllVenues => 'Όλα';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count θέσεις εκτός γραφήματος (χωρίς ιστορικό)',
+      one: '1 θέση εκτός γραφήματος (χωρίς ιστορικό)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioHeroUp(String amount) {
+    return 'Άνοδος $amount';
+  }
+
+  @override
+  String portfolioHeroDown(String amount) {
+    return 'Πτώση $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Είσαι σε κέρδος $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Είσαι σε ζημιά $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Από κλειστές θέσεις';
+
+  @override
+  String get portfolioPnlOnOpen => 'Σε ανοιχτές θέσεις';
+
+  @override
+  String get portfolioPnlByProduct => 'Ανά προϊόν';
+
+  @override
+  String get portfolioClosedPositions => 'Κλειστές θέσεις';
+
+  @override
+  String get portfolioBrowseInvesting => 'Εξερεύνησε τις Επενδύσεις';
+
+  @override
+  String get activityFilterTrades => 'Συναλλαγές';
+
+  @override
+  String get activityFilterPayouts => 'Πληρωμές';
+
+  @override
+  String get activityFilterTransfers => 'Μεταφορές';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Κλείσιμο · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Κλείσιμο · $coin Short';
+  }
+
+  @override
+  String get pnlStatRealisedAllTime => 'All time realised';
+
+  @override
+  String get pnlStatUnrealisedAllTime => 'All time unrealised';
+
+  @override
+  String portfolioInvestedInVenue(String venue) {
+    return 'Invested in $venue';
+  }
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
+  String get portfolioAllTime => 'Όλο το διάστημα';
+
+  @override
+  String get barWhatIsThis => 'Τι είναι αυτό;';
+
+  @override
+  String get barReceiveExplainSub => 'Ο Sal εξηγεί πώς λειτουργεί η λήψη';
+
+  @override
+  String get barReceiveQuestion =>
+      'Εξήγησέ μου αυτή την οθόνη λήψης: τον κωδικό QR, τη διεύθυνση Lightning, Ενιαίο vs Μόνο Bitcoin vs Μόνο Lightning και τι σημαίνει «Δέχεται επίσης»';
+
+  @override
+  String get barScannerLabel => 'Τι μπορώ να σαρώσω;';
+
+  @override
+  String get barScannerQuestion =>
+      'Τι μπορώ να σαρώσω με τον σαρωτή του Kute: διευθύνσεις, τιμολόγια, κωδικούς QR, και τι γίνεται μετά τη σάρωση;';
+
+  @override
+  String get barBackupLabel => 'Γιατί αντίγραφο ασφαλείας;';
+
+  @override
+  String get barBackupQuestion =>
+      'Γιατί να κρατήσω αντίγραφο ασφαλείας του πορτοφολιού μου, τι είναι η φράση ανάκτησης και πώς τη φυλάω με ασφάλεια;';
+
+  @override
+  String get barReceiptLabel => 'Τι έγινε εδώ;';
+
+  @override
+  String get barReceiptQuestion =>
+      'Εξήγησέ μου αυτή την απόδειξη συναλλαγής: τι μετακινήθηκε, τις χρεώσεις, την κατάσταση και τι σημαίνει κάθε γραμμή';
+
+  @override
+  String get barAskSalSub => 'Ρώτα τον Sal για αυτή την οθόνη';
+
+  @override
+  String get barMoveMoney => 'Μετακίνηση χρημάτων';
+
+  @override
+  String get barMoveMoneySub => 'ρώτα τον Sal πού να πάνε';
+
+  @override
+  String get barAskWhatNext => 'Ρώτα τον Sal τι ακολουθεί';
+
+  @override
+  String get barAskAboutKute => 'Ρώτα τον Sal για το Kute';
+
+  @override
+  String get searchHomeRecent => 'Πρόσφατα';
+
+  @override
+  String get searchHomeClear => 'Εκκαθάριση';
+
+  @override
+  String get searchScopeTitle => 'Αναζήτηση σε';
+
+  @override
+  String get searchShowMore => 'Περισσότερα';
+
+  @override
+  String get shareSendToAnyone => 'Στείλε σε οποιονδήποτε';
+
+  @override
+  String get shareSendToAnyoneSubtitle =>
+      'Ένας σύνδεσμος που εισπράττουν με το Kute';
+
+  @override
+  String get shareWhoIsItFor => 'Για ποιον είναι;';
+
+  @override
+  String get shareFirstNameHint => 'Όνομα (προαιρετικό)';
+
+  @override
+  String get shareCreateLink => 'Δημιουργία συνδέσμου';
+
+  @override
+  String get shareCreatingLink => 'Δημιουργείται ο σύνδεσμος';
+
+  @override
+  String get shareCreateFailed =>
+      'Δεν ήταν δυνατή η δημιουργία του συνδέσμου. Δοκίμασε ξανά.';
+
+  @override
+  String shareAmountInBitcoin(String amount) {
+    return '$amount σε Bitcoin';
+  }
+
+  @override
+  String shareMessageNamed(String name, String amount, String url) {
+    return '$name, σου έστειλα $amount με το Kute. Εισέπραξε εδώ: $url';
+  }
+
+  @override
+  String shareMessageUnnamed(String amount, String url) {
+    return 'Σου έστειλα $amount με το Kute. Εισέπραξε εδώ: $url';
+  }
+
+  @override
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, σου έστειλα μια πρόβλεψη στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
+  }
+
+  @override
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Σου έστειλα μια πρόβλεψη στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
+  }
+
+  @override
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, σου έστειλα μια επένδυση στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
+  }
+
+  @override
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Σου έστειλα μια επένδυση στο Kute: $outcome στο $title, $amount. Εισέπραξέ την: $url';
+  }
+
+  @override
+  String shareLinkSentWaiting(String name) {
+    return 'Ο σύνδεσμος στάλθηκε · αναμονή για είσπραξη από $name';
+  }
+
+  @override
+  String get shareLinkSentWaitingUnnamed =>
+      'Ο σύνδεσμος στάλθηκε · αναμονή για είσπραξη';
+
+  @override
+  String get shareLinkClaimedReady => 'Εισπράχθηκε · έτοιμο για αποστολή';
+
+  @override
+  String get shareLinkPaid => 'Στάλθηκε';
+
+  @override
+  String get shareLinkCancelled => 'Ακυρώθηκε';
+
+  @override
+  String get shareLinkExpired => 'Έληξε';
+
+  @override
+  String get shareLinkCancel => 'Ακύρωση συνδέσμου';
+
+  @override
+  String get shareLinkCancelFailed =>
+      'Δεν ήταν δυνατή η ακύρωση του συνδέσμου. Δοκίμασε ξανά.';
+
+  @override
+  String get shareLinkShareAgain => 'Κοινοποίηση ξανά';
+
+  @override
+  String get sharePendingLinksTitle => 'Σύνδεσμοι που έστειλες';
+
+  @override
+  String shareClaimedPromptTitle(String name, String amount) {
+    return '$name εισέπραξε τα $amount σου';
+  }
+
+  @override
+  String shareClaimedPromptTitleUnnamed(String amount) {
+    return 'Τα $amount σου εισπράχθηκαν';
+  }
+
+  @override
+  String get shareClaimedPromptBody =>
+      'Στείλε τώρα για να ολοκληρωθεί. Τα χρήματα φεύγουν από το πορτοφόλι σου μόνο όταν επιβεβαιώσεις.';
+
+  @override
+  String get shareSendNow => 'Αποστολή τώρα';
+
+  @override
+  String get shareLater => 'Αργότερα';
+
+  @override
+  String get shareSendFailed =>
+      'Η αποστολή απέτυχε. Το Kute θα ρωτήσει ξανά την επόμενη φορά που θα ανοίξει.';
+
+  @override
+  String claimTitle(String sender, String amount) {
+    return '$sender σού έστειλε $amount';
+  }
+
+  @override
+  String get claimSomeone => 'Κάποιος';
+
+  @override
+  String claimMarketLine(String market) {
+    return 'για πρόβλεψη στο $market';
+  }
+
+  @override
+  String get claimButton => 'Είσπραξη';
+
+  @override
+  String get claimClaiming => 'Είσπραξη σε εξέλιξη';
+
+  @override
+  String get claimOnItsWay => 'Έρχεται';
+
+  @override
+  String claimArrivesWhenOpens(String sender) {
+    return 'Θα φτάσει όταν $sender ανοίξει το Kute.';
+  }
+
+  @override
+  String claimSentPrediction(String sender) {
+    return '$sender σού έστειλε μια πρόβλεψη';
+  }
+
+  @override
+  String claimSentInvestment(String sender) {
+    return '$sender σού έστειλε μια επένδυση';
+  }
+
+  @override
+  String claimPickAmount(String outcome, String amount) {
+    return '$outcome · $amount';
+  }
+
+  @override
+  String claimWaitingForSender(String sender) {
+    return 'Αναμονή για αποστολή από $sender';
+  }
+
+  @override
+  String claimArrivedInDollars(String amount) {
+    return 'Τα $amount είναι στα Δολάριά σου';
+  }
+
+  @override
+  String get claimPlacePrediction => 'Καταχώριση της πρόβλεψης';
+
+  @override
+  String get claimPlaceInvestment => 'Καταχώριση της επένδυσης';
+
+  @override
+  String get claimOpenMarket => 'Άνοιγμα της αγοράς';
+
+  @override
+  String get claimAlreadyClaimed => 'Αυτός ο σύνδεσμος έχει ήδη εισπραχθεί.';
+
+  @override
+  String get claimExpired => 'Αυτός ο σύνδεσμος έχει λήξει.';
+
+  @override
+  String get claimUnavailable => 'Αυτός ο σύνδεσμος δεν είναι διαθέσιμος.';
+
+  @override
+  String get claimFailed => 'Η είσπραξη απέτυχε. Δοκίμασε ξανά.';
+
+  @override
+  String get claimNeedsWallet =>
+      'Το πορτοφόλι σου ετοιμάζεται ακόμα. Δοκίμασε ξανά σε λίγο.';
+
+  @override
+  String get shareMarketShareLink => 'Αποστολή συνδέσμου';
+
+  @override
+  String shareMarketLookAt(String title, String link) {
+    return 'Δες αυτό στο Kute: $title $link';
+  }
+
+  @override
+  String shareMarketChance(String chance) {
+    return '$chance% πιθανότητα';
+  }
+
+  @override
+  String get sendRecipientSearchHint => 'Όνομα, κινητό ή διεύθυνση κρύπτο';
+
+  @override
+  String get sendMoveToYourDollars => 'Μεταφορά στα Δολάριά σου';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Μεταφορά στο Bitcoin σου';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Αποστολή σε $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Τι στέλνεις;';
+
+  @override
+  String get sendWhatGift => 'Μια πρόβλεψη ή επένδυση';
+
+  @override
+  String get sendDollarsTitle => 'Αποστολή δολαρίων';
+
+  @override
+  String sendCoinTitle(String coin) {
+    return 'Αποστολή $coin';
+  }
+
+  @override
+  String get sendContacts => 'Επαφές';
+
+  @override
+  String get sendToAFriend => 'Αποστολή σε φίλο';
+
+  @override
+  String get sendToAFriendSub => 'Το εισπράττουν με το Kute, χωρίς πορτοφόλι';
+
+  @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
+  String get sendSomeoneElse => 'Κάποιος άλλος';
+
+  @override
+  String get sendAllowContactsInSettings =>
+      'Επίτρεψε τις επαφές στις Ρυθμίσεις';
+
+  @override
+  String get sendAllowContactsInSettingsSub =>
+      'Το Kute δείχνει μόνο τις επαφές που επιτρέπεις';
+
+  @override
+  String get sendNoContactsMatch => 'Δεν βρέθηκαν επαφές';
+
+  @override
+  String get sendContactsSearchHint => 'Αναζήτηση επαφών';
+
+  @override
+  String get sendContactsSeeYours => 'See your contacts';
+
+  @override
+  String get sendContactsSeeYoursSub => 'Send to friends from your phone book';
+
+  @override
+  String sendLinkToPhone(String phone) {
+    return 'Send a link to $phone';
+  }
+
+  @override
+  String get sendBadgeKute => 'On Kute';
+
+  @override
+  String get sendBadgeLightning => 'Lightning address';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Από το Bitcoin σου';
+
+  @override
+  String get receiveFromYourDollars => 'Από τα Δολάρια';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount σε Δολάρια';
+  }
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin και Lightning';
+
+  @override
+  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+
+  @override
+  String get sendRailLightning => 'Lightning';
+
+  @override
+  String get sendRailSpark => 'Spark';
+
+  @override
+  String usdSendNotNetworkAddress(String network) {
+    return 'Δεν είναι διεύθυνση $network';
+  }
+
+  @override
+  String usdSendResolvedRail(String network, String asset) {
+    return '$network · $asset';
+  }
+
+  @override
+  String get sendPickMarket => 'Στείλε μια πρόβλεψη ή επένδυση';
+
+  @override
+  String get sendPickMarketSub => 'Αναζήτησε μια αγορά και διάλεξε πλευρά';
+
+  @override
+  String get sendPickMarketSearchHint =>
+      'Αναζήτηση σε προβλέψεις και επενδύσεις';
+
+  @override
+  String get sendPickMarketNoResults => 'Δεν βρέθηκε τίποτα';
+
+  @override
+  String get sendPickSideSub => 'Διάλεξε την πλευρά που θα λάβουν';
+
+  @override
+  String get shareSendAgainWhatsApp => 'Στείλε ξανά μέσω WhatsApp';
+
+  @override
+  String get shareSendAgainSms => 'Στείλε ξανά μέσω SMS';
+
+  @override
+  String get sendToLabel => 'Αποστολή σε';
+
+  @override
+  String get predictionsChance => 'πιθανότητα';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get buyDollarsAction => 'Αγορά δολαρίων';
+
+  @override
+  String get passkeyPrfUnsupportedTitle =>
+      'This password manager can\'t hold your Kute wallet';
+
+  @override
+  String get passkeyPrfUnsupportedBody =>
+      'It doesn\'t support the key Kute needs, so nothing was created.';
+
+  @override
+  String get passkeyPrfUseApplePasswords => 'Use Apple Passwords';
+
+  @override
+  String get passkeyPrfUseGooglePasswordManager =>
+      'Use Google Password Manager';
+
+  @override
+  String get passkeyPrfPickApplePasswords => 'Pick Passwords when asked';
+
+  @override
+  String get passkeyPrfPickGooglePasswordManager =>
+      'Pick Google Password Manager when asked';
+
+  @override
+  String get passkeyPrfUsePhraseInstead => 'Use a recovery phrase instead';
+
+  @override
+  String get passkeyPrfTryAgain => 'Try again';
+
+  @override
+  String get passkeyPrfSignInTitle =>
+      'This password manager didn\'t return your Kute key';
+
+  @override
+  String get passkeyPrfSignInBody =>
+      'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.';
+
+  @override
+  String get passkeyPrfRestoreBody =>
+      'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.';
+
+  @override
+  String get passkeyPrfRestoreWithPhrase => 'Restore with your recovery phrase';
+
+  @override
+  String get passkeyChoiceWorksWithApple => 'Works with Apple Passwords';
+
+  @override
+  String get passkeyChoiceWorksWithGoogle =>
+      'Works with Google Password Manager';
+
+  @override
+  String get sendRecipientSendingTo => 'Sending to';
+
+  @override
+  String get sendRecipientChange => 'Change';
+
+  @override
+  String get sendOtherContacts => 'Other contacts';
+
+  @override
+  String get chartSheetTitle => 'Γράφημα';
+
+  @override
+  String get chartIndEmaNote => 'Βραχυπρόθεσμη τάση που αλλάζει γρήγορα';
+
+  @override
+  String get chartIndBb => 'Ζώνες Bollinger';
+
+  @override
+  String get chartIndBbNote => 'Πόσο ταλαντεύεται συνήθως η τιμή';
+
+  @override
+  String get chartIndRsiNote => 'Αν οι αγορές ή οι πωλήσεις έχουν παρατραβήξει';
+
+  @override
+  String get chartIndMacdNote => 'Η ορμή στρέφεται πάνω ή κάτω';
+
+  @override
+  String get chartIndVwapNote =>
+      'Μέση τιμή που πληρώθηκε, σταθμισμένη με τον όγκο';
+
+  @override
+  String get chartIndVolumeNote => 'Πόσα διαπραγματεύτηκαν σε κάθε περίοδο';
+
+  @override
+  String get chartReset => 'Επαναφορά';
+
+  @override
+  String chartPaneLimit(String name) {
+    return 'Το $name απενεργοποιήθηκε: χωράνε δύο κάτω από το γράφημα';
+  }
+
+  @override
+  String get chartToolCursor => 'Δείκτης';
+
+  @override
+  String get chartToolHorizontalLine => 'Οριζόντια γραμμή';
+
+  @override
+  String get chartToolPriceLine => 'Γραμμή τιμής';
+
+  @override
+  String get chartPriceLines => 'Γραμμές τιμής';
+
+  @override
+  String get chartPriceLineNew => 'Νέα γραμμή';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Ελέγχεται μόνο όσο το Kute είναι ανοιχτό';
+
+  @override
+  String get chartPriceLineAbove => 'Πάνω από την τιμή';
+
+  @override
+  String get chartPriceLineBelow => 'Κάτω από την τιμή';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Επιτεύχθηκε $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return 'Το $coin έφτασε τα $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Έχετε $count γραμμές τιμής. Αφαιρέστε μία για να προσθέσετε άλλη.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Αυτή είναι η τρέχουσα τιμή. Επιλέξτε επίπεδο πάνω ή κάτω από αυτήν.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Είναι πολύ μακριά από την τιμή. Επιλέξτε πιο κοντινό επίπεδο.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Αφαίρεση αυτής της γραμμής τιμής;';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin στα $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Αφαίρεση';
+
+  @override
+  String get chartMoreTools => 'Περισσότερα';
+
+  @override
+  String get chartColor => 'Χρώμα';
+
+  @override
+  String get chartBlueColor => 'Μπλε';
+
+  @override
+  String get chartLineSolid => 'Συνεχής γραμμή';
+
+  @override
+  String get chartLineDashed => 'Διακεκομμένη γραμμή';
+
+  @override
+  String get chartExtendLine => 'Επέκταση προς τα δεξιά';
+
+  @override
+  String get chartLock => 'Κλείδωμα';
+
+  @override
+  String get chartUnlock => 'Ξεκλείδωμα';
+
+  @override
+  String get chartDuplicate => 'Αντιγραφή';
+
+  @override
+  String chartHintTapFirstPoint(String tool) {
+    return 'Πάτησε το πρώτο σημείο: $tool';
+  }
+
+  @override
+  String get chartHintTapSecondPoint => 'Τώρα πάτησε το δεύτερο σημείο.';
+
+  @override
+  String chartHintToolKept(String tool) {
+    return 'Το $tool μένει ενεργό. Πάτησέ το για να σταματήσεις.';
+  }
+
+  @override
+  String get chartHintLocked =>
+      'Κλειδωμένο. Ξεκλείδωσέ το για να το μετακινήσεις.';
+
+  @override
+  String get chartHintPickToolKeep =>
+      'Διάλεξε εργαλείο. Πάτησε δύο φορές για να μείνει ενεργό.';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String receiptCardOnSide(String side) {
+    return 'Είμαι με το $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Πιθανότητα όταν μπήκα';
+
+  @override
+  String get receiptCardCashedOut => 'Ρευστοποιήθηκε';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Πουλήθηκε για $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Όχι αυτή τη φορά';
+
+  @override
+  String get receiptCardPaidOut => 'Πληρώθηκε';
+
+  @override
+  String get receiptCardMoved => 'Μεταφέρθηκε';
+
+  @override
+  String get receiptEdgeNoBank => 'Καμία τράπεζα δεν τραυματίστηκε.';
+
+  @override
+  String get receiptEdgeSentNext => 'Στάλθηκε. Επόμενο.';
+
+  @override
+  String get receiptEdgeLanded => 'Έφτασε. Χωρίς φόρμες.';
+
+  @override
+  String get receiptEdgeIncoming => 'Έρχεται. Η υπομονή είναι λειτουργία.';
+
+  @override
+  String get receiptEdgeMoved => 'Ίδια χρήματα. Καλύτερη θέση.';
+
+  @override
+  String get receiptEdgeStacked => 'Μάζεψα λίγο ακόμα.';
+
+  @override
+  String get receiptEdgeTookSome => 'Πήρα κάτι από το τραπέζι.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Κλειδώθηκε. Τώρα περιμένουμε.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Η πρόβλεψή μου. Επίσημα.';
+
+  @override
+  String get receiptEdgeTookWin => 'Πήρα το κέρδος και έφυγα.';
+
+  @override
+  String get receiptEdgeCutIt => 'Το έκοψα. Προχωράω.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Μέσα και έξω.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Λάθος σήμερα. Ξανά αύριο.';
+
+  @override
+  String get receiptEdgeLesson => 'Το μάθημα πληρώθηκε ολόκληρο.';
+
+  @override
+  String get receiptEdgeCollected => 'Το είπα. Το εισέπραξα.';
+
+  @override
+  String get receiptEdgeOpened => 'Μέσα. Τώρα είναι σειρά της αγοράς.';
+
+  @override
+  String get receiptResult => 'Result';
+
+  @override
+  String get categoryFilterPrompt => 'Filter';
+
+  @override
+  String activityPaidFrom(String source) {
+    return 'Paid from $source';
+  }
+
+  @override
+  String activityPaidFromBoth(String first, String second) {
+    return 'Paid from $first and $second';
+  }
+
+  @override
+  String predictNextWindow(String time) {
+    return 'Επόμενο · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset Πάνω ή Κάτω · $start–$end';
+  }
+
+  @override
+  String predictUpOrDownCompact(String asset, int minutes) {
+    return '$asset up or down · ${minutes}m';
+  }
+
+  @override
+  String get sendFrequent => 'Frequent';
+
+  @override
+  String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'Η κάρτα σου είναι έτοιμη';
+
+  @override
+  String shareCardToday(String change) {
+    return '$change σήμερα';
+  }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, για σένα';
+  }
+
+  @override
+  String get shareCardForYou => 'Για σένα';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, μια επιλογή για σένα';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Μια επιλογή για σένα';
+
+  @override
+  String get shareCardInvestmentForYou => 'Μια επένδυση για σένα';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, μια επένδυση για σένα';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return 'Νίκη για $outcome';
+  }
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'σε bitcoin · $amount';
+  }
+
+  @override
+  String get shareCardClaimOnKute => 'Πάρ\' το στο Kute';
+
+  @override
+  String get shareEdgeStockEarly => 'Κάποιοι αγοράζουμε πριν από τους τίτλους.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Πάνω $change. Παρακαλώ.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Σου τα \'λεγα.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Έκπτωση, όχι καταστροφή.';
+
+  @override
+  String get shareEdgeStockPanic => 'Αγοράζω όσο εσύ πανικοβάλλεσαι.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance λένε ότι είμαι νωρίς, όχι λάθος.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return 'Το $chance του πλήθους κάνει λάθος.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Πάρε την άλλη πλευρά. Τόλμησε.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'Οι δημοσκοπήσεις είναι απόψεις. Αυτό είναι χρήμα.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome ή τίποτα.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Ξόδεψέ τα σοφά. Ή και όχι.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Θεώρησέ το flex.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Δωρεάν bitcoin. Σπάνιο θέαμα.';
+
+  @override
+  String get shareEdgeBragPattern => 'Όχι τύχη. Αναγνώριση μοτίβων.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount όσο εσύ έκανες scroll.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading =>
+      'Βαθιά στο μείον, ακόμα κάνω trading.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Χτίζω χαρακτήρα, $amount τη φορά.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Η υπομονή είναι κι αυτή θέση.';
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return 'Πιθανότητα για $outcome';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount στο $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Η θέση μου';
+
+  @override
+  String get shareCardOutcomeYes => 'Ναι';
+
+  @override
+  String get shareCardOutcomeNo => 'Όχι';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, άνοδος $change σήμερα';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, πτώση $change σήμερα';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: τεκμαρτή τιμή $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price το βαρέλι';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price την ουγγιά';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'Αγορές: $outcome με πιθανότητα $chance';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Αγορές: πιθανότητα $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Φαβορί: $outcome με $chance έναντι $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Φαβορί: $outcome με $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance για νίκη';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return 'Πιθανότητες $chance να συμβεί';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return 'Πιθανότητες $chance για $outcome';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance πιθανότητα να συμβεί';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$chance πιθανότητα για $outcome';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance λένε ναι';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance λένε όχι';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: πιθανότητα $chance';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, ένας φίλος σου στέλνει';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Ένας φίλος σου στέλνει';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, ένας φίλος σου στέλνει μια επιλογή';
+  }
+
+  @override
+  String get claimCardPick => 'Ένας φίλος σου στέλνει μια επιλογή';
+
+  @override
+  String get claimCardTapClaim => 'Δικά σου. Πάτα Είσπραξη.';
+
+  @override
+  String get bragWonCaps => 'Το είπα';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Νίκη από $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Πλήρωσα $paid · Πήρα $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Κάνε φιγούρα με αυτή τη νίκη';
+
+  @override
+  String get bragEdgeWonReceipts => 'Κρίθηκε. Οι αποδείξεις συνημμένες.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Μπήκα στα $entry. Βγήκε σωστό.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount επειδή είχα δίκιο.';
+  }
+
+  @override
+  String get challengeToggle => 'Προκάλεσέ τους';
+
+  @override
+  String get challengeToggleSub => 'Προκάλεσέ τους να πάρουν την άλλη πλευρά';
+
+  @override
+  String get challengeCaps => 'Σε προκαλώ';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, σε προκαλώ';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Ένας φίλος σε προκαλεί';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, σε προκαλούν';
+  }
+
+  @override
+  String get challengeMySide => 'Η πλευρά μου';
+
+  @override
+  String get challengeFriendSide => 'Ο φίλος';
+
+  @override
+  String get challengeYourSide => 'Η πλευρά σου;';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount για να παίξεις, κερνάω εγώ';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'Είμαι με το $side. Λάθος; Πάρε την άλλη πλευρά.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Λέω $side. Θα τα βάλεις μαζί μου;';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Απόδειξε ότι κάνω λάθος.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Διάλεξα $side. Σειρά σου.';
+  }
+
+  @override
+  String get shareEdgeMoneyNoStrings => 'Χωρίς ψιλά γράμματα. Το έλεγξα.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Λεφτά, αλλά σαν μήνυμα.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Ταχύτερο από τράπεζα. Χαμηλός πήχης.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Χωρίς φόρμες. Χωρίς κουβεντούλα.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Έκπληξη. Κάνε πως δεν τρέχει τίποτα.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Παρακαλώ, εκ των προτέρων.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, χωρίς ερωτήσεις.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Δώρο. Όχι δάνειο. Μάλλον.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Μην τα φας όλα μαζί.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Μην το συνηθίσεις.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Με αγάπη. Και λίγο εγωισμό.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Καμία τράπεζα δεν ρωτήθηκε.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoin. Χειριστείτε με υπομονή.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Μαζεύετε υπεύθυνα.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Χωρίς κήρυγμα.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Λίγα sats. Μεγάλη ευθύνη.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Ψηφιακά δολάρια. Ίδια δολάρια.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Μετρητά, χωρίς τον φάκελο.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Δολάρια. Χωρίς ισοτιμία αεροδρομίου.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Η πρόβλεψή μου. Κράτα screenshot.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Για το αρχείο: το είπα πρώτα εγώ.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Τελική απάντηση.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Όχι συμβουλή. Απλώς έντονη άποψη.';
+
+  @override
+  String get shareEdgePickDidReading => 'Έκανα το διάβασμά μου. Σχεδόν.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Το κρατάω για το «σου τα \'λεγα».';
+
+  @override
+  String get shareEdgePickConviction => 'Η σιγουριά μού πάει.';
+
+  @override
+  String get shareEdgePickNotFree => 'Οι απόψεις είναι δωρεάν. Αυτή όχι.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return 'Τα $amount λένε $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Λίγο δράμα. Πολλή σιγουριά.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Αν βγει, δεν θα με αντέχεις.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Με το φαβορί. Επαναστατικό.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance συμφωνούν. Έξυπνο πλήθος.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Ασφαλής επιλογή. Πάντως επιλογή.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Πήγα με τις πιθανότητες. Σοκ.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Αουτσάιντερ. Επίτηδες.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Μόνο το $chance το βλέπει. Μια χαρά.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Λίγες πιθανότητες. Λίγες εξηγήσεις.';
+
+  @override
+  String get shareEdgePickContrarian => 'Πάω κόντρα. Δεν μπερδεύτηκα.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Ντιμπέιτ: θόρυβος. Ποσοστά: όχι.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Σήμερα όλοι είναι προπονητές.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Με μεταβλητότητα. Χωρίς επιβάρυνση.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Διάβασα τα πρακτικά. Όλα.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Διάλεξε πλευρά. Ή απλώς κοίτα.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Απόψεις δωρεάν. Αυτή με ποσοστά.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Όλοι ειδικοί, μέχρι να κριθεί.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Group chat, από εδώ τα ποσοστά.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Καυτές απόψεις δεκτές. Με ποσοστά.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Όχι συμβουλή. Απλώς η αγορά.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Τα ποσοστά κινούνται. Η ερώτηση όχι.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Εσύ αποφασίζεις. Χωρίς πίεση.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Συζητήστε. Ήρεμα.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Εσύ με ποιους είσαι;';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance λένε $side. Συζητήστε.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Ναι ή όχι. Ακούγεται εύκολο.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Μία ερώτηση. Δύο απαντήσεις.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return 'Το $chance δεν είναι εγγύηση.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Απλή ερώτηση. Περίπλοκα συναισθήματα.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Πιθανό δεν σημαίνει σίγουρο.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader μπροστά. Τίποτα δεν κρίθηκε.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return 'Το $chance δεν είναι στέψη.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Γράφημα: $leader. Ιστορία: περίμενε.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Φαβορί σήμερα. Ρώτα ξανά αύριο.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Πολλοί υποψήφιοι. Μία απάντηση.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader στο $chance. Συνεχίζεται.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning =>
+      'Το προβάδισμα δεν είναι νίκη.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Φαβορί, όχι σίγουρο.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Εκπλήξεις γίνονται. Φαβορί επίσης.';
+
+  @override
+  String get shareEdgeMarketGameDecides =>
+      'Αποφασίζει ο αγώνας. Όχι τα σχόλια.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay =>
+      'Τα ποσοστά δεν μπαίνουν στο γήπεδο.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Τώρα κουβέντα. Μετά το σκορ.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Έλα, αν τολμάς.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Λέω $side. Έχεις ειδοποιηθεί.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Λόγια φτηνά. Διάλεξε πλευρά.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Φοβάσαι; Λογικό.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Εκτός αν ξέρεις καλύτερα.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Λέω $side. Σειρά σου να πέσεις έξω.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, και δεν ζητώ συγγνώμη.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Πήρα το $side. Η άλλη πλευρά δική σου.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Πείσε με για το αντίθετο.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Τα λέμε στο αποτέλεσμα.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Λέω $side. Φέρε αποδείξεις.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Όχι συμβουλή. Απλώς ένα γράφημα.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Το γράφημα δεν έχει συναισθήματα.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Ίσως το έχεις ακουστά.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Πράσινη μέρα. Φέρσου φυσιολογικά.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Ηρέμησε. Μόνο $change είναι.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Δεν λέω ότι το ήξερα. Αλλά το ήξερα.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Πάνω σήμερα. Το αύριο δεν με αφορά.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name στα πράσινα. Ταιριάζει.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Το γράφημα πάνω. Το εγώ σταθερό.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Μη χειροκροτείς. Απλώς κοίτα.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Διψήφιο. Θα το επιτρέψω.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Πάνω $change. Οι short είναι καλά;';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Κόκκινη μέρα. Ήρεμα, όπως πάντα.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Κάτω $change. Κάνε zoom out.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional =>
+      'Πτώση; Ο πανικός είναι προαιρετικός.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Κάτω $change. Εξέλιξη χαρακτήρα.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Βουτιά, όχι ανατροπή πλοκής.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Κάτω σήμερα. Ακόμα εδώ.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Μεταβλητότητα: όπως σχεδιάστηκε.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Κάθε γράφημα έχει κακές μέρες.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Κάτω $change. Βαθιές ανάσες.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Δεν έγινε τίποτα. Συναρπαστικό.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Επίπεδη μέρα. Το βαρετό υποτιμάται.';
+
+  @override
+  String get shareEdgeStockSideways => 'Το πλάγια είναι κι αυτό κατεύθυνση.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Χωρίς δράμα σήμερα. Ύποπτο.';
+
+  @override
+  String get shareEdgeStockNap => 'Το γράφημα πήρε έναν υπνάκο.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Παρακολουθώ το τίποτα. Επαγγελματικά.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Αμετάβλητο. Ατάραχο.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Short, και με απόλυτη ηρεμία.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Δεν ανεβαίνουν όλα.';
+
+  @override
+  String get shareEdgeStockGravity => 'Και η βαρύτητα είναι στρατηγική.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Short στο hype. Ευγενικά.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Πάω κόντρα. Με γράφημα.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Κάποιος πρέπει να πάει κόντρα.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Κάτω $change. Όπως το σχεδίασα.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Πάνω σήμερα. Μπορώ να περιμένω.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Ήσυχα στα πράσινα.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Το πράσινο μού πάει.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Θα εξηγούσα, αλλά θα με αντέγραφες.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Ταπεινότητα; Δουλεύεται.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Αποτελέσματα, όχι vibes.';
+
+  @override
+  String get shareEdgeBragMildlyPleased =>
+      'Καμία έκπληξη. Ελαφριά ικανοποίηση.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Παλιές αποδόσεις. Όχι υπόσχεση.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Screenshot πριν αλλάξει.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Πρωταγωνιστική ενέργεια.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Θα το λέω για καιρό.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Αυτή είναι η ήρεμη εκδοχή μου.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Μεγάλο νούμερο. Μικρό εγώ. Λέμε τώρα.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Μικρή νίκη. Πάντως νίκη.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Και η Ρώμη σιγά σιγά.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Μετριόφρον. Σαν εμένα.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Προσωρινή προσγείωση.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Το κόκκινο είναι φάση.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Μείον $amount. Μαθήματα δώρο.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Κάτω, αλλά όχι νοκ άουτ.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Ανεβάζω τις απώλειές μου. Ωρίμανση.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Αυτή είναι η ταπεινή μου εποχή.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Έφαγα τη σφαλιάρα. Κομψά.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Όχι η καλύτερή μου. Ούτε η τελευταία.';
+
+  @override
+  String get shareEdgeBragDignified => 'Κόκκινο, αλλά με αξιοπρέπεια.';
+
+  @override
+  String get shareEdgeBragTuition => 'Οι απώλειες είναι δίδακτρα.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Καθαρό μηδέν. Καθαρή ηρεμία.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Επίπεδο. Τέλεια ισορροπημένο.';
+
+  @override
+  String get shareEdgeBragDidntPanic =>
+      'Ούτε κέρδος. Ούτε ζημιά. Ούτε πανικός.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Το μηδέν μένει αήττητο.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Πλάγια, με στυλ.';
+
+  @override
+  String get shareEdgeBragSharedAnyway =>
+      'Τίποτα να δεις. Το μοιράστηκα πάντως.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Επίπεδη γραμμή. Σταθερά χέρια.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Η αγορά λύγισε. Εγώ όχι.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Ισορροπία. Σαν τον χαρακτήρα μου.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Μηδέν δράμα. Μηδέν αλλαγή.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Σου το είπα. Ευγενικά.';
+
+  @override
+  String get bragEdgeWonNormal => 'Είχα δίκιο. Θα το πάρω ψύχραιμα.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Κρίθηκε υπέρ μου.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Το δίκιο πληρώνει. Καμιά φορά.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Η αγορά συμφώνησε. Στο τέλος.';
+
+  @override
+  String get bragEdgeWonMySide => 'Η πλευρά μου τα κατάφερε.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Υπομονή, μετά πληρωμή.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Καμία παρατήρηση.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Screenshot για το μελλοντικό μου εγώ.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Πρώτα νωρίς. Μετά σωστά.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Εισπράττω ήσυχα.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Θα προσποιούμουν έκπληξη. Δεν έχω.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Στάλθηκε. Χωρίς μουσική αναμονής.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Έγινε πριν ανοίξει η τράπεζα.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Τα λεφτά κινήθηκαν. Το δράμα όχι.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Δευτερόλεπτα, όχι εργάσιμες.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Στάλθηκε. Με ευχαριστείς μετά.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Γενναιόδωρα και αποτελεσματικά.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Ένα πάτημα. Χωρίς φόρμες.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Ξεπληρώθηκε. Προχωράμε.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Εξοφλήθηκε. Σαν ενήλικας.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, έφυγαν σε δευτερόλεπτα.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Μια πληρωμή δεν θέλει σίριαλ.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Πληρώθηκα. Ψυχραιμία.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Ελήφθη. Σημειώθηκε. Εκτιμήθηκε.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount παραπάνω. Καμία ταραχή.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou =>
+      'Έφτασε πριν το μήνυμα ευχαριστίας.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Λεφτά μέσα. Διάθεση πάνω.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Παραλήφθηκε με χάρη.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Ούτε δεύτερη φορά δεν ρώτησα.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled =>
+      'Μέρα πληρωμής, εκτός προγράμματος.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Έφτασε. Χωρίς τράπεζα στη μέση.';
+
+  @override
+  String get receiptEdgeReceivedCompliments =>
+      'Δέχομαι κομπλιμέντα και μεταφορές.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Σχεδόν εδώ. Μη στέκεσαι από πάνω.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Φορτώνει. Ψυχραιμία.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Έρχεται. Το refresh δεν βοηθάει.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Έρχεται. Δεν το ελέγχω.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Εκκρεμεί. Όπως όλα τα καλά.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Έρχεται. Λειτουργία υπομονής: ON.';
+
+  @override
+  String get receiptEdgeIncomingSnacks =>
+      'Καθ\' οδόν. Σνακ δεν περιλαμβάνονται.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Τα καλά πράγματα αργούν να γίνουν.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Χρήματα σε κίνηση.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Όσο την κοιτάς, τόσο αργεί.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Αλλάζω τα έπιπλα θέση.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Τα μετακίνησα. Δεν τα έχασα.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Από τη μία τσέπη στην άλλη.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Τα λεφτά μετακόμισαν.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Ίδιος ιδιοκτήτης. Νέο δωμάτιο.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Νοικοκύρεμα, αλλά για λεφτά.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Ένα στρατηγικό ανακάτεμα.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Μετακινώ λεφτά με ωριμότητα.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Οργανωμένα. Για λίγο.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Απλώς συμμαζεύω.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Κατανέμω. Πολύ ήρεμα.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Δεν το σκέφτηκα πολύ.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Προστέθηκε στη στοίβα.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Ήσυχη συσσώρευση.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne =>
+      'Δεν το είπα σε κανέναν. Μέχρι τώρα.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Αγοράζω, δεν κάνω timing.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount πεποίθησης.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Πρώτα αγορά. Μετά υπομονή.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Αγοράζω. Αγνοώ τον θόρυβο.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Το αγόρασα. Πίσω στη μέρα μου.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Κάποιοι αγοράζουν παπούτσια.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Πούλησα λίγο. Με ψυχραιμία.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Μετατράπηκε. Καμία μετάνοια. Ακόμα.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Πούλησα. Δεν ξανακοιτάζω την τιμή.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Ρευστότητα: αποκτήθηκε.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Πήρα τα λεφτά. Άφησα το δράμα.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Πούλησα. Κοιμάμαι μια χαρά.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'Και τα μετρητά είναι θέση.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Σε μετρητά. Συνειδητά.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Κουμπί πώλησης: πατήθηκε. Ήρεμα.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Λίγα μετρητά δεν βλάπτουν.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Δεσμεύτηκα. Σχεδόν.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Η αναμονή είναι το δύσκολο.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Μια άποψη, πλέον με αντίκρισμα.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Καταχωρήθηκε. Τα νύχια ακέραια.';
+
+  @override
+  String get receiptEdgePredictedTookSide =>
+      'Πήρα θέση. Κράτησα την ψυχραιμία.';
+
+  @override
+  String get receiptEdgePredictedJustMySide =>
+      'Όχι συμβουλή. Απλώς η πλευρά μου.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Τα λέμε στο αποτέλεσμα.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount στο $side. Αυτά.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Μέσα. Πάνω. Έξω.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Πήρα το κέρδος. Άφησα το εγώ.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Έφυγα όσο ήταν πράσινο.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Ξέρω πότε να φεύγω. Είναι τέχνη.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Τελειώσαμε εδώ.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Στην τσέπη.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Πράσινη έξοδος. Χωρίς μπιζ.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Η απληστία δεν είναι στρατηγική.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Έφυγα με κέρδος. Σπάνια πειθαρχία.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Η νίκη είναι νίκη.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Κόψιμο ζημιάς. Αξιοπρέπεια ακέραια.';
+
+  @override
+  String get receiptEdgeDownExits => 'Και οι έξοδοι είναι τέχνη.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Έπεσα έξω. Το έκλεισα γρήγορα.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Βγήκα νωρίς. Κράτησα το μάθημα.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Καλύτερα έξω παρά πείσμα.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Έχασα. Κράτησα την απόδειξη.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Έκλεισε. Δεν ήταν η μέρα μου.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Κόκκινη έξοδος. Μηδέν δάκρυα.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Η παραδοχή είναι η μισή τέχνη.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Τα δίδακτρα πληρώθηκαν.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Μετ\' επιστροφής. Χωρίς σουβενίρ.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Πίσω στην αρχή. Με γνώσεις παραπάνω.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Μηδενικό άθροισμα. Μηδέν άγχος.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Καμία ζημιά. Κανένα φάουλ.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Η αγορά σήκωσε τους ώμους. Κι εγώ.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Καθαρό αποτέλεσμα: μια ιστορία.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Επόμενη ερώτηση.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Η αγορά διαφώνησε. Αγενώς.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Έχασα μία. Κράτησα το χιούμορ μου.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Λάθος, αλλά σε καλή παρέα.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Αυτό το χρεώνομαι εγώ.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Πιο άδειο πορτοφόλι. Ίδιος αέρας.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Το προέβλεψα. Λάθος.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Το να χάνεις με χάρη είναι flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Οι πιθανότητες ήταν πιθανότητες.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Προχωράω. Ήδη προχώρησα.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Μία πρόβλεψη κάτω. Ένα μάθημα πάνω.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Κρίθηκε. Εισπράχθηκε.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Η πληρωμή έφτασε. Φέρομαι κανονικά.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, πληρωμένα στο ακέραιο.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Πληρώνομαι επειδή είχα δίκιο.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Θέση ανοιχτή. Σφυγμός κανονικός.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Μπήκα ήρεμα. Θα βγω ήρεμα.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Μέσα στα $price. Σημειώθηκε.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Μέσα. Χωρίς refresh κάθε λεπτό.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Πεποίθηση, σε υπεύθυνη δόση.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Όχι συμβουλή. Απλώς το trade μου.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding =>
+      'Με το γράφημα έχουμε μια συνεννόηση.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Η είσοδός μου. Το πρόβλημά μου.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Πάνω ή κάτω, όλα καλά.';
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, η επιλογή μου: $outcome στο $title. Πάρε την άλλη πλευρά ή έλα μαζί μου. $amount κερνάω εγώ: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Η επιλογή μου: $outcome στο $title. Πάρε την άλλη πλευρά ή έλα μαζί μου. $amount κερνάω εγώ: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Πάρε την άλλη πλευρά';
+
+  @override
+  String get claimChallengeSameSide => 'Ίδια πλευρά με τον φίλο σου';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Ο φίλος σου είναι με το $outcome';
+  }
+
+  @override
+  String get activityLatest => 'Latest';
+
+  @override
+  String get activityEarlier => 'Earlier';
+
+  @override
+  String polyRowLeads(String leader, String chance) {
+    return '$leader leads · $chance';
+  }
+
+  @override
+  String get predictAboveTarget => 'above target';
+
+  @override
+  String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Στείλε μια πρόβλεψη';
+
+  @override
+  String get sendAnInvestment => 'Στείλε μια επένδυση';
+
+  @override
+  String get sendAPredictionSub => 'Λαμβάνουν την πρόβλεψη που διαλέγεις';
+
+  @override
+  String get sendAnInvestmentSub => 'Λαμβάνουν την επένδυση που διαλέγεις';
+
+  @override
+  String get sendPickOutcomeSub => 'Διάλεξε το αποτέλεσμα που θα λάβουν';
+
+  @override
+  String get sendPickAmountSub => 'Πόσα λαμβάνουν;';
+
+  @override
+  String get sendToAFriendLabel => 'Σε φίλο';
+
+  @override
+  String get sendPickRowSub => 'Ή μια επένδυση. Βρες αγορά, διάλεξε πλευρά';
+
+  @override
+  String get chartSheetChartType => 'Τύπος γραφήματος';
+
+  @override
+  String get chartGroupTrend => 'Τάση';
+
+  @override
+  String get chartGroupMomentum => 'Ορμή';
+
+  @override
+  String get chartGroupVolatility => 'Μεταβλητότητα';
+
+  @override
+  String get chartGroupDisplay => 'Προβολή';
+
+  @override
+  String get chartLogScaleNote => 'Ίση % κίνηση, ίδιο ύψος';
+
+  @override
+  String get chartYourTrades => 'Οι συναλλαγές σου';
+
+  @override
+  String get chartYourTradesNote => 'Οι αγορές και πωλήσεις σου εδώ';
+
+  @override
+  String get chartIndSmaNote => 'Μακροπρόθεσμη τάση που αλλάζει αργά';
+
+  @override
+  String get chartIndStNote => 'Κινητό stop που αλλάζει πλευρά με την τάση';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Γρήγορες εναλλαγές υπεραγορασμένου και υπερπουλημένου';
+
+  @override
+  String get chartIndAtrNote => 'Πόσο κινείται συνήθως μια περίοδος';
+
+  @override
+  String get chartIndIchimokuNote => 'Τάση και επίπεδα σε ένα σύννεφο';
+
+  @override
+  String get chartIndPivotNote => 'Τα σημερινά επίπεδα από το χθεσινό εύρος';
+
+  @override
+  String get chartIndAdxNote => 'Πόσο ισχυρή είναι η τάση';
+
+  @override
+  String get chartIndObvNote => 'Αν ο όγκος στηρίζει την κίνηση';
+
+  @override
+  String get chartIndVp => 'Προφίλ όγκου';
+
+  @override
+  String get chartIndVpNote => 'Τιμές με τις περισσότερες συναλλαγές';
+
+  @override
+  String chartPriceLimit(String name) {
+    return 'Το $name απενεργοποιήθηκε: χωράνε τέσσερα πάνω στην τιμή';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Ρυθμίσεις $name';
+  }
+
+  @override
+  String get chartParamLength => 'Μήκος';
+
+  @override
+  String get chartParamFast => 'Γρήγορη';
+
+  @override
+  String get chartParamSlow => 'Αργή';
+
+  @override
+  String get chartParamSignal => 'Σήμα';
+
+  @override
+  String get chartParamMultiplier => 'Πολλαπλασιαστής';
+
+  @override
+  String get chartParamRsiLength => 'Μήκος RSI';
+
+  @override
+  String get chartParamStochLength => 'Μήκος στοχαστικού';
+
+  @override
+  String get chartParamSmoothK => 'Εξομάλυνση %K';
+
+  @override
+  String get chartParamSmoothD => 'Εξομάλυνση %D';
+
+  @override
+  String get chartParamRows => 'Γραμμές';
+
+  @override
+  String get chartParamSmoothing => 'Εξομάλυνση';
+
+  @override
+  String get chartParamConversion => 'Γραμμή μετατροπής';
+
+  @override
+  String get chartParamBase => 'Γραμμή βάσης';
+
+  @override
+  String get chartParamSpanB => 'Εύρος B';
+
+  @override
+  String get chartParamDisplacement => 'Μετατόπιση';
+
+  @override
+  String get polyPeriodMatch => 'Αγώνας';
+
+  @override
+  String get polyPeriodFullGame => 'Όλος ο αγώνας';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Παιχνίδι $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Χάρτης $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Σετ $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1ο ημίχρονο';
+
+  @override
+  String get polyPeriodSecondHalf => '2ο ημίχρονο';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Περίοδος $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Πρώτα 5 innings';
+
+  @override
+  String get polyPeriodFirstInning => '1ο inning';
+
+  @override
+  String get polyLineSetHandicap => 'Χάντικαπ σετ';
+
+  @override
+  String get polyLineTotalGames => 'Σύνολο παιχνιδιών';
+
+  @override
+  String get polyLineTotalSets => 'Σύνολο σετ';
+
+  @override
+  String get polyLineTotalKills => 'Σύνολο kills';
+
+  @override
+  String get polyLineTotalRounds => 'Σύνολο γύρων';
+
+  @override
+  String get polyLineDuration => 'Διάρκεια';
+
+  @override
+  String get polyLineTeamTotals => 'Σύνολα ομάδας';
+
+  @override
+  String get polyLinePlayers => 'Παίκτες';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Χωρίς συναλλαγές ακόμη · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Κρίθηκαν · $count';
+  }
+
+  @override
+  String get polySideOver => 'Over';
+
+  @override
+  String get polySideUnder => 'Under';
+
+  @override
+  String get sendPickCardSub => 'Διάλεξε αγορά, πλευρά και ποσό';
+
+  @override
+  String get sendPredictionCta => 'Στείλε πρόβλεψη';
+
+  @override
+  String get sendInvestmentCta => 'Στείλε επένδυση';
+
+  @override
+  String get sendPickYourFriend => 'Ο φίλος σου';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who παίρνει $amount στο $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side στο $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks =>
+      'Τα παραλαμβάνει και την τοποθετεί με ένα πάτημα';
+
+  @override
+  String get shareCardPredictionForYou => 'Μια πρόβλεψη για σένα';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, μια πρόβλεψη για σένα';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Βάλε ποσό για αποστολή';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Βάλε τουλάχιστον $amount για αποστολή';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Μόνο το Ναι στο $outcome μπορεί να σταλεί. Άλλαξε σε Ναι για να το στείλεις.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Βρες μια αγορά, διάλεξε πλευρά και ποσό και πάτα τον Sal για αποστολή';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Αποστολή $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Μόνο το Ναι στο $outcome μπορεί να σταλεί';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Αποστολή σε φίλο';
+
+  @override
+  String get sendPickSearchHint => 'Αναζήτηση προβλέψεων και επενδύσεων';
+
+  @override
+  String get sendPickSheetTitle => 'Διάλεξε δώρο';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Διάλεξε δώρο για: $name';
+  }
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'Για: $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Αποστολή $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Διάλεξε ένα αποτέλεσμα';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Το αγοράζεις για: $name';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Το αγοράζεις για έναν φίλο';
+
+  @override
+  String get inviteCardCaps => 'Έχεις πρόσκληση';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount έκπτωση';
+  }
+
+  @override
+  String get inviteCardFees => 'στις χρεώσεις της Kute';
+
+  @override
+  String get inviteCardJoin => 'Έλα μαζί μου στο Kute';
+
+  @override
+  String get inviteCardUseCode => 'Χρησιμοποίησε τον κωδικό μου στην εγγραφή';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Σε έφερα εδώ. Παρακαλώ.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'Το group chat σου το χρειαζόταν αυτό.';
+
+  @override
+  String get shareEdgeInviteSurprised => 'Σε σύστησαν. Κάνε τον έκπληκτο.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Μη με βάλεις να ρωτήσω δύο φορές.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'Δεν είναι αλυσιδωτό μήνυμα. Λίγο καλύτερο.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Εγώ παίρνω ένα μερίδιο. Εσύ έκπτωση. Όλοι καλά.';
+
+  @override
+  String get shareEdgeInviteFees =>
+      'Χαμηλότερες χρεώσεις. Ίδιος αριθμός απόψεων.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'Η έκπτωση είναι αληθινή. Ο σκύλος παραμένει ατάραχος.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Κοινοποίηση του επιπέδου μου';
+
+  @override
+  String get goalCardCaps => 'Το επίπεδό μου';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Δεν το παινεύομαι. Απλώς ένα επίπεδο.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Ο Sal έλεγξε. Πάλι δεν εντυπωσιάστηκε.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Ένα επίπεδο τη φορά. Χωρίς βιασύνη.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked =>
+      'Κανείς δεν ρώτησε. Το μοιράζομαι πάντως.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Ο Sal λέει πως δεν είναι τίποτα. Το λέει συχνά.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Αργή ανάβαση. Επίτηδες.';
+
+  @override
+  String get shareEdgeGoalNoTrophy =>
+      'Κανένα τρόπαιο. Μόνο ένας σκύλος κι ένα επίπεδο.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Σειρά σου. Ο Sal θα περιμένει.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Φτάνει ως bitcoin';
+
+  @override
+  String get sendEmailNoLightning => 'Email, χωρίς διεύθυνση Lightning';
+
+  @override
+  String get barNeedLightningAddress => 'Καμία διεύθυνση Lightning';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Η πρόβλεψή σου καταχωρίζεται';
+
+  @override
+  String get orderNoticePlacingOrder => 'Η εντολή σου καταχωρίζεται';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Περιμένουμε να φτάσουν τα χρήματά σου';
+
+  @override
+  String get orderNoticeConverting => 'Μετατρέπουμε τα δολάριά σου';
+
+  @override
+  String get orderNoticeSettingUp => 'Ρυθμίζουμε τον λογαριασμό σου';
+
+  @override
+  String get orderNoticeSending => 'Στέλνουμε την εντολή σου';
+
+  @override
+  String get orderNoticeConfirming => 'Επιβεβαίωση με την πλατφόρμα';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Η πρόβλεψη καταχωρήθηκε';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Η εντολή καταχωρήθηκε';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Η πρόβλεψη δεν καταχωρήθηκε';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Η εντολή δεν καταχωρήθηκε';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Δεν επιβεβαιώθηκε ακόμη';
+
+  @override
+  String get orderNoticeOpenToSee => 'Άνοιξε το Kute για να δεις τι συνέβη.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Εντολές σε εξέλιξη';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Η πρόοδος μιας πρόβλεψης ή εντολής όσο το Kute είναι στο παρασκήνιο.';
+
+  @override
+  String get orderNoticeResultChannel => 'Αποτελέσματα εντολών';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Αν μια πρόβλεψη ή εντολή που καταχωρίστηκε όσο το Kute ήταν στο παρασκήνιο πέρασε.';
+
+  @override
+  String get predictionsInstant => 'Άμεσες';
+
+  @override
+  String get categoryInstantLengths => '5 λεπτά · 15 λεπτά · 1 ώρα · 4 ώρες';
+
+  @override
+  String get categoryFiveMinuteMarkets => 'Αγορές 5 λεπτών';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Τώρα · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Χωρίς τιμές ακόμα';
+
+  @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · κέρδος $payout';
+  }
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset Πάνω ή Κάτω · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Τοποθετούμε την πρόβλεψή σου';
+
+  @override
+  String get standingPlacingOrder => 'Τοποθετούμε την εντολή σου';
+
+  @override
+  String get standingPlacingInvestment => 'Τοποθετούμε την επένδυσή σου';
+
+  @override
+  String get standingPredictionPlaced => 'Η πρόβλεψη τοποθετήθηκε';
+
+  @override
+  String get standingOrderPlaced => 'Η εντολή τοποθετήθηκε';
+
+  @override
+  String get standingPredictionFailed =>
+      'Η πρόβλεψή σου δεν τοποθετήθηκε. Τα χρήματα είναι στις Προβλέψεις, διαθέσιμα.';
+
+  @override
+  String get standingOrderFailed =>
+      'Η εντολή σου δεν τοποθετήθηκε. Τα χρήματα είναι στις Επενδύσεις, διαθέσιμα.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Ακυρώθηκε. Τα χρήματα μένουν στις Προβλέψεις, διαθέσιμα.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Ακυρώθηκε. Τα χρήματα μένουν στις Επενδύσεις, διαθέσιμα.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Η τιμή πήγε στο $price. Πάτησε για να τοποθετήσεις στη νέα τιμή.';
+  }
+
+  @override
+  String get standingStagePlacing => 'Τοποθετείται';
+
+  @override
+  String get standingStageApproval => 'Χρειάζεται την έγκρισή σου';
 }

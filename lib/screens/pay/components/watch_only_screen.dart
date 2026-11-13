@@ -43,6 +43,7 @@ import 'package:kute/services/fee_history_service.dart';
 import 'package:kute/screens/shared/wallet_icon.dart';
 import 'package:kute/screens/shared/custom_alert_dialog.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/l10n/l10n.dart';
 
@@ -1205,14 +1206,19 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
               ),
             ),
           ),
-          SizedBox(
-            width: double.infinity,
-            child: AppButton(
-              text: context.l10n.sendTransaction,
-              onPressed: _isBroadcasting ? null : _onBroadcast,
-              isLoading: _isBroadcasting,
-              icon: Icons.send_rounded,
+          // THE BAR IS THE BUTTON (kute_bar_context.dart): Send
+          // transaction is the floating Sal bar's primary action, busy
+          // while the broadcast runs.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: context.l10n.sendTransaction,
+              onPrimary: _onBroadcast,
+              enabled: !_isBroadcasting,
+              busy: _isBroadcasting,
+              source: 'hw_broadcast',
+              disabledLabel: null,
             ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
           // The signed transaction is ready, so the only thing left to
           // do is send it. The escape hatch back to the method panel

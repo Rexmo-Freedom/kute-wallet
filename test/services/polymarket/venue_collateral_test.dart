@@ -6,11 +6,14 @@
 
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
 import 'package:kute/services/polymarket/venue_collateral.dart';
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolymarketReadException;
 
 const _v2Yes =
     '834369838335332281222091626449713794621251551518727511203689528701902389248';
@@ -170,6 +173,65 @@ void main() {
     expect(a.posts, 0);
   });
 
+  test(
+      'a conversion just mined, the wallet read from an endpoint a block '
+      'behind: read again, never taken for a wallet short of the buy',
+      () async {
+    // The wallet as the chain has it, and as a lagging endpoint still
+    // shows it for the first read after the conversion.
+    var pusd = _usd(0.3);
+    var usdce = _usd(10.3);
+    var counted = _usd(0.3);
+    var staleReads = 0;
+    var splitReads = 0;
+    var sleeps = 0;
+    final ready = await polyReadyVenueCollateral(
+        costMicros: _usd(10),
+        spenders: const [],
+        ops: PolyVenueCollateralOps(
+          readVenue: () async => PolyVenueCount(balance: counted),
+          readSplit: ({required bool fresh}) async {
+            splitReads++;
+            if (staleReads > 0) {
+              staleReads--;
+              // pUSD not shown yet, the USDC.e already gone.
+              return (pusd: _usd(0.3), usdce: BigInt.zero);
+            }
+            return (pusd: pusd, usdce: usdce);
+          },
+          wrap: () async {
+            final moved = usdce;
+            pusd += moved;
+            usdce = BigInt.zero;
+            staleReads = 1;
+            return moved;
+          },
+          refreshVenue: () async => counted = pusd,
+          approveSpender: (_) async => false,
+          sleep: (_) async => sleeps++,
+        ));
+    expect(ready, PolyVenueReadiness.refreshed);
+    expect(() => polyRequireConfirmedCollateral(ready), returnsNormally);
+    expect(sleeps, greaterThan(0));
+    expect(splitReads, greaterThanOrEqualTo(3));
+  });
+
+  test('the wait says why: unread, not counted or short', () {
+    PolymarketCollateralWait? waitOf(PolyVenueReadiness r) {
+      try {
+        polyRequireConfirmedCollateral(r);
+      } on PolymarketCollateralPending catch (e) {
+        return e.wait;
+      }
+      return null;
+    }
+
+    expect(waitOf(PolyVenueReadiness.unread), PolymarketCollateralWait.unread);
+    expect(waitOf(PolyVenueReadiness.notCounted),
+        PolymarketCollateralWait.notCounted);
+    expect(waitOf(PolyVenueReadiness.short), PolymarketCollateralWait.short);
+  });
+
   test('joining a prior conversion cannot synthesize aggregate pUSD proof',
       () async {
     final ready = await polyReadyVenueCollateral(
@@ -194,6 +256,54 @@ void main() {
     PolymarketPlacementWaits.venueCount = const Duration(seconds: 3);
     PolymarketPlacementWaits.venueCountPoll = const Duration(seconds: 1);
     PolymarketPlacementWaits.conversion = const Duration(seconds: 90);
+  });
+
+  group('the count poll cadence', () {
+    /// A book that counts the buy only after its [lag]th re-read, polled
+    /// with fake-clock sleeps: how long after the first ask it counted.
+    Duration untilCounted({required Duration poll, int lag = 2}) {
+      PolymarketPlacementWaits.venueCountPoll = poll;
+      PolymarketPlacementWaits.venueCount = const Duration(seconds: 10);
+      late Duration took;
+      fakeAsync((async) {
+        var refreshes = 0;
+        bool? counted;
+        Duration? countedAt;
+        polyAwaitVenueCount(
+          costMicros: _usd(3),
+          spenders: polyBuySpenders(_v1Token, negRisk: false),
+          ops: PolyVenueCollateralOps(
+            readVenue: () async => PolyVenueCount(
+                balance: refreshes > lag ? _usd(3) : BigInt.zero),
+            readSplit: ({required fresh}) async =>
+                (pusd: _usd(3), usdce: BigInt.zero),
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async => refreshes++,
+            approveSpender: (_) async => false,
+            sleep: (d) => Future<void>.delayed(d),
+          ),
+        ).then((c) {
+          counted = c;
+          countedAt = async.elapsed;
+        });
+        async.elapse(const Duration(seconds: 10));
+        expect(counted, isTrue);
+        expect(refreshes, lag + 1);
+        took = countedAt!;
+      });
+      return took;
+    }
+
+    test('the book is asked twice a second: a count that catches up on its '
+        'third re-read is seen in 1 s, not 2 s', () {
+      // The setUp above pins the old cadence for the other tests; this is
+      // the default a fresh process starts with.
+      const defaultPoll = Duration(milliseconds: 500);
+      expect(untilCounted(poll: defaultPoll), const Duration(seconds: 1));
+      expect(untilCounted(poll: const Duration(seconds: 1)),
+          const Duration(seconds: 2),
+          reason: 'the old cadence took 2 s for the same book');
+    });
   });
 
   group('before the first order', () {
@@ -250,6 +360,67 @@ void main() {
           ops: a.ops);
       expect(readiness, PolyVenueReadiness.unread);
       expect(a.sleeps, 0);
+    });
+
+    test('a wallet that cannot be read on chain is counted by the book '
+        'alone, after a re-read the book accepted', () async {
+      var refreshes = 0, venueReads = 0;
+      final readiness = await polyReadyVenueCollateral(
+          costMicros: _usd(3),
+          spenders: [_exchange],
+          ops: PolyVenueCollateralOps(
+            readVenue: () async {
+              venueReads++;
+              return PolyVenueCount(balance: _usd(5));
+            },
+            // Every Polygon RPC failed the read (2026-11-08).
+            readSplit: ({required fresh}) async =>
+                throw const PolymarketReadException(
+                    'eth_call: no Polygon RPC answered'),
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async => refreshes++,
+            approveSpender: (_) async => false,
+            sleep: (_) async {},
+          ));
+      expect(readiness, PolyVenueReadiness.refreshed);
+      expect(refreshes, 1);
+      expect(venueReads, 2);
+    });
+
+    test('an unread wallet with a re-read the book refused stays pending, '
+        'whatever its cached count says', () async {
+      final readiness = await polyReadyVenueCollateral(
+          costMicros: _usd(3),
+          spenders: [_exchange],
+          ops: PolyVenueCollateralOps(
+            readVenue: () async => PolyVenueCount(balance: _usd(5)),
+            readSplit: ({required fresh}) async =>
+                throw const PolymarketReadException(
+                    'eth_call: no Polygon RPC answered'),
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async => throw Exception('404 not indexed'),
+            approveSpender: (_) async => false,
+            sleep: (_) async {},
+          ));
+      expect(readiness, PolyVenueReadiness.unread);
+      expect(() => polyRequireConfirmedCollateral(readiness),
+          throwsA(isA<PolymarketCollateralPending>()));
+    });
+
+    test('an unread wallet the book counts short is pending, never short: '
+        'nothing is resized on a wallet that was not read', () async {
+      final readiness = await polyReadyVenueCollateral(
+          costMicros: _usd(3),
+          spenders: [_exchange],
+          ops: PolyVenueCollateralOps(
+            readVenue: () async => PolyVenueCount(balance: _usd(1)),
+            readSplit: ({required fresh}) async => null,
+            wrap: () async => BigInt.zero,
+            refreshVenue: () async {},
+            approveSpender: (_) async => false,
+            sleep: (_) async {},
+          ));
+      expect(readiness, PolyVenueReadiness.unread);
     });
 
     test('a wallet short of the buy is not waited on either', () async {
@@ -360,7 +531,7 @@ void main() {
     final provider = File('lib/providers/polymarket_trading_provider.dart')
         .readAsStringSync();
     final start = provider.indexOf('Future<Map<String, dynamic>> placeOrder({');
-    final guard = provider.indexOf('HotPolymarketOrderGuard().run(', start);
+    final guard = provider.indexOf('HotPolymarketOrderGuard(resend:', start);
     final ready = provider.indexOf('polyReadyVenueCollateral(', start);
     expect(start, greaterThan(0));
     expect(ready, greaterThan(start));

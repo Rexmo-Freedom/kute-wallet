@@ -38,8 +38,18 @@ enum PendingBetStatus {
 
 /// How far a submitted placement has got, for the slip's button: the
 /// order on its way, a step of one-time account setup the venue asked for,
-/// held for a live game's delay, or matched and being confirmed on chain.
-enum PendingBetStage { submitting, settingUp, approving, delayed, confirming }
+/// held for a live game's delay, matched and being confirmed on chain, or
+/// [reconciling]: sent, its answer proved nothing (a timeout, a dropped
+/// connection), and the order is being looked up with the venue before
+/// anything is said ("Confirming with Polymarket…").
+enum PendingBetStage {
+  submitting,
+  settingUp,
+  approving,
+  delayed,
+  confirming,
+  reconciling,
+}
 
 /// How far a queued bet's money is from usable, as the autofire checks it
 /// before placing (pending_bet_autofire.dart): the deposit has not landed,
@@ -90,6 +100,11 @@ class PendingBetIntent {
   /// The event's slug (`btc-updown-5m-1791152100`), when the slip had it.
   /// Tells a 5-minute crypto round (`polyIsCryptoUpDown5m`) apart.
   final String? eventSlug;
+
+  /// Which 5-minute window the slip opened on, `current` or `next`
+  /// (`polyRoundWindowParam`), for the order's events however long its
+  /// funding takes. Null for any other market.
+  final String? roundWindow;
 
   /// Why a failed bet stopped, as a fixed code (price_moved,
   /// market_closed, funds_timeout, book_unavailable, insufficient_usdc,
@@ -180,6 +195,12 @@ class PendingBetIntent {
   final bool convertSeen;
   final bool approveSeen;
 
+  /// The standing order this queued bet is (standing_orders/): its order
+  /// was signed at the accept and is posted as is once the money is
+  /// counted, with no approval held in memory. Null for a bet the
+  /// autofire signs when it fires, as before.
+  final String? standingOrderId;
+
   /// Longest a queued bet may wait before it is dropped unplaced: the
   /// approval's own life (the 30 min autofire grant).
   static const Duration maxQueuedAge = Duration(minutes: 30);
@@ -206,6 +227,7 @@ class PendingBetIntent {
     this.retryMaxPrice,
     this.movedToPrice,
     this.eventSlug,
+    this.roundWindow,
     this.failureCode,
     this.isLimit = false,
     this.limitPrice = 0.0,
@@ -223,6 +245,7 @@ class PendingBetIntent {
     this.readiness,
     this.convertSeen = false,
     this.approveSeen = false,
+    this.standingOrderId,
   });
 
   /// Whether this bet is (or was) funded from Dollars for the order.
@@ -271,6 +294,7 @@ class PendingBetIntent {
     PredictionsReadiness? readiness,
     bool? convertSeen,
     bool? approveSeen,
+    String? standingOrderId,
   }) {
     return PendingBetIntent(
       marketQuote: marketQuote ?? this.marketQuote,
@@ -294,6 +318,7 @@ class PendingBetIntent {
       retryMaxPrice: retryMaxPrice,
       movedToPrice: movedToPrice,
       eventSlug: eventSlug,
+      roundWindow: roundWindow,
       failureCode: failureCode,
       isLimit: isLimit,
       limitPrice: limitPrice,
@@ -315,6 +340,7 @@ class PendingBetIntent {
       readiness: readiness ?? this.readiness,
       convertSeen: convertSeen ?? this.convertSeen,
       approveSeen: approveSeen ?? this.approveSeen,
+      standingOrderId: standingOrderId ?? this.standingOrderId,
     );
   }
 }
@@ -438,6 +464,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       status: current.status,
       errorMessage: current.errorMessage,
       eventSlug: current.eventSlug,
+      roundWindow: current.roundWindow,
       failureCode: current.failureCode,
       isLimit: current.isLimit,
       limitPrice: current.limitPrice,
@@ -455,6 +482,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       readiness: current.readiness,
       convertSeen: current.convertSeen,
       approveSeen: current.approveSeen,
+      standingOrderId: current.standingOrderId,
     );
   }
 
@@ -479,19 +507,6 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
 
   void clear() {
     state = null;
-  }
-
-  /// Drops an armed bet: one got ready on a fast market's slip
-  /// (`BetPrefund`), still waiting for Confirm (`awaitingDeposit` with a
-  /// funding cap). Clearing it drops its approval too (the autofire's
-  /// listener). A queued, placing, failed or finished bet is left alone.
-  void dropArmed() {
-    final current = state;
-    if (current != null &&
-        current.funded &&
-        current.status == PendingBetStatus.awaitingDeposit) {
-      state = null;
-    }
   }
 }
 

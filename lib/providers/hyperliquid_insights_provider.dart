@@ -31,7 +31,6 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
 import 'package:kute/services/hyperliquid/insights/hl_crowd_match.dart';
 import 'package:kute/services/hyperliquid/insights/hl_flow_signals.dart';
-import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 /// Keeps a provider for [duration] after its last listener leaves, so
@@ -75,7 +74,9 @@ final hlCrowdEventsProvider =
         },
         limit: 40,
       );
-      return polymarketEventsOffered(model.parseEventsRaw(page.rows), policy);
+      // Every category, whatever the policy refuses here (founder, 12
+      // November 2026): a refused category's bet slip opens shut.
+      return model.parseEventsRaw(page.rows);
     } catch (_) {
       return const [];
     }

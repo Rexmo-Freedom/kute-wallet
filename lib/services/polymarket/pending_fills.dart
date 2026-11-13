@@ -87,6 +87,7 @@ class PolymarketPendingFill {
 
   PolymarketPendingFill copyWith({
     double? shares,
+    double? expectedShares,
     bool? indexed,
     bool? cashSettled,
   }) =>
@@ -96,7 +97,7 @@ class PolymarketPendingFill {
         shares: shares ?? this.shares,
         price: price,
         costUsd: costUsd,
-        expectedShares: expectedShares,
+        expectedShares: expectedShares ?? this.expectedShares,
         cashBeforeUsd: cashBeforeUsd,
         at: at,
         indexed: indexed ?? this.indexed,
@@ -226,6 +227,50 @@ double pendingFillsValueUsd(Iterable<PolymarketPendingFill> fills) {
   var sum = 0.0;
   for (final f in fills) {
     sum += f.valueUsd;
+  }
+  return sum;
+}
+
+/// [fills] after [soldShares] of [tokenId] were sold out of shares no
+/// positions read listed yet (a sale larger than the listed holding): the
+/// newest unlisted fills give them up first. Their value leaves the header
+/// at once (a sold share is never counted at its fill price); their cost
+/// stays off the cash until a cash read shows it. A fill with nothing left
+/// counts no value.
+List<PolymarketPendingFill> pendingFillsAfterSale(
+  List<PolymarketPendingFill> fills,
+  String tokenId,
+  double soldShares,
+) {
+  if (fills.isEmpty || !soldShares.isFinite || soldShares <= 0) return fills;
+  final out = [...fills];
+  final newestFirst = [for (var i = 0; i < out.length; i++) i]
+    ..sort((a, b) => out[b].at.compareTo(out[a].at));
+  var left = soldShares;
+  var changed = false;
+  for (final i in newestFirst) {
+    if (left <= 0) break;
+    final f = out[i];
+    if (f.tokenId != tokenId || f.indexed || !(f.shares > 0)) continue;
+    final take = f.shares < left ? f.shares : left;
+    left -= take;
+    changed = true;
+    final rest = f.shares - take;
+    final expected = f.expectedShares - take;
+    out[i] = rest <= _kSharesTolerance
+        ? f.copyWith(
+            shares: 0, expectedShares: expected > 0 ? expected : 0, indexed: true)
+        : f.copyWith(shares: rest, expectedShares: expected > 0 ? expected : 0);
+  }
+  return changed ? List.unmodifiable(out) : fills;
+}
+
+/// Shares of [tokenId] among [fills] that no positions read lists yet.
+double unlistedPendingShares(
+    Iterable<PolymarketPendingFill> fills, String tokenId) {
+  var sum = 0.0;
+  for (final f in fills) {
+    if (f.tokenId == tokenId && !f.indexed && f.shares > 0) sum += f.shares;
   }
   return sum;
 }

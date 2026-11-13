@@ -10,6 +10,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/theme/app_theme.dart';
 
 String _money(double v) => '\$${v.round()}';
@@ -211,13 +212,96 @@ void main() {
   });
 
   group('rules and resolution', () {
-    testWidgets('the row opens the sheet', (tester) async {
-      var opened = 0;
-      await _pump(tester, PolyRulesRow(onTap: () => opened++));
-      expect(find.text('Rules and resolution'), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
-      await tester.tap(find.text('Rules and resolution'));
-      expect(opened, 1);
+    testWidgets('alone, the card is one compact full-width row (founder, '
+        '7 November 2026: "way too much"): the gavel, the title over when '
+        'the market ends, a chevron, no preview of the rules; a tap opens '
+        'the rules sheet', (tester) async {
+      const rules = 'This market will resolve to "Yes" if it happens by the '
+          'date.\n\nThe resolution source is the official record.';
+      final event =
+          _event(description: rules, endDate: DateTime(2027, 4, 1, 12));
+      final l10n = await _l10n();
+      await _pump(
+        tester,
+        Builder(
+          builder: (context) => KuteActionCardGrid(cards: [
+            polyRulesCard(context,
+                subtitle: polyRulesCardLine(l10n,
+                    endDate: event.endDate,
+                    ended: false,
+                    now: DateTime(2026, 11, 7, 12)),
+                onTap: () => showPolyRulesSheet(context, event)),
+          ]),
+        ),
+      );
+      final card = find.byKey(kPolyRulesCardKey);
+      expect(card, findsOneWidget);
+      expect(tester.widget<KuteActionCard>(card).compact, isTrue);
+      Finder inCard(Finder f) => find.descendant(of: card, matching: f);
+      final rect = tester.getRect(card);
+      // The sheet's width, inside its 16 margins.
+      expect(rect.width, moreOrLessEquals(375 - 32));
+      expect(inCard(find.text('Rules and resolution')), findsOneWidget);
+      expect(inCard(find.text('Ends Apr 1, 2027')), findsOneWidget);
+      // No preview of the rules on the card: the sheet holds them.
+      expect(find.textContaining('This market will resolve'), findsNothing);
+      // One row: the gavel at the left, the text beside it, the chevron at
+      // the right, all level; a list row's height.
+      final gavel = tester.getRect(inCard(find.byIcon(Icons.gavel_rounded)));
+      final title = tester.getRect(find.text('Rules and resolution'));
+      final date = tester.getRect(find.text('Ends Apr 1, 2027'));
+      final chevron =
+          tester.getRect(inCard(find.byIcon(Icons.chevron_right_rounded)));
+      expect(gavel.width, kKuteOptionCardIconSize);
+      expect(title.left, greaterThan(gavel.right));
+      expect(date.top, greaterThanOrEqualTo(title.bottom));
+      expect(chevron.left, greaterThan(title.right));
+      expect(gavel.center.dy, moreOrLessEquals(rect.center.dy, epsilon: 1));
+      expect(chevron.center.dy, moreOrLessEquals(rect.center.dy, epsilon: 1));
+      expect(rect.height, lessThan(kKuteOptionCardMinHeight));
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      expect(find.byType(PolyRulesSheet), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byType(PolyRulesSheet),
+              matching: find.textContaining('This market will resolve')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    test('the card\'s line: the end in the current year, with the year '
+        'otherwise, "How it resolves" with none', () async {
+      final l10n = await _l10n();
+      final now = DateTime(2026, 11, 4, 12);
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2026, 11, 5, 12), ended: false, now: now),
+          'Ends Nov 5');
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2027, 4, 5, 12), ended: false, now: now),
+          'Ends Apr 5, 2027');
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2026, 11, 1, 12), ended: true, now: now),
+          'Ended Nov 1');
+      // A past date on a market still trading says nothing about it.
+      expect(
+          polyRulesCardLine(l10n,
+              endDate: DateTime(2026, 11, 1, 12), ended: false, now: now),
+          'How it resolves');
+      expect(polyRulesCardLine(l10n, endDate: null, ended: false, now: now),
+          'How it resolves');
+      // In the user's language, the date in its own format.
+      final de = await _l10n('de');
+      expect(
+          polyRulesCardLine(de,
+              endDate: DateTime(2026, 11, 5, 12),
+              ended: false,
+              locale: 'de',
+              now: now),
+          'Endet am 5. Nov.');
     });
 
     testWidgets('the sheet holds the rules text and how the market resolves',

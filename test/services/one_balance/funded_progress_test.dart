@@ -16,7 +16,7 @@ import 'package:kute/screens/shared/slip_shortfall.dart' show fundedStopLine;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
-import 'package:kute/services/polymarket/bet_prefund.dart';
+import 'package:kute/services/polymarket/predictions_funding_window.dart';
 
 const _bet = FundedOrderLabel(
   venue: OneBalanceVenue.predictions,
@@ -328,7 +328,7 @@ void main() {
               _money),
           l10n.betAutofireFundsTimeout);
     });
-    test('still in Dollars: in Investments', () {
+    test('still in Dollars: the line says Dollars', () {
       expect(
           fundedStopLine(
               l10n,
@@ -338,7 +338,7 @@ void main() {
                   reason: 'venue_refused',
                   message: 'No route right now.'),
               _money),
-          r'No route right now. Your $5.00 is in Investments. Tap to place.');
+          r'No route right now. Your $5.00 is in Dollars. Tap to place.');
     });
     test('an Investing order: in Investing', () {
       expect(

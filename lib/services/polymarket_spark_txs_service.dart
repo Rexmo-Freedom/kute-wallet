@@ -266,16 +266,24 @@ class PolymarketSparkTxsService {
   /// receive into that row (or into the move the row is a leg of) on
   /// every later read, a restart included.
   ///
-  /// Stored as `ts|orderId|operationId`; a record written before the
-  /// link was kept holds the timestamp alone.
+  /// [expectedSats] is what the row said it would deliver when this leg
+  /// was matched (its estimate, before the leg's figure replaced it): a
+  /// payout split across transfers whose linked legs fall short of it may
+  /// still claim the rest (own_bitcoin_deliveries.dart).
+  ///
+  /// Stored as `ts|orderId|operationId|expectedSats`; a record written
+  /// before the link was kept holds the timestamp alone, one written before
+  /// the expectation was kept stops at the operation.
   static void tagOrchestraDelivery(String txId,
-      {String? orderId, String? operationId}) {
+      {String? orderId, String? operationId, int? expectedSats}) {
     if (txId.isEmpty) return;
     final ts = DateTime.now().millisecondsSinceEpoch;
     final order = orderId ?? '';
     final op = operationId ?? '';
-    _deliveryBox?.put(
-        txId, order.isEmpty && op.isEmpty ? '$ts' : '$ts|$order|$op');
+    final expected =
+        expectedSats != null && expectedSats > 0 ? '|$expectedSats' : '';
+    _deliveryBox?.put(txId,
+        order.isEmpty && op.isEmpty ? '$ts' : '$ts|$order|$op$expected');
   }
 
   /// Snapshot of tagged delivery-leg tx ids (post-GC, same 30-day
@@ -317,7 +325,8 @@ class PolymarketSparkTxsService {
 
 /// The Orchestra row a tagged delivery receive settled.
 class OrchestraDeliveryLink {
-  const OrchestraDeliveryLink({this.orderId, this.operationId});
+  const OrchestraDeliveryLink(
+      {this.orderId, this.operationId, this.expectedSats});
 
   /// The row's id when it was matched (a quote id may have become an
   /// order id since).
@@ -326,12 +335,20 @@ class OrchestraDeliveryLink {
   /// The row's settlement operation, which survives that change.
   final String? operationId;
 
+  /// What the row said it would deliver when the leg was matched, in sats;
+  /// null when not recorded.
+  final int? expectedSats;
+
   static OrchestraDeliveryLink? parse(List<String> parts) {
     String? at(int i) =>
         parts.length > i && parts[i].isNotEmpty ? parts[i] : null;
     final order = at(1);
     final op = at(2);
     if (order == null && op == null) return null;
-    return OrchestraDeliveryLink(orderId: order, operationId: op);
+    final expected = int.tryParse(at(3) ?? '');
+    return OrchestraDeliveryLink(
+        orderId: order,
+        operationId: op,
+        expectedSats: expected != null && expected > 0 ? expected : null);
   }
 }

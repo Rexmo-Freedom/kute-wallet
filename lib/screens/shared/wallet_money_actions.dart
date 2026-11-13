@@ -1,4 +1,6 @@
 import 'package:kute/helpers/require_fresh_auth.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,24 +15,28 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCirclePillButton;
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellShowsPredictionsTab, shellShowsTradingTab;
 import 'package:kute/screens/shared/wallet_icon.dart';
-import 'package:kute/screens/settings/settings.dart' show kReferralCapability;
+import 'package:kute/screens/settings/settings.dart'
+    show kReferralCapability, requestAppReview;
 import 'package:kute/services/runtime_capabilities_service.dart'
     show runtimeCapabilitiesProvider;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/support_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The Financial hub: wallet switching and Add wallet, under a row of
-/// header buttons (Settings, Support, Referrals) below its compact title.
-/// Referrals shows only where `affiliate.program` is allowed. Portfolio
-/// lives inside Investments. The hub opens from the shell's top-right +
-/// or a pushed wallet screen's name.
+/// The Financial hub: under its compact title, the app's big cards
+/// (founder, 7 November 2026: "with the bigger cards just like the other
+/// parts of the app now"), Settings on top, then Referrals and Support;
+/// then wallet switching and Add account, each a full-width card on the
+/// same soft surface. Referrals shows only where `affiliate.program` is
+/// allowed; Rate the app takes its card otherwise, as on Settings.
+/// Portfolio lives inside Investments. The hub opens from the shell's
+/// top-right + or a pushed wallet screen's name.
 ///
 /// [source] is the categorical door for `wallet_actions_opened`:
 /// home_plus | usd_plus | trading_plus | predictions_plus | bank_plus (the
@@ -76,7 +82,7 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
               title: context.l10n.walletActionsTitle,
               compact: true,
             ),
-            _HubButtons(sheetContext: context, callerContext: callerContext),
+            _HubCards(sheetContext: context, callerContext: callerContext),
             _WalletsSection(
               sheetContext: context,
               callerContext: callerContext,
@@ -89,85 +95,112 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
   }
 }
 
-/// The hub's header buttons, one row under the title (three do not fit
-/// beside it): the Settings pill, Support as a bare circle, and the
-/// Referrals pill where the policy allows the referral program. A withheld
-/// capability hides its button outright, as Settings hides its row.
-class _HubButtons extends ConsumerWidget {
-  const _HubButtons({required this.sheetContext, required this.callerContext});
+/// The hub's three big cards ([KuteActionCardGrid]), where its header
+/// pills were. SETTINGS ON TOP, the grid's lead (full width, with more
+/// presence): the gear is half of the hub's own door ("Financial hub and
+/// settings"), and a lead sets it apart from the account cards under the
+/// grid, where a compact full-width card would read as one more account.
+/// REFERRALS AND SUPPORT, two squares under it, titles on one line
+/// (oneLineTitles; two compact full-width cards where a translation or a
+/// large text size does not fit). Where the policy withholds the referral
+/// program, Rate the app takes its card, as on Settings' top cards: the
+/// grid stays whole and never reads why. Each card closes the hub and
+/// opens its door from the screen the hub was opened on, firing the
+/// events the pills fired.
+class _HubCards extends ConsumerWidget {
+  const _HubCards({required this.sheetContext, required this.callerContext});
 
   final BuildContext sheetContext;
   final BuildContext callerContext;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final showReferral =
         ref.watch(runtimeCapabilitiesProvider).allows(kReferralCapability);
+
+    void openSettings() {
+      HapticFeedback.lightImpact();
+      // `source` kept for the existing settings_opened breakdowns;
+      // the playbook's entry_source carries the same door.
+      TrackingService.track('settings_opened', params: {
+        'source': 'financial_hub',
+        'entry_source': 'financial_hub',
+      });
+      Navigator.of(sheetContext).pop();
+      if (!callerContext.mounted) return;
+      callerContext.push('/settings');
+    }
+
+    void openReferrals() {
+      HapticFeedback.lightImpact();
+      Navigator.of(sheetContext).pop();
+      if (!callerContext.mounted) return;
+      callerContext.push('/affiliate');
+    }
+
+    void rateApp() {
+      HapticFeedback.lightImpact();
+      // Settings' rate_app tap, named for the door it came from.
+      TrackingService.track('settings_action_tapped', params: {
+        'feature': 'rate_app',
+        'source': 'financial_hub',
+      });
+      // Asked before the hub closes: the review reads the settings
+      // through this sheet's ref, which closing it disposes.
+      final review = requestAppReview(ref);
+      Navigator.of(sheetContext).pop();
+      unawaited(review);
+    }
+
+    void openSupport() {
+      HapticFeedback.lightImpact();
+      TrackingService.supportOpened(source: 'financial_hub');
+      Navigator.of(sheetContext).pop();
+      openSupportChat();
+    }
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
-      // Right-aligned under the title. Wraps rather than overflowing where
-      // a long translation or a large text size makes the three wider than
-      // the sheet.
-      child: SizedBox(
-        width: double.infinity,
-        child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8.w,
-            runSpacing: 8.h,
-            children: [
-              // Referrals first, then Support, Settings last (right edge).
-              if (showReferral)
-                KuteCirclePillButton(
-                  icon: Icons.group_rounded,
-                  label: context.l10n.hubReferrals,
-                  size: 40,
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    if (!callerContext.mounted) return;
-                    callerContext.push('/affiliate');
-                  },
-                ),
-              KuteCirclePillButton(
-                icon: Icons.support_agent_rounded,
-                label: context.l10n.support,
-                size: 40,
-                onPressed: () {
-                  TrackingService.supportOpened(source: 'financial_hub');
-                  Navigator.of(sheetContext).pop();
-                  openSupportChat();
-                },
-              ),
-              _HubSettingsButton(callerContext: callerContext),
-            ]),
+      padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 0),
+      child: KuteActionCardGrid(
+        key: const ValueKey('hub-cards'),
+        oneLineTitles: true,
+        lead: KuteActionCard(
+          key: const ValueKey('hub-card-settings'),
+          visual: const KuteActionCardIcon(Icons.settings_rounded,
+              size: kKuteActionCardLeadVisualSize),
+          visualSlot: kKuteActionCardLeadVisualSlot,
+          title: l10n.settings,
+          subtitle: l10n.hubSettingsSubtitle,
+          onTap: openSettings,
+        ),
+        cards: [
+          if (showReferral)
+            KuteActionCard(
+              key: const ValueKey('hub-card-referral'),
+              visual: const KuteActionCardIcon(Icons.group_rounded),
+              title: l10n.hubReferrals,
+              subtitle: l10n.hubReferralsSubtitle,
+              onTap: openReferrals,
+            )
+          else
+            KuteActionCard(
+              key: const ValueKey('hub-card-rate'),
+              visual: const KuteActionCardIcon(Icons.star_rounded),
+              title: l10n.settingsRateTheApp,
+              subtitle: l10n.settingsLeaveAReview,
+              onTap: rateApp,
+            ),
+          // Opens live Crisp chat.
+          KuteActionCard(
+            key: const ValueKey('hub-card-support'),
+            visual: const KuteActionCardIcon(Icons.support_agent_rounded),
+            title: l10n.support,
+            subtitle: l10n.hubSupportSubtitle,
+            onTap: openSupport,
+          ),
+        ],
       ),
-    );
-  }
-}
-
-/// Settings in the hub's header. Closes the hub and opens /settings
-/// from the screen the hub was opened on, as Add wallet does.
-class _HubSettingsButton extends StatelessWidget {
-  const _HubSettingsButton({required this.callerContext});
-
-  final BuildContext callerContext;
-
-  @override
-  Widget build(BuildContext context) {
-    return KuteCirclePillButton(
-      icon: Icons.settings_rounded,
-      label: context.l10n.settings,
-      size: 40,
-      onPressed: () {
-        // `source` kept for the existing settings_opened breakdowns;
-        // the playbook's entry_source carries the same door.
-        TrackingService.track('settings_opened', params: {
-          'source': 'financial_hub',
-          'entry_source': 'financial_hub',
-        });
-        Navigator.of(context).pop();
-        if (!callerContext.mounted) return;
-        callerContext.push('/settings');
-      },
     );
   }
 }
@@ -181,6 +214,11 @@ class _HubSettingsButton extends StatelessWidget {
 /// currently on the first tab wears a check mark. Name only, no balance
 /// (user decision: the wallet's own tab carries the number). A Ledger row
 /// also shows the two venues it carries.
+///
+/// A list, since it grows with every account added, in the weight of the
+/// cards above it (founder, 7 November 2026): each account and Add account
+/// is its own full-width card on the app's one soft surface, laid out as
+/// the grid's compact full-width card ([_AccountCard]), 12 apart.
 class _WalletsSection extends ConsumerWidget {
   const _WalletsSection({
     required this.sheetContext,
@@ -194,7 +232,6 @@ class _WalletsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final settings = ref.watch(settingsProvider);
     final spending = pickSpendingWallet(settings);
     final wallets = settings.wallets.where((w) => !w.isSigner).toList();
@@ -252,56 +289,47 @@ class _WalletsSection extends ConsumerWidget {
       callerContext.pushNamed('addWallet');
     }
 
+    final gap = SizedBox(height: kKuteActionCardGap.w);
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 8.h),
+      // Clear of the cards above, as Settings' sections sit under its
+      // cards: the sheet's header already names the list, so it wears no
+      // label of its own.
+      padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 8.h),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The sheet's header already names it, so the list wears
-          // no label of its own: one grouped card, rows split by hairlines.
-          Container(
-            decoration: BoxDecoration(
-              color: c.surfaceLight,
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(color: c.borderSubtle, width: 0.5),
+          for (final wallet in wallets) ...[
+            _AccountCard(
+              key: ValueKey('hub-account-${wallet.id}'),
+              label: wallet.name.isNotEmpty ? wallet.name : 'Bitcoin Wallet',
+              leading: _WalletMark(wallet: wallet),
+              isActive: shellWalletId == null
+                  ? (spending != null && wallet.id == spending.id)
+                  : wallet.id == shellWalletId,
+              // Both the spending account and a Ledger carry Investing
+              // (Hyperliquid) and Predictions (Polymarket) as tabs of
+              // their own, so each row shows the two venue marks at a
+              // glance. A plain Bitcoin or watch-only account carries
+              // neither.
+              showDollars: wallet.isSparkWallet,
+              // A Ledger shows only the venues it has in this build
+              // (Ledger Investing / Predictions on), the same tabs the
+              // strip draws for it; none while both are off.
+              showInvesting: shellShowsTradingTab(wallet),
+              showPredictions: shellShowsPredictionsTab(wallet),
+              onTap: () => openWallet(wallet),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                for (final wallet in wallets) ...[
-                  _WalletRow(
-                    label:
-                        wallet.name.isNotEmpty ? wallet.name : 'Bitcoin Wallet',
-                    leading: _WalletMark(wallet: wallet),
-                    isActive: shellWalletId == null
-                        ? (spending != null && wallet.id == spending.id)
-                        : wallet.id == shellWalletId,
-                    // Both the spending account and a Ledger carry
-                    // Investing (Hyperliquid) and Predictions
-                    // (Polymarket) as tabs of their own, so each row
-                    // shows the two venue marks at a glance. A plain
-                    // Bitcoin or watch-only account carries neither.
-                    showDollars: wallet.isSparkWallet,
-                    // A Ledger shows only the venues it has in this build
-                    // (Ledger Investing / Predictions on), the same tabs
-                    // the strip draws for it; none while both are off.
-                    showInvesting: shellShowsTradingTab(wallet),
-                    showPredictions: shellShowsPredictionsTab(wallet),
-                    onTap: () => openWallet(wallet),
-                  ),
-                  Divider(height: 0.5, thickness: 0.5, color: c.borderSubtle),
-                ],
-                // Always offered: a way to add a wallet that Kute withholds
-                // says so on Add wallet when tapped, it is never hidden.
-                _WalletRow(
-                  label: context.l10n.addWallet,
-                  leading: Icon(Icons.add_rounded,
-                      size: 20.sp, color: c.textPrimary),
-                  isActive: false,
-                  onTap: addWallet,
-                ),
-              ],
-            ),
+            gap,
+          ],
+          // Always offered: a way to add a wallet that Kute withholds says
+          // so on Add wallet when tapped, it is never hidden. It wears the
+          // cards' icon tile.
+          _AccountCard(
+            key: const ValueKey('hub-add-account'),
+            label: context.l10n.addWallet,
+            leading: const KuteActionCardIcon(Icons.add_rounded),
+            isActive: false,
+            onTap: addWallet,
           ),
         ],
       ),
@@ -309,8 +337,15 @@ class _WalletsSection extends ConsumerWidget {
   }
 }
 
-class _WalletRow extends StatelessWidget {
-  const _WalletRow({
+/// One account of the hub's list, or Add account: the big cards' compact
+/// full-width card (kute_action_cards.dart), the soft surface, its 16
+/// padding and press spring, the [leading] mark in the 40 box at the
+/// left, the name in the cards' title style, then the venue marks a wallet
+/// carries and the check mark on the account the first tab shows (a
+/// chevron on the others).
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({
+    super.key,
     required this.label,
     required this.leading,
     required this.isActive,
@@ -336,48 +371,54 @@ class _WalletRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 32.w,
-                height: 32.w,
-                child: Center(child: leading),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
+    final surface = KuteActionCard.surfaceOf(context);
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: isActive,
+        child: KutePressable(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Container(
+              padding:
+                  KuteActionCard.paddingIn(surface, kKuteActionCardPadding),
+              decoration: surface,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: kKuteActionCardVisualSlot,
+                    height: kKuteActionCardVisualSlot,
+                    child: Center(child: leading),
                   ),
-                ),
+                  const SizedBox(width: kKuteActionCardWideGap),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: KuteActionCard.titleStyle(c),
+                    ),
+                  ),
+                  if (showInvesting || showPredictions) ...[
+                    SizedBox(width: 8.w),
+                    _VenueMarks(
+                      withDollars: showDollars,
+                      investing: showInvesting,
+                      predictions: showPredictions,
+                    ),
+                  ],
+                  const SizedBox(width: 12),
+                  Icon(
+                    isActive
+                        ? Icons.check_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 22,
+                    color: isActive ? c.textPrimary : c.textTertiary,
+                  ),
+                ],
               ),
-              SizedBox(width: 8.w),
-              if (showInvesting || showPredictions) ...[
-                _VenueMarks(
-                  withDollars: showDollars,
-                  investing: showInvesting,
-                  predictions: showPredictions,
-                ),
-                SizedBox(width: 10.w),
-              ],
-              Icon(
-                isActive ? Icons.check_rounded : Icons.chevron_right_rounded,
-                size: 20.sp,
-                color: isActive ? c.textPrimary : c.textTertiary,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -455,17 +496,15 @@ class _WalletMark extends StatelessWidget {
       isSigner: wallet.isSigner,
       isDark: context.isDark,
     );
-    final size = 26.sp;
+    // Inside the cards' 40 box, with a little air round it.
+    const size = 32.0;
     if (visual.svgAsset != null) {
       final mono = visual.color == Colors.white ||
           visual.color == const Color(0xFF333333);
-      return SvgPicture.asset(
-        visual.svgAsset!,
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        colorFilter:
-            mono ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn) : null,
+      return BrandMark(
+        asset: visual.svgAsset!,
+        size: size,
+        tint: mono ? c.textPrimary : null,
       );
     }
     return Icon(visual.icon, size: size, color: visual.color);

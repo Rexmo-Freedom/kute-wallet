@@ -61,6 +61,8 @@ import 'package:kute/helpers/venue_intents.dart'
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart'
     show LegDelivery, watchLegDelivery;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show committedFundsProvider, venueCashPlaceOf;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
@@ -187,6 +189,34 @@ class VenueCashFundedOrderRunner {
       r.grant.revoke();
       orders.remove(id);
       return BitcoinFundedRun(id, Future.value(BitcoinFundedEnd.notSent));
+    }
+    // Every source's share is this order's from the accept on: Dollars'
+    // (checked: an order on the other venue accepted meanwhile may have
+    // taken them; then nothing moves, before any leg) and each venue
+    // leg's cash, until its leg is sent (committed_funds.dart).
+    final commitments = _ref.read(committedFundsProvider.notifier);
+    final share = math.max(0.0, math.min(r.plan.dollarsUsd, r.fundUsd));
+    double reading;
+    try {
+      reading = _ref.read(bitcoinLegEnvProvider).dollarsNow();
+    } catch (_) {
+      reading = 0;
+    }
+    if (!commitments.commitDollars(r.venue,
+        usd: share, dollarsUsd: reading, runId: id)) {
+      orders.stop(id,
+          stage: FundedOrderStage.failed,
+          reason: 'not_sent',
+          moneyAt: FundedMoneyAt.investments);
+      try {
+        r.dropOrder();
+      } catch (_) {}
+      r.grant.revoke();
+      return BitcoinFundedRun(id, Future.value(BitcoinFundedEnd.notSent));
+    }
+    for (final p in r.plan.pulls) {
+      commitments.hold(venueCashPlaceOf(p.venue), r.venue,
+          usd: p.usd, runId: id);
     }
     return BitcoinFundedRun(id, _VenueCashChain(_ref, id, r).run());
   }

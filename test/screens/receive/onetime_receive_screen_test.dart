@@ -19,6 +19,7 @@ import 'dart:async';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodCall, MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,10 +51,12 @@ import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
-import 'package:kute/screens/shared/coin_asset_grid.dart';
-import 'package:kute/screens/shared/custom_button.dart' show AppButton;
+import 'package:kute/screens/shared/custom_button.dart' show AppTextButton;
+import 'package:kute/screens/shared/kute_action_cards.dart'
+    show KuteActionCard;
 import 'package:kute/screens/shared/receive_surface.dart';
-import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCloseButton, KuteNavGlyph, KuteNavGlyphPainter;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show sendShortAddress;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -75,6 +78,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
+import '../../helpers/receive_coin_tap.dart';
 
 class _Sdk extends Mock implements BreezSdk {}
 
@@ -221,6 +226,9 @@ Future<void> _pump(WidgetTester tester,
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        // The shell bar over the page (kute_bar_test_support.dart): the
+        // sheets' primary is the bar.
+        builder: withKuteShellBar,
         theme: ThemeData(
             splashFactory: NoSplash.splashFactory,
             fontFamily: 'Inter',
@@ -255,6 +263,9 @@ Future<void> _settle(WidgetTester tester) async {
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
   }
   await tester.pump(const Duration(milliseconds: 400));
+  // A sheet whose exit ended in that frame takes its bar context off the
+  // stack in the microtask after it; the bar redraws a frame later.
+  await tester.pump();
 }
 
 /// Unmounts the screens, and disposes the policy: the quote's own fresh
@@ -267,38 +278,58 @@ Future<void> _unmount(WidgetTester tester) async {
 
 /// USDT on Ethereum, typed [amount] in the request sheet.
 Future<void> _requestUsdt(WidgetTester tester, String amount) async {
-  await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+  await tapReceiveCoin(tester, 'USDT');
   await _settle(tester);
   expect(find.byType(RequestAmountSheet), findsOneWidget);
   tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged(amount);
+  await _barFollows(tester);
+}
+
+/// The bar redraws a frame after the page, its words sliding to the new
+/// state (kute_shell_bar.dart).
+Future<void> _barFollows(WidgetTester tester) async {
   await tester.pump();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
 }
 
 Finder addressLineOf(String address) => find
     .byWidgetPredicate((w) => w is ReceiveAddressLine && w.address == address);
 
-AppButton _createRequest(WidgetTester tester) => tester.widget<AppButton>(
-    find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+/// Create request is the bar (kute_bar_test_support.dart).
+KuteBarPrimaryProbe _createRequest(WidgetTester tester) {
+  final probe = kuteBarPrimaryProbe(tester);
+  expect(probe.text, _l10n.receiveCreateRequest);
+  // The bar letters it, or the step to take while it is off.
+  expect(kuteBarPrimaryWithText(probe.context.primaryLabel), findsOneWidget);
+  return probe;
+}
 
 final _refundField = find.descendant(
     of: find.byKey(const ValueKey('onetime-refund-address')),
     matching: find.byType(TextField));
 
-AppButton _continueButton(WidgetTester tester) => tester
-    .widget<AppButton>(find.widgetWithText(AppButton, _l10n.continueLabel));
+KuteBarPrimaryProbe _continueButton(WidgetTester tester) {
+  final probe = kuteBarPrimaryProbe(tester);
+  expect(probe.text, _l10n.continueLabel);
+  // The bar letters Continue, or the step to take while it is off
+  // ("Paste an address", "Check the address").
+  expect(kuteBarPrimaryWithText(probe.context.primaryLabel), findsOneWidget);
+  return probe;
+}
 
 /// "Create request", then the return-address step: [refund] typed and
 /// Continue, or Skip when null.
 Future<void> _createWithRefund(WidgetTester tester, String? refund) async {
-  await tester.tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+  await tester.tap(kuteBarPrimaryWithText(_l10n.receiveCreateRequest));
   await _settle(tester);
   expect(find.byType(OneTimeRefundSheet), findsOneWidget);
   if (refund == null) {
-    await tester.tap(find.widgetWithText(AppButton, _l10n.skip));
+    await tester.tap(find.widgetWithText(AppTextButton, _l10n.skip));
   } else {
     await tester.enterText(_refundField, refund);
-    await tester.pump();
-    await tester.tap(find.widgetWithText(AppButton, _l10n.continueLabel));
+    await _barFollows(tester);
+    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
   }
   await _settle(tester);
   await _settle(tester);
@@ -399,7 +430,7 @@ void main() {
     expect(_createRequest(tester).onPressed, isNull);
 
     tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('2');
-    await tester.pump();
+    await _barFollows(tester);
     final ok = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(ok.minimumLabel, _l10n.amountMinimumInline('\$2.00'));
     expect(ok.minimumIsError, isFalse);
@@ -441,55 +472,69 @@ void main() {
     expect(row.refundAddress, _refund);
     expect(isOneTimeReceiveQuoteRow(row), isTrue);
 
-    // The address sheet: the code, the expiry, the network warning and
-    // the amount in the plate.
+    // The address sheet: the code, the quiet status and countdown, the
+    // address, the two squares and the one loud line. No Share in the page:
+    // the bar is it.
     expect(find.byType(QuotedReceiveSheet), findsOneWidget);
     expect(
         find.byWidgetPredicate(
             (w) => w is ReceiveAddressLine && w.address == _deposit),
         findsOneWidget);
-    // No exact-amount caption: the amount is in the plate ("You send").
+    expect(find.descendant(
+        of: find.byType(QuotedReceiveSheet), matching: find.text(_l10n.share)),
+        findsNothing);
+    expect(kuteBarPrimaryWithText(_l10n.share), findsOneWidget);
+    // No exact-amount caption: the amount is on its square ("You send").
     expect(find.byKey(const ValueKey('onetime-receive-exact-amount')),
         findsNothing);
+    final youSend = find.byKey(const ValueKey('onetime-receive-you-send'));
+    final network = find.byKey(const ValueKey('onetime-receive-network'));
+    final sendCard = tester.widget<KuteActionCard>(youSend);
+    expect(sendCard.label, _l10n.youSend);
+    expect(sendCard.title, '25 USDT');
+    final networkCard = tester.widget<KuteActionCard>(network);
+    expect(networkCard.label, _l10n.network);
+    expect(networkCard.title, 'ethereum');
     expect(find.text('25 USDT'), findsOneWidget);
     // No stepper page title: the sheet header carries the title.
     expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
-    expect(find.textContaining('Expires in'), findsOneWidget);
     // The Kute fee is charged but never shown under a receive address.
     expect(find.text(_l10n.feeUiKuteFee), findsNothing);
-    // What arrives is not shown. The countdown and the late-deposit line
-    // are plain captions right under the QR, the countdown first and
-    // emphasised; the network warning is a plain caption under the
-    // address, where the Bitcoin receive puts its own; no boxed note.
-    expect(find.text(_l10n.receiveOneOffLateDepositRepriced), findsOneWidget);
+    // What arrives is not shown. The status and the countdown are one quiet
+    // line under the code, what a late deposit means another; the safety
+    // line is the one that reads louder, under the squares; no boxed note.
     expect(
         find.text(_l10n.quotedReceiveExpectedOutput('\$24.80')), findsNothing);
     final expiry = find.byKey(const ValueKey('onetime-receive-expiry'));
     final late = find.byKey(const ValueKey('onetime-receive-late-deposit'));
     final warning =
         find.byKey(const ValueKey('onetime-receive-network-warning'));
-    expect(tester.widget<ReceiveCaption>(expiry).emphasised, isTrue);
+    final expiryLine = tester.widget<ReceiveCaption>(expiry);
+    expect(expiryLine.emphasised, isFalse);
+    expect(expiryLine.text, startsWith('${_l10n.waitingForDeposit} · Expires in '));
     expect(tester.widget<ReceiveCaption>(late).text,
         _l10n.receiveOneOffLateDepositRepriced);
-    expect(tester.widget<ReceiveCaption>(warning).emphasised, isFalse);
+    expect(tester.widget<ReceiveCaption>(warning).emphasised, isTrue);
     expect(tester.widget<ReceiveCaption>(warning).text,
-        startsWith('Send only USDT on '));
+        _l10n.quotedReceiveWrongCoinWarning);
     final qr = tester.getRect(find.byType(ReceiveQrPlate));
     expect(tester.getTopLeft(expiry).dy, greaterThan(qr.bottom));
     expect(
         tester.getTopLeft(late).dy, greaterThan(tester.getTopLeft(expiry).dy));
     expect(tester.getTopLeft(late).dy,
         lessThan(tester.getTopLeft(addressLineOf(_deposit)).dy));
-    expect(tester.getTopLeft(warning).dy,
+    expect(tester.getTopLeft(youSend).dy,
         greaterThan(tester.getBottomLeft(addressLineOf(_deposit)).dy));
     expect(tester.getTopLeft(warning).dy,
-        lessThan(tester.getTopLeft(find.byType(ReceiveActionPills)).dy));
+        greaterThanOrEqualTo(tester.getBottomLeft(youSend).dy));
     expect(find.byType(UsdFlowNote), findsNothing);
     expect(find.byType(StepperProgress), findsNothing);
     expect(find.text('0.50%'), findsNothing);
     // Where a failed deposit goes, shortened.
-    expect(find.text(_l10n.quotedReceiveReturnsTo), findsOneWidget);
-    expect(find.text(sendShortAddress(_refund)), findsOneWidget);
+    expect(
+        find.text('${_l10n.quotedReceiveReturnsTo} '
+            '${sendShortAddress(_refund)}'),
+        findsOneWidget);
 
     final generated =
         events.where((e) => e.$1 == 'receive_address_generated').single.$2!;
@@ -518,6 +563,52 @@ void main() {
     expect(standingCalls, isEmpty);
     await _unmount(tester);
   });
+
+  for (final (bitcoin, amount, event, props) in [
+    (
+      false,
+      '25',
+      'usd_receive_address_shared',
+      {'chain': 'ethereum', 'address_kind': 'onetime'}
+    ),
+    (
+      true,
+      '50000',
+      'receive_qr_shared',
+      {
+        'method': 'share',
+        'invoice_type': 'quoted_deposit_address',
+        'network': 'ethereum'
+      }
+    ),
+  ]) {
+    testWidgets(
+        'Share is the bar (${bitcoin ? 'Bitcoin' : 'Dollars'}): it hands the '
+        'address to the share sheet and tracks what the button tracked',
+        (tester) async {
+      final shared = <MethodCall>[];
+      const channel = MethodChannel('dev.fluttercommunity.plus/share');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        shared.add(call);
+        return 'dev.fluttercommunity.plus/share/success';
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      await _pump(tester, bitcoin: bitcoin);
+      await _requestUsdt(tester, amount);
+      await _createWithRefund(tester, _refund);
+      await _barFollows(tester);
+
+      await tester.tap(kuteBarPrimaryWithText(_l10n.share));
+      await _settle(tester);
+
+      final tracked = events.where((e) => e.$1 == event).single.$2!;
+      expect(tracked, props);
+      expect(shared.single.arguments['text'], _deposit);
+      await _unmount(tester);
+    });
+  }
 
   testWidgets(
       'Bitcoin other coins: the amount in the receive unit, a one-time quote '
@@ -566,13 +657,13 @@ void main() {
     };
     addTearDown(() => ReusableDepositAddressService.debugResolver = null);
     await _pump(tester, bitcoin: true);
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await _settle(tester);
     await _settle(tester);
     expect(asked, ['ethereum:USDT:USDB']);
     expect(find.byType(RequestAmountSheet), findsOneWidget);
     tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('50000');
-    await tester.pump();
+    await _barFollows(tester);
     await _createWithRefund(tester, _refund);
     expect(quoted.single.destinationAsset, 'BTC');
     final generated =
@@ -666,7 +757,7 @@ void main() {
     expect(reads.map((r) => '${r.fromChain}:${r.fromAsset}>${r.toAsset}'),
         ['ethereum:USDT>USDB']);
 
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(RequestAmountSheet), findsOneWidget);
@@ -680,7 +771,7 @@ void main() {
     display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(display.minimumLabel, _l10n.amountMinimumInline('\$0.75'));
     tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('0.5');
-    await tester.pump();
+    await _barFollows(tester);
     display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(display.minimumLabel, _l10n.routeAmountTooSmall('\$0.75'));
     await _unmount(tester);
@@ -696,7 +787,7 @@ void main() {
       reads++;
       return answer.future;
     });
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(RequestAmountSheet), findsOneWidget);
@@ -712,7 +803,7 @@ void main() {
 
     // Opened again: a fresh read, and the line follows it.
     answer = Completer<OrchestraRouteLimits?>();
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(RequestAmountSheet), findsOneWidget);
@@ -782,9 +873,15 @@ void main() {
       final close =
           find.descendant(of: sheet, matching: find.byType(KuteCloseButton));
       expect(close, findsOneWidget);
+      // The one X drawn on the sheet is that button's.
       expect(
           find.descendant(
-              of: sheet, matching: find.byIcon(Icons.close_rounded)),
+              of: sheet,
+              matching: find.byWidgetPredicate((w) =>
+                  w is CustomPaint &&
+                  w.painter is KuteNavGlyphPainter &&
+                  (w.painter as KuteNavGlyphPainter).glyph ==
+                      KuteNavGlyph.close)),
           findsOneWidget);
       expect(tester.getCenter(close).dx, lessThan(tester.getCenter(sheet).dx));
     }
@@ -807,7 +904,7 @@ void main() {
 
       // 2. The return address, once the amount sheet has closed.
       await tester
-          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+          .tap(kuteBarPrimaryWithText(_l10n.receiveCreateRequest));
       await _settle(tester);
       expect(find.byType(RequestAmountSheet), findsNothing);
       final refund = routeOf(tester, find.byType(OneTimeRefundSheet));
@@ -833,8 +930,8 @@ void main() {
 
       // 3. The address, once the return-address sheet has closed.
       await tester.enterText(_refundField, _refund);
-      await tester.pump();
-      await tester.tap(find.widgetWithText(AppButton, _l10n.continueLabel));
+      await _barFollows(tester);
+      await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
       await _settle(tester);
       await _settle(tester);
       expect(find.byType(OneTimeRefundSheet), findsNothing);
@@ -873,10 +970,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(QuotedReceiveSheet), findsNothing);
       expect(addressLineOf(_deposit), findsNothing);
-      // Back on the coin sheet, its grid as it was.
+      // Back on the Dollars Receive as it was: "Dollars" on top (its one
+      // coin, USDT, went straight to its amount).
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
-      expect(find.widgetWithText(CoinAssetTile, 'USDT'), findsWidgets);
-      expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
+      expect(receiveDollarsLead, findsOneWidget);
       // Persisted before it was shown; nothing more written on close.
       expect(recorded, hasLength(1));
       expect(quoted, hasLength(1));
@@ -890,7 +987,7 @@ void main() {
       await _pump(tester);
       await _requestUsdt(tester, '25');
       await tester
-          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+          .tap(kuteBarPrimaryWithText(_l10n.receiveCreateRequest));
       await _settle(tester);
       expect(find.byType(OneTimeRefundSheet), findsOneWidget);
       await tester.tap(find.descendant(
@@ -911,7 +1008,7 @@ void main() {
       await _pump(tester);
       await _requestUsdt(tester, '25');
       await tester
-          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+          .tap(kuteBarPrimaryWithText(_l10n.receiveCreateRequest));
       await _settle(tester);
       await tester.showKeyboard(_refundField);
       tester.view.viewInsets = const FakeViewPadding(bottom: 336);
@@ -919,14 +1016,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       const keyboardTop = 844.0 - 336;
-      final skip = find.widgetWithText(AppButton, _l10n.skip);
+      final skip = find.widgetWithText(AppTextButton, _l10n.skip);
       expect(tester.getRect(skip).bottom, lessThanOrEqualTo(keyboardTop));
       expect(
           tester.getRect(_refundField).bottom, lessThanOrEqualTo(keyboardTop));
       expect(tester.takeException(), isNull);
       // Typing still works with the keyboard up.
       await tester.enterText(_refundField, _refund);
-      await tester.pump();
+      await _barFollows(tester);
       expect(_continueButton(tester).onPressed, isNotNull);
       await _unmount(tester);
     });
@@ -939,7 +1036,7 @@ void main() {
       await _pump(tester);
       await _requestUsdt(tester, '25');
       await tester
-          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+          .tap(kuteBarPrimaryWithText(_l10n.receiveCreateRequest));
       await _settle(tester);
       // Few words: the title, one short optional line, a bare "Address"
       // placeholder, and no note under the buttons.
@@ -967,14 +1064,14 @@ void main() {
         '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
       ]) {
         await tester.enterText(_refundField, wrong);
-        await tester.pump();
+        await _barFollows(tester);
         expect(find.text(_l10n.usdSendAddressWrongNetwork('ethereum')),
             findsOneWidget,
             reason: wrong);
         expect(_continueButton(tester).onPressed, isNull, reason: wrong);
       }
       await tester.enterText(_refundField, _refund);
-      await tester.pump();
+      await _barFollows(tester);
       expect(find.text(_l10n.usdSendAddressWrongNetwork('ethereum')),
           findsNothing);
       expect(_continueButton(tester).onPressed, isNotNull);
@@ -1013,7 +1110,7 @@ void main() {
       await _pump(tester);
       await _requestUsdt(tester, '25');
       await tester
-          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+          .tap(kuteBarPrimaryWithText(_l10n.receiveCreateRequest));
       await _settle(tester);
       final refund =
           ModalRoute.of(tester.element(find.byType(OneTimeRefundSheet)));
@@ -1070,7 +1167,7 @@ void main() {
       await _pump(tester);
       await _requestUsdt(tester, '25');
       await tester
-          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+          .tap(kuteBarPrimaryWithText(_l10n.receiveCreateRequest));
       await _settle(tester);
       expect(tester.widget<TextField>(_refundField).controller!.text, _refund);
       expect(_continueButton(tester).onPressed, isNotNull);

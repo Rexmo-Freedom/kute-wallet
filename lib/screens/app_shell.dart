@@ -12,15 +12,21 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 //
 //   * ONE persistent [KuteTopNavBar] is mounted across all tabs — the
 //     slide->expand indicator pill in action_pill.dart morphs for real when
-//     the active index changes, because the bar is never remounted.
+//     the active index changes, because the bar is never remounted, and the
+//     spending account's Bitcoin | Dollars switch reads the page position
+//     itself ([_page]), so its thumb follows a swipe under the finger.
 //   * the tab pages SWIPE horizontally.
 //
 // Every non-tab route (/settings, /affiliate, the confirm-send sub-routes,
 // deep links, etc.) stays a top-level GoRoute OUTSIDE this shell and pushes
 // full-screen over it, exactly as before.
 
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/screens/hyperliquid/components/hl_price_lines_host.dart';
 import 'package:kute/screens/hyperliquid/components/hl_trade_alerts_host.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteShellMounted;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,7 +45,7 @@ import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellDrawsPredictionsTab, shellDrawsTradingTab, shellShowsUsdTab;
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show InvestmentsTab, investmentsTabProvider;
+    show InvestmentsTab, investmentsTabProvider, openInvestmentsOnDefaultTab;
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -135,7 +141,9 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
 /// on screen is the pill, not the tab: the Investing pill is the Trading
 /// surface and the Predictions pill the Predictions surface, so the same
 /// sockets follow the pill there (re-applied on every pill change by the
-/// shell).
+/// shell). The Overview pill ([InvestmentsTab.activity]) shows the open
+/// positions of both venues at their live prices: both sockets stay on under
+/// it.
 ///
 /// The `ref.exists` guards keep this from instantiating autoDispose
 /// providers nothing is watching yet (a cold read of the trading provider
@@ -145,10 +153,13 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
 void applyShellTabLivePolicy(WidgetRef ref, ActiveNavTab tab) {
   final pill =
       tab == ActiveNavTab.usd ? ref.read(investmentsTabProvider) : null;
-  final trading =
-      tab == ActiveNavTab.trading || pill == InvestmentsTab.investing;
-  final predictions =
-      tab == ActiveNavTab.predictions || pill == InvestmentsTab.predictions;
+  final activity = pill == InvestmentsTab.activity;
+  final trading = tab == ActiveNavTab.trading ||
+      pill == InvestmentsTab.investing ||
+      activity;
+  final predictions = tab == ActiveNavTab.predictions ||
+      pill == InvestmentsTab.predictions ||
+      activity;
   if (ref.exists(hyperliquidLivePricesProvider)) {
     final hl = ref.read(hyperliquidLivePricesProvider.notifier);
     if (trading) {
@@ -241,11 +252,16 @@ class _AppShellState extends ConsumerState<AppShell>
       {bool settle = false, Duration? duration}) async {
     final transition = ++_pageTransition;
     try {
+      // The tab switch on the app's spring (founder, 31 October 2026;
+      // lib/theme/kute_motion.dart); at once under Reduce Motion.
+      final reduce = KuteMotion.reduce(context);
       await _page
           .animateTo(
             target.toDouble(),
-            duration: duration ?? const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
+            duration: reduce
+                ? Duration.zero
+                : (duration ?? KuteMotion.sheetInDuration),
+            curve: reduce ? Curves.linear : KuteMotion.sheetIn,
           )
           .orCancel;
     } on TickerCanceled {
@@ -274,6 +290,11 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
+    // The shell-level Sal bar is up while the shell is (kute_bar_context.dart);
+    // flipped after the frame, never mid-build (the bar rebuilds on it).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) kuteShellMounted.value = true;
+    });
     _lastBranch = widget.navigationShell.currentIndex;
     _page = AnimationController(
       vsync: this,
@@ -381,6 +402,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void dispose() {
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => kuteShellMounted.value = false);
     _page.dispose();
     super.dispose();
   }
@@ -411,6 +434,7 @@ class _AppShellState extends ConsumerState<AppShell>
     } else {
       TrackingService.screenView('tab_${tab.name}');
       _trackTabChanged(tab, method: 'tap');
+      _openOnDefaultPill(tab);
     }
     widget.navigationShell.goBranch(
       index,
@@ -429,7 +453,18 @@ class _AppShellState extends ConsumerState<AppShell>
     // Swipe landings count as tab views too (taps go via _selectTab).
     TrackingService.screenView('tab_${tabs[index].name}');
     _trackTabChanged(tabs[index], method: 'swipe');
+    _openOnDefaultPill(tabs[index]);
     widget.navigationShell.goBranch(branch);
+  }
+
+  /// The switch landing on Dollars, by a tap or a swipe, opens the page on
+  /// its default pill, Overview (founder, 8 November 2026; see
+  /// [openInvestmentsOnDefaultTab]). Before the branch switch (and, for a
+  /// swipe, as the page first comes on screen: [_openDollarsOnReveal]),
+  /// so the page arrives on it. A link (`context.go('/usd?tab=…')`) never
+  /// comes through here and keeps the pill it names.
+  void _openOnDefaultPill(ActiveNavTab tab) {
+    if (tab == ActiveNavTab.usd) openInvestmentsOnDefaultTab(ref);
   }
 
   /// `shell_tab_changed`: the `$screen` view cannot say HOW the user got
@@ -457,6 +492,24 @@ class _AppShellState extends ConsumerState<AppShell>
     ++_pageTransition;
     if (_page.isAnimating) _page.stop();
     _page.value = (_page.value - d.primaryDelta! / width).clamp(0.0, _maxPage);
+    _openDollarsOnReveal();
+  }
+
+  /// Whether the drag in progress has Dollars partly on screen, coming in
+  /// from another tab.
+  bool _dollarsRevealed = false;
+
+  /// A drag that starts bringing Dollars on screen from another tab opens
+  /// it on its default pill ([_openOnDefaultPill]) before the frame that
+  /// first shows it, so the page slides in on Overview rather than on the
+  /// pill it was left on, swapped when the swipe lands. Once per reveal.
+  void _openDollarsOnReveal() {
+    final usdPage = _tabs.indexOf(ActiveNavTab.usd);
+    final revealed = usdPage >= 0 &&
+        (usdPage - _page.value).abs() < 1.0 &&
+        _kShellTabs[widget.navigationShell.currentIndex] != ActiveNavTab.usd;
+    if (revealed && !_dollarsRevealed) _openOnDefaultPill(ActiveNavTab.usd);
+    _dollarsRevealed = revealed;
   }
 
   void _onDragEnd(DragEndDetails d) {
@@ -480,6 +533,11 @@ class _AppShellState extends ConsumerState<AppShell>
 
   Widget _branchPage(int branch, int visibleIndex, double page) {
     final shown = visibleIndex >= 0 && (visibleIndex - page).abs() < 1.0;
+    // The incoming page settles from 0.97 to 1 as it arrives (and the
+    // outgoing one shrinks the same way as it leaves); none under Reduce
+    // Motion.
+    final away = visibleIndex < 0 ? 0.0 : (visibleIndex - page).abs();
+    final scale = _reduceMotion ? 1.0 : 1 - 0.03 * away.clamp(0.0, 1.0);
     return Offstage(
       key: ValueKey(_kShellTabs[branch]),
       offstage: !shown,
@@ -487,14 +545,21 @@ class _AppShellState extends ConsumerState<AppShell>
         enabled: shown,
         child: FractionalTranslation(
           translation: Offset(visibleIndex < 0 ? 0 : visibleIndex - page, 0),
-          child: widget.children[branch],
+          child: Transform.scale(
+            scale: scale,
+            child: widget.children[branch],
+          ),
         ),
       ),
     );
   }
 
+  /// Read in [build], for [_branchPage].
+  bool _reduceMotion = false;
+
   @override
   Widget build(BuildContext context) {
+    _reduceMotion = KuteMotion.reduce(context);
     final int currentIndex = widget.navigationShell.currentIndex;
     // An Investments pill change while that tab is on screen swaps the
     // venue sockets over, the way a tab change does.
@@ -556,6 +621,8 @@ class _AppShellState extends ConsumerState<AppShell>
           // Hyperliquid trade alerts (fills, TP/SL, liquidation risk,
           // venue cancels) as in-app banners on every tab. Paints nothing.
           const HlTradeAlertsHost(child: SizedBox.shrink()),
+          // A price line reached: the quiet snack bar, on every tab.
+          const HlPriceLinesHost(),
           // The four branch navigators, swipeable and ALL MOUNTED (no
           // lazy viewport, no keep-alive parking — see the _page doc).
           // Far pages sit Offstage with tickers muted; a drag reveals
@@ -595,6 +662,7 @@ class _AppShellState extends ConsumerState<AppShell>
             child: KuteTopNavBar(
               activeTab: _kShellTabs[currentIndex],
               onSelectTab: _selectTab,
+              pagePosition: _page,
             ),
           ),
         ],

@@ -1,53 +1,104 @@
 // lib/screens/search/unified_search_screen.dart
 //
-// Unified "Search kute" surface opened from the bottom search bar. ONE
-// merged surface for search AND Sal: typing shows the live deterministic
-// results, pressing send asks Sal (the chat takes over the body once a
-// conversation is active). Rebuilt to match the app's shared bottom-sheet
-// design language and to add three affordances:
+// THE SAL SHEET (founder, 31 October 2026: "it must be and look much
+// better"): ONE surface for search AND Sal, opened from the floating pill
+// (kute_shell_bar.dart). Typing shows the live results, send asks Sal (the
+// chat takes over the body once a conversation is active).
 //
-//   1. Shared sheet chrome — the EXACT same rounded-top surface container
-//      as Add funds (`showBankTransferSheet` / `_BuyMethodSheet`): opened
-//      via `showModalBottomSheet(useRootNavigator: true,
-//      isScrollControlled: true, useSafeArea: true, backgroundColor:
-//      transparent)`, with a keyboard-aware bottom inset so the field +
-//      results lift above the keyboard. No backdrop blur.
+// FLAT AND TYPOGRAPHIC (founder, 31 October 2026: the tile idea was "2019
+// fintech"): no cards, no boxed input, no hairlines between rows, no
+// filter pill row. The sheet stands at 96% of the screen with the KEYBOARD
+// DOWN; under the drag handle the COMPOSER LINE is pinned at the top (Sal
+// at 28, the text at 20 sp, a hairline under it, the send arrow only with
+// text; search_composer.dart) and the content scrolls under it. Blocks
+// are a 13 sp w600 title 12 over 56 px rows 14 apart, 28 between blocks;
+// titles 16 w500, figures 16 w600 (search_rows.dart). Two variants:
 //
-//   2. Category filter chips — a horizontal All / Predictions /
-//      Investing / Transactions row styled like the Polymarket category
-//      pills. All searches the three at once; selecting one narrows the
-//      results to that section. Nothing else is searched: no balances,
-//      no wallet-action shortcuts, no Settings destinations.
+//   * HOME (the bar on the Bitcoin or Dollars home): while nothing is
+//     typed, first the CONNECT YOUR OWN AI card (founder, 2 November 2026:
+//     the wallet run by the person's own Claude, ChatGPT or Grok; the
+//     big action card with the three marks, not live yet: it opens the
+//     Unavailable sheet; gone once anything is typed), then at most three
+//     blocks: "Recent" (the last things opened from
+//     search, with Clear; only when there are any), "Moving now" (six of
+//     the day's biggest liquid moves in a two-column grid of flat rows;
+//     "See all ›" to Investing's Trending), "Trending predictions" (three
+//     one-line rows with the chance gauge). Typing cross-fades (150 ms)
+//     to the results, Predictions, Investing (with sparklines),
+//     Transactions, three per group under All with a "See all" row, and
+//     puts the SCOPE CHIP ("All ⌄") at the end of the composer line: it
+//     opens a short menu of the four scopes (All · Predictions ·
+//     Investing · Transactions) in the app's own sheet. Nothing found is
+//     Sal's sad face over one line.
+//   * SEND MODE (founder, 7 November 2026: the send-a-pick sheet "should
+//     be basically the same" as this one; [showKuteSearch] with a
+//     [SendPickSession], send_pick_market_sheet.dart): Send's "A
+//     prediction or investment" opens THIS sheet under the first steps'
+//     own heading (founder, 8 November 2026, on the small "For Anna" chip
+//     that was here: "should be more clear and better"; SheetTitleHeader,
+//     as on Send and Receive, the title big on the left and the compact X
+//     at the top right): "Pick a gift for Anna", "Pick a gift" with no
+//     contact ([sendPickSheetTitle]), the body on that heading's edge (20,
+//     not the plain sheet's 16). Then the composer with Sal reading
+//     "Search predictions and investments", no Connect your own AI card,
+//     the same Recent, Moving now (no "See all": it
+//     would leave the send) and Trending predictions, and the same
+//     results, markets only (Predictions and Investing, no
+//     Transactions), of the venues whose browse is open (sendPickVenues):
+//     a refused trade is told on the market's slip, never here.
+//     Typing searches and the send arrow searches (Sal answers nothing
+//     here). A result opens its market page IN SEND MODE, whose slip's
+//     primary sends the pick (screens/share/slip_share.dart);
+//     `send_pick_market_picked {venue, searched}` on that tap.
+//   * CONTEXT (the bar on a market, position, send or receive screen):
+//     the screen's preview row and its action rows (Sal's `share` face
+//     leading a row that sends a pick, the share icon in a tinted circle
+//     for a link), no scope chip. An [initialQuestion] is sent to Sal as
+//     the sheet settles.
 //
-//   3. Correct per-type transaction icons — each transaction row reuses
-//      the canonical activity-feed row builder (`buildUnifiedTransactionItem`)
-//      so the Bitcoin / Spark / swap / Outlogic / Polymarket / USDB
-//      leading icons match the rest of the app.
+// THE PILL MORPHS INTO THE COMPOSER (search_morph.dart): the bar hands
+// [showKuteSearch] the pill's rect ([KuteSearchMorphSource]) and the pill
+// travels to the composer's rect on the sheet spring while the sheet rises
+// behind it, and back on close. Blocks stagger in 20 ms apart
+// (KuteStaggerIn). Reduce Motion: a plain sheet, no travel.
 //
 // Local results (transactions + the user's own positions, both under
 // Transactions: Predictions and Investing list markets only) come from
 // `unifiedSearchResultsProvider` and update instantly. The market groups
-// stream in from the debounced remote providers, drawn with the Investing
-// and Predictions tabs' own cards (positions with the Portfolio's), the
-// named market first, three per group under All (Predictions, then
-// Investing, then Transactions) with a "See all", and card
-// skeletons holding their place while they load.
+// stream in from the debounced remote providers, the named market first,
+// with skeleton rows holding their place while they load
+// (search_result_order.dart).
 //
 // Public entrypoint: `showKuteSearch(BuildContext)`. The surface itself is
 // `UnifiedSearchSurface`, which a host can also embed (the "+" sheet grows
 // into it) by pairing `beginKuteSearchSession` / `endKuteSearchSession`.
 
+import 'package:kute/services/search_recent_store.dart';
+import 'package:kute/screens/search/components/search_composer.dart';
+import 'package:kute/screens/search/components/search_morph.dart';
+import 'package:kute/screens/search/components/search_rows.dart';
+import 'package:kute/screens/shared/components/sheet_detail_row.dart'
+    show SheetAnimatedSize;
+import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show showCapabilityUnavailableSheet;
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -65,36 +116,35 @@ import 'package:kute/screens/ledger/ledger_account_body.dart'
     show openLedgerInvestingSetup;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
-import 'package:kute/screens/shared/after_route_transition.dart';
-import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCloseButton;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/components/kute_list_row.dart';
-import 'package:kute/screens/shared/kute_composer.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart'
+    show KuteSkeleton, SkeletonBar, SkeletonCircle, SkeletonRowList;
+import 'package:kute/screens/shared/kute_motion.dart'
     show
-        KuteSkeleton,
-        SkeletonBar,
-        SkeletonCard,
-        SkeletonCardList,
-        SkeletonCircle,
-        SkeletonRowList;
-import 'package:kute/screens/shared/kute_motion.dart' show ArrivalSwitcher;
+        ArrivalSwitcher,
+        KutePressable,
+        KuteStaggerIn,
+        kuteMotion,
+        kuteReduceMotion;
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/search/search_result_order.dart';
-import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/search/search_category_match.dart';
+import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
+    show PolyAutoScrollRow, polyPillLabel;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, kutePillRowHeight;
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
-import 'package:kute/screens/polymarket/components/position_card.dart'
-    show PolyPositionCard;
-import 'package:kute/screens/polymarket/components/position_detail_sheet.dart'
-    show polyPositionEnd;
-import 'package:kute/screens/shared/investment_market_browser.dart'
-    show InvestmentSectionHeader, PredictionBrowseCard;
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/models/hyperliquid_market.dart'
-    show HlMarket, HlMarketKind, kHlLowLiquidityDayVolumeUsd;
+    show HlMarket;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
-import 'package:kute/screens/shared/kute_taglines.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show SheetTitleHeader;
 import 'package:kute/screens/shared/transactions_builder.dart'
     show buildUnifiedTransactionItem, openTransactionDetails;
 import 'package:kute/services/tracking_service.dart';
@@ -102,9 +152,10 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/models/advisor_context.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart';
-import 'package:kute/providers/sal_chip_signals.dart' show searchSalSignals;
-import 'package:kute/services/advisor/sal_chip_catalogue.dart';
+import 'package:kute/screens/search/components/sal_chat_panel.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 
 // ── Search analytics ──
 //
@@ -194,14 +245,14 @@ Future<void> showKuteSearch(
   BuildContext context, {
   SearchCategory initialCategory = SearchCategory.all,
   // Results-first open (the pool screens' Search chip): the sheet opens
-  // straight into the filter chips + typeahead surface — no mascot / AI
-  // intro. Submitting can still ask Sal a general question.
+  // straight into the typeahead surface — no mascot / AI intro.
+  // Submitting can still ask Sal a general question.
   bool searchFirst = false,
   // Domain-scoped open (user decision: the pool screens search ONLY their
   // own markets): the category is fixed, the filter chips are hidden, and
   // only that category's result leg renders.
   bool lockCategory = false,
-  // Pool-scoped chip set: when non-null, the chip row renders THESE tabs
+  // Pool-scoped set: when non-null, the scope menu offers THESE scopes
   // (even under lockCategory) so a scoped sheet can offer e.g.
   // Custom filters without exposing the global categories.
   List<(SearchCategory, String)>? scopedTabs,
@@ -213,6 +264,21 @@ Future<void> showKuteSearch(
   // [walletId] (the transactions-only scope).
   String? ledgerWalletId,
   String? searchHint,
+  // The bar's context (kute_bar_context.dart): its recommended rows and
+  // prompts on top of the sheet, the composer scoped to its venue.
+  KuteBarContext? barContext,
+  // A question sent to Sal the moment the sheet has slid in (an
+  // informational screen's "What is this?" bar): the answer streams in
+  // through the ordinary advisor path; nothing else is special.
+  String? initialQuestion,
+  // The floating pill's rect and label (kute_shell_bar.dart): the pill
+  // travels to the composer as the sheet rises and back as it drops
+  // (search_morph.dart). Null (every other caller, Reduce Motion): a
+  // plain sheet.
+  KuteSearchMorphSource? morph,
+  // SEND MODE (see the file header): the sheet opened from Send to pick
+  // a market to send; its results open their pages in send mode.
+  SendPickSession? sendPick,
 }) async {
   assert(walletId == null || ledgerWalletId == null);
   // One search sheet at a time: a second tap while it slides in must not
@@ -226,6 +292,7 @@ Future<void> showKuteSearch(
     lockCategory: lockCategory,
     walletId: walletId,
     ledgerWalletId: ledgerWalletId,
+    marketsOnly: sendPick != null,
   );
   // Single search entry point — emit `search_opened` (+ a `search`
   // screen_view) here so every affordance is covered exactly once.
@@ -237,24 +304,139 @@ Future<void> showKuteSearch(
   // sits above tab-scoped routes, with the surface drawn by the shared
   // AppBottomSheetContainer, which lifts the field + results with the
   // keyboard frame for frame.
+  // The shell bar hides while this sheet is up (a hidden bar context),
+  // unless its own pill is the one travelling: then the bar keeps its
+  // place and draws the pill transparent (kute_shell_bar.dart reads
+  // kuteSearchMorphing / kuteSearchSheetOpen), so the pill's return lands
+  // exactly where it rests; a hidden context would slide the bar down and
+  // back and miss the landing. A context placed in the page's header (the
+  // Investing position's) has no pill of its own, so the hidden context
+  // goes up as for any sheet (or the bar would rise behind the tall sheet
+  // with the default pill); when its round Sal button in the bar is the
+  // one travelling, the bar holds its place regardless.
+  const hiddenBar = KuteBarContext.hidden();
+  final overlay =
+      morph == null ? null : Navigator.of(context, rootNavigator: true).overlay;
+  final travels = morph != null && overlay != null;
+  final keepBar = travels && !(barContext?.inHeader ?? false);
+  if (!keepBar) container.read(kuteBarContextProvider.notifier).push(hiddenBar);
+  final composerKey = GlobalKey(debugLabel: 'kute-search-composer');
+  final hint = sendPick != null
+      ? context.l10n.sendPickSearchHint
+      : searchManageAiHint(context, effectiveCategory);
+  Rect? restRect;
+  if (travels) {
+    // The way in: from the pill to where the composer will rest, on the
+    // same frame the sheet starts to rise.
+    restRect = KuteSearchMorph.composerRestRect(overlay.context);
+    kuteSearchMorphing.value = true;
+    unawaited(KuteSearchMorph.run(
+      overlay,
+      from: morph.rect,
+      to: restRect,
+      opening: true,
+      label: morph.label,
+      hint: hint,
+    ).whenComplete(() {
+      // Cut short by a close: the way back is already running.
+      if (!KuteSearchMorph.running) kuteSearchMorphing.value = false;
+    }));
+  }
   try {
-    await OpenOnce.run(_kSearchSheetKey, () => showAppBottomSheet<void>(
-      context: context,
-      builder: (_) => UnifiedSearchSurface(
-        initialCategory: effectiveCategory,
-        searchFirst: searchFirst || ledgerMarkets,
-        lockCategory: walletId != null || ledgerMarkets || lockCategory,
-        scopedTabs: walletId == null && !ledgerMarkets ? scopedTabs : null,
-        walletId: walletId,
-        searchHint: searchHint,
-      ),
-    ));
+    kuteSearchSheetOpen.value = true;
+    await OpenOnce.run(
+        _kSearchSheetKey,
+        () => showAppBottomSheet<void>(
+              context: context,
+              // The sheet's route, for the bar (kuteSearchSheetCovered).
+              builder: (_) => _SearchSheetRouteProbe(
+                child: UnifiedSearchSurface(
+                  initialCategory: effectiveCategory,
+                  searchFirst: searchFirst || ledgerMarkets,
+                  lockCategory:
+                      walletId != null || ledgerMarkets || lockCategory,
+                  scopedTabs:
+                      walletId == null && !ledgerMarkets ? scopedTabs : null,
+                  walletId: walletId,
+                  searchHint: searchHint,
+                  barContext: barContext,
+                  initialQuestion: initialQuestion,
+                  composerKey: composerKey,
+                  sendPick: sendPick,
+                ),
+              ),
+            ));
   } finally {
+    if (travels) {
+      // The way back, as the sheet drops: from the composer where it
+      // stands (over the keyboard if it is up) to the pill where it rests.
+      final from = KuteSearchMorph.rectOf(
+              composerKey.currentContext?.findRenderObject(), overlay) ??
+          restRect!;
+      final to = morph.rectNow?.call() ?? morph.rect;
+      kuteSearchMorphing.value = true;
+      await KuteSearchMorph.run(
+        overlay,
+        from: from,
+        to: to,
+        opening: false,
+        label: morph.label,
+        hint: hint,
+      );
+      kuteSearchMorphing.value = false;
+    }
+    if (!keepBar) {
+      container.read(kuteBarContextProvider.notifier).remove(hiddenBar);
+    }
+    kuteSearchSheetOpen.value = false;
+    kuteSearchLoading.value = false;
+    _searchSheetRoute = null;
     endKuteSearchSession(container);
   }
 }
 
 const _kSearchSheetKey = 'kute_search';
+
+/// The open search sheet's route, read by the bar; null while none is up
+/// (or before it has built).
+Route<dynamic>? _searchSheetRoute;
+
+/// Whether a page or a sheet the bar shows over stands on the open search
+/// sheet (KuteBarRouteObserver.covered): a result's market page, its
+/// slip, a transaction's detail. The sheet holds the bar only while it is
+/// on top (kute_bar_context.dart, THE SEARCH SHEET ONLY HOLDS THE BAR
+/// WHILE IT IS ON TOP): covered, the bar is the covering surface's own
+/// (its trade row, its primary and round share button), whether the pill
+/// travelled to the composer or the sheet hid the bar (Reduce Motion).
+bool kuteSearchSheetCovered() {
+  final route = _searchSheetRoute;
+  return route != null && KuteBarRouteObserver.covered(route);
+}
+
+/// Records the search sheet's route as the sheet builds. Only this probe
+/// depends on the route's status; the surface under it is the same
+/// widget and is not rebuilt.
+class _SearchSheetRouteProbe extends StatelessWidget {
+  const _SearchSheetRouteProbe({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    _searchSheetRoute = ModalRoute.of(context) ?? _searchSheetRoute;
+    return child;
+  }
+}
+
+/// True while the search sheet is up. The dock's "Search or manage with
+/// AI" pill shrinks and fades while it is (kute_bottom_action_bar.dart), and
+/// springs back when it closes.
+final ValueNotifier<bool> kuteSearchSheetOpen = ValueNotifier<bool>(false);
+
+/// True while the open search sheet is reading results for a query. The
+/// dock's Sal sweeps faster while it is and is happy for a beat when it
+/// turns false again.
+final ValueNotifier<bool> kuteSearchLoading = ValueNotifier<bool>(false);
 
 /// Seeds the providers [UnifiedSearchSurface] reads and starts a clean Sal
 /// session, exactly as the surface expects on entry. [showKuteSearch] calls
@@ -269,10 +451,13 @@ SearchCategory beginKuteSearchSession(
   bool lockCategory = false,
   String? walletId,
   String? ledgerWalletId,
+  // Only the public market legs, whatever the category (send mode).
+  bool marketsOnly = false,
 }) {
   final effectiveCategory =
       walletId == null ? initialCategory : SearchCategory.transactions;
-  final marketsOnly = ledgerWalletId != null ||
+  marketsOnly = marketsOnly ||
+      ledgerWalletId != null ||
       walletId == null &&
           lockCategory &&
           (effectiveCategory == SearchCategory.predictions ||
@@ -286,6 +471,7 @@ SearchCategory beginKuteSearchSession(
   container.read(searchMarketsOnlyProvider.notifier).state = marketsOnly;
   container.read(selectedSearchCategoryProvider.notifier).state =
       effectiveCategory;
+  container.read(searchPredictionsTopicProvider.notifier).state = null;
   container.read(advisorSessionProvider.notifier).clear();
   _searchStats = _SearchSessionStats();
   return effectiveCategory;
@@ -330,6 +516,19 @@ void endKuteSearchSession(ProviderContainer container) {
   container.read(searchMarketsOnlyProvider.notifier).state = false;
 }
 
+/// The composer's hint with Sal available: the bar's own words, "Search
+/// or Manage with AI", narrowed to the venue the sheet opens on
+/// ("Search predictions or Manage with AI", "Search investments or
+/// manage with AI"). The pill's travel lands on the same words.
+String searchManageAiHint(BuildContext context, SearchCategory category) {
+  final l10n = context.l10n;
+  return switch (category) {
+    SearchCategory.predictions => l10n.searchPredictionsOrManageAi,
+    SearchCategory.perpetuals => l10n.searchInvestmentsOrManageAi,
+    SearchCategory.all || SearchCategory.transactions => l10n.searchOrManageAi,
+  };
+}
+
 /// The unified search surface itself: category tabs, live results and the
 /// one composer that searches while you type and asks Sal on send.
 ///
@@ -346,6 +545,19 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
   final String? walletId;
   final String? searchHint;
   final bool embedded;
+
+  /// The bar's context this sheet opened with (kute_bar_context.dart).
+  final KuteBarContext? barContext;
+
+  /// Sent to Sal once the sheet has slid in (see [showKuteSearch]).
+  final String? initialQuestion;
+
+  /// On the composer, so [showKuteSearch] can read where it stands when
+  /// the sheet closes (the pill travels back from there).
+  final GlobalKey? composerKey;
+
+  /// SEND MODE (see the file header); null: the ordinary sheet.
+  final SendPickSession? sendPick;
   const UnifiedSearchSurface({
     super.key,
     this.initialCategory = SearchCategory.all,
@@ -355,6 +567,10 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
     this.walletId,
     this.searchHint,
     this.embedded = false,
+    this.barContext,
+    this.initialQuestion,
+    this.composerKey,
+    this.sendPick,
   });
 
   @override
@@ -377,10 +593,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
   bool _resultsLoading = false;
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  VoidCallback? _cancelFocus;
-  // Sal's opening questions for this open, chosen once per language from
-  // the public movers and starred markets already loaded.
-  (Locale, List<SalChip>)? _salChips;
+  // Whether the field holds text: flipped from the composer's onChanged so
+  // the scope chip comes and goes on the first and the last keystroke, not
+  // only once a query is published.
+  bool _draft = false;
   @override
   void initState() {
     super.initState();
@@ -389,19 +605,36 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     _focusNode.addListener(() {
       if (mounted) setState(() {});
     });
-    // Focus the composer once the sheet has slid in (never mid-slide:
-    // afterRouteTransition), so the keyboard rises against a settled
-    // sheet. Nothing else runs on open: results, and the live sports feed
-    // they use, wait for the first query.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _cancelFocus = requestFocusAfterTransition(context, _focusNode);
-    });
+    // The keyboard stays DOWN on open, every variant (founder, 31 October
+    // 2026: "still too dense"): the blocks have the screen and the
+    // composer waits at the bottom edge until the person taps it. Nothing
+    // else runs on open: results, and the live sports feed they use, wait
+    // for the first query. The one exception is an [initialQuestion],
+    // asked as soon as the sheet has settled (never mid-slide).
+    final question = widget.initialQuestion?.trim() ?? '';
+    if (question.isNotEmpty) {
+      _controller.text = question;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _initialQuestion = Timer(KuteMotion.sheetInDuration, () {
+          if (mounted) unawaited(_submit());
+        });
+      });
+    }
   }
+
+  Timer? _initialQuestion;
+
+  /// A sheet opened from the bar on a screen with its own action rows
+  /// (kute_bar_context.dart): the market page's preview card and rows take
+  /// the top, the filter pills (search scoping) stay out, and the sheet
+  /// fits its content while nothing is typed.
+  bool get _contextScreen =>
+      widget.barContext != null && widget.barContext!.hasRecommendations;
 
   @override
   void dispose() {
-    _cancelFocus?.call();
+    _initialQuestion?.cancel();
     _queryDebounce?.cancel();
     _settleTimer?.cancel();
     _controller.dispose();
@@ -415,7 +648,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final generation = ++_queryGeneration;
     _queryDebounce?.cancel();
     ref.read(searchQueryProvider.notifier).state = '';
-    if (value.trim().isEmpty) return;
+    final draft = value.trim().isNotEmpty;
+    if (draft != _draft) setState(() => _draft = draft);
+    if (!draft) return;
     _queryDebounce = Timer(
       const Duration(milliseconds: 150),
       () => _publishSafeQuery(value, generation),
@@ -486,17 +721,21 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final q = _controller.text.trim();
     if (q.isEmpty) return;
     HapticFeedback.lightImpact();
+    // Kept in Recent (on the device only).
+    unawaited(SearchRecentStore.record(
+        SearchRecentEntry(kind: SearchRecentKind.query, id: q, label: q)));
     _focusNode.unfocus();
     final aiEnabled = ref.read(aiEnabledProvider).valueOrNull ?? true;
     if (!mounted) return;
-    if (!aiEnabled) {
+    // Send mode searches on send too: Sal answers nothing there.
+    if (!aiEnabled || widget.sendPick != null) {
       // Its length only; the query text never leaves the device.
       _searchStats?.submitted = true;
       TrackingService.track('search_submitted', params: {
         'query_length': q.length,
         'query_length_bucket': _searchLengthBucket(q.length),
         'category': ref.read(selectedSearchCategoryProvider).name,
-        'ai_enabled': false,
+        'ai_enabled': aiEnabled,
       });
       _queryDebounce?.cancel();
       await _publishSafeQuery(q, ++_queryGeneration);
@@ -507,56 +746,18 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     _queryDebounce?.cancel();
     _settleTimer?.cancel();
     // The first question turns this search into a Sal conversation: that
-    // is Sal opening from search (`sal_opened` otherwise only fires from
-    // the Ask Sal sheet). Follow-ups in the same conversation don't re-open.
+    // is Sal opening (the bar is the one way in). Follow-ups in the same
+    // conversation don't re-open.
     final session = ref.read(advisorSessionProvider.notifier);
     if (!ref.read(advisorSessionProvider).isActive) {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
     session.setEntrySource('search');
+    // The bar's context (a receipt, a market) grounds the answer.
     session.ask(q,
-        input: 'typed', locale: Localizations.localeOf(context).languageCode);
-    _controller.clear();
-    ref.read(searchQueryProvider.notifier).state = '';
-  }
-
-  List<SalChip> _chips(BuildContext context) {
-    final locale = Localizations.localeOf(context);
-    final cached = _salChips;
-    if (cached != null && cached.$1 == locale) return cached.$2;
-    // The market questions are Investing ones: a Predictions search keeps
-    // to the general questions.
-    final chips = SalChipCatalogue.select(
-      const AdvisorContext(surface: 'search'),
-      context.l10n,
-      signals: widget.initialCategory == SearchCategory.predictions
-          ? const SalChipSignals()
-          : searchSalSignals(ProviderScope.containerOf(context, listen: false)),
-    );
-    _salChips = (locale, chips);
-    return chips;
-  }
-
-  /// A tapped opening question asks Sal like a submitted one. A market
-  /// question carries that public market so Sal answers about it.
-  void _askChip(SalChip chip, int index) {
-    HapticFeedback.lightImpact();
-    _focusNode.unfocus();
-    _queryGeneration++;
-    _queryDebounce?.cancel();
-    _settleTimer?.cancel();
-    final session = ref.read(advisorSessionProvider.notifier);
-    if (!ref.read(advisorSessionProvider).isActive) {
-      TrackingService.salOpened(entry: 'search', surface: 'search');
-    }
-    session.setAnalyticsSurface('search');
-    session.setEntrySource('search');
-    session.ask(chip.text,
-        context: chip.context,
-        input: 'suggested',
-        template: chip.template,
-        chipIndex: index,
+        context: widget.barContext?.advisorContext,
+        input: 'typed',
         locale: Localizations.localeOf(context).languageCode);
     _controller.clear();
     ref.read(searchQueryProvider.notifier).state = '';
@@ -575,7 +776,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         children: [
           Expanded(
             child: SalChatPanel(
-              embedded: true,
               advisorContext:
                   advisor.context ?? const AdvisorContext(surface: 'chat'),
             ),
@@ -586,6 +786,13 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     }
     final category = ref.watch(selectedSearchCategoryProvider);
     final hasDraft = _controller.text.trim().isNotEmpty;
+    // Send mode (see the file header): markets only, on the venues where
+    // a pick can be sent; the sheet's route kept for the send's close.
+    final send = widget.sendPick;
+    send?.attach(ModalRoute.of(context));
+    final sendVenues = send == null
+        ? null
+        : sendPickVenues(ref.watch(runtimeCapabilitiesProvider));
     final localAsync = ref.watch(unifiedSearchResultsProvider);
     final local = localAsync.valueOrNull ?? UnifiedSearchResults.empty;
     final globalAsync = ref.watch(globalMarketResultsProvider);
@@ -601,36 +808,58 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
 
     // Visibility per category filter.
-    final showTx = category == SearchCategory.all ||
-        category == SearchCategory.transactions;
-    final showPredictions = category == SearchCategory.all ||
-        category == SearchCategory.predictions;
+    final showTx = send == null &&
+        (category == SearchCategory.all ||
+            category == SearchCategory.transactions);
+    final showPredictions = (category == SearchCategory.all ||
+            category == SearchCategory.predictions) &&
+        (sendVenues?.predictions ?? true);
     // Hyperliquid markets (perps + stock tokens) show under All and the
     // dedicated Perpetuals filter.
-    final showPerpetuals =
-        category == SearchCategory.all || category == SearchCategory.perpetuals;
+    final showPerpetuals = (category == SearchCategory.all ||
+            category == SearchCategory.perpetuals) &&
+        (sendVenues?.investing ?? true);
+    // A query that names a category ("soccer", "nfl", "art") leads the
+    // Predictions group with that category, a row that opens the browse on
+    // it (search_category_match.dart). The leagues are known under the
+    // Predictions scope, where their list is read for the topic row. Every
+    // category, whatever the policy refuses here (founder, 12 November
+    // 2026): a refused category's bet slip opens shut.
+    final categoryHit = showPredictions && query.isNotEmpty
+        ? polySearchCategoryHit(
+            query,
+            context.l10n,
+            pills: PolyPill.values,
+            leagues: category == SearchCategory.predictions
+                ? ref.watch(polySportsLeaguesProvider)
+                : const [],
+          )
+        : null;
+    // "Show more" under the Predictions scope: the next venue page.
+    final paging = ref.watch(searchPredictionsPagingProvider);
     // The person's own positions are history and sit with Transactions;
     // Predictions and Investing list markets only.
     final txSection = showTx &&
         (local.transactions.isNotEmpty || local.ownedPositions.isNotEmpty);
-    final predictionSection =
-        showPredictions && (globalResults.isNotEmpty || globalLoading);
+    final predictionSection = showPredictions &&
+        (globalResults.isNotEmpty || globalLoading || categoryHit != null);
     final perpetualsSection =
         showPerpetuals && (hlResults.isNotEmpty || hlLoading);
 
     final hasAnyResult = txSection || predictionSection || perpetualsSection;
 
     // Result rows grouped by type: Investing, Predictions and Transactions,
-    // nothing else. Under the "All" filter all three can appear at once, so
-    // each group is introduced by the market lists' own section header
-    // (InvestmentSectionHeader) and shows its first [kSearchSectionCap]
-    // with a "See all" that switches the filter to it. Under a single-type
-    // filter only one group shows, whole and unlabelled (the pill already
-    // names it).
+    // nothing else. Under the "All" scope all three can appear at once, so
+    // each group is a block (its 13 sp title over its rows) and shows its
+    // first [kSearchSectionCap] with a "See all" that switches the scope
+    // to it. Under a single scope only one group shows, whole and
+    // unlabelled (the scope chip already names it).
     //
     // Within Investing the market the person named leads (exact ticker or
-    // name, then prefixes, then the rest); within Predictions a game in
-    // play leads, then the most traded (search_result_order.dart). The
+    // name, then prefixes, then the rest); within Predictions the markets
+    // about the query lead (its title, a game's team), the ones listing it
+    // among many outcomes after, a game in play first within each
+    // (search_result_order.dart). The
     // groups themselves always read Predictions, Investing, Transactions,
     // so a group never jumps when the remote results land.
     final sportsLive = ref.read(sportsLiveProvider);
@@ -638,6 +867,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final rankedGlobal = rankPredictionResults(
       globalResults,
       (r) => r.event,
+      query: query,
       isLive: (r) =>
           r.event.isInPlay ||
           (_liveUpdateFor(r.event, sportsLive)?.isInPlay ?? false),
@@ -647,7 +877,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       label: context.l10n.trading,
       filter: SearchCategory.perpetuals,
       loading: hlLoading,
-      skeleton: const _MarketCardSkeletons(investing: true),
       rows: [
         for (final r in rankedHl)
           (int p) => _HlMarketRow(
@@ -661,14 +890,27 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       label: context.l10n.predictions,
       filter: SearchCategory.predictions,
       loading: globalLoading,
-      skeleton: const _MarketCardSkeletons(investing: false),
       rows: [
+        if (categoryHit != null)
+          (int p) => _CategoryHitRow(
+              key: ValueKey('poly-category-${categoryHit.key}'),
+              hit: categoryHit,
+              position: p),
         for (final r in rankedGlobal)
           (int p) => _GlobalMarketRow(
               key: ValueKey('poly-${r.event.slug}-${r.event.id}'),
               result: r,
               position: p),
       ],
+      more: paging.hasMore && !paging.loadingMore
+          ? _SeeAllRow(
+              key: const ValueKey('search-show-more'),
+              label: context.l10n.searchShowMore,
+              onTap: () => ref
+                  .read(polySearchFeedProvider(ref.read(polySearchQueryProvider)).notifier)
+                  .loadMore(),
+            )
+          : null,
     );
     // The wallet tag only tells rows apart when they come from more than
     // one wallet; from one wallet it would repeat on every row.
@@ -699,25 +941,27 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     var pos = 0;
     final labelGroups = category == SearchCategory.all;
     final resultChildren = <Widget>[];
-    for (final g in groups) {
+    for (final (gi, g) in groups.indexed) {
       final capped = labelGroups && g.rows.length > kSearchSectionCap;
       final shown = capped ? g.rows.take(kSearchSectionCap) : g.rows;
       final rows = [for (final build in shown) build(pos++)];
       final waiting = rows.isEmpty && g.loading;
+      // 28 between groups; under All each group is a block (its title
+      // over its rows, 14 apart, nothing drawn between them); under one
+      // scope the rows alone, whole and unlabelled.
+      if (gi > 0) resultChildren.add(SizedBox(height: kSearchBlockGap.h));
       if (labelGroups) {
-        resultChildren.add(InvestmentSectionHeader(
-            key: ValueKey('header-${g.key}'), label: g.label));
+        resultChildren.add(
+            SearchBlockHeader(key: ValueKey('header-${g.key}'), text: g.label));
       }
       resultChildren.add(ArrivalSwitcher(
         key: ValueKey('group-${g.key}'),
-        // Skeletons hold the group's place until its rows land, then
+        // Skeleton rows hold the group's place until its rows land, then
         // cross-fade into them while the height eases.
         state: waiting ? 'loading' : 'rows',
         child: waiting
-            ? g.skeleton ?? const SizedBox.shrink()
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
+            ? const _GroupSkeleton()
+            : SearchRowList(
                 children: [
                   ...rows,
                   if (capped)
@@ -726,7 +970,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                           source: 'see_all');
                       ref.read(selectedSearchCategoryProvider.notifier).state =
                           g.filter;
-                    }),
+                    })
+                  else if (!labelGroups && g.more != null)
+                    g.more!,
                 ],
               ),
       ));
@@ -738,6 +984,14 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         if (g.rows.isNotEmpty) g.key,
     ];
     _resultsLoading = localAsync.isLoading || globalLoading || hlLoading;
+    // The dock's Sal follows (faster while loading, a beat when results
+    // land); after the frame, never from inside the build.
+    final loadingNow = _resultsLoading && query.isNotEmpty;
+    if (kuteSearchLoading.value != loadingNow) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) kuteSearchLoading.value = loadingNow;
+      });
+    }
 
     // Warm the HL universe while the Investing result leg can show, so
     // tapping a searched market resolves to the detail sheet
@@ -746,99 +1000,141 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       ref.watch(hyperliquidAllMarketsProvider);
     }
 
-    // Active chat returns above. The remaining content is deterministic search.
+    final typing = query.isNotEmpty || hasDraft;
+
+    // Active chat returns above. The remaining content is deterministic
+    // search. [bodyKey] names the state the body is in: the home, the
+    // results, nothing found, a draft; a change cross-fades over 150 ms.
     final Widget body;
+    final String bodyKey;
+    final gutters = EdgeInsets.fromLTRB(
+        kSearchSheetGutter.w, 12.h, kSearchSheetGutter.w, 16.h);
     if (widget.walletId != null) {
       body = _WalletActivityResults(walletId: widget.walletId!, query: query);
+      bodyKey = 'wallet';
     } else if (query.isNotEmpty) {
-      body = !hasAnyResult && localAsync.isLoading
-          ? SkeletonRowList(count: 3, padding: EdgeInsets.only(top: 8.h))
-          : !hasAnyResult
-              ? _EmptyState(
-                  prompt: aiEnabled
-                      ? context.l10n.searchNoMatchesAskSal(query)
-                      : context.l10n.searchNoResultsFor(query),
-                )
-              : ListView(
-                  // Manual (not onDrag) — scrolling the results must NOT dismiss
-                  // the keyboard out from under the user mid-search.
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.manual,
-                  padding: EdgeInsets.only(top: 8.h, bottom: 8.h),
-                  children: resultChildren,
-                );
+      if (!hasAnyResult && localAsync.isLoading) {
+        body = Padding(padding: gutters, child: const _GroupSkeleton());
+        bodyKey = 'loading';
+      } else if (!hasAnyResult) {
+        body = SearchEmptyState(text: context.l10n.searchNoResultsFor(query));
+        bodyKey = 'empty';
+      } else {
+        body = ListView(
+          // Manual (not onDrag) — scrolling the results must NOT dismiss
+          // the keyboard out from under the user mid-search.
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+          padding: gutters,
+          children: resultChildren,
+        );
+        bodyKey = 'results';
+      }
     } else if (hasDraft) {
-      body = _EmptyState(prompt: context.l10n.searchSearching);
-    } else if (widget.searchFirst) {
-      // Results-first idle: the chips row is already showing above; keep
-      // the body a plain quiet prompt so the surface reads as search, not
-      // as the Sal intro. A market-scoped open (a venue) names markets; an
-      // open on everything (Home's bitcoin cards) names what it covers.
-      body = _EmptyState(
-          prompt: widget.initialCategory == SearchCategory.perpetuals ||
-                  widget.initialCategory == SearchCategory.predictions
-              ? context.l10n.searchTypeToSearchMarkets
-              : context.l10n.searchIdlePrompt);
-    } else if (aiEnabled) {
-      body = _EmptyState(
-        prompt: widget.searchHint ?? context.l10n.searchOrAskSal,
-        showMascot: true,
-        chips: [
-          for (final (index, chip) in _chips(context).indexed)
-            SalSuggestionButton(
-              text: chip.text,
-              onPressed: () => _askChip(chip, index),
-            ),
-        ],
-      );
+      body = SearchEmptyState(text: context.l10n.searchSearching, sad: false);
+      bodyKey = 'draft';
     } else {
-      body = _EmptyState(prompt: context.l10n.searchIdlePrompt);
+      // The search home: Recent, Moving now and the trending predictions,
+      // scoped by the pills (search_rows.dart). On a context screen it is
+      // the screen's preview card and its action rows, sized to them.
+      body = _SearchHome(
+        category: category,
+        barContext: widget.barContext,
+        sendVenues: sendVenues,
+        onRecentQuery: (q) {
+          _controller.text = q;
+          _controller.selection = TextSelection.collapsed(offset: q.length);
+          _onChanged(q);
+        },
+      );
+      bodyKey = 'home';
     }
+    // The scope chip ("All ⌄") at the end of the composer line, only once
+    // there is a query: it narrows the results through a short menu
+    // (_showScopeMenu). The empty home has none (founder, 31 October
+    // 2026: "still too dense"); a context screen never has one (its rows
+    // are not a search). A pool-scoped sheet offers its OWN set even
+    // under lockCategory.
+    final scopes = sendVenues != null
+        // Send mode: the market scopes it offers, never Transactions.
+        ? [
+            (SearchCategory.all, context.l10n.searchFilterAll),
+            if (sendVenues.predictions)
+              (SearchCategory.predictions, context.l10n.predictions),
+            if (sendVenues.investing)
+              (SearchCategory.perpetuals, context.l10n.trading),
+          ]
+        : widget.scopedTabs ??
+            (!widget.lockCategory && !_contextScreen
+                ? _ScopeChip.standardScopes(context)
+                : null);
+    final Widget? scope = typing && scopes != null
+        ? _ScopeChip(selected: category, scopes: scopes)
+        : null;
+    // Under the Predictions scope the topics row (All, Politics, Sports …
+    // Art) narrows the venue search to one category, the same pills as
+    // the Predictions browse.
+    final topics = scope != null && category == SearchCategory.predictions
+        ? const _PredictionTopicsRow()
+        : null;
 
     return _buildSheet(
       context,
       children: [
-        // While a query is being typed (or in search-only mode) the
-        // compact filter "tabs" (All · Predictions · Investing ·
-        // Transactions) narrow the live results. Idle with Sal available:
-        // no header row — the drag handle sits straight above the chat /
-        // intro, so there's no empty gap. A pool-scoped sheet renders
-        // its OWN tab set even under
-        // lockCategory.
-        if (widget.scopedTabs != null) ...[
-          _WalletFilterChips(selected: category, tabs: widget.scopedTabs),
-          SizedBox(height: 4.h),
-        ] else if (!widget.lockCategory &&
-            (hasDraft ||
-                query.isNotEmpty ||
-                !aiEnabled ||
-                widget.searchFirst)) ...[
-          _WalletFilterChips(selected: category),
-          SizedBox(height: 4.h),
-        ],
-        Expanded(child: body),
-        SizedBox(height: 8.h),
-        // The composer searches while typing and asks Sal on submit.
-        KuteComposer(
-          controller: _controller,
-          focusNode: _focusNode,
-          onChanged: _onChanged,
-          onSubmit: _submit,
-          aiEnabled: aiEnabled,
-          sendLabel: context.l10n.salSendQuestion,
-          // With Sal available the field names both jobs, the words the
-          // dock's square wears; search-only keeps the scoped hint.
-          hint: aiEnabled
-              ? context.l10n.searchOrAskSalShort
-              : (widget.initialCategory == SearchCategory.perpetuals ||
-                      widget.initialCategory == SearchCategory.predictions)
-                  ? context.l10n.searchMarketsHint
-                  : context.l10n.searchYourWallet,
+        // The composer line, pinned at the top under the handle: searches
+        // while typing, asks Sal on send; the content scrolls under it.
+        // Transparent while the pill is travelling to or from it
+        // (search_morph.dart): the travelling copy is the one on screen
+        // then.
+        ValueListenableBuilder<bool>(
+          valueListenable: kuteSearchMorphing,
+          builder: (context, morphing, child) =>
+              Opacity(opacity: morphing ? 0 : 1, child: child),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: KuteSearchComposer.gutter(context)),
+            child: KuteSearchComposer(
+              key: widget.composerKey,
+              controller: _controller,
+              focusNode: _focusNode,
+              onChanged: _onChanged,
+              onSubmit: _submit,
+              aiEnabled: aiEnabled,
+              // Send mode's arrow searches (Sal answers nothing there).
+              sendLabel: send != null
+                  ? context.l10n.searchAction
+                  : context.l10n.salSendQuestion,
+              scope: scope,
+              // With Sal available the field names both jobs, the words the
+              // pill wears; search-only keeps the scoped hint. Send mode
+              // says what the search is for.
+              hint: send != null
+                  ? context.l10n.sendPickSearchHint
+                  : aiEnabled
+                  ? searchManageAiHint(context, widget.initialCategory)
+                  : (widget.initialCategory == SearchCategory.perpetuals ||
+                          widget.initialCategory == SearchCategory.predictions)
+                      ? context.l10n.searchMarketsHint
+                      : context.l10n.searchYourWallet,
+            ),
+          ),
+        ),
+        if (topics != null) topics,
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: kuteMotion(context, const Duration(milliseconds: 150)),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            layoutBuilder: (current, previous) => Stack(
+              fit: StackFit.expand,
+              children: [...previous, if (current != null) current],
+            ),
+            child: KeyedSubtree(key: ValueKey(bodyKey), child: body),
+          ),
         ),
         // Sal's disclaimer sits under its answers, once; the search
-        // composer carries none.
-        // The host of an embedded surface owns the keyboard inset; its
-        // composer always sits this gap above the sheet's edge.
+        // composer carries none. The host of an embedded surface owns the
+        // keyboard inset; its content always ends this gap above the
+        // sheet's edge.
         if (widget.embedded) SizedBox(height: 8.h),
       ],
     );
@@ -849,20 +1145,49 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     required List<Widget> children,
     bool chat = false,
   }) {
+    // Send mode: the rows open their markets in send mode (SendPickScope).
+    final send = widget.sendPick;
+    Widget scoped(Widget sheet) =>
+        send == null ? sheet : SendPickScope(session: send, child: sheet);
     // Embedded: the host sheet already draws the surface, the drag handle
     // and the keyboard / bottom inset (AppBottomSheetContainer), so the
     // surface is only its content column. Adding any of it again would
     // double the padding and stack two handles.
-    if (widget.embedded) {
-      return Column(children: children);
-    }
+    if (widget.embedded) return scoped(Column(children: children));
     // The shared sheet: AppBottomSheetContainer owns the surface, the
     // keyboard (followed frame by frame) and the home-indicator inset.
     // Searching keeps only the drag handle, where the shared header draws
     // it; a conversation wears the shared header with its close X, as the
     // Ask Sal sheet does.
-    return AppBottomSheetContainer(
-      maxHeight: .92,
+    // The content rises a little and fades in, staggered 80 ms after the
+    // sheet starts (its route animation, from a fifth in), on the settle
+    // easing; at once under Reduce Motion.
+    final route = ModalRoute.of(context);
+    Widget entrance(Widget child) {
+      final animation = route?.animation;
+      if (animation == null || kuteReduceMotion(context)) return child;
+      final curved = CurvedAnimation(
+          parent: animation,
+          curve: const Interval(0.2, 1.0, curve: KuteMotion.settle));
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position:
+              Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+                  .animate(curved),
+          child: child,
+        ),
+      );
+    }
+
+    void close() {
+      // Named on search_closed; the pop is the button's own.
+      _searchStats?.closeMethod = 'close_button';
+      Navigator.of(context).pop();
+    }
+
+    return scoped(AppBottomSheetContainer(
+      maxHeight: kSearchSheetFraction,
       followKeyboard: true,
       child: Column(
         children: [
@@ -871,13 +1196,20 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
               title: context.l10n.salChatWith,
               trailing: const AppBottomSheetCloseButton(),
             )
+          else if (send != null)
+            // Send mode's heading says what this sheet is for, and for
+            // whom (send_pick_session.dart): the first steps' own header.
+            SheetTitleHeader(
+              title: sendPickSheetTitle(context.l10n, send),
+              onClose: close,
+            )
           else
             // The drag handle with the shared close X at the row's end
             // (founder, 27 October 2026: a way out besides dragging down).
             // The same circled X the bet and order slips wear
             // (KuteCloseButton; founder, 28 October 2026).
             SizedBox(
-              height: 56.h,
+              height: kSearchSheetHandleRow.h,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -888,40 +1220,51 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                   Positioned(
                     right: 16.w,
                     top: 6.h,
-                    child: KuteCloseButton(onPressed: () {
-                      // Named on search_closed; the pop is the button's own.
-                      _searchStats?.closeMethod = 'close_button';
-                      Navigator.of(context).pop();
-                    }),
+                    child: KuteCloseButton(onPressed: close),
                   ),
                 ],
               ),
             ),
-          ...children,
+          Expanded(
+            child: entrance(send == null
+                ? Column(children: children)
+                // The heading's edge (20, the first steps' content edge):
+                // the title, the line, the rows and the X on one line.
+                : Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal:
+                            20.w - KuteSearchComposer.gutter(context)),
+                    child: Column(children: children),
+                  )),
+          ),
         ],
       ),
-    );
+    ));
   }
 }
 
-/// The compact filter "tabs" shown while a query is being typed:
-/// All · Predictions · Investing · Transactions. Selecting one writes
-/// [selectedSearchCategoryProvider], which the sheet's `showTx` /
-/// `showPredictions` / `showPerpetuals` visibility already reads to narrow
-/// the result groups. Replaces the old "Search wallet" text label — the
-/// segments name the surface, so no separate header is needed. The shared
-/// control scrolls when labels need more room on narrow devices.
-class _WalletFilterChips extends ConsumerWidget {
+/// The scope chip at the end of the composer line while a query is typed:
+/// the selected scope's name and a ⌄ ("All ⌄"), 13 w500 on a small
+/// surfaceLight pill. Tapped, it opens a short menu of the scopes (All ·
+/// Predictions · Investing · Transactions) in the app's own sheet
+/// ([_showScopeMenu]); picking one writes [selectedSearchCategoryProvider],
+/// which the sheet's `showTx` / `showPredictions` / `showPerpetuals`
+/// visibility already reads to narrow the result groups.
+class _ScopeChip extends StatelessWidget {
+  const _ScopeChip({required this.selected, required this.scopes});
+
   final SearchCategory selected;
 
-  /// Custom tab set for product sheets; null renders the global set.
-  final List<(SearchCategory, String)>? tabs;
-  const _WalletFilterChips({required this.selected, this.tabs});
+  /// The scopes on offer; a pool-scoped sheet passes its own set.
+  final List<(SearchCategory, String)> scopes;
 
-  /// The global tab set, in All's section order: Predictions, Investing,
+  static const chipKey = ValueKey('search-scope-chip');
+
+  /// The global set, in All's section order: Predictions, Investing,
   /// Transactions. The Hyperliquid leg keeps its `perpetuals` category key
   /// (analytics stay stable) but reads Investing.
-  static List<(SearchCategory, String)> _standardTabs(BuildContext context) => [
+  static List<(SearchCategory, String)> standardScopes(BuildContext context) =>
+      [
         (SearchCategory.all, context.l10n.searchFilterAll),
         (SearchCategory.predictions, context.l10n.predictions),
         (SearchCategory.perpetuals, context.l10n.trading),
@@ -929,27 +1272,89 @@ class _WalletFilterChips extends ConsumerWidget {
       ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final effective = tabs ?? _standardTabs(context);
-    // The same pills the category strips use, so a filter here and a
-    // category on Investing or Predictions read as one control rather
-    // than two vocabularies (user decision September 2026). Label only,
-    // matching those strips after their glyphs came off.
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4.h),
-      child: KutePillTabs(
-        horizontalPadding: 16,
-        selectedIndex: effective.indexWhere((tab) => tab.$1 == selected),
-        items: [for (final tab in effective) KutePillItem(label: tab.$2)],
-        onTap: (index) {
-          HapticFeedback.selectionClick();
-          final next = effective[index].$1;
-          if (next != selected) TrackingService.searchCategoryChanged(next.name);
-          ref.read(selectedSearchCategoryProvider.notifier).state = next;
-        },
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final label = scopes.where((s) => s.$1 == selected).firstOrNull?.$2 ??
+        scopes.first.$2;
+    return Semantics(
+      button: true,
+      label: label,
+      child: KutePressable(
+        child: GestureDetector(
+          key: chipKey,
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            // ignore: discarded_futures
+            _showScopeMenu(context, scopes: scopes, selected: selected);
+          },
+          child: Container(
+            height: 28,
+            padding: EdgeInsets.only(left: 10.w, right: 6.w),
+            decoration: BoxDecoration(
+              color: c.surfaceLight,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                Icon(Icons.expand_more_rounded,
+                    size: 16, color: c.textSecondary),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
+}
+
+/// The scope menu: the app's sheet (the unit picker's chrome) with one row
+/// per scope, the selected one checked; picking one closes it and narrows
+/// the results. The same `search_category_changed` event as the old pills.
+Future<void> _showScopeMenu(
+  BuildContext context, {
+  required List<(SearchCategory, String)> scopes,
+  required SearchCategory selected,
+}) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  return showAppBottomSheet<void>(
+    context: context,
+    builder: (sheetContext) => AppBottomSheetContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(title: sheetContext.l10n.searchScopeTitle),
+          SizedBox(height: 8.h),
+          for (final (category, label) in scopes)
+            AppBottomSheetListTile(
+              title: label,
+              isSelected: category == selected,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                Navigator.of(sheetContext).pop();
+                if (category != selected) {
+                  TrackingService.searchCategoryChanged(category.name);
+                }
+                container.read(selectedSearchCategoryProvider.notifier).state =
+                    category;
+              },
+            ),
+          SizedBox(height: 16.h),
+        ],
+      ),
+    ),
+  );
 }
 
 /// A Bitcoin/hardware wallet keeps the search history within its account.
@@ -968,10 +1373,11 @@ class _WalletActivityResults extends ConsumerWidget {
         .where((tx) => q.isEmpty || transactionSearchableText(tx).contains(q))
         .toList();
     if (rows.isEmpty) {
-      return _EmptyState(
-          prompt: q.isEmpty
+      return SearchEmptyState(
+          text: q.isEmpty
               ? context.l10n.ledgerActivityEmpty
-              : context.l10n.searchNoMatchingActivity);
+              : context.l10n.searchNoMatchingActivity,
+          sad: q.isNotEmpty);
     }
     return ListView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
@@ -1067,7 +1473,7 @@ class _WalletTag extends StatelessWidget {
               style: TextStyle(
                 color: c.textSecondary,
                 fontSize: 12.sp,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 letterSpacing: -0.1,
               ),
               maxLines: 1,
@@ -1080,11 +1486,53 @@ class _WalletTag extends StatelessWidget {
   }
 }
 
-/// One of the user's own positions that matches the query, drawn as the
-/// Portfolio draws it ([PolyPositionCard]): the game's teams or the
-/// market's image and title, the position in one line, its value with the
-/// profit or loss under it, following the held outcome's live price.
-/// Tapping keeps search's destination: the market's detail sheet.
+/// Opens [event]'s page from the sheet, stacked over it (root navigator):
+/// in send mode ([SendPickScope]) the page in send mode, whose slip sends
+/// the pick (`send_pick_market_picked`); else the ordinary page, on the
+/// sheet's Ledger wallet when it is a Ledger search.
+void _openPredictionPage(
+    BuildContext context, WidgetRef ref, PolymarketEvent event) {
+  final send = SendPickScope.maybeOf(context);
+  if (send != null) {
+    _trackSendPicked(ref, 'polymarket');
+    if (SendPickSession.debugOpened(event)) return;
+    MarketDetailSheet.show(context,
+        event: event, source: kSendPickMarketSource, sendPick: send);
+    return;
+  }
+  MarketDetailSheet.show(context,
+      event: event,
+      ledgerWalletId: ref.read(searchLedgerWalletIdProvider),
+      source: 'search');
+}
+
+/// Opens [market]'s Investing page from the sheet, in send mode when the
+/// sheet is in it (see [_openPredictionPage]).
+void _openInvestingPage(BuildContext context, WidgetRef ref, HlMarket market) {
+  final send = SendPickScope.maybeOf(context);
+  if (send != null) {
+    _trackSendPicked(ref, 'hyperliquid');
+    if (SendPickSession.debugOpened(market)) return;
+    HlMarketDetailSheet.show(context,
+        market: market, source: kSendPickMarketSource, sendPick: send);
+    return;
+  }
+  HlMarketDetailSheet.show(context, market: market, source: 'search');
+}
+
+/// Send mode's tap on a market: the venue and whether it was searched for
+/// (never the query, never the market).
+void _trackSendPicked(WidgetRef ref, String venue) =>
+    TrackingService.track('send_pick_market_picked', params: {
+      'venue': venue,
+      'searched': ref.read(searchQueryProvider).trim().isNotEmpty,
+    });
+
+/// One of the user's own positions that matches the query, in the sheet's
+/// row ([SearchPositionRow]): the market's picture and question, the
+/// position in one line, its value with the profit or loss under it,
+/// following the held outcome's live price. Tapping keeps search's
+/// destination: the market's detail sheet.
 class _OwnedPositionRow extends ConsumerWidget {
   final OwnedPositionSearchResult result;
   final int? position;
@@ -1096,31 +1544,15 @@ class _OwnedPositionRow extends ConsumerWidget {
     final live = ref.watch(
         livePriceProvider.select((s) => s.live ? s.prices[p.tokenId] : null));
     final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
-    final pnl = (price - p.avgPrice) * p.size;
-    return _MarketCardSlot(
-      child: LiveTokenScope(
-        tokens: [if (!p.isResolved && p.tokenId != null) p.tokenId!],
-        child: PolyPositionCard(
-          question: p.marketQuestion,
-          imageUrl: p.marketImage,
-          outcome: p.outcome,
-          shares: p.size,
-          avgPrice: p.avgPrice,
-          value: p.size * price,
-          pnl: pnl,
-          pnlPercent: p.avgPrice > 0 ? (price / p.avgPrice - 1) * 100 : 0.0,
-          eventSlug: p.eventSlug,
-          end: polyPositionEnd(p),
-          conditionId: p.marketId,
-          // A won position is claimed automatically: it reads "Settled"
-          // like any closed one, never "Ready to claim".
-          resolved: p.isResolved,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            _trackSearchResultTap(ref, 'owned_position', position: position);
-            _openMarket(context, ref, p);
-          },
-        ),
+    return LiveTokenScope(
+      tokens: [if (!p.isResolved && p.tokenId != null) p.tokenId!],
+      child: SearchPositionRow(
+        position: p,
+        price: price,
+        onTap: () {
+          _trackSearchResultTap(ref, 'owned_position', position: position);
+          _openMarket(context, ref, p);
+        },
       ),
     );
   }
@@ -1152,12 +1584,10 @@ class _OwnedPositionRow extends ConsumerWidget {
   }
 }
 
-/// A Polymarket market from the remote search, drawn with the Predictions
-/// list's own card ([PredictionBrowseCard] over [MarketCard]): the game's
-/// teams and score from the live feed, a Yes/No market's chance and day
-/// move, or an event's two most likely outcomes. Search stays open — the
-/// market detail stacks on top (root navigator) and closing it returns to
-/// the results.
+/// A Polymarket market from the remote search, in the sheet's row
+/// ([SearchPredictionRow]): the picture, the question, the leading
+/// chance, or the outcome the query named and its chance. Search stays open — the market detail stacks on top (root
+/// navigator) and closing it returns to the results.
 class _GlobalMarketRow extends ConsumerWidget {
   final GlobalMarketSearchResult result;
   final int? position;
@@ -1166,71 +1596,211 @@ class _GlobalMarketRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final e = result.event;
-    return _MarketCardSlot(
-      child: PredictionBrowseCard(
-        event: e,
-        followLiveGame: true,
-        onTap: () {
-          HapticFeedback.lightImpact();
-          // A Ledger account search opens the market on that wallet's
-          // Ledger bet target (MarketDetailSheet forwards ledgerWalletId).
-          final ledgerWalletId = ref.read(searchLedgerWalletIdProvider);
-          _trackSearchResultTap(ref, 'global_market',
-              position: position,
-              target: ledgerWalletId != null ? 'ledger' : null);
-          MarketDetailSheet.show(context,
-              event: e, ledgerWalletId: ledgerWalletId, source: 'search');
+    return SearchPredictionRow(
+      event: e,
+      outcome: result.matchedOutcome,
+      onTap: () {
+        // A Ledger account search opens the market on that wallet's
+        // Ledger bet target (MarketDetailSheet forwards ledgerWalletId).
+        final ledgerWalletId = ref.read(searchLedgerWalletIdProvider);
+        _trackSearchResultTap(ref, 'global_market',
+            position: position,
+            target: ledgerWalletId != null ? 'ledger' : null);
+        // ignore: discarded_futures
+        SearchRecentStore.record(SearchRecentEntry(
+            kind: SearchRecentKind.prediction,
+            id: e.slug,
+            label: e.displayTitle,
+            image: e.imageUrl));
+        _openPredictionPage(context, ref, e);
+      },
+    );
+  }
+}
+
+/// The category a query names ("soccer", "nfl", "art"), first in the
+/// Predictions group: the topic's glyph (lib/assets/polymarket_tags, as
+/// the category sheet draws it), its name over where it lives
+/// ("Predictions", "Predictions · Sports") and a chevron. Tapping closes
+/// the sheet and opens the Predictions browse on it, exactly as a pick in
+/// the category sheet does; reported as a `category` result.
+class _CategoryHitRow extends ConsumerWidget {
+  final PolyCategoryHit hit;
+  final int? position;
+  const _CategoryHitRow({super.key, required this.hit, this.position});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final pill = hit.pill;
+    final where = hit.sub == null
+        ? l10n.predictions
+        : '${l10n.predictions} · ${polyPillLabel(l10n, pill)}';
+    return SearchListRow(
+      leading: Container(
+        width: kSearchRowLogo,
+        height: kSearchRowLogo,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: c.surfaceLight,
+          borderRadius: BorderRadius.circular(kSearchRowLogo / 4),
+          border: Border.all(color: c.borderSubtle, width: 0.5),
+        ),
+        child: hit.chip != null
+            ? polySubIcon(pill, hit.chip!, 20)
+            : SvgPicture.asset(
+                'lib/assets/polymarket_tags/${pill.key}.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(c.textPrimary, BlendMode.srcIn),
+              ),
+      ),
+      title: hit.label,
+      subtitle: where,
+      titleLines: 1,
+      trailing:
+          Icon(Icons.chevron_right_rounded, color: c.textTertiary, size: 20.sp),
+      onTap: () {
+        _trackSearchResultTap(ref, 'category', position: position);
+        TrackingService.track('category_pill_tapped', params: {
+          'section': pill.key,
+          if (hit.sub != null) 'subcategory': hit.sub!,
+          'source': 'search',
+        });
+        ref.read(polyBrowseSelectionProvider.notifier).state = hit.selection;
+        final router = GoRouter.maybeOf(context);
+        Navigator.of(context).maybePop();
+        router?.go('/polymarket');
+      },
+    );
+  }
+}
+
+/// The Predictions topics under the composer while the Predictions scope
+/// is on: All, then the categories as the browse's own pills (Politics,
+/// Sports, Crypto … Art, every one whatever the policy refuses), one row that scrolls
+/// sideways and keeps the picked one in view ([PolyAutoScrollRow]).
+/// Picking one scopes the venue search to that category
+/// ([searchPredictionsTopicProvider]) and says so to PostHog as the scope
+/// chip does, the category's slug and never the words typed.
+class _PredictionTopicsRow extends ConsumerWidget {
+  const _PredictionTopicsRow();
+
+  static const rowKey = ValueKey('search-prediction-topics');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final picked = ref.watch(searchPredictionsTopicProvider);
+    final topics = [
+      for (final p in PolyPill.values)
+        if (p.isTopic) p,
+    ];
+    void pick(PolyPill? topic) {
+      if (topic == picked) return;
+      HapticFeedback.selectionClick();
+      TrackingService.searchCategoryChanged(
+          topic?.key ?? SearchCategory.predictions.name,
+          source: 'topic');
+      ref.read(searchPredictionsTopicProvider.notifier).state = topic;
+    }
+
+    final index = picked == null ? 0 : topics.indexOf(picked) + 1;
+    return Padding(
+      key: rowKey,
+      padding: EdgeInsets.only(top: 4.h),
+      child: PolyAutoScrollRow(
+        height: kutePillRowHeight(),
+        padding: kSearchSheetGutter,
+        itemCount: topics.length + 1,
+        selectedIndex: index,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return KutePill(
+              label: l10n.polySubAll,
+              selected: picked == null,
+              onTap: () => pick(null),
+            );
+          }
+          final topic = topics[i - 1];
+          return KutePill(
+            label: polyPillLabel(l10n, topic),
+            selected: topic == picked,
+            onTap: () => pick(topic),
+          );
         },
       ),
     );
   }
 }
 
-/// An Investing market from [globalHyperliquidResultsProvider], drawn with
-/// the Investing list's own card ([HlMarketCard]): the logo, the name over
-/// its ticker ("TICKER · Spot" for a spot token), the daily line, and the
-/// live price over the day's change. Tapping re-resolves the full [HlMarket] and opens the Investing
-/// detail sheet on the root navigator (so it stacks ON TOP of search); if
-/// the universe hasn't loaded yet it falls back to the Investing tab.
-class _HlMarketRow extends ConsumerWidget {
+/// An Investing market from [globalHyperliquidResultsProvider], in the
+/// sheet's row ([SearchInvestingRow]): the logo, the name over its ticker,
+/// the price over the day's change. Tapping re-resolves the full
+/// [HlMarket] and opens the Investing detail sheet on the root navigator
+/// (so it stacks ON TOP of search); if the universe hasn't loaded yet it
+/// falls back to the Investing tab.
+///
+/// A market that trades more than one way carries its other listings
+/// ([HlMarketSearchResult.alternatives]): "2 more ways to trade NVDA ›"
+/// under the row ([SearchMoreWaysRow]) opens them in place, each a row of
+/// its own that opens its own market. A tap on one is the same
+/// `search_result_tapped` as the row's, at the row's position.
+class _HlMarketRow extends ConsumerStatefulWidget {
   final HlMarketSearchResult result;
   final int? position;
   const _HlMarketRow({super.key, required this.result, this.position});
 
-  /// The browse market the hit came from; a result built without one (a
-  /// test) is drawn from its own figures.
-  HlMarket _market() {
-    final r = result;
-    final known = r.market;
-    if (known != null) return known;
-    final spot = r.kind == HlMarketKind.spot;
-    final change = r.dayChangePct;
-    return HlMarket(
-      coin: r.coin,
-      wireCoin: r.wireCoin,
-      assetId: -1,
-      kind: r.kind,
-      szDecimals: ((spot ? 8 : 6) - (r.pxDecimalCap ?? 2)).clamp(0, 8),
-      maxLeverage: r.maxLeverage ?? 1,
-      onlyIsolated: false,
-      markPx: r.markPx,
-      midPx: r.markPx,
-      prevDayPx: change > -1 ? r.markPx / (1 + change) : 0,
-      dayNtlVlm: kHlLowLiquidityDayVolumeUsd,
-      category: r.category,
-      iconUrl: r.iconUrl,
-      unitAssetName: r.unitAssetName,
-    );
-  }
+  @override
+  ConsumerState<_HlMarketRow> createState() => _HlMarketRowState();
+}
+
+class _HlMarketRowState extends ConsumerState<_HlMarketRow> {
+  /// Whether the other listings are open under the row.
+  bool _expanded = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return _MarketCardSlot(
-      child: HlMarketCard(market: _market(), onTap: () => _open(context, ref)),
+  Widget build(BuildContext context) {
+    final r = widget.result;
+    final row = SearchInvestingRow(result: r, onTap: () => _open(r));
+    if (r.alternatives.isEmpty) return row;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        SearchMoreWaysRow(
+          key: ValueKey('hl-more-${r.kind.name}-${r.wireCoin}'),
+          count: r.alternatives.length,
+          ticker: r.groupTicker ?? r.coin,
+          expanded: _expanded,
+          onTap: () => setState(() => _expanded = !_expanded),
+        ),
+        SheetAnimatedSize(
+          child: !_expanded
+              ? const SizedBox(width: double.infinity)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: kSearchRowGap.h,
+                  children: [
+                    for (final alt in r.alternatives)
+                      SearchInvestingRow(
+                        key: ValueKey('hl-alt-${alt.kind.name}-${alt.wireCoin}'),
+                        result: alt,
+                        alternative: true,
+                        onTap: () => _open(alt),
+                      ),
+                  ],
+                ),
+        ),
+      ],
     );
   }
 
-  void _open(BuildContext context, WidgetRef ref) {
+  void _open(HlMarketSearchResult result) {
+    final position = widget.position;
     // Re-resolve the full descriptor (order-wire ids, book) from the loaded
     // universe. Keep search OPEN — the detail sheet pushes on the root
     // navigator so it stacks on top and closing it returns here.
@@ -1262,8 +1832,18 @@ class _HlMarketRow extends ConsumerWidget {
       return;
     }
     _trackSearchResultTap(ref, 'hyperliquid_market', position: position);
+    // ignore: discarded_futures
+    SearchRecentStore.record(SearchRecentEntry(
+        kind: SearchRecentKind.investing,
+        id: result.coin,
+        label: result.coin,
+        image: result.iconUrl));
     if (market != null) {
-      HlMarketDetailSheet.show(context, market: market, source: 'search');
+      _openInvestingPage(context, ref, market);
+    } else if (SendPickScope.maybeOf(context) != null) {
+      // Send mode never leaves the send for the Trading tab.
+      showMessageSnackBar(
+          context: context, message: context.l10n.notAvailable, error: true);
     } else {
       // Universe not loaded yet — fall back to the Trading tab.
       context.go('/hyperliquid');
@@ -1283,15 +1863,18 @@ SportsMatchUpdate? _liveUpdateFor(
         slug: e.slug, gameId: e.gameId, metadataGameId: e.metadataGameId);
 
 /// One result group: its rows (each built with its analytics position),
-/// the filter its "See all" switches to, and the skeleton that holds its
-/// place while its remote leg loads.
+/// the filter its "See all" switches to, and whether its remote leg is
+/// still loading (skeleton rows hold its place then).
 class _ResultGroup {
   final String key;
   final String label;
   final SearchCategory filter;
   final List<Widget Function(int position)> rows;
   final bool loading;
-  final Widget? skeleton;
+
+  /// A row after the group's rows when it is shown whole under its own
+  /// scope ("Show more"); null for none.
+  final Widget? more;
 
   const _ResultGroup({
     required this.key,
@@ -1299,67 +1882,42 @@ class _ResultGroup {
     required this.rows,
     required this.filter,
     this.loading = false,
-    this.skeleton,
+    this.more,
   });
 }
 
-/// A market card's place in the results: the lists' 16 side inset and
-/// 12 gap, as on the Investing and Predictions tabs.
-class _MarketCardSlot extends StatelessWidget {
-  final Widget child;
-  const _MarketCardSlot({required this.child});
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-        child: RepaintBoundary(child: child),
-      );
-}
-
-/// Two card silhouettes the height of the cards they stand in for (the
-/// Investing card's one row, the Predictions list card), so the group's
-/// place is kept while its markets load.
-class _MarketCardSkeletons extends StatelessWidget {
-  final bool investing;
-  const _MarketCardSkeletons({required this.investing});
+/// Three skeleton rows, flat and 14 apart like the rows they stand in
+/// for: a group's place while its markets load, and the whole body's
+/// while the first local results are read.
+class _GroupSkeleton extends StatelessWidget {
+  const _GroupSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    if (!investing) {
-      return SkeletonCardList(
-          count: 2,
-          height: 140.h,
-          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h));
-    }
     return KuteSkeleton(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: SearchRowList(
         children: [
-          for (var i = 0; i < 2; i++)
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-              child: SkeletonCard(
-                height: 72.h,
-                radius: AppRadius.lg,
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Row(
-                  children: [
-                    SkeletonCircle(36.w),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SkeletonBar(110.w, 14.h),
-                          SizedBox(height: 6.h),
-                          SkeletonBar(70.w, 12.h),
-                        ],
-                      ),
+          for (var i = 0; i < 3; i++)
+            SizedBox(
+              height: kSearchRowHeight,
+              child: Row(
+                children: [
+                  const SkeletonCircle(kSearchRowLogo),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      // Unscaled heights: the row is a fixed 56.
+                      children: [
+                        SkeletonBar(160.w, 14),
+                        const SizedBox(height: 6),
+                        SkeletonBar(90.w, 12),
+                      ],
                     ),
-                    SkeletonBar(64.w, 14.h),
-                  ],
-                ),
+                  ),
+                  SkeletonBar(56.w, 14),
+                ],
               ),
             ),
         ],
@@ -1368,119 +1926,752 @@ class _MarketCardSkeletons extends StatelessWidget {
   }
 }
 
-/// "See all" under a group capped at [kSearchSectionCap]: switches the
-/// filter pills to that group, in the Settings rows' words and chevron.
+/// "See all" as a group's last row when it is capped at
+/// [kSearchSectionCap]: switches the scope to that group. With a [label]
+/// the same row reads otherwise ("Show more": the next venue page).
 class _SeeAllRow extends StatelessWidget {
   final VoidCallback onTap;
-  const _SeeAllRow({required this.onTap});
+  final String? label;
+  const _SeeAllRow({super.key, required this.onTap, this.label});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return BouncyTouch(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: Container(
-        color: Colors.transparent,
-        padding: EdgeInsets.fromLTRB(20.w, 6.h, 16.w, 10.h),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.l10n.seeAll,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w600,
+    final text = label ?? context.l10n.seeAll;
+    return Semantics(
+      button: true,
+      label: text,
+      child: KutePressable(
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: Container(
+            constraints: const BoxConstraints(minHeight: kSearchRowHeight),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    text,
+                    style: SearchListRow.titleStyle(context),
+                  ),
                 ),
-              ),
+                Icon(Icons.chevron_right_rounded,
+                    color: c.textTertiary, size: 20.sp),
+              ],
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: c.textTertiary, size: 20.sp),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  final String prompt;
+/// Bumped when [HlIconAvailability.ensure] settles logos, so the search
+/// home chooses its "Moving now" markets again.
+final _hlLogoRevisionProvider = Provider.autoDispose<int>((ref) {
+  final revision = HlIconAvailability.revision;
+  void changed() => ref.invalidateSelf();
+  revision.addListener(changed);
+  ref.onDispose(() => revision.removeListener(changed));
+  return revision.value;
+});
 
-  /// Show the animated Sal mascot (the same looping GIF as the home screen)
-  /// above the prompt — used for the fresh-open state before the user has
-  /// typed anything.
-  final bool showMascot;
+/// The search home (founder, 31 October 2026; flat): the Connect your own
+/// AI card ([_ConnectOwnAiCard]; founder, 2 November 2026), then at most
+/// three blocks on the sheet's surface, 28 apart, each a 13 sp w600 title
+/// 12 over its rows (search_rows.dart), rising in 20 ms apart
+/// (KuteStaggerIn):
+///
+///   1. "Recent" (the last things opened from search, SearchRecentStore;
+///      only when there are any): 56 px rows with the logo or a magnifier,
+///      the name, its ✕; "Clear" at the title's end.
+///   2. "Moving now": six of the day's largest moves among the loaded
+///      liquid Investing markets that have a logo of their own
+///      ([searchMoversWithLogos]), a two-column grid of flat rows (the
+///      ticker, the move); "See all ›" opens Investing on Trending.
+///      While the logos are still unknown, skeleton rows.
+///   3. "Trending predictions": three one-line rows from the loaded
+///      trending feed, the chance gauge and the chance at the right.
+///
+/// No Investing block here (it is a results group) and no prompt chips:
+/// the composer is the way to Sal. On a context screen it is the
+/// surface's own home instead ([KuteBarContext.sheetHome]: over the
+/// category sheet, every category of the venue as the grid's tiles), or
+/// a market page's preview row and its send cards. Never generic arrow
+/// cards: action cards are drawn only with a market's preview.
+class _SearchHome extends ConsumerWidget {
+  const _SearchHome(
+      {required this.category,
+      required this.onRecentQuery,
+      this.barContext,
+      this.sendVenues});
 
-  /// Sal's opening questions under the prompt (idle with Sal available).
-  final List<Widget> chips;
+  final SearchCategory category;
 
-  const _EmptyState(
-      {required this.prompt, this.showMascot = false, this.chips = const []});
+  /// Send mode's venues (see the file header): no Connect your own AI
+  /// card, no "See all" out of the send, and only the venues whose browse
+  /// is open; null: the ordinary home.
+  final ({bool predictions, bool investing})? sendVenues;
+
+  /// A recent query tapped: back into the field, searched again.
+  final ValueChanged<String> onRecentQuery;
+
+  /// The bar's context: with action rows, the context screen in place of
+  /// the home's blocks.
+  final KuteBarContext? barContext;
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    // Keep the idle illustration compact when the keyboard is visible.
-    final compact = showMascot && MediaQuery.viewInsetsOf(context).bottom > 0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-              horizontal: chips.isEmpty ? 32.w : 20.w, vertical: 8.h),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showMascot)
-                  // Sal waiting to be asked something, idling on the rig
-                  // rather than looping a GIF that never matched the theme.
-                  // Bounded like every other open surface: a sheet left open
-                  // settles on a calm frame instead of repainting forever.
-                  KuteDogIdle(size: compact ? 72.sp : 120.sp, cycles: 3)
-                else
-                  Icon(Icons.search_rounded,
-                      size: 40.sp, color: c.textTertiary),
-                SizedBox(height: showMascot ? (compact ? 12.h : 18.h) : 12.h),
-                Text(
-                  prompt,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: showMascot ? c.textPrimary : c.textSecondary,
-                    fontSize: showMascot ? (compact ? 17.sp : 19.sp) : 15.sp,
-                    fontWeight: showMascot ? FontWeight.w700 : FontWeight.w500,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                // Rotating brand-voice taglines — only when there's room (no
-                // keyboard); they'd otherwise push the prompts off-screen.
-                if (showMascot && !compact) ...[
-                  SizedBox(height: 14.h),
-                  RotatingTagline(
-                    height: 56.h,
-                    style: TextStyle(
-                      color: c.textTertiary,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.1,
-                      height: 1.4,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final send = sendVenues;
+    final showInvesting = (category == SearchCategory.all ||
+            category == SearchCategory.perpetuals) &&
+        (send?.investing ?? true);
+    final showPredictions = (category == SearchCategory.all ||
+            category == SearchCategory.predictions) &&
+        (send?.predictions ?? true);
+    final gutters = EdgeInsets.fromLTRB(
+        kSearchSheetGutter.w, 12.h, kSearchSheetGutter.w, 16.h);
+    final gap = SizedBox(height: kSearchBlockGap.h);
+
+    final ctx = barContext;
+    final sheetHome = ctx?.sheetHome;
+    if (sheetHome != null) {
+      // The surface's own home under the composer (the category tiles).
+      return ListView(
+        key: const ValueKey('context-sheet-home'),
+        padding: gutters,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [sheetHome(context)],
+      );
+    }
+    if (ctx is KuteMarketBarContext && ctx.hasRecommendations) {
+      // The context screen: the preview row, then the send cards.
+      final preview = ctx.preview;
+      return ListView(
+        padding: gutters,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
+          KuteStaggerIn(index: 0, child: _ContextPreviewRow(preview: preview)),
+          gap,
+          KuteStaggerIn(
+              index: 1,
+              child:
+                  _ContextActionCards(actions: ctx.actions, preview: preview)),
+        ],
+      );
+    }
+
+    // Moving now: the biggest moves, liquid markets only, one per
+    // underlying (its primary listing, as the results and the Investing
+    // lists show it: Nvidia moving on two exchanges is one row), and
+    // only those with a logo of their own (founder, 11 November 2026: a
+    // market with no logo is a thin one). Logos not known yet are
+    // settled in the background; the grid chooses again when they are.
+    final universe =
+        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ?? const [];
+    ref.watch(_hlLogoRevisionProvider);
+    final movers =
+        showInvesting ? searchMoversWithLogos(searchMoverPool(universe)) : null;
+    if (movers != null && movers.pending.isNotEmpty) {
+      unawaited(HlIconAvailability.ensure(movers.pending));
+    }
+    final moving = movers?.shown ?? const <HlMarket>[];
+    final movingLoading = movers?.loading ?? false;
+
+    // Trending predictions: the trending feed as it is loaded. While it
+    // is still on its way (a cold start) the block stands with skeleton
+    // rows and the rows land in place: it never vanishes (founder, 31
+    // October 2026, the sheet showing Moving now alone).
+    final trendingFeed = showPredictions
+        ? ref.watch(polyBrowseFeedProvider(
+            const PolyFeedQuery(pill: PolyPill.trending)))
+        : null;
+    final trending =
+        trendingFeed?.events.take(3).toList() ?? const <PolymarketEvent>[];
+    final trendingLoading =
+        trendingFeed != null && trending.isEmpty && trendingFeed.loading;
+
+    // ignore: discarded_futures
+    SearchRecentStore.load();
+
+    // The blocks, in order, each with its stagger index; 28 between them.
+    Widget block(int index, String header, Widget rows, {Widget? trailing}) =>
+        KuteStaggerIn(
+          index: index,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SearchBlockHeader(text: header, trailing: trailing),
+              rows,
+            ],
+          ),
+        );
+
+    return ListView(
+      padding: gutters,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        // Under the composer, before anything else; the home (and so the
+        // card) gives way to the results as soon as there is a query.
+        // Never in send mode.
+        if (send == null) ...[
+          const KuteStaggerIn(index: 0, child: _ConnectOwnAiCard()),
+          gap,
+        ],
+        ValueListenableBuilder<List<SearchRecentEntry>>(
+          valueListenable: SearchRecentStore.entries,
+          builder: (context, all, _) {
+            // Send mode: only what can be sent from here.
+            final recent = [
+              for (final e in all)
+                if (switch (e.kind) {
+                  SearchRecentKind.query => true,
+                  SearchRecentKind.prediction => showPredictions,
+                  SearchRecentKind.investing => showInvesting,
+                })
+                  e,
+            ];
+            return recent.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    block(
+                      0,
+                      l10n.searchHomeRecent,
+                      SearchRowList(
+                        key: const ValueKey('search-home-recent'),
+                        children: [
+                          for (final e in recent)
+                            _RecentRow(
+                                entry: e,
+                                onQuery: onRecentQuery,
+                                universe: universe),
+                        ],
+                      ),
+                      trailing: SearchBlockAction(
+                        label: l10n.searchHomeClear,
+                        onTap: () {
+                          // ignore: discarded_futures
+                          SearchRecentStore.clear();
+                        },
+                      ),
                     ),
+                    if (moving.isNotEmpty ||
+                        movingLoading ||
+                        trending.isNotEmpty ||
+                        trendingLoading)
+                      gap,
+                  ],
+                );
+          },
+        ),
+        if (moving.isNotEmpty || movingLoading) ...[
+          block(
+            1,
+            l10n.searchHomeMovingNow,
+            // Logos still on their way on a cold start: the skeleton,
+            // as Trending predictions loads, never letter tiles.
+            movingLoading
+                ? SkeletonRowList(
+                    key: const ValueKey('search-home-moving-loading'),
+                    count: (SearchMoverGrid.count + 1) ~/ 2,
+                    padding: EdgeInsets.zero,
+                  )
+                : SearchMoverGrid(
+                    key: const ValueKey('search-home-moving'),
+                    markets: moving,
+                    onTap: (m) => _openInvestingPage(context, ref, m),
                   ),
-                ],
-                if (chips.isNotEmpty) ...[
-                  SizedBox(height: 18.h),
-                  // The Ask Sal sheet's question rows, in their card.
-                  KuteListGroup(children: chips),
-                ],
+            // Send mode stays in the send: no way out to Investing.
+            trailing: send != null
+                ? null
+                : SearchBlockAction(
+                    label: l10n.seeAll,
+                    chevron: true,
+                    onTap: () => _openInvestingTrending(context, ref),
+                  ),
+          ),
+          if (trending.isNotEmpty || trendingLoading) gap,
+        ],
+        if (trendingLoading)
+          block(
+            2,
+            l10n.searchHomeTrendingPredictions,
+            SkeletonRowList(
+              key: const ValueKey('search-home-trending-loading'),
+              count: 3,
+              padding: EdgeInsets.zero,
+            ),
+          )
+        else if (trending.isNotEmpty)
+          block(
+            2,
+            l10n.searchHomeTrendingPredictions,
+            SearchRowList(
+              key: const ValueKey('search-home-trending'),
+              children: [
+                for (final e in trending)
+                  SearchPredictionRow(
+                    event: e,
+                    titleLines: 1,
+                    onTap: () => _openPredictionPage(context, ref, e),
+                  ),
               ],
             ),
           ),
-        );
-      },
+      ],
     );
   }
+
+  /// "See all ›" on Moving now: the sheet closes and Investing opens on
+  /// its Trending category.
+  void _openInvestingTrending(BuildContext context, WidgetRef ref) {
+    ref
+        .read(hlBrowseSelectionProvider.notifier)
+        // Named with its subcategory, so the way in keeps it (Investing
+        // otherwise opens on its Watchlist: enterInvestingOnDefault).
+        .update((s) =>
+            s.copyWith(tab: HlBrowseTab.trending, sub: HlBrowseSub.all));
+    final router = GoRouter.maybeOf(context);
+    Navigator.of(context).maybePop();
+    router?.go('/hyperliquid');
+  }
+}
+
+/// The marks on the Connect your own AI card, in order: Claude, ChatGPT,
+/// Grok (the official marks, from Simple Icons and Lobe Icons; lib/assets/ai).
+const List<String> kConnectOwnAiLogos = [
+  'lib/assets/ai/claude.svg',
+  'lib/assets/ai/chatgpt.svg',
+  'lib/assets/ai/grok.svg',
+];
+
+/// CONNECT YOUR OWN AI (founder, 2 November 2026: "the option to connect
+/// the wallet with your own local AI ... shown as a bigger card ... on the
+/// search sheet", then "must be smaller"): one short full-width band on the
+/// big cards' soft card ([KuteActionCard.surfaceOf]), a smaller radius
+/// (16), 12 padding: "Connect your own AI" (15, w600)
+/// with the Claude, ChatGPT and Grok marks in overlapping white discs of
+/// [_disc] at its end, and "Let Claude, ChatGPT or Grok manage your
+/// wallet" (13, textSecondary) across the band's whole width under them,
+/// one line in English (two at most). Not live yet: a tap opens the
+/// shared Unavailable sheet (the Dollars row's old Manage with AI did the
+/// same) and counts as a search tap (`connect_own_ai`).
+class _ConnectOwnAiCard extends ConsumerWidget {
+  const _ConnectOwnAiCard();
+
+  static const double _disc = 28;
+
+  /// How far each disc steps right of the one before it.
+  static const double _step = 20;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final count = kConnectOwnAiLogos.length;
+    final logos = SizedBox(
+      key: const ValueKey('search-home-connect-ai-logos'),
+      width: _disc + _step * (count - 1),
+      height: _disc,
+      child: Stack(
+        children: [
+          for (var i = 0; i < count; i++)
+            Positioned(
+              left: _step * i,
+              top: 0,
+              child: Container(
+                width: _disc,
+                height: _disc,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  // White in both modes: the marks keep their own ink.
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c.border, width: 1),
+                ),
+                child: SvgPicture.asset(kConnectOwnAiLogos[i],
+                    width: 16, height: 16),
+              ),
+            ),
+        ],
+      ),
+    );
+    final band = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: KuteActionCard.surfaceOf(context)
+          .copyWith(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.connectOwnAiTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      KuteActionCard.titleStyle(c).copyWith(fontSize: 15.sp),
+                ),
+              ),
+              const SizedBox(width: 12),
+              logos,
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            l10n.connectOwnAiSubtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: KuteActionCard.subtitleStyle(c),
+          ),
+        ],
+      ),
+    );
+    return Semantics(
+      key: const ValueKey('search-home-connect-ai'),
+      button: true,
+      label: '${l10n.connectOwnAiTitle}, ${l10n.connectOwnAiSubtitle}',
+      excludeSemantics: true,
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _trackSearchResultTap(ref, 'connect_own_ai');
+            unawaited(showCapabilityUnavailableSheet(
+              context,
+              message: l10n.capabilityUnavailable,
+              surface: 'connect_own_ai',
+            ));
+          },
+          child: band,
+        ),
+      ),
+    );
+  }
+}
+
+/// A Recent row: the logo (a coin's, an event's, a magnifier for a query)
+/// at 36, the name, and its ✕. Tapped: the market, the event (read by its
+/// slug), or the query back in the field.
+class _RecentRow extends ConsumerWidget {
+  const _RecentRow(
+      {required this.entry, required this.onQuery, required this.universe});
+
+  final SearchRecentEntry entry;
+  final ValueChanged<String> onQuery;
+  final List<HlMarket> universe;
+
+  Future<void> _open(BuildContext context, WidgetRef ref) async {
+    switch (entry.kind) {
+      case SearchRecentKind.query:
+        onQuery(entry.id);
+      case SearchRecentKind.investing:
+        final market = universe.where((m) => m.coin == entry.id).firstOrNull;
+        if (market != null) _openInvestingPage(context, ref, market);
+      case SearchRecentKind.prediction:
+        PolymarketEvent? event;
+        try {
+          event =
+              await ref.read(polymarketEventDetailsProvider(entry.id).future);
+        } catch (_) {
+          event = null;
+        }
+        if (event != null && context.mounted) {
+          _openPredictionPage(context, ref, event);
+        }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final image = entry.image;
+    final Widget logo = switch (entry.kind) {
+      SearchRecentKind.query =>
+        Icon(Icons.search_rounded, size: 22, color: c.textTertiary),
+      SearchRecentKind.investing =>
+        HlCoinIcon(coin: entry.id, iconUrl: image, size: kSearchRowLogo),
+      SearchRecentKind.prediction => searchEventLogo(context, image),
+    };
+    return SearchListRow(
+      leading: logo,
+      title: entry.label,
+      titleLines: 1,
+      semanticLabel: entry.label,
+      // A 40 target inside the row's 56, not Material's 48 with its own
+      // padding, which would stretch the row.
+      trailing: IconButton(
+        tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+        iconSize: 20,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+        style: IconButton.styleFrom(
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+        icon: Icon(Icons.close_rounded, color: c.textTertiary),
+        onPressed: () {
+          HapticFeedback.selectionClick();
+          // ignore: discarded_futures
+          SearchRecentStore.remove(entry);
+        },
+      ),
+      onTap: () => _open(context, ref),
+    );
+  }
+}
+
+/// The share of the context preview's text area the pick or figure may
+/// take at the row's end; the title keeps the rest (at least 60%).
+const double kContextPreviewPickShare = 0.4;
+
+/// The market's picture, drawn exactly as its page header draws it: an
+/// Investing market's logo through HlCoinIcon (the wire coin a
+/// builder-dex market trades under, its category and logo URL, the same
+/// fallbacks), a prediction's event image.
+Widget contextPreviewLogo(BuildContext context, KuteBarPreview preview,
+    {double size = kSearchRowLogo}) {
+  final coin = preview.coin;
+  if (coin != null && coin.isNotEmpty) {
+    return HlCoinIcon(
+      coin: coin,
+      wireCoin: preview.wireCoin ?? coin,
+      category: preview.coinCategory,
+      iconUrl: preview.coinIconUrl,
+      size: size,
+    );
+  }
+  return searchEventLogo(context, preview.imageUrl, size: size);
+}
+
+/// The context screen's preview row, flat: the market's picture (36), its
+/// name on up to two lines (an Investing market's ticker under its display
+/// name) and the pick or the price. The title and the pick share the row:
+/// the pick right-aligned in at most [kContextPreviewPickShare] of the text
+/// area, the title in the rest with an ellipsis. A pick that does not fit
+/// that share on one line ("Spread: Steelers -3.5" on "Browns vs.
+/// Steelers") moves under the title in textSecondary, whole, at the full
+/// width, rather than being cut to one word.
+class _ContextPreviewRow extends StatelessWidget {
+  const _ContextPreviewRow({required this.preview});
+
+  final KuteBarPreview preview;
+
+  /// Whether [line] fits [maxWidth] on one line in the figure style, at
+  /// the real text scale.
+  static bool _pickFits(BuildContext context, String line, double maxWidth) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: line,
+        style: DefaultTextStyle.of(context)
+            .style
+            .merge(SearchListRow.figureStyle(context)),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final fits = painter.width <= maxWidth;
+    painter.dispose();
+    return fits;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final line = preview.line;
+    final subtitle = preview.subtitle;
+    final hasLine = line != null && line.isNotEmpty;
+    Widget title({required bool withSubtitle}) => Text(
+          preview.title,
+          key: const ValueKey('context-preview-title'),
+          maxLines: withSubtitle ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: SearchListRow.titleStyle(context),
+        );
+    final subtitleText = subtitle == null
+        ? null
+        : Text(
+            subtitle,
+            key: const ValueKey('context-preview-subtitle'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: SearchListRow.subtitleStyle(context),
+          );
+    return Container(
+      key: const ValueKey('context-preview-card'),
+      constraints: const BoxConstraints(minHeight: kSearchRowHeight),
+      child: Row(
+        children: [
+          contextPreviewLogo(context, preview),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: LayoutBuilder(builder: (context, constraints) {
+              final pickMax = constraints.maxWidth * kContextPreviewPickShare;
+              final beside = hasLine && _pickFits(context, line, pickMax);
+              if (beside) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          title(withSubtitle: subtitleText != null),
+                          if (subtitleText != null) subtitleText,
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    ConstrainedBox(
+                      key: const ValueKey('context-preview-figure'),
+                      constraints: BoxConstraints(maxWidth: pickMax),
+                      child: Text(
+                        line,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: SearchListRow.figureStyle(context),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              // The title over the pick, each at the full width.
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title(withSubtitle: subtitleText != null),
+                  if (subtitleText != null) subtitleText,
+                  if (hasLine)
+                    Text(
+                      line,
+                      key: const ValueKey('context-preview-figure'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SearchListRow.subtitleStyle(context),
+                    ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// THE CONTEXT SCREEN'S SEND ACTIONS AS CARDS (founder, 1 November 2026):
+/// the shared big-square cards (kute_action_cards.dart): two actions side
+/// by side as two equal cards, 12 apart; one action, one full-width card;
+/// three (an open position's brag row) three across where they fit, else
+/// two over one.
+class _ContextActionCards extends StatelessWidget {
+  const _ContextActionCards({required this.actions, required this.preview});
+
+  final List<KuteBarAction> actions;
+  final KuteBarPreview preview;
+
+  @override
+  Widget build(BuildContext context) => KuteActionCardGrid(
+        key: const ValueKey('context-actions-card'),
+        cards: [
+          for (final a in actions) _contextActionCard(context, a, preview),
+        ],
+      );
+}
+
+/// The height of a send card's visual box: Sal's `share` face at 56.
+const double kContextCardVisualSlot = 56;
+
+/// One send card: a large visual at the top (the market's logo at 40 with
+/// a small share badge for the market's link; Sal's `share` face at 56 for
+/// a card that sends a pick), the title (16, w600), two lines under it
+/// (13, textSecondary) and, at the foot, what is sent (13, w600,
+/// textPrimary): the market's name for the link, the pick ("Gen.G · 47%")
+/// for the pick. The press spring; a tap closes the sheet, then runs the
+/// action. Always the market's own artwork or Sal: never a generic arrow
+/// in a tinted circle.
+///
+/// CLOSE FIRST, THEN ACT (founder, 4 November 2026: "Card on search share
+/// not working. I click and nothing happens"). The card used to run the
+/// action and then `maybePop` the sheet. `maybePop` is asynchronous: the
+/// market rows open their sheet one microtask later (kute_share_actions
+/// .dart), that sheet landed on top before the pop resolved, and the pop
+/// gave up ("something happened to our history"): the Sal sheet stayed
+/// open under the new sheet, and closing that one landed back on it. The
+/// sheet is now popped synchronously and the action runs after.
+KuteActionCard _contextActionCard(
+    BuildContext context, KuteBarAction a, KuteBarPreview p) {
+  final c = context.colors;
+  final isLight = Theme.of(context).brightness == Brightness.light;
+  final clip = a is KuteMarketBarAction ? a.salClip : null;
+  final icon = a is KuteMarketBarAction
+      ? (a.icon ?? Icons.arrow_forward_rounded)
+      : Icons.arrow_forward_rounded;
+  final Widget visual;
+  if (clip != null) {
+    visual = SalSprite(
+      clip: clip,
+      size: 56,
+      fallback: SalSprite(
+          clip: 'happy',
+          size: 56,
+          fallback: KuteDogGlance(size: 48, color: c.accent)),
+    );
+  } else {
+    // The market's logo with a small share badge on its corner.
+    visual = SizedBox(
+      width: 52,
+      height: 56,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+              left: 0, top: 8, child: contextPreviewLogo(context, p, size: 40)),
+          Positioned(
+            left: 26,
+            top: 34,
+            child: Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: c.textPrimary,
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: isLight ? Colors.white : c.surface, width: 2),
+              ),
+              child: Icon(icon,
+                  size: 12, color: isLight ? Colors.white : c.background),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  // What is sent: the pick on a card that sends it, else the market.
+  final sent = clip != null ? p.line : p.title;
+  return KuteActionCard(
+    key: ValueKey('context-action-card-${a.label}'),
+    visual: visual,
+    visualSlot: kContextCardVisualSlot,
+    title: a.label,
+    subtitle: a.sublabel,
+    footer: sent,
+    footerKey: ValueKey('context-action-sent-${a.label}'),
+    onTap: () {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) navigator.pop();
+      a.onTap(context);
+    },
+  );
 }

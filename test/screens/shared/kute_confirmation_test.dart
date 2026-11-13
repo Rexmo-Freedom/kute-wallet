@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
@@ -7,8 +8,11 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
 
 const _scrimKey = ValueKey('kute-confirmation-scrim');
 
@@ -19,7 +23,10 @@ Widget _app({
   bool reduceMotion = false,
   double textScale = 1.0,
 }) {
-  return ScreenUtilInit(
+  // The sheet's Done is the shell bar (kute_bar_test_support.dart): the
+  // app's layering, the bar over the navigator.
+  return ProviderScope(
+      child: ScreenUtilInit(
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
       navigatorKey: navigatorKey,
@@ -32,11 +39,11 @@ Widget _app({
         data: MediaQuery.of(context).copyWith(
             disableAnimations: reduceMotion,
             textScaler: TextScaler.linear(textScale)),
-        child: child!,
+        child: withKuteShellBar(context, child),
       ),
       home: home ?? const Scaffold(body: Text('host')),
     ),
-  );
+  ));
 }
 
 Finder _markPaint() => find.descendant(
@@ -45,8 +52,26 @@ Finder _markPaint() => find.descendant(
 KuteStatusMark _mark(WidgetTester tester) =>
     tester.widget<KuteStatusMark>(find.byType(KuteStatusMark));
 
+/// The sheet's Sal: the 3D Sal (founder, 31 October 2026), never the
+/// bar's.
+Finder _salSprite() => find.descendant(
+    of: find.byType(KuteConfirmation), matching: find.byType(SalSprite));
+
+/// The clip the sheet's 3D Sal plays now (its moment, sal_moments.dart).
+String _salClip(WidgetTester tester) =>
+    tester.widget<SalSprite>(_salSprite()).clip;
+
+/// The rig Sal falls back to where his sheets cannot be read
+/// ([_rigOnly]).
 KuteDogConfirmation _sal(WidgetTester tester) =>
     tester.widget<KuteDogConfirmation>(find.byType(KuteDogConfirmation));
+
+/// No sprite sheets: the sheet draws the rig in Sal's place, with its own
+/// mood and wake (sal_sprite.dart's fallback).
+void _rigOnly() {
+  SalSpriteCache.debugSetManifest(null);
+  addTearDown(SalSpriteCache.debugReset);
+}
 
 /// The sheet surface: the keyed, decorated container around the content.
 Finder _sheet() => find
@@ -99,11 +124,12 @@ void main() {
 
     final mark = tester.getRect(find.byType(KuteStatusMark));
     final title = tester.getRect(find.text('Prediction placed'));
-    final sal = tester.getRect(find.byType(KuteDogConfirmation));
+    final sal = tester.getRect(_salSprite());
+    expect(_salClip(tester), 'nod');
     final amount = tester.getRect(find.text(r'$5.00 on Yes'));
     final context = tester.getRect(find.text('Will it rain?'));
     final shares = tester.getRect(find.text('Shares'));
-    final done = tester.getRect(find.widgetWithText(AppButton, 'Done'));
+    final done = tester.getRect(kuteBarPrimaryWithText('Done'));
     final view = tester.getRect(find.text('View prediction'));
 
     // Header row: mark, title, Sal on the right, vertically centred.
@@ -117,8 +143,9 @@ void main() {
     expect(amount.top, greaterThan(mark.bottom));
     expect(context.top, greaterThanOrEqualTo(amount.bottom));
     expect(shares.top, greaterThan(context.bottom));
-    expect(done.top, greaterThan(shares.bottom));
-    expect(view.top, greaterThan(done.bottom));
+    // The quiet secondary above the bar, which is the sheet's Done.
+    expect(view.top, greaterThan(shares.bottom));
+    expect(done.top, greaterThan(view.bottom));
     // The amount is the largest text on the sheet.
     expect(tester.widget<Text>(find.text(r'$5.00 on Yes')).style!.fontSize,
         greaterThan(30));
@@ -140,10 +167,12 @@ void main() {
   testWidgets(
       'the check lands under 1.2 s: the haptic fires once as the stroke '
       'completes and Sal wakes just before it', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(message: 'Order filled', onDone: () {}),
     ));
     await tester.pump();
+    expect(_salClip(tester), 'nod');
     expect(_sal(tester).awake, isFalse);
     expect(_sal(tester).mood, KuteDogMood.happy);
 
@@ -176,8 +205,9 @@ void main() {
   });
 
   testWidgets(
-      'failure: red "!", Sal sad with no wag, the failure tap once and no '
-      'success haptic', (tester) async {
+      'failure: red "!", Sal shrugs (never sad), the failure tap once and '
+      'no success haptic', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(
         tone: KuteConfirmationTone.failure,
@@ -192,12 +222,13 @@ void main() {
     final colors = tester.element(find.byType(KuteStatusMark)).colors;
     expect(_mark(tester).tone, KuteConfirmationTone.failure);
     expect(_markPaint(), paints..circle(color: colors.error));
-    expect(_sal(tester).mood, KuteDogMood.sad);
+    expect(_salClip(tester), 'shake_no');
+    expect(_sal(tester).mood, KuteDogMood.calm);
     expect(failureHaptics, 1);
     expect(haptics, 0);
     expect(find.text('25,000 sats'), findsOneWidget);
     expect(find.text('Nothing left your wallet.'), findsOneWidget);
-    expect(find.widgetWithText(AppButton, 'Try again'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Try again'), findsOneWidget);
     // The sad pose never swings the tail up the way the wag does.
     for (var ms = 0.0;
         ms < KuteDogConfirmation.totalMs(KuteDogMood.sad);
@@ -216,7 +247,8 @@ void main() {
     expect(_mark(tester).tone, KuteConfirmationTone.failure);
   });
 
-  testWidgets('pending: a neutral clock, Sal calm, no haptic', (tester) async {
+  testWidgets('pending: a neutral clock, Sal waits, no haptic', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(
         tone: KuteConfirmationTone.pending,
@@ -230,6 +262,7 @@ void main() {
     await tester.pumpAndSettle();
     final colors = tester.element(find.byType(KuteStatusMark)).colors;
     expect(_markPaint(), paints..circle(color: colors.surfaceElevated));
+    expect(_salClip(tester), 'think');
     expect(_sal(tester).mood, KuteDogMood.calm);
     expect(haptics, 0);
     expect(failureHaptics, 0);
@@ -237,6 +270,7 @@ void main() {
 
   testWidgets('celebrate: the gold token, Sal cheers, the success haptic',
       (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       home: KuteConfirmation(
           message: 'Winnings claimed',
@@ -247,6 +281,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_mark(tester).tone, KuteConfirmationTone.celebrate);
     expect(_markPaint(), paints..circle(color: AppColors.celebrate));
+    expect(_salClip(tester), 'happy');
     expect(_sal(tester).mood, KuteDogMood.cheer);
     expect(haptics, 1);
   });
@@ -254,6 +289,7 @@ void main() {
   testWidgets(
       'Reduce Motion: final mark at once with no ring, Sal static in his '
       'resting pose, nothing animating', (tester) async {
+    _rigOnly();
     await tester.pumpWidget(_app(
       reduceMotion: true,
       home: KuteConfirmation(message: 'Bitcoin sent', onDone: () {}),
@@ -262,6 +298,7 @@ void main() {
 
     expect(tester.hasRunningAnimations, isFalse);
     expect(_mark(tester).reduceMotion, isTrue);
+    expect(_salClip(tester), 'nod');
     expect(_markPaint(), paintsExactlyCountTimes(#drawCircle, 1));
     // Sal is one still painter, no AnimatedBuilder driving him.
     expect(
@@ -352,8 +389,8 @@ void main() {
 
     testWidgets('Done tapped twice runs once', (tester) async {
       final (_, calls) = await present(tester);
-      await tester.tap(find.widgetWithText(AppButton, 'Done'));
-      await tester.tap(find.widgetWithText(AppButton, 'Done'),
+      await tester.tap(kuteBarPrimaryWithText('Done'));
+      await tester.tap(kuteBarPrimaryWithText('Done'),
           warnIfMissed: false);
       await tester.pumpAndSettle();
       expect(calls, ['done']);
@@ -367,9 +404,9 @@ void main() {
       home: KuteConfirmation(message: 'Prediction placed', onDone: () => done++),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pump();
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pump();
     expect(done, 2);
   });
@@ -464,7 +501,7 @@ void main() {
     expect(find.text('send screen'), findsNothing);
     expect(find.text('host'), findsOneWidget);
 
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('host'), findsOneWidget);
@@ -567,14 +604,14 @@ void main() {
     final scrollable = find.byType(Scrollable);
     final position = tester.state<ScrollableState>(scrollable).position;
     expect(position.maxScrollExtent, greaterThan(0));
-    final button = tester.getRect(find.byType(AppButton));
+    final button = tester.getRect(kuteBarPrimary);
     expect(button.bottom, lessThanOrEqualTo(568));
 
     position.jumpTo(position.maxScrollExtent);
     await tester.pumpAndSettle();
     final detailRect = tester.getRect(detailFinder);
     expect(detailRect.bottom, lessThanOrEqualTo(button.top));
-    expect(tester.getRect(find.byType(AppButton)), button);
+    expect(tester.getRect(kuteBarPrimary), button);
 
     // Scrolled back up, the title is reachable inside the screen.
     position.jumpTo(0);

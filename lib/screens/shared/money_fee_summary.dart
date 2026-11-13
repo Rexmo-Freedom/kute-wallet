@@ -42,24 +42,27 @@ String fundingLegFeeLabel(AppLocalizations l10n, FundingLegSource source) =>
       FundingLegSource.predictions => l10n.slipMoveFromPredictions,
     };
 
-/// Display-only money conversion. Never supplies amounts to a signer.
+/// Display-only money conversion. Never supplies amounts to a signer. A fee
+/// known in dollars is Dollars money and reads in dollars; only a fee known
+/// in sats is Bitcoin's, whose conversion follows the Settings currency.
 ({String primary, String? secondary}) feeAmountText(WidgetRef ref,
     {double? usd, double? sats, bool? bitcoinFirst}) {
   final settings = ref.watch(settingsProvider);
   final rates = ref.watch(currencyProvider).rates;
-  final hasFiatRate = (double.tryParse('${rates[settings.currency]}') ?? 0) > 0;
+  final currency = usd != null ? 'USD' : settings.currency;
+  final hasFiatRate = (double.tryParse('${rates[currency]}') ?? 0) > 0;
   return formatFeeAmount(
     usd: usd,
     sats: sats,
-    currency: settings.currency,
+    currency: currency,
     btcFormat: settings.btcFormat,
     bitcoinFirst: bitcoinFirst ?? settings.mainDenomination == 'bitcoin',
     usdPerBtc: feeUsdPerBtc(ref),
-    fiatPerUsd: settings.currency == 'USD'
+    fiatPerUsd: currency == 'USD'
         ? 1
         : hasFiatRate
             ? ref
-                .watch(selectedCurrencyProviderFromUSD(settings.currency))
+                .watch(selectedCurrencyProviderFromUSD(currency))
                 .toDouble()
             : null,
   );
@@ -122,17 +125,32 @@ double _pow10(int decimals) {
 /// sets it under its big amount; the breakdown opens on a tap, in its
 /// own bottom sheet.
 class MoneyFeeCaption extends InheritedWidget {
-  const MoneyFeeCaption({super.key, this.enabled = true, required super.child});
+  const MoneyFeeCaption(
+      {super.key,
+      this.enabled = true,
+      this.centered = false,
+      required super.child});
 
   final bool enabled;
+
+  /// The line centred under a centred figure (Swap's hero) rather than
+  /// at the start, in the quieter tertiary ink.
+  final bool centered;
 
   static bool of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MoneyFeeCaption>()?.enabled ??
       false;
 
+  /// Whether the caption above asks for the centred line.
+  static bool centeredOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<MoneyFeeCaption>()
+          ?.centered ??
+      false;
+
   @override
   bool updateShouldNotify(MoneyFeeCaption oldWidget) =>
-      enabled != oldWidget.enabled;
+      enabled != oldWidget.enabled || centered != oldWidget.centered;
 }
 
 /// Turns every [MoneyFeeSummary] below it into one of a slip's figures
@@ -369,15 +387,14 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
     );
   }
 
-  /// No fee yet, in the unit the fee would be shown in: "$0", "₿0".
-  /// Needs no rate, only the person's currency.
+  /// No fee yet, in the unit the fee would be shown in: "$0", "₿0". The
+  /// figure form stands on the Dollars slips only, so it is dollars.
   String _zeroFee() {
     final settings = ref.watch(settingsProvider);
     final bitcoin =
         widget.bitcoinFirst ?? settings.mainDenomination == 'bitcoin';
     if (bitcoin) return '₿0';
-    return slipZeroFigure(
-        NumberFormat.simpleCurrency(name: settings.currency).format(0));
+    return slipZeroFigure(NumberFormat.simpleCurrency(name: 'USD').format(0));
   }
 
   /// One line of the breakdown sheet: the label on the left, the amount
@@ -451,22 +468,31 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
         : _captionLabelledStates.contains(state)
             ? '${feeCopy(context, widget.label)} · ${feeCopy(context, state)}'
             : feeCopy(context, state);
+    final centered = MoneyFeeCaption.centeredOf(context);
+    // Under a centred figure (Swap) the line is the quietest thing on the
+    // screen: the tertiary ink, as the figure's own second line.
+    final ink = centered ? c.textTertiary : c.textSecondary;
     final style = TextStyle(
-      color: c.textSecondary,
+      color: ink,
       fontSize: 12.sp,
       fontWeight: FontWeight.w500,
       height: 1.35,
     );
     final line = Row(mainAxisSize: MainAxisSize.min, children: [
-      Flexible(child: Text(text, style: style)),
+      Flexible(
+          child: Text(text,
+              textAlign: centered ? TextAlign.center : null, style: style)),
       if (canExpand) ...[
         SizedBox(width: 2.w),
-        Icon(Icons.chevron_right_rounded, size: 16.sp, color: c.textSecondary),
+        Icon(Icons.chevron_right_rounded, size: 16.sp, color: ink),
       ],
     ]);
     return Padding(
       padding: EdgeInsets.only(top: 10.h),
-      child: Row(children: [
+      child: Row(
+          mainAxisAlignment:
+              centered ? MainAxisAlignment.center : MainAxisAlignment.start,
+          children: [
         Flexible(
           child: canExpand
               ? Semantics(
@@ -594,6 +620,8 @@ class _FeeBreakdownBody extends ConsumerWidget {
                           fontSize: 13.sp,
                           height: 1.4)),
                 ],
+                // The last rows scroll clear of the floating bar.
+                const KuteSheetBarSpace(),
               ],
             ),
           ),

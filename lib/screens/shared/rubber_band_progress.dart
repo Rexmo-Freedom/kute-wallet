@@ -400,6 +400,10 @@ class RubberBandProgressState extends State<RubberBandProgress>
         oldWidget.progress != widget.progress ||
         oldWidget.maxStretch != widget.maxStretch) {
       _sync(fromOutcome: outcomeChanged);
+    } else if (oldWidget.haptic && !widget.haptic) {
+      // The haptic turned off (a slip left while its order goes on): the
+      // pull stops being felt at once.
+      _stopFeel();
     }
   }
 
@@ -604,13 +608,21 @@ class RubberBandProgressState extends State<RubberBandProgress>
 
   @override
   Widget build(BuildContext context) {
-    if (_halted) return widget.child;
+    // Reduce Motion: the bare child, nothing wrapped and nothing moves
+    // (a setting, not a state that flips under a page).
+    if (_reduce) return widget.child;
+    // ONE TREE SHAPE otherwise, halted or not: a halted band once returned
+    // the bare child, and the swap as TickerMode went off under a covering
+    // page (the slip's Advanced page) rebuilt the child from scratch: its
+    // KuteBarContextScope remounted and pushed the slip's context again,
+    // over the page on top. Halted, the translation is simply 0
+    // ([stretch] reads 0 then) and nothing listens that would tick.
     return AnimatedBuilder(
       animation: Listenable.merge([_level, _breath]),
       child: widget.child,
       // Translated, never scaled: the text inside stays crisp.
       builder: (context, child) => FractionalTranslation(
-        translation: Offset(0, -stretch),
+        translation: Offset(0, _halted ? 0 : -stretch),
         child: child,
       ),
     );
@@ -646,7 +658,11 @@ class RubberBandBusy extends StatefulWidget {
     this.ceiling = defaultCeiling,
     this.enabled = true,
     this.failureTap = true,
+    this.haptic = true,
   });
+
+  /// The pull's haptic ([RubberBandProgress.haptic]).
+  final bool haptic;
 
   /// What the time build approaches.
   static const double defaultCeiling = 0.85;
@@ -836,6 +852,7 @@ class RubberBandBusyState extends State<RubberBandBusy>
       progress: progress,
       outcome: outcome,
       failureTap: widget.failureTap,
+      haptic: widget.haptic,
       child: widget.child,
     );
   }

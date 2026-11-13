@@ -25,6 +25,32 @@ class PolymarketSetupIncomplete implements Exception {
       : 'Predictions account setup did not finish: $cause';
 }
 
+/// Whether a SELL goes to the venue although the account's setup re-check
+/// did not finish ([error] is what it threw).
+///
+/// Every order first re-verifies the deposit wallet on chain: that it has
+/// code and that its exchange approvals are set. The reads run on public
+/// Polygon RPCs and fail closed when none answers. On 2026-11-08 a person's
+/// second sell ended there, with no order posted (the setup failure and the
+/// sell failure were recorded in the same millisecond), on a mobile
+/// connection where 85% of requests to every host timed out, our backend
+/// and the order book included; their first sell had reached the POST and
+/// failed on the network after 18.7 s. This removes the chain read as a
+/// reason to refuse; it cannot make a sale work on a connection that does
+/// not reach the order book. A position the account
+/// holds was bought through that wallet, so the wallet exists and its
+/// approvals were set when it was created; the re-check adds nothing a
+/// sell needs. The order book is the arbiter: a refusal that names a
+/// missing approval still runs the setup repair the self-heal has.
+///
+/// A sell needs the [depositWallet] it signs for, so an account whose
+/// address is not known yet still waits for setup, and a [StateError]
+/// (the account changed under the order, no spending wallet) still ends
+/// it: those are not about reaching the chain.
+bool polySellProceedsWithoutSetup(Object error,
+        {required String? depositWallet}) =>
+    depositWallet != null && depositWallet.isNotEmpty && error is! StateError;
+
 /// The deposit waiting in the wallet as USDC.e was still being converted
 /// to pUSD when the order was ready to sign. No order was signed or sent.
 class PolymarketFundsConverting implements Exception {
@@ -34,11 +60,28 @@ class PolymarketFundsConverting implements Exception {
   String toString() => 'The deposit is still being converted for trading.';
 }
 
+/// What an unconfirmed buy's collateral waits on
+/// ([PolymarketCollateralPending.wait]).
+enum PolymarketCollateralWait {
+  /// The wallet or the order book's count could not be read: nothing says
+  /// the money is not there.
+  unread,
+
+  /// The wallet holds the buy; the order book has not counted it yet.
+  notCounted,
+
+  /// The wallet was read and holds less pUSD than the buy.
+  short,
+}
+
 /// The wallet or the order book has not confirmed the buy's full all-in
 /// collateral yet. No order was signed or sent; a live approved order may
 /// wait and check again without sending another funding leg.
 class PolymarketCollateralPending implements Exception {
-  const PolymarketCollateralPending();
+  const PolymarketCollateralPending([this.wait]);
+
+  /// What the confirmation waits on, when the check said; null: unsaid.
+  final PolymarketCollateralWait? wait;
 
   @override
   String toString() => 'The trading balance is still being confirmed.';
@@ -61,6 +104,9 @@ class PolymarketPlacementWaits {
   /// anyway. The book normally catches up within a block or two.
   static Duration venueCount = const Duration(seconds: 10);
 
-  /// How often the order book's count is read while waiting for it.
-  static Duration venueCountPoll = const Duration(seconds: 1);
+  /// How often the order book's count is read while waiting for it: twice
+  /// a second (a re-read request and a read each time), so the order goes
+  /// out within half a second of the book counting the money. The budget
+  /// ([venueCount]) is unchanged.
+  static Duration venueCountPoll = const Duration(milliseconds: 500);
 }

@@ -20,6 +20,7 @@ import 'package:kute/screens/ledger/ledger_action_ui.dart';
 import 'package:kute/screens/ledger/ledger_approval_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/ledger_device_picker.dart';
 import 'package:kute/screens/shared/route_pause_gate.dart';
 import 'package:kute/services/funding/ledger_polymarket_funding_service.dart';
@@ -80,6 +81,24 @@ enum _Step {
   error,
   pending
 }
+
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the sheet's primary is the floating Sal bar's primary action;
+/// Cancel / Close is a text button above it, over the bar's clearance.
+Widget _bar(String label, VoidCallback? onPrimary,
+        {bool busy = false,
+        String? disabledLabel, String source = 'ledger_withdraw_predictions'}) =>
+    KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onPrimary,
+        enabled: onPrimary != null && !busy,
+        busy: busy,
+        source: source,
+        disabledLabel: disabledLabel,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 class LedgerWithdrawPredictionsSheet extends ConsumerStatefulWidget {
   const LedgerWithdrawPredictionsSheet({
@@ -519,27 +538,30 @@ class _LedgerWithdrawPredictionsSheetState
         ],
         buttons: [
           if (_enabled && !_busy && _step != _Step.pending) ...[
-            AppButton(
-              text: switch (_step) {
+            AppTextButton(
+              text: l10n.cancel,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            _bar(
+              switch (_step) {
                 _Step.prepare => l10n.ledgerWithdrawUnwrapCta,
                 _Step.review =>
                   _quoteHasMargin ? l10n.ledgerFundApproveCta : l10n.retry,
                 _Step.error => l10n.retry,
                 _ => l10n.ledgerWithdrawConnectCta,
               },
-              onPressed: switch (_step) {
+              switch (_step) {
                 _Step.prepare => _unwrap,
                 _Step.review => _quoteHasMargin ? _withdraw : _refreshQuote,
                 _ => _prepare,
               },
             ),
-            SizedBox(height: 10.h),
-          ],
-          AppButton(
-            text: _step == _Step.pending || !_enabled ? l10n.done : l10n.cancel,
-            variant: AppButtonVariant.secondary,
-            onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          ),
+          ] else
+            // Done, or Cancel while busy: the one action, the bar.
+            _bar(
+              _step == _Step.pending || !_enabled ? l10n.done : l10n.cancel,
+              _busy ? null : () => Navigator.of(context).pop(),
+            ),
         ],
       ),
     );

@@ -19,6 +19,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/money_steps_view.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
@@ -161,6 +162,11 @@ void main() {
   testWidgets(
       'on the line: the coin parks, Sal walks up and fetches it, then '
       'sniffs, then settles, by how long it has waited', (tester) async {
+    // No sheets, staged in the test body (the test's own zone) so the
+    // reads come back empty on the test's pumps: the rig draws him (a
+    // read still out would leave his box empty, money_steps_view.dart).
+    SalSpriteCache.debugSetManifest(null);
+    addTearDown(() => SalSpriteCache.debugSetManifest(null));
     await tester.pumpWidget(_app(_order()));
     await tester.pump(const Duration(milliseconds: 600));
     expect(_motion(tester).mood, SalMood.none, reason: 'the coin glides');

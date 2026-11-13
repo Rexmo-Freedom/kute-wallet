@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -10,6 +11,8 @@ import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/trade_notification_store.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
 
 const _hash =
     '0x5301aac64f2cee18afee2da0bc9f100dced88f8996034de893db5b7439d672c3';
@@ -39,15 +42,17 @@ Future<void> _pump(WidgetTester tester, Widget home) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(ScreenUtilInit(
+  await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
       theme: buildLightTheme(),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      // Done is the shell bar over the navigator.
+      builder: withKuteShellBar,
       home: home,
     ),
-  ));
+  )));
   await tester.pumpAndSettle();
 }
 

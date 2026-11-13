@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:intl/intl.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/shared/activity_row_copy.dart';
@@ -17,8 +18,11 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/historical_price_provider.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/money_fee_summary.dart';
-import 'package:kute/screens/shared/bitcoin_performance_comparison.dart';
+import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
+    show HlMarketDetailSheet;
+import 'package:kute/screens/share/cards/share_card_data.dart'
+    show ReceiptCardKind;
+import 'package:kute/screens/share/receipt_share.dart';
 import 'package:kute/theme/app_theme.dart';
 
 final _bitcoinComparison =
@@ -99,16 +103,35 @@ class HyperliquidFillActivityRow extends ConsumerWidget {
       );
 }
 
+/// The receipt of an order on the Portfolio's closed positions
+/// (portfolio_closed_receipt.dart): the Activity row's sheet for [fill] (the
+/// order's closing fills added), with the row's [resultUsd], what closing
+/// realised less the fees in dollars, as its figure and its card's.
+void showClosedFillReceipt(BuildContext context, HlFill fill,
+        {required double resultUsd}) =>
+    showAppBottomSheet(
+        context: context,
+        builder: (_) => _FillDetails(
+            fill: fill,
+            compareWithSpendingWallet: true,
+            resultUsd: resultUsd));
+
 /// The activity row of [fill]. Its detail sheet opens with the same row.
+/// [resultUsd]: the figure under the amount in place of the fill's realised
+/// P&L ([showClosedFillReceipt]).
 Widget _fillRow(BuildContext context, WidgetRef ref, HlFill fill,
-    {VoidCallback? onTap}) {
+    {VoidCallback? onTap, double? resultUsd}) {
   final market = ref.watch(hyperliquidAccountMarketProvider(fill.coin));
   final coin = market?.coin ?? fill.coin;
   final symbol = hlBaseCoin(coin);
   final friendly = hlFriendlyName(symbol) ?? hlFriendlyName(coin);
   final time =
       DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(fill.time));
-  final pnl = fill.closedPnl;
+  final pnl = resultUsd == null
+      ? fill.closedPnl
+      : resultUsd.abs() < 0.005
+          ? 0.0
+          : resultUsd;
   return buildWalletActivityRow(
     // Round like every other row tile, the letter fallback included.
     leading: ClipOval(
@@ -121,12 +144,12 @@ Widget _fillRow(BuildContext context, WidgetRef ref, HlFill fill,
     ),
     title: activityRowTitle(hlFillRowTitle(fill, symbol, context.l10n)),
     subtitle: friendly == null ? time : '$friendly · $time',
-    amount: formatPolyAmount(ref, fill.px * fill.sz),
+    amount: formatDollars(fill.px * fill.sz),
     flow: hlFillFlow(fill),
     // The one figure under the amount: what closing realised, coloured.
     secondaryAmount: pnl == 0
         ? ''
-        : '${pnl > 0 ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
+        : '${pnl > 0 ? '+' : '−'}${formatDollars(pnl.abs())}',
     secondaryColor: pnl > 0 ? AppColors.marketUp : AppColors.marketDown,
     onTap: onTap,
   );
@@ -134,9 +157,12 @@ Widget _fillRow(BuildContext context, WidgetRef ref, HlFill fill,
 
 class _FillDetails extends ConsumerWidget {
   const _FillDetails(
-      {required this.fill, required this.compareWithSpendingWallet});
+      {required this.fill,
+      required this.compareWithSpendingWallet,
+      this.resultUsd});
   final bool compareWithSpendingWallet;
   final HlFill fill;
+  final double? resultUsd;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final market = ref.watch(hyperliquidAccountMarketProvider(fill.coin));
@@ -149,44 +175,52 @@ class _FillDetails extends ConsumerWidget {
       child: SafeArea(
           top: false,
           child: SheetScrollView(
-            padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 32.h),
+            padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 0),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // The realised P&L is the figure under the header's amount;
+              // the date the quiet line under it.
               TransactionDetailHeader(
-                row: _fillRow(context, ref, fill),
-                advisorSurface: 'hl_activity_detail',
+                row: _fillRow(context, ref, fill, resultUsd: resultUsd),
+                date: activitySheetDate(
+                    context, DateTime.fromMillisecondsSinceEpoch(fill.time)),
               ),
-              SheetDetailRow(
-                  label: context.l10n.date,
-                  value: activitySheetDate(
-                      context, DateTime.fromMillisecondsSinceEpoch(fill.time))),
-              SheetDetailRow(
-                  label: context.l10n.ledgerSummaryMarket, value: hlFriendlyName(coin) ?? coin),
-              SheetDetailRow(
-                  label: context.l10n.amount, value: '${formatHlSize(fill.sz)} $coin'),
-              SheetDetailRow(
-                  label: context.l10n.fillExecutionPrice,
-                  value: formatHlPrice(fill.px, decimalCap: market?.pxDecimalCap)),
-              if (!spot && fill.dir.isNotEmpty)
-                SheetDetailRow(
-                    label: context.l10n.fillDirection,
-                    value: _directionLabel(context.l10n, fill.dir)),
-              // The realised P&L is the figure under the header's amount.
-              MoneyFeeSummary(
+              ReceiptFactTiles(facts: [
+                ReceiptFact(
+                    label: context.l10n.amount,
+                    value: '${formatHlSize(fill.sz)} ${hlBaseCoin(coin)}'),
+                ReceiptFact(
+                    label: context.l10n.fillExecutionPrice,
+                    value: formatHlPrice(fill.px,
+                        decimalCap: market?.pxDecimalCap)),
+                if (!spot && fill.dir.isNotEmpty)
+                  ReceiptFact(
+                      label: context.l10n.fillDirection,
+                      value: _directionLabel(context.l10n, fill.dir)),
+                ReceiptFact(
                   label: fill.fee < 0
                       ? context.l10n.feeUiFeeRebate
                       : context.l10n.feeUiPaidFee,
-                  bitcoinFirst: false,
-                  usd: fill.feeToken == 'USDC' ? fill.fee.abs() : null,
-                  state: fill.feeToken == 'USDC'
-                      ? null
+                  value: fill.feeToken == 'USDC'
+                      ? formatDollars(fill.fee.abs())
                       : '${fill.fee} ${fill.feeToken}',
-                  note: context.l10n.feeUiIncludesAnyKuteBuilderFee),
-              if (benchmark != null)
-                BitcoinPerformanceComparison(
-                    percent: benchmark.valueOrNull,
-                    loading: benchmark.isLoading,
+                  sub: context.l10n.feeUiIncludesAnyKuteBuilderFee,
+                ),
+                // How a spot holding did against Bitcoin, once known.
+                if (benchmark?.valueOrNull case final p? when p.isFinite)
+                  ReceiptFact(
                     label: context.l10n.feeUiVsHoldingBitcoin,
-                    unavailable: context.l10n.feeUiEntryHistoryUnavailable),
+                    value: '${p >= 0 ? '+' : '−'}${p.abs().toStringAsFixed(1)}%',
+                    valueColor:
+                        p >= 0 ? AppColors.marketUp : AppColors.marketDown,
+                    sub: p >= 0
+                        ? context.l10n.feeUiAheadOfHoldingBitcoin
+                        : context.l10n.feeUiBehindHoldingBitcoin,
+                  ),
+              ]),
+              // The market by its full name, on its own row.
+              ReceiptLongRow(
+                  label: context.l10n.ledgerSummaryMarket,
+                  value: hlFriendlyName(coin) ?? coin),
               SheetNerdDataSection(children: [
                 SheetDetailRow(
                     label: context.l10n.orderId, value: '${fill.oid}', copiable: true),
@@ -196,10 +230,69 @@ class _FillDetails extends ConsumerWidget {
                 // The transaction hash is deliberately not shown on a
                 // closed trade (owner decision).
               ]),
+              // The market is the bar's primary on the spending wallet's
+              // receipt (a Ledger account's has Done: its market opens on
+              // the account's own page); the round Sal button beside it
+              // shares the trade's card.
+              if (market != null && compareWithSpendingWallet)
+                ReceiptBarAction(
+                  label: context.l10n.salViewMarket,
+                  onPrimary: () => HlMarketDetailSheet.show(context,
+                      market: market, source: 'activity'),
+                  share: hlFillReceiptShare(fill, market, pnlUsd: resultUsd),
+                )
+              else
+                ReceiptBarAction.none(
+                    share: hlFillReceiptShare(fill, market, pnlUsd: resultUsd)),
             ]),
           )),
     );
   }
+}
+
+/// What an Investing fill's receipt shares (receipt_share.dart): a
+/// position opened ("OPENED POSITION · LONG", the entry price, the size)
+/// or a token bought; a position closed, reduced, reversed or liquidated
+/// (what closing realised, the exit price; [pnlUsd] when the receipt says
+/// other than the fill's own, [showClosedFillReceipt]) or a token sold.
+ReceiptShare hlFillReceiptShare(HlFill fill, HlMarket? market,
+    {double? pnlUsd}) {
+  final coin = market?.coin ?? fill.coin;
+  final symbol = hlBaseCoin(coin);
+  final spot = fill.coin.startsWith('@') || fill.coin.contains('/');
+  final dir = fill.dir.trim().toLowerCase();
+  String side(String words) => words.contains('short') ? 'short' : 'long';
+  final bool opened;
+  String? held;
+  if (spot) {
+    opened = fill.isBuy;
+  } else if (dir.startsWith('open ')) {
+    opened = true;
+    held = side(dir.substring(5));
+  } else if (dir.contains('>')) {
+    // A reversal closes the side it held.
+    opened = false;
+    held = side(dir.split('>').first);
+  } else {
+    // Close Long, Close Short, a liquidation.
+    opened = false;
+    held = side(dir);
+  }
+  return tradeReceiptShare(
+    type: opened ? ReceiptCardKind.opened : ReceiptCardKind.closed,
+    title: hlFriendlyName(symbol) ?? hlFriendlyName(coin) ?? symbol,
+    ticker: symbol,
+    coin: coin,
+    wireCoin: market?.wireCoin ?? fill.coin,
+    iconUrl: market?.iconUrl,
+    category: market?.category,
+    side: held,
+    spot: spot,
+    price: formatHlPrice(fill.px, decimalCap: market?.pxDecimalCap),
+    size: '${formatHlSize(fill.sz)} $symbol',
+    usd: fill.px * fill.sz,
+    pnlUsd: opened ? null : pnlUsd ?? fill.closedPnl,
+  );
 }
 
 /// The venue's direction words ("Open Long", "Close Short", "Long >

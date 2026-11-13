@@ -1,30 +1,30 @@
-import 'package:kute/l10n/l10n.dart';
 // lib/screens/hyperliquid/components/hl_market_card.dart
 //
 // The Investing browse lists' market card (Home and the Ledger tab).
 //
-// Layout: ONE row, about 72 px tall, on the app's card surface
-// (AppDecorations.card); with [HlMarketCard.inGroup] a row of a grouped
-// list card instead (market_groups.dart), the Investments lists' form:
-//   * the market's logo, round (HlCoinIcon, glyph / letter fallback);
-//   * the market's NAME ("Bitcoin", "Tesla"; the ticker when no name is
-//     known) over a caption: the ticker for a perp ("BTC"), "TICKER ·
-//     Spot" for a spot token. The ticker is left out when the name
-//     already is the ticker: a spot token then reads "Spot", and a perp
-//     has no caption at all (its name sits centred in the row). Never a
-//     max leverage: leverage is blocked in the app, so no row hints at it;
-//   * a small LINE sparkline (HlLineSparkline) of the daily closes, in the
-//     up / down colour of the 24h change (neutral when flat or unknown),
-//     from the device cache (one request per coin per UTC day; see
-//     hyperliquid_sparkline_provider.dart), empty until the first lands;
-//   * the LIVE price, always in the primary text colour, over the signed
-//     24h % change in the up / down colour (a dash when unknown).
+// Layout: ONE row, 56 px tall ([kHlMarketRowHeight]), on the app's card
+// surface (AppDecorations.card); with [HlMarketCard.inGroup] a row of a
+// grouped list card instead (market_groups.dart), the Investments lists'
+// form. Calm since the declutter (founder, 1 November 2026: each row one
+// or two things), no hairline between the rows of a group
+// ([hlGroupRowDivider] is nothing):
+//   * the market's logo (32), round (HlCoinIcon, glyph / letter fallback);
+//     a symbol two venues list carries its venue's monogram on the logo;
+//   * the market's NAME on one line ("Bitcoin", "Tesla"; the ticker when
+//     no name is known). No ticker or "Spot" caption, no "Low liquidity"
+//     note and no sparkline: the market page has all of that. Never a max
+//     leverage: leverage is blocked in the app, so no row hints at it;
+//   * the LIVE price, always in the primary text colour, written short
+//     (formatHlListPrice: "$47.91", "$4,128.40", "$2.631", "$0.2051" —
+//     four figures, two decimals at least; never the venue's five-figure
+//     tick, which is the charts' and the slip's), over the 24h % change
+//     as "▲ 0.4%" / "▼ 3.8%" in the up / down colour (no plus or minus
+//     sign; "0.0%" when flat, a dash when unknown; nothing on a thinly
+//     traded market with no change to show).
 //
-// A thinly traded market (HlMarket.isLowLiquidity) ends its caption with
-// " · Low liquidity" (on a second caption line when one cannot hold it:
-// never an ellipsis inside the caption), draws no sparkline (it would be
-// a few carried-forward steps) and, with no 24h change to show, nothing
-// under the price.
+// Above the default list (Trending), the strip (hl_moving_now_strip.dart)
+// shows the hyped names as large cards; the rows keep their own order
+// under it.
 //
 // No star, no volume line (the lists are ordered by volume), no kind
 // badge (the caption says it), no Long/Short CTAs — those live only in
@@ -40,24 +40,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show HlMarketDirectory;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
-import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
-import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The row's logo.
-const double kHlMarketRowIcon = 36;
+const double kHlMarketRowIcon = 32;
 
-/// Where a grouped row's text starts, for the group's hairline: the row's
-/// 16 inset, the logo and the 12 gap after it.
+/// The row's height, in design units.
+const double kHlMarketRowHeight = 56;
+
+/// Where a grouped row's text starts (the row's 16 inset, the logo and the
+/// 12 gap after it): where a group's hairline would start, were one drawn.
 double hlGroupRowIndent() => 16.w + kHlMarketRowIcon.w + 12.w;
+
+/// Between two Investing rows of a group: nothing. The rows' own padding
+/// separates them (Robinhood / Public / Coinbase draw no hairlines).
+Widget hlGroupRowDivider(BuildContext context, double indent) =>
+    const SizedBox.shrink();
 
 /// Browse card for one Hyperliquid market (perp or spot). Consumer-stateful
 /// so it can watch this coin's live mid + tick direction and register the
@@ -74,8 +81,16 @@ class HlMarketCard extends ConsumerStatefulWidget {
   /// group's rows. The list draws the card and the hairlines.
   final bool inGroup;
 
+  /// After the price and its change, at the row's end: the watchlist
+  /// sheet's check (hl_watchlist_sheet.dart). Null on every list.
+  final Widget? trailing;
+
   const HlMarketCard(
-      {super.key, required this.market, this.onTap, this.inGroup = false});
+      {super.key,
+      required this.market,
+      this.onTap,
+      this.inGroup = false,
+      this.trailing});
 
   @override
   ConsumerState<HlMarketCard> createState() => _HlMarketCardState();
@@ -131,52 +146,97 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
 
     // What the market is called: the asset's own name, and a Unit-bridged
     // token reads as the asset it holds (UBTC: Bitcoin), the way
-    // Hyperliquid's own app names it. The ticker when no name is known.
-    final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
-    // The ticker, and for a spot token that it is held outright: a spot
-    // market and a perp for the same underlying can share a list, and
-    // this line tells them apart. Never the perp's max leverage
-    // (leverage is blocked in the app: no row hints at it). The ticker is
-    // not said twice when the title already is the ticker (a market with
-    // no name of its own), so such a perp has no caption: empty.
-    final caption = [
-      if (name != m.coin) m.coin,
-      if (m.isSpot) context.l10n.investingSpot,
-    ].join(' · ');
-    // A thinly traded market says so, and draws no sparkline: its line is
-    // a few carried-forward steps, and the room goes to the caption.
+    // Hyperliquid's own app names it, and a token that holds a stock
+    // reads as that stock (NVDAX: Nvidia). The ticker when no name is
+    // known.
+    final name =
+        hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName ?? m.coin;
+    // Two venues can list a perp under one symbol (ANTH on two builder
+    // dexes): the logo then carries the venue's monogram, so the two rows
+    // never read the same.
+    final shared = HlMarketDirectory.sharesSymbol(m);
     final thin = m.isLowLiquidity;
 
-    // Daily closes for the line sparkline, from the device cache: drawn at
-    // once when this coin was seen before, fetched at most once per UTC
-    // day (hyperliquid_sparkline_provider.dart). Keyed by the wire coin,
-    // which is what candleSnapshot takes for perps, HIP-3 and spot alike.
-    // A thin market draws no line, so it asks for no candles either.
-    final spark =
-        thin ? null : ref.watch(hyperliquidSparklineProvider(m.wireCoin));
-    // Live tail: the series' last close is today's forming candle, so the
-    // live price replaces it and the line ticks with the price. A series
-    // from an earlier day (today's on its way) gets the live price as a
-    // new last point instead. Spot closes in raw pair units are rescaled
-    // onto the price's units (see hlSparklineWithLivePrice).
-    final closes = spark == null
-        ? const <double>[]
-        : hlSparklineWithLivePrice(
-            spark.closes,
-            price,
-            appendLive: spark.day < hlUtcDay(DateTime.now()),
-          );
-
-    final titleStyle = AppTextStyles.settingsTitle(context);
-    final captionStyle = TextStyle(
-      color: c.textSecondary,
-      fontSize: 13.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
+    return HlListRow(
+      inGroup: widget.inGroup,
+      onTap: _openDetail,
+      // The REAL coin/token logo (category glyph or letter badge on a
+      // miss), cut round for this row.
+      leading: HlVenueBadged(
+        monogram: shared ? HlDexNames.monogramOf(m) : null,
+        ring: c.surface,
+        child: ClipOval(
+          child: HlCoinIcon(
+            coin: m.coin,
+            wireCoin: m.wireCoin,
+            category: m.category,
+            iconUrl: m.iconUrl,
+            size: kHlMarketRowIcon,
+          ),
+        ),
+      ),
+      name: name,
+      figure: formatHlListPrice(price, decimalCap: m.pxDecimalCap),
+      // No change to show on a thin market: the price stands alone,
+      // centred, not over a lone dash.
+      change: change != null || !thin
+          ? (change == null ? '—' : hlArrowPct(change))
+          : null,
+      changeColor: changeColor,
+      trailing: widget.trailing,
     );
+  }
+}
 
+/// THE INVESTING LIST ROW, drawn on its own (see the file header): the
+/// [leading] logo ([kHlMarketRowIcon], already sized and cut round), the
+/// [name] alone on one line in the settings-title style, and at the end
+/// the [figure] in the same style over the [change] ("▲ 3.4%", 13, in
+/// [changeColor]; null: the figure alone). [kHlMarketRowHeight] tall at
+/// least, 16 at the sides; with [inGroup] a row of a grouped list card
+/// (the list draws the card), else on the app's card surface. Shared by
+/// [HlMarketCard] and the Portfolio screen's position rows
+/// (position_rows.dart), so the two lists read the same.
+class HlListRow extends StatelessWidget {
+  const HlListRow({
+    super.key,
+    required this.leading,
+    required this.name,
+    required this.figure,
+    this.change,
+    this.changeColor,
+    this.onTap,
+    this.onLongPress,
+    this.inGroup = false,
+    this.nameKey,
+    this.figureKey,
+    this.changeKey,
+    this.trailing,
+  });
+
+  /// At the row's end, after the figure ([HlMarketCard.trailing]).
+  final Widget? trailing;
+
+  final Widget leading;
+  final String name;
+  final String figure;
+  final String? change;
+  final Color? changeColor;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool inGroup;
+
+  /// Keys on the name, the figure and the change (the tests read them).
+  final Key? nameKey;
+  final Key? figureKey;
+  final Key? changeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleStyle = AppTextStyles.settingsTitle(context);
+    final change = this.change;
     // In a group the list draws the card; the row keeps its ink.
-    final grouped = widget.inGroup;
+    final grouped = inGroup;
     final radius = grouped ? null : BorderRadius.circular(AppRadius.lg);
     return Container(
       decoration: grouped ? null : AppDecorations.card(context),
@@ -184,99 +244,66 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
         color: Colors.transparent,
         borderRadius: radius,
         child: InkWell(
-          onTap: _openDetail,
+          onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: radius,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: 16.w, vertical: grouped ? 14.h : 16.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // The REAL coin/token logo (category glyph or letter badge
-                // on a miss), cut round for this row.
-                ClipOval(
-                  child: HlCoinIcon(
-                    coin: m.coin,
-                    wireCoin: m.wireCoin,
-                    category: m.category,
-                    iconUrl: m.iconUrl,
-                    size: kHlMarketRowIcon,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
-                      ),
-                      // No caption: the name alone, centred in the row.
-                      if (thin || caption.isNotEmpty)
-                        SizedBox(height: 2.h),
-                      if (thin)
-                        _ThinCaption(
-                          caption: caption,
-                          note: context.l10n.investingLowLiquidity,
-                          style: captionStyle,
-                        )
-                      else if (caption.isNotEmpty)
-                        Text(
-                          caption,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: captionStyle,
-                        ),
-                    ],
-                  ),
-                ),
-                // The line only, no fill and no axes. Empty (same width,
-                // so the prices stay aligned) until the candles land. A
-                // thin market has none: see [thin].
-                if (!thin) ...[
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: kHlMarketRowHeight.w),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  leading,
                   SizedBox(width: 12.w),
-                  HlLineSparkline(
-                    closes: closes,
-                    width: 64,
-                    height: 28,
-                    upColor: changeColor,
-                    downColor: changeColor,
+                  Expanded(
+                    child: Text(
+                      name,
+                      key: nameKey,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
                   ),
-                ],
-                SizedBox(width: 12.w),
-                // A fixed minimum width, right-aligned, so the prices line
-                // up down the list; a longer price widens it, never wraps.
-                ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: 84.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Always the primary text colour: the digits roll on
-                      // a tick, the colour belongs to the change below.
-                      RollingNumberText(
-                        text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
-                        style: titleStyle.copyWith(
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                  SizedBox(width: 12.w),
+                  // A fixed minimum width, right-aligned, so the prices
+                  // line up down the list; a longer price widens it,
+                  // never wraps.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: 84.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Always the primary text colour: the digits roll
+                        // on a tick, the colour belongs to the change.
+                        RollingNumberText(
+                          key: figureKey,
+                          text: figure,
+                          style: titleStyle.copyWith(
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ],
+                          ),
                         ),
-                      ),
-                      // No change to show on a thin market: the price
-                      // stands alone, centred, not over a lone dash.
-                      if (change != null || !thin) ...[
-                        SizedBox(height: 2.h),
-                        _ChangeText(
-                          text: change == null ? '—' : formatHlPct(change),
-                          color: changeColor,
-                        ),
+                        if (change != null) ...[
+                          SizedBox(height: 2.h),
+                          _ChangeText(
+                            key: changeKey,
+                            text: change,
+                            color: changeColor ??
+                                context.colors.textSecondary,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  if (trailing != null) ...[
+                    SizedBox(width: 12.w),
+                    trailing!,
+                  ],
+                ],
+              ),
             ),
           ),
         ),
@@ -285,66 +312,25 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
   }
 }
 
-/// A thin market's caption: "TSLA · Spot · Low liquidity" on one line
-/// when it fits, and otherwise the note on a second line of its own. An
-/// ellipsis can only ever fall at the very end of the first line, never
-/// inside the caption.
-class _ThinCaption extends StatelessWidget {
-  final String caption;
-  final String note;
-  final TextStyle style;
-  const _ThinCaption({
-    required this.caption,
-    required this.note,
-    required this.style,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // A perp titled by its ticker has no caption: the note alone.
-    if (caption.isEmpty) {
-      return Text(note,
-          maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
-    }
-    final whole = '$caption · $note';
-    return LayoutBuilder(builder: (context, box) {
-      final painter = TextPainter(
-        // Measured in the face the line is drawn in.
-        text: TextSpan(
-            text: whole, style: DefaultTextStyle.of(context).style.merge(style)),
-        maxLines: 1,
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout();
-      final fits = painter.width <= box.maxWidth;
-      painter.dispose();
-      if (fits) {
-        return Text(whole, maxLines: 1, softWrap: false, style: style);
-      }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(caption,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-          Text(note,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-        ],
-      );
-    });
-  }
+/// A 24h change (a fraction) as the row writes it: an arrow glyph for the
+/// direction and the unsigned size, "▲ 0.4%" / "▼ 3.8%" (the glyphs the
+/// transaction rows and slip tiles already use); "0.0%" alone when flat.
+String hlArrowPct(double change) {
+  final pct = (change.abs() * 100).toStringAsFixed(1);
+  if (change == 0) return '$pct%';
+  return '${change > 0 ? '▲' : '▼'} $pct%';
 }
 
-/// Signed 24h % change under the price — plain coloured TEXT (marketUp /
+/// 24h % change under the price — plain coloured TEXT (marketUp /
 /// marketDown via greenColor / redColor), no tinted box: tinted chips are
 /// rejected app-wide (solid fills or neutral grey only; coloured text on a
-/// neutral surface is fine). [text] arrives already signed from
-/// [formatHlPct] ('+1.2%' / '−0.8%'). Rolls its digits like the position
-/// card's PnL line so a 30 s universe refresh ticks instead of snapping.
+/// neutral surface is fine). [text] arrives from [hlArrowPct] ('▲ 1.2%' /
+/// '▼ 0.8%'). Rolls its digits like the position card's PnL line so a
+/// 30 s universe refresh ticks instead of snapping.
 class _ChangeText extends StatelessWidget {
   final String text;
   final Color color;
-  const _ChangeText({required this.text, required this.color});
+  const _ChangeText({super.key, required this.text, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -353,10 +339,63 @@ class _ChangeText extends StatelessWidget {
       style: TextStyle(
         color: color,
         fontSize: 13.sp,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         letterSpacing: -0.1,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
+    );
+  }
+}
+
+/// A market's logo with its venue's mark: a small solid ink disc at the
+/// lower right holding the venue's first letter, ringed in [ring] (the
+/// row's surface) so it lifts off the logo. Neutral, never tinted: it
+/// tells two same-symbol rows apart without shouting. Null [monogram]
+/// draws the logo alone.
+class HlVenueBadged extends StatelessWidget {
+  final String? monogram;
+  final Color ring;
+  final Widget child;
+
+  const HlVenueBadged(
+      {super.key, required this.monogram, required this.ring, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = monogram;
+    if (mark == null) return child;
+    final c = context.colors;
+    final d = 16.sp;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          right: -3.sp,
+          bottom: -3.sp,
+          child: Container(
+            key: const ValueKey('hl-venue-badge'),
+            width: d,
+            height: d,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: c.textPrimary,
+              shape: BoxShape.circle,
+              border: Border.all(color: ring, width: 1.5),
+            ),
+            child: Text(
+              mark,
+              textScaler: TextScaler.noScaling,
+              style: TextStyle(
+                color: c.background,
+                fontSize: 8.5.sp,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

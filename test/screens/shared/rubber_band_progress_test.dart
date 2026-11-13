@@ -554,6 +554,23 @@ void main() {
     }
 
     testWidgets(
+        'the haptic turned off mid-run (a slip left while its order goes '
+        'on): the rumble stops at once, nothing more is felt', (tester) async {
+      await tester.pumpWidget(_host(0.5));
+      await frames(tester, const Duration(milliseconds: 300));
+      expect(_state(tester).feeling, isTrue);
+      expect(ContinuousHaptics.isRunning(), isTrue);
+      await tester.pumpWidget(_host(0.5, haptic: false));
+      expect(_state(tester).feeling, isFalse);
+      expect(ContinuousHaptics.isRunning(), isFalse);
+      expect(log.last.method, 'stop');
+      final after = log.length;
+      await frames(tester, const Duration(seconds: 2));
+      expect(log.length, after, reason: 'no update, tick or pulse after');
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
         'starts low but felt the moment the action starts, rises with the '
         'band, keeps going while it holds, and ends in one stop and the '
         'snap', (tester) async {

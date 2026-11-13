@@ -5,7 +5,8 @@ import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' show Wallet;
-import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kDebugMode, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,9 +23,10 @@ import 'package:kute/providers/bitcoin_config_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/creation/passkey_prf_unsupported_sheet.dart';
 import 'package:kute/screens/creation/set_pin.dart' show trackOnboardingStep;
 import 'package:kute/screens/shared/custom_alert_dialog.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/receive_surface.dart' show ReceiveCaption;
@@ -256,6 +258,13 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
         );
       }
       return false;
+    } on PasskeyPrfUnsupported catch (e) {
+      // The password manager the user picked made (or found) a passkey
+      // but returned no PRF key, so no wallet can come from it. Nothing
+      // was saved: no wallet record, no label, no credential pin, no
+      // seed. Say so plainly and let the user choose the way forward,
+      // instead of silently falling back to recovery words.
+      return _handlePrfUnsupported(e);
     } on PasskeyStepFailed catch (e) {
       // Genuine failure / platform unsupported (no PRF, no native
       // handler, broken RP association). Don't trap the user: fall
@@ -305,6 +314,38 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
       ],
     );
     return accepted;
+  }
+
+  /// The sheet for a password manager without the PRF key, then what the
+  /// user chose. Re-runs re-run the ceremony that failed: a failed CREATE
+  /// sheet goes straight back to the create sheet (signing in first would
+  /// now just find the passkey that manager made), and a failed SIGN-IN
+  /// signs in again, so the user's own Passwords passkey can answer and
+  /// no second credential is minted beside it. A dismissed sheet creates
+  /// nothing and resets the screen.
+  Future<bool> _handlePrfUnsupported(PasskeyPrfUnsupported e) async {
+    if (!mounted) return false;
+    final action = await showPasskeyPrfUnsupportedSheet(
+      context,
+      variant: PasskeyPrfSheetVariant.create,
+      stage: e.sheet.analyticsValue,
+    );
+    if (!mounted) return false;
+    final skipSignIn = e.sheet == PasskeySheet.create;
+    switch (action) {
+      case PasskeyPrfSheetAction.useDefaultManager:
+      case PasskeyPrfSheetAction.tryAgain:
+        return _attemptPasskey(skipSignIn: skipSignIn);
+      case PasskeyPrfSheetAction.usePhrase:
+        // The existing recovery-phrase wallet: 12 words, shown once by
+        // the backup flow, exactly as with the passkey switch off.
+        await _createBip39Wallet();
+        return true;
+      case PasskeyPrfSheetAction.restoreWithPhrase:
+      case null:
+        setState(() => _isProcessing = false);
+        return false;
+    }
   }
 
   /// Runs the passkey ceremonies and saves the wallet (see
@@ -629,6 +670,23 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
                                   Text(description,
                                       style: AppTextStyles.bodySmall(context)
                                           .copyWith(height: 1.4)),
+                                  // Name the manager that can hold the
+                                  // wallet, so the user picks it up front
+                                  // (a third-party one without PRF can't).
+                                  if (_biometricsAvailable == true &&
+                                      _useBiometrics) ...[
+                                    SizedBox(height: 4.h),
+                                    Text(
+                                      defaultTargetPlatform ==
+                                              TargetPlatform.iOS
+                                          ? l10n.passkeyChoiceWorksWithApple
+                                          : l10n.passkeyChoiceWorksWithGoogle,
+                                      style: AppTextStyles.bodySmall(context)
+                                          .copyWith(
+                                              height: 1.4,
+                                              color: c.textTertiary),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -666,14 +724,20 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
                       ),
                       SizedBox(height: 24.h),
                       const Spacer(),
-                      AppButton(
-                        text: l10n.continueLabel,
-                        isLoading: _isProcessing,
-                        onPressed: _isProcessing ||
-                                _walletLabel.isEmpty ||
-                                _biometricsAvailable == null
-                            ? null
-                            : _continue,
+                      // THE BAR IS THE BUTTON (kute_bar_context.dart):
+                      // Continue is the floating Sal bar's primary action.
+                      KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                          label: l10n.continueLabel,
+                          onPrimary: _continue,
+                          enabled: !_isProcessing &&
+                              _walletLabel.isNotEmpty &&
+                              _biometricsAvailable != null,
+                          busy: _isProcessing,
+                          source: 'passkey_choice',
+                          disabledLabel: _walletLabel.isEmpty ? l10n.barNeedName : l10n.barNeedWait,
+                        ),
+                        child: SizedBox(height: kuteBarScrollClearance.h),
                       ),
                       // The greater of a comfortable gap and the
                       // home-indicator inset, never both: PlatformSafeArea
@@ -753,6 +817,18 @@ class PasskeySheetCancelled implements Exception {
 
   @override
   String toString() => 'PasskeySheetCancelled(${sheet.analyticsValue})';
+}
+
+/// The password manager behind the OS sheet named by [sheet] returned no
+/// WebAuthn PRF key (PasskeyService.isPrfUnsupportedError): it cannot hold
+/// a Kute wallet. Thrown before anything is saved.
+class PasskeyPrfUnsupported implements Exception {
+  const PasskeyPrfUnsupported(this.sheet, this.cause);
+  final PasskeySheet sheet;
+  final Object cause;
+
+  @override
+  String toString() => 'PasskeyPrfUnsupported(${sheet.analyticsValue})';
 }
 
 /// A passkey step failed for a reason other than a cancel; [stage] names
@@ -995,6 +1071,12 @@ class PasskeyWalletCreation {
           throw PasskeySheetCancelled(PasskeySheet.signIn, e,
               elapsedMs: signInMs);
         }
+        // The sign-in resolved a passkey whose manager returns no PRF key
+        // (one a third-party manager made earlier, say). Never mint over
+        // it here: the caller asks the user first.
+        if (PasskeyService.isPrfUnsupportedError(e)) {
+          throw PasskeyPrfUnsupported(PasskeySheet.signIn, e);
+        }
         // ONLY the typed "no credential resolved" verdict may mint. A
         // string gate once let timeouts, auth failures and ceremony
         // collisions fall through to register(), silently minting a
@@ -1099,6 +1181,11 @@ class PasskeyWalletCreation {
       if (isUserCancelled(e)) {
         throw PasskeySheetCancelled(PasskeySheet.create, e,
             elapsedMs: sw.elapsedMilliseconds);
+      }
+      // The create sheet made a passkey in a manager that returned no PRF
+      // key (`createdButNotDerived`): nothing can be derived from it.
+      if (PasskeyService.isPrfUnsupportedError(e)) {
+        throw PasskeyPrfUnsupported(PasskeySheet.create, e);
       }
       throw PasskeyStepFailed('create', e);
     }

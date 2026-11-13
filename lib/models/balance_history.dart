@@ -25,7 +25,9 @@
 // lead-in ([BalanceSeries.spanFor]); pinch and pan move inside the whole
 // history.
 
+import 'dart:collection' show ListBase, UnmodifiableListView;
 import 'dart:math' as math;
+import 'dart:typed_data' show Float64List;
 
 /// A balance as the moments it changed: what was held before the first
 /// change ([opening]), then each change as (when, held after), oldest
@@ -165,9 +167,16 @@ class BalanceSeries {
     final back = range.duration;
     if (n < 2 || back == null) return extent;
     final from = times.last.subtract(back);
-    var start = 0;
-    while (start < n - 1 && times[start].isBefore(from)) {
-      start++;
+    // The first point at or after [from], never past the last: the times
+    // rise, so a binary search (a grid holds up to [kBalanceMaxCells]).
+    var start = 0, hi = n - 1;
+    while (start < hi) {
+      final mid = (start + hi) >> 1;
+      if (times[mid].isBefore(from)) {
+        start = mid + 1;
+      } else {
+        hi = mid;
+      }
     }
     return math.max(extent - start, minSpan).clamp(0.0, extent).toDouble();
   }
@@ -263,33 +272,82 @@ BalanceSeries _grid(DateTime first, DateTime now, double opening,
   final origin = DateTime(first.year, first.month, first.day, 0,
       dayMinutes - dayMinutes % cell);
   final phase = ((first.weekday - 1) * 1440 + dayMinutes) ~/ cell;
-  DateTime at(int i) => cell >= 1440
-      ? DateTime(origin.year, origin.month, origin.day + i)
-      : origin.add(Duration(minutes: i * cell));
 
-  final times = <DateTime>[];
-  final values = <double>[];
+  // Each point's moment in microseconds, [first] for the first, every
+  // grid step before [now] after it. Kept as integers: a grid is up to
+  // [kBalanceMaxCells] points and a chart reads a few hundred of their
+  // times, so a DateTime is made only when one is read ([_GridTimes]).
+  // Laying 20,000 DateTimes was most of a P&L frame (founder, 2 November
+  // 2026: "Portfolio P&L chart is super slow").
+  final nowUs = now.microsecondsSinceEpoch;
+  final moments = <int>[first.microsecondsSinceEpoch];
+  if (cell >= 1440) {
+    for (var i = 1;; i++) {
+      final us = DateTime(origin.year, origin.month, origin.day + i)
+          .microsecondsSinceEpoch;
+      if (us >= nowUs) break;
+      moments.add(us);
+    }
+  } else {
+    final step = cell * Duration.microsecondsPerMinute;
+    for (var us = origin.microsecondsSinceEpoch + step;
+        us < nowUs;
+        us += step) {
+      moments.add(us);
+    }
+  }
+
+  final changeUs = [for (final c in changes) c.$1.microsecondsSinceEpoch];
+  final values = Float64List(moments.length + 1);
   var j = 0; // changes at or before the point
-  for (var i = 0;; i++) {
-    final t = at(i);
-    if (i > 0 && !t.isBefore(now)) break;
-    final moment = i == 0 ? first : t;
-    while (j < changes.length && !changes[j].$1.isAfter(moment)) {
+  for (var i = 0; i < moments.length; i++) {
+    final moment = moments[i];
+    while (j < changeUs.length && changeUs[j] <= moment) {
       j++;
     }
     // With nothing on record the value as it stands is all we know.
     final held =
         changes.isEmpty ? current : (j == 0 ? opening : changes[j - 1].$2);
-    times.add(i == 0 ? first : t);
-    values.add(floor(held));
+    values[i] = floor(held);
   }
   // The line ends on the value now, the figure the header shows.
-  times.add(now);
-  values.add(floor(current));
+  values[moments.length] = floor(current);
   return BalanceSeries(
-    times: List.unmodifiable(times),
-    values: List.unmodifiable(values),
+    times: _GridTimes(first, now, moments),
+    values: UnmodifiableListView(values),
     cellMinutes: cell,
     phase: phase,
   );
+}
+
+/// A grid's times ([_grid]): [first], each grid step's moment as a local
+/// DateTime (what `origin.add` or the calendar day made), then [now];
+/// each made when read. Unmodifiable.
+class _GridTimes extends ListBase<DateTime> {
+  _GridTimes(this._first, this._now, this._moments);
+
+  final DateTime _first;
+  final DateTime _now;
+
+  /// Microseconds since the epoch of every point but the last ([_now]).
+  final List<int> _moments;
+
+  @override
+  int get length => _moments.length + 1;
+
+  @override
+  set length(int value) =>
+      throw UnsupportedError('Cannot change the length of a grid');
+
+  @override
+  DateTime operator [](int index) {
+    RangeError.checkValidIndex(index, this, 'index', length);
+    if (index == 0) return _first;
+    if (index == _moments.length) return _now;
+    return DateTime.fromMicrosecondsSinceEpoch(_moments[index]);
+  }
+
+  @override
+  void operator []=(int index, DateTime value) =>
+      throw UnsupportedError('Cannot modify a grid');
 }

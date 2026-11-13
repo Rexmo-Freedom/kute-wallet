@@ -18,9 +18,11 @@
 // direct leg goes or the order takes the via-Dollars chain: it sizes the
 // leg exactly (what Dollars and the other venue's cash do not bring, plus
 // the route's spread and the arrival buffer), folds a share under the
-// route's minimum, and picks direct only when it costs the person no more
-// than the chain (the founder's rule: Bitcoin → Investments costs the
-// same as Bitcoin → Dollars). [BitcoinToVenueLeg.send] pays only a
+// route's minimum, and picks direct unless it costs the person more than
+// the chain by more than the larger of $0.02 and 0.25% of the leg
+// (`directToleranceUsd`; the founder's rule: Bitcoin → Investments costs
+// the same as Bitcoin → Dollars, and a cent's difference is not worth
+// the second hop's wait). [BitcoinToVenueLeg.send] pays only a
 // verified quote the order's one approval covers
 // (`BitcoinLegGrants.stepUpDirect`, single use, the own deposit pinned).
 //
@@ -67,6 +69,8 @@ import 'package:kute/services/one_balance/predictions_venue_funder.dart'
 import 'package:kute/services/one_balance/slow_move.dart'
     show kSlowMoveFallback;
 import 'package:kute/services/orchestra/arrival_target.dart';
+import 'package:kute/services/orchestra/orchestra_fee_amount.dart'
+    show estimateOutNetOfKuteFee;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
     show OrchestraQuoteRequest, RecipientKind;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
@@ -97,6 +101,19 @@ abstract final class DirectBitcoinReason {
   static const String costlier = 'costlier';
   static const String overCap = 'over_cap';
   static const String belowMinimum = 'below_minimum';
+}
+
+/// Why an order that needs Bitcoin went direct. Fixed codes, sent as
+/// `route_decision` next to `route_cost_diff_usd` (exact dollars, direct
+/// minus via), `direct_cost_usd` and `via_cost_usd` on
+/// `order_funding_route_selected`.
+abstract final class DirectBitcoinDecision {
+  /// Direct cost no more than the chain's.
+  static const String notCostlier = 'not_costlier';
+
+  /// Direct cost more than the chain's, by no more than
+  /// [directToleranceUsd].
+  static const String withinTolerance = 'within_tolerance';
 }
 
 /// The legs of an order that needs Bitcoin, decided before the approval
@@ -158,6 +175,24 @@ class DirectBitcoinPlan {
   /// The Bitcoin share was raised to the route's minimum.
   final bool folded;
 
+  /// Direct cost minus via cost in exact dollars; null when either was
+  /// not priced.
+  double? get costDiffUsd {
+    final a = directCostUsd, b = viaCostUsd;
+    if (a == null || b == null || !a.isFinite || !b.isFinite) return null;
+    return a - b;
+  }
+
+  /// The decision's fixed code: [reason] for the chain,
+  /// [DirectBitcoinDecision] for direct.
+  String get decision {
+    if (!direct) return reason ?? DirectBitcoinReason.noEstimate;
+    final diff = costDiffUsd;
+    return diff != null && diff > 1e-9
+        ? DirectBitcoinDecision.withinTolerance
+        : DirectBitcoinDecision.notCostlier;
+  }
+
   @override
   String toString() => 'DirectBitcoinPlan($route, target: $targetUsd, '
       'sats: $sats, dollars: $dollarsUsd, other: $otherUsd'
@@ -180,9 +215,17 @@ double _ceilCents(double usd) => ((usd * 100) - 1e-9).ceilToDouble() / 100;
 ///     needed). Still under the minimum: the chain.
 ///  5. Sized on the route's own estimate (net of Kute's fee when the
 ///     estimate leaves it out) with the arrival buffer.
-///  6. Direct only when its whole cost (its sats plus the Dollars it uses)
-///     is no more than the chain's (the via leg's sats plus Dollars), and
-///     the sats fit the approval's direct cap and the wallet.
+///  6. Direct unless its whole cost (its sats plus the Dollars it uses)
+///     is more than the chain's (the via leg's sats plus Dollars) by MORE
+///     than [directToleranceUsd] of the leg (the larger of $0.02 and 0.25%
+///     of what the leg lands), and only when the sats fit the approval's
+///     direct cap and the wallet. Both sides on the same, complete basis:
+///     every estimate is read net of the Kute fee it reports at its live
+///     rate (`estimateOutNetOfKuteFee`: the direct leg here, the via leg's
+///     Bitcoin → Dollars when [via] was sized, the Dollars → venue hop in
+///     [venueArriving]), provider costs are inside each output, and the
+///     chain's second hop is counted because the direct leg only has to
+///     land what the chain's Dollars move would (1. above).
 Future<DirectBitcoinPlan> planDirectBitcoinLeg({
   required double fundUsd,
   required double addUsd,
@@ -269,7 +312,7 @@ Future<DirectBitcoinPlan> planDirectBitcoinLeg({
   final viaD = _ceilCents(math.min(held, math.max(0.0, fundUsd - x)));
   final directCost = sats / 1e8 * price + d;
   final viaCost = via.sats / 1e8 * price + viaD;
-  if (directCost > viaCost + 1e-9) {
+  if (directCost > viaCost + directToleranceUsd(target) + 1e-9) {
     return DirectBitcoinPlan.viaDollars(DirectBitcoinReason.costlier,
         directCostUsd: directCost, viaCostUsd: viaCost);
   }
@@ -288,6 +331,21 @@ Future<DirectBitcoinPlan> planDirectBitcoinLeg({
     folded: folded,
   );
 }
+
+/// How much more the direct leg may cost than the via-Dollars chain and
+/// still go direct (founder, 11 November 2026): the larger of two cents
+/// and 0.25% of the leg's amount ([legUsd], what the Bitcoin leg lands in
+/// the venue). Direct is one Orchestra order instead of two hops, so it
+/// lands sooner; a difference inside this is not worth the wait.
+double directToleranceUsd(double legUsd) => math.max(
+    kDirectToleranceFloorUsd,
+    (legUsd.isFinite && legUsd > 0 ? legUsd : 0.0) * kDirectToleranceShare);
+
+/// The floor of [directToleranceUsd], in dollars.
+const double kDirectToleranceFloorUsd = 0.02;
+
+/// The share of the leg's amount in [directToleranceUsd] (0.25%).
+const double kDirectToleranceShare = 0.0025;
 
 /// The most sats the approval lets a direct leg send: the via leg's cap
 /// plus room for a share raised to the route's minimum (4. above).
@@ -319,11 +377,7 @@ Future<double?> directBitcoinEstimate(OneBalanceVenue venue, int sats,
     if (est == null) return null;
     final out = orchestraAmountToDouble(est.estimatedOut, route.toAsset,
         chain: route.toChain);
-    if (!out.isFinite || out <= 0) return null;
-    if (est.estimateIncludesAppFee == true) return out;
-    final bps = est.kuteAppFeeBps ?? 0;
-    if (bps < 0 || bps >= 10000) return null;
-    return out * (1 - bps / 10000);
+    return estimateOutNetOfKuteFee(est, out);
   } catch (_) {
     return null;
   }

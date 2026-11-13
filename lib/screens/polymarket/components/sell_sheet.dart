@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
@@ -11,13 +12,16 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
         PolymarketSellPriceMoved,
         polymarketCentsLabel,
         polymarketEstimatedTick,
-        polymarketSellFloor,
-        polymarketSellSendPrice;
+        polymarketLevels,
+        polymarketWalkBids;
+import 'package:kute/services/polymarket/order_connection.dart';
+import 'package:kute/services/polymarket/sell_ladder.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/sal_notices.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders;
@@ -30,6 +34,7 @@ import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 
 import 'dart:async';
 
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
     show polymarketFeeTermsProvider;
@@ -52,7 +57,6 @@ import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/l10n.dart';
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
-import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
@@ -71,7 +75,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -79,6 +82,12 @@ import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 
 // Polymarket brand colors
 const Color _kPolyRed = AppColors.marketDown;
+
+/// The longest a matched sale waits before its receipt, wall clock: only
+/// a match whose figures the venue did not echo waits at all, for its
+/// trade's prices (sell_settlement.dart). Founder, 10 November 2026: "what
+/// is it confirming? why does it stay confirming on sold?"
+const Duration kSellReceiptWait = Duration(seconds: 4);
 
 class SellSheet extends ConsumerStatefulWidget {
   final PolymarketPosition position;
@@ -125,7 +134,7 @@ class SellSheet extends ConsumerStatefulWidget {
     // AND another inside the build's `Container(padding: ...)` — double
     // keyboard inset, which is what overflowed the sheet by 233 px when
     // the numpad opened. The build container alone handles the inset.
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -154,13 +163,10 @@ class SellSheet extends ConsumerStatefulWidget {
 }
 
 class _SellSheetState extends ConsumerState<SellSheet> {
-  // Unit-aware amount controller. Mirrors the bet slip's
-  // `_amountController` model: the user types in either their fiat
-  // (USD/EUR/GBP/…) or BTC (sats/BTC per `btcFormat`), we translate
-  // back to USDC via the live BTC rate and divide by `currentPrice`
-  // to derive how many shares to offer to the CLOB. `_sharesToSell`
-  // is the canonical sell quantity used downstream — only its
-  // *source* changes with the toggle.
+  // Amount controller. Mirrors the bet slip's `_amountController` model:
+  // the user types dollars, whatever the Settings currency, and we divide
+  // by `currentPrice` to derive how many shares to offer to the CLOB.
+  // `_sharesToSell` is the canonical sell quantity used downstream.
   late final TextEditingController _amountController;
   double _sharesToSell = 0;
   // Tracks the typed USDC value (proceeds the user wants from the
@@ -170,7 +176,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   bool _isSelling = false;
 
   /// The CTA's label while a sale is in flight once it has moved past
-  /// "Selling…" ("Sold · confirming"); null for the plain busy label.
+  /// "Selling…" ("Position sold" once matched, before its receipt); null
+  /// for the plain busy label.
   String? _progressLabel;
 
   /// The sale's rubber band on the CTA: how far along it is (approval,
@@ -235,6 +242,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// or when the fetch fails — in those cases we fall back to the
   /// displayed current price and a warning is suppressed.
   double? _liquidityBid;
+
+  /// The bids of the last book read (every 20 s while open): the sale's
+  /// figures walk them ([polymarketWalkBids]), never the mid price.
+  List<(double, double)>? _liquidityBids;
+
+  /// The increment of the last book read, for the floor the sale's
+  /// figures stop at.
+  double? _liquidityTick;
   Timer? _bidRefreshTimer;
 
   PolymarketPosition get pos => widget.position;
@@ -377,39 +392,25 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       final book = await model.getOrderBook(tokenId);
       if (!mounted) return;
       final bestBid = book.bestBid;
+      final tick = double.tryParse(book.minTickSize ?? '');
       if (bestBid == null || bestBid <= 0) {
         setState(() {
           _liquidityBid = null;
+          _liquidityBids = const [];
+          _liquidityTick = tick;
         });
         return;
       }
       setState(() {
         _liquidityBid = bestBid;
+        _liquidityBids = polymarketLevels(book.bids);
+        _liquidityTick = tick;
       });
     } catch (_) {
       // Keep the last quote when the provider is temporarily unavailable.
     } finally {
       model.dispose();
     }
-  }
-
-  /// USDC → user's local fiat (USD identity, EUR/GBP/BRL/… via the
-  /// CoinGecko FX rate). Used to seed / re-render the input controller
-  /// in fiat mode and to back out the user's typed fiat → USDC.
-  double _usdcToFiat(double usdc) {
-    final settings = ref.read(settingsProvider);
-    if (settings.currency == 'USD') return usdc;
-    final rate =
-        ref.read(selectedCurrencyProviderFromUSD(settings.currency)).toDouble();
-    return rate > 0 ? usdc * rate : usdc;
-  }
-
-  double _fiatToUsdc(double fiat) {
-    final settings = ref.read(settingsProvider);
-    if (settings.currency == 'USD') return fiat;
-    final rate =
-        ref.read(selectedCurrencyProviderFromUSD(settings.currency)).toDouble();
-    return rate > 0 ? fiat / rate : fiat;
   }
 
   /// Recompute `_sharesToSell` from the current `_amountUsdc` and
@@ -428,9 +429,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   }
 
   void _onAmountChanged() {
-    // Fiat tab — typed value is in user's local fiat.
-    final parsed = double.tryParse(_amountController.text) ?? 0.0;
-    final usdc = _fiatToUsdc(parsed);
+    // The typed value is dollars, whatever the Settings currency.
+    final usdc = double.tryParse(_amountController.text) ?? 0.0;
     _amountMethod = 'keypad';
     setState(() {
       // A new figure is a new attempt, so the last failure stops
@@ -629,7 +629,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         }
       } catch (e) {
         if (e is PendingPolymarketOrder || e is ResolvedPolymarketOrder) {
-          await _resolveBlockedSale(resolved: e is ResolvedPolymarketOrder);
+          await _resolveBlockedSale(
+              resolved: e is ResolvedPolymarketOrder, probe: _mayProbe(e));
         } else if (e is AuthGrantException) {
           await _handleSellGrantFailure(e);
         } else {
@@ -637,8 +638,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           if (mounted) {
             showMessageSnackBar(
               context: context,
-              message: polymarketErrorCopy(context, e,
-                  positionPrice: pos.currentPrice),
+              message: polymarketSlowConnectionLine(l10n, e) ??
+                  polymarketErrorCopy(context, e,
+                      positionPrice: pos.currentPrice),
               error: true,
             );
           }
@@ -675,13 +677,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         ? tick
         : polymarketEstimatedTick(bestBid);
 
-    // One rung at the slippage the user chose. The ladder used to add a
-    // hidden 30% rung, so the approval bound a floor far below what the
-    // sheet showed; like the buy path, what is approved is what was picked.
-    final slippageLadder = <double>[_slippagePct];
+    // The worst price approved: the floor at the slippage the person
+    // chose (what the sheet shows), or the venue's lowest price for a
+    // position already trading under 2¢ so dust can leave at whatever
+    // bid is left (sell_ladder.dart). The rungs sent run from the floor
+    // at the bid read when the order is signed down to this, never under.
     final sellShares = _sharesToSell;
-    final approvedFloor = _sellRungPrice(bestBid,
-        slippageLadder.reduce((a, b) => a > b ? a : b), sellTick);
+    final approvedFloor = polymarketSellApprovalFloor(
+        bid: bestBid, slippagePct: _slippagePct, tick: sellTick);
     // The bid is read again while the approval is on screen (kept at most
     // a second old), so the sale is priced from the book as it is when it
     // is signed.
@@ -701,7 +704,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       tokenId: tokenId,
       shares: sellShares,
       worstPrice: approvedFloor,
-      orderType: OrderType.fok,
+      orderType: OrderType.fak,
     );
     if (approval == null) {
       sendBook.cancel();
@@ -719,23 +722,24 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // to exactly that rung.
     final ladder = PmLadderGrant(approval);
     final walletId = notifier.signingWalletId ?? '';
+    var venueTook = false;
 
     // The progress stays on this ticket's CTA until the venue answers:
     // "Selling…", the live game's wait when the venue holds the order,
-    // "Sold · confirming" once it matched, then the receipt (or the
-    // reason, here on the ticket).
+    // then the receipt on the match (or the reason, here on the ticket).
+    // A match without the venue's figures echoed reads "Position sold"
+    // for the few seconds the trade's prices take ([kSellReceiptWait]).
     try {
-      // Lower clamp = 0.001 (0.1¢) instead of 0.01 (1¢) so users can
-      // exit sub-cent positions at the actual market bid. With a 1¢
-      // floor a YES position trading around 0.3¢ would have its
-      // sell order priced at 1¢ — far above any real bid — and the
-      // FOK would zero-fill, effectively trapping the user out of
-      // their shares. We're not in the business of blocking exits.
-      // The ladder itself is built above, before the approval.
+      // Fill-and-kill: each rung sells what the book has at or above its
+      // price and the rest stays with the person, sellable again at once.
+      // The lower clamp is 0.001 (0.1¢), the venue's lowest price, so a
+      // position trading around 0.3¢ can leave at the real bid instead of
+      // being priced at 1¢ above every buyer. We're not in the business
+      // of blocking exits.
 
       // The bid now: under the approved floor nothing is signed and the
-      // retry names the new floor; otherwise the floor at this bid, never
-      // under the approved one.
+      // retry names the new floor; otherwise the rungs run from the floor
+      // at this bid down to the approved one, never under it.
       OrderBook? freshBook;
       try {
         freshBook = await sendBook.take().timeout(const Duration(seconds: 3));
@@ -743,9 +747,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       final freshTick = double.tryParse(freshBook?.minTickSize ?? '');
       final sendTick =
           freshTick != null && freshTick > 0 && freshTick < 1 ? freshTick : sellTick;
+      final rungs = polymarketSellLadder(
+        approvedFloor: approvedFloor,
+        freshBid: freshBook?.bestBid,
+        slippagePct: _slippagePct,
+        tick: sendTick,
+      );
 
       Map<String, dynamic>? response;
-      double orderPrice = 0;
       Object? lastErr;
       double readResponseAmount(dynamic raw) {
         if (raw == null) return 0;
@@ -754,19 +763,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         return 0;
       }
 
-      for (final slip in slippageLadder) {
-        // Lower clamp = 0.001 (0.1¢) instead of 0.01 (1¢) so users can
-        // exit sub-cent positions at the actual market bid.
-        orderPrice = polymarketSellSendPrice(
-                approvedFloor: approvedFloor,
-                freshBid: freshBook?.bestBid,
-                slippagePct: slip,
-                tick: sendTick)
-            .clamp(0.001, 0.99)
-            .toDouble();
+      for (final orderPrice in rungs) {
         if (kDebugMode) {
           debugPrint('[sell] placeOrder request: tokenId=$tokenId '
-              'shares=$_sharesToSell limit=$orderPrice slippage=$slip%');
+              'shares=$_sharesToSell limit=$orderPrice '
+              'rung=${rungs.indexOf(orderPrice) + 1}/${rungs.length}');
         }
         try {
           final attempt = await notifier.placeOrder(
@@ -775,14 +776,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             size: sellShares,
             price: orderPrice,
             negRisk: _negRiskFor(tokenId),
-            orderType: OrderType.fok,
+            orderType: OrderType.fak,
             grant: ladder.rung(
               walletId: walletId,
               tokenId: tokenId,
               isBuy: false,
               size: sellShares,
               price: orderPrice,
-              orderType: OrderType.fok.name,
+              orderType: OrderType.fak.name,
             ),
           );
           if (kDebugMode) debugPrint('[sell] placeOrder response: $attempt');
@@ -842,14 +843,35 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       }
 
       if (response == null) {
-        throw lastErr ??
-            Exception('No bids matched at this price. The book may be thin. '
-                'Try selling a smaller amount or wait for liquidity.');
+        // Every rung was killed. The book, read once more, says what to
+        // tell the person: no bids at all (the honest dust copy), a bid
+        // now under the approved floor (retry at the new floor), or a
+        // book thinner than it read (the last kill itself).
+        OrderBook? afterKill;
+        try {
+          final model = PolymarketModel();
+          try {
+            afterKill = await model
+                .getOrderBook(tokenId)
+                .timeout(const Duration(seconds: 3));
+          } finally {
+            model.dispose();
+          }
+        } catch (_) {}
+        throw polymarketSellLadderOutcome(
+          lastError: lastErr,
+          bookRead: afterKill != null,
+          bestBid: afterKill?.bestBid,
+          approvedFloor: approvedFloor,
+          slippagePct: _slippagePct,
+          tick: sendTick,
+        );
       }
 
       // Accepted. What became of it is read from the venue (the order,
       // then its trades on chain), and the Portfolio card says "Selling…"
       // until there is an answer.
+      venueTook = true;
       notifier.markPositionSelling(tokenId);
       _bandTo(0.7);
       final PmSellSettlement settlement;
@@ -870,7 +892,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       }
     } catch (e) {
       if (e is PendingPolymarketOrder || e is ResolvedPolymarketOrder) {
-        await _resolveBlockedSale(resolved: e is ResolvedPolymarketOrder);
+        await _resolveBlockedSale(
+            resolved: e is ResolvedPolymarketOrder, probe: _mayProbe(e));
         return;
       }
       if (e is AuthGrantException) {
@@ -886,10 +909,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       // adds the honest dust-sell special case (and reads the position
       // price itself) before falling back to the generic mapping.
       final moved = e is PolymarketSellPriceMoved ? e : null;
+      // Only before the venue took the order: after that "did not go through"
+      // would be false.
+      final slow =
+          venueTook ? null : polymarketSlowConnectionLine(l10n, e);
       final msg = moved != null
           ? l10n.betSellPriceMoved(polymarketCentsLabel(moved.price),
               polymarketCentsLabel(moved.limit))
-          : _sellFailureMessage(e);
+          : slow ?? _sellFailureMessage(e);
       // The ticket stays where it is and says what happened. The button
       // stops working and becomes the retry, and the figures are editable
       // again, so a sale that failed on the amount can be fixed in place.
@@ -947,6 +974,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       positionMoved: positionMoved,
       // Long enough for the live game's delay, then a margin.
       matchTimeout: Duration(seconds: math.max(12, _liveDelaySeconds + 10)),
+      // A matched sell is sold: the receipt as soon as the venue said for
+      // how much, the chain followed after it (sell_settlement.dart).
+      receiptOnMatch: true,
+      confirmTimeout: kSellReceiptWait,
     ).watch(
       response: response,
       tokenId: tokenId,
@@ -969,7 +1000,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               _bandProgress = next;
             }
           }
-          _progressLabel = _matched ? l10n.betSoldConfirming : null;
+          // Matched is sold: never an unexplained "confirming".
+          _progressLabel = _matched ? l10n.betPositionSold : null;
         });
       },
     );
@@ -1054,7 +1086,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final sold = s.soldShares;
     final proceeds = s.proceeds;
     final avgPrice = s.averagePrice;
-    final partialLimit = s.result == PmSellResult.partial;
+    final partial = s.result == PmSellResult.partial;
 
     // Optimistically inject this sell into the home Activity feed so
     // the user sees a "Sold No · 9.96 shares · $1.39" row immediately,
@@ -1157,12 +1189,18 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // swap). The card drops (full sale) or shrinks (partial) now that the
     // trade is on chain, and the account is read again right away and
     // while the Data API catches up, instead of on the next slow tick.
-    final sellingAll = sold >= pos.size - 0.000001;
+    final sellingAll =
+        polymarketSaleEmptiesPosition(sold: sold, held: pos.size);
     // Mark the token sold so a re-tap on a stale tile can't fire a
-    // second order against the now-zero balance (see `_handleSell`). A
-    // limit sell that is still partly for sale keeps its shares held.
-    if (!partialLimit) notifier.markTokenSold(tokenId);
-    notifier.markSoldOptimistically(tokenId: tokenId, sharesSold: sold);
+    // second order against the now-zero balance (see `_handleSell`), only
+    // when the whole position went: shares still held after a partial
+    // fill, or a sale of part of the position, are sellable at once.
+    if (sellingAll) notifier.markTokenSold(tokenId);
+    notifier.markSoldOptimistically(
+        tokenId: tokenId,
+        sharesSold: sold,
+        heldShares: pos.size,
+        proceedsUsd: proceeds);
     notifier.refreshAfterSale();
     if (limit) ref.invalidate(polymarketOpenOrdersProvider);
 
@@ -1181,6 +1219,33 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           .read(polymarketCostBasisProvider.notifier)
           .scaleByRemaining(tokenId, remainingFraction)
           .catchError((_) {}));
+    }
+
+    // The chain, followed after the receipt: it speaks only if the trade
+    // then failed on chain (rare; the shares are still held).
+    final chain = s.chain;
+    if (chain != null && mounted) {
+      unawaited(_speakIfChainFails(chain,
+          tokenId: tokenId,
+          response: response,
+          costBeforeSale: costBeforeSale,
+          failedParams: {
+            ..._kindParams(),
+            ..._sellInputs(),
+            'market_id': pos.tokenId ?? pos.marketId,
+            'reason': 'failed_onchain',
+            'error_category': 'failed_onchain',
+            'order_type': limit ? 'limit' : 'market',
+            'wallet_kind': 'hot',
+            'amount_bucket': TrackingService.usdBucket(_amountUsdc),
+            ..._settlementParams(s),
+            'fill_outcome': 'failed_onchain',
+            'confirmed_by': 'none',
+            ...polymarketOrderConnectionParams(),
+          }
+            ..remove('time_to_confirm_ms')
+            ..remove('proceeds_usd'),
+          l10n: l10n));
     }
 
     if (!mounted) return;
@@ -1212,9 +1277,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!rootNavigator.mounted) return;
-      if (partialLimit) {
-        // Some of a limit sell filled; the rest is still for sale at the
-        // person's price and stays under Open orders.
+      if (partial) {
+        // Some of the shares sold. The rest of a limit sell is still for
+        // sale at the person's price under Open orders; the rest of a
+        // market sell was killed for want of buyers and stays held.
         final at = avgPrice ?? limitPrice ?? 0;
         pushKuteSuccessOverlay(
           navigator: rootNavigator,
@@ -1226,14 +1292,19 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                     sold.toStringAsFixed(2), _formatPriceCompact(at)),
             contextLine: '$outcome · $question',
             rows: {l10n.betShares: sold.toStringAsFixed(2)},
-            // How much sold, and that the rest is still for sale at the
-            // person's price.
-            detail: l10n.betLimitSellPartial(
-              sold.toStringAsFixed(2),
-              s.offeredShares.toStringAsFixed(2),
-              _formatPriceCompact(at),
-              s.remainingShares.toStringAsFixed(2),
-            ),
+            // How much sold, and what became of the rest.
+            detail: limit
+                ? l10n.betLimitSellPartial(
+                    sold.toStringAsFixed(2),
+                    s.offeredShares.toStringAsFixed(2),
+                    _formatPriceCompact(at),
+                    s.remainingShares.toStringAsFixed(2),
+                  )
+                : l10n.betSellPartialMarket(
+                    sold.toStringAsFixed(2),
+                    s.offeredShares.toStringAsFixed(2),
+                    _formatPriceCompact(at),
+                  ),
             onDone: rootNavigator.pop,
           ),
         );
@@ -1252,6 +1323,53 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         note: s.confirmedBy == 'timeout' ? l10n.betSaleSettlingNote : null,
       );
     });
+  }
+
+  /// After a receipt on the venue's match: when the chain then says the
+  /// trade FAILED, Sal says so (betSaleFailedOnChain), the sale's
+  /// optimistic marks are undone so the shares list again, and the failure
+  /// is tracked as the sheet's own on-chain failure. Silent otherwise.
+  /// Reads nothing from the sheet once it closed: everything is taken now.
+  Future<void> _speakIfChainFails(
+    Future<PmSellResult?> chain, {
+    required String tokenId,
+    required Map<String, dynamic> response,
+    required double? costBeforeSale,
+    required Map<String, Object> failedParams,
+    required AppLocalizations l10n,
+  }) async {
+    final notifier = ref.read(polymarketTradingProvider.notifier);
+    final costBasis = ref.read(polymarketCostBasisProvider.notifier);
+    final transactions = ref.read(transactionNotifierProvider.notifier);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final detail = '${pos.outcome} · ${pos.marketQuestion}';
+    final PmSellResult? result;
+    try {
+      result = await chain;
+    } catch (_) {
+      return;
+    }
+    if (result != PmSellResult.failed) return;
+    TrackingService.track('polymarket_sell_failed', params: failedParams);
+    notifier.saleFailedOnChain(tokenId);
+    try {
+      final key =
+          PolymarketOptimisticActivityService.optimisticTradeKey(response);
+      if (key != null) {
+        PolymarketOptimisticActivityService.clear(key);
+        transactions.refreshOptimisticPolymarketActivity();
+      }
+    } catch (_) {}
+    if (costBeforeSale != null && costBeforeSale > 0) {
+      unawaited(costBasis
+          .reset(tokenId)
+          .then((_) => costBasis.addCost(tokenId, costBeforeSale))
+          .catchError((_) {}));
+    }
+    if (rootNavigator.mounted) {
+      SalNotices.failed(rootNavigator.context,
+          message: l10n.betSaleFailedOnChain, detail: detail);
+    }
   }
 
   /// The resting limit sell's confirmation, as it always was.
@@ -1306,8 +1424,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       'wallet_kind': 'hot',
       'amount_bucket': TrackingService.usdBucket(_amountUsdc),
       ..._settlementParams(s),
+      ...polymarketOrderConnectionParams(),
     });
   }
+
+  /// The placement already spent its retry window looking this order up:
+  /// asking again would only hold the person longer on the same dead link.
+  bool _mayProbe(Object e) =>
+      !(e is PolymarketOrderOutcomeUnknown && e.lookedUp);
 
   /// Fixed category only — the raw error can carry order details.
   void _trackSellFailed(Object e, String orderType, [StackTrace? st]) {
@@ -1324,6 +1448,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       'order_type': orderType,
       'wallet_kind': 'hot',
       'amount_bucket': TrackingService.usdBucket(_amountUsdc),
+      ...polymarketOrderConnectionParams(),
     });
   }
 
@@ -1392,15 +1517,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     );
   }
 
-  /// The limit price of one sell ladder rung. The lower clamp is 0.001
-  /// (0.1¢) so sub-cent positions can exit at the real bid.
-  /// The lowest price the sell accepts: the slippage rounded up to the
-  /// tick, with one tick of room at least (polymarketSellFloor).
-  static double _sellRungPrice(double bestBid, double slip, double tick) =>
-      polymarketSellFloor(bid: bestBid, slippagePct: slip, tick: tick)
-          .clamp(0.001, 0.99)
-          .toDouble();
-
   /// Phase 1b.4. Prompts for selling [shares] of [tokenId] at no less than
   /// [worstPrice]. Null when declined or there is no signing wallet.
   Future<AuthGrant?> _approveSell({
@@ -1435,6 +1551,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       ),
       reason: context.l10n.stepUpReasonSell,
       amountUsd: shares * pos.currentPrice,
+      // The proceeds: at least shares x the lowest price it may fill at.
+      smallAction: SmallActionContext.usd(
+          shares * math.max(pos.currentPrice, worstPrice)),
       fastBet: FastBetRequest(eventSlug: pos.eventSlug, hot: true),
     );
     _approval =
@@ -1470,11 +1589,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// be sold, and the position becomes clearable once the market
   /// resolves.
   String _sellFailureMessage(Object e) {
-    final s = e.toString().toLowerCase();
-    final noLiquidity = s.contains('fok') ||
-        s.contains('fully filled') ||
-        s.contains('no bids matched');
-    final noBuyers = _liquidityBid == null || _liquidityBid! <= 0.01;
+    final noLiquidity = polymarketSellKilledForWantOfBids(e);
+    // No buyers: the book read after the last kill had no bid at all, or
+    // the bid this sheet has been watching is gone or under a cent.
+    final noBuyers = e is PolymarketSellNoBids ||
+        _liquidityBid == null ||
+        _liquidityBid! <= 0.01;
     final dustPrice = pos.currentPrice <= 0.02;
     if (noLiquidity && (noBuyers || dustPrice)) {
       return context.l10n.predictDustSellError;
@@ -1528,7 +1648,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             limitPrice: _limitPrice,
             slippagePct: _slippagePct,
             amountText: _amountController.text,
-            fiatToUsdc: _fiatToUsdc,
             marketDefaultSlippagePct: _marketDefaultSlippage,
           ),
         ),
@@ -1627,7 +1746,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // Nothing inside the tinted subtree opens a sheet of its own. The
     // step-up PIN gate, the geoblock wall and the error snackbars are all
     // raised from `State.context`, which sits ABOVE this wrapper, so the
-    // theme `showModalBottomSheet` captures for them is the app's real
+    // theme `showKuteModalSheet` captures for them is the app's real
     // palette rather than translucent ink meant for a red surface.
     const sideColor = AppColors.marketDown;
     final tc = sideTintPalette(c, sideColor);
@@ -1636,17 +1755,39 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // sizes with (polymarketFeeTermsProvider) and the cost basis the
     // position screen reads: what the shares bring in after the fee, and
     // the profit or loss of the shares sold against what they cost.
-    final gross = _sharesToSell * orderPrice;
+    // A market sale is the book's bids walked dearest first down to the
+    // floor it is approved at (polymarketSellApprovalFloor at the best
+    // bid), as the venue fills it; shares no bid takes there bring
+    // nothing. Before a book was read, and for a limit: the shares at
+    // the price shown.
+    final bids = _isLimitMode ? null : _liquidityBids;
+    var gross = _sharesToSell * orderPrice;
+    var feePrice = orderPrice;
+    var feeShares = _sharesToSell;
+    if (bids != null && _sharesToSell > 0) {
+      final bestBid = _liquidityBid;
+      final floor = bestBid == null
+          ? 1.0
+          : polymarketSellApprovalFloor(
+              bid: bestBid,
+              slippagePct: _slippagePct,
+              tick: _liquidityTick ?? polymarketEstimatedTick(bestBid));
+      final walk =
+          polymarketWalkBids(bids, shares: _sharesToSell, minPrice: floor);
+      gross = walk.proceedsUsd;
+      feeShares = walk.soldShares;
+      if (walk.soldShares > 0) feePrice = walk.proceedsUsd / walk.soldShares;
+    }
     final tokenId = pos.tokenId;
     final feeTerms = tokenId == null || tokenId.isEmpty
         ? null
         : ref.watch(polymarketFeeTermsProvider(tokenId)).valueOrNull;
-    final double? fee = _sharesToSell <= 0
+    final double? fee = _sharesToSell <= 0 || feeShares <= 0
         ? 0
-        : feeTerms == null || !(orderPrice > 0 && orderPrice < 1)
+        : feeTerms == null || !(feePrice > 0 && feePrice < 1)
             ? null
-            : feeTerms.platformFee(_sharesToSell, orderPrice) +
-                feeTerms.builderFee(_sharesToSell, orderPrice, taker: true);
+            : feeTerms.platformFee(feeShares, feePrice) +
+                feeTerms.builderFee(feeShares, feePrice, taker: true);
     final proceeds = math.max(0.0, gross - (fee ?? 0));
     final costBasis = polymarketPositionCostBasis(ref, pos);
     final costSold =
@@ -1678,10 +1819,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           // this step, so the OS keyboard never opens over the ticket; the
           // pinned keypad below the form is the way in.
           BigAmountDisplay(
-            prefix: polyDisplayLabel(ref),
+            prefix: r'$',
             amountText: _amountController.text,
             availableLabel:
-                '${context.l10n.betCurrentValue} ${formatPolyAmount(ref, currentValue)}'
+                '${context.l10n.betCurrentValue} ${formatDollars(currentValue)}'
                 ' · ${context.l10n.betPercentChance(formatPolyChanceFigure(currentPrice))}',
             availableExceeded: _amountUsdc > currentValue,
             // One small Max chip beside the figure, as on the buy slips:
@@ -1724,15 +1865,15 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               key: const ValueKey('poly-sell-proceeds'),
               label: context.l10n.youReceive,
               value: _sharesToSell > 0
-                  ? formatPolyAmount(ref, fee == null ? gross : proceeds)
-                  : slipZeroFigure(formatPolyAmount(ref, 0)),
+                  ? formatDollars(fee == null ? gross : proceeds)
+                  : slipZeroFigure(formatDollars(0)),
             ),
             right: SlipFigure(
               key: const ValueKey('poly-sell-pnl'),
               label: context.l10n.portfolioProfitLoss,
               value: pnl.abs() < 0.005
-                  ? slipZeroFigure(formatPolyAmount(ref, 0))
-                  : '${pnl < 0 ? '-' : '+'}${formatPolyAmount(ref, pnl.abs())}',
+                  ? slipZeroFigure(formatDollars(0))
+                  : '${pnl < 0 ? '-' : '+'}${formatDollars(pnl.abs())}',
               valueColor: pnlColor,
             ),
           ),
@@ -1789,7 +1930,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   // The buy slip's own header: the market's artwork, the
                   // title (two lines at most) and the round close X.
                   PolySlipHeader(
-                    marketQuestion: pos.marketQuestion,
+                    marketQuestion: polyShownQuestion(
+                        context, pos.marketQuestion, pos.eventSlug),
                     marketImage: pos.marketImage,
                     maxLines: 2,
                   ),
@@ -1855,7 +1997,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                       enabled:
                           canSell && !_isSelling && _advancedBlock == null,
                       onTap: _sellFailed ? _retrySell : _handleSell,
-                      // "Selling…" → "Sold · confirming" once it matched.
+                      // "Selling…" → "Position sold" once it matched.
                       busyLabel:
                           _progressLabel ?? context.l10n.betSellingEllipsis,
                       label: _sellFailed
@@ -1869,8 +2011,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                                       '${(_limitPrice * 100).toStringAsFixed(1)}¢')
                                   : context.l10n.betPlaceLimit)
                               : (canSell
-                                  ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
+                                  ? '${context.l10n.sell} · ${formatDollars(_amountUsdc)}'
                                   : context.l10n.sell),
+                      disabledLabel: canSell ? null : context.l10n.barNeedAmount,
                     ),
                   ),
                 ],
@@ -1899,12 +2042,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final usdc = shares * currentPrice;
     final String seed;
     {
-      final fiat = _usdcToFiat(usdc);
-      seed = fiat <= 0
+      seed = usdc <= 0
           ? ''
-          : (fiat == fiat.roundToDouble()
-              ? fiat.toStringAsFixed(0)
-              : fiat.toStringAsFixed(2));
+          : (usdc == usdc.roundToDouble()
+              ? usdc.toStringAsFixed(0)
+              : usdc.toStringAsFixed(2));
     }
     _amountController.text = seed;
     _amountController.selection = TextSelection.fromPosition(
@@ -2021,7 +2163,6 @@ class _SellAdvancedScreen extends ConsumerStatefulWidget {
     required this.limitPrice,
     required this.slippagePct,
     required this.amountText,
-    required this.fiatToUsdc,
     this.marketDefaultSlippagePct = kPolymarketDefaultSlippagePct,
   });
 
@@ -2035,12 +2176,8 @@ class _SellAdvancedScreen extends ConsumerStatefulWidget {
   /// Advanced choice.
   final double marketDefaultSlippagePct;
 
-  /// The figure as the sheet's keypad left it, in the user's currency.
+  /// The figure as the sheet's keypad left it, in dollars.
   final String amountText;
-
-  /// The sheet's own conversion, so the page reads the same rate rather
-  /// than growing a second copy of it.
-  final double Function(double) fiatToUsdc;
 
   static const slippageOptions = [1.0, 2.0, 5.0, 10.0];
 
@@ -2075,10 +2212,9 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
 
   void _onAmountChanged() => setState(() {});
 
-  /// The typed figure in USDC. The page types in the user's currency and
-  /// the order is sized in USDC, exactly as the sheet does.
-  double get _amountUsdc =>
-      widget.fiatToUsdc(double.tryParse(_amountController.text) ?? 0.0);
+  /// The typed figure: dollars, the unit the order is sized in, exactly as
+  /// the sheet reads it.
+  double get _amountUsdc => double.tryParse(_amountController.text) ?? 0.0;
 
   double get _positionValue => pos.size * widget.currentPrice;
 
@@ -2168,7 +2304,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              formatPolyAmount(ref, _positionValue),
+              formatDollars(_positionValue),
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w700,
@@ -2179,7 +2315,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
             ),
             SizedBox(height: 3.h),
             Text(
-              '${livePnl >= 0 ? '+' : '-'}${formatPolyAmount(ref, livePnl.abs())}',
+              '${livePnl >= 0 ? '+' : '-'}${formatDollars(livePnl.abs())}',
               style: TextStyle(
                 color: livePnl >= 0 ? c.success : c.error,
                 fontSize: 13.sp,
@@ -2371,7 +2507,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
     final l10n = context.l10n;
     final orderPrice = _isLimitMode ? _limitPrice : widget.currentPrice;
     final sellingAll = _sharesToSell >= pos.size - 0.000001;
-    final amountStr = formatPolyAmount(ref, _amountUsdc);
+    final amountStr = formatDollars(_amountUsdc);
 
     return PopScope(
       // The page always answers with its edited values, including on a
@@ -2398,7 +2534,9 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(height: 12.h),
-                        Text(pos.marketQuestion,
+                        Text(
+                            polyShownQuestion(
+                                context, pos.marketQuestion, pos.eventSlug),
                             style: TextStyle(
                                 fontSize: 20.sp,
                                 fontWeight: FontWeight.w700,
@@ -2412,7 +2550,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                         PolySlipSection(
                           title: l10n.amount,
                           trailing: Text(
-                            '${l10n.available} ${formatPolyAmount(ref, _positionValue)}',
+                            '${l10n.available} ${formatDollars(_positionValue)}',
                             textAlign: TextAlign.end,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -2422,7 +2560,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                           children: [
                             PolySlipAmountField(
                               controller: _amountController,
-                              prefix: polyDisplayLabel(ref),
+                              prefix: r'$',
                               inputFormatters: const [
                                 DecimalInputFormatter(fractionDigits: 2)
                               ],
@@ -2477,7 +2615,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                             SizedBox(height: 12.h),
                             PolySlipDetailRow(
                                 label: l10n.betPricePerShare,
-                                value: formatPolyAmount(ref, orderPrice)),
+                                value: formatDollars(orderPrice)),
                             if (_isLimitMode) ...[
                               SizedBox(height: 12.h),
                               PolySlipDetailRow(
@@ -2494,9 +2632,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                                           .watch(
                                               polymarketFeeTermsProvider(token))
                                           .whenOrNull(
-                                              data: (fees) => formatPolyAmount(
-                                                  ref,
-                                                  fees.sellProceeds(
+                                              data: (fees) => formatDollars(fees.sellProceeds(
                                                       _sharesToSell,
                                                       orderPrice))) ??
                                       '—',
@@ -2529,6 +2665,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                           : (_canSell
                               ? '${l10n.sellNow} · $amountStr'
                               : l10n.sell),
+                      disabledLabel: _canSell ? null : l10n.barNeedAmount,
                     ),
                   ]),
                 ),

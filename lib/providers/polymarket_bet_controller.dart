@@ -25,6 +25,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/services/success_feedback.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -39,9 +40,10 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
-import 'package:kute/services/polymarket/bet_prefund.dart'
+import 'package:kute/services/polymarket/predictions_funding_window.dart'
     show PolymarketMarketWindow;
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
@@ -104,7 +106,7 @@ class PolymarketBetController {
     return (cash - committed).clamp(0.0, double.infinity);
   }
 
-  // Explicit prefunded bets use the actual pUSD and venue count. The display
+  // Funded bets (money moved at Confirm) use the actual pUSD and venue count. The display
   // aggregate may still show the pre-transfer balance (or unconverted USDC.e).
   Future<double> _freshSpendableUsdc() async {
     final notifier = ref.read(polymarketTradingProvider.notifier);
@@ -788,6 +790,9 @@ class PolymarketBetController {
     if (error is PolymarketRefusalOutlivedApproval) return 'grant_expired';
     if (error is PolymarketStaleReservation) return 'balance_check';
     if (error is PolymarketBalanceRefused) return 'self_heal';
+    // Stopped at the collateral check before signing, whatever it waited
+    // on (an unread wallet or book included: nothing was submitted).
+    if (error is PolymarketCollateralPending) return 'balance_check';
     if (error is PolymarketOrderNotAcceptedException) return 'submit';
     if (error is PolymarketThinBook) {
       return error.limit != null || error.fillableUsd > 0 ? 'quote' : 'book';
@@ -844,6 +849,8 @@ class PolymarketBetController {
       PendingBetIntent intent, AuthGrant grant,
       {bool successHaptic = true, String? entrySource}) async {
     final notifier = ref.read(polymarketTradingProvider.notifier);
+    // Set once the venue took the order: nothing after it ends as failed.
+    Map<String, dynamic>? taken;
     try {
       final price = _gtcPrice(intent);
       // Shares from the user's USD stake at the chosen limit price.
@@ -867,6 +874,7 @@ class PolymarketBetController {
         grant: grant,
         onStep: _onPlacementStep,
       );
+      taken = placed;
       PolymarketPlacementTimeline.mark('response');
       unawaited(notifier.refresh().catchError((_) {}));
       ref.invalidate(polymarketOpenOrdersProvider);
@@ -901,11 +909,28 @@ class PolymarketBetController {
       // bet placement (covers both the open slip and BTC auto-fire). A
       // fill ends on the shared confirmation, whose entrance fires it.
       if (successHaptic && bought <= 0) moneySuccessFeedback();
+      // Sal in the bar winks at a placed bet (sal_reactions.dart).
+      SalReactions.play(SalReaction.wink);
       ref
           .read(pendingPolymarketBetProvider.notifier)
           .updateStatus(PendingBetStatus.done);
       PolymarketPlacementTimeline.finish(bought > 0 ? 'filled' : 'resting');
     } catch (e, st) {
+      if (taken != null) {
+        // Our own bookkeeping threw after the venue took the order: the
+        // order rests (or filled) all the same, never "failed".
+        try {
+          final pending = ref.read(pendingPolymarketBetProvider.notifier);
+          pending.recordFill(taken);
+          if (ref.read(pendingPolymarketBetProvider)?.status !=
+              PendingBetStatus.done) {
+            pending.updateStatus(PendingBetStatus.awaitingConfirmation);
+          }
+        } catch (_) {}
+        PolymarketPlacementTimeline.finish('pending',
+            reason: 'after_accept_error');
+        return null;
+      }
       if (e is AuthGrantException) {
         return _failOnGrant(e, intent: intent, entrySource: entrySource);
       }
@@ -939,6 +964,12 @@ class PolymarketBetController {
     // Phase 1b.4: one approval for the whole ladder. Each rung gets a child
     // grant bound to exactly that rung; a rung past the cap re-auths.
     final ladder = PmLadderGrant(grant);
+    // The venue's acceptance, once it is in: from then on nothing may end
+    // this placement as failed (a throw in what follows is ours, not the
+    // venue's). And the shares the last order sent asked for, for the
+    // lookup of an order whose answer proved nothing.
+    Map<String, dynamic>? accepted;
+    var sentShares = 0.0;
     try {
       final quote = intent.marketQuote;
       if (quote == null ||
@@ -986,7 +1017,6 @@ class PolymarketBetController {
       // Submit at the approved maximum: CLOB matches at available better
       // prices. One definitive no-fill may retry, never an unknown result.
       Object? lastErr;
-      Map<String, dynamic>? accepted;
       var orderedShares = 0.0;
       _requotedPrice = null;
       for (var i = 0; i < 2; i++) {
@@ -1003,6 +1033,7 @@ class PolymarketBetController {
 
         _orderPrice = orderPrice;
         _retried = i > 0;
+        sentShares = shares;
         try {
           final fillResponse = await notifier.placeOrder(
             tokenId: intent.tokenId,
@@ -1040,18 +1071,22 @@ class PolymarketBetController {
           );
           accepted = fillResponse;
           orderedShares = shares;
-          PolymarketPlacementDiagnostics.orderOutcome(
-              rung: i,
-              price: orderPrice,
-              shares: shares,
-              orderType: OrderType.fak.name,
-              negRisk: sendQuote.negRisk,
-              response: fillResponse);
-          ref
-              .read(pendingPolymarketBetProvider.notifier)
-              .recordFill(fillResponse);
-          PolymarketPlacementTimeline.mark('response');
           lastErr = null;
+          // Bookkeeping on an accepted order: a throw here is not the
+          // venue refusing it, and never a reason to try another rung.
+          try {
+            PolymarketPlacementDiagnostics.orderOutcome(
+                rung: i,
+                price: orderPrice,
+                shares: shares,
+                orderType: OrderType.fak.name,
+                negRisk: sendQuote.negRisk,
+                response: fillResponse);
+            ref
+                .read(pendingPolymarketBetProvider.notifier)
+                .recordFill(fillResponse);
+            PolymarketPlacementTimeline.mark('response');
+          } catch (_) {}
           break;
         } catch (e) {
           lastErr = e;
@@ -1169,9 +1204,43 @@ class PolymarketBetController {
           intent, settlement, accepted!, entrySource,
           orderedShares: orderedShares, immediateFill: immediateFill)));
     } catch (e, st) {
+      if (accepted != null) {
+        // The venue took the order and something of ours threw after
+        // that (reading the settlement, the receipt's bookkeeping): never
+        // "failed". A receipt already shown stays; else the slip settles
+        // it as an accepted order whose fill it cannot show yet.
+        PolymarketPlacementDiagnostics.note(
+            'after_accept_threw', {'error': '${e.runtimeType}'});
+        try {
+          final pending = ref.read(pendingPolymarketBetProvider.notifier);
+          pending.recordFill(accepted);
+          if (ref.read(pendingPolymarketBetProvider)?.status !=
+              PendingBetStatus.done) {
+            _clearPlacing();
+            pending.updateStatus(PendingBetStatus.awaitingConfirmation);
+          }
+        } catch (_) {}
+        PolymarketPlacementTimeline.finish('pending',
+            reason: 'after_accept_error');
+        return null;
+      }
       if (e is AuthGrantException) {
         _clearPlacing();
         return _failOnGrant(e, intent: intent, entrySource: entrySource);
+      }
+      // Sent, and the answer proved nothing: the order is looked up with
+      // the venue by its id before anything is said. Matched, the receipt;
+      // ended with nothing bought, said so; still nowhere, pending as
+      // before. Never "failed" on an answer that proved nothing.
+      if (e is PolymarketOrderOutcomeUnknown &&
+          e.orderId != null &&
+          !e.lookedUp &&
+          sentShares > 0 &&
+          await _reconcileUnknown(intent, grant, e.orderId!,
+              orderedShares: sentShares,
+              entrySource: entrySource,
+              successHaptic: successHaptic)) {
+        return null;
       }
       if (e is PendingPolymarketOrder) {
         _clearPlacing();
@@ -1203,6 +1272,92 @@ class PolymarketBetController {
     return null;
   }
 
+  /// How long an order whose answer proved nothing is looked up with the
+  /// venue (`GET /data/order/{id}`, every second) before the placement
+  /// ends pending. A post the venue was still taking when the app gave up
+  /// is filed within this.
+  @visibleForTesting
+  static Duration reconcileWindow = const Duration(seconds: 20);
+
+  /// The order [orderId] was sent and its answer proved nothing (a
+  /// timeout, a dropped connection, a 5xx, an acknowledgement that does
+  /// not name it). It is looked up with the venue for [reconcileWindow],
+  /// the slip saying "Confirming with Polymarket…" meanwhile: matched, the
+  /// receipt with the venue's own shares and cost (and the fill reported
+  /// from them); ended with nothing bought, said so; still nowhere, false,
+  /// and the placement ends pending as before. The order guard's journal
+  /// is settled from the venue's answer so the next tap is not held for
+  /// it. Read-only: nothing is signed or sent again. Never throws.
+  Future<bool> _reconcileUnknown(
+      PendingBetIntent intent, AuthGrant grant, String orderId,
+      {required double orderedShares,
+      required String? entrySource,
+      required bool successHaptic}) async {
+    final clock = Stopwatch()..start();
+    final response = <String, dynamic>{'orderID': orderId};
+    String outcome = 'unconfirmed';
+    try {
+      ref
+          .read(pendingPolymarketBetProvider.notifier)
+          .setStage(PendingBetStage.reconciling);
+      final tile = _placingTile;
+      if (tile != null) {
+        ref.read(placingPolymarketBetProvider.notifier).markConfirming(tile);
+      }
+      final settlement = await _settle(response, intent,
+              orderedShares: orderedShares,
+              resting: false,
+              matchTimeout: reconcileWindow)
+          .catchError((Object _) => PmSellSettlement(
+              result: PmSellResult.unknown,
+              offeredShares: orderedShares,
+              soldShares: 0,
+              firstStatus: '',
+              confirmedBy: 'none',
+              timeToMatch: Duration.zero));
+      outcome = switch (settlement.result) {
+        PmSellResult.filled || PmSellResult.partial => 'filled',
+        PmSellResult.notFilled => 'not_filled',
+        PmSellResult.failed => 'failed_onchain',
+        PmSellResult.resting || PmSellResult.unknown => 'unconfirmed',
+      };
+      if (outcome == 'unconfirmed') return false;
+      // The venue answered for it: the journal row stops holding the
+      // outcome (it settles as accepted or rejected from the same read).
+      unawaited(ref
+          .read(polymarketTradingProvider.notifier)
+          .checkPendingOrder(tokenId: intent.tokenId)
+          .catchError((_) {}));
+      if (settlement.soldShares <= 0) {
+        // Nothing bought: the venue's own end of it, said on the slip.
+        _endsWithoutFill(intent, settlement, entrySource);
+        PolymarketPlacementTimeline.finish('failed',
+            reason: _settlementParams(settlement)['fill_outcome'] as String);
+        return true;
+      }
+      _succeed(intent, grant, response, entrySource,
+          orderedShares: orderedShares,
+          shares: settlement.soldShares,
+          cost: settlement.proceeds,
+          successHaptic: successHaptic);
+      _afterSettlement(intent, settlement, response, entrySource,
+          orderedShares: orderedShares, immediateFill: false);
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      try {
+        // Categorical and durations only: never the order's id.
+        TrackingService.track('polymarket_order_outcome_reconciled', params: {
+          'outcome': outcome,
+          'side': 'buy',
+          'order_type': intent.isLimit ? 'limit' : 'market',
+          'ms': clock.elapsedMilliseconds,
+        });
+      } catch (_) {}
+    }
+  }
+
   /// The venue said the order matched: the receipt now, with [shares] and
   /// [cost] as the venue gave them (the cost is null until the trades say
   /// it when the POST echoed none), the balance read once at once, and the
@@ -1217,31 +1372,42 @@ class PolymarketBetController {
     final pending = ref.read(pendingPolymarketBetProvider.notifier);
     pending.recordSettlement(
         filledShares: shares, filledCost: cost, orderedShares: orderedShares);
+    // Everything between the match and the receipt is bookkeeping: a throw
+    // in it must not keep the receipt from showing (it used to end the
+    // placement as "failed" with the shares bought).
+    void quietly(void Function() step) {
+      try {
+        step();
+      } catch (_) {}
+    }
+
     // The matched shares count and their cost leaves the cash at once
     // (a no-op when the POST's echo already recorded this order).
     final orderId =
         (accepted['orderID'] ?? accepted['orderId'] ?? accepted['order_id'])
             ?.toString();
     if (orderId != null && orderId.isNotEmpty) {
-      notifier.notePendingFill(
-        key: orderId,
-        tokenId: intent.tokenId,
-        shares: shares,
-        costUsd: cost ?? shares * intent.expectedPrice,
-      );
+      quietly(() => notifier.notePendingFill(
+            key: orderId,
+            tokenId: intent.tokenId,
+            shares: shares,
+            costUsd: cost ?? shares * intent.expectedPrice,
+          ));
     }
     // The cash moved: one targeted read now, not the next 5 s tick.
-    unawaited(notifier.refreshBalanceAfterMatch());
-    notifier.refreshAfterSale();
-    PolymarketPlacementDiagnostics.note('filled', {
-      'shares': shares,
-      'cost': cost,
-    });
-    PolymarketPlacementTimeline.finish('filled');
+    quietly(() => unawaited(
+        notifier.refreshBalanceAfterMatch().catchError((Object _) {})));
+    quietly(notifier.refreshAfterSale);
+    quietly(() => PolymarketPlacementDiagnostics.note('filled', {
+          'shares': shares,
+          'cost': cost,
+        }));
+    quietly(() => PolymarketPlacementTimeline.finish('filled'));
 
-    SoundService.playSuccess();
+    quietly(SoundService.playSuccess);
     // Apple Pay style two-beat success haptic (see note above).
-    if (successHaptic) moneySuccessFeedback();
+    if (successHaptic) quietly(moneySuccessFeedback);
+    quietly(() => SalReactions.play(SalReaction.wink));
 
     pending.updateStatus(PendingBetStatus.done);
     // The Portfolio card turns from "Placing prediction…" into the
@@ -1322,6 +1488,7 @@ class PolymarketBetController {
       _placingTile = ref.read(placingPolymarketBetProvider.notifier).markPlacing(
             tokenId: intent.tokenId,
             marketQuestion: intent.marketQuestion,
+            eventSlug: intent.eventSlug,
             marketImage: intent.marketImage,
             outcomeName: intent.outcomeName,
             amount: intent.amount,
@@ -1367,6 +1534,7 @@ class PolymarketBetController {
             return tiles.markPlacing(
               tokenId: intent.tokenId,
               marketQuestion: intent.marketQuestion,
+              eventSlug: intent.eventSlug,
               marketImage: intent.marketImage,
               outcomeName: intent.outcomeName,
               amount: cost0,
@@ -1398,6 +1566,7 @@ class PolymarketBetController {
     required double orderedShares,
     required bool resting,
     void Function(double shares)? onMatched,
+    Duration matchTimeout = const Duration(seconds: 15),
   }) {
     final notifier = ref.read(polymarketTradingProvider.notifier);
     final backend = notifier.backendService;
@@ -1429,6 +1598,7 @@ class PolymarketBetController {
           backend == null ? null : await backend.getOrderById(id),
       readTrade: backend?.getTradeById,
       positionMoved: positionMoved,
+      matchTimeout: matchTimeout,
     ).watch(
       response: response,
       tokenId: intent.tokenId,
@@ -1538,6 +1708,19 @@ class PolymarketBetController {
       return error.timedOut ? 'setup_timeout' : 'setup_failed';
     }
     if (error is PolymarketFundsConverting) return 'funds_converting';
+    // The buy's collateral was not confirmed before signing (nothing was
+    // sent). Only a wallet that was read and holds less than the buy is
+    // "add funds"; a read that failed is the connection, and a book that
+    // has not counted the money yet is a moment's wait. Its own words
+    // ("The trading balance is still being confirmed") used to match the
+    // balance wording below and say "Add funds to predict" every time.
+    if (error is PolymarketCollateralPending) {
+      return switch (error.wait) {
+        PolymarketCollateralWait.short => 'balance_or_allowance',
+        PolymarketCollateralWait.unread => 'venue_unreachable',
+        PolymarketCollateralWait.notCounted || null => 'balance_confirming',
+      };
+    }
     if (error is PolymarketStaleReservation) return 'stale_matched_orders';
     if (error is PolymarketBalanceRefused) {
       // An allowance to an address the app does not know is never set
@@ -1553,6 +1736,7 @@ class PolymarketBetController {
           : 'venue_rejected';
     }
     if (error is PolymarketThinBook) return 'liquidity_unavailable';
+    if (error is PolymarketOrderNeverSent) return 'venue_unreachable';
     if (error is ResolvedPolymarketOrder) return 'previous_order_resolved';
     if (error is PolymarketOrderCheckUnavailable) return 'venue_unreachable';
     if (error is PendingPolymarketOrder) return 'previous_order_unconfirmed';
@@ -1601,10 +1785,14 @@ class PolymarketBetController {
   String _friendlyPlacementError(Object e) {
     final l10n = l10nForLanguage(ref.read(settingsProvider).language);
     if (e is PolymarketThinBook) return polymarketThinBookMessage(l10n, e);
+    final slow = polymarketSlowConnectionLine(l10n, e);
+    if (slow != null) return slow;
     return switch (_placementFailureCode(e)) {
       'setup_timeout' => l10n.betSetupSlow,
       'setup_failed' => l10n.betSetupFailed,
-      'funds_converting' => l10n.betDepositStillConverting,
+      'funds_converting' ||
+      'balance_confirming' =>
+        l10n.betDepositStillConverting,
       'previous_order_resolved' => l10n.betPreviousOrderChecked,
       'region_unavailable' => l10n.tradingUnavailableRegion,
       'account_read_failed' ||

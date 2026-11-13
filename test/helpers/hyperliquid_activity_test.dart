@@ -1,5 +1,8 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/hyperliquid_activity.dart';
+import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 
 HlFill fill(String id, double before, double size, String side, int time) =>
@@ -34,6 +37,79 @@ void main() {
     expect(hlFillAction(fill('4', 1, 1, 'A', 4)), 'Closed position');
     expect(hlFillAction(fill('5', 1, 2, 'A', 5)), 'Reversed position');
     expect(hlFillAction(fill('6', -1, 1, 'A', 6)), 'Added to position');
+  });
+  test('a fill speaks in the position\'s words, never buy or sell', () {
+    final l = l10nForLanguage('en');
+    // The founder's screenshot: a short that bought back read "Bought".
+    final closeShort = fill('1', -0.008, 0.008, 'B', 1);
+    expect(hlFillEffect(closeShort), (kind: HlFillKind.closed, long: false));
+    expect(hlFillHeadline(closeShort, '0.008 OAI', l), 'Closed short 0.008 OAI');
+    expect(hlFillHeadline(fill('2', 0, 1, 'A', 2), '1 OAI', l),
+        'Opened short 1 OAI');
+    expect(hlFillHeadline(fill('3', 0, 1, 'B', 3), '1 OAI', l),
+        'Opened long 1 OAI');
+    expect(hlFillHeadline(fill('4', -1, 1, 'A', 4), '1 OAI', l),
+        'Added to short 1 OAI');
+    expect(hlFillHeadline(fill('5', 2, 1, 'A', 5), '1 OAI', l),
+        'Reduced long 1 OAI');
+    expect(hlFillHeadline(fill('6', 1, 1, 'A', 6), '1 OAI', l),
+        'Closed long 1 OAI');
+    expect(hlFillHeadline(fill('7', 1, 2, 'A', 7), '2 OAI', l),
+        'Flipped to short 2 OAI');
+    expect(hlFillHeadline(fill('8', -1, 2, 'B', 8), '2 OAI', l),
+        'Flipped to long 2 OAI');
+    // Without the position it met, the venue's direction word decides.
+    final byDir = HlFill.fromJson({
+      'coin': 'OAI',
+      'tid': '9',
+      'oid': 9,
+      'hash': 'h',
+      'time': 9,
+      'sz': '1',
+      'px': '1400',
+      'side': 'B',
+      'dir': 'Close Short',
+      'closedPnl': '0',
+      'fee': '0',
+    });
+    expect(hlFillEffect(byDir), (kind: HlFillKind.closed, long: false));
+    // A spot token is bought and sold, plainly.
+    final spot = HlFill.fromJson({
+      'coin': '@142',
+      'tid': '10',
+      'oid': 10,
+      'hash': 'h',
+      'time': 10,
+      'sz': '3',
+      'px': '20',
+      'side': 'B',
+      'closedPnl': '0',
+      'fee': '0',
+    });
+    expect(hlFillHeadline(spot, '3 HYPE', l), 'Bought 3 HYPE');
+    // Closing is neither bullish nor bearish: it reads neutral.
+    const up = Color(0xFF00FF00), down = Color(0xFFFF0000), n = Color(0xFF888888);
+    expect(hlFillTone(closeShort, up: up, down: down, neutral: n), n);
+    expect(hlFillTone(fill('2', 0, 1, 'A', 2), up: up, down: down, neutral: n),
+        down);
+    expect(hlFillTone(fill('3', 0, 1, 'B', 3), up: up, down: down, neutral: n),
+        up);
+  });
+  test('an order says what it does to the position', () {
+    final l = l10nForLanguage('en');
+    // A take profit or stop on a short buys; it reads as closing it.
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: true, reduceOnly: true),
+        'Close short');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: false, reduceOnly: true),
+        'Close long');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: false, reduceOnly: false),
+        'Short');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: true, reduceOnly: false),
+        'Long');
+    // Spot, or a purpose the venue did not say: plain buy and sell.
+    expect(hlOrderSideLabel(l, coin: '@142', isBuy: true, reduceOnly: false),
+        'Buy');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: false), 'Sell');
   });
   tradingStatsTests();
 }
@@ -143,5 +219,70 @@ void tradingStatsTests() {
           6);
       expect(const TradingBook(fills: []).statsSince(null)!.count, 0);
     });
+  });
+  test('the chart card\'s title is the action alone, in every language',
+      () {
+    final en = l10nForLanguage('en');
+    expect(hlFillActionTitle(fill('1', -0.008, 0.008, 'B', 1), en),
+        'Closed short');
+    expect(hlFillActionTitle(fill('2', 0, 1, 'A', 2), en), 'Opened short');
+    expect(hlFillActionTitle(fill('4', -1, 1, 'A', 4), en), 'Added to short');
+    expect(hlFillActionTitle(fill('6', 1, 1, 'A', 6), en), 'Closed long');
+    final liquidated = HlFill.fromJson({
+      'coin': 'BTC',
+      'tid': '9',
+      'oid': 9,
+      'hash': 'h',
+      'time': 9,
+      'startPosition': '1',
+      'sz': '1',
+      'px': '1',
+      'side': 'A',
+      'closedPnl': '0',
+      'fee': '0',
+      'liquidation': {'method': 'market'},
+    });
+    expect(hlFillActionTitle(liquidated, en), 'Liquidated');
+    final spot = HlFill.fromJson({
+      'coin': '@142',
+      'tid': '10',
+      'oid': 10,
+      'hash': 'h',
+      'time': 10,
+      'sz': '3',
+      'px': '40',
+      'side': 'B',
+      'closedPnl': '0',
+      'fee': '0',
+    });
+    final cases = [
+      for (final (id, before, sz, side) in [
+        ('a', 0.0, 1.0, 'B'),
+        ('b', 0.0, 1.0, 'A'),
+        ('c', 1.0, 1.0, 'B'),
+        ('d', -1.0, 1.0, 'A'),
+        ('e', 2.0, 1.0, 'A'),
+        ('f', -2.0, 1.0, 'B'),
+        ('g', 1.0, 1.0, 'A'),
+        ('h', -1.0, 1.0, 'B'),
+        ('i', 1.0, 2.0, 'A'),
+        ('j', -1.0, 2.0, 'B'),
+      ])
+        fill(id, before, sz, side, 1),
+      spot,
+    ];
+    for (final locale in AppLocalizations.supportedLocales) {
+      final l = l10nForLanguage(locale.languageCode);
+      for (final f in cases) {
+        final t = hlFillActionTitle(f, l);
+        expect(t, isNotEmpty, reason: locale.languageCode);
+        expect(t, t.trim(), reason: locale.languageCode);
+        expect(t, isNot(contains('  ')), reason: locale.languageCode);
+        expect(t.endsWith(':'), isFalse, reason: '${locale.languageCode} $t');
+        expect(t[0], t[0].toUpperCase(), reason: '${locale.languageCode} $t');
+      }
+    }
+    expect(hlFillActionTitle(spot, l10nForLanguage('nl')), 'Gekocht');
+    expect(hlFillActionTitle(spot, l10nForLanguage('hu')), 'Vétel');
   });
 }

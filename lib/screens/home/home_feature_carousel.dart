@@ -30,7 +30,7 @@ Future<bool> checkPolymarketGeoblock(BuildContext context,
         error.availability.status == ProviderAvailabilityStatus.restricted;
   } on CapabilityUnavailableException catch (error) {
     message = error.decision.bodyIn(l10n);
-    regionBlocked = error.decision.regionRestricted;
+    regionBlocked = error.decision.regionBlocked;
     denial = (capability: error.capability, decision: error.decision);
   }
   if (!context.mounted) return true;

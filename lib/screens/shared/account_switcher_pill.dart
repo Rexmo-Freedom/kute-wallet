@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/models/account.dart';
 import 'package:kute/providers/accounts_provider.dart';
@@ -151,13 +150,12 @@ class AccountSwitcherPill extends ConsumerWidget {
       // reads as the wallet's brand identity, not a button.
       leading = Padding(
         padding: EdgeInsets.only(right: 8.w),
-        child: SvgPicture.asset(
-          visual!.svgAsset!,
-          width: 22.sp,
-          height: 22.sp,
-          colorFilter: visual.color == Colors.white ||
+        child: BrandMark(
+          asset: visual!.svgAsset!,
+          size: 22.sp,
+          tint: visual.color == Colors.white ||
                   visual.color == const Color(0xFF333333)
-              ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn)
+              ? c.textPrimary
               : null,
         ),
       );

@@ -1,3 +1,10 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show KuteSheetBarFit, showKuteModalSheet;
+import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show SheetTitleHeader;
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -12,8 +19,8 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 // big typed number driven by a custom keypad, $10 / $25 / $50 / Max
 // chips, and the CTA. Every door opens it locked to one venue or rail
 // ([MoveLockedSide]): Add to Predictions / Investing, the two withdrawals,
-// the Dollar deposit, Buy bitcoin (Cash App, the bank rail, the dollar
-// balance), the Ledger venue flows and the slip top-ups. It never moves
+// the Dollar deposit, Buy bitcoin (Cash App, the bank rail while it is
+// offered), the Ledger venue flows and the slip top-ups. It never moves
 // bitcoin between the spending account and a savings wallet. What a
 // dispatch sends is derived from the typed amount on every read (dollars,
 // or sats at the sheet's price), capped to the source's balance at that
@@ -22,7 +29,12 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 // Move money (the Portfolio's button, [DepositSheet.movementRoute]) is
 // this sheet with both ends editable: Bitcoin, Dollars, Investing and
 // Predictions, any one to any other (lib/services/one_balance/
-// money_movement_route.dart).
+// money_movement_route.dart). Pinned to the person's own Bitcoin and
+// Dollars (showOwnMoneyMove: the Dollars home's Swap, the own-account
+// doors) it is Swap: the same screen, its ends fixed, reversed by the
+// swap circle between its From and To squares. Both lay out as Send's
+// amount step: Send's header, the hero centred, the squares, the chips
+// over the keypad's keys.
 //
 // The Dollar deposit door (the Investments dock's Deposit) is also the
 // home of Receive: its From picker leads with a Receive row that closes
@@ -51,7 +63,6 @@ import 'package:flutter/material.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/region_freshness.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:flutter/services.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/breez/shared_sync.dart';
@@ -148,7 +159,10 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         VenueCashPullOutcome,
         venueCashPullerProvider;
 import 'package:kute/services/one_balance/investments_spendable.dart'
-    show investmentsSpendableProvider, venueCashRefreshProvider;
+    show
+        dollarsToBitcoinSpendableProvider,
+        venueCashClosed,
+        venueCashRefreshProvider;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegSent, BitcoinToDollarsLeg;
 import 'package:kute/services/one_balance/multi_source_move.dart'
@@ -225,6 +239,11 @@ const Color _kCashAppGreen = Color(0xFF00D632);
 // stay authoritative). Kute's fees always come from the backend quote.
 const int _kMinSats = 1000; // Orchestra minimum for BTC→USD leg
 const double _kMinUsdc = 1.0; // Minimum USD for USD→BTC leg
+
+/// Where the amount keypad's keys start inside its box, in design units:
+/// the pad's own 12 and a digit key's 6 (custom_keypad.dart). Move money's
+/// chips are inset by it, so they stand exactly over the keys.
+const double _kKeypadKeyInset = 18;
 
 /// Fiat currencies the BANK rail offers. EUR only for now: the bank
 /// onramp is Europe-only (user decision, September 2026). USD and CHF
@@ -401,8 +420,9 @@ enum MoveOpeningRail { none, bank, cashApp, natural }
 /// (founder decision, October 2026). A Cash App door opens on Cash App
 /// while it is offered; otherwise on the bank when the door seeded it and
 /// the policy offers it; otherwise on the door's natural non-fiat source:
-/// Buy bitcoin on the dollar balance, the venue buys on spending bitcoin,
-/// and the dollars door simply stays on its Bitcoin source.
+/// the venue buys on spending bitcoin, and the dollars door simply stays
+/// on its Bitcoin source. Buy bitcoin has none and closes on "Buy
+/// unavailable" ([_noNaturalSource]).
 @visibleForTesting
 MoveOpeningRail moveOpeningRail({
   required bool seededRail,
@@ -482,7 +502,15 @@ Future<void> showDepositSheet(
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => DepositSheet(
+      // The bar reads "Move money" over "ask Sal where it should go"
+      // while this is up (kute_bar_context.dart).
+      builder: (sheetContext) => KuteBarContextScope(
+        barContext: KuteBarContext(
+          label: sheetContext.l10n.barMoveMoney,
+          sublabel: sheetContext.l10n.barMoveMoneySub,
+          source: 'move',
+        ),
+        child: DepositSheet(
         initialSourceAsset: initialSourceAsset,
         lockedSide: side,
         fiatDepositWalletId: fiatDepositWalletId,
@@ -491,6 +519,7 @@ Future<void> showDepositSheet(
         initialTargetUsd: initialTargetUsd,
         cashAppSource: cashAppSource,
         onCompleted: onCompleted,
+        ),
       ),
     ),
   );
@@ -551,6 +580,12 @@ class DepositSheet extends ConsumerStatefulWidget {
 
   /// Explicit movement of one selected cash balance, with both ends editable.
   final MoneyMovementRoute? movementRoute;
+
+  /// [movementRoute] fixed: no account pickers (showMoneyMovementSheet's
+  /// `pinned`). Bitcoin and Dollars still swap (the Swap screen). Pinned
+  /// Dollars → Bitcoin spends all the dollar money, Dollars first and
+  /// then the venue cash.
+  final bool movementPinned;
   final String? fiatDepositWalletId;
   final String? venueWalletId;
   final String? ledgerWalletId;
@@ -571,6 +606,7 @@ class DepositSheet extends ConsumerStatefulWidget {
     this.initialSourceAsset,
     required this.lockedSide,
     this.movementRoute,
+    this.movementPinned = false,
     this.fiatDepositWalletId,
     this.venueWalletId,
     this.ledgerWalletId,
@@ -838,6 +874,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   void _changeMovementRoute(MoneyMovementRoute route, {bool reversed = false}) {
     if (_processing || _movementSendLocked || !route.valid) return;
     if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    if (!route.isOffered) return;
     HapticFeedback.selectionClick();
     setState(() {
       _installMovementRoute(route);
@@ -903,7 +940,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       hint: (_) => '',
       rows: (sheetCtx, _) => [
         for (final account in MoneyMovementAccount.values)
-          if (account != (source ? route.to : route.from))
+          // The other end is never offered; nor is a destination the
+          // source has no door to (out of Predictions, only Bitcoin).
+          if (account != (source ? route.to : route.from) &&
+              (source || MoneyMovementRoute(route.from, account).isOffered))
             MovePickerRow(
               key: ValueKey('movement-account-${account.name}'),
               asset: _movementAsset(account),
@@ -922,30 +962,67 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     );
     if (selected == null || selected == current || !mounted) return;
     if (_processing || _movementSendLocked) return;
+    // A source whose door to the chosen destination is not offered
+    // (Predictions picked while Dollars or Investing is the destination)
+    // takes its one offered destination along.
     _changeMovementRoute(MoneyMovementRoute(
-        source ? selected : route.from, source ? route.to : selected));
+            source ? selected : route.from, source ? route.to : selected)
+        .offeredOrNearest);
   }
 
-  Widget _movementRouteCard({required String? available, String? detail}) {
+  /// The two-way screen between the person's own Bitcoin and Dollars
+  /// (showOwnMoneyMove; founder, 7 November 2026: "a button in a
+  /// reversible way"): its ends are those two accounts, never picked, and
+  /// the swap circle reverses them. Titled "Swap".
+  bool get _ownMoneySwap {
+    final route = _movementRoute;
+    return _isMoneyMovement &&
+        widget.movementPinned &&
+        route != null &&
+        {route.from, route.to}.containsAll(const {
+          MoneyMovementAccount.bitcoin,
+          MoneyMovementAccount.dollars,
+        });
+  }
+
+  /// From and To as two squares, the swap circle on their shared edge
+  /// (deposit_route_card.dart, MoveRouteSquares). [available] is what the
+  /// source has to move, in dollars; a balance still loading, or one that
+  /// cannot be read, says so in its place.
+  Widget _movementRouteCard({required String? available}) {
     final route = _movementRoute!;
     final editable = !_processing && !_movementSendLocked;
-    MoveRouteEndpoint endpoint(MoneyMovementAccount account, bool source) =>
-        MoveRouteEndpoint(
+    // A pinned route (the own-account doors: showOwnMoneyMove) picks
+    // nothing: the ends show no chevron, as on the Purchase Bitcoin sheet.
+    // Each end keeps its account's own name ("From Dollars", "To
+    // Bitcoin"), the words of the door that opened it ("From your
+    // Dollars", "To your Bitcoin"). The Portfolio's Move money picks
+    // either end.
+    final pickable = editable && !widget.movementPinned;
+    // Bitcoin and Dollars swap from every door; another pinned pair has no
+    // way back on this screen.
+    final showSwap = !widget.movementPinned || _ownMoneySwap;
+    final state = _sourceBalanceState;
+    final line = state ??
+        (available == null ? null : context.l10n.hlYieldAvailableLine(available));
+    MoveRouteSquareEnd end(MoneyMovementAccount account, bool source) =>
+        MoveRouteSquareEnd(
           name: _movementName(account),
           asset: _movementAsset(account),
-          available: source ? available : null,
-          detail: source ? detail : null,
-          detailIsError: source && _typedExceedsAvailable,
-          onAvailableTap: source && editable && _sourceBalanceState == null
-              ? () => _applyAmountPercent(1)
-              : null,
-          onTap: editable ? () => _pickMovementAccount(source: source) : null,
+          line: source ? line : null,
+          onTap: pickable ? () => _pickMovementAccount(source: source) : null,
         );
-    return MoveRouteCard(
+    // The swap is never held back by the policy: a direction the policy
+    // withholds says so once it is on screen (the restriction note and
+    // the bar's own state), as when a door opens on it.
+    return MoveRouteSquares(
       key: const ValueKey('money-movement-route'),
-      from: endpoint(route.from, true),
-      to: endpoint(route.to, false),
+      from: end(route.from, true),
+      to: end(route.to, false),
+      showSwap: showSwap,
       onSwap: editable &&
+              showSwap &&
+              route.reversed.isOffered &&
               !kMoneyMovementDisabledRoutes.containsKey(route.reversed)
           ? () => _changeMovementRoute(route.reversed, reversed: true)
           : null,
@@ -957,6 +1034,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// Retry; otherwise Move money locks: no second send and no edits, the
   /// outcome copy shows and the button opens Activity. Outside Move money
   /// it only resets the sheet with [message], as every door always did.
+  /// A setup failure that is the network's, not the account's: a timed-out
+  /// or refused connection, as `TrackingService.errorCategory` reads it.
+  static bool _isOfflineLike(Object e) {
+    final category = TrackingService.errorCategory(e);
+    return category == 'network' || category == 'timeout';
+  }
+
   void _endStoppedMove(Object e, {String? message}) {
     if (!mounted) return;
     final l10n = context.l10n;
@@ -1135,8 +1219,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   bool _fromHyperliquid = false;
 
   /// Dollars as the SOURCE — the spending account's own dollar balance
-  /// paying a venue deposit. Only the two venue-deposit doors offer it
-  /// (see [_dollarsSourceAllowed]); every other source pick clears it,
+  /// paying Swap, Move money or a venue deposit (see
+  /// [_dollarsSourceAllowed]); every other source pick clears it,
   /// so a stale flag can never send dollars down a bitcoin path.
   ///
   /// It rides with `_fromBtc == false`, which the rest of the sheet reads
@@ -1145,30 +1229,21 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// balance", so every branch that assumed so now tests this flag too.
   bool _sourceUsd = false;
 
-  /// The doors where the dollar balance may pay: the two venue deposits
-  /// and the buy-bitcoin door. In every one of them the money leaves as
-  /// the dollar token and Orchestra converts it on the way in, the same
-  /// shape as the bitcoin leg beside it.
+  /// The doors where the dollar balance may pay: Swap and Move money and
+  /// the two venue deposits. In every one of them the money leaves as the
+  /// dollar token and Orchestra converts it on the way in, the same shape
+  /// as the bitcoin leg beside it.
   ///
-  /// [MoveLockedSide.depositFromFiat] is the "Buy bitcoin" door. Dollars
-  /// there buy spending bitcoin on a real catalogue route (the dollar
-  /// token and bitcoin are both Spark-native), so the purchase settles
-  /// instantly instead of waiting on a fiat rail.
+  /// Never "Buy bitcoin" ([MoveLockedSide.depositFromFiat]; founder,
+  /// 8 November 2026: "only the Cash App, as it is the only fiat onramp"):
+  /// buying is paying from outside, and Dollars to Bitcoin is Swap.
   ///
-  /// Read live off `_lockedSide`, which the swap button mutates: flipping
-  /// the buy door into its sell twin ([MoveLockedSide.withdrawToFiat])
-  /// drops this, and with it `_dollarsAreSource`.
-  /// The buy door credits a NAMED wallet when it is opened from a cold
-  /// account, and the dollar balance is the spending account's money.
-  /// Paying for a hardware wallet's bitcoin out of it crosses two
-  /// accounts in one tap, so a purchase into cold storage offers the
-  /// payment rails only: Cash App and the bank (owner decision).
+  /// Read live off `_lockedSide`, which the swap button mutates.
   bool get _dollarsSourceAllowed =>
       !_isLedgerMove &&
-      (_isMoneyMovement || _lockedSide == MoveLockedSide.depositToHyperliquid ||
-          _lockedSide == MoveLockedSide.depositToPredictions ||
-          (_lockedSide == MoveLockedSide.depositFromFiat &&
-              widget.fiatDepositWalletId == null));
+      (_isMoneyMovement ||
+          _lockedSide == MoveLockedSide.depositToHyperliquid ||
+          _lockedSide == MoveLockedSide.depositToPredictions);
 
   /// THE ONE TEST every dollar-source branch uses. [_sourceUsd] is the
   /// user's pick; this is the pick AND the absence of every other source,
@@ -1190,9 +1265,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// Dollars buying spending bitcoin also reach venue cash: Dollars
   /// first, the rest pulled home from Predictions and Investing before
-  /// the purchase (lib/services/one_balance/venue_cash_source.dart).
+  /// the purchase (lib/services/one_balance/venue_cash_source.dart). Only
+  /// on [_ownDollarsToBitcoin], the own-account doors' pinned move; a
+  /// route picked in Move money's pickers spends its one account.
   bool get _dollarsReachVenueCash =>
-      !_isMoneyMovement &&
+      _ownDollarsToBitcoin &&
       _dollarsAreSource &&
       !_destPredictions &&
       !_destHyperliquid &&
@@ -1202,10 +1279,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _sourceWalletId == null &&
       _destWalletId == null;
 
+  /// "From your Dollars" and "To your Bitcoin" (founder, 7 November 2026:
+  /// "from your Dollars should and must be all the available balances,
+  /// not just the Dollars balance, it is the same behaviour we had before
+  /// on Investments buy Bitcoin"): Move money pinned Dollars → Bitcoin
+  /// (showOwnMoneyMove) has no account to pick, so "your Dollars" is all
+  /// the person's dollar money. Its figure, Max and funding: Dollars
+  /// first, then the venue cash, one approval, the same steps and the same
+  /// move row. The Portfolio's Move money, unpinned, lists each account on
+  /// its own and spends only the one picked.
+  bool get _ownDollarsToBitcoin =>
+      _isMoneyMovement &&
+      widget.movementPinned &&
+      _movementRoute ==
+          const MoneyMovementRoute(
+              MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin);
+
   /// What the dollar source can pay: Dollars, plus the venue cash the
   /// engine can bring into a purchase, net of the planned move costs (the
-  /// Max, never less than Dollars). Read from the last known values
-  /// ([investmentsSpendableProvider]): never loading.
+  /// Max, never less than Dollars), less any venue whose withdraw the
+  /// policy withholds. Read from the last known values
+  /// ([dollarsToBitcoinSpendableProvider]): never loading.
   ///
   /// It is also the From row's figure (founder decision 13 October 2026):
   /// the row shows what can actually be bought, so any amount up to the
@@ -1213,7 +1307,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   double get _dollarsSourceUsd {
     final dollars = _availableUsd;
     if (!_dollarsReachVenueCash) return dollars;
-    final max = ref.read(investmentsSpendableProvider).maxUsd;
+    final max = ref.read(dollarsToBitcoinSpendableProvider).maxUsd;
     return max > dollars ? max : dollars;
   }
 
@@ -1379,11 +1473,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     TrackingService.track('fiat_coming_soon_viewed', params: {'side': side});
   }
 
+  /// Money between the person's own Bitcoin and Dollars, never a buy
+  /// (founder, 7 November 2026: "Buy should only be for fiat"): the
+  /// Dollars door paid from bitcoin. Like Move money itself it reads
+  /// "Move money" over a "Move $50" button; Buy is only for money from
+  /// outside (Cash App, the bank).
+  bool get _ownMoneyMove =>
+      !_isFiatMode && !_isLedgerMove && _buyingDollars && _fromBtc;
+
   /// The sheet title, named after the live direction + surface rather
   /// than a flat "Exchange" (user decision): a selected venue or the
-  /// dollar balance first, otherwise the lock's own name.
+  /// dollar balance first, otherwise the lock's own name. A move of the
+  /// person's own money is "Move money" whichever door opened it, except
+  /// the two-way Bitcoin ↔ Dollars screen, which is "Swap".
   String get _sheetTitle {
-    if (_isMoneyMovement) return context.l10n.moveTransfer;
+    // Swap (founder, 7 November 2026: "Move money or swap money whatever
+    // is more common in crypto lingo. or just 'swap'"): the two-way screen
+    // between Bitcoin and Dollars. The Portfolio's Move money, any
+    // account to any other, keeps its name.
+    if (_ownMoneySwap) return context.l10n.swap;
+    if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveTransfer;
     if (_destPredictions) return context.l10n.moveAddPredictions;
     if (_destHyperliquid) return context.l10n.moveAddInvesting;
     if (_buyingDollars) return context.l10n.dollarDeposit;
@@ -1409,11 +1518,21 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   String get _actionVerb {
-    if (_isMoneyMovement) return context.l10n.moveTransfer;
+    // Swap's bar says what its title says ("Swap $50"; founder, 7 November
+    // 2026), in each language's swap word. The Portfolio's Move money
+    // keeps "Move $50": its title and its door say Move money, and its
+    // ends reach Predictions and Investing, where a swap is not what
+    // happens; a verb that changed with the picked pair would not match
+    // the title over it.
+    if (_ownMoneySwap) return context.l10n.swap;
+    // The person's own money moves ("Move $50"); only money from outside
+    // is bought.
+    if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveVerb;
     if (_sourceFiat || _sourceCashApp) return context.l10n.moveBuy;
     if (_destFiat) return context.l10n.moveSell;
-    // Dollars are bought, not added to a venue. A cash-out that lands
-    // in dollars is still a withdrawal, so it falls through below.
+    // Dollars from outside are bought, not added to a venue. A cash-out
+    // that lands in dollars is still a withdrawal, so it falls through
+    // below.
     if (_buyingDollars) return context.l10n.moveBuy;
     if (_destPredictions || _destHyperliquid) return context.l10n.moveAdd;
     if (_fromHyperliquid || (!_fromBtc && _sourceWalletId == null)) {
@@ -1938,8 +2057,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // fallback while that is connecting, so it always has a number.
         final balance = ref.read(usdSdkBalanceProvider);
         if (balance.hasValue) return null;
-        // Buying bitcoin from Investments shows the last known balance at
-        // once (the settled ledger stands in) and follows the SDK when it
+        // Swap's Dollars → Bitcoin shows the last known balance at once
+        // (the settled ledger stands in) and follows the SDK when it
         // answers: no loading text.
         if (_dollarsReachVenueCash && !balance.hasError) return null;
         return balance.hasError ? 'Balance unavailable' : 'Updating balance';
@@ -2337,10 +2456,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// The door's own non-fiat source, for a door whose payment rail the
   /// policy does not offer (see [moveOpeningRail]). Never a hidden rail:
-  /// Buy bitcoin pays from the dollar balance; the venue buys become the
-  /// venue deposit from spending bitcoin; the dollars door and the venue
-  /// deposits take spending bitcoin. Sets fields only: initState needs no
-  /// setState, and the live path wraps it in one. A door with no such
+  /// the venue buys become the venue deposit from spending bitcoin; the
+  /// dollars door and the venue deposits take spending bitcoin. Sets
+  /// fields only: initState needs no setState, and the live path wraps it
+  /// in one. A door with no such
   /// source ([_noNaturalSource]) never comes here: it closes instead.
   void _openOnNaturalSource() {
     _sourceFiat = false;
@@ -2358,22 +2477,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       case MoveLockedSide.buyToHyperliquid:
         _lockedSide = MoveLockedSide.depositToHyperliquid;
         _fromBtc = true;
-      case MoveLockedSide.depositFromFiat:
-        _sourceUsd = true;
-        _fromBtc = false;
       default:
         _fromBtc = true;
     }
   }
 
   /// A buy door with nothing to fall back on once its payment rails are
-  /// gone: a Ledger venue buy (its rails are its only sources) and a
-  /// purchase into a savings wallet (dollars never pay into one, and the
-  /// sheet never turns a purchase into a move from the spending account).
+  /// gone: a Ledger venue buy (its rails are its only sources) and Buy
+  /// bitcoin (buying is paying from outside: the sheet never turns a
+  /// purchase into a move of the person's own money, which is Swap).
   bool get _noNaturalSource =>
       widget.venueWalletId != null ||
-      (_lockedSide == MoveLockedSide.depositFromFiat &&
-          !_dollarsSourceAllowed);
+      _lockedSide == MoveLockedSide.depositFromFiat;
 
   /// Receive picked on the Investments deposit's From picker: the
   /// Dollars receive screen (its own route, `receiveDollars`) in this
@@ -2450,7 +2565,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     _lockedSide = widget.lockedSide;
     if (_isMoneyMovement) {
       _movementWalletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
-      _installMovementRoute(widget.movementRoute!);
+      _installMovementRoute(widget.movementRoute!.offeredOrNearest);
       unawaited(_resolveMovementGate());
       // A refusal worked out on one network is asked again after a
       // network change or resume ([RegionFreshness]).
@@ -2508,28 +2623,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _destWalletId = null;
     } else if (_lockedSide == MoveLockedSide.depositFromFiat) {
       // Buy bitcoin: From is a payment method (Cash App, the bank rail
-      // while it is offered, or the dollar balance); To is the spending
-      // account, or the savings wallet the door was opened for
+      // while it is offered), never the person's own money (Dollars →
+      // Bitcoin is Swap); To is the spending account, or the savings
+      // wallet the door was opened for
       // ([DepositSheet.fiatDepositWalletId]). Bank transfers stay inert —
       // the CTA never enables while the bank rail is selected.
-      //
-      // DOLLARS LEAD ON THE SPENDING ACCOUNT (owner decision). Money
-      // already in the dollar balance buys bitcoin on a real catalogue
-      // route and settles at once, where a payment rail has to bring
-      // outside money in first. So the door opens on dollars whenever
-      // there are dollars to spend, and falls back to the rails when
-      // there are none, which is the only case where offering them
-      // first is the honest answer. Every rail stays one tap away. An
-      // explicit Cash App request (Activity's "Create new purchase")
-      // repeats a Cash App purchase, so it opens on Cash App instead.
-      // Investments' venue cash the engine can reach counts: the
-      // purchase pays from Dollars first and brings the rest in.
-      final dollarsLead = !widget.cashAppSource &&
-          widget.fiatDepositWalletId == null &&
-          (ref.read(usdBalanceProvider) > 0 ||
-              ref.read(investmentsSpendableProvider).totalUsd > 0);
-      _sourceUsd = dollarsLead;
-      _sourceFiat = !dollarsLead;
+      _sourceFiat = true;
       _sourceWalletId = null;
       _fromBtc = false;
       _destAsset = 'btc';
@@ -2603,9 +2702,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!_noNaturalSource) {
         _openOnNaturalSource();
       } else if (widget.venueWalletId == null) {
-        // A purchase into a savings wallet with no rail on offer: the
-        // door closes on the "Buy unavailable" sheet rather than turn
-        // into a move from the spending account.
+        // Buy bitcoin with no rail on offer: the door closes on the "Buy
+        // unavailable" sheet rather than turn into a move of the person's
+        // own money.
         _closeRaillessBuy();
       }
     }
@@ -2891,14 +2990,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // the amount, and the restriction stands in for the fee line.
     if (_isMoneyMovement && (!_fromBtc || _movementRestriction != null)) {
       // Stablecoin inputs are already USD. A BTC price only labels the
-      // optional output estimate; it never gates or sizes this source.
-      if (mounted) {
-        setState(() {
-          _loadingRate = false;
-          _usdPerBtc = _cachedUsdPerBtc() ?? 0;
-          _syncRatioFromTyped();
-        });
-      }
+      // optional output estimate; it never gates or sizes this source. A
+      // door's prefill (the Goals nudge's dollars) lands with it.
+      if (mounted) _applyRate(_cachedUsdPerBtc() ?? 0, prefill: true);
       return;
     }
     var showedHeld = false;
@@ -3351,6 +3445,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         throw copy.homeNavPredictionsWalletNotReadyYet;
       }
       final pm = ref.read(polymarketTradingProvider.notifier);
+      // The deposit wallet must be set up (deployed, its approvals in
+      // place) before a batch can leave it. Setup is shared and instant
+      // once done; one that cannot finish ends the move here, before a
+      // quote or a send, with the reason, instead of as a relayer refusal
+      // nobody can act on.
+      try {
+        await pm.enableTrading();
+      } on PolymarketReadException {
+        throw copy.predictionsUnreachableNothingSent;
+      } on PolymarketEvmFormatPendingException {
+        throw copy.homeNavPredictionsWalletNotReadyYet;
+      } catch (e) {
+        if (_isOfflineLike(e)) throw copy.predictionsUnreachableNothingSent;
+        throw copy.homeNavPredictionsWalletNotReadyYet;
+      }
+      _ensureMovementPinned();
       final BigInt microUsdc;
       if (drain) {
         microUsdc = await pm.spendableMicroUsdc();
@@ -3433,24 +3543,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // Last check before the money is handed over; past here nothing
           // is checked that could stop a send already on its way.
           _ensureMovementPinned(grant.walletId);
-          usdcSent = true;
-          _movementFundingStarted = true;
-          try {
-            final txHash =
-                await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
-                      toAddress: verifiedQuote.depositAddress,
-                      amount: usd,
-                      bridged: true,
-                      exactMicroUsdc: verifiedQuote.amountIn,
-                      grant: grant,
-                    );
-            return SettlementFundingProof.relayer(txHash);
-          } on SettlementFundingNotStarted {
-            // The withdrawal said it never submitted.
-            usdcSent = false;
-            _movementFundingStarted = false;
-            rethrow;
-          }
+          final txHash =
+              await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
+                    toAddress: verifiedQuote.depositAddress,
+                    amount: usd,
+                    bridged: true,
+                    exactMicroUsdc: verifiedQuote.amountIn,
+                    grant: grant,
+                    // Told the instant the signed batch goes to the
+                    // relayer. A throw before that (a balance read that
+                    // failed, a grant that drifted) sent nothing, and the
+                    // withdrawal says so by refusing, so no flag is set
+                    // here ahead of the send.
+                    onSubmitting: () {
+                      usdcSent = true;
+                      _movementFundingStarted = true;
+                    },
+                  );
+          return SettlementFundingProof.relayer(txHash);
         },
         // The relayer withdrawal is on disk once this returns; the
         // deposit is registered behind the overlay.
@@ -3665,6 +3775,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         provider: 'orchestra',
         reason: _moveFailReason(e),
         stage: usdcSent ? 'post_send' : 'pre_send',
+        cause: e,
       );
       _trackMoveFailed(e);
       _endStoppedMove(e);
@@ -4254,14 +4365,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final l10n = context.l10n;
       navigator.pop();
       _trackMoveCompleted();
+      final swapped = _ownMoneySwap;
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${estOut.toStringAsFixed(2)}',
-        fromWalletName: settings.activeWallet?.name ?? l10n.spending,
+        // Swap names the ends as its squares do.
+        fromWalletName: swapped
+            ? _movementName(MoneyMovementAccount.bitcoin)
+            : settings.activeWallet?.name ?? l10n.spending,
         toWalletName: l10n.assetDollars,
-        note: settled.registered
-            ? l10n.moveConversionOngoing
-            : l10n.settlementRegistering,
+        // Swap says it's done and no more (founder, 8 November 2026).
+        note: swapped
+            ? null
+            : settled.registered
+                ? l10n.moveConversionOngoing
+                : l10n.settlementRegistering,
+        swapped: swapped,
       );
     } catch (e) {
       // Once the sats left, the order's real outcome comes from the
@@ -4347,8 +4466,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final earlier =
           _moveId == null ? null : MultiSourceMoveStore.get(_moveId!);
       final needed = math.max(0.0, usd - (earlier?.directDeliveredUsd ?? 0));
+      // A venue whose withdraw the policy withholds takes no leg: its
+      // cash is out of the figure too ([dollarsToBitcoinSpendableProvider]).
       final plan = await puller.plan(
-          neededUsd: needed, destination: VenueCashDestination.bitcoin);
+          neededUsd: needed,
+          destination: VenueCashDestination.bitcoin,
+          closed:
+              venueCashClosed(ref.read(runtimeCapabilitiesProvider).decision));
       if (!mounted) return null;
       if (!plan.covers) {
         outcome = VenueCashPullOutcome(
@@ -4373,6 +4497,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             }
             return null;
           }
+          // Move money follows the wallet it opened on: a switch while
+          // the approval was up sends nothing (no-op outside Move money).
+          _ensureMovementPinned(grant.walletId);
           // Approved: the band takes the step.
           _bandStep(0.5);
         }
@@ -4442,6 +4569,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         grant = ran.grant;
         initialDollarsStopped = ran.initialDollarsStopped;
       }
+    } on MoneyMovementDetailsChanged catch (e) {
+      // Move money's wallet changed under the approval: nothing moved.
+      grant?.revoke();
+      if (!mounted) return null;
+      _trackMoveFailed(e);
+      _endStoppedMove(e);
+      return null;
     } catch (_) {
       outcome = null;
     }
@@ -4523,7 +4657,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return null;
   }
 
-  /// The rest of a Buy bitcoin whose sheet closed on submit ([run]: its
+  /// The rest of a Swap whose sheet closed on submit ([run]: its
   /// legs, already recorded on the move's Activity row), with no sheet to
   /// report to: exactly what the sheet did when it was closed under a
   /// move. A remainder under the purchase minimum stays in Dollars; what
@@ -4638,12 +4772,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // purchase from Dollars finishes in the background once what came
     // home lands (`move_purchase_finished` reports it).
     _trackMoveCompleted(outcome: queued ? 'purchase_queued' : 'submitted');
+    final swapped = _ownMoneySwap;
     pushMoveSentOverlay(
       navigator: navigator,
       amount: '\$${usd.toStringAsFixed(2)}',
       fromWalletName: l10n.assetDollars,
-      toWalletName: settings.activeWallet?.name ?? l10n.spending,
-      note: l10n.moveConversionOngoing,
+      // Swap names the ends as its squares do.
+      toWalletName: swapped
+          ? _movementName(MoneyMovementAccount.bitcoin)
+          : settings.activeWallet?.name ?? l10n.spending,
+      note: swapped ? null : l10n.moveConversionOngoing,
+      swapped: swapped,
     );
   }
 
@@ -4751,9 +4890,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   Future<void> _dispatchUsdToBtc(double usd) async {
     if (_processing) return;
-    // A Buy bitcoin's earlier multi-source purchase is never what Move
-    // money retries.
-    final parallel = _isMoneyMovement ? null : _parallelPurchase;
+    // An earlier multi-source purchase is never what Move money retries,
+    // unless this is the own-account doors' move, which pays that way.
+    final parallel = _dollarsReachVenueCash ? _parallelPurchase : null;
     if (parallel != null) {
       await _retryParallelPurchase(parallel);
       return;
@@ -4763,8 +4902,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // cash in reach) is sent exactly as chosen.
     final pullsVenueCash = usd > _availableUsd + 0.005;
     // A manual move spends exactly its chosen account, never another
-    // venue when Dollars dropped between rendering and confirmation.
-    if (_isMoneyMovement && pullsVenueCash) {
+    // venue when Dollars dropped between rendering and confirmation. The
+    // own-account doors' move spends all the dollar money.
+    if (pullsVenueCash && !_dollarsReachVenueCash) {
       setState(() => _error = context.l10n.insufficientBalance);
       _moveFailedFeedback();
       return;
@@ -4872,14 +5012,21 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final l10n = context.l10n;
       navigator.pop();
       _trackMoveCompleted();
+      final swapped = _ownMoneySwap;
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${sent.sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
-        toWalletName: settings.activeWallet?.name ?? l10n.spending,
-        note: sent.registered
-            ? l10n.moveConversionOngoing
-            : l10n.settlementRegistering,
+        // Swap names the ends as its squares do.
+        toWalletName: swapped
+            ? _movementName(MoneyMovementAccount.bitcoin)
+            : settings.activeWallet?.name ?? l10n.spending,
+        note: swapped
+            ? null
+            : sent.registered
+                ? l10n.moveConversionOngoing
+                : l10n.settlementRegistering,
+        swapped: swapped,
       );
     } catch (e) {
       if (!usdSent && e is DollarsToBitcoinBelowMinimum && _moveId != null) {
@@ -4905,10 +5052,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           toNetwork: 'spark',
           venue: 'wallet',
         );
-        _trackMoveFailed(e);
-      } else if (_isMoneyMovement) {
-        _trackMoveFailed(e);
       }
+      _trackMoveFailed(e);
       if (_stoppedByApproval(e, SensitiveAction.moveTransfer) || !mounted) {
         return;
       }
@@ -5482,12 +5627,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 );
         sentUsd = result.sentUsd;
       }
-      // The direct route delivers USDC.e to the deposit wallet: the
-      // arrival watch converts it to pUSD the moment it lands, as for a
-      // deposit from Bitcoin or Dollars.
-      if (route == 'direct') {
-        ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
-      }
+      // Both routes deliver USDC.e to the deposit wallet: the arrival
+      // watch converts it to pUSD the moment it lands, as for a deposit
+      // from Bitcoin or Dollars. CCTP takes longer than the watch's first
+      // window; the watch keeps going while the move's row is on its way,
+      // and the row's delivery (the status poll, or the wallet's own
+      // receive) converts it too. Before this only the direct route
+      // started the watch, so a CCTP arrival sat as raw USDC.e.
+      ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
       // Handed to the runner (or the CCTP watcher); the reconciler reports
       // the outcome.
       TrackingService.hyperliquidWithdrawSubmitted(
@@ -5539,7 +5686,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           _processing = false;
           _movementRetry = _isMoneyMovement;
         });
-        unawaited(showCapabilityDecisionSheet(context, e.decision!));
+        unawaited(showCapabilityDecisionSheet(context, e.decision!,
+            capability: e.capability));
         return;
       }
       _endStoppedMove(e);
@@ -5703,7 +5851,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           _processing = false;
           _movementRetry = _isMoneyMovement;
         });
-        unawaited(showCapabilityDecisionSheet(context, e.decision!));
+        unawaited(showCapabilityDecisionSheet(context, e.decision!,
+            capability: e.capability));
         return;
       }
       _endStoppedMove(e);
@@ -5749,41 +5898,45 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // review flagged this picker as silently untracked.
     TrackingService.buyCurrencyPickerOpened();
     final c = context.colors;
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       backgroundColor: _untintedColors(context).surface,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r))),
+      // A short list: the floating bar goes while it is up
+      // (KuteSheetBarFit, the app's short-sheet rule).
       builder: (ctx) => _untinted(
           ctx,
-          SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(16.w),
-                  child: Text(context.l10n.moveSelectCurrency,
-                      style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w700)),
-                ),
-                for (final cur in _kBankFiatCurrencies)
-                  ListTile(
-                    leading:
-                        Text(_fiatFlag(cur), style: TextStyle(fontSize: 22.sp)),
-                    title: Text(cur,
-                        style:
-                            TextStyle(color: c.textPrimary, fontSize: 16.sp)),
-                    trailing: _fiatCurrency == cur
-                        ? Icon(Icons.check, color: c.accent)
-                        : null,
-                    onTap: () {
-                      setState(() => _fiatCurrency = cur);
-                      Navigator.of(ctx).pop();
-                    },
+          KuteSheetBarFit(
+            child: SafeArea(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(16.w),
+                    child: Text(context.l10n.moveSelectCurrency,
+                        style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w700)),
                   ),
-              ],
+                  for (final cur in _kBankFiatCurrencies)
+                    ListTile(
+                      leading: Text(_fiatFlag(cur),
+                          style: TextStyle(fontSize: 22.sp)),
+                      title: Text(cur,
+                          style:
+                              TextStyle(color: c.textPrimary, fontSize: 16.sp)),
+                      trailing: _fiatCurrency == cur
+                          ? Icon(Icons.check, color: c.accent)
+                          : null,
+                      onTap: () {
+                        setState(() => _fiatCurrency = cur);
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
+                ],
+              ),
             ),
           )),
     );
@@ -5868,6 +6021,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// is blocked in that state — the old behavior silently clamped to
   /// Max and converted the whole balance (user report: typed \$5,555
   /// with \$6 available and it drained the wallet).
+  /// What Move money's disabled button says: the amount step to take,
+  /// or the wait for the rate; null where the button's own label already
+  /// says it (coming soon, a changed wallet, Activity).
+  String? _moveNeedLabel(BuildContext context) {
+    final l10n = context.l10n;
+    if (_sourceCashApp) {
+      return _cashAppAmountValid ? null : l10n.barNeedAmount;
+    }
+    if (_isFiatMode || !_isSupportedSwap) return null;
+    if (_insufficientTyped) return l10n.barNeedLowerAmount;
+    if (_loadingRate) return l10n.barNeedWait;
+    final picked = _fromBtc ? _selectedSats > 0 : _selectedSourceUsd > 0;
+    final enough = _fromBtc
+        ? _selectedSats >= _kMinSats
+        : _selectedSourceUsd >= _kMinUsdc;
+    if (!picked) return l10n.barNeedAmount;
+    if (!enough) return l10n.barNeedRaiseAmount;
+    return null;
+  }
+
   bool get _insufficientTyped =>
       !_isFiatMode &&
       _isSupportedSwap &&
@@ -6722,18 +6895,28 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                     // landing, so keep checking until the session rules it out.
                     if (_cashAppSession.canOfferNewPurchase) ...[
                       SizedBox(height: 12.h),
-                      CustomButton(
-                        text: l10n.cashAppCreateNewPurchase,
-                        primaryColor: _kCashAppGreen,
-                        textColor: Colors.white,
-                        onPressed: _prepareNewCashAppPurchase,
-                      ),
-                      SizedBox(height: 8.h),
                       Text(
                         l10n.cashAppPreviousPurchaseTracked,
                         textAlign: TextAlign.center,
                         style:
                             TextStyle(color: c.textSecondary, fontSize: 12.sp),
+                      ),
+                      // THE BAR IS THE BUTTON (kute_bar_context.dart):
+                      // Create new purchase is the floating Sal bar's
+                      // primary action, in Cash App's green as the button
+                      // was; the note sits above it.
+                      KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                          label: l10n.cashAppCreateNewPurchase,
+                          onPrimary: _prepareNewCashAppPurchase,
+                          style: const KuteBarPrimaryStyle(
+                            fill: _kCashAppGreen,
+                            foreground: Colors.white,
+                          ),
+                          source: 'cash_app_waiting',
+                          disabledLabel: null,
+                        ),
+                        child: SizedBox(height: kuteBarScrollClearance.h),
                       ),
                     ],
                   ],
@@ -7066,6 +7249,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Future<void> _dispatchMovement() async {
     final route = _movementRoute!;
     if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    if (!route.isOffered) return;
     _movementDispatchRoute = route;
     _movementRetried = _movementRetry;
     _movementRetry = false;
@@ -7191,10 +7375,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (usd < _kMinUsdc) return;
       if (_destPredictions) return _dispatchUsdToPredictions(usd);
       if (_destHyperliquid) return _dispatchUsdToHyperliquid(usd);
-      // Dollars → spending bitcoin, the buy-bitcoin door paid from a
-      // balance instead of a card. Guarded on the destination being
-      // NOTHING else first: a dollars-to-dollars leg is not a purchase,
-      // and a fiat destination is the inert coming-soon screen.
+      // Dollars → spending bitcoin: Swap and Move money. Guarded on the
+      // destination being NOTHING else first: a dollars-to-dollars leg is
+      // not a purchase, and a fiat destination is the inert coming-soon
+      // screen.
       if (!_destUsd && !_destFiat && _destAsset == 'btc') {
         return _dispatchUsdToBtc(usd);
       }
@@ -7338,7 +7522,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         if (_dollarsReachVenueCash) {
           // The last known figure is on screen at once; the venues are
           // read again in the background and the number follows.
-          ref.watch(investmentsSpendableProvider);
+          ref.watch(dollarsToBitcoinSpendableProvider);
           ref.watch(venueCashRefreshProvider);
         }
       } else if (_fromHyperliquid) {
@@ -7447,8 +7631,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         String dollars(double usd) =>
             '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
         if (!_fromBtc) {
-          // Buying bitcoin from Investments: the Max, what the purchase
-          // can actually spend (held while a purchase spends it).
+          // Swap's Dollars → Bitcoin: the Max, what the purchase can
+          // actually spend (held while a purchase spends it).
           availableValue = dollars(_availableUsdc);
         } else {
           final sats = _isLedgerMove ? _maxConvertibleSats : _availableSats;
@@ -7471,9 +7655,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           if (sats <= 0 && _usdPerBtc > 0) {
             sats = (_typedAmountValue / _usdPerBtc * 1e8).round();
           }
-          conversionLabel =
-              context.l10n.moveAmountFrom(
-                  '${sats.toFormattedString(btcFormat)} $btcUnit', sourceName);
+          final figure = '${sats.toFormattedString(btcFormat)} $btcUnit';
+          // Move money's From square already names the account (founder,
+          // 7 November 2026: too many words and numbers under the
+          // amount): the sats alone.
+          conversionLabel = _isMoneyMovement
+              ? figure
+              : context.l10n.moveAmountFrom(figure, sourceName);
         } else if (_dollarsAreSource || _destUsd) {
           // Dollars at either end: both sides are dollars, so there is
           // no second denomination to show. A sats line here would be a
@@ -7540,7 +7728,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       usdDest: _destUsd,
       hyperliquidSource: _fromHyperliquid,
       dollarsSource: _dollarsAreSource,
-      dollarsSourceAvailable: _dollarsSourceAllowed,
       fiatSource: _sourceFiat,
       cashAppSource: _sourceCashApp,
       lockedSide: _lockedSide,
@@ -7735,30 +7922,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           _resolveColdDestAddress();
         }
       },
-      onPickDollarsSource: () {
-        if (!_dollarsSourceAllowed) return;
-        HapticFeedback.selectionClick();
-        TrackingService.track('move_source_dollars_selected', params: {
-          'locked_side': _lockedSide.name,
-        });
-        setState(() {
-          // A dollar source rides with `_fromBtc == false` so the amount
-          // is read as USD, and clears every other source outright:
-          // `_dollarsAreSource` demands all of this, so a half-set state
-          // simply turns the door off rather than paying from the wrong
-          // pool.
-          _sourceUsd = true;
-          _fromBtc = false;
-          _fromHyperliquid = false;
-          _sourceFiat = false;
-          _sourceCashApp = false;
-          _sourceWalletId = null;
-          _destWalletId = null;
-          _destAsset = 'btc';
-          _error = null;
-          _resetTypedAmount();
-        });
-      },
       onPickWithdrawDestination: ({required bool dollars}) {
         // Only the two cash-outs draw this row, and only they may set the
         // flag: re-checking the lock here means a stale callback can
@@ -7780,12 +7943,297 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       },
     );
 
+    // MOVE MONEY AND SWAP IN THE SEND AMOUNT STEP'S RHYTHM (founder, 7
+    // November 2026, on the screen as it was: the hero "left-aligned and
+    // oddly placed with lots of empty space", the chips wider than the
+    // keypad, a header unlike Send's). The header is the Bitcoin Send
+    // Amount step's own (the circled X at the left, the title centred on
+    // the line of the first step's big title); under it
+    // the hero, centred, then the From and To squares, then the chips (as
+    // wide as the keypad's keys), the keypad and the bar. Every other door
+    // of this sheet keeps its own header and layout.
+    final movement = _isMoneyMovement;
+
+    // The figure, its lines and the fee: one block over the route.
+    final amountBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isFiatMode)
+          // Typed fiat amount (fiat has no in-app balance,
+          // so the number is what a bank leg would move).
+          // Currency selector rides next to the number;
+          // the live BTC estimate sits beneath.
+          BigAmountDisplay(
+            prefix: _fiatSymbol(_fiatCurrency),
+            amountText: _typedFiatAmountController.text,
+            // The sats estimate only where the purchase
+            // lands in bitcoin: a buy into a venue or the
+            // Dollars arrives in dollars, and its fee
+            // block states what arrives.
+            conversionLabel: !_destHyperliquid &&
+                    !_destPredictions &&
+                    !_destUsd &&
+                    fiatEstSats > 0
+                ? (_destFiat
+                    ? 'Sells ≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit'
+                    : '≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit')
+                : null,
+            // The available balance reads on the From
+            // row of the route card, not twice.
+            trailing: AmountCurrencyPill(
+              flag: _fiatFlag(_fiatCurrency),
+              code: _fiatCurrency,
+              // Cash App settles USD fiat only (the
+              // Flashnet onramp is USD-denominated) —
+              // the currency is locked there. The bank
+              // rail is locked too while it offers a
+              // single currency (EUR for now).
+              onTap: (_processing ||
+                      _sourceCashApp ||
+                      _kBankFiatCurrencies.length < 2)
+                  ? null
+                  : _showFiatCurrencyPicker,
+            ),
+          )
+        else
+          BigAmountDisplay(
+            prefix: '\$',
+            amountText: _typedAmount,
+            loading: _loadingRate,
+            conversionLabel: conversionLabel,
+            centered: movement,
+            // The available balance reads on the From
+            // row of the route card, not twice.
+          ),
+        // More than the source has: said under the figure
+        // in the error ink, as the Send amount step says
+        // it; the From square keeps its figure.
+        if (movement &&
+            _sourceBalanceState == null &&
+            _typedExceedsAvailable &&
+            sourceState != null)
+          Padding(
+            padding: EdgeInsets.only(top: 8.h),
+            child: Text(
+              sourceState,
+              key: const ValueKey(
+                  'money-movement-insufficient'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.marketDown,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
+        // One quiet caption line under the big number,
+        // only when there is something to act on: the
+        // Flashnet band edge the typed Cash App amount
+        // broke, or the bank rail's coming-soon line. An
+        // in-band Cash App amount shows no caption (user
+        // decision: no explanatory copy under the amount).
+        if (_isFiatMode)
+          Builder(builder: (context) {
+            final l10n = context.l10n;
+            String? caption;
+            var over = false;
+            if (_sourceCashApp) {
+              final usd = _typedFiatAmount;
+              if (usd > _cashAppMaxFiat) {
+                over = true;
+                caption = l10n.cashAppMaxPerOrder(
+                    _fmtUsdLimit(_cashAppMaxFiat));
+              } else if (usd > 0 && usd < _cashAppMinFiat) {
+                caption = l10n.cashAppMinPerOrder(
+                    _fmtUsdLimit(_cashAppMinFiat));
+              }
+            } else {
+              caption = context.l10n.moveBankComingSoon;
+            }
+            if (caption == null) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: EdgeInsets.only(top: 10.h),
+              child: Text(
+                caption,
+                style: TextStyle(
+                  color: over
+                      ? AppColors.marketDown
+                      : c.textSecondary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  height: 1.35,
+                ),
+              ),
+            );
+          }),
+        // A withheld route says so in the bet slip's own
+        // words and chrome, where the fee and any error
+        // would read; no estimate is asked for it.
+        if (restriction != null)
+          CapabilityBlockNote(
+            restriction.message,
+            key: const ValueKey('money-movement-restricted'),
+            padding: EdgeInsets.only(top: 10.h),
+          ),
+        // A failure reads on the same quiet line as the
+        // fee, in the error ink: no tinted box on this
+        // screen. The button keeps its own state.
+        if (_error != null && restriction == null)
+          Padding(
+            padding: EdgeInsets.only(top: 10.h),
+            child: Text(
+              _error!,
+              textAlign:
+                  movement ? TextAlign.center : null,
+              style: TextStyle(
+                color: AppColors.marketDown,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+                height: 1.35,
+              ),
+            ),
+          ),
+        // What the move costs, as one caption line under
+        // the amount ("Fee about $0.12"); nothing at all
+        // while there is no fee to speak of. Provider
+        // splits and the estimate caveats stay one tap
+        // inside. No arrival time: the sheet has no
+        // estimate of one to state.
+        if (restriction == null)
+        MoneyFeeCaption(
+            centered: movement,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+          if (!_isFiatMode &&
+              _isSupportedSwap &&
+              feeInputState != null)
+            MoneyFeeSummary(
+                state: feeInputState,
+                onRetry: (_isLedgerMove
+                        ? _sourceBalanceState != null &&
+                            feeInputState !=
+                                context.l10n.feeUiCalculating
+                        : feeInputState ==
+                            'Balance unavailable')
+                    ? _retrySourceBalance
+                    : null),
+          if (!_isFiatMode &&
+              !_isLedgerMove &&
+              _isSupportedSwap &&
+              feeInputState == null) ...[
+            if (_isMoneyMovement)
+              _movementFeeSummary()
+            else if (!_fromHyperliquid && !_destHyperliquid)
+              OrchestraFeeSummary(
+                  bitcoinFirst: false,
+                  recipient: _estimateRecipientFor(
+                      _destPredictions
+                          ? 'polygon'
+                          : (_destUsd
+                              ? kOrchestraUsdChain
+                              : 'spark'),
+                      read: ref.watch),
+                  route: (
+                    fromChain: _sourceFeeChain,
+                    fromAsset: _sourceFeeAsset,
+                    toChain: _destHyperliquid
+                        ? 'hypercore'
+                        : (_destPredictions
+                            ? 'polygon'
+                            : (_destUsd
+                                ? kOrchestraUsdChain
+                                : 'spark')),
+                    toAsset: _destHyperliquid
+                        ? 'USDC'
+                        : (_destPredictions
+                            ? 'USDC.e'
+                            : (_destUsd
+                                ? kOrchestraUsdAssetCode
+                                : 'BTC')),
+                    amount: _fromBtc
+                        ? _selectedSats.toString()
+                        : doubleToOrchestraAmount(
+                            _selectedSourceUsd,
+                            _sourceFeeAsset,
+                            chain: _sourceFeeChain),
+                  )),
+            if (!_isMoneyMovement &&
+                (_fromHyperliquid || _destHyperliquid))
+              MoveHyperliquidFees(
+                  deposit: _destHyperliquid,
+                  // A dollar-funded Investing deposit pays
+                  // out of the dollar balance, not out of
+                  // spending bitcoin, so the estimate has
+                  // to ask about the leg that will run.
+                  fromDollars: _dollarsAreSource,
+                  // The mirror on the withdraw side: a
+                  // cash-out into dollars prices the leg
+                  // that will run, not the bitcoin one.
+                  toDollars: _destUsd,
+                  sats: _selectedSats,
+                  usd: _selectedSourceUsd,
+                  bitcoinFirst: false),
+          ],
+          // A Cash App purchase that lands in dollars (a
+          // venue or the Dollars): created as an onramp
+          // order, so estimated at the rule that order is
+          // charged, with the Kute fee and what arrives
+          // shown before Continue.
+          if (_sourceCashApp &&
+              _cashAppDestination.deliversDollars)
+            OrchestraFeeSummary(
+                bitcoinFirst: false,
+                onramp: true,
+                showReceive: true,
+                recipient: _estimateRecipientFor(
+                    _cashAppDestination.chain,
+                    read: ref.watch),
+                recipientPending: _estimateRecipientPending(
+                    _cashAppDestination.chain),
+                route: (
+              fromChain: 'lightning',
+              fromAsset: 'BTC',
+              toChain: _cashAppDestination.chain,
+              toAsset: _cashAppDestination.asset,
+              amount: fiatEstSats.toString(),
+            )),
+          if (_sourceCashApp &&
+              !_cashAppDestination.deliversDollars)
+            const MoneyFeeSummary(
+                label: 'Purchase fee',
+                state: 'Shown in Cash App'),
+        ])),
+      ],
+    );
+
     return Scaffold(
-      key: _isMoneyMovement ? const ValueKey('money-movement-sheet') : null,
+      key: movement ? const ValueKey('money-movement-sheet') : null,
       backgroundColor: c.background,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 8.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Swap and Move money open on the first step's header (founder,
+            // 8 November 2026, of the small centred title: "title is too
+            // small"; receive_surface.dart, SheetTitleHeader): the title
+            // big on the left and the compact X at its top right, as Send
+            // and Receive open. This screen is a route, not a sheet, so no
+            // handle is drawn over it.
+            if (movement)
+              SheetTitleHeader(
+                title: _sheetTitle,
+                handleAbove: true,
+                onClose: () => Navigator.of(context).maybePop(),
+              ),
+            Expanded(
+              child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, movement ? 0 : 8.h, 20.w, 8.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -7795,254 +8243,61 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               // the lock AND the unlocked From/To flags so a swap into a
               // Predictions withdraw reads "Withdraw from Polymarket",
               // fiat reads "Buy/Sell bitcoin", etc.
-              AmountScreenHeader(title: _sheetTitle),
-              SizedBox(height: 16.h),
+              if (!movement) ...[
+                AmountScreenHeader(title: _sheetTitle),
+                SizedBox(height: 16.h),
+              ],
               // ── Middle: the one big typed number ─────────────────────
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_isFiatMode)
-                          // Typed fiat amount (fiat has no in-app balance,
-                          // so the number is what a bank leg would move).
-                          // Currency selector rides next to the number;
-                          // the live BTC estimate sits beneath.
-                          BigAmountDisplay(
-                            prefix: _fiatSymbol(_fiatCurrency),
-                            amountText: _typedFiatAmountController.text,
-                            // The sats estimate only where the purchase
-                            // lands in bitcoin: a buy into a venue or the
-                            // Dollars arrives in dollars, and its fee
-                            // block states what arrives.
-                            conversionLabel: !_destHyperliquid &&
-                                    !_destPredictions &&
-                                    !_destUsd &&
-                                    fiatEstSats > 0
-                                ? (_destFiat
-                                    ? 'Sells ≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit'
-                                    : '≈ ${fiatEstSats.toFormattedString(btcFormat)} $btcUnit')
-                                : null,
-                            // The available balance reads on the From
-                            // row of the route card, not twice.
-                            trailing: AmountCurrencyPill(
-                              flag: _fiatFlag(_fiatCurrency),
-                              code: _fiatCurrency,
-                              // Cash App settles USD fiat only (the
-                              // Flashnet onramp is USD-denominated) —
-                              // the currency is locked there. The bank
-                              // rail is locked too while it offers a
-                              // single currency (EUR for now).
-                              onTap: (_processing ||
-                                      _sourceCashApp ||
-                                      _kBankFiatCurrencies.length < 2)
-                                  ? null
-                                  : _showFiatCurrencyPicker,
-                            ),
-                          )
-                        else
-                          BigAmountDisplay(
-                            prefix: '\$',
-                            amountText: _typedAmount,
-                            loading: _loadingRate,
-                            conversionLabel: conversionLabel,
-                            // The available balance reads on the From
-                            // row of the route card, not twice.
-                          ),
-                        // One quiet caption line under the big number,
-                        // only when there is something to act on: the
-                        // Flashnet band edge the typed Cash App amount
-                        // broke, or the bank rail's coming-soon line. An
-                        // in-band Cash App amount shows no caption (user
-                        // decision: no explanatory copy under the amount).
-                        if (_isFiatMode)
-                          Builder(builder: (context) {
-                            final l10n = context.l10n;
-                            String? caption;
-                            var over = false;
-                            if (_sourceCashApp) {
-                              final usd = _typedFiatAmount;
-                              if (usd > _cashAppMaxFiat) {
-                                over = true;
-                                caption = l10n.cashAppMaxPerOrder(
-                                    _fmtUsdLimit(_cashAppMaxFiat));
-                              } else if (usd > 0 && usd < _cashAppMinFiat) {
-                                caption = l10n.cashAppMinPerOrder(
-                                    _fmtUsdLimit(_cashAppMinFiat));
-                              }
-                            } else {
-                              caption = context.l10n.moveBankComingSoon;
-                            }
-                            if (caption == null) {
-                              return const SizedBox.shrink();
-                            }
-                            return Padding(
-                              padding: EdgeInsets.only(top: 10.h),
-                              child: Text(
-                                caption,
-                                style: TextStyle(
-                                  color: over
-                                      ? AppColors.marketDown
-                                      : c.textSecondary,
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.35,
-                                ),
-                              ),
-                            );
-                          }),
-                        // A withheld route says so in the bet slip's own
-                        // words and chrome, where the fee and any error
-                        // would read; no estimate is asked for it.
-                        if (restriction != null)
-                          CapabilityBlockNote(
-                            restriction.message,
-                            key: const ValueKey('money-movement-restricted'),
-                            padding: EdgeInsets.only(top: 10.h),
-                          ),
-                        // A failure reads on the same quiet line as the
-                        // fee, in the error ink: no tinted box on this
-                        // screen. The button keeps its own state.
-                        if (_error != null && restriction == null)
-                          Padding(
-                            padding: EdgeInsets.only(top: 10.h),
-                            child: Text(
-                              _error!,
-                              style: TextStyle(
-                                color: AppColors.marketDown,
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w500,
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
-                        // What the move costs, as one caption line under
-                        // the amount ("Fee about $0.12"); nothing at all
-                        // while there is no fee to speak of. Provider
-                        // splits and the estimate caveats stay one tap
-                        // inside. No arrival time: the sheet has no
-                        // estimate of one to state.
-                        if (restriction == null)
-                        MoneyFeeCaption(
+                child: movement
+                    // Move money in three even bands of the room left over
+                    // (founder, 7 November 2026: no one large empty band
+                    // between the squares and the chips): over the figure,
+                    // between it and the squares, under the squares. With
+                    // no room left over it scrolls.
+                    ? LayoutBuilder(
+                        builder: (context, box) => SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(minHeight: box.maxHeight),
                             child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                          if (!_isFiatMode &&
-                              _isSupportedSwap &&
-                              feeInputState != null)
-                            MoneyFeeSummary(
-                                state: feeInputState,
-                                onRetry: (_isLedgerMove
-                                        ? _sourceBalanceState != null &&
-                                            feeInputState !=
-                                                context.l10n.feeUiCalculating
-                                        : feeInputState ==
-                                            'Balance unavailable')
-                                    ? _retrySourceBalance
-                                    : null),
-                          if (!_isFiatMode &&
-                              !_isLedgerMove &&
-                              _isSupportedSwap &&
-                              feeInputState == null) ...[
-                            if (_isMoneyMovement)
-                              _movementFeeSummary()
-                            else if (!_fromHyperliquid && !_destHyperliquid)
-                              OrchestraFeeSummary(
-                                  bitcoinFirst: false,
-                                  recipient: _estimateRecipientFor(
-                                      _destPredictions
-                                          ? 'polygon'
-                                          : (_destUsd
-                                              ? kOrchestraUsdChain
-                                              : 'spark'),
-                                      read: ref.watch),
-                                  route: (
-                                    fromChain: _sourceFeeChain,
-                                    fromAsset: _sourceFeeAsset,
-                                    toChain: _destHyperliquid
-                                        ? 'hypercore'
-                                        : (_destPredictions
-                                            ? 'polygon'
-                                            : (_destUsd
-                                                ? kOrchestraUsdChain
-                                                : 'spark')),
-                                    toAsset: _destHyperliquid
-                                        ? 'USDC'
-                                        : (_destPredictions
-                                            ? 'USDC.e'
-                                            : (_destUsd
-                                                ? kOrchestraUsdAssetCode
-                                                : 'BTC')),
-                                    amount: _fromBtc
-                                        ? _selectedSats.toString()
-                                        : doubleToOrchestraAmount(
-                                            _selectedSourceUsd,
-                                            _sourceFeeAsset,
-                                            chain: _sourceFeeChain),
-                                  )),
-                            if (!_isMoneyMovement &&
-                                (_fromHyperliquid || _destHyperliquid))
-                              MoveHyperliquidFees(
-                                  deposit: _destHyperliquid,
-                                  // A dollar-funded Investing deposit pays
-                                  // out of the dollar balance, not out of
-                                  // spending bitcoin, so the estimate has
-                                  // to ask about the leg that will run.
-                                  fromDollars: _dollarsAreSource,
-                                  // The mirror on the withdraw side: a
-                                  // cash-out into dollars prices the leg
-                                  // that will run, not the bitcoin one.
-                                  toDollars: _destUsd,
-                                  sats: _selectedSats,
-                                  usd: _selectedSourceUsd,
-                                  bitcoinFirst: false),
-                          ],
-                          // A Cash App purchase that lands in dollars (a
-                          // venue or the Dollars): created as an onramp
-                          // order, so estimated at the rule that order is
-                          // charged, with the Kute fee and what arrives
-                          // shown before Continue.
-                          if (_sourceCashApp &&
-                              _cashAppDestination.deliversDollars)
-                            OrchestraFeeSummary(
-                                bitcoinFirst: false,
-                                onramp: true,
-                                showReceive: true,
-                                recipient: _estimateRecipientFor(
-                                    _cashAppDestination.chain,
-                                    read: ref.watch),
-                                recipientPending: _estimateRecipientPending(
-                                    _cashAppDestination.chain),
-                                route: (
-                              fromChain: 'lightning',
-                              fromAsset: 'BTC',
-                              toChain: _cashAppDestination.chain,
-                              toAsset: _cashAppDestination.asset,
-                              amount: fiatEstSats.toString(),
-                            )),
-                          if (_sourceCashApp &&
-                              !_cashAppDestination.deliversDollars)
-                            const MoneyFeeSummary(
-                                label: 'Purchase fee',
-                                state: 'Shown in Cash App'),
-                        ])),
-                        SizedBox(height: 18.h),
-                        // No percent row and no To row (user decision):
-                        // the destination is the sheet's own subject, so
-                        // only the source needs picking. That leaves the
-                        // amount and one From row, and a lot of space.
-                        if (_isMoneyMovement)
-                          _movementRouteCard(available: availableValue, detail: sourceState)
-                        else
-                          legacyRouteCard,
-                      ],
-                    ),
-                  ),
-                ),
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                amountBlock,
+                                // Move money shows both ends, as two
+                                // squares. The least gap over them when
+                                // there is no room to share; otherwise the
+                                // even bands set it.
+                                Padding(
+                                  padding: EdgeInsets.only(top: 12.h),
+                                  child: _movementRouteCard(
+                                      available: availableValue),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              amountBlock,
+                              SizedBox(height: 18.h),
+                              // No percent row and no To row (user
+                              // decision): the destination is the sheet's
+                              // own subject, so only the source needs
+                              // picking. That leaves the amount and one
+                              // From row, and a lot of space.
+                              legacyRouteCard,
+                            ],
+                          ),
+                        ),
+                      ),
               ),
               // ── Bottom, pinned: chips + keypad + CTA ─────
               // On every amount screen, in every state, so the layout
@@ -8051,7 +8306,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AmountQuickChips(
+                  // Move money's chips stand exactly over the keypad's
+                  // keys (founder, 7 November 2026: they ran wider than
+                  // the keypad under them).
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: movement ? _kKeypadKeyInset.w : 0),
+                    child: AmountQuickChips(
                     // Same gate as the available-balance tap: a share of
                     // a balance that is still loading, or only a cached
                     // fallback, is not a figure to send. Outside money
@@ -8072,6 +8333,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                           : _applyAmountDollars,
                       onPercent: _applyAmountPercent,
                     ),
+                  ),
                   ),
                   SizedBox(height: 12.h),
                   AmountKeypad(
@@ -8160,6 +8422,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                             _kMinUsdc;
                                       }())),
                   processing: _processing,
+                  // The step to take while the button is off (founder, 1
+                  // November 2026): an amount, less of it, or more.
+                  disabledLabel: _moveNeedLabel(context),
                   // Fiat mode keeps the familiar 'Continue' label in its
                   // permanently disabled state; the quiet line above the
                   // keypad explains why.
@@ -8215,6 +8480,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ],
           ),
         ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -8244,11 +8512,20 @@ class _VenuePull {
   final bool queued;
 }
 
+/// The sheet's primary action. THE BAR IS THE BUTTON (founder, 31 October
+/// 2026; kute_bar_context.dart): the sheet draws no button of its own but
+/// declares the action (its label, enabled and busy states exactly as the
+/// drawn button had them) as the floating Sal bar's primary, and keeps
+/// the keypad clear of the bar. This scope mounts inside the route's
+/// "Move money" scope, so it is the one the bar reads.
 class _ConvertButton extends StatelessWidget {
   final bool enabled;
   final bool processing;
   final String label;
   final VoidCallback onTap;
+
+  /// What the disabled button says: the step to take ("Enter an amount").
+  final String? disabledLabel;
 
   const _ConvertButton({
     super.key,
@@ -8256,14 +8533,21 @@ class _ConvertButton extends StatelessWidget {
     required this.processing,
     required this.label,
     required this.onTap,
+    this.disabledLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AppButton(
-      text: label,
-      onPressed: enabled ? onTap : null,
-      isLoading: processing,
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onTap,
+        enabled: enabled && !processing,
+        busy: processing,
+        source: 'move_amount',
+        disabledLabel: disabledLabel,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
     );
   }
 }
@@ -8320,9 +8604,6 @@ class _DirectionToggle extends ConsumerWidget {
   /// this first.
   final bool dollarsSource;
 
-  /// Whether the Dollars tile is on offer in the From picker at all.
-  /// True only on the two venue-deposit doors.
-  final bool dollarsSourceAvailable;
 
   /// The bank rail is the source. The From chip renders the
   /// bank-transfer glyph + 'Bank account'. The rail is inert (coming
@@ -8344,11 +8625,6 @@ class _DirectionToggle extends ConsumerWidget {
   /// Cash App picked as the buy source — the parent switches the sheet
   /// in place (USD, live onramp). Source side only, so no side flag.
   final VoidCallback onPickCashApp;
-
-  /// The dollar balance picked as the source of a venue deposit. Source
-  /// side only: dollars are a destination through their own door, never
-  /// through this picker's To side.
-  final VoidCallback onPickDollarsSource;
 
   /// What a venue cash-out delivers, picked on the To row of the two
   /// withdrawal doors: the spending account's dollars when `dollars` is
@@ -8376,14 +8652,12 @@ class _DirectionToggle extends ConsumerWidget {
     required this.usdDest,
     required this.hyperliquidSource,
     required this.dollarsSource,
-    required this.dollarsSourceAvailable,
     required this.fiatSource,
     required this.cashAppSource,
     required this.lockedSide,
     required this.onSwap,
     required this.onPickSpendingBitcoin,
     required this.onPickCashApp,
-    required this.onPickDollarsSource,
     required this.onPickWithdrawDestination,
     this.onPickReceive,
   });
@@ -8420,26 +8694,13 @@ class _DirectionToggle extends ConsumerWidget {
       lockedSide == MoveLockedSide.buyToPredictions ||
       lockedSide == MoveLockedSide.buyToHyperliquid;
 
-  /// Whether the dollar balance's own rows wear the USDB coin
-  /// ([kUsdMarkAsset]) in place of the Investments arrow: on the
-  /// buy-bitcoin door (Dollars → Bitcoin), where the balance is the
-  /// money paying, the way the Investments deposit door wears it. The
-  /// withdraw and send rows elsewhere keep the arrow.
-  bool get _dollarsWearCoin => lockedSide == MoveLockedSide.depositFromFiat;
-
   /// The From picker, the only side picker left: every door pins its
-  /// destination. It opens on the venue deposits, the Dollar deposit and
-  /// the buy doors (the withdrawals pin their source, a Ledger move has
-  /// its own source sheet).
+  /// destination. It opens on the venue deposits and the Dollar deposit
+  /// (the withdrawals pin their source, a buy door has one way to pay, a
+  /// Ledger move has its own source sheet).
   void _openSourcePicker(BuildContext context) {
     if (interactionDisabled || ledgerContext) return;
     HapticFeedback.selectionClick();
-    // Locked fiat BUY doors (Buy bitcoin / buy-to-pool): the From side
-    // is a PAYMENT METHOD choice only — Bank account or Cash App —
-    // never a wallet or a surface.
-    final paymentMethodsOnly = lockedSide == MoveLockedSide.depositFromFiat ||
-        lockedSide == MoveLockedSide.buyToPredictions ||
-        lockedSide == MoveLockedSide.buyToHyperliquid;
     // Cash App is the one live fiat rail, listed only while the policy
     // offers it: a withheld onramp is not shown at all (founder decision,
     // October 2026, replacing September's disabled tile). One answer
@@ -8451,34 +8712,10 @@ class _DirectionToggle extends ConsumerWidget {
     // Hint under the picker title, naming only what this picker really
     // offers.
     String pickerHint(bool cashAppListed) {
-      if (paymentMethodsOnly) {
-        // No rail on offer: the dollar balance is all this picker lists,
-        // so the hint names it rather than promising ways to pay.
-        if (!cashAppListed) {
-          return dollarsSourceAvailable
-              ? context.l10n.moveHintFrom(context.l10n.assetDollars)
-              : context.l10n.depositPickHowYouWantToPay;
-        }
-        // The dollar balance rides in this picker too, so the hint names
-        // it rather than promising payment methods and then showing a
-        // balance.
-        return dollarsSourceAvailable
-            ? context.l10n.movePickPayOrDollars
-            : context.l10n.depositPickHowYouWantToPay;
-      }
-      final options = <String>[
-        context.l10n.moveHintAWallet,
-        if (dollarsSourceAvailable) context.l10n.assetDollars,
-        if (cashAppListed) 'Cash App',
-      ];
-      final list = options.length == 1
-          ? options.first
-          : options.length == 2
-              ? context.l10n.moveHintTwo(options.first, options.last)
-              : context.l10n.moveHintMany(
-                  options.sublist(0, options.length - 1).join(', '),
-                  options.last);
-      return context.l10n.moveHintFrom(list);
+      final wallet = context.l10n.moveHintAWallet;
+      return context.l10n.moveHintFrom(cashAppListed
+          ? context.l10n.moveHintTwo(wallet, 'Cash App')
+          : wallet);
     }
 
     // The Investments deposit reads as what it is, adding money to
@@ -8510,60 +8747,30 @@ class _DirectionToggle extends ConsumerWidget {
         // Spending bitcoin: the venue deposits and the Dollar deposit.
         // Their other side is a venue or the dollars, never spending
         // bitcoin itself, so the row is never "in use".
-        if (!paymentMethodsOnly)
-          MovePickerRow(
-            asset: 'lib/assets/bitcoin-icon.svg',
-            title: 'Bitcoin',
-            subtitle: spendingSubtitle,
-            onTap: () {
-              Navigator.of(sheetCtx).pop();
-              onPickSpendingBitcoin();
-            },
-          ),
-        // Another wallet or exchange, under the bitcoin, on the
-        // Investments deposit door only: the Dollars receive screen the
+        MovePickerRow(
+          asset: 'lib/assets/bitcoin-icon.svg',
+          title: 'Bitcoin',
+          subtitle: spendingSubtitle,
+          onTap: () {
+            Navigator.of(sheetCtx).pop();
+            onPickSpendingBitcoin();
+          },
+        ),
+        // Another crypto (from a wallet or an exchange: the Receive
+        // sheets' card for the same door, founder 7 November 2026), under
+        // the bitcoin, on the Investments deposit door only: the Dollars
+        // receive screen the
         // dock's Receive used to open. It wears the dock's inflow arrow;
         // it is a way in, not a source to pay from, so it never reads
         // "selected".
         if (onPickReceive != null)
           MovePickerRow(
             icon: Icons.south_west_rounded,
-            title: context.l10n.depositFromAnotherWallet,
+            title: context.l10n.receiveAnotherCrypto,
             subtitle: context.l10n.depositFromAnotherWalletSubtitle,
             onTap: () {
               Navigator.of(sheetCtx).pop();
               onPickReceive!();
-            },
-          ),
-        // Dollars as a SOURCE. Offered on the two venue-deposit doors
-        // and the buy-bitcoin door: the money leaves as the dollar token
-        // and Orchestra converts it into what the door is buying, the
-        // same leg the Bitcoin tile above rides.
-        //
-        // It survives `paymentMethodsOnly`, and it is the one row that
-        // does. That mode exists to keep wallets and pools out of a BUY,
-        // where the question is how you pay; a dollar balance is an
-        // answer to that question, and it is the only instant one while
-        // the bank rail is dark. `dollarsSourceAvailable` still decides
-        // which doors see it, so the buy-to-pool doors (which are the
-        // same mode) keep the payment rails only.
-        if (dollarsSourceAvailable)
-          MovePickerRow(
-            // Paying for bitcoin out of the Investments balance (the buy
-            // door), the row wears the USDB coin: the money is the coin
-            // itself. Everywhere else the dollar balance as a source or
-            // destination row wears the Investments arrow (the Home
-            // deposit button's icon).
-            asset: _dollarsWearCoin ? kUsdMarkAsset : null,
-            icon: _dollarsWearCoin ? null : kInvestmentsIcon,
-            title: context.l10n.assetDollars,
-            subtitle: context.l10n.moveSourceDollarsSubtitle,
-            // Already the chosen source: SELECTED, not dead.
-            disabled: dollarsSource,
-            disabledLabel: context.l10n.moveSelectedBadge,
-            onTap: () {
-              Navigator.of(sheetCtx).pop();
-              onPickDollarsSource();
             },
           ),
         // The bank row is not drawn. It was a permanently disabled
@@ -8581,14 +8788,9 @@ class _DirectionToggle extends ConsumerWidget {
             title: 'Cash App',
             subtitle: (predictionsDest || hyperliquidDest)
                 ? context.l10n.deposit
-                : usdDest
-                    ? context.l10n.dollarDeposit
-                    : context.l10n.moveBuyBitcoin,
-            // The method already in use is SELECTED, not
-            // disabled. On the buy flow it is usually the
-            // only live rail, and marking it "IN USE" left a
-            // chooser where every row was dead and nothing
-            // explained why.
+                : context.l10n.dollarDeposit,
+            // The method already in use is SELECTED, not disabled: marking
+            // it "IN USE" read as a dead row with nothing to explain why.
             disabled: cashAppSource,
             disabledLabel: context.l10n.moveSelectedBadge,
             onTap: () {
@@ -8743,21 +8945,16 @@ class _DirectionToggle extends ConsumerWidget {
                   ? 'lib/assets/cashapp-logo.svg'
                   : fiatSource
                       ? 'lib/assets/bank-transfer-logo.svg'
-                      : dollarsSource && _dollarsWearCoin
-                          ? kUsdMarkAsset
-                          : sourceIsHyperliquid
-                              ? 'lib/assets/hyperliquid-logo.svg'
-                              : sourceIsUsdc
-                                  ? 'lib/assets/polymarket-logo.svg'
-                                  : (sourceBrandAsset ??
-                                      'lib/assets/bitcoin-icon.svg'),
+                      : sourceIsHyperliquid
+                          ? 'lib/assets/hyperliquid-logo.svg'
+                          : sourceIsUsdc
+                              ? 'lib/assets/polymarket-logo.svg'
+                              : (sourceBrandAsset ??
+                                  'lib/assets/bitcoin-icon.svg'),
               assetTint: sourceBrandAsset != null ? sourceBrandColor : null,
               // The dollar balance as a source wears the Investments
-              // arrow (`asset` is ignored while `iconData` is set),
-              // except on the buy-bitcoin door, where it wears the USDB
-              // coin above ([_dollarsWearCoin]).
-              iconData:
-                  dollarsSource && !_dollarsWearCoin ? kInvestmentsIcon : null,
+              // arrow (`asset` is ignored while `iconData` is set).
+              iconData: dollarsSource ? kInvestmentsIcon : null,
               // Bank on the FROM side is money coming in, so the second
               // line names the action ('Deposit') rather than repeating
               // the rail ('Bank transfer'), which said nothing the title
@@ -8793,7 +8990,13 @@ class _DirectionToggle extends ConsumerWidget {
                       : (lockedSide == MoveLockedSide.withdrawFromPredictions ||
                               lockedSide ==
                                   MoveLockedSide.withdrawFromHyperliquid ||
-                              lockedSide == MoveLockedSide.withdrawToFiat)
+                              lockedSide == MoveLockedSide.withdrawToFiat ||
+                              // A buy door has one way to pay today, Cash
+                              // App: nothing to choose, no picker. A second
+                              // live rail brings this back.
+                              lockedSide == MoveLockedSide.depositFromFiat ||
+                              lockedSide == MoveLockedSide.buyToPredictions ||
+                              lockedSide == MoveLockedSide.buyToHyperliquid)
                           ? null
                           : () => _openSourcePicker(context),
             ),
@@ -8876,20 +9079,40 @@ class MovePickerRow extends StatelessWidget {
   }) : assert((asset == null) != (icon == null),
             'A picker row wears one mark: an SVG asset or a glyph');
 
+  /// The row's mark at [size]: the brand SVG, or the glyph on its tile.
+  Widget _mark(AppColorsExtension c, double size) => icon != null
+      ? Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(size * 11 / 36),
+          ),
+          child: Icon(icon, color: c.textPrimary, size: size * 20 / 36),
+        )
+      : SvgPicture.asset(asset!, width: size, height: size);
+
+  /// The same choice as a big card (kute_action_cards.dart), for a picker
+  /// of four entries or fewer: the mark at 40, the title over the
+  /// subtitle, the badge at the top right while [disabled]. The row's key
+  /// rides on the card.
+  KuteActionCard toCard() => KuteActionCard(
+        key: key,
+        // Built under the card, so the mark reads the picker's untinted
+        // palette, never the tinted sheet that opened it.
+        visual: Builder(
+            builder: (context) =>
+                _mark(context.colors, kKuteActionCardVisualSize)),
+        title: title,
+        subtitle: subtitle,
+        badge: disabled ? disabledLabel : null,
+        onTap: disabled ? null : onTap,
+      );
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final mark = icon != null
-        ? Container(
-            width: 36.sp,
-            height: 36.sp,
-            decoration: BoxDecoration(
-              color: c.textPrimary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11.r),
-            ),
-            child: Icon(icon, color: c.textPrimary, size: 20.sp),
-          )
-        : SvgPicture.asset(asset!, width: 36.sp, height: 36.sp);
+    final mark = _mark(c, 36.sp);
     // Custom Row instead of ListTile to control the exact left
     // padding. ListTile applied an implicit `_minLeadingWidth`
     // gap that left a visible empty band between the screen edge
@@ -8956,6 +9179,26 @@ class MovePickerRow extends StatelessWidget {
   }
 }
 
+/// A picker's entries: four or fewer choices as the big cards
+/// (founder, 1 November 2026: "instead of a list, big squares"), inset by
+/// the sheet's 20; a longer list keeps its rows.
+List<Widget> _movePickerBody(List<Widget> rows) {
+  if (rows.isEmpty ||
+      rows.length > 4 ||
+      rows.any((r) => r is! MovePickerRow)) {
+    return rows;
+  }
+  return [
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: KuteActionCardGrid(
+        key: const ValueKey('move-picker-cards'),
+        cards: [for (final r in rows.cast<MovePickerRow>()) r.toCard()],
+      ),
+    ),
+  ];
+}
+
 /// The chrome every picker in this sheet wears: the untinted surface,
 /// the handle, a [title] with its [hint], then [rows]. Shared so a
 /// picker with two entries reads exactly like the one with ten.
@@ -8967,7 +9210,7 @@ Future<T?> _showMovePickerSheet<T>(
           BuildContext sheetCtx, RuntimeCapabilitiesService policy)
       rows,
 }) {
-  return showModalBottomSheet<T>(
+  return showKuteModalSheet<T>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -8981,63 +9224,69 @@ Future<T?> _showMovePickerSheet<T>(
       // opened this one. On a green sheet that ink is white, so the
       // title rendered white on the white picker and disappeared.
       final pc = _untintedColors(sheetCtx);
+      // A picker is a short sheet: content-sized under the short fraction,
+      // the floating bar goes while it is up (KuteSheetBarFit; founder,
+      // 5 November 2026: the Sal pill sat over the "Add money to Dollars"
+      // cards). A long list past it keeps the bar.
       return _untinted(
         sheetCtx,
-        Container(
-          decoration: BoxDecoration(
-            color: pc.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-          ),
-          padding: EdgeInsets.fromLTRB(0, 16.h, 0, 16.h),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40.w,
-                    height: 4.h,
-                    decoration: BoxDecoration(
-                      color: pc.dragHandle,
-                      borderRadius: BorderRadius.circular(2.r),
+        KuteSheetBarFit(
+          child: Container(
+            decoration: BoxDecoration(
+              color: pc.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            padding: EdgeInsets.fromLTRB(0, 16.h, 0, 16.h),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40.w,
+                      height: 4.h,
+                      decoration: BoxDecoration(
+                        color: pc.dragHandle,
+                        borderRadius: BorderRadius.circular(2.r),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: 20.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: pc.textPrimary,
-                          fontSize: 28.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6,
-                        ),
-                      ),
-                      if (hint(policy).isNotEmpty) ...[
-                        SizedBox(height: 6.h),
+                  SizedBox(height: 20.h),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          hint(policy),
+                          title,
                           style: TextStyle(
-                            color: pc.textTertiary,
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.1,
+                            color: pc.textPrimary,
+                            fontSize: 28.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.6,
                           ),
                         ),
+                        if (hint(policy).isNotEmpty) ...[
+                          SizedBox(height: 6.h),
+                          Text(
+                            hint(policy),
+                            style: TextStyle(
+                              color: pc.textTertiary,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                SizedBox(height: 16.h),
-                ...rows(sheetCtx, policy),
-                SizedBox(height: 8.h),
-              ],
+                  SizedBox(height: 16.h),
+                  ..._movePickerBody(rows(sheetCtx, policy)),
+                  SizedBox(height: 8.h),
+                ],
+              ),
             ),
           ),
         ),

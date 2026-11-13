@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_bar_surface.dart';
 
 /// Re-expresses the whole palette as contrast ink on [side], so a sheet
 /// can paint itself in a money direction's own colour and every child
@@ -13,19 +14,29 @@ import 'package:kute/theme/app_theme.dart';
 /// `surfaceElevated` for the selected or pressed state.
 AppColorsExtension sideTintPalette(AppColorsExtension base, Color side) {
   final on = contrastingOnColor(side);
+  // The quieter text steps: white keeps the steps it always had; dark ink
+  // on a light fill (an outcome's soft line colour) loses contrast faster
+  // as it thins, so its steps sit higher and still read at 4.5:1 on any
+  // fill dark ink is picked for.
+  final dark = on != Colors.white;
+  // Panes, borders and the drag handle are one family ([tintPane]): in
+  // white ink the steps they always had, in dark ink each matched to the
+  // contrast its white step has on the Yes slip's green, so a light sheet's
+  // outlines are as quiet as a green sheet's (founder, 12 November 2026,
+  // on the Draw slip: "they look like they have bigger borders").
   return base.copyWith(
     background: side,
-    surface: on.withValues(alpha: 0.16),
-    surfaceLight: on.withValues(alpha: 0.24),
-    surfaceElevated: on.withValues(alpha: 0.32),
+    surface: tintPane(on, side, 0.16),
+    surfaceLight: tintPane(on, side, 0.24),
+    surfaceElevated: tintPane(on, side, 0.32),
     textPrimary: on,
-    textSecondary: on.withValues(alpha: 0.78),
-    textTertiary: on.withValues(alpha: 0.64),
-    textDisabled: on.withValues(alpha: 0.38),
-    border: on.withValues(alpha: 0.34),
-    borderSubtle: on.withValues(alpha: 0.22),
+    textSecondary: on.withValues(alpha: dark ? 0.86 : 0.78),
+    textTertiary: on.withValues(alpha: dark ? 0.76 : 0.64),
+    textDisabled: on.withValues(alpha: dark ? 0.46 : 0.38),
+    border: tintPane(on, side, 0.34),
+    borderSubtle: tintPane(on, side, 0.22),
     borderFocused: on,
-    dragHandle: on.withValues(alpha: 0.45),
+    dragHandle: tintPane(on, side, 0.45),
     accent: on,
     // Status inks go to full-strength contrast: an error line on a red
     // sheet has to stay readable, and the icon beside it carries the
@@ -37,6 +48,76 @@ AppColorsExtension sideTintPalette(AppColorsExtension base, Color side) {
     cardShadow: Colors.transparent,
   ) as AppColorsExtension;
 }
+
+/// The white-ink sheet every dark-ink step is matched to: the Yes slip's
+/// green.
+const Color kTintParitySheet = AppColors.marketUp;
+
+/// The WCAG contrast of [step] painted over the opaque [sheet], against
+/// [sheet]: how far a pane or a border stands off the sheet it is on.
+double tintStepContrast(Color step, Color sheet) {
+  final a = Color.alphaBlend(step, sheet).computeLuminance();
+  final b = sheet.computeLuminance();
+  return a > b ? (a + 0.05) / (b + 0.05) : (b + 0.05) / (a + 0.05);
+}
+
+final Map<(int, int, double), double> _stepAlphas = {};
+
+/// The strength of a tinted sheet's step in ink [on] over [side]: in white
+/// ink [alpha] itself, the step the green and red sheets have always had;
+/// in dark ink the strength at which it stands off [side] exactly as far
+/// (WCAG contrast, [tintStepContrast]) as white at [alpha] stands off the
+/// Yes slip's green ([kTintParitySheet]). Black weighs far more over a
+/// soft fill than white over a saturated one: the same alpha in black was
+/// a pane of mud and a border two and a half times as heavy.
+double tintStepAlpha(Color on, Color side, double alpha) {
+  if (on == Colors.white || alpha <= 0) return alpha;
+  return _stepAlphas.putIfAbsent((on.toARGB32(), side.toARGB32(), alpha), () {
+    final target = tintStepContrast(
+        Colors.white.withValues(alpha: alpha), kTintParitySheet);
+    var lo = 0.0, hi = 1.0;
+    for (var i = 0; i < 30; i++) {
+      final mid = (lo + hi) / 2;
+      if (tintStepContrast(on.withValues(alpha: mid), side) < target) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    return hi;
+  });
+}
+
+/// A step of a tinted sheet's ink [on] over [side] (a tappable surface, a
+/// selected side, a key, a border, the close circle): [alpha] is its
+/// strength in white ink, and dark ink takes [tintStepAlpha] of it, so a
+/// light sheet's panes and outlines separate exactly as quietly as the
+/// green sheet's and the words on them keep reading.
+Color tintPane(Color on, Color side, double alpha) =>
+    on.withValues(alpha: tintStepAlpha(on, side, alpha));
+
+/// A border of ink [on] at white strength [alpha] drawn over a pane of
+/// the same ink at white strength [over] (a side button's outline over its
+/// own pane): in white ink [alpha] itself; in dark ink the strength at
+/// which the outline and the pane under it together stand off [side] as
+/// far as the white pair stands off the Yes slip's green. Matching the
+/// two steps one by one would stack two darks into a heavier rim.
+Color tintEdge(Color on, Color side, double alpha, {required double over}) {
+  if (on == Colors.white) return on.withValues(alpha: alpha);
+  final whole = tintStepAlpha(on, side, 1 - (1 - alpha) * (1 - over));
+  final pane = tintStepAlpha(on, side, over);
+  return on.withValues(
+      alpha: ((whole - pane) / (1 - pane)).clamp(0.0, 1.0).toDouble());
+}
+
+/// The fill of a slip's one primary button on a sheet lettered in [on]:
+/// the ink itself. On a dark fill that is the white button the green and
+/// red slips have always had; on a light fill (an outcome's soft line
+/// colour) a white button would not stand off the sheet, so it is the
+/// app's own near-black button ([KuteBarSurface.inkOnWhite], the bar's
+/// fill in light mode), lettered by [slipCtaLabelColor].
+Color slipCtaFill(Color on) =>
+    on == Colors.white ? on : KuteBarSurface.inkOnWhite;
 
 /// The label colour of a slip's one primary button whose fill is [fill].
 /// A trade (Yes/No, Long/Short) sitting on the sheet's ink is lettered in
@@ -126,6 +207,15 @@ class SheetTint extends InheritedWidget {
 
   /// Best-contrast ink on [side] — the same helper the CTA label uses.
   final Color on;
+
+  /// A pane or a border of the sheet's ink at [alpha], its strength in
+  /// white ink ([tintPane]).
+  Color pane(double alpha) => tintPane(on, side, alpha);
+
+  /// An outline of the sheet's ink at [alpha] over its own pane at
+  /// [over], both strengths in white ink ([tintEdge]).
+  Color edge(double alpha, {required double over}) =>
+      tintEdge(on, side, alpha, over: over);
 
   static SheetTint? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<SheetTint>();

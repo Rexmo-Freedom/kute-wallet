@@ -59,6 +59,22 @@ class PmReferencePriceFrame {
   });
 }
 
+/// [series] (the live feed's points, oldest first) with the points of
+/// [backfill] (a read of the past, oldest first) that are older than its
+/// first point in front of it, so a chart draws a round from its start
+/// while the live feed is never overwritten. [at] reads a point's time.
+/// Pure; the Instant card's longer rounds use it (polymarket_provider.dart).
+List<T> cryptoSeriesWithBackfill<T>(List<T> backfill, List<T> series,
+    {required DateTime Function(T point) at}) {
+  if (backfill.isEmpty) return series;
+  if (series.isEmpty) return backfill;
+  final first = at(series.first);
+  var n = backfill.indexWhere((p) => !at(p).isBefore(first));
+  if (n < 0) n = backfill.length;
+  if (n == 0) return series;
+  return [...backfill.sublist(0, n), ...series];
+}
+
 /// Reconnect timing for the PolyBolt reference-price feed.
 class PmReferenceFeedRetry {
   int _failures = 0;

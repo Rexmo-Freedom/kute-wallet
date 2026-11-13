@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/providers/open_pnl_history_provider.dart'
+    show OpenPnlSources;
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -163,8 +167,34 @@ Future<RecordingRewardsApi> pumpInvestments(
   bool browseInvesting = false,
   bool browsePredictions = false,
 
+  /// The dark theme (the on-demand renders).
+  bool dark = false,
+
+  /// The app's language; the device's (English) when null.
+  Locale? locale,
+
   /// The spending account's history (the Portfolio's Activity rows).
   Transaction? history,
+
+  /// Where the open positions' P&L chart reads trades and prices; none by
+  /// default.
+  OpenPnlSources? openPnlSources,
+
+  /// A policy of the test's own (a backend fixture) in place of
+  /// [InvestmentsTestPolicy]; [earn] and the browse flags are then unused.
+  RuntimeCapabilitiesService? policy,
+
+  /// The Settings currency.
+  String currency = 'USD',
+
+  /// The viewer's text size (1: the default).
+  double textScale = 1,
+
+  /// Settings' balance privacy (0: shown; 1 or 2: balances hidden).
+  int balancePrivacy = 0,
+
+  /// The Investing watchlist in place of none (a test's own stars).
+  HlWatchlistNotifier Function()? hlStars,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -172,7 +202,7 @@ Future<RecordingRewardsApi> pumpInvestments(
   addTearDown(tester.view.resetDevicePixelRatio);
   final api = RecordingRewardsApi(estimatedSatsToday: estimatedSatsToday);
   final settings = Settings(
-    currency: 'USD',
+    currency: currency,
     language: 'en',
     btcFormat: 'sats',
     backup: false,
@@ -180,18 +210,26 @@ Future<RecordingRewardsApi> pumpInvestments(
     bitcoinElectrumNode: '',
     nodeType: 'Blockstream',
     reviewDone: true,
+    balancePrivacy: balancePrivacy,
     activeWalletId: 'spending',
     wallets: [WalletConfig(id: 'spending', name: 'Spending')],
   );
-  final policy = InvestmentsTestPolicy(earn,
-      browseInvesting: browseInvesting, browsePredictions: browsePredictions);
-  RuntimeCapabilitiesService.debugInstance = policy;
+  final shown = policy ??
+      InvestmentsTestPolicy(earn,
+          browseInvesting: browseInvesting,
+          browsePredictions: browsePredictions);
+  RuntimeCapabilitiesService.debugInstance = shown;
   addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      ...portfolioOverrides(dollars: balance.dollarsUsd, history: history),
+      ...portfolioOverrides(
+          dollars: balance.dollarsUsd,
+          history: history,
+          openPnlSources: openPnlSources),
+      // The Investments activity reads the price (no rates box here).
+      currentBtcUsdProvider.overrideWithValue(100000),
       settingsProvider.overrideWith((_) => SettingsModel(settings)),
-      runtimeCapabilitiesProvider.overrideWithValue(policy),
+      runtimeCapabilitiesProvider.overrideWithValue(shown),
       oneBalanceProvider.overrideWithValue(balance),
       usdBalanceProvider.overrideWithValue(balance.dollarsUsd),
       sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
@@ -202,7 +240,7 @@ Future<RecordingRewardsApi> pumpInvestments(
       hyperliquidPerpCoreMarketsProvider
           .overrideWith((_) async => <HlMarket>[]),
       hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
-      hlWatchlistProvider.overrideWith(_NoStars.new),
+      hlWatchlistProvider.overrideWith(hlStars ?? _NoStars.new),
       hyperliquidAddressProvider.overrideWith((_) async => null),
       // The Predictions browser: no stars.
       polyWatchlistProvider.overrideWith(_NoPolyStars.new),
@@ -213,13 +251,25 @@ Future<RecordingRewardsApi> pumpInvestments(
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           fontFamily: 'Inter',
+          brightness: dark ? Brightness.dark : Brightness.light,
           splashFactory: NoSplash.splashFactory,
-          extensions: [AppColorsExtension.light()],
+          extensions: [
+            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+          ],
         ),
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        builder: textScale == 1
+            ? null
+            : (context, child) => MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: child!,
+                ),
         home: child ?? const UsdAccountScreen(),
       ),
     ),
@@ -258,9 +308,13 @@ Future<void> tapAndPump(WidgetTester tester, Finder finder) async {
 }
 
 /// A pill of the Investments strip, by label.
+/// A pill of the strip by its name. The picked pill carries its category
+/// after the name ("Investing · Trending ⌄"), so a name matches either.
 Finder investmentsPill(String label) => find.descendant(
     of: find.byType(KutePillTabs).first,
-    matching: find.widgetWithText(KutePill, label));
+    matching: find.byWidgetPredicate((w) =>
+        w is KutePill &&
+        (w.label == label || w.label.startsWith('$label '))));
 
 /// Scrolls the pill strip (four pills side-scroll at natural width, the
 /// Home strip's rule) until the pill with [label] is built and on screen.
@@ -278,14 +332,21 @@ Future<Finder> revealPill(WidgetTester tester, String label) async {
     }
     if (pill.evaluate().isNotEmpty) break;
   }
-  await tester.ensureVisible(pill);
+  // Only when it is not already tappable: ensureVisible also aligns the
+  // page's vertical scroll, which would collapse the header.
+  if (pill.hitTestable().evaluate().isEmpty) await tester.ensureVisible(pill);
   await tester.pump();
   return pill;
 }
 
 /// Reveals and taps the pill with [label], then settles by hand.
-Future<void> tapPill(WidgetTester tester, String label) async =>
-    tapAndPump(tester, await revealPill(tester, label));
+/// Picks the pill named [label]. A pill already picked is left alone (a
+/// tap on it opens its categories, which is not a pick).
+Future<void> tapPill(WidgetTester tester, String label) async {
+  final pill = await revealPill(tester, label);
+  if (tester.widget<KutePill>(pill).selected) return;
+  await tapAndPump(tester, pill);
+}
 
 /// Every tracked event from now until the test ends.
 List<(String, Map<String, Object>?)> recordEvents() {

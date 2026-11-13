@@ -1,3 +1,15 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
+import 'package:kute/screens/shared/standing_order_slips.dart'
+    show StandingOrderSlips;
+import 'package:kute/screens/shared/standing_order_toasts.dart'
+    show StandingOrderToasts;
+import 'package:kute/services/standing_orders/standing_orders_provider.dart'
+    show
+        StandingOrder,
+        StandingOrderState,
+        StandingOrderVenue,
+        standingOrdersProvider;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
 import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
@@ -35,11 +47,9 @@ import 'package:kute/screens/shared/kute_motion.dart';
 // and margin mode + leverage are applied inside those methods (isCross +
 // _ensureLeverage) so the write is atomic with the order.
 //
-// Denomination: the user's money (margin input companion, notional preview
-// and CTA amount) honours the app's Assets/Predictions denomination via
-// formatPolyAmount — a sats/BTC (or non-USD fiat) companion line,
-// mirroring the bet slip. Entry stays in USD; the asset PRICE (limit /
-// trigger / mid) always stays in USD — it's the market price, not the stake.
+// Denomination: this slip is Dollars money, so the entry, the notional preview
+// and the CTA amount are all dollars, whatever the Settings currency
+// (formatDollars), and so is the asset PRICE (limit / trigger / mid).
 //
 // Risk UX carried over: spread ≥1% warning banner, ≥3% extra confirm; a mid
 // that hasn't ticked for >10 s disables confirm ("refreshing price…"); the
@@ -47,6 +57,18 @@ import 'package:kute/screens/shared/kute_motion.dart';
 //
 // The policy helper below refreshes the relevant operation capability.
 // Existing-position exits use a separate permission from new exposure.
+//
+// Shown, not bought (founder decision, 12 November 2026): every market
+// stays browsable whatever the policy refuses for the person's region,
+// so this ticket is where a refused buy stops. A market whose new
+// positions the policy refuses (`hyperliquid.trade`, or
+// `hyperliquid.stocks` on a stock-linked perp; [hlOpenCapabilities])
+// opens with its confirm disabled under the policy's own reason
+// ([CapabilityBlockNote], "Check connection" for a region refusal),
+// adding to a held position included, before Face ID and before any
+// money moves. Closing, reducing and selling answer to
+// `hyperliquid.close` and stay open. A policy that cannot be read
+// refuses the open (fail closed) while the market stays on screen.
 //
 // Step-up (Wallet Hardening Phase 1b.3): confirm builds the order once as a
 // [_SlipOrder] (intent plus the exact notifier call) and asks for a fresh
@@ -60,6 +82,11 @@ import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
+import 'package:kute/screens/share/slip_share.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,8 +113,8 @@ import 'package:kute/providers/hyperliquid_user_events_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show committedFundsProvider, orderDollarsProvider;
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -111,11 +138,12 @@ import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart'
     show MoneyFeeFigure, MoneyFeeLeg, fundingLegFeeLabel;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/market_side_toggle.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
+import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart'
+    show hlConfirmingOrdersProvider;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
@@ -135,6 +163,8 @@ import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableExcludingProvider, venueCashRefreshProvider;
+import 'package:kute/services/one_balance/gift_funding.dart'
+    show giftSpendableProvider;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegPlan, BitcoinLegRules;
 import 'package:kute/services/one_balance/funded_orders.dart';
@@ -153,7 +183,7 @@ import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_funder.dart'
-    show RouteUnavailable, UserGrantAuthorization;
+    show RouteUnavailable, UserGrantAuthorization, VenueMoveQuote;
 import 'package:kute/services/one_balance/venue_cash_funded_order.dart'
     show VenueCashFundedRequest, venueCashFundedOrderRunnerProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart'
@@ -195,7 +225,7 @@ Future<bool> checkHyperliquidGeoblock(BuildContext context, WidgetRef ref,
     return false;
   } on CapabilityUnavailableException catch (error) {
     message = error.decision.bodyIn(l10n);
-    regionBlocked = error.decision.regionRestricted;
+    regionBlocked = error.decision.regionBlocked;
     denial = (capability: error.capability, decision: error.decision);
   } on ProviderAvailabilityException catch (error) {
     message = error.availability.messageIn(l10n);
@@ -265,6 +295,8 @@ class _FundPlan {
     required this.fundUsd,
     required this.arrivingUsd,
     this.bitcoinSpread,
+    this.quote,
+    this.quotedAt,
   });
 
   final double shortfallUsd;
@@ -274,6 +306,14 @@ class _FundPlan {
   /// The Bitcoin conversion's share Orchestra quoted with the plan (null:
   /// the fallback spread), for a Bitcoin leg's fee line.
   final double? bitcoinSpread;
+
+  /// The funder's estimate this plan was read from, priced for
+  /// [arrivingUsd] (the engine's target), and when: the accept sizes the
+  /// move on it while it is fresh ([HyperliquidVenueFunder.freshFirstQuote])
+  /// instead of asking Orchestra for the same figure again. Null for a
+  /// fallback plan.
+  final VenueMoveQuote? quote;
+  final DateTime? quotedAt;
 
   double get moveFeeUsd => math.max(0, fundUsd - arrivingUsd);
 }
@@ -307,6 +347,29 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// Ledger user gets the same screen rather than a second product.
   final String? ledgerWalletId;
 
+  /// Optional amount (dollars) the ticket opens with, written as if typed
+  /// (a claimed share link's pick, claim_screen.dart). Null opens empty.
+  final double? initialUsd;
+
+  /// SEND MODE (screens/share/send_pick_session.dart): the ticket opened
+  /// from Send's market search. Its primary sends this investment to a
+  /// friend ("Send $50 · Short AMD", slip_share.dart) and nothing is ever
+  /// placed; null: the ordinary ticket.
+  final SendPickSession? sendPick;
+
+  /// REOPENED from Sal's placing toast (founder, 10 November 2026, on
+  /// 2.2.0 (101): "we should just reuse the betslip, the red or green
+  /// one"): the ticket opens locked on the standing order the ticket that
+  /// was left had accepted, exactly as it was left (its side's colour, the
+  /// money's journey in the keypad's place, the "OK"), following that
+  /// order: the orders on its market it looks past (every other one,
+  /// [StandingOrderToasts.followSet]). Every way back to an order on its
+  /// way opens it so (founder, 11 November 2026, on 2.2.0 (104): no white
+  /// journey sheet, no Cancel, "OK", its haptics running again;
+  /// standing_order_slips.dart), rebuilt from the order's record where
+  /// the left ticket was not kept. Null: the ordinary ticket.
+  final Set<String>? standingEndedBefore;
+
   const HlOrderSlipSheet({
     super.key,
     required this.market,
@@ -314,6 +377,9 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     this.source,
     this.entrySource,
     this.ledgerWalletId,
+    this.initialUsd,
+    this.sendPick,
+    this.standingEndedBefore,
   });
 
   /// Route name used to pop back down to the host after a fill — see
@@ -328,6 +394,8 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     String? source,
     String? entrySource,
     String? ledgerWalletId,
+    double? initialUsd,
+    SendPickSession? sendPick,
   }) async {
     // The ticket always opens: markets and their tickets stay browsable,
     // and a policy that withholds new positions disables the one confirm
@@ -374,25 +442,64 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     // (long-standing Flutter gap) — that would let a user swipe the
     // sheet away mid-placement. Dismissal is via tap-outside
     // (isDismissible), which DOES go through PopScope.
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: false,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      routeSettings: const RouteSettings(name: routeName),
-      builder: (_) => HlOrderSlipSheet(
+    _present(
+      context,
+      HlOrderSlipSheet(
         market: market,
         initialIsLong: isLong,
         source: source,
         entrySource: entrySource,
         ledgerWalletId: ledgerWalletId,
+        initialUsd: initialUsd,
+        sendPick: ledgerWalletId == null ? sendPick : null,
       ),
     );
   }
+
+  /// The ticket's sheet over everything (the root navigator), as [show]
+  /// opens it.
+  static Future<void> _present(BuildContext context, HlOrderSlipSheet slip) =>
+      showKuteModalSheet(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        isDismissible: true,
+        enableDrag: false,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.4),
+        routeSettings: const RouteSettings(name: routeName),
+        builder: (_) => slip,
+      );
+
+  /// Opens the ticket [left] again, locked on its standing order (Sal's
+  /// placing toast's tap, [standingEndedBefore]): the same market, side
+  /// and amount as it was left. Nothing is counted again (it is the same
+  /// ticket, not a new one opened) and no gate runs (nothing new can be
+  /// placed from it while its order is on its way). Locked whatever money
+  /// journey there is to show (founder, 11 November 2026, on 2.2.0 (109)):
+  /// the keypad folded, the order's line placing in its place, "OK";
+  /// never the editable form, never checked against a minimum again. It
+  /// goes by itself once its order ends with nothing on it to show
+  /// (placed, resting, over quietly), and only ever opens on a tap.
+  static Future<void> reopenStanding(
+    BuildContext context,
+    HlOrderSlipSheet left, {
+    required bool isLong,
+    required double marginUsd,
+    required Set<String> endedBefore,
+  }) =>
+      _present(
+        context,
+        HlOrderSlipSheet(
+          market: left.market,
+          initialIsLong: isLong,
+          source: left.source,
+          entrySource: left.entrySource,
+          initialUsd: marginUsd,
+          standingEndedBefore: endedBefore,
+        ),
+      );
 
   /// Pop the slip plus any modal sheets / fullscreen routes stacked
   /// above the host screen — copy of
@@ -505,6 +612,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   bool? _advancedOptionsOpen;
 
   bool _isPlacing = false;
+
+  /// The cloid of the order this ticket sent last: while the trading
+  /// notifier is looking it up after a send with no answer, the busy
+  /// button says "Confirming with the exchange…".
+  String? _sentCloid;
 
   /// Tapped, and the checks that run before the order is built are
   /// still going. Separate from [_isPlacing], which means the order
@@ -625,9 +737,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   String _flowStep = 'amount';
   String? _stopReason;
   String? _lastErrorCategory;
-  // none (opened empty) | keypad | max | min (the under-the-minimum
-  // button wrote and placed it) | min_direct (the empty ticket's button
-  // placed the minimum)
+  // none (opened empty) | prefill (carried in) | keypad | max | min (the
+  // under-the-minimum button wrote and placed it) | min_direct (the empty
+  // ticket's button placed the minimum)
   String _amountMethod = 'none';
 
   /// The empty ticket's button wrote the minimum; the next build places
@@ -711,6 +823,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// "Check connection" is asking the venues and the policy again.
   bool _checkingConnection = false;
 
+  /// A send's tap is asking the open gate again ([_sendTapped]).
+  bool _sendAsking = false;
+
   /// The order on the ticket only reduces or closes, so it answers to
   /// `hyperliquid.close` and never to the open gate (the same split
   /// `_confirmInner` makes).
@@ -729,7 +844,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           .ensureAllAllowed(hlOpenCapabilities(market));
     } on CapabilityUnavailableException catch (error) {
       message = error.decision.message;
-      regionBlocked = error.decision.regionRestricted;
+      regionBlocked = error.decision.regionBlocked;
       denial = error;
     } on ProviderAvailabilityException catch (error) {
       message = error.availability.message;
@@ -756,7 +871,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       TrackingService.hyperliquidGeoblockedShown();
       if (denial != null) {
         TrackingService.capabilityRegionBlocked(denial.capability,
-            blockedBy: denial.decision.blockedBy, surface: 'order_slip');
+            blockedBy: denial.decision.blockedBy,
+            surface:
+                widget.sendPick != null ? kSendModeSlipSource : 'order_slip');
       }
     }
     _updateDraft(() {
@@ -893,6 +1010,89 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   final List<HlFill> _orderFills = [];
 
   HlMarket get market => widget.market;
+
+  /// What the ticket sends in send mode, read at each build and at the
+  /// tap (screens/share/slip_share.dart): this market by the wire coin the
+  /// Claim screen resolves, Long or Short, the amount typed. A spot sale
+  /// is no investment to send: the market's card alone.
+  SlipSharePick _slipSharePick({required double minUsd, required bool blocked}) {
+    final name = hlFriendlyName(market.coin) ?? market.coin;
+    final mid = market.midPx > 0 ? market.midPx : market.markPx;
+    final selling = isSpot && !_isLong;
+    return SlipSharePick(
+      investing: true,
+      slug: market.wireCoin,
+      marketLinkSlug: market.coin,
+      title: name,
+      outcome: _isLong ? _strings.longLabel : _strings.shortLabel,
+      side: _isLong ? 'long' : 'short',
+      sideLabel: _isLong ? _strings.longLabel : _strings.shortLabel,
+      amountUsd: _marginUsd,
+      minUsd: minUsd,
+      minLabel: formatHlUsd(minUsd),
+      blocked: blocked,
+      cardOnly: selling,
+      price: mid > 0
+          ? formatHlPrice(mid, decimalCap: market.pxDecimalCap)
+          : null,
+      ticker: name != market.coin ? market.coin : null,
+      wireCoin: market.wireCoin,
+      coinCategory: market.category,
+      coinIconUrl: market.iconUrl,
+      reachUsd: ref.read(giftSpendableProvider),
+    );
+  }
+
+  /// A tap on the send: the open gate is asked again first, its answer at
+  /// open landing behind the first frame, and a refused market creates no
+  /// link (screens/share/slip_share.dart).
+  Future<void> _sendTapped(SendPickSession session,
+      {required double minUsd}) async {
+    if (_sendAsking) return;
+    setState(() => _sendAsking = true);
+    await _resolveOpenGate();
+    if (!mounted) return;
+    setState(() => _sendAsking = false);
+    if (_openGateMessage != null) return;
+    await sendFromSlip(
+        context, _slipSharePick(minUsd: minUsd, blocked: false),
+        session: session);
+  }
+
+  /// SEND MODE's one primary (screens/share/slip_share.dart): "Send $50 ·
+  /// Short AMD", disabled with the step to take, or under the gate's reason
+  /// where this market is refused. A region's refusal is the ticket's own
+  /// "Check connection", the send again once that finds it open. Never an
+  /// order.
+  KuteBarContext _sendBarContext(SendPickSession session,
+      {required double minUsd}) {
+    if (_openGateMessage != null && _openGateRegion) {
+      return KuteBarContext.primary(
+        label: context.l10n.checkConnection,
+        onPrimary: _checkingConnection ? null : _checkConnection,
+        enabled: !_checkingConnection,
+        busy: _checkingConnection,
+        busyLabel: context.l10n.checkConnection,
+        category: SearchCategory.perpetuals,
+        source: 'order_slip',
+        // Never waits on input.
+        disabledLabel: null,
+      );
+    }
+    final cta = slipSendCta(context.l10n,
+        _slipSharePick(minUsd: minUsd, blocked: _openGateMessage != null));
+    return KuteBarContext.primary(
+      label: cta.label,
+      onPrimary: cta.enabled && !_sendAsking
+          ? () => unawaited(_sendTapped(session, minUsd: minUsd))
+          : null,
+      enabled: cta.enabled,
+      busy: _sendAsking,
+      category: SearchCategory.perpetuals,
+      source: 'order_slip',
+      disabledLabel: cta.disabledLabel,
+    );
+  }
   bool get isSpot => market.isSpot;
 
   /// The plain-money cost of HOLDING a leveraged position for a day at the
@@ -983,9 +1183,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
     }
     // Opens empty, typed from zero; the button offers the minimum this
-    // order needs ([_orderMinimumUsd], [_placeMinimum]).
-    _marginUsd = 0;
-    _amountController = TextEditingController();
+    // order needs ([_orderMinimumUsd], [_placeMinimum]). A carried-in
+    // amount (a claimed pick) is written as if typed.
+    final carried = widget.initialUsd;
+    final prefilled = carried != null && carried > 0;
+    _marginUsd = prefilled ? carried : 0;
+    // Reopened from Sal's placing toast: locked on the order the left
+    // ticket accepted, as that ticket was once it accepted.
+    if (widget.standingEndedBefore case final ended?) {
+      _standingAccepted = true;
+      _standingEndedBefore = ended;
+      // Reopened on an order on record: its record going is its end.
+      _standingSeen = _standingOrderIn(
+              ref.read(standingOrdersProvider), market.coin, ended) !=
+          null;
+    }
+    _amountController = TextEditingController(
+        text: prefilled ? _trimZeros(carried.toStringAsFixed(2)) : null);
+    if (prefilled) _amountMethod = 'prefill';
     _amountController.addListener(_onAmountChanged);
     _priceController = TextEditingController();
     _triggerController = TextEditingController();
@@ -1186,6 +1401,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       'wallet_kind': _isLedger ? 'ledger' : 'hot',
     });
   }
+
+  /// "12.00" -> "12", "12.50" -> "12.5": the figure as the keypad would
+  /// leave it.
+  static String _trimZeros(String fixed) => fixed.contains('.')
+      ? fixed.replaceFirst(RegExp(r'\.?0+$'), '')
+      : fixed;
 
   void _onAmountChanged() {
     final parsed = double.tryParse(_amountController.text) ?? 0.0;
@@ -1678,8 +1899,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     if (_orderInFlight || _isPlacing) return;
-    // A new try: an earlier funded order's stop gives way to it.
+    // A new try: an earlier funded order's stop gives way to it, and the
+    // ticket is locked while it places until its own accept.
     _clearFundedStop();
+    _standingAccepted = false;
+    _standingEndedBefore = null;
     _orderInFlight = true;
     // The button starts thinking HERE, on the tap, not once the order
     // is on the wire. Everything _confirmInner does before that point
@@ -1827,13 +2051,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final grant = await _approve(
       _marketOrder(walletId, cloid).intent,
       amountUsd: _marginUsd,
-      smallAction: isSpot && _isLong
-          ? SmallActionContext(
-              amountUsdCents: (_marginUsd * 100).ceil(),
-              paidFromVenueBalance: true,
-              hasFundingLeg: false,
-            )
-          : null,
+      smallAction: SmallActionContext.usd(_marginUsd),
     );
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');
@@ -1884,6 +2102,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
     _updateDraft(() {
       _isPlacing = true;
+      _sentCloid = cloid;
       _errorText = null;
       _errorCause = null;
     });
@@ -1927,7 +2146,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         await _onGrantFailure(e);
         return;
       }
-      placing.markFailed(placementId, _messageFor(e));
+      if (e is HyperliquidOrderUnconfirmedException) {
+        // Sent, and nobody has heard back: never "failed". The tile stays
+        // confirming and the fill listener stays on, so a fill that lands
+        // still ends on the receipt.
+        placing.markConfirming(placementId);
+      } else {
+        placing.markFailed(placementId, _messageFor(e));
+      }
       if (mounted) {
         _updateDraft(() {
           _isPlacing = false;
@@ -1963,6 +2189,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         slippagePct: slippagePct,
       ),
       amountUsd: _marginUsd,
+      // What the close takes off: the position's value for that share.
+      smallAction:
+          SmallActionContext.usd(pos.positionValue.abs() * fraction),
     );
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');
@@ -2054,7 +2283,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     _trackStep('approval');
-    final grant = await _approve(approved.intent, amountUsd: _marginUsd);
+    final grant = await _approve(approved.intent,
+        amountUsd: _marginUsd,
+        smallAction: SmallActionContext.usd(_marginUsd));
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');
       return;
@@ -2078,6 +2309,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
     _updateDraft(() {
       _isPlacing = true;
+      _sentCloid = cloid;
       _errorText = null;
       _errorCause = null;
     });
@@ -2097,7 +2329,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _onRestingAccepted();
       }
     } catch (e) {
-      _fillSub?.cancel();
+      // Unconfirmed: a fill can still arrive for it, and ends on the
+      // receipt.
+      if (e is! HyperliquidOrderUnconfirmedException) _fillSub?.cancel();
       _lastErrorCategory = TrackingService.errorCategory(e);
       if (e is AuthGrantException) {
         // Nothing was signed.
@@ -2120,9 +2354,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// Dollars on the spending account, read live. Zero when unreadable.
   double _dollarsUsd({bool watch = false}) {
     try {
+      // Less what other accepted orders hold (committed_funds.dart): an
+      // order never sizes on dollars a bet already took.
       return watch
-          ? ref.watch(usdBalanceProvider)
-          : ref.read(usdBalanceProvider);
+          ? ref.watch(orderDollarsProvider)
+          : ref.read(orderDollarsProvider);
     } catch (_) {
       return 0;
     }
@@ -2186,6 +2422,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             .read(hyperliquidVenueFunderProvider)
             .estimate(target)
             .timeout(const Duration(seconds: 6));
+        final quotedAt = DateTime.now();
         final fund =
             HyperliquidVenueFunder.fundUsdFor(shortfallUsd: target, quote: quote);
         // Dollars short of the move: a Bitcoin leg may carry part of it,
@@ -2200,6 +2437,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           fundUsd: fund,
           arrivingUsd: target,
           bitcoinSpread: spread,
+          quote: quote,
+          quotedAt: quotedAt,
         );
       } catch (_) {
         plan = _fundPlanFor(shortfallUsd);
@@ -2231,6 +2470,180 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     });
   }
 
+  /// The accept is done and the order's money is on its way as a
+  /// standing order (standing_orders/). The ticket stays up, locked as it
+  /// always was while placing (founder, 10 November 2026: "the same bottom
+  /// modal sheet we had before when it was locked ... only difference is
+  /// that we allow the user to leave"): the money's journey and the bar's
+  /// button on the running step, then the result. From here the person
+  /// can leave it, which never cancels the order ([_onLeave]); the bar's
+  /// button is "OK", which leaves it too, while the order is on its way
+  /// ([_standingOnItsWay]).
+  void _closeForStandingOrder() {
+    if (!mounted || _standingAccepted) return;
+    _updateDraft(() => _standingAccepted = true);
+  }
+
+  /// The orders on the ticket's market that had already ended when it
+  /// first looked after its accept: never this accept's own. Null: not
+  /// looked yet.
+  Set<String>? _standingEndedBefore;
+
+  /// The accept made a standing order of this ticket's order: the ticket
+  /// may be left while it places. Reset by every new try.
+  bool _standingAccepted = false;
+
+  /// The person left the ticket while its order goes on: every progress
+  /// haptic of the ticket stops at once, and nothing it still hears
+  /// navigates.
+  bool _left = false;
+
+  /// Whether this ticket's accepted order is still on its way: from the
+  /// accept (before its record exists) until it ends. Watched, so the
+  /// button gives way to the result the moment it is known.
+  bool _standingOnItsWay() {
+    if (!_standingAccepted || _left || _completed) return false;
+    final coin = market.coin;
+    final ended = _standingEndedBefore ??= {
+      for (final o in ref.read(standingOrdersProvider))
+        if (o.venue == StandingOrderVenue.investing &&
+            o.marketKey == coin &&
+            !o.isOpen)
+          o.id,
+    };
+    // This accept's order (newest on the market that had not ended
+    // before it); null until its record exists, which is on its way too
+    // while its queued order is. A record seen and then gone ended
+    // quietly (standing_orders_provider.dart `_forget`): never "on its
+    // way" for good (founder, 11 November 2026, on 2.2.0 (109): "that
+    // thing is just stale there").
+    final state = ref.watch(standingOrdersProvider
+        .select((all) => _standingOrderIn(all, coin, ended)?.state));
+    if (state != null) {
+      _standingSeen = true;
+      return !state.isTerminal;
+    }
+    if (_standingSeen) return false;
+    return ref.watch(pendingHyperliquidOrderProvider.select((p) => p != null)) ||
+        _isPlacing ||
+        _preparing;
+  }
+
+  /// This ticket's accepted order has been on record ([_standingOnItsWay]).
+  bool _standingSeen = false;
+
+  /// This ticket's accepted order among [all]: the newest on [coin] not in
+  /// [ended].
+  static StandingOrder? _standingOrderIn(
+      List<StandingOrder> all, String coin, Set<String> ended) {
+    StandingOrder? found;
+    for (final o in all) {
+      if (o.venue == StandingOrderVenue.investing &&
+          o.marketKey == coin &&
+          !ended.contains(o.id)) {
+        found = o;
+      }
+    }
+    return found;
+  }
+
+  /// Reopened from the placing toast ([HlOrderSlipSheet.standingEndedBefore])
+  /// and its order still on its way: the ticket is locked as the left one
+  /// was while it placed (the form inert, the "OK" its button).
+  bool _followingStanding() =>
+      widget.standingEndedBefore != null && _standingOnItsWay();
+
+  /// Whether this ticket's order would wait for another Investing order
+  /// still being placed: the very refusal [_confirmFunded] (and the
+  /// Bitcoin-funded confirm) gives an order that needs money moved
+  /// ([wouldFund]) while one is queued or placing
+  /// ([PendingHyperliquidOrderNotifier.blocksNewOrder]) or a funded chain
+  /// (an order or margin) is live. Never this ticket's own order (its
+  /// accept, its placing, its funded steps on this market, a reopened
+  /// standing ticket), and never over a shut open, which says its own
+  /// reason. Watched, so the ticket frees itself the moment it is done.
+  bool _heldByOtherOrder(List<FundedOrderRecord> runs,
+      {required bool wouldFund,
+      required bool fundedRunning,
+      required bool openBlocked}) {
+    if (_isLedger ||
+        !wouldFund ||
+        fundedRunning ||
+        openBlocked ||
+        widget.sendPick != null ||
+        widget.standingEndedBefore != null ||
+        _standingAccepted ||
+        _isPlacing ||
+        _preparing) {
+      return false;
+    }
+    final queued = ref.watch(pendingHyperliquidOrderProvider.select(
+        (i) => PendingHyperliquidOrderNotifier.blocksNewOrder(i, runs)));
+    return queued ||
+        FundedOrdersNotifier.activeOf(runs, OneBalanceVenue.investing) != null;
+  }
+
+  /// The ticket is going (didPop; OK, the X, a tap above, back or a swipe
+  /// down): once it had a standing order, its haptics stop now, and while
+  /// that order is still on its way Sal's placing toast takes over at the
+  /// top (standing_order_toasts.dart: Sal and the words, no spinner, no
+  /// Cancel, closable). While the ticket is up it never shows.
+  void _onLeave() {
+    if (!_standingAccepted || _left) return;
+    _updateDraft(() => _left = true);
+    if (_completed) return;
+    final coin = market.coin;
+    final container = ProviderScope.containerOf(context, listen: false);
+    // This ticket's own order when it is on record, else the open one on
+    // its market.
+    final ended = _standingEndedBefore;
+    final mine = ended == null
+        ? null
+        : _standingOrderIn(container.read(standingOrdersProvider), coin, ended);
+    if (mine != null && mine.state.isTerminal) return;
+    final order = mine ??
+        StandingOrderToasts.openOn(
+            container, StandingOrderVenue.investing, coin);
+    // Only an order still on its way gets the toast: not one that ended
+    // on the ticket, nor one waiting on a new price (Sal asks about that).
+    final status = ref.read(pendingHyperliquidOrderProvider)?.status;
+    if (status == PendingHlOrderStatus.failed ||
+        status == PendingHlOrderStatus.done ||
+        status == PendingHlOrderStatus.unconfirmed ||
+        order?.state == StandingOrderState.needsApproval ||
+        (order == null && status == null)) {
+      return;
+    }
+    // The order's own label (the standing order's title).
+    final label = isSpot
+        ? market.coin
+        : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}';
+    // Any tap on this order (the toast, its Overview card, its Activity
+    // row) opens this ticket again, locked on this order, as it is being
+    // left (founder, on 2.2.0 (101): "we should just reuse the betslip,
+    // the red or green one"; on 2.2.0 (104): never the white journey
+    // sheet, no Cancel, the haptics running again):
+    // standing_order_slips.dart.
+    final left = widget;
+    final isLong = _isLong;
+    final margin = _marginUsd;
+    StandingOrderSlips.remember(
+      venue: StandingOrderVenue.investing,
+      marketKey: coin,
+      orderId: order?.id,
+      endedBefore: ended,
+      open: (root, follow) => HlOrderSlipSheet.reopenStanding(root, left,
+          isLong: isLong, marginUsd: margin, endedBefore: follow),
+    );
+    // The root overlay (root_navigator.dart); this ticket's own context
+    // only where the app has no root key.
+    StandingOrderToasts.placing(kuteRootContext(context), context.l10n,
+        venue: StandingOrderVenue.investing,
+        marketKey: coin,
+        marketTitle: label,
+        order: order);
+  }
+
   /// Funds [shortfallUsd] from Dollars and places the order once the
   /// money lands: one approval (the order plus the dollars allowed to
   /// leave for it, held as the autofire grant), the controller moves the
@@ -2243,6 +2656,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// that cannot cover the move turn the button into "Add $X to
   /// Investments". A credit timeout keeps the cash at the venue for the
   /// sweeper and says so with the existing copy.
+
   Future<void> _confirmFunded({
     required String walletId,
     required String cloid,
@@ -2259,16 +2673,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // A Bitcoin-funded order still on its way here counts too: its order
     // waits (unqueued) for its dollars. So does margin being added from
     // Investments (the margin sheet): its credit must not be this order's.
-    final activeFunding = FundedOrdersNotifier.activeOf(
-        ref.read(fundedOrdersProvider), OneBalanceVenue.investing);
-    if (PendingHyperliquidOrderNotifier.isActive(
-            ref.read(pendingHyperliquidOrderProvider)) ||
+    // A venue-cash order held while its legs run counts too
+    // ([PendingHyperliquidOrderNotifier.blocksNewOrder]).
+    final runs = ref.read(fundedOrdersProvider);
+    final activeFunding =
+        FundedOrdersNotifier.activeOf(runs, OneBalanceVenue.investing);
+    if (PendingHyperliquidOrderNotifier.blocksNewOrder(
+            ref.read(pendingHyperliquidOrderProvider), runs) ||
         activeFunding?.fromBitcoin == true ||
         activeFunding?.label.kind == FundedOrderKind.margin) {
       _trackBlocked('order_queued');
       _updateDraft(() {
         _errorCause = null;
-        _errorText = _strings.slipDepositIncomingNote;
+        _errorText = _strings.slipOtherOrderPlacingNote;
       });
       return;
     }
@@ -2302,10 +2719,22 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final double fundUsd;
     final double arrivingUsd;
     final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
+    // The estimate the ticket read for this very target while it was on
+    // screen sizes the move when it is fresh: the accept then waits on the
+    // one verifying estimate at the amount sent, not on two round trips.
+    final held = _fundPlan;
+    final first = HyperliquidVenueFunder.freshFirstQuote(
+      quote: held?.quote,
+      readAt: held?.quotedAt,
+      quotedForUsd: held?.arrivingUsd ?? 0,
+      neededUsd: target,
+      now: quoteStart,
+    );
     try {
       final size = await HyperliquidVenueFunder.sizeFunding(
               ref.read(hyperliquidVenueFunderProvider),
-              neededUsd: target)
+              neededUsd: target,
+              first: first)
           .timeout(const Duration(seconds: 12));
       if (!size.covers(shortfallUsd)) {
         // Even the most the rail sends would not land what the order
@@ -2491,6 +2920,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             intent: approved,
             reason: context.l10n.stepUpReasonOrder(pending.marketLabel),
             amountUsd: marginUsd,
+            smallAction: SmallActionContext.usd(marginUsd),
             autofireIntentId: kPendingHlOrderAutofireId,
           );
     if (grant == null || !mounted) {
@@ -2500,6 +2930,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           'venue': 'hyperliquid',
           'stage': 'approval',
         });
+      } else {
+        // Approved as the ticket went: nothing was started under it, so
+        // the approval goes too (never left live for its 30 minutes).
+        grant.revoke();
+        AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
       }
       if (mounted) _updateDraft(() => _fundingStage = null);
       return;
@@ -2529,6 +2964,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       market: FundedOrderLabel.shortName(market.coin),
       marketKey: market.coin,
     ));
+    // The Dollars this order moves are its own from this accept: a bet
+    // accepted meanwhile sizes and checks against the rest, never the same
+    // dollars (committed_funds.dart). A bet took them first: nothing
+    // moves, the button becomes the Dollars door, exactly as a balance
+    // that fell.
+    final commitments = ref.read(committedFundsProvider.notifier);
+    if (!commitments.commitDollars(OneBalanceVenue.investing,
+        usd: fundUsd, runId: fundedId)) {
+      final short =
+          commitments.dollarsShortUsd(OneBalanceVenue.investing, fundUsd);
+      runner.dropFunded(fundedId);
+      grant.revoke();
+      AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+      _trackFundingFailed('fund', null, category: 'insufficient_funds');
+      _stopped('insufficient_balance');
+      _updateDraft(() {
+        _preparing = false;
+        _fundingStage = null;
+        _fundPlan = _FundPlan(
+            shortfallUsd: plan.shortfallUsd,
+            fundUsd: _dollarsUsd() + short,
+            arrivingUsd: plan.arrivingUsd);
+      });
+      return;
+    }
 
     // Listen for the order's fill BEFORE anything moves, so a fast fill
     // cannot slip between the placement and the subscription.
@@ -2553,6 +3013,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     });
     _trackFundingStep(OrderFundingStage.fund);
 
+    // The order's placement, followed BEFORE it is queued (as the
+    // Predictions slip does): it is queued before its move is sent, so the
+    // auto-fire may place it, and clear it, while the move is still
+    // awaited (a long unconfirmed settlement while the credit lands).
+    // Followed only after, that order read as failed.
+    final placement = runner.watchPlacement(fundedId);
     final OrderFundingOutcome outcome;
     try {
       // The watcher that places the order on the credit, alive before
@@ -2561,6 +3027,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       outcome =
           await ref.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(
         pending,
+        fundedRunId: fundedId,
         grant: grant,
         controller: ref.read(orderFundingControllerProvider),
         orderUsd: marginUsd,
@@ -2574,6 +3041,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         },
       );
     } catch (e) {
+      placement.cancel();
       runner.stopFunded(fundedId,
           reason: 'venue_refused', message: _messageFor(e));
       _fundingFailedBeforeMove('fund', e, _messageFor(e), inSteps: true);
@@ -2582,23 +3050,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Followed to the end whatever happens to the ticket.
     switch (outcome) {
       case OrderFundingFunded(:final move):
-        runner.followFunded(fundedId, move: move);
+        runner.followFunded(fundedId, move: move, watch: placement);
       case OrderFundingNotNeeded() || OrderFundingUnconfirmed():
-        runner.followFunded(fundedId);
+        runner.followFunded(fundedId, watch: placement);
       case OrderFundingRefused(:final reason)
           when reason == kHlOrderQueuedReason:
+        // Another order's queue: this one never was.
+        placement.cancel();
         runner.dropFunded(fundedId);
+      case _ when placement.placedNow == true:
+        // Placed meanwhile all the same: never a failure in its steps.
+        runner.followFunded(fundedId, watch: placement);
       case OrderFundingRefused():
+        placement.cancel();
         runner.stopFunded(fundedId,
             reason: 'venue_refused', message: _strings.errorCopyGeneric);
       case OrderFundingNeedsDollars():
         // The button turns into the Add door: nothing to show in steps.
+        placement.cancel();
         runner.dropFunded(fundedId);
     }
     if (!mounted) return;
     switch (outcome) {
       case OrderFundingFunded(:final move):
         _submitted = true;
+        _closeForStandingOrder();
         // The order's own funding move is the last leg of its
         // multi-source move: one Activity row.
         MultiSourceMoveStore.attachFinal(
@@ -2615,6 +3091,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       case OrderFundingNotNeeded():
         // The venue covered it after all: the watcher places it now.
         _submitted = true;
+        _closeForStandingOrder();
         _trackFundingStep(OrderFundingStage.credit);
       case OrderFundingUnconfirmed():
         // The rail could not say whether the money left: the order stays
@@ -2624,7 +3101,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _trackFundingStep(OrderFundingStage.credit);
       case OrderFundingRefused(:final reason) when reason == kHlOrderQueuedReason:
         _fundingFailedBeforeMove(
-            'fund', reason, _strings.slipDepositIncomingNote);
+            'fund', reason, _strings.slipOtherOrderPlacingNote);
       case OrderFundingRefused(:final reason):
         _fundingFailedBeforeMove('fund', reason, _strings.errorCopyGeneric,
             inSteps: true);
@@ -2690,6 +3167,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _errorCause = null;
       _fundingStage = OrderFundingStage.fund;
     });
+    _closeForStandingOrder();
     _moveId ??= MultiSourceMoveStore.newId();
     _moveUsd = fundUsd;
     final run = container.read(venueCashFundedOrderRunnerProvider).start(
@@ -2797,7 +3275,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _updateDraft(() {
         _fundingStage = null;
         _errorCause = null;
-        _errorText = _strings.slipDepositIncomingNote;
+        _errorText = _strings.slipOtherOrderPlacingNote;
       });
       return;
     }
@@ -2949,6 +3427,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 intent: approved,
                 reason: context.l10n.stepUpReasonOrder(pending.marketLabel),
                 amountUsd: marginUsd,
+                smallAction: SmallActionContext.usd(marginUsd),
                 autofireIntentId: kPendingHlOrderAutofireId,
               );
         declined = grant == null;
@@ -2987,6 +3466,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _errorCause = null;
           _fundingStage = OrderFundingStage.bitcoin;
         });
+        _closeForStandingOrder();
         return BitcoinFundedOrderRequest(
           venue: OneBalanceVenue.investing,
           otherVenueUsed: rest.otherUsd > 0,
@@ -3001,6 +3481,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ),
           fundUsd: planFundUsd,
           readyUsd: ready,
+          // Each source's share is this order's from the accept.
+          dollarsUsd: math.min(dollars, planFundUsd),
+          otherVenueUsd: rest.otherUsd,
           entrySource: _entrySource,
           // Runs whatever happens to this ticket: reads only the
           // container. The rest from the other venue under the same
@@ -3166,6 +3649,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (funded != null) {
       return RubberBandProgress(
         key: const ValueKey('order-slip-funded-progress'),
+        // Left: the pull is felt no more.
+        haptic: !_left,
         progress: funded.progress,
         outcome: funded.done
             ? RubberBandOutcome.success
@@ -3177,6 +3662,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     return RubberBandBusy(
       key: const ValueKey('order-slip-placement-band'),
+      haptic: !_left,
       busy: _checkingConnection ||
           (!_isLedger && (_isPlacing || _preparing) && !_completed),
       outcome: _completed ? RubberBandOutcome.success : null,
@@ -3227,7 +3713,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _pendingSub?.close();
     _pendingSub = ref.listenManual(pendingHyperliquidOrderProvider,
         (previous, next) {
-      if (!mounted || next == null) return;
+      // Left: the order's end is Sal's (the toast), never this ticket's.
+      if (!mounted || next == null || _left) return;
       switch (next.status) {
         case PendingHlOrderStatus.placing:
           _trackFundingStep(OrderFundingStage.order);
@@ -3236,10 +3723,29 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _onFundedPlaced(next);
         case PendingHlOrderStatus.failed:
           _onFundedFailed(next);
+        case PendingHlOrderStatus.unconfirmed:
+          _onFundedUnconfirmed(next);
         case PendingHlOrderStatus.awaitingDeposit:
         case PendingHlOrderStatus.awaitingBalance:
           break;
       }
+    });
+  }
+
+  /// The queued order went out and its answer never came, and the account
+  /// could not say either: the ticket says the result is not confirmed,
+  /// never that it failed, and its fill listener stays on, so a fill that
+  /// lands still ends on the receipt.
+  void _onFundedUnconfirmed(PendingHlOrderIntent intent) {
+    if (_completed || !mounted) return;
+    _pendingSub?.close();
+    _pendingSub = null;
+    _stopped('order_unconfirmed');
+    _updateDraft(() {
+      _isPlacing = false;
+      _fundingStage = null;
+      _errorText = intent.errorMessage ?? _strings.investingSubmissionUnknown;
+      _errorCause = null;
     });
   }
 
@@ -3661,24 +4167,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
     }
   }
-  /// "Add more" under "Deposit incoming": the rest of the shortfall.
-  void _addMoreDeposit(double shortfallUsd, double incomingUsd) {
-    if (ref
-            .read(runtimeCapabilitiesProvider)
-            .blockReason('hyperliquid.deposit') !=
-        null) {
-      return;
-    }
-    unawaited(openSlipTopUp(
-      context,
-      ref,
-      venue: SlipVenue.investing,
-      shortfallUsd: shortfallUsd,
-      orderUsd: _marginUsd,
-      incomingUsd: incomingUsd,
-      onReturned: slipTopUpReturned,
-    ));
-  }
 
   /// The hot account's Investing cash that is ready: perp withdrawable
   /// plus spot USDC (the notifier sweeps between them on the way).
@@ -3688,13 +4176,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (b.coin == 'USDC') spot += b.available;
     }
     final queued = ref.read(pendingHyperliquidOrderProvider);
+    // Less what a bet accepted meanwhile is about to pull from it
+    // (committed_funds.dart): never this order's.
+    final held = ref
+        .read(committedFundsProvider.notifier)
+        .heldUsd(MoneyPlace.investing, exceptHeldOn: OneBalanceVenue.investing);
     return hlSlipReadyUsd(
       withdrawableUsd: ref.read(hyperliquidWithdrawableProvider),
       spotUsdc: spot,
-      // A funded order still queued or placing owns the money it moved.
-      queuedRequiredUsd: PendingHyperliquidOrderNotifier.isActive(queued)
-          ? PendingHlOrderAutoFire.requiredFor(queued!)
-          : 0,
+      // A funded order still queued or placing owns the money it moved;
+      // a bet's leg about to leave owns its share.
+      queuedRequiredUsd: (PendingHyperliquidOrderNotifier.isActive(queued)
+              ? PendingHlOrderAutoFire.requiredFor(queued!)
+              : 0) +
+          held,
       // A sweep carrying the venue's cash home right now: none of it is
       // this order's (the funding then covers the whole order).
       sweeping: ref.exists(venueSweeperProvider) &&
@@ -4121,17 +4616,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// Accepted is distinct from filled; show a receipt without inventing a fill.
   Future<void> _onRestingAccepted() async {
-    if (_completed || !mounted) return;
+    if (_completed || !mounted || _left) return;
     _completed = true;
     _fillSub?.cancel();
-    final amount = formatPolyAmount(ref, _marginUsd);
+    final amount = formatDollars(_marginUsd);
     final nav = Navigator.of(context, rootNavigator: true);
     // The rebuild flips the band to its success snap; the sheet closes
     // once the snap has been seen (RubberBand.settle returns at once under
     // Reduce Motion, covered or in the background).
     setState(() {});
     await RubberBand.settle(context);
-    if (!nav.mounted) return;
+    if (!nav.mounted || _left) return;
     HlOrderSlipSheet.popAllSheetsDownToHost(nav);
     pushKuteSuccessOverlay(
       navigator: nav,
@@ -4165,7 +4660,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     required double avgPx,
     Iterable<HlFill> fills = const [],
   }) async {
-    if (_completed || !mounted) return;
+    if (_completed || !mounted || _left) return;
     _completed = true;
     _fillSub?.cancel();
     // What the fill did to the position held when the order went out:
@@ -4198,7 +4693,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Let the band's success snap play before the sheet goes.
     setState(() {});
     await RubberBand.settle(context);
-    if (!nav.mounted) return;
+    if (!nav.mounted || _left) return;
     HlOrderSlipSheet.popAllSheetsDownToHost(nav);
     pushHlOrderPlacedOverlay(
       navigator: nav,
@@ -4222,7 +4717,36 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   // ── Build ──────────────────────────────────────────────────────────
 
   @override
-  Widget build(BuildContext context) => _buildTicket(context, ref);
+  Widget build(BuildContext context) {
+    // Reopened from Sal's placing toast: once its order is placed the
+    // ticket goes, and Sal's result toast says so (nothing is placed
+    // here, so there is no receipt of the ticket's own). So does every
+    // other end with nothing on the ticket to show (founder, 11 November
+    // 2026, on 2.2.0 (109): nothing may stay "Placing" once the venue has
+    // the order): resting on the book or over quietly (its record gone),
+    // cancelled, or not placed with no funded stop to show. A funded
+    // move's stop stays on the ticket as it does on the one that was left.
+    final followed = widget.standingEndedBefore;
+    if (followed != null) {
+      final coin = market.coin;
+      ref.listen<StandingOrderState?>(
+          standingOrdersProvider.select(
+              (all) => _standingOrderIn(all, coin, followed)?.state),
+          (prev, next) {
+        if (_left || !mounted) return;
+        final ended = next == null
+            ? prev != null
+            : next == StandingOrderState.filled ||
+                next == StandingOrderState.cancelled ||
+                (next == StandingOrderState.failed &&
+                    !(_fundedProgress(ref.read(fundedOrdersProvider))
+                            ?.failed ??
+                        false));
+        if (ended) Navigator.of(context).maybePop();
+      });
+    }
+    return _buildTicket(context, ref);
+  }
 
   Widget _buildTicket(BuildContext context, WidgetRef ref,
       {bool advanced = false}) {
@@ -4238,8 +4762,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Validation copy: white on the tinted fill (red on red is unreadable).
     final errorColor = tinted ? c.error : redColor;
     final mid = _referenceMid(ref);
-    // Amount companions follow live denomination changes on either surface.
-    ref.watch(settingsProvider);
 
     // Balances. A Ledger ticket reads the wallet-scoped account and never
     // the hot providers; everything downstream is the same ticket.
@@ -4287,7 +4809,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ref
             .watch(runtimeCapabilitiesProvider)
             .decision('hyperliquid.browse')
-            .regionRestricted;
+            .regionBlocked;
 
     final lev = isSpot ? 1 : _leverage;
     final entry = _entryPx(mid);
@@ -4329,12 +4851,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Bitcoin can land, since funded orders draw on it too (founder,
     // 27 October 2026). The line only: Max and the minimum keep
     // [shownAvailable].
-    final availableLineUsd = buysFromInvestments
-        ? slipAvailableUsd(
-            venueUsd: available,
-            otherSpendableUsd: otherSpendableUsd,
-            bitcoinUsd: ref.watch(spendingBitcoinLandingUsdProvider))
-        : available;
+    // Send mode: an amount is judged against what the person can really
+    // reach for a gift, whose destination is Dollars
+    // (one_balance/gift_funding.dart): this line, Max below, and the send's
+    // refusal.
+    final giftReach = widget.sendPick != null && !(isSpot && !_isLong)
+        ? ref.watch(giftSpendableProvider)
+        : null;
+    final availableLineUsd = giftReach ??
+        (buysFromInvestments
+            ? slipAvailableUsd(
+                venueUsd: available,
+                otherSpendableUsd: otherSpendableUsd,
+                bitcoinUsd: ref.watch(spendingBitcoinLandingUsdProvider))
+            : available);
 
     // Spread guard from the order book (market orders only).
     final spreadPct = ref
@@ -4532,8 +5062,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ? ref.watch(runtimeCapabilitiesProvider).blockReason('trading.advanced')
         : null;
     // A new position the policy (or the venue) refuses here: the confirm
-    // stays on screen, disabled, with the reason above it. Exits never.
-    final openBlock = _isExitOrder || exitPlan ? null : _openGateMessage;
+    // stays on screen, disabled, with the reason above it. Exits never,
+    // but a slip in send mode places nothing: its refusal stands whatever
+    // the ticket shows.
+    // A Ledger ticket asks no open gate; on a stock-linked perp the stock
+    // gate is watched here instead, so it too opens shut under the reason
+    // (founder, 12 November 2026: shown, not bought).
+    final openBlock = (_isExitOrder || exitPlan) && widget.sendPick == null
+        ? null
+        : _openGateMessage ??
+            (_isLedger && isHlStockPerp(market)
+                ? ref
+                    .watch(runtimeCapabilitiesProvider)
+                    .blockReason('hyperliquid.stocks')
+                : null);
     // The venue may refuse growing a position on a market at its
     // open-interest cap: say so before the order, not after.
     final oiCapped = !isSpot &&
@@ -4662,6 +5204,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         },
       );
     }
+    // Nothing is placed in send mode: Max is the gift's reach.
+    if (giftReach != null) fundedMaxUsd = giftReach;
     _slipInvestmentsUsd = investmentsUsd;
     var dollarsShort = fundPlan == null
         ? 0.0
@@ -4734,6 +5278,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final funded = _fundedProgress(fundedOrders);
     final fundedSteps = funded == null ? null : _fundingSteps(funded.record);
     final fundedRunning = funded != null && !funded.failed;
+    // Another Investing order is still being placed and this one would
+    // wait for it (one at a time, [_confirmFunded]): the note above the
+    // button says so and the button (or the note) opens the one placing.
+    final heldByOther = _heldByOtherOrder(fundedOrders,
+        wouldFund: fundShortfall > 0 ||
+            _errorText == _strings.slipOtherOrderPlacingNote,
+        fundedRunning: fundedRunning,
+        openBlocked: openBlock != null);
+    final otherPlacing = heldByOther
+        ? StandingOrderSlips.placingOn(
+            ref.watch(standingOrdersProvider), StandingOrderVenue.investing)
+        : null;
     // The plain ticket: while the money moves the order itself takes the
     // amount's place, one big number rolling up from what Investing holds
     // to the order as each leg lands, and the journey the figures' (they,
@@ -4741,6 +5297,45 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // it was typed, the stop told in one notice, the button the same order
     // again ("Try again · Go Long …").
     final journeyShown = !advanced && fundedRunning;
+    // Locked on its accepted order with no money journey to show (its
+    // journey done, the order funded from what Investing held, or the
+    // ticket reopened from the order's record): the same locked ticket
+    // all the same (founder, 11 November 2026, on 2.2.0 (109): never the
+    // editable-looking form under an "OK"): the order's figure, the
+    // keypad folded, the journey's last line (the order being placed) in
+    // its place. Never checked against a minimum again: the order was
+    // accepted at it.
+    final standingLocked = !advanced &&
+        !journeyShown &&
+        widget.sendPick == null &&
+        !(funded?.failed ?? false) &&
+        _standingOnItsWay();
+    final lockedShown = journeyShown || standingLocked;
+    // Its money already landed (a standing order is always funded): the
+    // journey's lines done, the order's own line running.
+    final landed = standingLocked && !_isLedger
+        ? FundedOrdersNotifier.progressOn(fundedOrders,
+            OneBalanceVenue.investing, market.coin, DateTime.now())
+        : null;
+    final placingSteps = landed != null
+        ? _fundingSteps(landed.record)
+        : [
+            _strings.slipStepPreparingOrder,
+            _strings.slipStepOpeningOrder(formatHlUsd(_marginUsd),
+                _sideWord(), market.annotatedName ?? market.coin),
+          ];
+    final placingLine = standingLocked
+        ? SlipFundingSteps(
+            key: const ValueKey('order-slip-standing-placing'),
+            steps: placingSteps,
+            active: placingSteps.length - 1,
+            from: landed?.record.fromBitcoin == true
+                ? MoneyPlace.bitcoin
+                : MoneyPlace.dollars,
+            to: MoneyPlace.investing,
+            haptics: !_left,
+          )
+        : null;
     final fundedJourney = funded == null
         ? null
         : SlipFundingSteps(
@@ -4757,6 +5352,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             note: funded.failed
                 ? fundedStopLine(_strings, funded.record, formatHlUsd)
                 : null,
+            haptics: !_left,
           );
     // What the order does to a position already held here: adding to it
     // is a small pill; reducing, closing or flipping it stays a line. No
@@ -4784,7 +5380,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // the rest, the order's line says it.
           if (!isSpot)
             FoldAway(
-              folded: journeyShown,
+              folded: lockedShown,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -4793,10 +5389,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             ),
           if (!advanced)
             ArrivalSwitcher(
-              state: journeyShown,
-              child: journeyShown
+              state: lockedShown,
+              child: lockedShown
                   ? SlipOrderFigure(
-                      record: funded.record,
+                      record: funded?.record,
                       orderUsd: _marginUsd,
                       money: formatHlUsd,
                       orderLine:
@@ -4832,7 +5428,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   : minAmountUsd,
               belowMinimum: belowMin,
               positionNote: _positionNote(netPlan)),
-          if (!advanced && addsToHeld && !journeyShown) ...[
+          if (!advanced && addsToHeld && !lockedShown) ...[
             SlipGap(10.h),
             SlipPositionPill(
               long: netPlan.heldSide == 'long',
@@ -4841,7 +5437,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ],
           // Advanced is the pill beside Max; when it is not the default,
           // a chip under the amount says what it is set to.
-          if (!advanced && !journeyShown && _hasAdvancedConfiguration) ...[
+          if (!advanced && !lockedShown && _hasAdvancedConfiguration) ...[
             SlipGap(10.h),
             SlipAdvancedChip(text: _advancedSummary(), onTap: _openAdvanced),
           ],
@@ -4861,7 +5457,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // The figures give their room to the money's journey while it
             // runs.
             FoldAway(
-              folded: journeyShown,
+              folded: lockedShown,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
@@ -4877,7 +5473,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ],
               ),
             ),
-            SlipJourney(steps: journeyShown ? fundedJourney : null),
+            SlipJourney(steps: journeyShown ? fundedJourney : placingLine),
           ],
 
           if (oiCapped) ...[
@@ -4951,7 +5547,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               key: const ValueKey('order-slip-funded-stop'),
               message: fundedStopLine(_strings, funded.record, formatHlUsd),
             ),
-          ] else if (_errorText != null && !(funded?.failed ?? false)) ...[
+          ] else if (_errorText != null &&
+              _errorText != _strings.slipOtherOrderPlacingNote &&
+              !(funded?.failed ?? false)) ...[
             SlipGap(10.h),
             HlTradeErrorNotice(message: _errorText!, error: _errorCause),
           ],
@@ -4968,6 +5566,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final bool primaryNeutral;
     // What the button is, for its cross-fade (presentation only).
     final String primaryKind;
+    // The order went out without an answer and is being looked up on the
+    // account: the busy button says so.
+    final sentCloid = _sentCloid;
+    final confirmingWithExchange = _isPlacing &&
+        sentCloid != null &&
+        ref.watch(hlConfirmingOrdersProvider
+            .select((cloids) => cloids.contains(sentCloid)));
     // The busy button's words while its money moves (or it just placed).
     final bitcoinStep = fundedRunning
         ? fundedSteps![funded.active.clamp(0, fundedSteps.length - 1)]
@@ -5054,6 +5659,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ? _openDepositDoor
               : null;
       primaryNeutral = true;
+    } else if (heldByOther) {
+      // Another order is still being placed: the button stays this order,
+      // and a tap opens the one placing (its locked ticket) instead.
+      final placing = otherPlacing;
+      primaryKind = 'trade';
+      primaryLabel = placesMinimum
+          ? _emptyCtaLabel(netPlan)
+          : _positionCtaLabel(netPlan) ?? _ctaLabel();
+      primaryAction = placing == null
+          ? null
+          : () => StandingOrderSlips.openInstead(context, placing);
+      primaryNeutral = false;
     } else if (belowMin && !_isScale && _marginUsd > 0 && minAmountUsd > 0) {
       // An amount under the venue minimum: the button names the minimum
       // the available line shows, and a tap writes it and places it, as
@@ -5065,11 +5682,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryKind = 'trade';
       primaryLabel =
           context.l10n.amountMinimumInline(formatHlUsd(minAmountUsd));
-      primaryAction = _isPlacing || _preparing || _ledgerBusy
-          ? null
-          : netPlan.opposes
-              ? () => _fillAmountChip(minAmountUsd, 'min')
-              : () => _placeFilledMinimum(minAmountUsd);
+      // Shut with the open gate (any refusal, not only a region one), as
+      // the order button is: the minimum would only be refused again.
+      primaryAction =
+          _isPlacing || _preparing || _ledgerBusy || openBlock != null
+              ? null
+              : netPlan.opposes
+                  ? () => _fillAmountChip(minAmountUsd, 'min')
+                  : () => _placeFilledMinimum(minAmountUsd);
       primaryNeutral = false;
     } else if (placesMinimum) {
       primaryKind = 'trade';
@@ -5113,6 +5733,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // visibly up the sheet, worst on Android where a three button nav
     // bar is half again as tall as an iOS home indicator. A phone with
     // no inset at all still gets its 16.
+    // The standing order this ticket accepted, while it is on its way: the
+    // bar's busy button is its "OK" (leaves the ticket, never cancels).
+    final standingOk = widget.sendPick == null &&
+        !(funded?.failed ?? false) &&
+        _standingOnItsWay();
     final action = Padding(
       padding: EdgeInsets.fromLTRB(
         20.w,
@@ -5135,6 +5760,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             CapabilityBlockNote(depositBlock),
           if (!incoming && (funding?.failed ?? false))
             const SlipDepositFailedNote(),
+          if (heldByOther && primaryKind == 'trade')
+            GestureDetector(
+              key: const ValueKey('order-slip-other-placing'),
+              behavior: HitTestBehavior.opaque,
+              onTap: primaryAction,
+              child: CapabilityBlockNote(_strings.slipOtherOrderPlacingNote),
+            ),
           if (priceStaleBlocks)
             Padding(
               padding: EdgeInsets.only(bottom: 8.h),
@@ -5167,6 +5799,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _orderBand(
             funded: funded,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Above the bar's room, never under the floating bar (founder,
+          // 8 November 2026: it clipped): on the Advanced page the steps
+          // grow in here; the plain ticket shows them at the top, where its
+          // figures were. No "Add more" under a deposit on its way here
+          // (founder, 11 November 2026: "don't have the add more button in
+          // the sheet of investing, makes no sense there").
+          StepsReveal(
+            child: advanced && fundedJourney != null ? fundedJourney : null,
+          ),
           ArrivalSwitcher(
             state: primaryKind,
             alignment: Alignment.bottomCenter,
@@ -5195,25 +5836,50 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               child: Semantics(
                 label: bitcoinStep,
                 liveRegion: bitcoinStep != null,
-                child: AppButton(
-                // After a stop the same order again, said so; it draws on
-                // the money already moved (Available counts it), adding
-                // only what is still missing.
-                text: funded != null &&
+                // THE BAR IS THE BUTTON (kute_shell_bar.dart): the ticket
+                // declares its primary action and draws no button of its
+                // own. In send mode the send is the one primary, never
+                // an order (screens/share/slip_share.dart).
+                child: KuteBarContextScope(
+                  barContext: widget.sendPick != null
+                      ? _sendBarContext(widget.sendPick!,
+                          minUsd: minAmountUsd)
+                      : standingOk
+                      // The busy button as it is (Sal working on it),
+                      // saying "OK" and taking the tap while the order is
+                      // on its way: it closes the ticket exactly as
+                      // leaving does, the order goes on (founder, 10
+                      // November 2026, on 2.2.0 (99): "instead of cancel,
+                      // we should say ok"). No Cancel anywhere (founder,
+                      // 11 November 2026).
+                      ? KuteBarContext.primary(
+                          label: context.l10n.ok,
+                          onPrimary: () => Navigator.of(context).maybePop(),
+                          busy: true,
+                          tapWhileBusy: true,
+                          busyLabel: context.l10n.ok,
+                          category: SearchCategory.perpetuals,
+                          source: 'order_slip',
+                          // Never waits on input.
+                          disabledLabel: null,
+                        )
+                      : KuteBarContext.primary(
+                    label: funded != null &&
                         funded.failed &&
                         !belowMin &&
                         (primaryKind == 'trade' || primaryKind == 'deposit')
                     ? '${_strings.walletsTryAgain} · $primaryLabel'
                     : primaryLabel,
-                onPressed: primaryAction,
-                isLoading: _ledgerBusy ||
+                    onPrimary: primaryAction,
+                    enabled: primaryAction != null,
+                    busy: _ledgerBusy ||
                     _checkingConnection ||
                     bitcoinStep != null ||
                     _isPlacing ||
                     _preparing ||
                     _depositCalculating ||
                     primaryKind == 'loading',
-                loadingLabel: primaryKind == 'loading'
+                    busyLabel: primaryKind == 'loading'
                     ? context.l10n.loadingAccount
                     : primaryKind == 'check'
                         ? context.l10n.checkConnection
@@ -5221,39 +5887,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                         ? context.l10n.feeUiCalculating
                         : bitcoinStep != null
                             ? null
+                            : confirmingWithExchange
+                            ? context.l10n.investingConfirmingWithExchange
                             : (_isPlacing &&
                                     _fundingStage != null &&
                                     _fundingStage != OrderFundingStage.order
                                 // Phrased around the order, never as money
                                 // moving into Investments (it is there).
                                 ? context.l10n.slipStepPreparingOrder
+                                // After the tap the button says what is
+                                // happening, never the action again
+                                // (founder, 12 November 2026: "should be,
+                                // after I press, processing or something").
+                                : _isPlacing
+                                ? context.l10n.betPlacingOrder
+                                : _preparing
+                                ? context.l10n.activityProcessingEllipsis
                                 : null),
-                color: c.textPrimary,
-                // Dark on the white button, the trade too (founder
-                // decision): never lettered in the side colour. The bet
-                // slip's button reads the same.
-                textColor: slipCtaLabelColor(
-                    fill: c.textPrimary, side: sideColor, neutral: true),
-                fontWeight: FontWeight.w800,
-              ),
+                    category: SearchCategory.perpetuals,
+                    source: 'order_slip',
+                    disabledLabel: primaryKind == 'trade' && _marginUsd <= 0 && !placesMinimum ? context.l10n.barNeedAmount : null,
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
+                ),
               ),
             ),
-          ),
-          // On the Advanced page the steps grow in under the button; the
-          // plain ticket shows them at the top, where its figures were.
-          StepsReveal(
-            child: advanced && fundedJourney != null
-                ? fundedJourney
-                : incoming
-                    ? SlipIncomingDepositNote(
-                        onAddMore: funding.state ==
-                                    SlipFundingState.incomingShort &&
-                                depositBlock == null
-                            ? () => _addMoreDeposit(
-                                hlShortfall, funding!.incomingUsd)
-                            : null,
-                      )
-                    : null,
           ),
             ]),
           ),
@@ -5272,7 +5930,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _ledgerPending ||
         ledgerBlocked ||
         _isPlacing ||
-        _preparing;
+        _preparing ||
+        _followingStanding();
     final ticket = advanced
         ? Column(
             children: [
@@ -5303,7 +5962,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   // amount cannot change: the keypad folds away and the
                   // steps take its room. A stop brings it back.
                   input: FoldAway(
-                    folded: journeyShown,
+                    folded: lockedShown,
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 20.w),
                       child: IgnorePointer(
@@ -5323,7 +5982,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           );
     if (advanced) {
       return PopScope(
-        canPop: !_isPlacing,
+        // Locked while it places; once the accept made a standing order
+        // of it, the person may leave (the order goes on).
+        canPop: _standingAccepted || !_isPlacing,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) _onLeave();
+        },
         child: Scaffold(
           backgroundColor: base.background,
           appBar: AppBar(
@@ -5349,7 +6013,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ),
       );
     }
-    return KeyboardDismissOnTap(
+    return PopScope(
+      // The ticket's own lock is the tap-outside's (see the file header);
+      // this only hears it go.
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _onLeave();
+      },
+      child: KeyboardDismissOnTap(
       child: Theme(
         // Shared widgets inside the sheet read `context.colors`; handing
         // them the tinted palette keeps them legible without forking them.
@@ -5388,6 +6058,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -6110,7 +6781,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   leverage: isSpot ? 1 : _leverage,
                   slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
                 );
-      final maxUsd = math.max(venueMaxUsd, maxUsdOverride ?? 0);
+      // Send mode's Max is its override alone (no order is fitted to this
+      // venue's cash).
+      final maxUsd = widget.sendPick != null && maxUsdOverride != null
+          ? maxUsdOverride
+          : math.max(venueMaxUsd, maxUsdOverride ?? 0);
       // One small Max chip beside the figure (and the Advanced pill after
       // it), and under it one quiet line
       // with the balance and the venue minimum. An empty account has
@@ -6118,8 +6793,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return BigAmountDisplay(
         prefix: r'$',
         amountText: _amountController.text,
-        conversionLabel:
-            _marginUsd > 0 ? _denomLine(_denomEquivalent(_marginUsd)) : null,
         // At the right of the minimum's row.
         trailingCaption: compactAvailLabel,
         minimumOnOwnLine: true,
@@ -6151,7 +6824,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     // Advanced: the same field treatment as every other number on that
     // page, so one pinned keypad serves all of them.
-    final denom = _marginUsd > 0 ? _denomEquivalent(_marginUsd) : null;
     return _numField(
       c,
       _NumField.size,
@@ -6165,46 +6837,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           availLabel,
           style: TextStyle(fontSize: 14.sp, color: c.textSecondary),
         ),
-        // Denominated companion — the entered stake in the user's
-        // chosen unit (sats/BTC or non-USD fiat). USD stays the entry
-        // unit; this mirrors the bet slip's secondary line.
-        if (denom != null)
-          Padding(
-            padding: EdgeInsets.only(top: 8.h, left: 2.w),
-            child: Text(
-              denom,
-              style: TextStyle(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textTertiary,
-              ),
-            ),
-          ),
       ],
     );
   }
-
-  /// '…' wrapper for the denominated companion, or null when the display
-  /// unit is plain USD (nothing to echo).
-  String? _denomLine(String? denom) => denom;
 
   String _amountLabel() {
     if (isSpot) return _strings.amount;
     if (_isScale || _isTwap) return _strings.slipTotalMargin;
     return _strings.amount;
-  }
-
-  /// The user's money rendered in their chosen Assets/Predictions
-  /// denomination (sats/BTC in Bitcoin mode, or a non-USD fiat), or null
-  /// when the display unit is plain USD (so we don't echo `$10 $10`).
-  /// USD stays the entry/primary unit everywhere — this only feeds the
-  /// secondary companion lines that mirror the bet slip.
-  String? _denomEquivalent(double usd) {
-    final settings = ref.watch(settingsProvider);
-    if (true && settings.currency == 'USD') {
-      return null;
-    }
-    return formatPolyAmount(ref, usd);
   }
 
   /// Long or Short in one row, mirroring the prediction slip's Yes/No.
@@ -6646,6 +7286,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// once), each leg its own line ([estimateOrderFundingFees]). Null while
   /// no move is needed or its plan is still being read.
   ({double usd, List<MoneyFeeLeg> legs})? _moveFee() {
+    // Send mode moves nothing here: "Send now" names its own fee.
+    if (widget.sendPick != null) return null;
     final plan = _fundPlan;
     final fees = _fundingFeesNow();
     if (plan == null || fees == null) return null;
@@ -6729,12 +7371,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       rows.add(_previewRow(c, label, value, sub: sub));
     }
 
-    // Notional in USD, with the denominated equivalent (sats/BTC or
-    // non-USD fiat) as a companion so the exposure reads in the user's unit.
-    if (!isSpot) {
-      final denomN = _denomEquivalent(notional);
-      add(_strings.slipNotional, formatHlUsd(notional), sub: denomN);
-    }
+    if (!isSpot) add(_strings.slipNotional, formatHlUsd(notional));
     add(_strings.ledgerSummarySize, '${formatHlSize(size)} ${market.coin}');
 
     // Price context per order type.
@@ -6877,7 +7514,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// the plain order label (no position, or nothing typed yet).
   String? _positionCtaLabel(HlPositionPlan plan, {double? amountUsd}) {
     if (plan.position == null) return null;
-    final amount = formatPolyAmount(ref, amountUsd ?? _marginUsd);
+    final amount = formatDollars(amountUsd ?? _marginUsd);
     final l = _strings;
     switch (plan.effect) {
       case HlPositionEffect.open:
@@ -6927,9 +7564,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           : _ctaLabel(empty: true);
 
   String _ctaLabel({double? amountUsd, bool empty = false}) {
-    // Stake in the user's chosen denomination (sats/BTC or fiat) — the asset
-    // PRICE stays USD, but the CTA is the user's money.
-    final amount = formatPolyAmount(ref, amountUsd ?? _marginUsd);
+    // The stake, in dollars like the asset PRICE.
+    final amount = formatDollars(amountUsd ?? _marginUsd);
     final side = _sideWord();
     final l = _strings;
     // The button is the deed, short (founder): "Short $12.00", "Buy
@@ -7037,7 +7673,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   Widget _headerRow(BuildContext context, AppColorsExtension c) {
     final pad = SlipDensity.tight(context) ? 9.h : 14.h;
-    return Padding(
+    final row = Padding(
       padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, pad),
       child: Row(
         children: [
@@ -7071,6 +7707,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           const KuteCloseButton(),
         ],
       ),
+    );
+    // Send mode says it at the top (send_pick_session.dart).
+    final send = widget.sendPick;
+    if (send == null) return row;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, 0),
+          child: SendPickChip(session: send),
+        ),
+        row,
+      ],
     );
   }
 

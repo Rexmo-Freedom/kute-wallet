@@ -16,7 +16,7 @@ void main() {
   group('capability block reasons', () {
     const reasons = {
       'country_blocked': 'capabilityRegionRestricted',
-      'country_not_allowed': 'capabilityRegionRestricted',
+      'country_not_allowed': 'capabilityNotAvailableNow',
       'app_update_required': 'capabilityUpdateRequired',
       'device_blocked': 'capabilityDeviceRestricted',
       'affiliate_blocked': 'capabilityAccountRestricted',
@@ -39,6 +39,11 @@ void main() {
           const CapabilityDecision(allowed: false, reason: 'country_blocked')
               .messageIn(_pt),
           _pt.capabilityRegionRestricted);
+      // An allow list ("only in" these places) names nothing and says
+      // nothing about a VPN.
+      const allowList =
+          CapabilityDecision(allowed: false, reason: 'country_not_allowed');
+      expect(allowList.messageIn(_pt), _pt.capabilityNotAvailableNow);
     });
 
     test('the operator message wins over the reason code', () {

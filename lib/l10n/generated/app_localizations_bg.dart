@@ -1487,6 +1487,13 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning адрес';
 
   @override
+  String get sendVerifiedByBranta => 'Потвърдено от Branta';
+
+  @override
+  String get sendBrantaTampered =>
+      'Branta съобщава, че този адрес е подменен. Провери го с получателя, преди да изпратиш.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin адрес';
 
   @override
@@ -1756,12 +1763,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Покани те приятел';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return 'Печелиш $rate%';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Покани още $count приятели, за да печелиш $rate%';
   }
 
@@ -2678,9 +2680,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'Потребители с твоя код';
-
-  @override
   String get accountPendingPayout => 'Предстоящо изплащане';
 
   @override
@@ -2698,16 +2697,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'Печелиш $rate от таксите, генерирани от приятелите ти.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'Печелиш $rate от таксите, генерирани от приятелите ти, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate при $count приятели';
   }
@@ -2715,6 +2704,53 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'Приятелите ти получават $discount отстъпка от таксите на Kute, докато са с теб.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'Печели $rate от таксите на приятелите си';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Те получават $discount отстъпка от таксите на Kute';
+  }
+
+  @override
+  String get referralShareInvite => 'Сподели поканата';
+
+  @override
+  String get referralFriendsJoined => 'Присъединили се приятели';
+
+  @override
+  String get referralYourRate => 'Твоят процент';
+
+  @override
+  String get referralTopRate => 'Имаш най-високия процент';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count приятели',
+      one: '1 приятел',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Сподели своя линк';
+
+  @override
+  String get referralStepShareLine => 'Изпрати линка или кода си на приятели.';
+
+  @override
+  String get referralStepJoin => 'Присъединяват се и търгуват';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Печелиш $rate от техните такси';
   }
 
   @override
@@ -3194,7 +3230,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Bitcoin, Lightning или Spark адрес';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Автоматична размяна от Bitcoin';
+  String get sendAutoSwapFromBitcoin => 'От твоя Bitcoin';
 
   @override
   String get sendAddressNotIdentified => 'Адресът не е разпознат';
@@ -3264,12 +3300,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Подпиши транзакцията на устройството си.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit налични · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Изчисляване…';
 
   @override
@@ -3321,11 +3351,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get sendPaymentRequestOnlySupportsLightning =>
       'Тази заявка за плащане поддържа само Lightning. Превключи към портфейл с Lightning, за да платиш.';
-
-  @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return 'Адрес за $asset в $network';
-  }
 
   @override
   String get sendPasteBitcoinAddress => 'Постави Bitcoin адрес';
@@ -3412,7 +3437,10 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      'Добавя се автоматично след 3 потвърждения.';
+      'Добавя се автоматично, често до минути и най-късно след 3 потвърждения. След първото потвърждение може да успееш да го вземеш по-рано срещу такса.';
+
+  @override
+  String get activityClaimNowAvailable => 'Може да се вземе сега';
 
   @override
   String get depositReasonFeeHigh =>
@@ -3628,11 +3656,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Затворена · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Намалена · $coin';
   }
@@ -3698,7 +3721,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Размяна · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4079,6 +4102,15 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hubReferrals => 'Покани';
 
   @override
+  String get hubReferralsSubtitle => 'Покани приятели';
+
+  @override
+  String get hubSupportSubtitle => 'Получи помощ';
+
+  @override
+  String get hubSettingsSubtitle => 'Сигурност и още';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Печели дял от това, което Kute изкарва от приятелите ти';
 
@@ -4190,6 +4222,16 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Изпратено до $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Преместено в $walletName';
+  }
+
+  @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Разменено за $walletName';
   }
 
   @override
@@ -4887,6 +4929,14 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get slipDepositIncomingNote =>
       'Парите ти са на път. Бутонът ще се отключи, когато пристигнат.';
+
+  @override
+  String get slipOtherOrderPlacingNote =>
+      'Другата ти поръчка още се поставя. Ще можеш да поставиш тази, когато приключи.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'Другата ти прогноза още се поставя. Ще можеш да поставиш тази, когато приключи.';
 
   @override
   String get slipDepositAddMore => 'Добави още';
@@ -5807,6 +5857,40 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlAdvancedChart => 'Разширена графика';
 
   @override
+  String get optionAdvancedChartSub => 'Чертежи и индикатори';
+
+  @override
+  String get optionAboutMarketSub => 'Статистика и книга с поръчки';
+
+  @override
+  String get optionAddMarginSub => 'По-далеч от ликвидация';
+
+  @override
+  String get optionPositionDetailsSub => 'Размер, вход и funding';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Приключва $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Приключи $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Как се определя резултатът';
+
+  @override
+  String get optionViewMarketSub => 'Графика и шансове';
+
+  @override
+  String get optionPredictionDetailsSub => 'Дялове и платена цена';
+
+  @override
+  String get optionProtectSellSub => 'Продай на своята цена';
+
+  @override
   String get chartStyleCandles => 'Свещи';
 
   @override
@@ -5915,13 +5999,52 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartVwapWindow => 'VWAP за показаните свещи';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Индикатори';
 
   @override
   String get chartInterval => 'Интервал';
+
+  @override
+  String get chartIntervalMinute => '1 минута';
+
+  @override
+  String get chartIntervalMinuteHint => 'Движения на живо';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 минути';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'Колебанията днес';
+
+  @override
+  String get chartIntervalFifteenMinutes => '15 минути';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Последният ден';
+
+  @override
+  String get chartIntervalHour => '1 час';
+
+  @override
+  String get chartIntervalHourHint => 'Последните няколко дни';
+
+  @override
+  String get chartIntervalFourHours => '4 часа';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Последните седмици';
+
+  @override
+  String get chartIntervalDay => '1 ден';
+
+  @override
+  String get chartIntervalDayHint => 'Последните месеци';
+
+  @override
+  String get chartIntervalWeek => '1 седмица';
+
+  @override
+  String get chartIntervalWeekHint => 'Дългосрочно';
 
   @override
   String get chartSelectTool => 'Избирай и редактирай чертежи';
@@ -5943,7 +6066,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'Представянето не е достъпно';
 
   @override
-  String get portfolioStatRealized => 'Реализирана печалба / загуба';
+  String get portfolioStatRealized => 'Реализирани печалби';
 
   @override
   String get portfolioStatAmountPredicted => 'Сума в прогнози';
@@ -6107,6 +6230,12 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get moveTransfer => 'Прехвърли пари';
+
+  @override
+  String get moveVerb => 'Премести';
+
+  @override
+  String get moveToBitcoin => 'Премести в Bitcoin';
 
   @override
   String get moveAdd => 'Добави';
@@ -6292,6 +6421,16 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get investingSubmissionUnknown =>
       'Платформата не е потвърдила резултата. Провери поръчките и баланса си, преди да опиташ отново.';
+
+  @override
+  String get betConfirmingWithVenue => 'Потвърждава се с Polymarket…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Потвърждава се с платформата…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Поръчката не беше изпълнена. Нищо не е направено.';
 
   @override
   String get investingApprovalExpired =>
@@ -6487,6 +6626,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get walletPortfolioAction => 'Портфолио';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Виж цялото портфолио и активност';
+
+  @override
   String get walletActionsWalletChanged =>
       'Портфейлът се смени. Отвори менюто с действия отново, за да продължиш.';
 
@@ -6631,9 +6773,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
-  String get sendDollarAccountAddressHint => 'Адрес на акаунта в долари';
-
-  @override
   String hwSignKeepDeviceNearby(String device) {
     return 'Дръж $device наблизо и отключен.';
   }
@@ -6703,7 +6842,11 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'Депозит, пристигнал след това, може да получи различна цена.';
+      'Закъснелите депозити може да получат друга цена.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Грешна монета или мрежа? Парите ти може да се загубят.';
 
   @override
   String get receiveOneOffNewAddress => 'Вземи нов адрес';
@@ -6829,6 +6972,11 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String betBuyPartialMarket(String bought, String total, String price) {
     return 'Купени $bought от $total дяла по $price. Нямаше повече продавачи на твоята цена, затова останалото не е купено.';
+  }
+
+  @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return 'Продадени $sold от $total дяла по $price. Нямаше повече купувачи на твоята цена, затова останалото не е продадено.';
   }
 
   @override
@@ -6985,6 +7133,10 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get betConnectionUnavailable =>
       'Polymarket не е достъпен. Провери връзката си и опитай отново.';
+
+  @override
+  String get betConnectionSlowNotSent =>
+      'Връзката ти е бавна и тази поръчка не беше изпратена.';
 
   @override
   String get betFeesUnavailable =>
@@ -7168,6 +7320,9 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Не е достъпно в твоя регион';
+
+  @override
+  String get capabilityNotAvailableNow => 'В момента не е достъпно';
 
   @override
   String capabilityRegionTitleNamed(String regions) {
@@ -7365,6 +7520,9 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get addWalletOther => 'Друг портфейл';
+
+  @override
+  String get addWalletOtherSubtitle => 'QR код, файл или поставяне';
 
   @override
   String get addWalletTrackSubtitle =>
@@ -7571,32 +7729,11 @@ class AppLocalizationsBg extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Име на портфейла';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Тази поръчка вече не може да се променя.';
-
-  @override
   String get salControlUnavailable =>
       'Тази функция не е достъпна на този екран.';
 
   @override
-  String get salSwitchToLimitTitle => 'Да превключим ли към лимитна поръчка?';
-
-  @override
-  String get salOpenLeverageTitle => 'Да отворим ли настройките на ливъриджа?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Това променя типа на поръчката. Прегледай цената и сумата, преди да пуснеш поръчката.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Ти сам избираш ливъриджа. Това отваря настройките, без да променя стойността.';
-
-  @override
   String get salChatWith => 'Чат със Sal';
-
-  @override
-  String get salAsk => 'Питай Sal';
 
   @override
   String get salUnavailable => 'Sal не е достъпен в момента.';
@@ -7716,20 +7853,12 @@ class AppLocalizationsBg extends AppLocalizations {
   String get salStubLiveUnavailable => 'Информацията на живо не е достъпна.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Няма резултати за „$query“. Изпрати го, за да попиташ Sal.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Няма резултати за „$query“';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Пиши, за да търсиш пазари';
-
-  @override
-  String get searchOrAskSal => 'Търси или питай Sal каквото искаш';
 
   @override
   String get searchMarketsHint => 'Търси пазари';
@@ -7743,6 +7872,17 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String searchYourPosition(String outcome) {
     return 'Твоята позиция · $outcome';
+  }
+
+  @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Още $count начина да търгуваш $ticker',
+      one: 'Още 1 начин да търгуваш $ticker',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -7874,7 +8014,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get tnNetProfit => 'Нетна печалба';
 
   @override
-  String get tnTradingPnl => 'Резултат от търговията';
+  String get tnTradingPnl => 'Печалби от търговията';
 
   @override
   String get tnAllTradingFees => 'Всички такси за търговия';
@@ -7890,7 +8030,7 @@ class AppLocalizationsBg extends AppLocalizations {
       'Отваряне, частични затваряния и окончателно затваряне';
 
   @override
-  String get tnClosedPnlExchange => 'Затворен резултат (платформа)';
+  String get tnClosedPnlExchange => 'Затворени печалби (платформа)';
 
   @override
   String get tnFillFee => 'Такса за изпълнение';
@@ -8076,6 +8216,10 @@ class AppLocalizationsBg extends AppLocalizations {
       'Портфейлът за Прогнози още не е готов.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Прогнозите не са достъпни в момента. Нищо не беше изпратено. Проверете връзката си и опитайте отново.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Този маршрут за депозит временно не е достъпен. Опитай отново по-късно.';
 
@@ -8136,20 +8280,11 @@ class AppLocalizationsBg extends AppLocalizations {
   String get moveAddFunds => 'Добави средства';
 
   @override
-  String get movePickPayOrDollars =>
-      'Избери как искаш да платиш или използвай баланса си в долари.';
-
-  @override
   String get moveHintAWallet => 'портфейл';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first или $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list или $last';
   }
 
   @override
@@ -8268,12 +8403,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get marketCardSoon => 'скоро';
-
-  @override
-  String get marketCardEsportsLive => 'Електронни спортове на живо';
-
-  @override
-  String get marketCardLiveStream => 'Излъчване на живо';
 
   @override
   String get pmOrdersConnectLedger =>
@@ -8782,6 +8911,14 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlPositionYouPutIn => 'Вложено';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Ливъридж ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Без ливъридж';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Струва $amount сега';
   }
@@ -8859,6 +8996,70 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get hlChartYouSold => 'Тук продаде';
+
+  @override
+  String hlChartOpenedLong(String size) {
+    return 'Отворена long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Отворена short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Добавено към long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Добавено към short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Намалена long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Намалена short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Затворена long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Затворена short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Обърната към long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Обърната към short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Ликвидирана $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Тук отвори long';
+
+  @override
+  String get hlChartYouWentShort => 'Тук отвори short';
+
+  @override
+  String get hlChartYouClosedHere => 'Тук затвори';
 
   @override
   String get hlWithdrawalsUnavailable =>
@@ -9613,6 +9814,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polyPillElections => 'Избори';
 
   @override
+  String get polyPillArt => 'Изкуство';
+
+  @override
   String get polySubTargets => 'Цели';
 
   @override
@@ -9718,6 +9922,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polySportDarts => 'Дартс';
 
   @override
+  String get polySportVolleyball => 'Волейбол';
+
+  @override
   String get polySportHandball => 'Хандбал';
 
   @override
@@ -9734,6 +9941,9 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get polySportChess => 'Шах';
+
+  @override
+  String get polyDayTomorrow => 'Утре';
 
   @override
   String get polyMoreTitle => 'Всички категории';
@@ -9777,6 +9987,62 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polyCountNow => 'Сега';
 
   @override
+  String get polyMapRepublican => 'Републиканци';
+
+  @override
+  String get polyMapDemocratic => 'Демократи';
+
+  @override
+  String get polyMapIndependent => 'Независими';
+
+  @override
+  String get polyMapNotRepublican => 'Не републиканци';
+
+  @override
+  String get polyMapNotDemocratic => 'Не демократи';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'Републиканците водят в $count от $total щата';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'Демократите водят в $count от $total щата';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return '„Да“ води в $count от $total щата';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Няма отворен пазар';
+
+  @override
+  String get polyMapChanceOfYes => 'Шанс за „Да“';
+
+  @override
+  String get polyMapTapToBuild => 'Докосни щатите, за да направиш своята карта';
+
+  @override
+  String get polyMapMostLikely => 'Най-вероятна карта';
+
+  @override
+  String get polyMapYourMap => 'Твоята карта';
+
+  @override
+  String get polyMapNoSuchMap => 'Няма пазар за тази карта';
+
+  @override
+  String get polyMapBackToMostLikely => 'Обратно към най-вероятната карта';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side на твоята карта';
+  }
+
+  @override
   String get polyPillWatchlist => 'Наблюдавани';
 
   @override
@@ -9784,6 +10050,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get polyWatchlistRemove => 'Премахни от наблюдавани';
+
+  @override
+  String get hlWatchlistCreate => 'Създай списък с наблюдавани';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Изберете пазарите, които следите. Инвестиране ще се отваря с тях.';
 
   @override
   String get livestreamInMiniPlayer => 'Пуска се в мини плейъра';
@@ -9873,6 +10146,16 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String polyKickoffTomorrow(String time) {
     return 'Утре $time';
+  }
+
+  @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Приключва днес в $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Приключва утре в $time';
   }
 
   @override
@@ -10398,151 +10681,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlRejectOracle => 'Тази цена е твърде далеч от пазарната.';
 
   @override
-  String get salIntroGeneral =>
-      'Разгледай публичните пазари и научи как работи всичко.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Разгледай $market и научи как работи.';
-  }
-
-  @override
-  String get salIntroThisMarket => 'Разгледай този пазар и научи как работи.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Научи как работят поръчките от тип $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'пазарна',
-        'limit': 'лимитна',
-        'scale': 'стъпаловидна',
-        'stopMarket': 'стоп пазарна',
-        'stopLimit': 'стоп лимит',
-        'takeProfitMarket': 'take profit пазарна',
-        'takeProfitLimit': 'take profit лимит',
-        'twap': 'TWAP',
-        'other': 'поръчка',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Защо $market се движи днес?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Защо фандингът за $market е отрицателен?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Как работи фандингът за $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Как да защитя позиция в $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Как работи ликвидацията в $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Какво движи цената на $market?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Как се сравнява $market с подобни пазари?';
-  }
-
-  @override
-  String get salChipPmOddsMoving =>
-      'Защо коефициентите на този пазар се движат?';
-
-  @override
-  String get salChipPmClosingSoon =>
-      'Какво става, когато този пазар се затвори?';
-
-  @override
-  String get salChipPmLiveGame => 'Как мачът на живо движи тези коефициенти?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Какво може да промени коефициентите на този пазар?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Какви са правилата за разрешаване на този пазар?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Кои пазари са свързани с този?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Какви са последните новини за $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Как работи поръчка от тип $orderType за $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'По какво се различават пазарните и лимитните поръчки?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Как ливъриджът променя риска от ликвидация?';
-
-  @override
-  String get salChipEduFunding => 'Какво е фандинг при безсрочен договор?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Как работят пазарите за прогнози?';
-
-  @override
-  String get salChipWalletReceive => 'Как да получа биткойн в Kute?';
-
-  @override
-  String get salChipWalletSend => 'Как да изпратя биткойн в Kute?';
-
-  @override
-  String get salChipStocksVsPerps => 'Каква е разликата между акции и перпове?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Какво е фраза за възстановяване?';
-
-  @override
-  String get salChipBackupHow => 'Как работи резервното копие на портфейла?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Защо фразата за възстановяване трябва да остане лична?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Какво е мрежово потвърждение?';
-
-  @override
-  String get salChipNetworkFees => 'Как работят мрежовите такси на Bitcoin?';
-
-  @override
-  String get salChipTxPending => 'Защо една транзакция може да остане чакаща?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Минимум $amount';
   }
@@ -10571,55 +10709,149 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get searchOrAskSalShort => 'Търси или питай Sal';
+  String get shareHeaderLabel => 'Изпрати на приятел';
+
+  @override
+  String get bragPositionAction => 'Похвали се с тази позиция';
+
+  @override
+  String get bragPositionActionSub => 'Карта с твоя резултат';
+
+  @override
+  String get bragPortfolioAction => 'Похвали се с портфолиото си';
+
+  @override
+  String get bragBarLabel => 'Сподели и се похвали';
+
+  @override
+  String get bragPortfolioBarLabel => 'Сподели портфолиото';
+
+  @override
+  String get bragPnlBarLabel => 'Сподели печалбите';
+
+  @override
+  String get bragMyPnl => 'Моите печалби';
+
+  @override
+  String bragShareText(String title, String link) {
+    return '$title в Kute $link';
+  }
+
+  @override
+  String get bragMyPortfolio => 'Моето портфолио';
+
+  @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count още',
+      one: '+$count още',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bragCodeLabel => 'Код';
+
+  @override
+  String get bragSinceYouBought => 'От покупката';
+
+  @override
+  String get bragAboutIt => 'Похвали се';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
+
+  @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
+  String get barNeedAmount => 'Enter an amount';
+
+  @override
+  String get barNeedLowerAmount => 'Lower the amount';
+
+  @override
+  String get barNeedRaiseAmount => 'Raise the amount';
+
+  @override
+  String get barNeedRecipient => 'Add who to send to';
+
+  @override
+  String get barNeedNetwork => 'Pick a network';
+
+  @override
+  String get barNeedCoin => 'Pick a coin';
+
+  @override
+  String get barNeedAddress => 'Paste an address';
+
+  @override
+  String get barNeedValidAddress => 'Check the address';
+
+  @override
+  String get barNeedTick => 'Tick the box to continue';
+
+  @override
+  String get barNeedPin => 'Enter your 6-digit PIN';
+
+  @override
+  String get barNeedPinAgain => 'Enter the PIN again';
+
+  @override
+  String get barNeedName => 'Enter a name';
+
+  @override
+  String get barNeedCode => 'Enter a code';
+
+  @override
+  String get barNeedPhrase => 'Enter your 12 words';
+
+  @override
+  String get barNeedPublicKey => 'Paste a public key';
+
+  @override
+  String get barNeedNote => 'Write a note';
+
+  @override
+  String get barNeedFee => 'Pick a fee';
+
+  @override
+  String get barNeedPrice => 'Getting a price…';
+
+  @override
+  String get barNeedOption => 'Pick an option';
+
+  @override
+  String get barNeedWallet => 'Pick a wallet';
+
+  @override
+  String get barNeedCheckAmount => 'Check the amount';
+
+  @override
+  String get barNeedWait => 'One moment…';
+
+  @override
+  String get searchPredictionsOrManageAi =>
+      'Търси прогнози или управлявай с AI';
+
+  @override
+  String get searchInvestmentsOrManageAi =>
+      'Търси инвестиции или управлявай с AI';
+
+  @override
+  String get searchOrManageAi => 'Търси или управлявай с AI';
+
+  @override
+  String get connectOwnAiTitle => 'Свържи своя AI';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Нека Claude, ChatGPT или Grok управляват портфейла ти';
 
   @override
   String get financialHubAndSettings => 'Финансов център и настройки';
-
-  @override
-  String get analyticsInOutTab => 'Вход и изход';
-
-  @override
-  String get inOutMonth => 'Месец';
-
-  @override
-  String get inOutYear => 'Година';
-
-  @override
-  String get inOutIn => 'Входящи';
-
-  @override
-  String get inOutOut => 'Изходящи';
-
-  @override
-  String get inOutWhereItWent => 'Къде отидоха';
-
-  @override
-  String get inOutWhereItCameFrom => 'Откъде дойдоха';
-
-  @override
-  String get inOutSentToPeople => 'Изпратени на хора';
-
-  @override
-  String get inOutIntoInvestments => 'Към Investments';
-
-  @override
-  String get inOutIntoDollars => 'Към Долари';
-
-  @override
-  String get inOutFromPeople => 'От хора';
-
-  @override
-  String get inOutFromInvestments => 'От Investments';
-
-  @override
-  String get inOutFromDollars => 'От Долари';
-
-  @override
-  String get inOutBought => 'Купени';
-
-  @override
-  String get inOutEmpty => 'Няма входящи или изходящи';
 
   @override
   String get portfolioStatsActive => 'Активни';
@@ -10631,7 +10863,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioStatAtStake => 'Заложена сума';
 
   @override
-  String get portfolioProfitLoss => 'Печалба и загуба';
+  String get portfolioProfitLoss => 'Печалби';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10890,19 +11122,11 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get depositFromAnotherWallet => 'Друг портфейл или борса';
-
-  @override
   String get depositFromAnotherWalletSubtitle =>
       'Вземете адрес, на който да изпратите долари';
 
   @override
-  String get portfolioStatOpenPnl => 'Отворена печалба / загуба';
-
-  @override
-  String stepUpReasonBetReady(String amount) {
-    return 'Подготви прогноза за $amount';
-  }
+  String get portfolioStatOpenPnl => 'Отворени печалби';
 
   @override
   String multiMoveSendTitle(String amount) {
@@ -10929,7 +11153,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return 'Вашите $amount са в $balance. Докоснете, за да купите Bitcoin';
+    return 'Вашите $amount са в $balance. Докоснете, за да ги преместите в Bitcoin';
   }
 
   @override
@@ -10945,6 +11169,19 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'От друг портфейл или борса';
+
+  @override
+  String get receiveAnotherCrypto => 'Друга крипто';
+
+  @override
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins и още';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first и $second';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'Към твоя портфейл';
@@ -11017,16 +11254,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return 'Залагане на $amount за $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return 'Отваряне на поръчка за $amount $market';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return 'Добавяне на $amount маржин към $coin';
   }
@@ -11035,9 +11262,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Твоите $amount са в Investments. Докосни, за да добавиш маржин.';
   }
-
-  @override
-  String get salWhyMoving => 'Защо се движи?';
 
   @override
   String get positionProtectIt => 'Защити я';
@@ -11168,12 +11392,12 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return 'Купуване на Bitcoin за $amount';
+    return 'Прехвърляне на $amount към Bitcoin';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return 'Купен Bitcoin за $amount';
+    return '$amount прехвърлени към Bitcoin';
   }
 
   @override
@@ -11224,10 +11448,10 @@ class AppLocalizationsBg extends AppLocalizations {
       'За да го преместиш, свържи се с поддръжката.';
 
   @override
-  String get portfolioSectionPnlCharts => 'Графики P&L';
+  String get portfolioSectionPnlCharts => 'Печалби';
 
   @override
-  String get portfolioSectionBalances => 'Портфолио';
+  String get portfolioSectionBalances => 'Позиции';
 
   @override
   String balanceChangePastWeek(String change) {
@@ -11295,8 +11519,34 @@ class AppLocalizationsBg extends AppLocalizations {
       'Салдото ви във времето ще се показва тук, щом имате долари';
 
   @override
+  String get chartPeriodPastWeek => 'Последната седмица';
+
+  @override
+  String get chartPeriodPastMonth => 'Последния месец';
+
+  @override
+  String get chartPeriodPast3Months => 'Последните 3 месеца';
+
+  @override
+  String get chartPeriodPastYear => 'Последната година';
+
+  @override
+  String get chartPeriodAllTime => 'За целия период';
+
+  @override
+  String get chartNoChange => 'Без промяна';
+
+  @override
+  String get pnlChartNoHistory =>
+      'Печалбите ти се показват след първата ти позиция.';
+
+  @override
+  String get balanceChartNoHistory =>
+      'Историята на баланса ти започва с първата ти транзакция.';
+
+  @override
   String get pnlChartEmpty =>
-      'Печалбата и загубата ви ще се показват тук, щом търгувате или прогнозирате';
+      'Печалбите ви ще се показват тук, щом търгувате или прогнозирате';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11324,4 +11574,2913 @@ class AppLocalizationsBg extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'вход $price';
   }
+
+  @override
+  String get activityOnItsWay => 'На път';
+
+  @override
+  String get investingTradfi => 'Традиционни';
+
+  @override
+  String get purchaseShort => 'Купи';
+
+  @override
+  String get categoryGroupDiscover => 'Открий';
+
+  @override
+  String get categoryGroupMarkets => 'Пазари';
+
+  @override
+  String get categoryGroupTopics => 'Теми';
+
+  @override
+  String get categoryGroupTrendingNow => 'Актуално сега';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count пазара',
+      one: '1 пазар',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Най-активни';
+
+  @override
+  String get categoryStatToday => 'днес';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return '$amount обем днес';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'Всичко в $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'Движат се сега';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Популярни прогнози';
+
+  @override
+  String get barPickMarketGroup => 'Избери група пазари';
+
+  @override
+  String get barPickMarketGroupSub => 'или помоли Sal да намери';
+
+  @override
+  String get barShareWithFriends => 'Изпрати на приятел';
+
+  @override
+  String get barShareMarketSub => 'Изпрати пазара или прогноза';
+
+  @override
+  String get barSharePositionSub => 'Изпрати пазара или позицията си';
+
+  @override
+  String get shareTheMarket => 'Изпрати пазара';
+
+  @override
+  String get shareTheMarketSub => 'Получават линк, за да го разгледат';
+
+  @override
+  String get shareThisPosition => 'Изпрати тази позиция';
+
+  @override
+  String get shareThisPositionSub => 'Пазарът и как се справяш';
+
+  @override
+  String get sendThisPrediction => 'Изпрати тази прогноза';
+
+  @override
+  String get sendThisInvestment => 'Изпрати тази инвестиция';
+
+  @override
+  String get sendThisPickSub => 'Получават избора ти, готов за поставяне';
+
+  @override
+  String sharePickOn(String outcome, String title) {
+    return '$outcome за $title';
+  }
+
+  @override
+  String get portfolioInvestedLabel => 'Вложено';
+
+  @override
+  String get portfolioAvailableLabel => 'Налично';
+
+  @override
+  String get balanceNoHistoryTitle => 'Още няма история на баланса';
+
+  @override
+  String get balanceNoHistorySub => 'Тя започва с първата ти транзакция.';
+
+  @override
+  String balanceGoalLevel(int level) {
+    return 'Ниво $level';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Kute Дрямка';
+
+  @override
+  String get balanceLevelName1 => 'Kute Монета';
+
+  @override
+  String get balanceLevelName2 => 'Kute Купчинка';
+
+  @override
+  String get balanceLevelName3 => 'Kute Подиум';
+
+  @override
+  String get balanceLevelName4 => 'Kute Куфарче';
+
+  @override
+  String get balanceLevelName5 => 'Kute Трезор';
+
+  @override
+  String get balanceLevelName6 => 'Kute Кула';
+
+  @override
+  String get balanceLevelName7 => 'Kute Кюлчета';
+
+  @override
+  String get balanceLevelName8 => 'Kute Купчина';
+
+  @override
+  String get balanceLevelName9 => 'Kute Корона';
+
+  @override
+  String get balanceLevelName10 => 'Kute Легенда';
+
+  @override
+  String get balanceLevelName11 => 'Извън графиките на Kute';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% до $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Цели';
+
+  @override
+  String get balanceGoalsTab => 'Цели';
+
+  @override
+  String get balanceLadderTitle => 'Нива';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'От $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return 'Под $amount';
+  }
+
+  @override
+  String get balanceGoalNext => 'Следваща цел';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Остават $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Следваща: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return 'Премести $amount в Долари';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Премести в Долари';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Мина $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Биткойн и долари заедно. Сал се прави, че не е нищо.';
+
+  @override
+  String get pnlNoHistoryTitle => 'Още няма печалби';
+
+  @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get portfolioPnlAllVenues => 'Всички';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count позиции не са в графиката (няма история)',
+      one: '1 позиция не е в графиката (няма история)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioHeroUp(String amount) {
+    return 'Нагоре с $amount';
+  }
+
+  @override
+  String portfolioHeroDown(String amount) {
+    return 'Надолу с $amount';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return 'Печелиш $amount';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return 'Губиш $amount';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'От затворени позиции';
+
+  @override
+  String get portfolioPnlOnOpen => 'От отворени позиции';
+
+  @override
+  String get portfolioPnlByProduct => 'По продукт';
+
+  @override
+  String get portfolioClosedPositions => 'Затворени позиции';
+
+  @override
+  String get portfolioBrowseInvesting => 'Разгледай Инвестиране';
+
+  @override
+  String get activityFilterTrades => 'Сделки';
+
+  @override
+  String get activityFilterPayouts => 'Изплащания';
+
+  @override
+  String get activityFilterTransfers => 'Преводи';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Затворена · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Затворена · $coin Short';
+  }
+
+  @override
+  String get pnlStatRealisedAllTime => 'All time realised';
+
+  @override
+  String get pnlStatUnrealisedAllTime => 'All time unrealised';
+
+  @override
+  String portfolioInvestedInVenue(String venue) {
+    return 'Invested in $venue';
+  }
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
+  String get portfolioAllTime => 'За целия период';
+
+  @override
+  String get barWhatIsThis => 'Какво е това?';
+
+  @override
+  String get barReceiveExplainSub => 'Sal обяснява как работи получаването';
+
+  @override
+  String get barReceiveQuestion =>
+      'Обясни ми този екран за получаване: QR кода, Lightning адреса, Обединен vs Само Bitcoin vs Само Lightning и какво означава „Приема също“';
+
+  @override
+  String get barScannerLabel => 'Какво мога да сканирам?';
+
+  @override
+  String get barScannerQuestion =>
+      'Какво мога да сканирам със скенера на Kute: адреси, фактури, QR кодове, и какво става след сканиране?';
+
+  @override
+  String get barBackupLabel => 'Защо резервно копие?';
+
+  @override
+  String get barBackupQuestion =>
+      'Защо трябва да направя резервно копие на портфейла си, какво е фразата за възстановяване и как да я пазя на сигурно място?';
+
+  @override
+  String get barReceiptLabel => 'Какво се случи тук?';
+
+  @override
+  String get barReceiptQuestion =>
+      'Обясни ми тази разписка за транзакция: какво е преместено, таксите, статуса и какво означава всеки ред';
+
+  @override
+  String get barAskSalSub => 'Питай Sal за този екран';
+
+  @override
+  String get barMoveMoney => 'Прехвърли пари';
+
+  @override
+  String get barMoveMoneySub => 'питай Sal къде да отидат';
+
+  @override
+  String get barAskWhatNext => 'Питай Sal какво следва';
+
+  @override
+  String get barAskAboutKute => 'Питай Sal за Kute';
+
+  @override
+  String get searchHomeRecent => 'Скорошни';
+
+  @override
+  String get searchHomeClear => 'Изчисти';
+
+  @override
+  String get searchScopeTitle => 'Търси в';
+
+  @override
+  String get searchShowMore => 'Покажи още';
+
+  @override
+  String get shareSendToAnyone => 'Изпрати на всеки';
+
+  @override
+  String get shareSendToAnyoneSubtitle => 'Линк, който вземат с Kute';
+
+  @override
+  String get shareWhoIsItFor => 'За кого е?';
+
+  @override
+  String get shareFirstNameHint => 'Име (по избор)';
+
+  @override
+  String get shareCreateLink => 'Създай линк';
+
+  @override
+  String get shareCreatingLink => 'Създаване на линк';
+
+  @override
+  String get shareCreateFailed =>
+      'Линкът не можа да се създаде. Опитай отново.';
+
+  @override
+  String shareAmountInBitcoin(String amount) {
+    return '$amount в Bitcoin';
+  }
+
+  @override
+  String shareMessageNamed(String name, String amount, String url) {
+    return '$name, изпратих ти $amount с Kute. Вземи тук: $url';
+  }
+
+  @override
+  String shareMessageUnnamed(String amount, String url) {
+    return 'Изпратих ти $amount с Kute. Вземи тук: $url';
+  }
+
+  @override
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, изпратих ти прогноза в Kute: $outcome за $title, $amount. Вземи я: $url';
+  }
+
+  @override
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Изпратих ти прогноза в Kute: $outcome за $title, $amount. Вземи я: $url';
+  }
+
+  @override
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, изпратих ти инвестиция в Kute: $outcome за $title, $amount. Вземи я: $url';
+  }
+
+  @override
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Изпратих ти инвестиция в Kute: $outcome за $title, $amount. Вземи я: $url';
+  }
+
+  @override
+  String shareLinkSentWaiting(String name) {
+    return 'Линкът е изпратен · чака $name да го вземе';
+  }
+
+  @override
+  String get shareLinkSentWaitingUnnamed =>
+      'Линкът е изпратен · чака да бъде взет';
+
+  @override
+  String get shareLinkClaimedReady => 'Взето · готово за изпращане';
+
+  @override
+  String get shareLinkPaid => 'Изпратено';
+
+  @override
+  String get shareLinkCancelled => 'Отменено';
+
+  @override
+  String get shareLinkExpired => 'Изтекло';
+
+  @override
+  String get shareLinkCancel => 'Отмени линка';
+
+  @override
+  String get shareLinkCancelFailed =>
+      'Линкът не можа да се отмени. Опитай отново.';
+
+  @override
+  String get shareLinkShareAgain => 'Сподели отново';
+
+  @override
+  String get sharePendingLinksTitle => 'Изпратени линкове';
+
+  @override
+  String shareClaimedPromptTitle(String name, String amount) {
+    return '$name взе твоите $amount';
+  }
+
+  @override
+  String shareClaimedPromptTitleUnnamed(String amount) {
+    return 'Твоите $amount са взети';
+  }
+
+  @override
+  String get shareClaimedPromptBody =>
+      'Изпрати сега, за да завършиш. Средствата напускат портфейла ти само когато потвърдиш.';
+
+  @override
+  String get shareSendNow => 'Изпрати сега';
+
+  @override
+  String get shareLater => 'По-късно';
+
+  @override
+  String get shareSendFailed =>
+      'Изпращането не успя. Kute ще попита отново при следващото отваряне.';
+
+  @override
+  String claimTitle(String sender, String amount) {
+    return '$sender ти изпрати $amount';
+  }
+
+  @override
+  String get claimSomeone => 'Някой';
+
+  @override
+  String claimMarketLine(String market) {
+    return 'за прогноза за $market';
+  }
+
+  @override
+  String get claimButton => 'Вземи';
+
+  @override
+  String get claimClaiming => 'Взимане';
+
+  @override
+  String get claimOnItsWay => 'На път е';
+
+  @override
+  String claimArrivesWhenOpens(String sender) {
+    return 'Пристига, когато $sender отвори Kute.';
+  }
+
+  @override
+  String claimSentPrediction(String sender) {
+    return '$sender ти изпрати прогноза';
+  }
+
+  @override
+  String claimSentInvestment(String sender) {
+    return '$sender ти изпрати инвестиция';
+  }
+
+  @override
+  String claimPickAmount(String outcome, String amount) {
+    return '$outcome · $amount';
+  }
+
+  @override
+  String claimWaitingForSender(String sender) {
+    return 'Чака се $sender да го изпрати';
+  }
+
+  @override
+  String claimArrivedInDollars(String amount) {
+    return '$amount са в твоите Долари';
+  }
+
+  @override
+  String get claimPlacePrediction => 'Направи прогнозата';
+
+  @override
+  String get claimPlaceInvestment => 'Направи инвестицията';
+
+  @override
+  String get claimOpenMarket => 'Отвори пазара';
+
+  @override
+  String get claimAlreadyClaimed => 'Този линк вече е взет.';
+
+  @override
+  String get claimExpired => 'Този линк е изтекъл.';
+
+  @override
+  String get claimUnavailable => 'Този линк не е наличен.';
+
+  @override
+  String get claimFailed => 'Взимането не успя. Опитай отново.';
+
+  @override
+  String get claimNeedsWallet =>
+      'Портфейлът ти още се подготвя. Опитай отново след малко.';
+
+  @override
+  String get shareMarketShareLink => 'Изпрати линка';
+
+  @override
+  String shareMarketLookAt(String title, String link) {
+    return 'Виж това в Kute: $title $link';
+  }
+
+  @override
+  String shareMarketChance(String chance) {
+    return '$chance% шанс';
+  }
+
+  @override
+  String get sendRecipientSearchHint => 'Име, телефон или крипто адрес';
+
+  @override
+  String get sendMoveToYourDollars => 'Премести в твоите Долари';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Премести в твоя Bitcoin';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Изпрати на $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Какво изпращаш?';
+
+  @override
+  String get sendWhatGift => 'Прогноза или инвестиция';
+
+  @override
+  String get sendDollarsTitle => 'Изпрати долари';
+
+  @override
+  String sendCoinTitle(String coin) {
+    return 'Изпрати $coin';
+  }
+
+  @override
+  String get sendContacts => 'Контакти';
+
+  @override
+  String get sendToAFriend => 'Изпрати на приятел';
+
+  @override
+  String get sendToAFriendSub => 'Вземат го с Kute, без нужда от портфейл';
+
+  @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
+  String get sendSomeoneElse => 'Някой друг';
+
+  @override
+  String get sendAllowContactsInSettings => 'Разреши контактите в Настройки';
+
+  @override
+  String get sendAllowContactsInSettingsSub =>
+      'Kute може да показва само контакти, които разрешиш';
+
+  @override
+  String get sendNoContactsMatch => 'Няма съвпадащи контакти';
+
+  @override
+  String get sendContactsSearchHint => 'Търси контакти';
+
+  @override
+  String get sendContactsSeeYours => 'See your contacts';
+
+  @override
+  String get sendContactsSeeYoursSub => 'Send to friends from your phone book';
+
+  @override
+  String sendLinkToPhone(String phone) {
+    return 'Send a link to $phone';
+  }
+
+  @override
+  String get sendBadgeKute => 'On Kute';
+
+  @override
+  String get sendBadgeLightning => 'Lightning address';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'От твоя Bitcoin';
+
+  @override
+  String get receiveFromYourDollars => 'От твоите Долари';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount в Долари';
+  }
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin и Lightning';
+
+  @override
+  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+
+  @override
+  String get sendRailLightning => 'Lightning';
+
+  @override
+  String get sendRailSpark => 'Spark';
+
+  @override
+  String usdSendNotNetworkAddress(String network) {
+    return 'Не е $network адрес';
+  }
+
+  @override
+  String usdSendResolvedRail(String network, String asset) {
+    return '$network · $asset';
+  }
+
+  @override
+  String get sendPickMarket => 'Изпрати прогноза или инвестиция';
+
+  @override
+  String get sendPickMarketSub => 'Потърси пазар, после избери страната';
+
+  @override
+  String get sendPickMarketSearchHint => 'Търси в прогнози и инвестиции';
+
+  @override
+  String get sendPickMarketNoResults => 'Няма съвпадения';
+
+  @override
+  String get sendPickSideSub => 'Избери страната, която получават';
+
+  @override
+  String get shareSendAgainWhatsApp => 'Изпрати отново през WhatsApp';
+
+  @override
+  String get shareSendAgainSms => 'Изпрати отново чрез SMS';
+
+  @override
+  String get sendToLabel => 'Получател';
+
+  @override
+  String get predictionsChance => 'шанс';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get buyDollarsAction => 'Купи долари';
+
+  @override
+  String get passkeyPrfUnsupportedTitle =>
+      'This password manager can\'t hold your Kute wallet';
+
+  @override
+  String get passkeyPrfUnsupportedBody =>
+      'It doesn\'t support the key Kute needs, so nothing was created.';
+
+  @override
+  String get passkeyPrfUseApplePasswords => 'Use Apple Passwords';
+
+  @override
+  String get passkeyPrfUseGooglePasswordManager =>
+      'Use Google Password Manager';
+
+  @override
+  String get passkeyPrfPickApplePasswords => 'Pick Passwords when asked';
+
+  @override
+  String get passkeyPrfPickGooglePasswordManager =>
+      'Pick Google Password Manager when asked';
+
+  @override
+  String get passkeyPrfUsePhraseInstead => 'Use a recovery phrase instead';
+
+  @override
+  String get passkeyPrfTryAgain => 'Try again';
+
+  @override
+  String get passkeyPrfSignInTitle =>
+      'This password manager didn\'t return your Kute key';
+
+  @override
+  String get passkeyPrfSignInBody =>
+      'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.';
+
+  @override
+  String get passkeyPrfRestoreBody =>
+      'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.';
+
+  @override
+  String get passkeyPrfRestoreWithPhrase => 'Restore with your recovery phrase';
+
+  @override
+  String get passkeyChoiceWorksWithApple => 'Works with Apple Passwords';
+
+  @override
+  String get passkeyChoiceWorksWithGoogle =>
+      'Works with Google Password Manager';
+
+  @override
+  String get sendRecipientSendingTo => 'Sending to';
+
+  @override
+  String get sendRecipientChange => 'Change';
+
+  @override
+  String get sendOtherContacts => 'Other contacts';
+
+  @override
+  String get chartSheetTitle => 'Графика';
+
+  @override
+  String get chartIndEmaNote => 'Краткосрочен тренд, който се обръща бързо';
+
+  @override
+  String get chartIndBb => 'Ленти на Болинджър';
+
+  @override
+  String get chartIndBbNote => 'Колко обикновено се люшка цената';
+
+  @override
+  String get chartIndRsiNote => 'Дали покупките или продажбите са прекалени';
+
+  @override
+  String get chartIndMacdNote => 'Моментумът се обръща нагоре или надолу';
+
+  @override
+  String get chartIndVwapNote => 'Средна платена цена, претеглена по обем';
+
+  @override
+  String get chartIndVolumeNote => 'Колко е търгувано във всеки период';
+
+  @override
+  String get chartReset => 'Нулиране';
+
+  @override
+  String chartPaneLimit(String name) {
+    return '$name е изключен: под графиката се побират два';
+  }
+
+  @override
+  String get chartToolCursor => 'Курсор';
+
+  @override
+  String get chartToolHorizontalLine => 'Хоризонтална линия';
+
+  @override
+  String get chartToolPriceLine => 'Ценова линия';
+
+  @override
+  String get chartPriceLines => 'Ценови линии';
+
+  @override
+  String get chartPriceLineNew => 'Нова линия';
+
+  @override
+  String get chartPriceLineNewNote => 'Проверява се само докато Kute е отворен';
+
+  @override
+  String get chartPriceLineAbove => 'Над цената';
+
+  @override
+  String get chartPriceLineBelow => 'Под цената';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Достигната $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin достигна $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return 'Имате $count ценови линии. Премахнете една, за да добавите друга.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Това е текущата цена. Изберете ниво над или под нея.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Това е твърде далеч от цената. Изберете по-близко ниво.';
+
+  @override
+  String get chartPriceLineRemoveTitle =>
+      'Да се премахне ли тази ценова линия?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin при $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Премахване';
+
+  @override
+  String get chartMoreTools => 'Още';
+
+  @override
+  String get chartColor => 'Цвят';
+
+  @override
+  String get chartBlueColor => 'Синьо';
+
+  @override
+  String get chartLineSolid => 'Плътна линия';
+
+  @override
+  String get chartLineDashed => 'Пунктирна линия';
+
+  @override
+  String get chartExtendLine => 'Удължи надясно';
+
+  @override
+  String get chartLock => 'Заключи';
+
+  @override
+  String get chartUnlock => 'Отключи';
+
+  @override
+  String get chartDuplicate => 'Дублирай';
+
+  @override
+  String chartHintTapFirstPoint(String tool) {
+    return 'Докосни първата точка: $tool';
+  }
+
+  @override
+  String get chartHintTapSecondPoint => 'Сега докосни втората точка.';
+
+  @override
+  String chartHintToolKept(String tool) {
+    return '$tool остава избран. Докосни го, за да спреш.';
+  }
+
+  @override
+  String get chartHintLocked => 'Заключено. Отключи, за да го преместиш.';
+
+  @override
+  String get chartHintPickToolKeep =>
+      'Избери инструмент. Докосни два пъти, за да остане избран.';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String receiptCardOnSide(String side) {
+    return 'Аз съм за $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Шанс, когато влязох';
+
+  @override
+  String get receiptCardCashedOut => 'Осребрено';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Продадено за $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Не и този път';
+
+  @override
+  String get receiptCardPaidOut => 'Изплатено';
+
+  @override
+  String get receiptCardMoved => 'Преместено';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Нито една банка не пострада при това плащане.';
+
+  @override
+  String get receiptEdgeSentNext => 'Изпратено. Следващото.';
+
+  @override
+  String get receiptEdgeLanded => 'Пристигна. Без попълване на формуляри.';
+
+  @override
+  String get receiptEdgeIncoming => 'На път е. Търпението е функция.';
+
+  @override
+  String get receiptEdgeMoved => 'Същите пари. По-добро място.';
+
+  @override
+  String get receiptEdgeStacked => 'Натрупах още малко.';
+
+  @override
+  String get receiptEdgeTookSome => 'Прибрах малко от масата.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Решено. Сега чакаме.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Моята прогноза. Официално.';
+
+  @override
+  String get receiptEdgeTookWin => 'Взех печалбата и си тръгнах.';
+
+  @override
+  String get receiptEdgeCutIt => 'Отрязах го. Продължавам.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Влязох и излязох.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Грешах днес. Утре пак.';
+
+  @override
+  String get receiptEdgeLesson => 'Урокът е платен изцяло.';
+
+  @override
+  String get receiptEdgeCollected => 'Познах. Прибрах.';
+
+  @override
+  String get receiptEdgeOpened => 'Вътре съм. Сега е ред на пазара.';
+
+  @override
+  String get receiptResult => 'Result';
+
+  @override
+  String get categoryFilterPrompt => 'Filter';
+
+  @override
+  String activityPaidFrom(String source) {
+    return 'Paid from $source';
+  }
+
+  @override
+  String activityPaidFromBoth(String first, String second) {
+    return 'Paid from $first and $second';
+  }
+
+  @override
+  String predictNextWindow(String time) {
+    return 'Следващ · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset нагоре или надолу · $start–$end';
+  }
+
+  @override
+  String predictUpOrDownCompact(String asset, int minutes) {
+    return '$asset up or down · ${minutes}m';
+  }
+
+  @override
+  String get sendFrequent => 'Frequent';
+
+  @override
+  String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'Картата ти е готова';
+
+  @override
+  String shareCardToday(String change) {
+    return '$change днес';
+  }
+
+  @override
+  String shareCardForNamed(String name) {
+    return 'За $name';
+  }
+
+  @override
+  String get shareCardForYou => 'За теб';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, избор за теб';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Избор за теб';
+
+  @override
+  String get shareCardInvestmentForYou => 'Инвестиция за теб';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, инвестиция за теб';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return '$outcome да спечели';
+  }
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'в биткойн · $amount';
+  }
+
+  @override
+  String get shareCardClaimOnKute => 'Вземи го в Kute';
+
+  @override
+  String get shareEdgeStockEarly => 'Някои от нас купуват преди заглавията.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Нагоре с $change. Моля.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Казах ти.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Намаление, не катастрофа.';
+
+  @override
+  String get shareEdgeStockPanic => 'Купувам, докато ти се паникьосваш.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance казват: рано, не грешно.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '$chance от тълпата греши.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Избери другата страна. Ако смееш.';
+
+  @override
+  String get shareEdgePredictionPolitics => 'Анкетите са мнения. Това са пари.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome или нищо.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Харчи разумно. Или не.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Приеми го като флекс.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Безплатен биткойн. Рядка гледка.';
+
+  @override
+  String get shareEdgeBragPattern => 'Не е късмет. Разпознаване на модели.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount, докато ти скролваше.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading => 'Дълбоко на минус, но още търгувам.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Изграждане на характер, по $amount.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Търпението също е позиция.';
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return 'Шанс за $outcome';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount за $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Моята позиция';
+
+  @override
+  String get shareCardOutcomeYes => 'Да';
+
+  @override
+  String get shareCardOutcomeNo => 'Не';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, ръст $change днес';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, спад $change днес';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: имплицитна цена $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price за барел';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price за унция';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'Пазарите дават на $outcome $chance шанс';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Пазарите дават $chance шанс';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Фаворит: $outcome с $chance срещу $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Фаворит: $outcome с $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance за победа';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance шанс да се случи';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$chance шанс за $outcome';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance вероятност да се случи';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$chance вероятност за $outcome';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance казват да';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance казват не';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance шанс';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, приятел ти изпраща';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Приятел ти изпраща';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, приятел ти изпраща своя избор';
+  }
+
+  @override
+  String get claimCardPick => 'Приятел ти изпраща своя избор';
+
+  @override
+  String get claimCardTapClaim => 'Твои са. Натисни Вземи.';
+
+  @override
+  String get bragWonCaps => 'Познах';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Спечелено от $entry';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Платено $paid · Изплатено $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Похвали се с тази печалба';
+
+  @override
+  String get bragEdgeWonReceipts => 'Приключи. Доказателствата са налице.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Влязох при $entry. Оказах се прав.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount за точната прогноза.';
+  }
+
+  @override
+  String get challengeToggle => 'Предизвикай ги';
+
+  @override
+  String get challengeToggleSub => 'Предизвикай ги да изберат другата страна';
+
+  @override
+  String get challengeCaps => 'Предизвиквам те';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, предизвиквам те';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Приятел те предизвиква';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, предизвикан си';
+  }
+
+  @override
+  String get challengeMySide => 'Моята страна';
+
+  @override
+  String get challengeFriendSide => 'Приятелят';
+
+  @override
+  String get challengeYourSide => 'Твоята страна?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount за игра, от мен';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'За $side съм. Греша ли? Избери другата страна.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Казвам $side. Ще спориш ли?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Докажи, че греша.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'Избрах $side. Твой ход.';
+  }
+
+  @override
+  String get shareEdgeMoneyNoStrings => 'Без уловки. Проверих.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Пари, но като съобщение.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'По-бързо от банка. Ниска летва.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Без бланки. Без празни приказки.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Изненада. Дръж се естествено.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Няма защо. Предварително.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, без въпроси.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Подарък. Не заем. Вероятно.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Не ги харчи наведнъж.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Не свиквай с това.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Пратено с любов. И малко его.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Никоя банка не беше питана.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Биткойн. Борави с търпение.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Трупай отговорно.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Биткойн. Без лекции.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Малко сатоши. Голяма отговорност.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Дигитални долари. Същите долари.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Кеш, но без плика.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Долари. Без летищен курс.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Моят избор. Снимай екрана.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Категория: първо го чу от мен.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Окончателно.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Не е съвет. Просто силно мнение.';
+
+  @override
+  String get shareEdgePickDidReading => 'Домашното е написано. Почти.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Пазя го за „казах ти“.';
+
+  @override
+  String get shareEdgePickConviction => 'Убедеността ми отива.';
+
+  @override
+  String get shareEdgePickNotFree => 'Мненията са безплатни. Това не е.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount казват $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Малко драма. Много убеденост.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Ако позная, няма живот с мен.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'Подкрепям фаворита. Революционно.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance са съгласни. Умна тълпа.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Сигурен избор. Пак е избор.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Следвам шансовете. Шокиращо.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Аутсайдер. Нарочно.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Само $chance го виждат. Устройва ме.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Малък шанс. Без дълги обяснения.';
+
+  @override
+  String get shareEdgePickContrarian => 'Срещу течението. Съзнателно.';
+
+  @override
+  String get shareEdgeTopicDebates => 'Дебатите са шум. Шансовете не.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Днес всички са треньори.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Волатилност включена. Без доплащане.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Прочети протокола. Целия.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Избери страна. Или само гледай.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Всеки има мнение. Това има проценти.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Всеки е експерт до развръзката.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'За груповия чат: ето шансовете.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Горещи мнения? Ето и шансовете.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Не е съвет. Просто пазарът.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Шансовете се менят. Въпросът не.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Ти решаваш. Без натиск.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Обсъди. Спокойно.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Ти на чия страна си?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance казват $side. Коментари?';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Да или не. Не е толкова лесно.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Един въпрос. Два отговора.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance не е гаранция.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Прост въпрос. Сложни чувства.';
+
+  @override
+  String get shareEdgeMarketLikely => 'Вероятно не значи сигурно.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader води. Нищо не е решено.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance не е коронация.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Графиката: $leader. Историята: чакай.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Фаворит днес. Питай пак утре.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Много кандидати. Един отговор.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader на $chance. Не превключвай.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning =>
+      'Да водиш не значи да победиш.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Фаворит, не сигурна работа.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Изненади има. Фаворити също.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'Решава играта. Не коментарите.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Шансовете не играят мача.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Приказки сега. Резултат после.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Давай, пробвай.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'За $side съм. Това е предупреждение.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Стига приказки. Избирай.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Страх ли те е? Разбираемо.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Освен ако не знаеш по-добре.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'За $side съм. Твой ред да грешиш.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, и не съжалявам.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Избрах $side. Другата страна е твоя.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Убеди ме в обратното.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Ще се видим при развръзката.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'За $side съм. Носи доказателства.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Не е съвет. Просто графика.';
+
+  @override
+  String get shareEdgeStockFeelings => 'Графиката не я е грижа за чувства.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Звучи ли ти познато?';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Зелен ден. Дръж се нормално.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Спокойно. Едва $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Не казвам, че знаех. Но знаех.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Днес нагоре. Утре не е мой проблем.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return 'Зеленото отива на $name.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Графиката нагоре. Егото стабилно.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Не ръкопляскай. Само гледай.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Двуцифрено. Ще го позволя.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Нагоре с $change. Как са шортовете?';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Днес на червено. Спокойствие.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Надолу с $change. Виж по-широко.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional => 'Спадове има. Паниката е по избор.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Надолу с $change. Развитие на героя.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Спад, не обрат в сюжета.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Днес надолу. Още съм тук.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Волатилност: работи както трябва.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Всяка графика има лош ден.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Надолу с $change. Дълбоко дишай.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Нищо не стана. Вълнуващо.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Спокоен ден. Скучното е подценено.';
+
+  @override
+  String get shareEdgeStockSideways => 'И встрани е посока.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Днес без драма. Подозрително.';
+
+  @override
+  String get shareEdgeStockNap => 'Графиката подремна.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Гледам как съхне боя. Професионално.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Без промяна. Без притеснения.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Шорт. Без стрес.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Не всичко върви нагоре.';
+
+  @override
+  String get shareEdgeStockGravity => 'Гравитацията също е стратегия.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Шортвам хайпа. Учтиво.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Срещу течението, с графика.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'Някой трябва да е от другата страна.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Надолу с $change. По план.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Днес нагоре. Мога да чакам.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Тихо на плюс.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Зеленото ми отива.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Обяснение? За да ме копираш ли?';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Скромност? Работя по въпроса.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Резултати, а не вайб.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Без изненада. Леко доволство.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Минали резултати. Не обещание.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges =>
+      'Снимай екрана, преди да се смени.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Енергия на главен герой.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Сега ще ти дойда в повече.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Това е моята спокойна версия.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Голямо число. Малко его. Уж.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Малка победа. Пак е победа.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Рим не е построен за ден.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Скромно. Като мен.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Временно смирение.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'Червеното е просто фаза.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Минус $amount. С включени уроци.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'На минус, не вън от играта.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Публикувам загубите си. Растеж.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Това е моята смирена ера.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Поех удара. С достойнство.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Слаб ход. Но не последен.';
+
+  @override
+  String get shareEdgeBragDignified => 'На червено, но с достойнство.';
+
+  @override
+  String get shareEdgeBragTuition => 'Загубите са учебна такса.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Нето нула. Нето спокойствие.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Равно. Идеално балансирано.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Без печалба. Без загуба. Без паника.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'Нулата е непобедена.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Настрани, със стил.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Нищо за гледане. Споделям все пак.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Права линия. Стабилни ръце.';
+
+  @override
+  String get shareEdgeBragBlinked => 'Пазарът мигна. Аз не.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Равно. Като нрава ми.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Нула драма. Нула промяна.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Казах ти. Учтиво.';
+
+  @override
+  String get bragEdgeWonNormal => 'Познах. Ще се държа нормално.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Приключи в моя полза.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Правотата се отплаща. Понякога.';
+
+  @override
+  String get bragEdgeWonAgreed => 'Пазарът се съгласи. Накрая.';
+
+  @override
+  String get bragEdgeWonMySide => 'Моята страна не ме подведе.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Търпение, после изплащане.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Без забележки.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Скрийншот за бъдещото ми аз.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Първо рано, после точно.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Тихо прибирам.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Изненада? Не и за мен.';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Пратено. Без музика на изчакване.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Готово преди банката да отвори.';
+
+  @override
+  String get receiptEdgeSentDrama => 'Парите тръгнаха. Драмата не.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Секунди, не работни дни.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Пратено. Благодари ми после.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Щедро и ефективно.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Едно докосване. Без формуляри.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Платено. Продължаваме.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Уредено. Като голям човек.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, изпратени за секунди.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Да пратиш пари не бива да е сага.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Платиха ми. Спокойно, нищо особено.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Получено. Отбелязано. Оценено.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return '$amount в джоба. Без вълнение.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Дойде преди „благодаря“-то.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Пари вътре. Настроение нагоре.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Прието с класа.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Не се наложи да питам два пъти.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Извънреден ден за заплата.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Пристигна. Без банка по средата.';
+
+  @override
+  String get receiptEdgeReceivedCompliments => 'Приемам комплименти и преводи.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Почти пристига. Не стой над екрана.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Зарежда се. Без паника.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'На път е. Опресняването не помага.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'На път е. Не проверявам.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'В изчакване. Като всичко хубаво.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Идва. Режим търпение: включен.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'На път. Закуските не са включени.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'Хубавите неща отнемат минутка.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Пари в движение.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'Гледан превод не пристига.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Пренареждам мебелите.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Преместих ги. Не ги загубих.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Ляв джоб, десен джоб.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Пари, преместени.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Същият собственик. Нова стая.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Домакинска работа, но с пари.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Стратегическа рокада.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Местя пари като голям човек.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Подредено. За кратко.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Просто подреждам.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Разпределям. Много спокойно.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Без много мислене.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Добавено към купчината.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Тихо натрупване.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Не казах на никого. Досега.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Купувам, не гоня момента.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount убеденост.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience => 'Първо: купи. После: търпение.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Купувам. Игнорирам шума.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Купих. Връщам се към деня си.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Някои купуват маратонки.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Продадох малко. Запазих спокойствие.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Обменено. Без съжаление. Засега.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Продадено. Не гледам цената повече.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Ликвидност: придобита.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'Взех парите. Оставих драмата.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Продадено. Спя спокойно.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'И кешът е позиция.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Минах на кеш. Нарочно.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Бутон „Продай“: натиснат. Спокойно.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Малко кеш никога не вреди.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Решено. Почти.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'Чакането е най-трудното.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Мнение, вече подкрепено с пари.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Готово. Ноктите са цели.';
+
+  @override
+  String get receiptEdgePredictedTookSide => 'Избрах страна. Хладнокръвно.';
+
+  @override
+  String get receiptEdgePredictedJustMySide =>
+      'Не е съвет. Просто моята страна.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Ще се видим при развръзката.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$amount за $side. Това е.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Вътре. Нагоре. Вън.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Взех печалбата. Оставих егото.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Излязох, докато беше зелено.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Да знаеш кога да спреш е умение.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Тук приключих.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Осчетоводено.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Зелен изход. Без бис.';
+
+  @override
+  String get receiptEdgeUpGreed => 'Алчността не е стратегия.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Излязох на плюс. Рядка дисциплина.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Победата си е победа.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Спрях загубата. Запазих достойнство.';
+
+  @override
+  String get receiptEdgeDownExits => 'И изходите са умение.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Сбърках, но бързо.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Рано навън. Урокът остава.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'По-добре навън, отколкото инат.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Приех загубата. Бележката я пазя.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Затворих. Не е моят ден.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Червен изход. Нула сълзи.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Да признаеш е половината умение.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Учебната такса е платена.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Отиване и връщане. Без сувенири.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Пак на старта. С повече опит.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Нула печалба. Нула стрес.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Ни лук ял, ни лук мирисал.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'Пазарът сви рамене. Аз също.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Нетен резултат: история.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Следващ въпрос.';
+
+  @override
+  String get receiptEdgeLostRudely => 'Пазарът не се съгласи. Грубо.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Загубих една. Хуморът остава.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Грешно, но в добра компания.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Тази е за моя сметка.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'По-лек портфейл. Същата увереност.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Познах. Наобратно.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Да губиш с класа е флекс.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Шансовете си бяха шансове.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Продължавам. Вече съм другаде.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Минус прогноза. Плюс урок.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Приключи. Получено.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Изплатено. Държа се нормално.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, изплатени изцяло.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Изплащане. Спонсор: правотата.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Позиция отворена. Пулс нормален.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Влязох спокойно. Ще изляза спокойно.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Влязох при $price. Отбелязано.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Вътре. Не опреснявам всяка минута.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Убеденост, разумно дозирана.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Не е съвет. Просто моята сделка.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding => 'С графиката се разбираме.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Моето влизане. Моят проблем.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Нагоре или надолу – без паника.';
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, моят избор: $outcome за $title. Избери другата страна или се присъедини. $amount от мен: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Моят избор: $outcome за $title. Избери другата страна или се присъедини. $amount от мен: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'Избери другата страна';
+
+  @override
+  String get claimChallengeSameSide => 'Същата страна като приятеля';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'Приятелят ти е за $outcome';
+  }
+
+  @override
+  String get activityLatest => 'Latest';
+
+  @override
+  String get activityEarlier => 'Earlier';
+
+  @override
+  String polyRowLeads(String leader, String chance) {
+    return '$leader leads · $chance';
+  }
+
+  @override
+  String get predictAboveTarget => 'above target';
+
+  @override
+  String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Изпрати прогноза';
+
+  @override
+  String get sendAnInvestment => 'Изпрати инвестиция';
+
+  @override
+  String get sendAPredictionSub => 'Получават прогнозата, която избереш';
+
+  @override
+  String get sendAnInvestmentSub => 'Получават инвестицията, която избереш';
+
+  @override
+  String get sendPickOutcomeSub => 'Избери изхода, който получават';
+
+  @override
+  String get sendPickAmountSub => 'Колко получават?';
+
+  @override
+  String get sendToAFriendLabel => 'На приятел';
+
+  @override
+  String get sendPickRowSub => 'Или инвестиция. Потърси пазар, избери страна';
+
+  @override
+  String get chartSheetChartType => 'Тип графика';
+
+  @override
+  String get chartGroupTrend => 'Тренд';
+
+  @override
+  String get chartGroupMomentum => 'Моментум';
+
+  @override
+  String get chartGroupVolatility => 'Волатилност';
+
+  @override
+  String get chartGroupDisplay => 'Изглед';
+
+  @override
+  String get chartLogScaleNote => 'Еднакъв % ход, еднаква височина';
+
+  @override
+  String get chartYourTrades => 'Твоите сделки';
+
+  @override
+  String get chartYourTradesNote => 'Твоите покупки и продажби тук';
+
+  @override
+  String get chartIndSmaNote => 'Дългосрочен тренд, който се обръща бавно';
+
+  @override
+  String get chartIndStNote => 'Плъзгащ се стоп, който се обръща с тренда';
+
+  @override
+  String get chartIndSrsiNote =>
+      'Бързи колебания между свръхкупеност и свръхпродаденост';
+
+  @override
+  String get chartIndAtrNote => 'Колко обикновено се движи един период';
+
+  @override
+  String get chartIndIchimokuNote => 'Тренд и нива в един облак';
+
+  @override
+  String get chartIndPivotNote => 'Днешните нива от вчерашния диапазон';
+
+  @override
+  String get chartIndAdxNote => 'Колко силен е трендът';
+
+  @override
+  String get chartIndObvNote => 'Дали обемът подкрепя движението';
+
+  @override
+  String get chartIndVp => 'Обемен профил';
+
+  @override
+  String get chartIndVpNote => 'Цените с най-много сделки';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name е изключен: на цената се побират четири';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return 'Настройки на $name';
+  }
+
+  @override
+  String get chartParamLength => 'Дължина';
+
+  @override
+  String get chartParamFast => 'Бърза';
+
+  @override
+  String get chartParamSlow => 'Бавна';
+
+  @override
+  String get chartParamSignal => 'Сигнал';
+
+  @override
+  String get chartParamMultiplier => 'Множител';
+
+  @override
+  String get chartParamRsiLength => 'Дължина на RSI';
+
+  @override
+  String get chartParamStochLength => 'Дължина на стохастика';
+
+  @override
+  String get chartParamSmoothK => 'Изглаждане на %K';
+
+  @override
+  String get chartParamSmoothD => 'Изглаждане на %D';
+
+  @override
+  String get chartParamRows => 'Редове';
+
+  @override
+  String get chartParamSmoothing => 'Изглаждане';
+
+  @override
+  String get chartParamConversion => 'Линия на конверсия';
+
+  @override
+  String get chartParamBase => 'Базова линия';
+
+  @override
+  String get chartParamSpanB => 'Обхват B';
+
+  @override
+  String get chartParamDisplacement => 'Изместване';
+
+  @override
+  String get polyPeriodMatch => 'Мач';
+
+  @override
+  String get polyPeriodFullGame => 'Цял мач';
+
+  @override
+  String polyPeriodGame(int number) {
+    return 'Игра $number';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return 'Карта $number';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return 'Сет $number';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1-во полувреме';
+
+  @override
+  String get polyPeriodSecondHalf => '2-ро полувреме';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return 'Период $number';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Първи 5 ининга';
+
+  @override
+  String get polyPeriodFirstInning => '1-ви ининг';
+
+  @override
+  String get polyLineSetHandicap => 'Хендикап на сетове';
+
+  @override
+  String get polyLineTotalGames => 'Общо игри';
+
+  @override
+  String get polyLineTotalSets => 'Общо сетове';
+
+  @override
+  String get polyLineTotalKills => 'Общо убийства';
+
+  @override
+  String get polyLineTotalRounds => 'Общо рундове';
+
+  @override
+  String get polyLineDuration => 'Продължителност';
+
+  @override
+  String get polyLineTeamTotals => 'Тотал на отбор';
+
+  @override
+  String get polyLinePlayers => 'Играчи';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Още не се търгува · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Приключили · $count';
+  }
+
+  @override
+  String get polySideOver => 'Над';
+
+  @override
+  String get polySideUnder => 'Под';
+
+  @override
+  String get sendPickCardSub => 'Избери пазар, страна и сума';
+
+  @override
+  String get sendPredictionCta => 'Изпрати прогнозата';
+
+  @override
+  String get sendInvestmentCta => 'Изпрати инвестицията';
+
+  @override
+  String get sendPickYourFriend => 'Твоят приятел';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who получава $amount за $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side при $chance';
+  }
+
+  @override
+  String get sendPickHowItWorks =>
+      'Приятелят ти ги взема и ги поставя с едно докосване';
+
+  @override
+  String get shareCardPredictionForYou => 'Прогноза за теб';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, прогноза за теб';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Въведи сума за изпращане';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'Въведи поне $amount, за да изпратиш';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Може да се изпрати само „Да“ за $outcome. Избери „Да“, за да изпратиш.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Намери пазар, избери страна и сума, после докосни Sal, за да изпратиш';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return 'Изпрати $amount · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Може да се изпрати само „Да“ за $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Изпращаш на приятел';
+
+  @override
+  String get sendPickSearchHint => 'Търси прогнози и инвестиции';
+
+  @override
+  String get sendPickSheetTitle => 'Избери подарък';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Избери подарък за $name';
+  }
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return 'За $name';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return 'Изпрати $side';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Избери изход';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Купуваш го за $name';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Купуваш го за приятел';
+
+  @override
+  String get inviteCardCaps => 'Поканен си';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount отстъпка';
+  }
+
+  @override
+  String get inviteCardFees => 'от таксите на Kute';
+
+  @override
+  String get inviteCardJoin => 'Ела при мен в Kute';
+
+  @override
+  String get inviteCardUseCode => 'Използвай кода ми при регистрация';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Доведох те тук. Няма защо.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'Груповият ти чат имаше нужда от това.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Препоръчан си. Престори се на изненадан.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Не ме карай да питам два пъти.';
+
+  @override
+  String get shareEdgeInviteChainLetter =>
+      'Не е верижно писмо. Малко по-добро е.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Аз получавам дял. Ти получаваш отстъпка. Всички са добре.';
+
+  @override
+  String get shareEdgeInviteFees => 'По-ниски такси. Същият брой мнения.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'Отстъпката е истинска. Кучето е невъзмутимо.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'Сподели нивото ми';
+
+  @override
+  String get goalCardCaps => 'Моето ниво';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Не се хваля. Просто ниво.';
+
+  @override
+  String get shareEdgeGoalUnimpressed => 'Сал провери. Пак не е впечатлен.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Ниво по ниво. Без бързане.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Никой не пита. Споделям все пак.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Сал казва, че е нищо. Често го казва.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Бавно изкачване. Нарочно.';
+
+  @override
+  String get shareEdgeGoalNoTrophy => 'Без трофей. Само куче и ниво.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Твой ред е. Сал ще чака.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Пристига като биткойн';
+
+  @override
+  String get sendEmailNoLightning => 'Имейл, без Lightning адрес';
+
+  @override
+  String get barNeedLightningAddress => 'Няма Lightning адрес';
+
+  @override
+  String get orderNoticePlacingPrediction => 'Прогнозата ти се прави';
+
+  @override
+  String get orderNoticePlacingOrder => 'Поръчката ти се пуска';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Чакаме парите ти да пристигнат';
+
+  @override
+  String get orderNoticeConverting => 'Обменяме доларите ти';
+
+  @override
+  String get orderNoticeSettingUp => 'Настройваме акаунта ти';
+
+  @override
+  String get orderNoticeSending => 'Изпращаме поръчката ти';
+
+  @override
+  String get orderNoticeConfirming => 'Потвърждава се с платформата';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Прогнозата е направена';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Поръчката е пуснута';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Прогнозата не е направена';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'Поръчката не е пуснута';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Още не е потвърдено';
+
+  @override
+  String get orderNoticeOpenToSee => 'Отвори Kute, за да видиш какво се случи.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Поръчки в процес';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Напредъкът на прогноза или поръчка, докато Kute е на заден план.';
+
+  @override
+  String get orderNoticeResultChannel => 'Резултати от поръчки';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Дали прогноза или поръчка, пуснати, докато Kute беше на заден план, са минали.';
+
+  @override
+  String get predictionsInstant => 'Моментални';
+
+  @override
+  String get categoryInstantLengths => '5 мин · 15 мин · 1 час · 4 часа';
+
+  @override
+  String get categoryFiveMinuteMarkets => '5-минутни пазари';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Сега · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Още няма цени';
+
+  @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · печалба $payout';
+  }
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset нагоре или надолу · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Поставяме прогнозата ти';
+
+  @override
+  String get standingPlacingOrder => 'Поставяме поръчката ти';
+
+  @override
+  String get standingPlacingInvestment => 'Поставяме инвестицията ти';
+
+  @override
+  String get standingPredictionPlaced => 'Прогнозата е поставена';
+
+  @override
+  String get standingOrderPlaced => 'Поръчката е поставена';
+
+  @override
+  String get standingPredictionFailed =>
+      'Прогнозата ти не беше поставена. Парите са в Прогнози, налични.';
+
+  @override
+  String get standingOrderFailed =>
+      'Поръчката ти не беше поставена. Парите са в Инвестиране, налични.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Отменено. Парите остават в Прогнози, налични.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Отменено. Парите остават в Инвестиране, налични.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Цената стана $price. Докосни, за да поставиш на новата цена.';
+  }
+
+  @override
+  String get standingStagePlacing => 'Поставяме';
+
+  @override
+  String get standingStageApproval => 'Нужно е твоето одобрение';
 }

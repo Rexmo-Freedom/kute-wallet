@@ -28,6 +28,14 @@ Future<String?> scanRecipientRaw(BuildContext context) =>
 const Set<String> _kAddressSchemes = {
   'spark',
   'ethereum',
+  // Branta's stablecoin payee codes name the network by these (`pol:`
+  // Polygon, `eth:` Ethereum, `bsc:` BNB Smart Chain, `sol:` Solana; its
+  // `tron:` and `ton:` are below): the address is the path, the query is
+  // dropped.
+  'pol',
+  'eth',
+  'bsc',
+  'sol',
   'solana',
   'tron',
   'litecoin',
@@ -46,7 +54,8 @@ final RegExp _scheme =
 ///
 ///  * `bitcoin:` — [stripBitcoinAddress] (scheme and BIP21 query).
 ///  * `spark:`, `solana:`, `tron:`, `litecoin:`, `zcash:`, XRP and TON
-///    schemes — the scheme and any `?query` go, the address stays.
+///    schemes, and Branta's `pol:`, `eth:`, `bsc:` and `sol:` — the scheme
+///    and any `?query` go, the address stays.
 ///  * `ethereum:` (EIP-681) — the `pay-` prefix, `@chainId` and query go.
 ///    An ERC-20 `…/transfer?address=0x…` request names the TOKEN CONTRACT
 ///    as its target, so the recipient is the `address` parameter, never
@@ -111,7 +120,8 @@ String bareRecipientAddress(String raw) {
 
 /// For the bitcoin send (`ConfirmSend`), whose bitcoin, Lightning and
 /// Spark parsing must not change: only a cross-chain payment URI
-/// (`ethereum:`, `solana:`, `tron:`, `litecoin:`, `zcash:`, XRP, TON) is
+/// (`ethereum:`, `solana:`, `tron:`, `litecoin:`, `zcash:`, XRP, TON,
+/// Branta's `pol:`, `eth:`, `bsc:`, `sol:`) is
 /// reduced with [bareRecipientAddress]. Everything else, including a
 /// `bitcoin:` BIP21 with its amount and `lightning=` rail, a `spark:`
 /// payload, a `lightning:` invoice and any bare address or invoice, is
@@ -143,18 +153,29 @@ const Map<int, String> kEvmChainIdSlugs = {
   43114: 'avalanche',
 };
 
+/// The EVM networks Branta's stablecoin payee codes name by their scheme:
+/// `pol:` Polygon, `eth:` Ethereum, `bsc:` BNB Smart Chain.
+const Map<String, int> kBrantaEvmSchemeChainIds = {
+  'pol': 137,
+  'eth': 1,
+  'bsc': 56,
+};
+
 /// The EIP-155 chain id an `ethereum:` payment request names with
 /// `@chainId` (decimal or `0x` hex), or null when [raw] is not such a
 /// request or names none.
 ///
 /// `ethereum:0xabc…@8453` and `ethereum:pay-0xUSDC…@42161/transfer?address=…`
-/// both carry one; a bare address carries none.
+/// both carry one; a bare address carries none. Branta's payee codes name
+/// their EVM network by the scheme alone ([kBrantaEvmSchemeChainIds]).
 int? evmPaymentChainId(String raw) {
   final input = raw.trim();
   final match = _scheme.firstMatch(input);
-  if (match == null || match.group(1)!.toLowerCase() != 'ethereum') {
-    return null;
-  }
+  if (match == null) return null;
+  final scheme = match.group(1)!.toLowerCase();
+  final byScheme = kBrantaEvmSchemeChainIds[scheme];
+  if (byScheme != null) return byScheme;
+  if (scheme != 'ethereum') return null;
   var rest = input.substring(match.end);
   for (final stop in const ['/', '?']) {
     final i = rest.indexOf(stop);

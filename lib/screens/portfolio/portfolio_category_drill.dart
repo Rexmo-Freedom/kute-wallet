@@ -64,6 +64,7 @@ import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart'
     show SheetAnimatedSize;
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/portfolio/portfolio_categories.dart'
     show kPortfolioOtherCategory, predictionLiveValueUsd;
 import 'package:kute/services/portfolio/portfolio_category_items.dart';
@@ -487,7 +488,7 @@ class _Figures {
 
   static const _mask = '••••••';
 
-  String money(double v) => visible ? formatPolyAmount(ref, v) : _mask;
+  String money(double v) => visible ? formatDollars(v) : _mask;
 
   /// "+$3.80" / "−$5.00", the percent after it when given.
   String signed(double v, {double? percent}) {
@@ -500,7 +501,7 @@ class _Figures {
     final pct = percent == null || !percent.isFinite
         ? ''
         : ' ($sign${percent.abs().toStringAsFixed(1)}%)';
-    return '$sign${formatPolyAmount(ref, v.abs())}$pct';
+    return '$sign${formatDollars(v.abs())}$pct';
   }
 
   Color pnl(double v) => !visible || v == 0
@@ -686,8 +687,9 @@ class _EventTitle extends ConsumerWidget {
     final event = item.eventSlug.isEmpty
         ? null
         : ref.watch(polyPositionEventProvider(item.eventSlug));
+    // The event's name heads its markets: never its blank ("by...?").
     final title = (event?.title ?? '').trim().isNotEmpty
-        ? event!.title.trim()
+        ? polyMarketDisplayTitle(event!.title)
         : item.title.isNotEmpty
             ? item.title
             : context.l10n.betGroupOther;

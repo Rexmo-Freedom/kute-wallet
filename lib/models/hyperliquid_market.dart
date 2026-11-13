@@ -33,6 +33,8 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:kute/constants/hyperliquid_constants.dart';
 
 enum HlMarketKind { perp, spot }
@@ -43,9 +45,74 @@ enum HlMarketKind { perp, spot }
 /// is a factor of four under the quietest major stock perp.
 const double kHlLowLiquidityDayVolumeUsd = 50000;
 
+/// Spot tokens that hold a listed stock or fund, by the ticker of what
+/// they hold: Backed's xStocks ("Wrapped NVIDIA xStock") and EQX's
+/// tokens ("EQX Tokenized NVDA"), read from the venue's spot list on
+/// 7 November 2026. Each is one more way to trade that stock, so it
+/// groups under it (hlListingGroups), files under its class and shows
+/// its logo. Curated, never guessed from a name: anyone may deploy a
+/// token under any name. A token named exactly like its stock (TSLA)
+/// needs no entry.
+const Map<String, String> kHlStockWrapperTokens = {
+  // xStocks.
+  'AAPLX': 'AAPL',
+  'CRCLX': 'CRCL',
+  'MUX': 'MU',
+  'NVDAX': 'NVDA',
+  'QQQX': 'QQQ',
+  'SKHYX': 'SKHY',
+  'SNDKX': 'SNDK',
+  'SPCXX': 'SPCX',
+  'SPYX': 'SPY',
+  'TSLAX': 'TSLA',
+  'USPYX': 'SPY',
+  // EQX.
+  'EQAAPL': 'AAPL',
+  'EQAMZN': 'AMZN',
+  'EQGOOG': 'GOOGL',
+  'EQMETA': 'META',
+  'EQMSFT': 'MSFT',
+  'EQMU': 'MU',
+  'EQNVDA': 'NVDA',
+  'EQQQQ': 'QQQ',
+  'EQSPCX': 'SPCX',
+  'EQSPY': 'SPY',
+  'EQTSLA': 'TSLA',
+};
+
 /// One tradable market (perp or USDC-quoted spot pair) with everything the
 /// order path needs: wire ids, rounding metadata, leverage caps, and the
 /// latest price/volume context.
+/// Each builder (HIP-3) dex's own name, as the venue's `perpDexs` list
+/// gives it ('Ventuals', 'Felix Exchange'), kept whenever that list is
+/// read. Two venues can list a perp under the same symbol, and a list
+/// row names its venue to tell them apart.
+class HlDexNames {
+  HlDexNames._();
+  static final Map<String, String> _full = {};
+
+  static void remember(String dex, String fullName) {
+    if (dex.isEmpty || fullName.isEmpty) return;
+    _full[dex] = fullName;
+  }
+
+  /// The venue a market trades on: the builder dex's own name, its short
+  /// id in capitals while that is unknown, "Hyperliquid" for the main dex.
+  static String venueOf(HlMarket m) {
+    if (!m.isHip3 || m.dex.isEmpty) return 'Hyperliquid';
+    return _full[m.dex] ?? m.dex.toUpperCase();
+  }
+
+  /// The venue's mark on a market's logo: its first letter, in capitals.
+  static String monogramOf(HlMarket m) {
+    final v = venueOf(m).trim();
+    return v.isEmpty ? '?' : v.substring(0, 1).toUpperCase();
+  }
+
+  @visibleForTesting
+  static void debugReset() => _full.clear();
+}
+
 class HlMarket {
   /// Display symbol. Perp: 'BTC'. Spot: base token name, e.g. 'TSLA'.
   final String coin;
@@ -272,6 +339,15 @@ class HlMarket {
   }
 
   bool get isSpot => kind == HlMarketKind.spot;
+
+  /// For a spot token that holds a stock or fund ([kHlStockWrapperTokens]:
+  /// NVDAX, EQNVDA), the ticker of what it holds ('NVDA'); null otherwise.
+  String? get wrappedTicker =>
+      isSpot ? kHlStockWrapperTokens[coin.toUpperCase()] : null;
+
+  /// The ticker this market is read by for names, classes and logos: what
+  /// a wrapper token holds ([wrappedTicker]), else its own coin.
+  String get underlyingTicker => wrappedTicker ?? coin;
 
   /// 24h change at [px] (a live mid or mark) against [prevDayPx], as a
   /// fraction; 0 without a previous-day price. Lists that show a live

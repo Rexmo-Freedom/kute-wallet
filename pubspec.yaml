@@ -7,7 +7,7 @@ publish_to: "none"
 # then allows choosing any version of the GPL ever published by the
 # FSF; Kute is distributed under GPL-3.0-or-later.
 # SPDX-License-Identifier: GPL-3.0-or-later
-version: 2.1.2+90
+version: 2.2.0+123
 
 environment:
   sdk: ">=3.2.3 <4.0.0"
@@ -74,6 +74,12 @@ dependencies:
   # (im.crisp.client.internal…onResponse) that crashed on a background
   # thread — uncatchable from Dart. 2.6.0 carries the upstream SDK fix.
   crisp_chat: ^2.6.0
+  # Branta (MIT, pure Dart, no native code): names and logos the payee of
+  # a scanned or pasted destination on Send (services/branta). Verify
+  # only, no account or key. Pinned exactly: it decides what Send calls
+  # verified (founder, 12 November 2026). 4.3.0 (13 November 2026) adds
+  # USDC/USDT on Ethereum, BNB Smart Chain and Solana, USDT on Tron and TON.
+  branta: 4.3.0
 
   # Breez SDK
   breez_sdk_spark_flutter:
@@ -104,7 +110,6 @@ dependencies:
 
   # UI & UX Components
   flutter_screenutil: ^5.9.3
-  overlay_support: ^2.1.0
   # Liquid Glass for floating chrome (nav band, bottom search/FAB). Real
   # GPU refraction on Impeller (iOS Metal / Android Vulkan) with a
   # lightweight Skia/Web fallback. Consumed ONLY through KuteGlass so the
@@ -181,6 +186,7 @@ dependencies:
   convert: any
   barcode: any
   audioplayers: ^6.6.0
+  flutter_contacts: ^2.6.0
 dependency_overrides:
   vector_math: 2.2.0
   pointycastle: ^4.0.0
@@ -245,6 +251,11 @@ flutter:
     - lib/assets/spark-logo.svg
     - lib/assets/polymarket-logo.svg
     - lib/assets/hyperliquid-logo.svg
+    - lib/assets/markets/hl_descriptions_en.json
+    - lib/assets/polymarket_tags/
+    - lib/assets/polymarket_tags/sports/
+    - lib/assets/polymarket_tags/esports/
+    - lib/assets/polymarket_tags/rows/
     - lib/assets/bitcoin-icon.svg
     - lib/assets/sats-icon.svg
     - lib/assets/eur-icon.svg
@@ -258,6 +269,8 @@ flutter:
     - lib/assets/bank-transfer-logo.svg
     - lib/assets/sounds/send.wav
     - lib/assets/sounds/success.wav
+    - lib/assets/sal/
+    - lib/assets/ai/
   fonts:
     # Inter static instances (the same files google_fonts serves the app
     # UI at runtime). Embedded into the exported Activity Report PDF via
@@ -274,12 +287,21 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path_android: "lib/assets/kute_logo_white.png"
-  image_path_ios: "lib/assets/kute_logo_white.png"
+  # Sal mark E (vector): the orange Sal head with the red band on white
+  # (#FFFFFF to #F3F5F8), full-bleed 1024 RGB. The 3D Sal stays for the splash
+  # and in-app art; the flat pixel Sal in kute_logo*.png stays for the
+  # notification icon.
+  image_path_android: "lib/assets/kute_icon.png"
+  image_path_ios: "lib/assets/kute_icon.png"
   remove_alpha_ios: true
   background_color_ios: "#FFFFFF"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "lib/assets/kute_logo_white.png"
+  # the Sal head on transparent, already placed inside the 66dp safe circle
+  # of the 108dp canvas, so no extra inset
+  adaptive_icon_foreground: "lib/assets/kute_icon_adaptive_fg.png"
+  adaptive_icon_foreground_inset: 0
+  # Android 13 themed icon: the same head as a single-colour silhouette
+  adaptive_icon_monochrome: "lib/assets/kute_icon_monochrome.png"
 
 android_notification_icons:
   image_path: "lib/assets/kute_logo.png"
@@ -293,14 +315,17 @@ flutter_native_splash:
   # made iOS dark mode flash a white splash before booting into the black
   # app. Now light=white / dark=black on BOTH platforms + Android 12.
   color_dark_ios: "#000000"
-  image: lib/assets/kute_logo.png
-  image_dark: lib/assets/kute_logo.png
+  # 3D Sal (full body, idle, Cycles render of the v5 rig). Lighting is baked,
+  # so light and dark use the same render; both keys kept on purpose.
+  image: lib/assets/sal/splash.png
+  image_dark: lib/assets/sal/splash_dark.png
   web: false
   android_12:
     color: "#FFFFFF"
     color_dark: "#000000"
-    image: lib/assets/kute_logo.png
-    image_dark: lib/assets/kute_logo.png
+    # 1152 px canvas with Sal inside the centre 768 px circle (Android 12 icon mask)
+    image: lib/assets/sal/splash_android12.png
+    image_dark: lib/assets/sal/splash_android12.png
     # Icon plate color = splash background, so Android 12+ doesn't draw a
     # white circle behind the transparent logo on dark mode (the "white
     # halo" some OEMs showed). Keeps the styles fix above on regeneration.

@@ -30,6 +30,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -580,41 +581,40 @@ class _RevealSheetState extends State<_RevealSheet> {
                   ),
                 ),
                 SizedBox(height: 20.h),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        text: l10n.copy,
-                        variant: AppButtonVariant.secondary,
-                        onPressed: () async {
-                          HapticFeedback.lightImpact();
-                          await Clipboard.setData(ClipboardData(text: data));
-                          final onCopied = widget.onCopied;
-                          if (onCopied != null) {
-                            onCopied();
-                          } else {
-                            TrackingService.secureKeyMaterialCopied(
-                              materialType: widget.materialType,
-                            );
-                          }
-                          if (!context.mounted) return;
-                          Navigator.of(context).pop();
-                          showMessageSnackBar(
-                            context: context,
-                            message: l10n.copied,
-                            error: false,
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: AppButton(
-                        text: l10n.done,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ),
-                  ],
+                AppButton(
+                  text: l10n.copy,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: () async {
+                    HapticFeedback.lightImpact();
+                    await Clipboard.setData(ClipboardData(text: data));
+                    final onCopied = widget.onCopied;
+                    if (onCopied != null) {
+                      onCopied();
+                    } else {
+                      TrackingService.secureKeyMaterialCopied(
+                        materialType: widget.materialType,
+                      );
+                    }
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop();
+                    showMessageSnackBar(
+                      context: context,
+                      message: l10n.copied,
+                      error: false,
+                    );
+                  },
+                ),
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Done is
+                // the floating Sal bar's primary action; Copy stays drawn
+                // above it.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: l10n.done,
+                    onPrimary: () => Navigator.of(context).pop(),
+                    source: 'wallets_reveal',
+                    disabledLabel: null,
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
               ],
             ),
@@ -755,27 +755,25 @@ class _RecoveryPhraseSheetState extends State<RecoveryPhraseSheet> {
                     ),
                   ],
                   SizedBox(height: 20.h),
-                  Row(
-                    children: [
-                      if (phrase != null) ...[
-                        Expanded(
-                          child: AppButton(
-                            key: const ValueKey('wallets-copy-phrase'),
-                            text: l10n.copy,
-                            icon: Icons.copy_rounded,
-                            variant: AppButtonVariant.secondary,
-                            onPressed: _copy,
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                      ],
-                      Expanded(
-                        child: AppButton(
-                          text: l10n.done,
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ),
-                    ],
+                  if (phrase != null)
+                    AppButton(
+                      key: const ValueKey('wallets-copy-phrase'),
+                      text: l10n.copy,
+                      icon: Icons.copy_rounded,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: _copy,
+                    ),
+                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Done is
+                  // the floating Sal bar's primary action; Copy stays
+                  // drawn above it.
+                  KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: l10n.done,
+                      onPrimary: () => Navigator.of(context).pop(),
+                      source: 'wallets_recovery_phrase',
+                      disabledLabel: null,
+                    ),
+                    child: SizedBox(height: kuteBarScrollClearance.h),
                   ),
                 ],
               ),
@@ -1209,33 +1207,33 @@ class _PrivateKeySheetState extends State<PrivateKeySheet> {
                     ),
                   ),
                   SizedBox(height: 20.h),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: key == null
-                            ? AppButton(
-                                key: const ValueKey('wallets-show-private-key'),
-                                text: l10n.walletsShowPrivateKey,
-                                variant: AppButtonVariant.secondary,
-                                isLoading: _busy,
-                                onPressed: _busy ? null : _reveal,
-                              )
-                            : AppButton(
-                                key: const ValueKey('wallets-copy-private-key'),
-                                text: l10n.copy,
-                                icon: Icons.copy_rounded,
-                                variant: AppButtonVariant.secondary,
-                                onPressed: _copy,
-                              ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: AppButton(
-                          text: l10n.done,
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ),
-                    ],
+                  if (key == null)
+                    AppButton(
+                      key: const ValueKey('wallets-show-private-key'),
+                      text: l10n.walletsShowPrivateKey,
+                      variant: AppButtonVariant.secondary,
+                      isLoading: _busy,
+                      onPressed: _busy ? null : _reveal,
+                    )
+                  else
+                    AppButton(
+                      key: const ValueKey('wallets-copy-private-key'),
+                      text: l10n.copy,
+                      icon: Icons.copy_rounded,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: _copy,
+                    ),
+                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Done is
+                  // the floating Sal bar's primary action; Show key / Copy
+                  // stays drawn above it.
+                  KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: l10n.done,
+                      onPrimary: () => Navigator.of(context).pop(),
+                      source: 'wallets_private_key',
+                      disabledLabel: null,
+                    ),
+                    child: SizedBox(height: kuteBarScrollClearance.h),
                   ),
                 ],
               ),

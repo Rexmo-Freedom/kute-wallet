@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/kute_dog_rig.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:math' as math;
 import 'package:kute/services/evm_derivation_policy.dart';
 import 'dart:async';
@@ -24,6 +25,7 @@ import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/bitcoin_config_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/creation/passkey_prf_unsupported_sheet.dart';
 import 'package:kute/screens/creation/set_pin.dart'
     show recoveryModeProvider, trackOnboardingStep;
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
@@ -33,7 +35,10 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteBarPrimaryButton, KuteBarSecondaryPill;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -187,8 +192,38 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   /// screen can say which wallet the OS prompt is for.
   String? _confirmingLabel;
 
+  /// Set by a lookup step whose passkey came back without the PRF key
+  /// (its password manager cannot hold a Kute wallet). The sheet opens
+  /// once the lookup has finished, so its "Try again" finds the button
+  /// free.
+  String? _prfMissingStage;
+
   Future<void> _handlePasskeyChoice({String trigger = 'tap'}) async {
     if (_checkingPasskey || _restoringPasskey) return;
+    _prfMissingStage = null;
+    await _lookUpPasskeyWallets(trigger: trigger);
+    final stage = _prfMissingStage;
+    _prfMissingStage = null;
+    if (stage == null || !mounted) return;
+    final action = await showPasskeyPrfUnsupportedSheet(
+      context,
+      variant: PasskeyPrfSheetVariant.restore,
+      stage: stage,
+    );
+    if (!mounted) return;
+    switch (action) {
+      case PasskeyPrfSheetAction.restoreWithPhrase:
+        _handleSeedChoice();
+      case PasskeyPrfSheetAction.tryAgain:
+        await _handlePasskeyChoice(trigger: 'prf_retry');
+      case PasskeyPrfSheetAction.useDefaultManager:
+      case PasskeyPrfSheetAction.usePhrase:
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _lookUpPasskeyWallets({required String trigger}) async {
     HapticFeedback.lightImpact();
     // [trigger] 'auto' is the lookup this screen runs once on entry.
     TrackingService.track('recover_choice_passkey_tapped',
@@ -220,6 +255,15 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
           if (mounted && _legacyCopies.isNotEmpty) {
             _showLabelPicker(const [], null, legacy: _legacyCopies);
           }
+          return;
+        }
+        // The passkey that answered lives in a password manager that
+        // returns no PRF key: nothing can be read from it, and the legacy
+        // probe would only ask again. Say so (after the lookup) and offer
+        // the recovery phrase. Nothing is stored or wiped.
+        if (PasskeyService.isPrfUnsupportedError(e)) {
+          _trackPasskeyRestoreFailed('lookup', e);
+          _prfMissingStage = 'restore_lookup';
           return;
         }
         // Any other new-SDK failure is non-fatal: fall through to legacy.
@@ -329,7 +373,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         ),
     ];
     var picked = false;
-    showModalBottomSheet<void>(
+    showKuteModalSheet<void>(
       context: context,
       backgroundColor: c.surface,
       // Scrollable: users with many wallets previously had entries pushed
@@ -730,6 +774,35 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         _finishPasskeyRestore();
         return;
       }
+      if (PasskeyService.isPrfUnsupportedError(e)) {
+        // The wallet's passkey answered without its PRF key (a manager
+        // that drops it, or another manager picked in the sheet). Nothing
+        // was saved and nothing is wiped.
+        _trackPasskeyRestoreFailed('restore', e);
+        if (!mounted) return;
+        setState(() {
+          _restoringPasskey = false;
+          _confirmingLabel = null;
+        });
+        final action = await showPasskeyPrfUnsupportedSheet(
+          context,
+          variant: PasskeyPrfSheetVariant.signIn,
+          stage: 'restore_confirm',
+        );
+        if (!mounted) return;
+        switch (action) {
+          case PasskeyPrfSheetAction.tryAgain:
+            await _restoreFromPasskeys(labels,
+                credentialId: credentialId, trigger: 'prf_retry');
+          case PasskeyPrfSheetAction.restoreWithPhrase:
+            _handleSeedChoice();
+          case PasskeyPrfSheetAction.useDefaultManager:
+          case PasskeyPrfSheetAction.usePhrase:
+          case null:
+            break;
+        }
+        return;
+      }
       if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('restore');
       } else {
@@ -798,6 +871,10 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         return;
       }
       _trackPasskeyRestoreFailed('legacy_probe', e);
+      if (PasskeyService.isPrfUnsupportedError(e)) {
+        _prfMissingStage = 'legacy_probe';
+        return;
+      }
       if (!mounted) return;
       showMessageSnackBar(
         context: context,
@@ -836,7 +913,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     };
     RestoreFlowAnalytics.step('legacy_pick', method: 'passkey');
     var picked = false;
-    showModalBottomSheet<void>(
+    showKuteModalSheet<void>(
       context: context,
       backgroundColor: c.surface,
       // Scrollable, matching _showLabelPicker: long candidate lists must
@@ -1073,21 +1150,11 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Same header shape as the passkey screen it
-                            // sits beside in this flow: a mark, the
-                            // question, then the explanation.
-                            Center(
-                              child: Container(
-                                width: 80.w,
-                                height: 80.w,
-                                decoration: AppDecorations.card(context),
-                                child: Icon(Icons.restore_rounded,
-                                    size: 40.sp, color: c.textPrimary),
-                              ),
-                            ),
-                            SizedBox(height: 24.h),
+                            // The question, then the explanation; Sal with
+                            // his magnifier below is the screen's picture
+                            // (founder, 1 November 2026: no icon square).
                             Text(
-                              l10n.recoverAccount,
+                              l10n.recoverYourAccountTitle,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: c.textPrimary,
@@ -1113,37 +1180,79 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                             Expanded(
                               child: Center(
                                 child: ExcludeSemantics(
-                                  child: KuteDogAtWork(
-                                    width: 250.w,
-                                    ink: c.textPrimary,
-                                    accent: c.accent,
+                                  // The 3D Sal searching; the rig's
+                                  // trail scene until the sheets exist.
+                                  child: SalSprite(
+                                    clip: 'body_search',
+                                    size: 220.w,
+                                    fallback: KuteDogAtWork(
+                                      width: 250.w,
+                                      ink: c.textPrimary,
+                                      accent: c.accent,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                             SizedBox(height: 32.h),
-                            AppButton(
-                              text: l10n.recoverWithPhrase,
-                              icon: Icons.password_rounded,
-                              height: 60.h,
-                              fontSize: 17.sp,
-                              onPressed: busy ? null : _handleSeedChoice,
-                            ),
-                            SizedBox(height: 12.h),
-                            AppButton(
-                              text: l10n.recoverWithAccount(Platform.isIOS
-                                  ? l10n.passkeyChoiceAppleAccount
-                                  : l10n.passkeyChoiceGoogleAccount),
-                              icon: Icons.fingerprint_rounded,
-                              height: 60.h,
-                              variant: AppButtonVariant.secondary,
-                              isOutlined: true,
-                              onPressed: busy ? null : _handlePasskeyChoice,
-                              // The passkey lookup and restore wait here,
-                              // on the button, not behind a full-screen
-                              // overlay over this page.
-                              isLoading: busy,
-                            ),
+                            // ONE PAIR (founder, 1 November 2026): the
+                            // phrase is the bar, the primary; the account
+                            // is a pill of the bar's own height and width
+                            // rule right above it, in the light look, its
+                            // lookup spinner inside. Both the wider of
+                            // their two widths, centred.
+                            Builder(builder: (context) {
+                              final accountLabel = l10n.recoverWithAccount(
+                                  Platform.isIOS
+                                      ? l10n.passkeyChoiceAppleAccount
+                                      : l10n.passkeyChoiceGoogleAccount);
+                              // At most the page's own width (its 24
+                              // gutters), so the two stay equal.
+                              final width = math.min(
+                                  MediaQuery.sizeOf(context).width - 48.w,
+                                  math.max(
+                                      KuteBarPrimaryButton.widthFor(
+                                          context, l10n.recoverWithPhrase),
+                                      KuteBarSecondaryPill.widthFor(
+                                          context, accountLabel)));
+                              return Column(
+                                children: [
+                                  Center(
+                                    child: KuteBarSecondaryPill(
+                                      label: accountLabel,
+                                      leading: Platform.isIOS
+                                          ? Icons.apple
+                                          : Icons.fingerprint_rounded,
+                                      width: width,
+                                      // The passkey lookup and restore wait
+                                      // here, on the pill, not behind a
+                                      // full-screen overlay.
+                                      busy: busy,
+                                      onTap: busy ? null : _handlePasskeyChoice,
+                                    ),
+                                  ),
+                                  KuteBarContextScope(
+                                    barContext: KuteBarContext.primary(
+                                      label: l10n.recoverWithPhrase,
+                                      onPrimary: _handleSeedChoice,
+                                      enabled: !busy,
+                                      source: 'recover_choice',
+                                      disabledLabel: null,
+                                      pairedWidth: width,
+                                    ),
+                                    // The pill 12 above the bar.
+                                    child: SizedBox(
+                                        height: KuteBarPrimaryButton.roomUnder(
+                                                context,
+                                                pageToFoot: !Platform.isAndroid) -
+                                            math.max(16.h,
+                                                MediaQuery.of(context)
+                                                    .padding
+                                                    .bottom)),
+                                  ),
+                                ],
+                              );
+                            }),
                           ],
                         ),
                       ),

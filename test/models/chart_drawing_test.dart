@@ -11,6 +11,44 @@ import 'package:kute/screens/shared/charts/kute_chart_drawings.dart';
 
 void main() {
   group('ChartDrawing JSON', () {
+    test('dashed, locked and extend round-trip; older records read them off',
+        () {
+      const d = ChartDrawing(
+        id: 'styled',
+        tool: ChartDrawingTool.trendline,
+        points: [
+          ChartDrawingPoint(timeMs: 1700000000000, price: 65000),
+          ChartDrawingPoint(timeMs: 1700003600000, price: 66000),
+        ],
+        dashed: true,
+        locked: true,
+        extend: true,
+      );
+      final json = d.toJson();
+      expect(json['dash'], isTrue);
+      expect(json['lock'], isTrue);
+      expect(json['ext'], isTrue);
+      final back = ChartDrawing.fromJson(
+          jsonDecode(jsonEncode(json)) as Map<String, dynamic>);
+      expect(back.dashed, isTrue);
+      expect(back.locked, isTrue);
+      expect(back.extend, isTrue);
+
+      // A record from before these fields: all off, and none written.
+      final old = ChartDrawing.fromJson({
+        'id': 'old',
+        'tool': 'level',
+        'points': [
+          {'t': 1700000000000, 'p': 65000}
+        ],
+      });
+      expect(old.dashed, isFalse);
+      expect(old.locked, isFalse);
+      expect(old.extend, isFalse);
+      expect(old.toJson().keys, isNot(contains('dash')));
+      expect(old.copyWith(locked: true).copyWith(dashed: true).locked, isTrue);
+    });
+
     test('round-trips every tool with and without a color', () {
       for (final tool in ChartDrawingTool.values) {
         final d = ChartDrawing(

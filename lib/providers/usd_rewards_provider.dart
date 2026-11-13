@@ -31,6 +31,7 @@ import 'package:kute/models/usd_rewards_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/services/api/usd_rewards_api.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// The backend capability behind the Dollars Earn tab.
 const String kUsdEarnCapability = 'usd.earn';
@@ -68,6 +69,7 @@ void _pollWhileForeground(Ref<Object?> ref, Duration interval) {
   final timer = Timer.periodic(interval, (_) {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    if (OrderPollGate.paused) return;
     ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);

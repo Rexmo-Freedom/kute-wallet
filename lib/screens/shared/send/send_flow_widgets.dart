@@ -15,6 +15,7 @@
 //
 // Presentation only: no provider, no route table and no money call.
 
+import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
@@ -22,13 +23,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
-    show groupTypedAmount;
-import 'package:kute/screens/shared/custom_button.dart';
+    show AmountPercentChips, groupTypedAmount;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_success_overlay.dart'
+    show KuteConfirmation;
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/money_steps_view.dart' show MoneyStepsView;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// Decodes the 3D Sal a send flow shows after Send, as the flow opens
+/// (founder, 9 November 2026: "the last send screen should have our Sal
+/// 3D one, not the SVG Sal"): the result sheet's clips (happy, sad and
+/// blink, 9.5 MiB at @3x), then, with [journey], the clip the money
+/// journey opens on (the Dollars send's steps under Review; the Bitcoin
+/// send has none), 27 MiB. The journey reads its other clips one ahead of
+/// when he needs them, never all at once (SalSpriteCache.maxBytes). Never
+/// awaited: a sheet that cannot be read is said once in the logs by the
+/// surface that misses it.
+Future<void> warmSendSal({bool journey = false}) {
+  final done = KuteConfirmation.warmSal()
+      .then((_) => journey ? MoneyStepsView.warmSal() : null);
+  unawaited(done);
+  return done;
+}
 
 /// The send stepper's body under the app bar: the screen gradient, the
 /// step progress, the steps as pages the flow advances itself, and the
@@ -41,10 +63,18 @@ class SendStepperFrame extends StatefulWidget {
     required this.pages,
     required this.cta,
     this.onPageChanged,
+    this.bleedPages = const {},
+    this.header,
   });
 
   /// The step progress bar (or an empty box for a one-step flow).
   final Widget progress;
+
+  /// The sheet's header over the pages, at the sheet's full width (the
+  /// Bitcoin Send's: receive_surface.dart, SheetTitleHeader), in place of
+  /// an app bar: the pages start right under it, and it stays as tall on
+  /// every step, so nothing under it moves as the steps slide.
+  final Widget? header;
   final PageController controller;
   final List<Widget> pages;
 
@@ -52,6 +82,16 @@ class SendStepperFrame extends StatefulWidget {
   /// shows one.
   final Widget cta;
   final ValueChanged<int>? onPageChanged;
+
+  /// Pages that run to the sheet's bottom edge, as the Dollars Send does
+  /// (founder, 1 November 2026: "things get cut"): while one of them is
+  /// settled on screen, nothing is reserved under the pages (no bottom
+  /// inset, no room for the Continue) and the shared [cta] takes no
+  /// height, so the page's one scroll view flows under the floating bar
+  /// and pads its own end by the bar's clearance (kuteBarScrollClearance)
+  /// plus the home-indicator inset. While pages slide, the frame keeps
+  /// its usual reserve, so the next page lays out at its final size.
+  final Set<int> bleedPages;
 
   @override
   State<SendStepperFrame> createState() => _SendStepperFrameState();
@@ -65,17 +105,51 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
   /// amount step's keypad has no room to give.
   bool _textFocus = false;
 
+  /// A [SendStepperFrame.bleedPages] page is settled on screen.
+  bool _bleeding = false;
+
   @override
   void initState() {
     super.initState();
     FocusManager.instance.addListener(_onFocus);
     _textFocus = _hasTextFocus();
+    widget.controller.addListener(_onPage);
+    _bleeding = _settledOnBleedPage();
+  }
+
+  @override
+  void didUpdateWidget(SendStepperFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onPage);
+      widget.controller.addListener(_onPage);
+    }
+    _bleeding = _settledOnBleedPage();
   }
 
   @override
   void dispose() {
     FocusManager.instance.removeListener(_onFocus);
+    widget.controller.removeListener(_onPage);
     super.dispose();
+  }
+
+  /// Settled exactly on a bleed page: false the moment a slide starts
+  /// (the page leaving shrinks unseen, the next one is laid out at its
+  /// final size), true again only once a slide back has finished.
+  bool _settledOnBleedPage() {
+    if (widget.bleedPages.isEmpty) return false;
+    final ctrl = widget.controller;
+    final page = ctrl.hasClients && ctrl.position.haveDimensions
+        ? ctrl.page
+        : ctrl.initialPage.toDouble();
+    if (page == null || page != page.roundToDouble()) return false;
+    return widget.bleedPages.contains(page.round());
+  }
+
+  void _onPage() {
+    final next = _settledOnBleedPage();
+    if (next != _bleeding && mounted) setState(() => _bleeding = next);
   }
 
   static bool _hasTextFocus() =>
@@ -98,39 +172,55 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
     // With the keyboard up the home indicator is under it, so the CTA
     // rests a short, even gap above the keys (pinned there, frame for
     // frame with the platform's keyboard animation).
-    final bottomPad = viewInsets > 0
-        ? 12.h
-        : Platform.isAndroid
-            ? 28.h + MediaQuery.of(context).padding.bottom
-            : 44.h;
+    final bottomPad = _bleeding
+        ? 0.0
+        : viewInsets > 0
+            ? 12.h
+            : Platform.isAndroid
+                ? 28.h + MediaQuery.of(context).padding.bottom
+                : 44.h;
+    final header = widget.header;
+    final body = Padding(
+      // 20.w horizontal padding so the Continue CTA sits inside
+      // the standard screen gutter instead of stretching nearly
+      // edge-to-edge. Under a header the pages start right under it.
+      padding: EdgeInsets.fromLTRB(
+          20.w, header == null ? 12.h : 0, 20.w, bottomPad + viewInsets),
+      child: Column(
+        children: [
+          if (header == null) ...[
+            widget.progress,
+            SizedBox(height: 12.h),
+          ],
+          Expanded(
+            child: PageView(
+              controller: widget.controller,
+              // Steps advance only via the Continue/Next buttons.
+              // Swiping must NOT skip a step — it would bypass the
+              // per-step validation and completion tracking.
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: widget.onPageChanged,
+              children: widget.pages,
+            ),
+          ),
+          // A bleed page reserves nothing: the Continue (the bar's
+          // scope) stays mounted, at no height. One widget type in
+          // both states, so the bar's scope is never remounted.
+          Align(
+            alignment: Alignment.bottomCenter,
+            heightFactor: _bleeding ? 0 : 1,
+            child: widget.cta,
+          ),
+        ],
+      ),
+    );
     return Container(
       decoration: AppDecorations.screenGradient(context),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          // 20.w horizontal padding so the Continue CTA sits inside
-          // the standard screen gutter instead of stretching nearly
-          // edge-to-edge.
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, bottomPad + viewInsets),
-          child: Column(
-            children: [
-              widget.progress,
-              SizedBox(height: 12.h),
-              Expanded(
-                child: PageView(
-                  controller: widget.controller,
-                  // Steps advance only via the Continue/Next buttons.
-                  // Swiping must NOT skip a step — it would bypass the
-                  // per-step validation and completion tracking.
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: widget.onPageChanged,
-                  children: widget.pages,
-                ),
-              ),
-              widget.cta,
-            ],
-          ),
-        ),
+        child: header == null
+            ? body
+            : Column(children: [header, Expanded(child: body)]),
       ),
     );
   }
@@ -140,8 +230,8 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
 /// 14 October 2026): the sheet's own header (close or back, the wallet
 /// pill) is all the chrome a step gets, and its content starts right
 /// under the progress bar. The step's name is still announced to screen
-/// readers as a header. [trailing] (Review's Ask Sal chip) sits on its
-/// own short row, right-aligned, above the content.
+/// readers as a header. [trailing], when given, sits on its own short
+/// row, right-aligned, above the content (Sal is the bar, never here).
 class SendStepPage extends StatelessWidget {
   const SendStepPage({
     super.key,
@@ -228,8 +318,10 @@ class SendTypedAmountHero extends StatelessWidget {
   }
 }
 
-/// The unit pill beside the amount hero. With [onTap] it is the control
-/// that changes the unit; without one it only names it.
+/// A pill on a send's figure: the Dollars Send's coin on its network
+/// (under the amount and on Review), the control that changes what the
+/// recipient gets. With [onTap] it is that control; without one it only
+/// names it.
 class SendAmountUnitPill extends StatelessWidget {
   final String code;
   final Widget icon;
@@ -280,6 +372,423 @@ class SendAmountUnitPill extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── The amount steps' pieces ─────────────────────────────────────────
+//
+// Lifted out of the Bitcoin Send's amount step (confirm_send.dart) so
+// every screen that asks for a send amount draws it identically: the
+// Bitcoin Send, the Dollars Send (usd/usd_send_screen.dart) and "Send to
+// anyone" (share/send_to_anyone_sheet.dart; founder, 6 November 2026:
+// "this one must have the sats and such, like here").
+//
+// CALM, ONE FIGURE (founder, 7 November 2026, the Send to anyone and
+// Bitcoin Send amount steps: "they seem soo dense, to many numbers and
+// such, please improve"). From the top ([SendAmountHeroStack]):
+//
+//   * the one big figure, CENTRED like the Review's hero, in the entry
+//     unit (₿ sats, ₿ BTC or a fiat; [SendBitcoinAmountHero],
+//     [SendTypedAmountHero]);
+//   * at most ONE line under it: the other unit's figure, which is itself
+//     the button that flips the unit (a small ⇅ after it; quieter while
+//     the amount is 0; [SendAmountConversionLine]), or, on the Dollars
+//     Send, the coin the recipient gets;
+//   * the reason the amount is refused, in red, only while it is;
+//
+// and, over the 25% · 50% · 100% row it is the base of
+// ([SendAmountBalanceRow]), the balance as ONE number in the figure's
+// unit: "361,694 sats available" or "$274.13 available", never both.
+//
+// No unit pill: the step flips between the Bitcoin unit and the money
+// only (⇅); sats or BTC, and the money, are chosen in Settings.
+
+/// The longest run of digits the Bitcoin figure takes (≈100 BTC in sats).
+const int kSendAtmMaxDigits = 10;
+
+/// The fiat units a send's figure can be shown and typed in beside sats
+/// and BTC: every currency the Settings list offers (the same twelve as
+/// `AppCurrencies.supportedFiats`, whose rates the app fetches and which
+/// parse at two decimals; a test holds the three lists together). What
+/// keeps a figure honest is [sendFiatFlipUnit]: a unit with no rate yet is
+/// never offered, because `CurrencyState.convert` reads a missing rate as
+/// one to one with the dollar.
+const Set<String> kSendFiatUnits = {
+  'USD',
+  'EUR',
+  'GBP',
+  'CHF',
+  'BRL',
+  'SEK',
+  'NOK',
+  'DKK',
+  'PLN',
+  'CZK',
+  'HUF',
+  'RON',
+};
+
+/// Whether [unit] is a Bitcoin unit ('Sats' or 'BTC') rather than a fiat.
+bool sendIsBitcoinUnit(String unit) => unit == 'Sats' || unit == 'BTC';
+
+/// The symbol a figure in [code] starts with: ₿ for sats and BTC, $, €, …
+String sendCurrencyPrefix(String code) {
+  switch (code) {
+    case 'USD':
+      return '\$';
+    case 'EUR':
+      return '€';
+    case 'GBP':
+      return '£';
+    case 'BRL':
+      return 'R\$';
+    case 'CHF':
+      return 'Fr';
+    case 'SEK':
+    case 'NOK':
+    case 'DKK':
+      return 'kr';
+    case 'PLN':
+      return 'zł';
+    case 'CZK':
+      return 'Kč';
+    case 'HUF':
+      return 'Ft';
+    case 'RON':
+      return 'lei';
+    case 'BTC':
+      return '₿';
+    case 'Sats':
+      return '₿';
+    default:
+      return '';
+  }
+}
+
+/// The fiat unit the conversion line (⇅) shows and flips a Bitcoin figure
+/// to: the one last typed in ([lastFiat]), else [settingsCurrency], when
+/// that unit is one of [kSendFiatUnits] and [hasRate] says its rate has
+/// arrived; else USD. Without a rate "100 kr" would be read as $100, so
+/// the line and the keypad stay in dollars, which are always known, until
+/// it has.
+String sendFiatFlipUnit({
+  String? lastFiat,
+  required String settingsCurrency,
+  required bool Function(String code) hasRate,
+}) {
+  bool usable(String code) => kSendFiatUnits.contains(code) && hasRate(code);
+  if (lastFiat != null && usable(lastFiat)) return lastFiat;
+  final code = settingsCurrency.toUpperCase();
+  return usable(code) ? code : 'USD';
+}
+
+/// The keypad's raw text as the Bitcoin figure's digits: digits only, no
+/// leading zero (a lone 0 is no amount), the last [kSendAtmMaxDigits].
+String sendAtmDigits(String raw) {
+  var digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+  digits = digits.replaceAll(RegExp(r'^0+'), '');
+  if (digits.length > kSendAtmMaxDigits) {
+    digits = digits.substring(digits.length - kSendAtmMaxDigits);
+  }
+  return digits;
+}
+
+/// [sats] as the Bitcoin figure's digits ('' for none).
+String sendAtmDigitsOf(int sats) => sats <= 0 ? '' : sendAtmDigits('$sats');
+
+/// The Bitcoin figure as shown: the bare integer in sats ("550"), the
+/// spaced 8-decimal form in BTC ("0.00 000 550") so the keystrokes flow
+/// in from the right.
+String sendFormatAtmAmount(String digits, String unit) {
+  final sats = digits.isEmpty ? 0 : int.tryParse(digits) ?? 0;
+  if (unit == 'Sats') return sats.toString();
+  return sats.toFormattedString('BTC');
+}
+
+/// [formatted] split where the typed digits start ([userDigitCount] digit
+/// characters from the right): the zero padding before, drawn tertiary,
+/// and the typed digits after.
+(String leading, String trailing) sendSplitAtmDisplay(
+    String formatted, int userDigitCount) {
+  if (userDigitCount <= 0) return (formatted, '');
+  var counted = 0;
+  var splitIdx = 0;
+  for (var i = formatted.length - 1; i >= 0; i--) {
+    final ch = formatted.codeUnitAt(i);
+    if (ch >= 0x30 && ch <= 0x39) {
+      counted++;
+      if (counted >= userDigitCount) {
+        splitIdx = i;
+        break;
+      }
+    }
+  }
+  return (formatted.substring(0, splitIdx), formatted.substring(splitIdx));
+}
+
+/// The Bitcoin figure, ATM style: the ₿ prefix and [digits] in [unit]
+/// ('Sats' or 'BTC'), the BTC zero padding in tertiary and the typed
+/// digits in primary (red when [overBalance]). No TextField: the digits
+/// come from the app's keypad.
+class SendBitcoinAmountHero extends StatelessWidget {
+  const SendBitcoinAmountHero({
+    super.key,
+    required this.digits,
+    required this.unit,
+    this.overBalance = false,
+  });
+
+  final String digits;
+  final String unit;
+  final bool overBalance;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isSatsUnit = unit == 'Sats';
+    final hasDigits = digits.isNotEmpty;
+    final typedColor = overBalance ? AppColors.marketDown : c.textPrimary;
+    final formatted = sendFormatAtmAmount(digits, unit);
+    // In sats there is no padding: what was typed is the whole figure.
+    final (leading, trailing) = isSatsUnit || !hasDigits
+        ? (hasDigits ? '' : formatted, hasDigits ? formatted : '')
+        : sendSplitAtmDisplay(formatted, digits.length);
+    final amountTextStyle = TextStyle(
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.4,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(sendCurrencyPrefix(unit),
+            style: amountTextStyle.copyWith(
+                color: hasDigits ? typedColor : c.textTertiary)),
+        SizedBox(width: 6.w),
+        Text.rich(
+          TextSpan(
+            children: [
+              if (leading.isNotEmpty)
+                TextSpan(
+                  text: leading,
+                  style: amountTextStyle.copyWith(color: c.textTertiary),
+                ),
+              if (trailing.isNotEmpty)
+                TextSpan(
+                  text: trailing,
+                  style: amountTextStyle.copyWith(color: typedColor),
+                ),
+            ],
+          ),
+          maxLines: 1,
+        ),
+      ],
+    );
+  }
+}
+
+/// "$105.40" under a Bitcoin figure, "₿45,120" under a fiat one: the
+/// line is itself the button that flips the entry unit ([onSwap]), with a
+/// small ⇅ after the figure to say so. Quieter while the amount is 0
+/// ([zero]): "$0.00" says nothing yet. No approximation mark: it reads as
+/// a second price tag, not a hedge.
+class SendAmountConversionLine extends StatelessWidget {
+  const SendAmountConversionLine({
+    super.key,
+    required this.secondary,
+    required this.onSwap,
+    this.zero = false,
+  });
+
+  final String secondary;
+  final VoidCallback onSwap;
+
+  /// Nothing typed yet: the line steps back to the tertiary ink.
+  final bool zero;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final ink = zero ? c.textTertiary : c.textSecondary;
+    return Semantics(
+      button: true,
+      label: secondary,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10.r),
+        child: InkWell(
+          key: const ValueKey('send-amount-swap'),
+          borderRadius: BorderRadius.circular(10.r),
+          onTap: onSwap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+            child: Row(
+              key: const ValueKey('send-amount-conversion'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    secondary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: ink,
+                      fontSize: 17.sp,
+                      fontWeight: zero ? FontWeight.w600 : FontWeight.w700,
+                      letterSpacing: -0.2,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 4.w),
+                Icon(Icons.swap_vert_rounded,
+                    size: 16.sp, color: c.textTertiary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The top of an amount step (see the section header): [figure] (the
+/// [SendBitcoinAmountHero] or [SendTypedAmountHero]) centred and scaled
+/// down to the width when it is long, with the keypad's "digit lands"
+/// bounce from [pulse]; [below] under it (the conversion line, or the
+/// Dollars Send's coin); [warning] in red under that, only while the
+/// amount is refused.
+class SendAmountHeroStack extends StatelessWidget {
+  const SendAmountHeroStack({
+    super.key,
+    required this.figure,
+    this.pulse,
+    this.below,
+    this.warning,
+  });
+
+  final Widget figure;
+  final Animation<double>? pulse;
+  final Widget? below;
+  final String? warning;
+
+  @override
+  Widget build(BuildContext context) {
+    final fitted = FittedBox(
+      // Auto-shrinks a long figure (ten digits of sats on a small phone);
+      // the default is the 56sp hero.
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.center,
+      child: figure,
+    );
+    final bounce = pulse;
+    final warn = warning;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (bounce == null)
+          fitted
+        else
+          AnimatedBuilder(
+            animation: bounce,
+            // A quick scale-up and ease back: from 0.94 to 1.0 with an
+            // easeOutBack overshoot, a soft "digit lands" pop.
+            builder: (context, child) => Transform.scale(
+              scale: 0.94 + Curves.easeOutBack.transform(bounce.value) * 0.06,
+              child: child,
+            ),
+            child: fitted,
+          ),
+        if (below != null) ...[
+          SizedBox(height: 8.h),
+          below!,
+        ],
+        if (warn != null && warn.isNotEmpty) ...[
+          SizedBox(height: 6.h),
+          SendAmountWarningLine(warn),
+        ],
+      ],
+    );
+  }
+}
+
+/// The 25% · 50% · 100% row with the balance it takes a share of over it,
+/// as one number in the figure's unit ([available]: "361,694 sats
+/// available", "$274.13 available"). The balance sits here rather than
+/// under the figure: it is the base of these chips, it keeps the figure
+/// alone with its one line, and it stays on screen before anything is
+/// typed, so the limit is known before it is hit.
+class SendAmountBalanceRow extends StatelessWidget {
+  const SendAmountBalanceRow({
+    super.key,
+    required this.available,
+    required this.onPercent,
+    this.enabled = true,
+  });
+
+  final String available;
+  final void Function(double ratio) onPercent;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SendAmountAvailableLine(available),
+          SizedBox(height: 8.h),
+          AmountPercentChips(enabled: enabled, onPercent: onPercent),
+        ],
+      );
+}
+
+/// The balance the amount is judged against, one number in the figure's
+/// unit ("361,694 sats available", "$12.00 available"), centred over the
+/// percent row ([SendAmountBalanceRow]).
+class SendAmountAvailableLine extends StatelessWidget {
+  const SendAmountAvailableLine(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        key: const ValueKey('send-amount-available'),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: context.colors.textTertiary,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w500,
+          letterSpacing: -0.1,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      );
+}
+
+/// What is wrong with the amount, in red, centred under the figure ("That
+/// is more than you have available.", a route's minimum).
+class SendAmountWarningLine extends StatelessWidget {
+  const SendAmountWarningLine(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        key: const ValueKey('send-amount-warning'),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: AppColors.marketDown,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+        ),
+      );
 }
 
 /// Recipient field of the Send to step. One tall surface card (56pt
@@ -865,7 +1374,9 @@ class SendClipboardNudge extends StatelessWidget {
   }
 }
 
-/// The card the Review rows sit on.
+/// The card the Review's fee rows sit on: the app's one soft card
+/// (kute_action_cards.dart; founder, 7 November 2026: the grey bordered
+/// boxes are the old style), the From and To squares' own surface.
 class SendReviewCard extends StatelessWidget {
   const SendReviewCard({super.key, required this.child, this.padding});
 
@@ -874,94 +1385,10 @@ class SendReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     return Container(
       padding: padding,
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: c.borderSubtle, width: 1.0),
-      ),
+      decoration: PremiumGroupContainer.decorationOf(context),
       child: child,
-    );
-  }
-}
-
-/// A From or To row of the Review card. The label rides on the same
-/// line as the value, the mark sits in a 28.sp slot.
-class SendReviewSummaryRow extends StatelessWidget {
-  const SendReviewSummaryRow({
-    super.key,
-    required this.label,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    this.trailing,
-  });
-
-  final String label;
-  final String title;
-  final String subtitle;
-  final Widget icon;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-      child: Row(
-        children: [
-          // Bare icon, no tinted halo: the mark IS the identity here.
-          SizedBox(
-            width: 28.sp,
-            height: 28.sp,
-            child: Center(child: icon),
-          ),
-          SizedBox(width: 10.w),
-          Text(label,
-              style: TextStyle(
-                color: c.textTertiary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.1,
-              )),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                if (subtitle.isNotEmpty) ...[
-                  SizedBox(height: 2.h),
-                  Text(subtitle,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 12.5.sp,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                      ),
-                      textAlign: TextAlign.end,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ],
-            ),
-          ),
-          if (trailing != null) ...[
-            SizedBox(width: 6.w),
-            trailing!,
-          ],
-        ],
-      ),
     );
   }
 }
@@ -1082,8 +1509,9 @@ class SendReviewNote extends StatelessWidget {
   }
 }
 
-/// Full destination string under the Review "To" row, wrapped so every
-/// character is readable, with a Copy action.
+/// The whole destination under the Review's From and To squares, once the
+/// To square is tapped: wrapped so every character is readable, with a
+/// Copy action, on the same soft card.
 class SendReviewFullAddress extends StatelessWidget {
   const SendReviewFullAddress({
     super.key,
@@ -1100,20 +1528,17 @@ class SendReviewFullAddress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 14.h),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: c.borderSubtle, width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
+    return Container(
+      key: const ValueKey('send-review-full-address'),
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16.w, 14.h, 10.w, 8.h),
+      decoration: PremiumGroupContainer.decorationOf(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(right: 6.w),
+            child: Text(
               address,
               style: TextStyle(
                 color: c.textSecondary,
@@ -1123,48 +1548,52 @@ class SendReviewFullAddress extends StatelessWidget {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            SizedBox(height: 6.h),
-            Align(
-              alignment: Alignment.centerRight,
-              child: InkWell(
-                onTap: () async {
-                  await Clipboard.setData(ClipboardData(text: address));
-                  onCopied?.call();
-                  if (!context.mounted) return;
-                  showMessageSnackBarInfo(
-                      context: context, message: context.l10n.copied);
-                },
-                borderRadius: BorderRadius.circular(8.r),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.copy_rounded,
-                          size: 14.sp, color: c.textPrimary),
-                      SizedBox(width: 4.w),
-                      Text(
-                        context.l10n.copy,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.1,
-                        ),
+          ),
+          SizedBox(height: 4.h),
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              onTap: () async {
+                await Clipboard.setData(ClipboardData(text: address));
+                onCopied?.call();
+                if (!context.mounted) return;
+                showMessageSnackBarInfo(
+                    context: context, message: context.l10n.copied);
+              },
+              borderRadius: BorderRadius.circular(8.r),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.copy_rounded, size: 14.sp, color: c.textPrimary),
+                    SizedBox(width: 4.w),
+                    Text(
+                      context.l10n.copy,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// The Review step's one primary action and the footnote under it.
+/// The Review step's one primary action and the footnote over it.
+///
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): Send / Continue is the floating Sal bar's primary action, with
+/// the label, the enabled state and the spinner the drawn button had;
+/// the footnote stays on the page, above the bar's clearance.
 class SendReviewAction extends StatelessWidget {
   const SendReviewAction({
     super.key,
@@ -1172,12 +1601,21 @@ class SendReviewAction extends StatelessWidget {
     required this.onPressed,
     required this.footnote,
     this.loading = false,
+    this.source = 'send_review',
+    this.disabledLabel,
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// What the bar says while [onPressed] is null (KuteBarContext
+  /// .disabledLabel).
+  final String? disabledLabel;
   final String footnote;
   final bool loading;
+
+  /// The `search_opened` source of the bar's long press.
+  final String source;
 
   @override
   Widget build(BuildContext context) {
@@ -1186,8 +1624,17 @@ class SendReviewAction extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppButton(text: label, isLoading: loading, onPressed: onPressed),
-        SizedBox(height: 8.h),
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: label,
+            onPrimary: onPressed,
+            enabled: onPressed != null && !loading,
+            busy: loading,
+            source: source,
+            disabledLabel: disabledLabel,
+          ),
+          child: const SizedBox.shrink(),
+        ),
         Center(
           child: Text(
             footnote,
@@ -1199,6 +1646,8 @@ class SendReviewAction extends StatelessWidget {
             ),
           ),
         ),
+        // Clear of the bar (the frame's own bottom padding is under this).
+        SizedBox(height: kuteBarScrollClearance.h - 16.h),
       ],
     );
   }

@@ -43,7 +43,7 @@ class OpenPin extends ConsumerStatefulWidget {
 }
 
 class _OpenPinState extends ConsumerState<OpenPin>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, PinSalMoodMixin {
   String pin = '';
 
   /// The sixth digit is in and the PIN is being compared. PBKDF2 runs on
@@ -211,6 +211,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
             typedPin: typedPin,
             dependency: dependency);
         final container = ProviderScope.containerOf(context, listen: false);
+        salHappy();
         _unlockApp(context, ref, method: 'pin');
         _scheduleAfterUnlock(container);
       } else if (check == PinCheck.mismatch) {
@@ -252,6 +253,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
     if (!reduceMotion) {
       _animationController.forward(from: 0.0);
     }
+    // Sal is sad once, with the shake.
+    salSad();
     HapticFeedback.heavyImpact();
   }
 
@@ -372,6 +375,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
           markSessionUnlocked(ref,
               method: UnlockMethod.biometric, dependency: dependency);
           final container = ProviderScope.containerOf(context, listen: false);
+          salHappy();
           _unlockApp(context, ref, method: 'biometric');
           _scheduleAfterUnlock(container);
         } else if (!authenticated) {
@@ -548,6 +552,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
       canPop: false,
       child: KutePinScaffold(
         title: context.l10n.welcomeBack,
+        salMood: salMoodFor(pin.length),
         // Nothing under the title unless something is wrong. Six dots
         // over a number pad do not need a sentence explaining that a
         // PIN goes in them, and the line was only ever taking up the

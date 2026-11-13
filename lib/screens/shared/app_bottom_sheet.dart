@@ -1,11 +1,56 @@
+import 'dart:math' as math;
+
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCloseButton, kKuteNavButtonSize, kuteNavTitleLift;
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+/// EVERY modal bottom sheet in the app opens through this (founder, 31
+/// October 2026): Flutter's [showModalBottomSheet] with the same
+/// arguments and defaults, plus the one motion every sheet shares
+/// ([KuteMotion.sheetStyle]: the spring in, a hair past its rest and
+/// settled; the settle easing out; a plain line under Reduce Motion).
+/// [showAppBottomSheet] is this with the app's sheet chrome; a sheet with
+/// its own chrome (a slip, a picker, a menu) calls this directly so its
+/// look is untouched and only its motion is shared. Nothing in lib/ calls
+/// [showModalBottomSheet] itself.
+Future<T?> showKuteModalSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  Color? backgroundColor,
+  Color? barrierColor,
+  ShapeBorder? shape,
+  bool isScrollControlled = false,
+  bool isDismissible = true,
+  bool enableDrag = true,
+  bool useSafeArea = false,
+  bool useRootNavigator = false,
+  RouteSettings? routeSettings,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    builder: builder,
+    backgroundColor: backgroundColor,
+    barrierColor: barrierColor,
+    shape: shape,
+    isScrollControlled: isScrollControlled,
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
+    useSafeArea: useSafeArea,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    sheetAnimationStyle: KuteMotion.sheetStyle(context),
+  );
+}
 
 /// Unified bottom sheet matching the Ledger device picker design language.
 /// Clean, organized layout with drag handle, header, and scrollable content.
+/// Opens through [showKuteModalSheet], so it rises on the app's spring.
 Future<T?> showAppBottomSheet<T>({
   required BuildContext context,
   required Widget Function(BuildContext) builder,
@@ -30,7 +75,7 @@ Future<T?> showAppBottomSheet<T>({
   // screen (Receive): the route observers keep seeing that name.
   RouteSettings? routeSettings,
 }) {
-  return showModalBottomSheet<T>(
+  return showKuteModalSheet<T>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: isScrollControlled,
@@ -52,7 +97,15 @@ Future<T?> showAppBottomSheet<T>({
 
 /// The container widget for unified bottom sheets.
 /// Matches the Ledger picker design language.
-class AppBottomSheetContainer extends StatelessWidget {
+///
+/// The floating Sal bar (kute_shell_bar.dart) floats over every sheet;
+/// nothing here reserves room for it (founder, 31 October 2026: the
+/// content may scroll under it). A SHORT sheet, content-sized under
+/// [kuteBarShortSheetFraction] of the screen (a menu, a picker, a
+/// confirm, the Financial hub), hides the bar while it is up instead: the
+/// bar sat on its last row with nowhere to scroll it. The height is
+/// measured after the first layout and re-read on every size change.
+class AppBottomSheetContainer extends StatefulWidget {
   final Widget child;
   final double? maxHeight;
 
@@ -78,9 +131,116 @@ class AppBottomSheetContainer extends StatelessWidget {
   });
 
   @override
+  State<AppBottomSheetContainer> createState() =>
+      _AppBottomSheetContainerState();
+}
+
+/// Under this share of the screen a sheet is short (see the container).
+const double kuteBarShortSheetFraction = 0.6;
+
+/// The room a sheet's scroll view leaves at its end for the floating bar
+/// (founder: "we have to be able to scroll, it is paramount, so we can see
+/// and click what is under the bar"): [kuteBarScrollClearance] while the
+/// bar floats over the [AppBottomSheetContainer] around [context] (a
+/// sheet past [kuteBarShortSheetFraction]), nothing on a short sheet,
+/// where the bar is away, so a short sheet gains no empty band. Added to
+/// the end padding INSIDE the scroll view, never under it. A sheet whose
+/// own primary is the bar keeps its own clearance under that button.
+/// [context] must be inside the container (a widget the sheet builds, not
+/// the one that builds the sheet); [KuteSheetBarSpace] is that room as
+/// the scroll content's last child.
+double kuteSheetBarClearance(BuildContext context) =>
+    _KuteSheetBarRoom.barOver(context) ? kuteBarScrollClearance.h : 0;
+
+/// [kuteSheetBarClearance] as a box: the last child of a sheet's scroll
+/// content, so its last rows scroll clear of the floating bar while the
+/// bar is over the sheet, and nothing on a short sheet.
+class KuteSheetBarSpace extends StatelessWidget {
+  const KuteSheetBarSpace({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      SizedBox(height: kuteSheetBarClearance(context));
+}
+
+/// Whether the bar floats over the enclosing sheet (see
+/// [kuteSheetBarClearance]).
+class _KuteSheetBarRoom extends InheritedWidget {
+  const _KuteSheetBarRoom({required this.over, required super.child});
+
+  final bool over;
+
+  static bool barOver(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_KuteSheetBarRoom>()?.over ??
+      false;
+
+  @override
+  bool updateShouldNotify(_KuteSheetBarRoom old) => old.over != over;
+}
+
+/// The short-sheet rule of [AppBottomSheetContainer] around a sheet that
+/// draws its own surface (a Move picker, a menu, an account list): a
+/// [child] measured under [kuteBarShortSheetFraction] of the screen hides
+/// the floating bar while it is up (founder, 5 November 2026: the Sal pill
+/// sat over the "Add money to Dollars" cards, "this is cut"); a taller one
+/// keeps it, and its scroll views leave it room ([kuteSheetBarClearance]).
+/// Wrap the sheet's whole surface, inside the sheet's route. The height is
+/// measured after the first layout and re-read on every size change.
+class KuteSheetBarFit extends StatefulWidget {
+  const KuteSheetBarFit({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<KuteSheetBarFit> createState() => _KuteSheetBarFitState();
+}
+
+class _KuteSheetBarFitState extends State<KuteSheetBarFit> {
+  bool? _short;
+
+  void _measure() {
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final screen = MediaQuery.sizeOf(context).height;
+    final short = box.size.height < screen * kuteBarShortSheetFraction;
+    if (short != _short) setState(() => _short = short);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final resolvedMaxHeight = maxHeight != null && maxHeight! <= 1.0
-        ? MediaQuery.sizeOf(context).height * maxHeight!
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+        return false;
+      },
+      // The scope stays in place and is toggled (KuteBarContextScope
+      // .active): swapping it in and out re-parented the sheet, and a
+      // field focused as the keyboard lifted a short sheet past the
+      // fraction lost its focus and its text.
+      child: SizeChangedLayoutNotifier(
+        child: KuteBarContextScope(
+            barContext: const KuteBarContext.hidden(),
+            active: _short == true,
+            // Measured tall: the bar is over this sheet, and its scroll
+            // views leave it room (kuteSheetBarClearance).
+            child: _KuteSheetBarRoom(
+                over: _short == false, child: widget.child)),
+      ),
+    );
+  }
+}
+
+class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
+  @override
+  Widget build(BuildContext context) {
+    final child = widget.child;
+    final maxHeight = widget.maxHeight;
+    final followKeyboard = widget.followKeyboard;
+    final color = widget.color;
+    final resolvedMaxHeight = maxHeight != null && maxHeight <= 1.0
+        ? MediaQuery.sizeOf(context).height * maxHeight
         : maxHeight;
     // Keyboard-aware shift: when an editable inside the sheet gains
     // focus, `MediaQuery.viewInsets.bottom` reports the keyboard
@@ -110,12 +270,12 @@ class AppBottomSheetContainer extends StatelessWidget {
       top: true,
       bottom: !keyboardOpen,
       child: Padding(
-        padding:
-            EdgeInsets.only(bottom: keyboardOpen && !followKeyboard ? 0 : 16.h),
+        padding: EdgeInsets.only(
+            bottom: keyboardOpen && !followKeyboard ? 0 : 16.h),
         child: child,
       ),
     );
-    return Container(
+    final sheet = Container(
       constraints: resolvedMaxHeight != null
           ? BoxConstraints(maxHeight: resolvedMaxHeight)
           : null,
@@ -133,6 +293,7 @@ class AppBottomSheetContainer extends StatelessWidget {
               child: content,
             ),
     );
+    return KuteSheetBarFit(child: sheet);
   }
 }
 
@@ -158,6 +319,16 @@ class AppBottomSheetHeader extends StatelessWidget {
   /// starts right under it.
   final bool showDragHandle;
 
+  /// With [showDragHandle] false: the sheet drew the very handle this
+  /// heading draws, 12 under its top edge (the send sheet's frame,
+  /// send_sheet.dart), so the heading keeps the place it has under its
+  /// own handle rather than starting right under it.
+  final bool handleAbove;
+
+  /// The title is read out as a header (a sheet's first step, whose title
+  /// names the sheet: receive_surface.dart, SheetTitleHeader).
+  final bool titleIsHeader;
+
   const AppBottomSheetHeader({
     super.key,
     required this.title,
@@ -168,12 +339,20 @@ class AppBottomSheetHeader extends StatelessWidget {
     this.trailing,
     this.compact = false,
     this.showDragHandle = true,
+    this.handleAbove = false,
+    this.titleIsHeader = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final top = !showDragHandle ? 4.h : (compact ? 12.h : 20.h);
+    final top = !showDragHandle && !handleAbove ? 4.h : (compact ? 12.h : 20.h);
+    // The close in the trailing slot sits centred on the title's first
+    // line, not on the top of the title: the row starts higher by the
+    // difference and the title keeps its place.
+    final lift = compact || trailing == null
+        ? 0.0
+        : math.min(top, kuteNavTitleLift(context, 28.sp, height: 1.05));
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -191,40 +370,47 @@ class AppBottomSheetHeader extends StatelessWidget {
         // the trailing slot for scan-spinner / refresh buttons that
         // some sheets attach.
         Padding(
-          padding:
-              EdgeInsets.fromLTRB(20.w, top, 20.w, compact ? 12.h : 18.h),
+          padding: EdgeInsets.fromLTRB(
+              20.w, top - lift, 20.w, compact ? 12.h : 18.h),
           child: Row(
             crossAxisAlignment:
                 compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: compact ? 22.sp : 28.sp,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
-                        height: 1.05,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      SizedBox(height: 6.h),
-                      Text(
-                        subtitle!,
-                        style: TextStyle(
-                          color: c.textTertiary,
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.1,
-                          height: 1.35,
+                child: Padding(
+                  padding: EdgeInsets.only(top: lift),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Semantics(
+                        container: titleIsHeader,
+                        header: titleIsHeader ? true : null,
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: compact ? 22.sp : 28.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.6,
+                            height: 1.05,
+                          ),
                         ),
                       ),
+                      if (subtitle != null) ...[
+                        SizedBox(height: 6.h),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            color: c.textTertiary,
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
               if (trailing != null) ...[
@@ -239,26 +425,22 @@ class AppBottomSheetHeader extends StatelessWidget {
   }
 }
 
-/// The close X in a sheet header's trailing slot: the Settings sheets'
-/// affordance, in the same top-right slot, with the selection click every
-/// close shares. [onPressed] defaults to popping the sheet.
+/// The close X in a sheet header's trailing slot: the app's one
+/// [KuteCloseButton] (kute_back_button.dart), in the same top-right slot,
+/// with the selection click every close shares. [onPressed] defaults to
+/// popping the sheet; [size] is the circle's, the canonical one unless a
+/// header asks for the compact X (receive_surface.dart, SheetTitleHeader).
 class AppBottomSheetCloseButton extends StatelessWidget {
   final VoidCallback? onPressed;
-  const AppBottomSheetCloseButton({super.key, this.onPressed});
+  final double size;
+  const AppBottomSheetCloseButton(
+      {super.key, this.onPressed, this.size = kKuteNavButtonSize});
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-      onPressed: () {
-        HapticFeedback.selectionClick();
-        if (onPressed != null) {
-          onPressed!();
-        } else {
-          Navigator.of(context).pop();
-        }
-      },
-      icon: const Icon(Icons.close_rounded),
+    return KuteCloseButton(
+      onPressed: onPressed ?? () => Navigator.of(context).pop(),
+      size: size,
     );
   }
 }
@@ -356,7 +538,10 @@ class AppBottomSheetListTile extends StatelessWidget {
     final glyphColor = isSelected ? onColor : c.textSecondary;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-      child: InkWell(
+      // The app's press: 0.98 while held, back on the press spring.
+      child: KutePressable(
+        enabled: onTap != null,
+        child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Container(
@@ -439,6 +624,7 @@ class AppBottomSheetListTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

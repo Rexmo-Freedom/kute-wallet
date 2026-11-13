@@ -1487,6 +1487,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendDetectedLightningAddress => 'Lightning-cím';
 
   @override
+  String get sendVerifiedByBranta => 'A Branta ellenőrizte';
+
+  @override
+  String get sendBrantaTampered =>
+      'A Branta szerint ezt a címet kicserélték. Küldés előtt egyeztesd a címzettel.';
+
+  @override
   String get sendDetectedBitcoinAddress => 'Bitcoin-cím';
 
   @override
@@ -1755,12 +1762,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get referrerFriendInvitedYou => 'Egy barátod meghívott';
 
   @override
-  String accountYouEarnRate(String rate) {
-    return '$rate% jár neked';
-  }
-
-  @override
-  String accountInviteMoreForRate(int count, int rate) {
+  String accountInviteMoreForRate(int count, String rate) {
     return 'Hívj meg még $count barátot, hogy $rate% járjon neked';
   }
 
@@ -2677,9 +2679,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get accountUsersWithYourCode => 'A kódodat használók';
-
-  @override
   String get accountPendingPayout => 'Függő kifizetés';
 
   @override
@@ -2697,16 +2696,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String accountRuleEarnings(String rate) {
-    return 'A barátaid által generált díjak $rate része jár neked.';
-  }
-
-  @override
-  String accountRuleEarningsLadder(String rate, String ladder) {
-    return 'A barátaid által generált díjak $rate része jár neked, $ladder.';
-  }
-
-  @override
   String accountRuleEarningsStep(String rate, int count) {
     return '$rate $count barát esetén';
   }
@@ -2714,6 +2703,54 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String accountRuleFriendDiscount(String discount) {
     return 'A barátaid $discount kedvezményt kapnak a Kute díjaiból, amíg veled vannak.';
+  }
+
+  @override
+  String referralHeroTitle(String rate) {
+    return 'A barátaid díjainak $rate-a a tiéd';
+  }
+
+  @override
+  String referralHeroLine(String discount) {
+    return 'Ők $discount kedvezményt kapnak a Kute díjaiból';
+  }
+
+  @override
+  String get referralShareInvite => 'Meghívó megosztása';
+
+  @override
+  String get referralFriendsJoined => 'Csatlakozott barátok';
+
+  @override
+  String get referralYourRate => 'A jutalékod';
+
+  @override
+  String get referralTopRate => 'Elérted a legmagasabb jutalékot';
+
+  @override
+  String referralTierFriends(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count barát',
+      one: '1 barát',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralStepShare => 'Oszd meg a linkedet';
+
+  @override
+  String get referralStepShareLine =>
+      'Küldd el a linkedet vagy a kódodat a barátaidnak.';
+
+  @override
+  String get referralStepJoin => 'Csatlakoznak és kereskednek';
+
+  @override
+  String referralStepEarn(String rate) {
+    return 'Díjaik $rate-a a tiéd';
   }
 
   @override
@@ -3191,7 +3228,7 @@ class AppLocalizationsHu extends AppLocalizations {
       'Bitcoin-, Lightning- vagy Spark-cím';
 
   @override
-  String get sendAutoSwapFromBitcoin => 'Automatikus váltás Bitcoinból';
+  String get sendAutoSwapFromBitcoin => 'A Bitcoinodból';
 
   @override
   String get sendAddressNotIdentified => 'Ismeretlen cím';
@@ -3260,12 +3297,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Írd alá a tranzakciót az eszközödön.';
 
   @override
-  String sendAmountUnitAvailableWithFiat(
-      String amount, String unit, String fiat) {
-    return '$amount $unit elérhető · $fiat';
-  }
-
-  @override
   String get sendCalculatingEllipsis => 'Számítás…';
 
   @override
@@ -3316,11 +3347,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get sendPaymentRequestOnlySupportsLightning =>
       'Ez a fizetési kérelem csak Lightninggal fizethető. Válts Lightningot támogató tárcára a fizetéshez.';
-
-  @override
-  String sendAssetOnNetworkAddressHint(String asset, String network) {
-    return '$asset cím ($network)';
-  }
 
   @override
   String get sendPasteBitcoinAddress => 'Bitcoin-cím beillesztése';
@@ -3408,7 +3434,10 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get depositAutoAfterConfirmations =>
-      '3 megerősítés után automatikusan hozzáadódik.';
+      'Automatikusan jóváírjuk, gyakran perceken belül, legkésőbb 3 megerősítés után. Az első megerősítéstől díj ellenében talán előbb is igényelheted.';
+
+  @override
+  String get activityClaimNowAvailable => 'Most igényelhető';
 
   @override
   String get depositReasonFeeHigh =>
@@ -3626,11 +3655,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String activityRowClosed(String coin) {
-    return 'Lezárva · $coin';
-  }
-
-  @override
   String activityRowReduced(String coin) {
     return 'Csökkentve · $coin';
   }
@@ -3696,7 +3720,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String activitySwapLegs(String from, String to) {
-    return 'Váltás · $from → $to';
+    return '$from → $to';
   }
 
   @override
@@ -4079,6 +4103,15 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hubReferrals => 'Ajánlások';
 
   @override
+  String get hubReferralsSubtitle => 'Hívd meg a barátaidat';
+
+  @override
+  String get hubSupportSubtitle => 'Kérj segítséget';
+
+  @override
+  String get hubSettingsSubtitle => 'Biztonság és egyebek';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Kapj részt abból, amit a Kute a barátaidon keres';
 
@@ -4191,6 +4224,16 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String confirmationSentToWallet(String walletName) {
     return 'Elküldve ide: $walletName';
+  }
+
+  @override
+  String confirmationMovedToWallet(String walletName) {
+    return 'Áthelyezve ide: $walletName';
+  }
+
+  @override
+  String confirmationSwappedToWallet(String walletName) {
+    return 'Cserélve ide: $walletName';
   }
 
   @override
@@ -4887,6 +4930,14 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get slipDepositIncomingNote =>
       'A pénzed úton van. A gomb akkor lesz elérhető, amikor megérkezik.';
+
+  @override
+  String get slipOtherOrderPlacingNote =>
+      'A másik megbízásod leadása még folyamatban van. Ezt akkor adhatod le, ha az elkészült.';
+
+  @override
+  String get betOtherPredictionPlacingNote =>
+      'A másik előrejelzésed leadása még folyamatban van. Ezt akkor adhatod le, ha az elkészült.';
 
   @override
   String get slipDepositAddMore => 'Kiegészítés';
@@ -5811,6 +5862,40 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlAdvancedChart => 'Speciális diagram';
 
   @override
+  String get optionAdvancedChartSub => 'Rajzok és indikátorok';
+
+  @override
+  String get optionAboutMarketSub => 'Statisztika és megbízási könyv';
+
+  @override
+  String get optionAddMarginSub => 'Távolabb a likvidációtól';
+
+  @override
+  String get optionPositionDetailsSub => 'Méret, belépés és finanszírozás';
+
+  @override
+  String optionEndsOn(String date) {
+    return 'Vége: $date';
+  }
+
+  @override
+  String optionEndedOn(String date) {
+    return 'Véget ért: $date';
+  }
+
+  @override
+  String get optionHowItResolves => 'Hogyan értékelik ki';
+
+  @override
+  String get optionViewMarketSub => 'Diagram és esélyek';
+
+  @override
+  String get optionPredictionDetailsSub => 'Egységek és fizetett ár';
+
+  @override
+  String get optionProtectSellSub => 'Add el a saját áradon';
+
+  @override
   String get chartStyleCandles => 'Gyertyák';
 
   @override
@@ -5919,13 +6004,52 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartVwapWindow => 'VWAP a megjelenített gyertyákon';
 
   @override
-  String get chartRsiLabel => 'RSI (14)';
-
-  @override
   String get chartIndicators => 'Indikátorok';
 
   @override
   String get chartInterval => 'Időköz';
+
+  @override
+  String get chartIntervalMinute => '1 perc';
+
+  @override
+  String get chartIntervalMinuteHint => 'Élő mozgások';
+
+  @override
+  String get chartIntervalFiveMinutes => '5 perc';
+
+  @override
+  String get chartIntervalFiveMinutesHint => 'A mai kilengések';
+
+  @override
+  String get chartIntervalFifteenMinutes => '15 perc';
+
+  @override
+  String get chartIntervalFifteenMinutesHint => 'Az elmúlt nap';
+
+  @override
+  String get chartIntervalHour => '1 óra';
+
+  @override
+  String get chartIntervalHourHint => 'Az elmúlt néhány nap';
+
+  @override
+  String get chartIntervalFourHours => '4 óra';
+
+  @override
+  String get chartIntervalFourHoursHint => 'Az elmúlt hetek';
+
+  @override
+  String get chartIntervalDay => '1 nap';
+
+  @override
+  String get chartIntervalDayHint => 'Az elmúlt hónapok';
+
+  @override
+  String get chartIntervalWeek => '1 hét';
+
+  @override
+  String get chartIntervalWeekHint => 'Hosszú távon';
 
   @override
   String get chartSelectTool => 'Rajzok kijelölése és szerkesztése';
@@ -5947,7 +6071,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioPerformanceUnavailable => 'A teljesítmény nem érhető el';
 
   @override
-  String get portfolioStatRealized => 'Realizált nyereség / veszteség';
+  String get portfolioStatRealized => 'Realizált nyereség';
 
   @override
   String get portfolioStatAmountPredicted => 'Előrejelzések összege';
@@ -6110,6 +6234,12 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get moveTransfer => 'Pénz mozgatása';
+
+  @override
+  String get moveVerb => 'Áthelyezés';
+
+  @override
+  String get moveToBitcoin => 'Áthelyezés Bitcoinba';
 
   @override
   String get moveAdd => 'Hozzáadás';
@@ -6295,6 +6425,16 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get investingSubmissionUnknown =>
       'A tőzsde még nem erősítette meg az eredményt. Mielőtt újrapróbálod, ellenőrizd a megbízásaidat és az egyenlegedet.';
+
+  @override
+  String get betConfirmingWithVenue => 'Megerősítés a Polymarkettel…';
+
+  @override
+  String get investingConfirmingWithExchange => 'Megerősítés a tőzsdével…';
+
+  @override
+  String get investingOrderNotPlaced =>
+      'Ez a megbízás nem teljesült. Semmi sem lett leadva.';
 
   @override
   String get investingApprovalExpired =>
@@ -6490,6 +6630,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get walletPortfolioAction => 'Portfólió';
 
   @override
+  String get seeFullPortfolioAndActivity => 'Teljes portfólió és tevékenység';
+
+  @override
   String get walletActionsWalletChanged =>
       'A tárca megváltozott. A folytatáshoz nyisd meg újra a műveletek menüt.';
 
@@ -6636,9 +6779,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
-  String get sendDollarAccountAddressHint => 'Dollár fiók címe';
-
-  @override
   String hwSignKeepDeviceNearby(String device) {
     return 'Tartsd a(z) $device eszközt a közelben és feloldva.';
   }
@@ -6708,7 +6848,11 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get receiveOneOffLateDepositRepriced =>
-      'A később érkező befizetés más árat kaphat.';
+      'A késve érkező befizetés más árat kaphat.';
+
+  @override
+  String get quotedReceiveWrongCoinWarning =>
+      'Rossz érme vagy hálózat? A pénzed elveszhet.';
 
   @override
   String get receiveOneOffNewAddress => 'Új cím kérése';
@@ -6834,6 +6978,11 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String betBuyPartialMarket(String bought, String total, String price) {
     return '$total egységből $bought megvéve $price áron. A te áradon nem volt több eladó, így a többit nem vettük meg.';
+  }
+
+  @override
+  String betSellPartialMarket(String sold, String total, String price) {
+    return '$total egységből $sold eladva $price áron. A te áradon nem volt több vevő, így a többi nem kelt el.';
   }
 
   @override
@@ -6990,6 +7139,10 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get betConnectionUnavailable =>
       'Nem érhető el a Polymarket. Ellenőrizd a kapcsolatot, és próbáld újra.';
+
+  @override
+  String get betConnectionSlowNotSent =>
+      'Lassú a kapcsolatod, és ez a megbízás nem ment át.';
 
   @override
   String get betFeesUnavailable =>
@@ -7174,6 +7327,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'A régiódban nem érhető el';
+
+  @override
+  String get capabilityNotAvailableNow => 'Jelenleg nem érhető el';
 
   @override
   String capabilityRegionTitleNamed(String regions) {
@@ -7369,6 +7525,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get addWalletOther => 'Egyéb tárca';
+
+  @override
+  String get addWalletOtherSubtitle => 'QR-kód, fájl vagy beillesztés';
 
   @override
   String get addWalletTrackSubtitle =>
@@ -7576,31 +7735,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Tárca neve';
 
   @override
-  String get salOrderNoLongerAvailable => 'Ez a megbízás már nem módosítható.';
-
-  @override
   String get salControlUnavailable =>
       'Ez a vezérlő ezen a képernyőn nem érhető el.';
 
   @override
-  String get salSwitchToLimitTitle => 'Váltasz limitáras megbízásra?';
-
-  @override
-  String get salOpenLeverageTitle => 'Megnyitod a tőkeáttétel beállításait?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Ez megváltoztatja a megbízás típusát. A leadás előtt nézd át az árat és az összeget.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'A tőkeáttételt te magad választod. Ez megnyitja a vezérlőket, az értéket nem módosítja.';
-
-  @override
   String get salChatWith => 'Csevegés Sallal';
-
-  @override
-  String get salAsk => 'Kérdezd Salt';
 
   @override
   String get salUnavailable => 'Sal most nem érhető el.';
@@ -7720,20 +7859,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get salStubLiveUnavailable => 'Élő információ nem érhető el.';
 
   @override
-  String searchNoMatchesAskSal(String query) {
-    return 'Nincs találat erre: „$query”. Küldd el, és kérdezd meg Salt.';
-  }
-
-  @override
   String searchNoResultsFor(String query) {
     return 'Nincs találat erre: „$query”';
   }
 
   @override
   String get searchTypeToSearchMarkets => 'Írj a piacok kereséséhez';
-
-  @override
-  String get searchOrAskSal => 'Keress, vagy kérdezz bármit Saltól';
 
   @override
   String get searchMarketsHint => 'Piacok keresése';
@@ -7747,6 +7878,17 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String searchYourPosition(String outcome) {
     return 'A pozíciód · $outcome';
+  }
+
+  @override
+  String searchMoreWaysToTrade(int count, String ticker) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$ticker: még $count kereskedési mód',
+      one: '$ticker: még 1 kereskedési mód',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -7878,7 +8020,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get tnNetProfit => 'Nettó nyereség';
 
   @override
-  String get tnTradingPnl => 'Ügyleti eredmény';
+  String get tnTradingPnl => 'Ügyleti nyereség';
 
   @override
   String get tnAllTradingFees => 'Összes ügyleti díj';
@@ -7893,7 +8035,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get tnIncludesAllCloses => 'Nyitás, részleges zárások és végső zárás';
 
   @override
-  String get tnClosedPnlExchange => 'Lezárt eredmény (tőzsde)';
+  String get tnClosedPnlExchange => 'Lezárt nyereség (tőzsde)';
 
   @override
   String get tnFillFee => 'Teljesülési díj';
@@ -8077,6 +8219,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az Előrejelzések tárca még nem áll készen.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Az Előrejelzések jelenleg nem érhetők el. Semmi sem lett elküldve. Ellenőrizd a kapcsolatot, és próbáld újra.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Ez a befizetési útvonal átmenetileg nem érhető el. Próbáld újra később.';
 
@@ -8137,20 +8283,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moveAddFunds => 'Pénz feltöltése';
 
   @override
-  String get movePickPayOrDollars =>
-      'Válaszd ki, hogyan fizetsz, vagy használd a dollár egyenlegedet.';
-
-  @override
   String get moveHintAWallet => 'egy tárca';
 
   @override
   String moveHintTwo(String first, String second) {
     return '$first vagy $second';
-  }
-
-  @override
-  String moveHintMany(String list, String last) {
-    return '$list vagy $last';
   }
 
   @override
@@ -8269,12 +8406,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get marketCardSoon => 'hamarosan';
-
-  @override
-  String get marketCardEsportsLive => 'E-sport élőben';
-
-  @override
-  String get marketCardLiveStream => 'Élő közvetítés';
 
   @override
   String get pmOrdersConnectLedger =>
@@ -8787,6 +8918,14 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlPositionYouPutIn => 'Befektetésed';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x tőkeáttétel';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Nincs tőkeáttétel';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Most $amount értékű';
   }
@@ -8864,6 +9003,70 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get hlChartYouSold => 'Itt adtál el';
+
+  @override
+  String hlChartOpenedLong(String size) {
+    return 'Long nyitva: $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Short nyitva: $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Long bővítve: $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Short bővítve: $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Long csökkentve: $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Short csökkentve: $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Long zárva: $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Short zárva: $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Átfordítva longba: $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Átfordítva shortba: $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvidálva: $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Itt nyitottál longot';
+
+  @override
+  String get hlChartYouWentShort => 'Itt nyitottál shortot';
+
+  @override
+  String get hlChartYouClosedHere => 'Itt zártál';
 
   @override
   String get hlWithdrawalsUnavailable =>
@@ -9616,6 +9819,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyPillElections => 'Választások';
 
   @override
+  String get polyPillArt => 'Művészet';
+
+  @override
   String get polySubTargets => 'Célok';
 
   @override
@@ -9721,6 +9927,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polySportDarts => 'Darts';
 
   @override
+  String get polySportVolleyball => 'Röplabda';
+
+  @override
   String get polySportHandball => 'Kézilabda';
 
   @override
@@ -9737,6 +9946,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get polySportChess => 'Sakk';
+
+  @override
+  String get polyDayTomorrow => 'Holnap';
 
   @override
   String get polyMoreTitle => 'Összes kategória';
@@ -9780,6 +9992,63 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyCountNow => 'Most';
 
   @override
+  String get polyMapRepublican => 'Republikánus';
+
+  @override
+  String get polyMapDemocratic => 'Demokrata';
+
+  @override
+  String get polyMapIndependent => 'Független';
+
+  @override
+  String get polyMapNotRepublican => 'Nem republikánus';
+
+  @override
+  String get polyMapNotDemocratic => 'Nem demokrata';
+
+  @override
+  String polyMapRepublicansFavoured(int count, int total) {
+    return 'A republikánusok vezetnek: $count/$total állam';
+  }
+
+  @override
+  String polyMapDemocratsFavoured(int count, int total) {
+    return 'A demokraták vezetnek: $count/$total állam';
+  }
+
+  @override
+  String polyMapYesLeads(int count, int total) {
+    return 'Az Igen vezet: $count/$total állam';
+  }
+
+  @override
+  String get polyMapNoMarket => 'Nincs nyitott piac';
+
+  @override
+  String get polyMapChanceOfYes => 'Az Igen esélye';
+
+  @override
+  String get polyMapTapToBuild =>
+      'Koppints az államokra, és állítsd össze a térképed';
+
+  @override
+  String get polyMapMostLikely => 'Legvalószínűbb térkép';
+
+  @override
+  String get polyMapYourMap => 'A te térképed';
+
+  @override
+  String get polyMapNoSuchMap => 'Ehhez a térképhez nincs piac';
+
+  @override
+  String get polyMapBackToMostLikely => 'Vissza a legvalószínűbb térképhez';
+
+  @override
+  String polyMapStatePick(String state, String side) {
+    return '$state: $side a térképeden';
+  }
+
+  @override
   String get polyPillWatchlist => 'Figyelőlista';
 
   @override
@@ -9787,6 +10056,13 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get polyWatchlistRemove => 'Eltávolítás a figyelőlistáról';
+
+  @override
+  String get hlWatchlistCreate => 'Figyelőlista létrehozása';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Válaszd ki a követett piacokat. A Befektetés ezekkel nyílik meg.';
 
   @override
   String get livestreamInMiniPlayer => 'Lejátszás a minilejátszóban';
@@ -9876,6 +10152,16 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String polyKickoffTomorrow(String time) {
     return 'Holnap $time';
+  }
+
+  @override
+  String polyPosEndsTodayAt(String time) {
+    return 'Vége: ma $time';
+  }
+
+  @override
+  String polyPosEndsTomorrowAt(String time) {
+    return 'Vége: holnap $time';
   }
 
   @override
@@ -10401,153 +10687,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlRejectOracle => 'Ez az ár túl messze van a piaci ártól.';
 
   @override
-  String get salIntroGeneral =>
-      'Fedezd fel a nyilvános piacokat, és tudd meg, hogyan működik minden.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Fedezd fel a(z) $market piacot, és tudd meg, hogyan működik.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Fedezd fel ezt a piacot, és tudd meg, hogyan működik.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Tudd meg, hogyan működnek a $orderType típusú megbízások.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'piaci',
-        'limit': 'limitáras',
-        'scale': 'skálázott',
-        'stopMarket': 'stop market',
-        'stopLimit': 'stop limit',
-        'takeProfitMarket': 'take profit market',
-        'takeProfitLimit': 'take profit limit',
-        'twap': 'TWAP',
-        'other': 'megbízás',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Miért mozog ma a(z) $market?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Miért negatív a(z) $market finanszírozása?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Hogyan működik a(z) $market finanszírozása?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Hogyan védhetek meg egy pozíciót a(z) $market piacon?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Hogyan működik a likvidáció a(z) $market piacon?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Mi mozgatja a(z) $market árát?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Hogyan teljesít a(z) $market a hasonló piacokhoz képest?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Miért mozognak ennek a piacnak az oddsai?';
-
-  @override
-  String get salChipPmClosingSoon => 'Mi történik, amikor ez a piac lezárul?';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Hogyan mozgatja az élő meccs ezeket az oddsokat?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Mi mozgathatja ennek a piacnak az oddsait?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Mik ennek a piacnak az eldöntési szabályai?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Mely piacok kapcsolódnak ehhez?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Mik a legfrissebb hírek a(z) $market piacról?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Hogyan működik egy $orderType típusú megbízás a(z) $market piacon?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Miben különbözik a piaci és a limitáras megbízás?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Hogyan változtatja meg a tőkeáttétel a likvidációs kockázatot?';
-
-  @override
-  String get salChipEduFunding => 'Mi a finanszírozás egy örökös szerződésnél?';
-
-  @override
-  String get salChipEduPredictionBasics =>
-      'Hogyan működnek az előrejelzési piacok?';
-
-  @override
-  String get salChipWalletReceive => 'Hogyan fogadhatok bitcoint a Kute-ban?';
-
-  @override
-  String get salChipWalletSend => 'Hogyan küldhetek bitcoint a Kute-ban?';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'Mi a különbség a részvények és a perpek között?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Mi az a helyreállítási kifejezés?';
-
-  @override
-  String get salChipBackupHow => 'Hogyan működik a tárca biztonsági mentése?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Miért kell titokban tartani a helyreállítási kifejezést?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Mi az a hálózati megerősítés?';
-
-  @override
-  String get salChipNetworkFees => 'Hogyan működnek a Bitcoin-hálózati díjak?';
-
-  @override
-  String get salChipTxPending => 'Miért maradhat egy tranzakció függőben?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minimum: $amount';
   }
@@ -10576,55 +10715,149 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get searchOrAskSalShort => 'Keress, vagy kérdezd Salt';
+  String get shareHeaderLabel => 'Küldés barátnak';
+
+  @override
+  String get bragPositionAction => 'Dicsekedj ezzel a pozícióval';
+
+  @override
+  String get bragPositionActionSub => 'Kártya az eredményeddel';
+
+  @override
+  String get bragPortfolioAction => 'Dicsekedj a portfólióddal';
+
+  @override
+  String get bragBarLabel => 'Oszd meg és dicsekedj';
+
+  @override
+  String get bragPortfolioBarLabel => 'Oszd meg a portfóliód';
+
+  @override
+  String get bragPnlBarLabel => 'Oszd meg a nyereséged';
+
+  @override
+  String get bragMyPnl => 'Az én nyereségem';
+
+  @override
+  String bragShareText(String title, String link) {
+    return '$title a Kute-ban $link';
+  }
+
+  @override
+  String get bragMyPortfolio => 'Az én portfólióm';
+
+  @override
+  String bragHoldingsMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '+$count további',
+      one: '+$count további',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get bragCodeLabel => 'Kód';
+
+  @override
+  String get bragSinceYouBought => 'Vétel óta';
+
+  @override
+  String get bragAboutIt => 'Dicsekedj vele';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
+
+  @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
+  String get barNeedAmount => 'Enter an amount';
+
+  @override
+  String get barNeedLowerAmount => 'Lower the amount';
+
+  @override
+  String get barNeedRaiseAmount => 'Raise the amount';
+
+  @override
+  String get barNeedRecipient => 'Add who to send to';
+
+  @override
+  String get barNeedNetwork => 'Pick a network';
+
+  @override
+  String get barNeedCoin => 'Pick a coin';
+
+  @override
+  String get barNeedAddress => 'Paste an address';
+
+  @override
+  String get barNeedValidAddress => 'Check the address';
+
+  @override
+  String get barNeedTick => 'Tick the box to continue';
+
+  @override
+  String get barNeedPin => 'Enter your 6-digit PIN';
+
+  @override
+  String get barNeedPinAgain => 'Enter the PIN again';
+
+  @override
+  String get barNeedName => 'Enter a name';
+
+  @override
+  String get barNeedCode => 'Enter a code';
+
+  @override
+  String get barNeedPhrase => 'Enter your 12 words';
+
+  @override
+  String get barNeedPublicKey => 'Paste a public key';
+
+  @override
+  String get barNeedNote => 'Write a note';
+
+  @override
+  String get barNeedFee => 'Pick a fee';
+
+  @override
+  String get barNeedPrice => 'Getting a price…';
+
+  @override
+  String get barNeedOption => 'Pick an option';
+
+  @override
+  String get barNeedWallet => 'Pick a wallet';
+
+  @override
+  String get barNeedCheckAmount => 'Check the amount';
+
+  @override
+  String get barNeedWait => 'One moment…';
+
+  @override
+  String get searchPredictionsOrManageAi =>
+      'Keress előrejelzést, vagy kezeld AI-jal';
+
+  @override
+  String get searchInvestmentsOrManageAi =>
+      'Keress befektetést, vagy kezeld AI-jal';
+
+  @override
+  String get searchOrManageAi => 'Keress, vagy kezeld AI-jal';
+
+  @override
+  String get connectOwnAiTitle => 'Kapcsold be a saját AI-odat';
+
+  @override
+  String get connectOwnAiSubtitle =>
+      'Hagyd, hogy a Claude, a ChatGPT vagy a Grok kezelje a tárcádat';
 
   @override
   String get financialHubAndSettings => 'Pénzügyi központ és beállítások';
-
-  @override
-  String get analyticsInOutTab => 'Be és ki';
-
-  @override
-  String get inOutMonth => 'Hónap';
-
-  @override
-  String get inOutYear => 'Év';
-
-  @override
-  String get inOutIn => 'Be';
-
-  @override
-  String get inOutOut => 'Ki';
-
-  @override
-  String get inOutWhereItWent => 'Hová ment';
-
-  @override
-  String get inOutWhereItCameFrom => 'Honnan jött';
-
-  @override
-  String get inOutSentToPeople => 'Másoknak küldve';
-
-  @override
-  String get inOutIntoInvestments => 'Investmentsbe';
-
-  @override
-  String get inOutIntoDollars => 'Dollárba';
-
-  @override
-  String get inOutFromPeople => 'Másoktól';
-
-  @override
-  String get inOutFromInvestments => 'Investmentsből';
-
-  @override
-  String get inOutFromDollars => 'Dollárból';
-
-  @override
-  String get inOutBought => 'Vásárolt';
-
-  @override
-  String get inOutEmpty => 'Nem jött és nem ment pénz';
 
   @override
   String get portfolioStatsActive => 'Aktív';
@@ -10636,7 +10869,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioStatAtStake => 'Lekötött összeg';
 
   @override
-  String get portfolioProfitLoss => 'Nyereség és veszteség';
+  String get portfolioProfitLoss => 'Nyereség';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10895,19 +11128,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get depositFromAnotherWallet => 'Másik tárca vagy tőzsde';
-
-  @override
   String get depositFromAnotherWalletSubtitle =>
       'Kérj egy címet, ahová dollárt küldhetsz';
 
   @override
-  String get portfolioStatOpenPnl => 'Nyitott nyereség / veszteség';
-
-  @override
-  String stepUpReasonBetReady(String amount) {
-    return '$amount előrejelzés előkészítése';
-  }
+  String get portfolioStatOpenPnl => 'Nyitott nyereség';
 
   @override
   String multiMoveSendTitle(String amount) {
@@ -10934,7 +11159,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String multiMovePurchaseWaiting(String amount, String balance) {
-    return '$amount a(z) $balance egyenlegeden van. Koppints a Bitcoin vásárlásához';
+    return '$amount a(z) $balance egyenlegeden van. Koppints, hogy áthelyezd Bitcoinba';
   }
 
   @override
@@ -10950,6 +11175,19 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
+
+  @override
+  String get receiveAnotherCrypto => 'Másik kripto';
+
+  @override
+  String anotherCryptoCoinsAndMore(String coins) {
+    return '$coins és mások';
+  }
+
+  @override
+  String anotherCryptoCoinsPair(String first, String second) {
+    return '$first és $second';
+  }
 
   @override
   String get usdWithdrawToYourWallet => 'A tárcádba';
@@ -11022,16 +11260,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String oneBalancePlacingBet(String amount, String side, String market) {
-    return '$amount feltétele erre: $side · $market';
-  }
-
-  @override
-  String oneBalanceOpeningOrder(String amount, String market) {
-    return '$amount értékű $market megbízás nyitása';
-  }
-
-  @override
   String hlMarginStepAdding(String amount, String coin) {
     return '$amount fedezet hozzáadása: $coin';
   }
@@ -11040,9 +11268,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'A(z) $amount az Investmentsben van. Koppints a fedezet hozzáadásához.';
   }
-
-  @override
-  String get salWhyMoving => 'Miért mozog?';
 
   @override
   String get positionProtectIt => 'Védd meg';
@@ -11173,12 +11398,12 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String moneyStepBuying(String amount) {
-    return '$amount értékű Bitcoin vásárlása';
+    return '$amount áthelyezése Bitcoinba';
   }
 
   @override
   String moneyStepBought(String amount) {
-    return '$amount értékű Bitcoin megvéve';
+    return '$amount áthelyezve Bitcoinba';
   }
 
   @override
@@ -11229,10 +11454,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az áthelyezéséhez fordulj az ügyfélszolgálathoz.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L grafikonok';
+  String get portfolioSectionPnlCharts => 'Nyereség';
 
   @override
-  String get portfolioSectionBalances => 'Portfólió';
+  String get portfolioSectionBalances => 'Pozíciók';
 
   @override
   String balanceChangePastWeek(String change) {
@@ -11301,8 +11526,34 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az egyenleged alakulása itt jelenik meg, amint lesz dollárod';
 
   @override
+  String get chartPeriodPastWeek => 'Elmúlt hét';
+
+  @override
+  String get chartPeriodPastMonth => 'Elmúlt hónap';
+
+  @override
+  String get chartPeriodPast3Months => 'Elmúlt 3 hónap';
+
+  @override
+  String get chartPeriodPastYear => 'Elmúlt év';
+
+  @override
+  String get chartPeriodAllTime => 'Teljes időszak';
+
+  @override
+  String get chartNoChange => 'Nincs változás';
+
+  @override
+  String get pnlChartNoHistory =>
+      'A nyereséged az első pozíciód után jelenik meg.';
+
+  @override
+  String get balanceChartNoHistory =>
+      'Az egyenlegelőzményed az első tranzakcióddal kezdődik.';
+
+  @override
   String get pnlChartEmpty =>
-      'A nyereséged és veszteséged itt jelenik meg, amint befektetsz vagy előrejelzést adsz';
+      'A nyereséged itt jelenik meg, amint befektetsz vagy előrejelzést adsz';
 
   @override
   String portfolioPositionsCount(int count) {
@@ -11330,4 +11581,2922 @@ class AppLocalizationsHu extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'belépés $price';
   }
+
+  @override
+  String get activityOnItsWay => 'Úton';
+
+  @override
+  String get investingTradfi => 'Hagyományos';
+
+  @override
+  String get purchaseShort => 'Vásárlás';
+
+  @override
+  String get categoryGroupDiscover => 'Felfedezés';
+
+  @override
+  String get categoryGroupMarkets => 'Piacok';
+
+  @override
+  String get categoryGroupTopics => 'Témák';
+
+  @override
+  String get categoryGroupTrendingNow => 'Most felkapott';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count piac',
+      one: '1 piac',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Legaktívabb';
+
+  @override
+  String get categoryStatToday => 'ma';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return '$amount forgalom ma';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'Összes: $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'Most mozog';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Felkapott előrejelzések';
+
+  @override
+  String get barPickMarketGroup => 'Válassz piaccsoportot';
+
+  @override
+  String get barPickMarketGroupSub => 'vagy kérd meg Salt, hogy keressen egyet';
+
+  @override
+  String get barShareWithFriends => 'Küldés barátnak';
+
+  @override
+  String get barShareMarketSub => 'Küldd el a piacot vagy egy előrejelzést';
+
+  @override
+  String get barSharePositionSub => 'Küldd el a piacot vagy a pozíciódat';
+
+  @override
+  String get shareTheMarket => 'Piac küldése';
+
+  @override
+  String get shareTheMarketSub => 'Kapnak egy linket, hogy megnézzék';
+
+  @override
+  String get shareThisPosition => 'Pozíció küldése';
+
+  @override
+  String get shareThisPositionSub => 'A piac, és hogy hogyan állsz';
+
+  @override
+  String get sendThisPrediction => 'Küldd el ezt az előrejelzést';
+
+  @override
+  String get sendThisInvestment => 'Küldd el ezt a befektetést';
+
+  @override
+  String get sendThisPickSub => 'Megkapják a választásodat, leadásra készen';
+
+  @override
+  String sharePickOn(String outcome, String title) {
+    return '$title: $outcome';
+  }
+
+  @override
+  String get portfolioInvestedLabel => 'Befektetve';
+
+  @override
+  String get portfolioAvailableLabel => 'Elérhető';
+
+  @override
+  String get balanceNoHistoryTitle => 'Még nincs egyenlegelőzmény';
+
+  @override
+  String get balanceNoHistorySub => 'Az első tranzakcióddal kezdődik.';
+
+  @override
+  String balanceGoalLevel(int level) {
+    return '$level. szint';
+  }
+
+  @override
+  String get balanceLevelName0 => 'Kute Szundi';
+
+  @override
+  String get balanceLevelName1 => 'Kute Érme';
+
+  @override
+  String get balanceLevelName2 => 'Kute Oszlop';
+
+  @override
+  String get balanceLevelName3 => 'Kute Dobogó';
+
+  @override
+  String get balanceLevelName4 => 'Kute Aktatáska';
+
+  @override
+  String get balanceLevelName5 => 'Kute Széf';
+
+  @override
+  String get balanceLevelName6 => 'Kute Torony';
+
+  @override
+  String get balanceLevelName7 => 'Kute Rudak';
+
+  @override
+  String get balanceLevelName8 => 'Kute Halom';
+
+  @override
+  String get balanceLevelName9 => 'Kute Korona';
+
+  @override
+  String get balanceLevelName10 => 'Kute Legenda';
+
+  @override
+  String get balanceLevelName11 => 'A Kute grafikonjain túl';
+
+  @override
+  String balanceGoalProgress(int percent, String goal) {
+    return '$percent% · cél: $goal';
+  }
+
+  @override
+  String get balanceGoalsHeading => 'Célok';
+
+  @override
+  String get balanceGoalsTab => 'Célok';
+
+  @override
+  String get balanceLadderTitle => 'Szintek';
+
+  @override
+  String balanceLadderFrom(String amount) {
+    return 'Legalább $amount';
+  }
+
+  @override
+  String balanceLadderUnder(String amount) {
+    return '$amount alatt';
+  }
+
+  @override
+  String get balanceGoalNext => 'Következő cél';
+
+  @override
+  String balanceGoalToGo(String amount) {
+    return 'Még $amount';
+  }
+
+  @override
+  String balanceGoalChartLabel(String goal) {
+    return 'Következő: $goal';
+  }
+
+  @override
+  String balanceGoalMove(String amount) {
+    return '$amount áthelyezése Dollárba';
+  }
+
+  @override
+  String get balanceGoalMovePlain => 'Áthelyezés Dollárba';
+
+  @override
+  String balanceMilestonePassed(String amount) {
+    return 'Túl vagy rajta: $amount';
+  }
+
+  @override
+  String get balanceMilestonePassedLine =>
+      'Bitcoin és dollár együtt. Sal úgy tesz, mintha semmi sem történt volna.';
+
+  @override
+  String get pnlNoHistoryTitle => 'Még nincs nyereség';
+
+  @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get portfolioPnlAllVenues => 'Összes';
+
+  @override
+  String portfolioOpenPnlNotCharted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozíció nincs a grafikonon (nincs előzmény)',
+      one: '1 pozíció nincs a grafikonon (nincs előzmény)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioHeroUp(String amount) {
+    return '$amount plusz';
+  }
+
+  @override
+  String portfolioHeroDown(String amount) {
+    return '$amount mínusz';
+  }
+
+  @override
+  String portfolioPnlYoureUp(String amount) {
+    return '$amount pluszban vagy';
+  }
+
+  @override
+  String portfolioPnlYoureDown(String amount) {
+    return '$amount mínuszban vagy';
+  }
+
+  @override
+  String get portfolioPnlFromClosed => 'Lezárt pozíciókból';
+
+  @override
+  String get portfolioPnlOnOpen => 'Nyitott pozíciókon';
+
+  @override
+  String get portfolioPnlByProduct => 'Termékenként';
+
+  @override
+  String get portfolioClosedPositions => 'Lezárt pozíciók';
+
+  @override
+  String get portfolioBrowseInvesting => 'Befektetések böngészése';
+
+  @override
+  String get activityFilterTrades => 'Ügyletek';
+
+  @override
+  String get activityFilterPayouts => 'Kifizetések';
+
+  @override
+  String get activityFilterTransfers => 'Átvezetések';
+
+  @override
+  String activityRowClosedLong(String coin) {
+    return 'Lezárva · $coin Long';
+  }
+
+  @override
+  String activityRowClosedShort(String coin) {
+    return 'Lezárva · $coin Short';
+  }
+
+  @override
+  String get pnlStatRealisedAllTime => 'All time realised';
+
+  @override
+  String get pnlStatUnrealisedAllTime => 'All time unrealised';
+
+  @override
+  String portfolioInvestedInVenue(String venue) {
+    return 'Invested in $venue';
+  }
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
+  String get portfolioAllTime => 'Teljes időszak';
+
+  @override
+  String get barWhatIsThis => 'Mi ez?';
+
+  @override
+  String get barReceiveExplainSub =>
+      'Sal elmagyarázza, hogyan működik a fogadás';
+
+  @override
+  String get barReceiveQuestion =>
+      'Magyarázd el ezt a fogadási képernyőt: a QR-kódot, a Lightning-címet, az Egységes, Csak Bitcoin és Csak Lightning közti különbséget, és hogy mit jelent az „Ezt is fogadja”';
+
+  @override
+  String get barScannerLabel => 'Mit szkennelhetek?';
+
+  @override
+  String get barScannerQuestion =>
+      'Mit szkennelhetek a Kute szkennerével: címeket, számlákat, QR-kódokat, és mi történik a szkennelés után?';
+
+  @override
+  String get barBackupLabel => 'Miért kell mentés?';
+
+  @override
+  String get barBackupQuestion =>
+      'Miért kell biztonsági mentést készítenem a tárcámról, mi a helyreállítási kifejezés, és hogyan őrizzem biztonságban?';
+
+  @override
+  String get barReceiptLabel => 'Mi történt itt?';
+
+  @override
+  String get barReceiptQuestion =>
+      'Magyarázd el ezt a tranzakciós bizonylatot: mi mozdult, a díjakat, az állapotot, és mit jelentenek az egyes sorok';
+
+  @override
+  String get barAskSalSub => 'Kérdezd Salt erről a képernyőről';
+
+  @override
+  String get barMoveMoney => 'Pénz mozgatása';
+
+  @override
+  String get barMoveMoneySub => 'kérdezd Salt, hová kerüljön';
+
+  @override
+  String get barAskWhatNext => 'Kérdezd Salt, mi jön ezután';
+
+  @override
+  String get barAskAboutKute => 'Kérdezd Salt a Kute-ról';
+
+  @override
+  String get searchHomeRecent => 'Legutóbbiak';
+
+  @override
+  String get searchHomeClear => 'Törlés';
+
+  @override
+  String get searchScopeTitle => 'Keresés itt';
+
+  @override
+  String get searchShowMore => 'Több megjelenítése';
+
+  @override
+  String get shareSendToAnyone => 'Küldés bárkinek';
+
+  @override
+  String get shareSendToAnyoneSubtitle =>
+      'Egy link, amit a Kute-ban vehetnek át';
+
+  @override
+  String get shareWhoIsItFor => 'Kinek szól?';
+
+  @override
+  String get shareFirstNameHint => 'Keresztnév (nem kötelező)';
+
+  @override
+  String get shareCreateLink => 'Link létrehozása';
+
+  @override
+  String get shareCreatingLink => 'Link létrehozása folyamatban';
+
+  @override
+  String get shareCreateFailed =>
+      'Nem sikerült létrehozni a linket. Próbáld újra.';
+
+  @override
+  String shareAmountInBitcoin(String amount) {
+    return '$amount Bitcoinban';
+  }
+
+  @override
+  String shareMessageNamed(String name, String amount, String url) {
+    return '$name, küldtem neked $amount összeget a Kute-ban. Itt veheted át: $url';
+  }
+
+  @override
+  String shareMessageUnnamed(String amount, String url) {
+    return 'Küldtem neked $amount összeget a Kute-ban. Itt veheted át: $url';
+  }
+
+  @override
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, küldtem neked egy előrejelzést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
+  }
+
+  @override
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Küldtem neked egy előrejelzést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
+  }
+
+  @override
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, küldtem neked egy befektetést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
+  }
+
+  @override
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'Küldtem neked egy befektetést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
+  }
+
+  @override
+  String shareLinkSentWaiting(String name) {
+    return 'Link elküldve · arra vár, hogy $name átvegye';
+  }
+
+  @override
+  String get shareLinkSentWaitingUnnamed => 'Link elküldve · átvételre vár';
+
+  @override
+  String get shareLinkClaimedReady => 'Átvéve · küldésre kész';
+
+  @override
+  String get shareLinkPaid => 'Elküldve';
+
+  @override
+  String get shareLinkCancelled => 'Visszavonva';
+
+  @override
+  String get shareLinkExpired => 'Lejárt';
+
+  @override
+  String get shareLinkCancel => 'Link visszavonása';
+
+  @override
+  String get shareLinkCancelFailed =>
+      'Nem sikerült visszavonni a linket. Próbáld újra.';
+
+  @override
+  String get shareLinkShareAgain => 'Megosztás újra';
+
+  @override
+  String get sharePendingLinksTitle => 'Elküldött linkjeid';
+
+  @override
+  String shareClaimedPromptTitle(String name, String amount) {
+    return '$name átvette a(z) $amount összeget';
+  }
+
+  @override
+  String shareClaimedPromptTitleUnnamed(String amount) {
+    return 'A(z) $amount összeget átvették';
+  }
+
+  @override
+  String get shareClaimedPromptBody =>
+      'Küldd el most a befejezéshez. Csak akkor hagyja el a tárcádat, ha megerősíted.';
+
+  @override
+  String get shareSendNow => 'Küldés most';
+
+  @override
+  String get shareLater => 'Később';
+
+  @override
+  String get shareSendFailed =>
+      'Nem sikerült elküldeni. A Kute a következő megnyitáskor újra rákérdez.';
+
+  @override
+  String claimTitle(String sender, String amount) {
+    return '$sender küldött neked $amount összeget';
+  }
+
+  @override
+  String get claimSomeone => 'Valaki';
+
+  @override
+  String claimMarketLine(String market) {
+    return 'előrejelzésre erre: $market';
+  }
+
+  @override
+  String get claimButton => 'Átvétel';
+
+  @override
+  String get claimClaiming => 'Átvétel folyamatban';
+
+  @override
+  String get claimOnItsWay => 'Úton van';
+
+  @override
+  String claimArrivesWhenOpens(String sender) {
+    return 'Akkor érkezik meg, amikor $sender megnyitja a Kute-ot.';
+  }
+
+  @override
+  String claimSentPrediction(String sender) {
+    return '$sender küldött neked egy előrejelzést';
+  }
+
+  @override
+  String claimSentInvestment(String sender) {
+    return '$sender küldött neked egy befektetést';
+  }
+
+  @override
+  String claimPickAmount(String outcome, String amount) {
+    return '$outcome · $amount';
+  }
+
+  @override
+  String claimWaitingForSender(String sender) {
+    return 'Várakozás, hogy $sender elküldje';
+  }
+
+  @override
+  String claimArrivedInDollars(String amount) {
+    return '$amount megérkezett a Dollár egyenlegedre';
+  }
+
+  @override
+  String get claimPlacePrediction => 'Előrejelzés leadása';
+
+  @override
+  String get claimPlaceInvestment => 'Befektetés leadása';
+
+  @override
+  String get claimOpenMarket => 'Piac megnyitása';
+
+  @override
+  String get claimAlreadyClaimed => 'Ezt a linket már átvették.';
+
+  @override
+  String get claimExpired => 'Ez a link lejárt.';
+
+  @override
+  String get claimUnavailable => 'Ez a link nem érhető el.';
+
+  @override
+  String get claimFailed => 'Nem sikerült az átvétel. Próbáld újra.';
+
+  @override
+  String get claimNeedsWallet =>
+      'A tárcád még készül. Próbáld újra egy kicsit később.';
+
+  @override
+  String get shareMarketShareLink => 'Link küldése';
+
+  @override
+  String shareMarketLookAt(String title, String link) {
+    return 'Nézd meg ezt a Kute-ban: $title $link';
+  }
+
+  @override
+  String shareMarketChance(String chance) {
+    return '$chance% esély';
+  }
+
+  @override
+  String get sendRecipientSearchHint => 'Név, telefon vagy bármilyen kriptocím';
+
+  @override
+  String get sendMoveToYourDollars => 'Áthelyezés a Dollárodba';
+
+  @override
+  String get sendMoveToYourBitcoin => 'Áthelyezés a Bitcoinodba';
+
+  @override
+  String sendWhatTitle(String name) {
+    return 'Címzett: $name';
+  }
+
+  @override
+  String get sendWhatSubtitle => 'Mit küldesz?';
+
+  @override
+  String get sendWhatGift => 'Előrejelzés vagy befektetés';
+
+  @override
+  String get sendDollarsTitle => 'Dollár küldése';
+
+  @override
+  String sendCoinTitle(String coin) {
+    return '$coin küldése';
+  }
+
+  @override
+  String get sendContacts => 'Névjegyek';
+
+  @override
+  String get sendToAFriend => 'Küldés barátnak';
+
+  @override
+  String get sendToAFriendSub => 'A Kute-ban veszik át, tárca sem kell';
+
+  @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
+  String get sendSomeoneElse => 'Valaki más';
+
+  @override
+  String get sendAllowContactsInSettings =>
+      'Engedélyezd a névjegyeket a Beállításokban';
+
+  @override
+  String get sendAllowContactsInSettingsSub =>
+      'A Kute csak az általad engedélyezett névjegyeket mutatja';
+
+  @override
+  String get sendNoContactsMatch => 'Nincs egyező névjegy';
+
+  @override
+  String get sendContactsSearchHint => 'Névjegyek keresése';
+
+  @override
+  String get sendContactsSeeYours => 'See your contacts';
+
+  @override
+  String get sendContactsSeeYoursSub => 'Send to friends from your phone book';
+
+  @override
+  String sendLinkToPhone(String phone) {
+    return 'Send a link to $phone';
+  }
+
+  @override
+  String get sendBadgeKute => 'On Kute';
+
+  @override
+  String get sendBadgeLightning => 'Lightning address';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'A Bitcoinodból';
+
+  @override
+  String get receiveFromYourDollars => 'A Dollárodból';
+
+  @override
+  String usdDollarsBalanceLine(String amount) {
+    return '$amount Dollárban';
+  }
+
+  @override
+  String get receiveBitcoinAndLightning => 'Bitcoin és Lightning';
+
+  @override
+  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+
+  @override
+  String get sendRailLightning => 'Lightning';
+
+  @override
+  String get sendRailSpark => 'Spark';
+
+  @override
+  String usdSendNotNetworkAddress(String network) {
+    return 'Nem $network-cím';
+  }
+
+  @override
+  String usdSendResolvedRail(String network, String asset) {
+    return '$network · $asset';
+  }
+
+  @override
+  String get sendPickMarket => 'Előrejelzés vagy befektetés küldése';
+
+  @override
+  String get sendPickMarketSub => 'Keress egy piacot, aztán válassz oldalt';
+
+  @override
+  String get sendPickMarketSearchHint =>
+      'Keresés az előrejelzésekben és befektetésekben';
+
+  @override
+  String get sendPickMarketNoResults => 'Nincs találat';
+
+  @override
+  String get sendPickSideSub => 'Válaszd ki, melyik oldalt kapják';
+
+  @override
+  String get shareSendAgainWhatsApp => 'Újraküldés WhatsAppon';
+
+  @override
+  String get shareSendAgainSms => 'Újraküldés SMS-ben';
+
+  @override
+  String get sendToLabel => 'Címzett';
+
+  @override
+  String get predictionsChance => 'esély';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get buyDollarsAction => 'Dollárvásárlás';
+
+  @override
+  String get passkeyPrfUnsupportedTitle =>
+      'This password manager can\'t hold your Kute wallet';
+
+  @override
+  String get passkeyPrfUnsupportedBody =>
+      'It doesn\'t support the key Kute needs, so nothing was created.';
+
+  @override
+  String get passkeyPrfUseApplePasswords => 'Use Apple Passwords';
+
+  @override
+  String get passkeyPrfUseGooglePasswordManager =>
+      'Use Google Password Manager';
+
+  @override
+  String get passkeyPrfPickApplePasswords => 'Pick Passwords when asked';
+
+  @override
+  String get passkeyPrfPickGooglePasswordManager =>
+      'Pick Google Password Manager when asked';
+
+  @override
+  String get passkeyPrfUsePhraseInstead => 'Use a recovery phrase instead';
+
+  @override
+  String get passkeyPrfTryAgain => 'Try again';
+
+  @override
+  String get passkeyPrfSignInTitle =>
+      'This password manager didn\'t return your Kute key';
+
+  @override
+  String get passkeyPrfSignInBody =>
+      'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.';
+
+  @override
+  String get passkeyPrfRestoreBody =>
+      'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.';
+
+  @override
+  String get passkeyPrfRestoreWithPhrase => 'Restore with your recovery phrase';
+
+  @override
+  String get passkeyChoiceWorksWithApple => 'Works with Apple Passwords';
+
+  @override
+  String get passkeyChoiceWorksWithGoogle =>
+      'Works with Google Password Manager';
+
+  @override
+  String get sendRecipientSendingTo => 'Sending to';
+
+  @override
+  String get sendRecipientChange => 'Change';
+
+  @override
+  String get sendOtherContacts => 'Other contacts';
+
+  @override
+  String get chartSheetTitle => 'Grafikon';
+
+  @override
+  String get chartIndEmaNote => 'Rövid távú trend, gyorsan fordul';
+
+  @override
+  String get chartIndBb => 'Bollinger-szalagok';
+
+  @override
+  String get chartIndBbNote => 'Mennyire ingadozik általában az ár';
+
+  @override
+  String get chartIndRsiNote => 'Túlfeszített-e a vétel vagy az eladás';
+
+  @override
+  String get chartIndMacdNote => 'A momentum felfelé vagy lefelé fordul';
+
+  @override
+  String get chartIndVwapNote => 'Átlagosan fizetett ár, forgalommal súlyozva';
+
+  @override
+  String get chartIndVolumeNote => 'Mennyi forgalom volt egyes periódusokban';
+
+  @override
+  String get chartReset => 'Visszaállítás';
+
+  @override
+  String chartPaneLimit(String name) {
+    return '$name kikapcsolva: a grafikon alá kettő fér';
+  }
+
+  @override
+  String get chartToolCursor => 'Kurzor';
+
+  @override
+  String get chartToolHorizontalLine => 'Vízszintes vonal';
+
+  @override
+  String get chartToolPriceLine => 'Árvonal';
+
+  @override
+  String get chartPriceLines => 'Árvonalak';
+
+  @override
+  String get chartPriceLineNew => 'Új vonal';
+
+  @override
+  String get chartPriceLineNewNote =>
+      'Csak akkor ellenőrizzük, ha a Kute nyitva van';
+
+  @override
+  String get chartPriceLineAbove => 'Az ár felett';
+
+  @override
+  String get chartPriceLineBelow => 'Az ár alatt';
+
+  @override
+  String chartPriceLineReachedOn(String when) {
+    return 'Elérve: $when';
+  }
+
+  @override
+  String chartPriceLineReachedToast(String coin, String price) {
+    return '$coin elérte ezt az árat: $price';
+  }
+
+  @override
+  String chartPriceLineLimit(int count) {
+    return '$count árvonalad van. Távolíts el egyet, hogy újat adhass hozzá.';
+  }
+
+  @override
+  String get chartPriceLineAtPrice =>
+      'Ez a jelenlegi ár. Válassz fölötte vagy alatta lévő szintet.';
+
+  @override
+  String get chartPriceLineTooFar =>
+      'Ez túl messze van az ártól. Válassz közelebbi szintet.';
+
+  @override
+  String get chartPriceLineRemoveTitle => 'Eltávolítod ezt az árvonalat?';
+
+  @override
+  String chartPriceLineRemoveBody(String coin, String price) {
+    return '$coin: $price';
+  }
+
+  @override
+  String get chartPriceLineRemoveCta => 'Eltávolítás';
+
+  @override
+  String get chartMoreTools => 'Továbbiak';
+
+  @override
+  String get chartColor => 'Szín';
+
+  @override
+  String get chartBlueColor => 'Kék';
+
+  @override
+  String get chartLineSolid => 'Folytonos vonal';
+
+  @override
+  String get chartLineDashed => 'Szaggatott vonal';
+
+  @override
+  String get chartExtendLine => 'Meghosszabbítás jobbra';
+
+  @override
+  String get chartLock => 'Zárolás';
+
+  @override
+  String get chartUnlock => 'Feloldás';
+
+  @override
+  String get chartDuplicate => 'Másolat';
+
+  @override
+  String chartHintTapFirstPoint(String tool) {
+    return 'Koppints az első pontra: $tool';
+  }
+
+  @override
+  String get chartHintTapSecondPoint => 'Most koppints a második pontra.';
+
+  @override
+  String chartHintToolKept(String tool) {
+    return 'A(z) $tool bekapcsolva marad. Koppints rá a leállításhoz.';
+  }
+
+  @override
+  String get chartHintLocked => 'Zárolva. Oldd fel az áthelyezéshez.';
+
+  @override
+  String get chartHintPickToolKeep =>
+      'Válassz eszközt. Dupla koppintással bekapcsolva marad.';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String receiptCardOnSide(String side) {
+    return 'A választásom: $side';
+  }
+
+  @override
+  String get receiptCardEntryChance => 'Esély, amikor beszálltam';
+
+  @override
+  String get receiptCardCashedOut => 'Kiszálltam';
+
+  @override
+  String receiptCardSoldFor(String amount) {
+    return 'Eladva: $amount';
+  }
+
+  @override
+  String get receiptCardNotThisTime => 'Most nem jött össze';
+
+  @override
+  String get receiptCardPaidOut => 'Kifizetve';
+
+  @override
+  String get receiptCardMoved => 'Áthelyezve';
+
+  @override
+  String get receiptEdgeNoBank =>
+      'Ennél a fizetésnél egyetlen bank sem sérült meg.';
+
+  @override
+  String get receiptEdgeSentNext => 'Elküldve. Jöhet a következő.';
+
+  @override
+  String get receiptEdgeLanded => 'Megérkezett. Űrlap nélkül.';
+
+  @override
+  String get receiptEdgeIncoming => 'Úton van. A türelem is egy funkció.';
+
+  @override
+  String get receiptEdgeMoved => 'Ugyanaz a pénz. Jobb helyen.';
+
+  @override
+  String get receiptEdgeStacked => 'Gyűjtöttem még egy kicsit.';
+
+  @override
+  String get receiptEdgeTookSome => 'Levettem egy kicsit az asztalról.';
+
+  @override
+  String get receiptEdgeLockedIn => 'Eldöntve. Most várunk.';
+
+  @override
+  String get receiptEdgeOnRecord => 'Az én tippem. Hivatalosan.';
+
+  @override
+  String get receiptEdgeTookWin => 'Elvittem a nyereséget, és távoztam.';
+
+  @override
+  String get receiptEdgeCutIt => 'Elvágtam. Megyünk tovább.';
+
+  @override
+  String get receiptEdgeInAndOut => 'Be és ki.';
+
+  @override
+  String get receiptEdgeWrongToday => 'Ma mellé. Holnap újra.';
+
+  @override
+  String get receiptEdgeLesson => 'A lecke teljes áron kifizetve.';
+
+  @override
+  String get receiptEdgeCollected => 'Megmondtam. Bezsebeltem.';
+
+  @override
+  String get receiptEdgeOpened => 'Benne vagyok. Most a piacon a sor.';
+
+  @override
+  String get receiptResult => 'Result';
+
+  @override
+  String get categoryFilterPrompt => 'Filter';
+
+  @override
+  String activityPaidFrom(String source) {
+    return 'Paid from $source';
+  }
+
+  @override
+  String activityPaidFromBoth(String first, String second) {
+    return 'Paid from $first and $second';
+  }
+
+  @override
+  String predictNextWindow(String time) {
+    return 'Következő · $time';
+  }
+
+  @override
+  String predictRoundWindow(String asset, String start, String end) {
+    return '$asset fel vagy le · $start–$end';
+  }
+
+  @override
+  String predictUpOrDownCompact(String asset, int minutes) {
+    return '$asset up or down · ${minutes}m';
+  }
+
+  @override
+  String get sendFrequent => 'Frequent';
+
+  @override
+  String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'Kész a kártyád';
+
+  @override
+  String shareCardToday(String change) {
+    return '$change ma';
+  }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, neked';
+  }
+
+  @override
+  String get shareCardForYou => 'Neked';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, egy tipp neked';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Egy tipp neked';
+
+  @override
+  String get shareCardInvestmentForYou => 'Egy befektetés neked';
+
+  @override
+  String shareCardInvestmentForNamed(String name) {
+    return '$name, egy befektetés neked';
+  }
+
+  @override
+  String shareCardPositionInvest(String side, String asset) {
+    return '$side $asset';
+  }
+
+  @override
+  String shareCardOutcomeToWin(String outcome) {
+    return '$outcome nyer';
+  }
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'bitcoinban · $amount';
+  }
+
+  @override
+  String get shareCardClaimOnKute => 'Vedd át a Kute-ban';
+
+  @override
+  String get shareEdgeStockEarly => 'Néhányan még a szalagcímek előtt vesznek.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return '$change plusz. Szívesen.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Megmondtam.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Leárazás, nem katasztrófa.';
+
+  @override
+  String get shareEdgeStockPanic => 'Veszek, amíg te pánikolsz.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance szerint korán vagyok, nem tévedek.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return 'A tömeg $chance-a téved.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Válaszd a másik oldalt. Ha mersz.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'A közvélemény-kutatás vélemény. Ez itt pénz.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome vagy semmi.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Költsd okosan. Vagy ne.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Tekintsd ezt flexnek.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Ingyen bitcoin. Ritka látvány.';
+
+  @override
+  String get shareEdgeBragPattern => 'Nem szerencse. Mintafelismerés.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount, amíg te görgettél.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading =>
+      'Mélyen mínuszban, de még kereskedem.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Jellemformálás, $amount egyszerre.';
+  }
+
+  @override
+  String get shareEdgePatience => 'A türelem is pozíció.';
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcome: esély';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount: $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Az én pozícióm';
+
+  @override
+  String get shareCardOutcomeYes => 'Igen';
+
+  @override
+  String get shareCardOutcomeNo => 'Nem';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, ma $change emelkedés';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, ma $change esés';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: implikált ár $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price hordónként';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price unciánként';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'A piacok szerint $outcome esélye $chance';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'A piacok szerint az esély $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Favorit: $outcome ($chance) vs $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Favorit: $outcome ($chance)';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance esély a győzelemre';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance esély, hogy megtörténik';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$outcome: $chance esély';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance esély, hogy megtörténik';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$outcome: $chance esély';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance szerint igen';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance szerint nem';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance esély';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, egy barátod küldött neked';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Egy barátod küldött neked';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, egy barátod küldött egy tippet';
+  }
+
+  @override
+  String get claimCardPick => 'Egy barátod küldött egy tippet';
+
+  @override
+  String get claimCardTapClaim => 'A tiéd. Koppints az Átvétel gombra.';
+
+  @override
+  String get bragWonCaps => 'Megmondtam';
+
+  @override
+  String bragWonFrom(String entry) {
+    return 'Nyert $entry árról';
+  }
+
+  @override
+  String bragWonPaidPayout(String paid, String payout) {
+    return 'Fizettem $paid · Kaptam $payout';
+  }
+
+  @override
+  String get bragWonAction => 'Dicsekedj ezzel a nyereménnyel';
+
+  @override
+  String get bragEdgeWonReceipts => 'Eldőlt. A bizonyíték mellékelve.';
+
+  @override
+  String bragEdgeWonAgedWell(String entry) {
+    return 'Beszállás $entry áron. Jól öregedett.';
+  }
+
+  @override
+  String bragEdgeWonRight(String amount) {
+    return '$amount, mert igazam volt.';
+  }
+
+  @override
+  String get challengeToggle => 'Hívd ki';
+
+  @override
+  String get challengeToggleSub => 'Hívd ki, hogy a másik oldalt válassza';
+
+  @override
+  String get challengeCaps => 'Kihívlak';
+
+  @override
+  String challengeCapsNamed(String name) {
+    return '$name, kihívlak';
+  }
+
+  @override
+  String get challengeCapsRecipient => 'Egy barátod kihív';
+
+  @override
+  String challengeCapsRecipientNamed(String name) {
+    return '$name, egy barátod kihív';
+  }
+
+  @override
+  String get challengeMySide => 'Az én oldalam';
+
+  @override
+  String get challengeFriendSide => 'A barátod';
+
+  @override
+  String get challengeYourSide => 'A te oldalad?';
+
+  @override
+  String challengeStake(String amount) {
+    return '$amount a játékhoz, én állom';
+  }
+
+  @override
+  String challengeEdgeWrong(String side) {
+    return 'A tippem: $side. Tévedek? Válaszd a másik oldalt.';
+  }
+
+  @override
+  String challengeEdgeFight(String side) {
+    return 'Szerintem $side. Mersz ellenem menni?';
+  }
+
+  @override
+  String challengeEdgeProve(String side) {
+    return '$side. Bizonyítsd, hogy tévedek.';
+  }
+
+  @override
+  String challengeEdgeMove(String side) {
+    return 'A választásom: $side. Te jössz.';
+  }
+
+  @override
+  String get shareEdgeMoneyNoStrings => 'Apróbetű nincs. Megnéztem.';
+
+  @override
+  String get shareEdgeMoneyMakeItText => 'Pénz, de üzenetként.';
+
+  @override
+  String get shareEdgeMoneyLowBar => 'Gyorsabb a banknál. Nem nagy kunszt.';
+
+  @override
+  String get shareEdgeMoneyNoForms => 'Nincs űrlap. Nincs csevej.';
+
+  @override
+  String get shareEdgeMoneyActNatural => 'Meglepetés. Csak lazán.';
+
+  @override
+  String get shareEdgeMoneyInAdvance => 'Előre is szívesen.';
+
+  @override
+  String shareEdgeMoneyNoQuestions(String amount) {
+    return '$amount, kérdések nélkül.';
+  }
+
+  @override
+  String get shareEdgeMoneyNotALoan => 'Ajándék. Nem kölcsön. Valószínűleg.';
+
+  @override
+  String get shareEdgeMoneyAllAtOnce => 'Ne költsd el egyszerre.';
+
+  @override
+  String get shareEdgeMoneyGetUsed => 'Ne szokj hozzá.';
+
+  @override
+  String get shareEdgeMoneyLittleEgo => 'Szeretettel. És egy kis egóval.';
+
+  @override
+  String get shareEdgeMoneyNoBank => 'Bankot nem kérdeztem meg.';
+
+  @override
+  String get shareEdgeMoneyHandlePatience => 'Bitcoin. Türelemmel kezelendő.';
+
+  @override
+  String get shareEdgeMoneyStackResponsibly => 'Gyűjts felelősen.';
+
+  @override
+  String get shareEdgeMoneyNoLecture => 'Bitcoin. Kiselőadás nélkül.';
+
+  @override
+  String get shareEdgeMoneyTinySats => 'Kevés sat. Nagy felelősség.';
+
+  @override
+  String get shareEdgeMoneySameDollars => 'Digitális dollár. Ugyanaz a dollár.';
+
+  @override
+  String get shareEdgeMoneyNoEnvelope => 'Készpénz, csak boríték nélkül.';
+
+  @override
+  String get shareEdgeMoneyNoExchange => 'Dollár. Reptéri árfolyam nélkül.';
+
+  @override
+  String get shareEdgePickScreenshot => 'Az én tippem. Képernyőkép kötelező.';
+
+  @override
+  String get shareEdgePickSaidFirst => 'Iktatva: én mondtam először.';
+
+  @override
+  String shareEdgePickFinalAnswer(String side) {
+    return '$side. Végleges válasz.';
+  }
+
+  @override
+  String get shareEdgePickStrongOpinion => 'Nem tanács. Csak erős vélemény.';
+
+  @override
+  String get shareEdgePickDidReading => 'Utánaolvastam. Nagyjából.';
+
+  @override
+  String get shareEdgePickToldYouSo => 'Ezt elteszem a megmondtam napjára.';
+
+  @override
+  String get shareEdgePickConviction => 'Jól áll nekem a meggyőződés.';
+
+  @override
+  String get shareEdgePickNotFree => 'A vélemény ingyenes. Ez nem az.';
+
+  @override
+  String shareEdgePickAmountSays(String amount, String side) {
+    return '$amount szerint: $side.';
+  }
+
+  @override
+  String get shareEdgePickLowDrama => 'Kis dráma. Nagy meggyőződés.';
+
+  @override
+  String get shareEdgePickInsufferable => 'Ha bejön, elviselhetetlen leszek.';
+
+  @override
+  String get shareEdgePickRevolutionary => 'A favoritot választom. Forradalmi.';
+
+  @override
+  String shareEdgePickSmartCrowd(String chance) {
+    return '$chance egyetért. Okos tömeg.';
+  }
+
+  @override
+  String get shareEdgePickSafePick => 'Biztos tipp. Attól még tipp.';
+
+  @override
+  String get shareEdgePickWithOdds => 'Mentem az esélyekkel. Sokkoló.';
+
+  @override
+  String get shareEdgePickOnPurpose => 'Az esélytelen. Szándékosan.';
+
+  @override
+  String shareEdgePickOnlySee(String chance) {
+    return 'Csak $chance látja így. Nekem jó.';
+  }
+
+  @override
+  String get shareEdgePickLongShot => 'Kis esély. Rövid magyarázat.';
+
+  @override
+  String get shareEdgePickContrarian => 'Szembemegyek, nem tévedtem el.';
+
+  @override
+  String get shareEdgeTopicDebates => 'A vita zaj. Az esély nem.';
+
+  @override
+  String get shareEdgeTopicCoach => 'Ma mindenki szövetségi kapitány.';
+
+  @override
+  String get shareEdgeTopicVolatility => 'Volatilitás benne. Felár nélkül.';
+
+  @override
+  String get shareEdgeTopicMinutes => 'Jegyzőkönyvek: mind elolvasva.';
+
+  @override
+  String get shareEdgeMarketPickOrWatch => 'Válassz oldalt. Vagy csak nézd.';
+
+  @override
+  String get shareEdgeMarketHasOdds => 'Vélemény ingyen. Ehhez esély is jár.';
+
+  @override
+  String get shareEdgeMarketUntilResolves => 'Eldőlésig mindenki szakértő.';
+
+  @override
+  String get shareEdgeMarketGroupChat => 'Csoportchat, íme az esélyek.';
+
+  @override
+  String get shareEdgeMarketHotTakes => 'Jöhet a vélemény. Esély mellékelve.';
+
+  @override
+  String get shareEdgeMarketJustMarket => 'Nem tanács. Csak a piac.';
+
+  @override
+  String get shareEdgeMarketOddsMove => 'Az esély mozog. A kérdés marad.';
+
+  @override
+  String get shareEdgeMarketYourCall => 'Te döntesz. Semmi nyomás.';
+
+  @override
+  String get shareEdgeMarketDiscuss => 'Vitassátok meg. Higgadtan.';
+
+  @override
+  String get shareEdgeMarketWhereLand => 'Te hol állsz?';
+
+  @override
+  String shareEdgeMarketSayDiscuss(String chance, String side) {
+    return '$chance szerint: $side. Mehet a vita.';
+  }
+
+  @override
+  String get shareEdgeMarketHarder => 'Igen vagy nem. Nem olyan egyszerű.';
+
+  @override
+  String get shareEdgeMarketTwoAnswers => 'Egy kérdés. Két válasz.';
+
+  @override
+  String shareEdgeMarketNotGuarantee(String chance) {
+    return '$chance esély nem garancia.';
+  }
+
+  @override
+  String get shareEdgeMarketFeelings => 'Egyszerű kérdés. Bonyolult érzések.';
+
+  @override
+  String get shareEdgeMarketLikely => 'A valószínű nem biztos.';
+
+  @override
+  String shareEdgeMarketLeads(String leader) {
+    return '$leader vezet. Semmi sincs eldőlve.';
+  }
+
+  @override
+  String shareEdgeMarketCoronation(String chance) {
+    return '$chance még nem koronázás.';
+  }
+
+  @override
+  String shareEdgeMarketHistoryWait(String leader) {
+    return 'Grafikon: $leader. Történelem: várj.';
+  }
+
+  @override
+  String get shareEdgeMarketAskTomorrow => 'Ma ő vezet. Kérdezz holnap újra.';
+
+  @override
+  String get shareEdgeMarketCrowdedField => 'Sok jelölt. Egy válasz.';
+
+  @override
+  String shareEdgeMarketStayTuned(String leader, String chance) {
+    return '$leader: $chance. Maradj velünk.';
+  }
+
+  @override
+  String get shareEdgeMarketLeadingNotWinning => 'Vezetni még nem nyerni.';
+
+  @override
+  String get shareEdgeMarketNotSureThing => 'Favorit, nem biztos befutó.';
+
+  @override
+  String get shareEdgeMarketUpsets => 'Meglepetések vannak. Favoritok is.';
+
+  @override
+  String get shareEdgeMarketGameDecides => 'A meccs dönt. Nem a kommentek.';
+
+  @override
+  String get shareEdgeMarketOddsDontPlay => 'Az esélyek nem lépnek pályára.';
+
+  @override
+  String get shareEdgeMarketScoreboard => 'Most beszéd. Később eredményjelző.';
+
+  @override
+  String challengeEdgeComeAtMe(String side) {
+    return '$side. Gyere, ha mersz.';
+  }
+
+  @override
+  String challengeEdgeOnNotice(String side) {
+    return 'Tippem: $side. Figyelmeztettelek.';
+  }
+
+  @override
+  String challengeEdgeTalkCheap(String side) {
+    return '$side. Dumálni könnyű. Válassz.';
+  }
+
+  @override
+  String challengeEdgeScared(String side) {
+    return '$side. Félsz? Megértem.';
+  }
+
+  @override
+  String challengeEdgeKnowBetter(String side) {
+    return '$side. Hacsak nem tudod jobban.';
+  }
+
+  @override
+  String challengeEdgeTurnWrong(String side) {
+    return 'Tippem: $side. Te jössz tévedni.';
+  }
+
+  @override
+  String challengeEdgeNotSorry(String side) {
+    return '$side, és nem kérek bocsánatot.';
+  }
+
+  @override
+  String challengeEdgeAllYours(String side) {
+    return 'Tippem: $side. A másik oldal a tiéd.';
+  }
+
+  @override
+  String challengeEdgeConvince(String side) {
+    return '$side. Győzz meg az ellenkezőjéről.';
+  }
+
+  @override
+  String challengeEdgeSeeYou(String side) {
+    return '$side. Találkozunk, ha eldőlt.';
+  }
+
+  @override
+  String challengeEdgeReceipts(String side) {
+    return 'Tippem: $side. Hozz bizonyítékot.';
+  }
+
+  @override
+  String get shareEdgeStockJustChart => 'Nem tanács. Csak egy grafikon.';
+
+  @override
+  String get shareEdgeStockFeelings => 'A grafikont nem érdeklik az érzések.';
+
+  @override
+  String shareEdgeStockHeardOfIt(String name) {
+    return '$name. Talán hallottál róla.';
+  }
+
+  @override
+  String get shareEdgeStockActNormal => 'Zöld nap. Viselkedj normálisan.';
+
+  @override
+  String shareEdgeStockJustChange(String change) {
+    return 'Nyugi. Ez csak $change.';
+  }
+
+  @override
+  String get shareEdgeStockIKnew => 'Nem mondom, hogy tudtam. De tudtam.';
+
+  @override
+  String get shareEdgeStockTomorrow => 'Ma fent. A holnap nem az én gondom.';
+
+  @override
+  String shareEdgeStockGreenLooks(String name) {
+    return '$name zöldben. Jól áll neki.';
+  }
+
+  @override
+  String get shareEdgeStockEgoSteady => 'Grafikon fel. Ego stabil.';
+
+  @override
+  String get shareEdgeStockDontClap => 'Ne tapsolj. Csak nézd.';
+
+  @override
+  String get shareEdgeStockDoubleDigits => 'Kétjegyű szám. Belefér.';
+
+  @override
+  String shareEdgeStockCheckShorts(String change) {
+    return 'Plusz $change. Szegény shortosok.';
+  }
+
+  @override
+  String get shareEdgeStockCalmAsEver => 'Piros nap. Higgadt, mint mindig.';
+
+  @override
+  String shareEdgeStockZoomOut(String change) {
+    return 'Mínusz $change. Zoomolj ki.';
+  }
+
+  @override
+  String get shareEdgeStockPanicOptional => 'Esés van. A pánik opcionális.';
+
+  @override
+  String shareEdgeStockCharacterArc(String change) {
+    return 'Mínusz $change. Jellemfejlődés.';
+  }
+
+  @override
+  String get shareEdgeStockPlotTwist => 'Esés, nem csavar a sztoriban.';
+
+  @override
+  String get shareEdgeStockStillHere => 'Ma lent. Még mindig itt.';
+
+  @override
+  String get shareEdgeStockAsIntended => 'Volatilitás: működik, ahogy kell.';
+
+  @override
+  String get shareEdgeStockBadDay => 'Minden grafikonnak van rossz napja.';
+
+  @override
+  String shareEdgeStockDeepBreaths(String change) {
+    return 'Mínusz $change. Mély levegő.';
+  }
+
+  @override
+  String get shareEdgeStockRiveting => 'Nem történt semmi. Lebilincselő.';
+
+  @override
+  String get shareEdgeStockBoringUnderrated =>
+      'Lapos nap. Az unalom alulértékelt.';
+
+  @override
+  String get shareEdgeStockSideways => 'Az oldalazás is irány.';
+
+  @override
+  String get shareEdgeStockSuspicious => 'Ma nincs dráma. Gyanús.';
+
+  @override
+  String get shareEdgeStockNap => 'A grafikon szundít egyet.';
+
+  @override
+  String get shareEdgeStockPaintDry => 'Festékszáradást nézek. Profin.';
+
+  @override
+  String get shareEdgeStockUnchanged => 'Változatlan. Zavartalan.';
+
+  @override
+  String get shareEdgeStockShortUnbothered => 'Shortban, teljes nyugalommal.';
+
+  @override
+  String get shareEdgeStockNotEverythingUp => 'Nem minden megy felfelé.';
+
+  @override
+  String get shareEdgeStockGravity => 'A gravitáció is stratégia.';
+
+  @override
+  String get shareEdgeStockShortHype => 'Shortolom a hype-ot. Udvariasan.';
+
+  @override
+  String get shareEdgeStockShortContrarian => 'Szembemegyek, grafikonnal.';
+
+  @override
+  String get shareEdgeStockFlipSide => 'A másik oldalra is kell valaki.';
+
+  @override
+  String shareEdgeStockAsPlanned(String change) {
+    return 'Mínusz $change. Ahogy terveztem.';
+  }
+
+  @override
+  String get shareEdgeStockICanWait => 'Ma fent. Ráérek.';
+
+  @override
+  String get shareEdgeBragQuietlyGreen => 'Csendben pluszban.';
+
+  @override
+  String get shareEdgeBragGreenSuits => 'Jól áll nekem a zöld.';
+
+  @override
+  String get shareEdgeBragCopyMe => 'Elmagyaráznám, de lemásolnál.';
+
+  @override
+  String get shareEdgeBragHumbleWorking => 'Szerény? Dolgozom rajta.';
+
+  @override
+  String get shareEdgeBragNotVibes => 'Eredmény, nem vibe.';
+
+  @override
+  String get shareEdgeBragMildlyPleased => 'Nem meglepő. Enyhén elégedett.';
+
+  @override
+  String get shareEdgeBragNotAPromise => 'Múltbeli eredmény. Nem ígéret.';
+
+  @override
+  String get shareEdgeBragBeforeItChanges => 'Képernyőkép, mielőtt változik.';
+
+  @override
+  String get shareEdgeBragMainCharacter => 'Főszereplő-energia.';
+
+  @override
+  String shareEdgeBragUnbearable(String amount) {
+    return '$amount. Elviselhetetlen leszek.';
+  }
+
+  @override
+  String get shareEdgeBragBeingCalm => 'Ez nálam a nyugalom.';
+
+  @override
+  String get shareEdgeBragAllegedly => 'Nagy szám. Kis ego. Állítólag.';
+
+  @override
+  String get shareEdgeBragStillAWin => 'Kis nyereség. Attól még nyereség.';
+
+  @override
+  String shareEdgeBragRome(String amount) {
+    return '$amount. Lassan járj, tovább érsz.';
+  }
+
+  @override
+  String get shareEdgeBragModest => 'Szerény. Mint én.';
+
+  @override
+  String get shareEdgeBragHumbled => 'Ideiglenesen szerény.';
+
+  @override
+  String get shareEdgeBragRedPhase => 'A piros csak egy fázis.';
+
+  @override
+  String shareEdgeBragLessons(String amount) {
+    return 'Mínusz $amount. Leckével együtt.';
+  }
+
+  @override
+  String get shareEdgeBragNotOut => 'Lent, de nem kiütve.';
+
+  @override
+  String get shareEdgeBragGrowth => 'Posztolom a veszteségem. Fejlődés.';
+
+  @override
+  String get shareEdgeBragHumbleEra => 'Ez a szerény korszakom.';
+
+  @override
+  String get shareEdgeBragOnTheChin => 'Lenyeltem. Méltósággal.';
+
+  @override
+  String get shareEdgeBragNotMyBest => 'Nem a legjobb. Nem az utolsó.';
+
+  @override
+  String get shareEdgeBragDignified => 'Piros, de méltósággal.';
+
+  @override
+  String get shareEdgeBragTuition => 'A veszteség tandíj.';
+
+  @override
+  String get shareEdgeBragNetCalm => 'Nettó nulla. Nettó nyugalom.';
+
+  @override
+  String get shareEdgeBragBalanced => 'Nulla. Tökéletes egyensúly.';
+
+  @override
+  String get shareEdgeBragDidntPanic => 'Se nyerés, se bukta, se pánik.';
+
+  @override
+  String get shareEdgeBragUndefeated => 'A nullszaldó veretlen.';
+
+  @override
+  String get shareEdgeBragWithStyle => 'Oldalazás, stílusosan.';
+
+  @override
+  String get shareEdgeBragSharedAnyway => 'Nincs mit nézni. Azért megosztom.';
+
+  @override
+  String get shareEdgeBragSteadyHands => 'Egyenes vonal. Biztos kéz.';
+
+  @override
+  String get shareEdgeBragBlinked => 'A piac pislogott. Én nem.';
+
+  @override
+  String get shareEdgeBragEvenTemper => 'Kiegyensúlyozott. Mint én.';
+
+  @override
+  String get shareEdgeBragNoDrama => 'Nulla dráma. Nulla változás.';
+
+  @override
+  String get bragEdgeWonToldPolitely => 'Megmondtam. Udvariasan.';
+
+  @override
+  String get bragEdgeWonNormal => 'Igazam lett. Normálisan kezelem.';
+
+  @override
+  String get bragEdgeWonMyFavour => 'Javamra dőlt el.';
+
+  @override
+  String get bragEdgeWonPaysSometimes => 'Ha igazad van, fizet. Néha.';
+
+  @override
+  String get bragEdgeWonAgreed => 'A piac egyetértett. Végül.';
+
+  @override
+  String get bragEdgeWonMySide => 'Az én oldalam hozta.';
+
+  @override
+  String get bragEdgeWonThenPayout => 'Türelem, aztán kifizetés.';
+
+  @override
+  String get bragEdgeWonNoNotes => 'Nincs mit hozzátenni.';
+
+  @override
+  String get bragEdgeWonFutureSelf => 'Képernyőkép a jövőbeli énemnek.';
+
+  @override
+  String get bragEdgeWonEarlyThenRight => 'Korán szóltam. Igazam lett.';
+
+  @override
+  String get bragEdgeWonCollecting => 'Csendben bezsebelem.';
+
+  @override
+  String get bragEdgeWonNotSurprised => 'Meglepődnék, de minek?';
+
+  @override
+  String get receiptEdgeSentNoHold => 'Elküldve. Várakozási zene nélkül.';
+
+  @override
+  String get receiptEdgeSentBeforeBank => 'Kész, mielőtt a bank kinyitott.';
+
+  @override
+  String get receiptEdgeSentDrama => 'A pénz mozdult. A dráma nem.';
+
+  @override
+  String get receiptEdgeSentBusinessDays => 'Másodpercek, nem munkanapok.';
+
+  @override
+  String get receiptEdgeSentThankLater => 'Elküldve. Majd megköszönöd.';
+
+  @override
+  String get receiptEdgeSentEfficient => 'Nagyvonalú és hatékony.';
+
+  @override
+  String get receiptEdgeSentOneTap => 'Egy koppintás. Űrlap nélkül.';
+
+  @override
+  String get receiptEdgeSentPaidUp => 'Kifizetve. Megyünk tovább.';
+
+  @override
+  String get receiptEdgeSentAdult => 'Rendezve. Felnőtt módra.';
+
+  @override
+  String receiptEdgeSentGone(String amount) {
+    return '$amount, másodpercek alatt elment.';
+  }
+
+  @override
+  String get receiptEdgeSentSaga => 'Pénzt küldeni nem kalandregény.';
+
+  @override
+  String get receiptEdgeReceivedCasual => 'Fizettek. Lazán veszem.';
+
+  @override
+  String get receiptEdgeReceivedNoted => 'Megjött. Nyugtázva. Köszönöm.';
+
+  @override
+  String receiptEdgeReceivedRicher(String amount) {
+    return 'Plusz $amount. Semmi izgalom.';
+  }
+
+  @override
+  String get receiptEdgeReceivedThankYou => 'Előbb ért ide, mint a köszi.';
+
+  @override
+  String get receiptEdgeReceivedMoodUp => 'Pénz be. Hangulat fel.';
+
+  @override
+  String get receiptEdgeReceivedGrace => 'Méltósággal átvéve.';
+
+  @override
+  String get receiptEdgeReceivedAskTwice => 'Kétszer se kellett kérnem.';
+
+  @override
+  String get receiptEdgeReceivedUnscheduled => 'Fizetésnap, menetrenden kívül.';
+
+  @override
+  String get receiptEdgeReceivedNoMiddle => 'Megérkezett. Bank nem állt közé.';
+
+  @override
+  String get receiptEdgeReceivedCompliments => 'Bókok és utalások jöhetnek.';
+
+  @override
+  String get receiptEdgeIncomingAlmost => 'Mindjárt itt. Ne lesd folyton.';
+
+  @override
+  String get receiptEdgeIncomingLoading => 'Töltődik. Maradj nyugodt.';
+
+  @override
+  String get receiptEdgeIncomingRefreshing =>
+      'Úton van. A frissítés nem segít.';
+
+  @override
+  String get receiptEdgeIncomingNotChecking => 'Úton van. Nem nézegetem.';
+
+  @override
+  String get receiptEdgeIncomingPending => 'Függőben. Mint a legtöbb jó dolog.';
+
+  @override
+  String get receiptEdgeIncomingPatienceMode =>
+      'Érkezik. Türelem mód bekapcsolva.';
+
+  @override
+  String get receiptEdgeIncomingSnacks => 'Úton van. Nasi nem jár hozzá.';
+
+  @override
+  String get receiptEdgeIncomingMinute => 'A jó dolgokhoz idő kell.';
+
+  @override
+  String get receiptEdgeIncomingMotion => 'Pénz mozgásban.';
+
+  @override
+  String get receiptEdgeIncomingWatched => 'A figyelt utalás sosem ér ide.';
+
+  @override
+  String get receiptEdgeMovedFurniture => 'Átrendezem a bútorokat.';
+
+  @override
+  String get receiptEdgeMovedDidntLose => 'Áttettem. Nem vesztettem el.';
+
+  @override
+  String get receiptEdgeMovedPockets => 'Bal zseb, jobb zseb.';
+
+  @override
+  String get receiptEdgeMovedRelocated => 'Pénz, átköltöztetve.';
+
+  @override
+  String get receiptEdgeMovedNewRoom => 'Ugyanaz a gazda. Új szoba.';
+
+  @override
+  String get receiptEdgeMovedHousekeeping => 'Rendrakás, csak pénzben.';
+
+  @override
+  String get receiptEdgeMovedShuffle => 'Stratégiai átrendezés.';
+
+  @override
+  String get receiptEdgeMovedGrownUp => 'Pénzt mozgatok, mint egy felnőtt.';
+
+  @override
+  String get receiptEdgeMovedOrganised => 'Rendezett. Egy darabig.';
+
+  @override
+  String get receiptEdgeMovedTidying => 'Csak rendet rakok.';
+
+  @override
+  String get receiptEdgeMovedAllocating => 'Allokálok. Nagyon nyugodtan.';
+
+  @override
+  String get receiptEdgeBoughtOverthink => 'Nem gondoltam túl.';
+
+  @override
+  String get receiptEdgeBoughtPile => 'Ment a kupacra.';
+
+  @override
+  String get receiptEdgeBoughtAccumulation => 'Csendes gyűjtögetés.';
+
+  @override
+  String get receiptEdgeBoughtToldNoOne => 'Senkinek se szóltam. Eddig.';
+
+  @override
+  String get receiptEdgeBoughtNotTiming => 'Veszek, nem időzítek.';
+
+  @override
+  String receiptEdgeBoughtConviction(String amount) {
+    return '$amount értékű meggyőződés.';
+  }
+
+  @override
+  String get receiptEdgeBoughtPatience =>
+      'Első lépés: venni. Második: türelem.';
+
+  @override
+  String get receiptEdgeBoughtNoise => 'Veszek. A zajt kiszűröm.';
+
+  @override
+  String get receiptEdgeBoughtBackToDay => 'Megvettem. Megyek a dolgomra.';
+
+  @override
+  String get receiptEdgeBoughtShoes => 'Van, aki cipőt vesz.';
+
+  @override
+  String get receiptEdgeSoldKeptCool => 'Eladtam egy kicsit. Hidegvérrel.';
+
+  @override
+  String get receiptEdgeSoldNoRegrets => 'Átváltva. Semmi megbánás. Egyelőre.';
+
+  @override
+  String get receiptEdgeSoldDidntCheck => 'Eladva. Az árat többet nem nézem.';
+
+  @override
+  String get receiptEdgeSoldLiquidity => 'Likviditás megszerezve.';
+
+  @override
+  String get receiptEdgeSoldLeftDrama => 'A pénzt vittem. A drámát nem.';
+
+  @override
+  String get receiptEdgeSoldSleeping => 'Eladva. Nyugodtan alszom.';
+
+  @override
+  String get receiptEdgeSoldCashPosition => 'A készpénz is pozíció.';
+
+  @override
+  String get receiptEdgeSoldDeliberately => 'Készpénzbe tettem. Szándékosan.';
+
+  @override
+  String get receiptEdgeSoldPressed => 'Eladás gomb: megnyomva. Nyugodtan.';
+
+  @override
+  String get receiptEdgeSoldLittleCash => 'Egy kis készpénz sosem árt.';
+
+  @override
+  String get receiptEdgePredictedCommitted => 'Elköteleződtem. Nagyjából.';
+
+  @override
+  String get receiptEdgePredictedHardPart => 'A várakozás a nehéz rész.';
+
+  @override
+  String get receiptEdgePredictedSkin => 'Vélemény, immár téttel.';
+
+  @override
+  String get receiptEdgePredictedNails => 'Leadva. A körmöm még megvan.';
+
+  @override
+  String get receiptEdgePredictedTookSide =>
+      'Oldalt választottam. Hidegvérrel.';
+
+  @override
+  String get receiptEdgePredictedJustMySide =>
+      'Nem tanács. Csak az én oldalam.';
+
+  @override
+  String get receiptEdgePredictedResolution => 'Találkozunk, ha eldőlt.';
+
+  @override
+  String receiptEdgePredictedThatsThePost(String amount, String side) {
+    return '$side, $amount. Ennyi volt a poszt.';
+  }
+
+  @override
+  String get receiptEdgeUpInUpOut => 'Be. Fel. Ki.';
+
+  @override
+  String get receiptEdgeUpEgo => 'Nyereség elvive. Ego otthagyva.';
+
+  @override
+  String get receiptEdgeUpWhileGreen => 'Kiszálltam, amíg zöld volt.';
+
+  @override
+  String get receiptEdgeUpWhenToLeave => 'Időben kiszállni is tudomány.';
+
+  @override
+  String receiptEdgeUpDoneHere(String amount) {
+    return '$amount. Végeztem.';
+  }
+
+  @override
+  String get receiptEdgeUpBooked => 'Elkönyvelve.';
+
+  @override
+  String get receiptEdgeUpNoEncore => 'Zöld kiszállás. Nincs ráadás.';
+
+  @override
+  String get receiptEdgeUpGreed => 'A kapzsiság nem stratégia.';
+
+  @override
+  String get receiptEdgeUpDiscipline => 'Pluszban léptem le. Ritka fegyelem.';
+
+  @override
+  String get receiptEdgeUpWinIsWin => 'Nyereség az nyereség.';
+
+  @override
+  String get receiptEdgeDownDignity => 'Veszteség lezárva. Méltóság megvan.';
+
+  @override
+  String get receiptEdgeDownExits => 'Kiszállni is tudni kell.';
+
+  @override
+  String get receiptEdgeDownQuick => 'Tévedtem, de gyorsan.';
+
+  @override
+  String get receiptEdgeDownLessonKept => 'Korán ki. A lecke marad.';
+
+  @override
+  String get receiptEdgeDownStubborn => 'Inkább kint, mint makacsul.';
+
+  @override
+  String get receiptEdgeDownTookL => 'Bebuktam. A nyugtát megtartom.';
+
+  @override
+  String get receiptEdgeDownNotMyDay => 'Lezártam. Nem az én napom.';
+
+  @override
+  String get receiptEdgeDownZeroTears => 'Piros kiszállás. Nulla könny.';
+
+  @override
+  String get receiptEdgeDownHalfSkill => 'Beismerni a tudás fele.';
+
+  @override
+  String receiptEdgeDownTuition(String amount) {
+    return '$amount. Tandíj kifizetve.';
+  }
+
+  @override
+  String get receiptEdgeFlatRoundTrip => 'Oda-vissza út. Szuvenír nélkül.';
+
+  @override
+  String get receiptEdgeFlatWiser => 'Ott vagyok, ahol kezdtem. Okosabban.';
+
+  @override
+  String get receiptEdgeFlatZeroStress => 'Nullszaldó. Nulla stressz.';
+
+  @override
+  String get receiptEdgeFlatNoHarm => 'Kár nincs. Baj nincs.';
+
+  @override
+  String get receiptEdgeFlatShrugged => 'A piac vállat vont. Én is.';
+
+  @override
+  String get receiptEdgeFlatStory => 'Nettó eredmény: egy sztori.';
+
+  @override
+  String get receiptEdgeLostNextQuestion => 'Következő kérdés.';
+
+  @override
+  String get receiptEdgeLostRudely => 'A piac nem értett egyet. Durván.';
+
+  @override
+  String get receiptEdgeLostHumour => 'Egyet buktam. A humorom megvan.';
+
+  @override
+  String get receiptEdgeLostCompany => 'Tévedtem, de jó társaságban.';
+
+  @override
+  String get receiptEdgeLostOnMe => 'Ez az én számlámra megy.';
+
+  @override
+  String get receiptEdgeLostConfidence => 'Soványabb tárca. Önbizalom a régi.';
+
+  @override
+  String get receiptEdgeLostWrongly => 'Megmondtam. Rosszul.';
+
+  @override
+  String get receiptEdgeLostGraceful => 'Elegánsan veszíteni is flex.';
+
+  @override
+  String get receiptEdgeLostOddsWereOdds => 'Az esély esély volt.';
+
+  @override
+  String get receiptEdgeLostAlreadyMoved => 'Lépünk tovább. Már léptem is.';
+
+  @override
+  String get receiptEdgeLostUpLesson => 'Egy tipp mínusz. Egy lecke plusz.';
+
+  @override
+  String get receiptEdgePaidResolved => 'Eldőlt. Megjött.';
+
+  @override
+  String get receiptEdgePaidNormal => 'Megjött a kifizetés. Csak lazán.';
+
+  @override
+  String receiptEdgePaidInFull(String amount) {
+    return '$amount, hiánytalanul kifizetve.';
+  }
+
+  @override
+  String get receiptEdgePaidCourtesy => 'Fizetésnap, mert igazam volt.';
+
+  @override
+  String get receiptEdgeOpenedPulse => 'Pozíció nyitva. Pulzus normális.';
+
+  @override
+  String get receiptEdgeOpenedCalmly => 'Nyugodtan be. Nyugodtan ki.';
+
+  @override
+  String receiptEdgeOpenedInAt(String price) {
+    return 'Beszállás: $price. Feljegyezve.';
+  }
+
+  @override
+  String get receiptEdgeOpenedNotRefreshing =>
+      'Bent. Nem frissítek percenként.';
+
+  @override
+  String get receiptEdgeOpenedSized => 'Meggyőződés, felelős méretben.';
+
+  @override
+  String get receiptEdgeOpenedJustMine => 'Nem tanács. Csak az én kötésem.';
+
+  @override
+  String get receiptEdgeOpenedUnderstanding =>
+      'A grafikon és én értjük egymást.';
+
+  @override
+  String get receiptEdgeOpenedMyProblem => 'Én szálltam be. Az én gondom.';
+
+  @override
+  String get receiptEdgeOpenedEither => 'Bármelyik irányra készen.';
+
+  @override
+  String shareMessageChallengeNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, a tippem: $outcome, $title. Válaszd a másik oldalt, vagy tarts velem. $amount én állom: $url';
+  }
+
+  @override
+  String shareMessageChallengeUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'A tippem: $outcome, $title. Válaszd a másik oldalt, vagy tarts velem. $amount én állom: $url';
+  }
+
+  @override
+  String get claimChallengeOtherSide => 'A másik oldalt választom';
+
+  @override
+  String get claimChallengeSameSide => 'Ugyanaz az oldal, mint a barátodé';
+
+  @override
+  String claimChallengeFriendOn(String outcome) {
+    return 'A barátod tippje: $outcome';
+  }
+
+  @override
+  String get activityLatest => 'Latest';
+
+  @override
+  String get activityEarlier => 'Earlier';
+
+  @override
+  String polyRowLeads(String leader, String chance) {
+    return '$leader leads · $chance';
+  }
+
+  @override
+  String get predictAboveTarget => 'above target';
+
+  @override
+  String get predictBelowTarget => 'below target';
+
+  @override
+  String get sendAPrediction => 'Előrejelzés küldése';
+
+  @override
+  String get sendAnInvestment => 'Befektetés küldése';
+
+  @override
+  String get sendAPredictionSub =>
+      'Megkapják az általad választott előrejelzést';
+
+  @override
+  String get sendAnInvestmentSub =>
+      'Megkapják az általad választott befektetést';
+
+  @override
+  String get sendPickOutcomeSub => 'Válaszd ki, melyik kimenetelt kapják';
+
+  @override
+  String get sendPickAmountSub => 'Mennyit kapnak?';
+
+  @override
+  String get sendToAFriendLabel => 'Barátnak';
+
+  @override
+  String get sendPickRowSub => 'Vagy befektetés. Keress piacot, válassz oldalt';
+
+  @override
+  String get chartSheetChartType => 'Diagramtípus';
+
+  @override
+  String get chartGroupTrend => 'Trend';
+
+  @override
+  String get chartGroupMomentum => 'Momentum';
+
+  @override
+  String get chartGroupVolatility => 'Volatilitás';
+
+  @override
+  String get chartGroupDisplay => 'Megjelenítés';
+
+  @override
+  String get chartLogScaleNote => 'Azonos % mozgás, azonos magasság';
+
+  @override
+  String get chartYourTrades => 'Az ügyleteid';
+
+  @override
+  String get chartYourTradesNote => 'A vételeid és eladásaid itt';
+
+  @override
+  String get chartIndSmaNote => 'Hosszú távú trend, lassan fordul';
+
+  @override
+  String get chartIndStNote => 'Követő stop, amely a trenddel fordul';
+
+  @override
+  String get chartIndSrsiNote => 'Gyors túlvett és túladott kilengések';
+
+  @override
+  String get chartIndAtrNote => 'Mekkorát mozdul általában egy periódus';
+
+  @override
+  String get chartIndIchimokuNote => 'Trend és szintek egy felhőben';
+
+  @override
+  String get chartIndPivotNote => 'A mai szintek a tegnapi sávból';
+
+  @override
+  String get chartIndAdxNote => 'Milyen erős a trend';
+
+  @override
+  String get chartIndObvNote => 'Alátámasztja-e a forgalom a mozgást';
+
+  @override
+  String get chartIndVp => 'Volumenprofil';
+
+  @override
+  String get chartIndVpNote => 'Árak, ahol a legtöbb kereskedés zajlott';
+
+  @override
+  String chartPriceLimit(String name) {
+    return '$name kikapcsolva: az árra négy fér';
+  }
+
+  @override
+  String chartIndSettingsTitle(String name) {
+    return '$name beállításai';
+  }
+
+  @override
+  String get chartParamLength => 'Hossz';
+
+  @override
+  String get chartParamFast => 'Gyors';
+
+  @override
+  String get chartParamSlow => 'Lassú';
+
+  @override
+  String get chartParamSignal => 'Jelzés';
+
+  @override
+  String get chartParamMultiplier => 'Szorzó';
+
+  @override
+  String get chartParamRsiLength => 'RSI hossza';
+
+  @override
+  String get chartParamStochLength => 'Sztochasztikus hossz';
+
+  @override
+  String get chartParamSmoothK => '%K simítás';
+
+  @override
+  String get chartParamSmoothD => '%D simítás';
+
+  @override
+  String get chartParamRows => 'Sorok';
+
+  @override
+  String get chartParamSmoothing => 'Simítás';
+
+  @override
+  String get chartParamConversion => 'Konverziós vonal';
+
+  @override
+  String get chartParamBase => 'Alapvonal';
+
+  @override
+  String get chartParamSpanB => 'Span B';
+
+  @override
+  String get chartParamDisplacement => 'Eltolás';
+
+  @override
+  String get polyPeriodMatch => 'Mérkőzés';
+
+  @override
+  String get polyPeriodFullGame => 'Teljes mérkőzés';
+
+  @override
+  String polyPeriodGame(int number) {
+    return '$number. játék';
+  }
+
+  @override
+  String polyPeriodMap(int number) {
+    return '$number. pálya';
+  }
+
+  @override
+  String polyPeriodSet(int number) {
+    return '$number. szett';
+  }
+
+  @override
+  String get polyPeriodFirstHalf => '1. félidő';
+
+  @override
+  String get polyPeriodSecondHalf => '2. félidő';
+
+  @override
+  String polyPeriodQuarter(int number) {
+    return 'Q$number';
+  }
+
+  @override
+  String polyPeriodPeriod(int number) {
+    return '$number. harmad';
+  }
+
+  @override
+  String get polyPeriodFirstFive => 'Első 5 játékrész';
+
+  @override
+  String get polyPeriodFirstInning => '1. játékrész';
+
+  @override
+  String get polyLineSetHandicap => 'Szetthendikep';
+
+  @override
+  String get polyLineTotalGames => 'Összes játék';
+
+  @override
+  String get polyLineTotalSets => 'Összes szett';
+
+  @override
+  String get polyLineTotalKills => 'Összes ölés';
+
+  @override
+  String get polyLineTotalRounds => 'Összes kör';
+
+  @override
+  String get polyLineDuration => 'Időtartam';
+
+  @override
+  String get polyLineTeamTotals => 'Csapatösszesítők';
+
+  @override
+  String get polyLinePlayers => 'Játékosok';
+
+  @override
+  String polyLinesNotTrading(int count) {
+    return 'Még nincs kereskedés · $count';
+  }
+
+  @override
+  String polyLinesSettled(int count) {
+    return 'Eldőlt · $count';
+  }
+
+  @override
+  String get polySideOver => 'Felett';
+
+  @override
+  String get polySideUnder => 'Alatt';
+
+  @override
+  String get sendPickCardSub => 'Válassz piacot, oldalt és összeget';
+
+  @override
+  String get sendPredictionCta => 'Előrejelzés küldése';
+
+  @override
+  String get sendInvestmentCta => 'Befektetés küldése';
+
+  @override
+  String get sendPickYourFriend => 'A barátod';
+
+  @override
+  String sendPickGets(String who, String amount, String market, String side) {
+    return '$who $amount összeget kap erre: $market — $side';
+  }
+
+  @override
+  String sendPickSideAtChance(String side, String chance) {
+    return '$side, $chance eséllyel';
+  }
+
+  @override
+  String get sendPickHowItWorks => 'Átveszi, majd egy koppintással megteszi';
+
+  @override
+  String get shareCardPredictionForYou => 'Előrejelzés neked';
+
+  @override
+  String shareCardPredictionForNamed(String name) {
+    return '$name, egy előrejelzés neked';
+  }
+
+  @override
+  String get slipShareEnterAmount => 'Add meg a küldendő összeget';
+
+  @override
+  String slipShareMinimum(String amount) {
+    return 'A küldéshez legalább $amount kell';
+  }
+
+  @override
+  String slipShareYesOnly(String outcome) {
+    return 'Csak az Igen küldhető erre: $outcome. Válts Igenre a küldéshez.';
+  }
+
+  @override
+  String get sendPickMarketHow =>
+      'Keress egy piacot, válassz oldalt és összeget, majd koppints Salra a küldéshez';
+
+  @override
+  String slipSendCta(String amount, String side) {
+    return '$amount küldése · $side';
+  }
+
+  @override
+  String slipSendYesOnly(String outcome) {
+    return 'Csak az Igen küldhető erre: $outcome';
+  }
+
+  @override
+  String get sendPickChipFriend => 'Küldés egy barátnak';
+
+  @override
+  String get sendPickSearchHint => 'Előrejelzések és befektetések keresése';
+
+  @override
+  String get sendPickSheetTitle => 'Válassz ajándékot';
+
+  @override
+  String sendPickSheetTitleNamed(String name) {
+    return 'Válassz ajándékot $name részére';
+  }
+
+  @override
+  String sendPickChipForNamed(String name) {
+    return '$name részére';
+  }
+
+  @override
+  String sendPickTradeSide(String side) {
+    return '$side küldése';
+  }
+
+  @override
+  String get sendPickBarPickOutcome => 'Válassz kimenetelt';
+
+  @override
+  String sendPickBarBuyingFor(String name) {
+    return 'Te veszed meg, $name kapja';
+  }
+
+  @override
+  String get sendPickBarBuyingForFriend => 'Egy barátodnak veszed';
+
+  @override
+  String get inviteCardCaps => 'Meghívást kaptál';
+
+  @override
+  String inviteCardDiscount(String discount) {
+    return '$discount kedvezmény';
+  }
+
+  @override
+  String get inviteCardFees => 'a Kute díjaiból';
+
+  @override
+  String get inviteCardJoin => 'Csatlakozz hozzám a Kute-on';
+
+  @override
+  String get inviteCardUseCode => 'Regisztrációnál használd a kódomat';
+
+  @override
+  String get shareEdgeInviteWelcome => 'Idehoztalak. Szívesen.';
+
+  @override
+  String get shareEdgeInviteGroupChat =>
+      'A csoportos csevegésednek ez kellett.';
+
+  @override
+  String get shareEdgeInviteSurprised =>
+      'Ajánlottak. Tégy úgy, mintha meglepődnél.';
+
+  @override
+  String get shareEdgeInviteTwice => 'Ne kelljen kétszer kérnem.';
+
+  @override
+  String get shareEdgeInviteChainLetter => 'Nem lánclevél. Kicsit jobb annál.';
+
+  @override
+  String get shareEdgeInviteCut =>
+      'Én részesedést kapok. Te kedvezményt. Mindenki jól jár.';
+
+  @override
+  String get shareEdgeInviteFees => 'Alacsonyabb díjak. Ugyanannyi vélemény.';
+
+  @override
+  String get shareEdgeInviteDog =>
+      'A kedvezmény valódi. A kutya rezzenéstelen.';
+
+  @override
+  String get balanceGoalShareMyLevel => 'A szintem megosztása';
+
+  @override
+  String get goalCardCaps => 'A szintem';
+
+  @override
+  String get shareEdgeGoalNotFlex => 'Nem hencegés. Csak egy szint.';
+
+  @override
+  String get shareEdgeGoalUnimpressed =>
+      'Sal megnézte. Továbbra sem hatódott meg.';
+
+  @override
+  String get shareEdgeGoalNoRush => 'Szintről szintre. Semmi sietség.';
+
+  @override
+  String get shareEdgeGoalNobodyAsked => 'Senki nem kérdezte. Mégis megosztom.';
+
+  @override
+  String get shareEdgeGoalSaysNothing =>
+      'Sal szerint ez semmiség. Ezt gyakran mondja.';
+
+  @override
+  String get shareEdgeGoalOnPurpose => 'Lassú emelkedés. Szándékosan.';
+
+  @override
+  String get shareEdgeGoalNoTrophy =>
+      'Nincs trófea. Csak egy kutya és egy szint.';
+
+  @override
+  String get shareEdgeGoalYourTurn => 'Te jössz. Sal megvár.';
+
+  @override
+  String get receiveArrivesAsBitcoin => 'Bitcoinként érkezik';
+
+  @override
+  String get sendEmailNoLightning => 'E-mail, nincs Lightning-cím';
+
+  @override
+  String get barNeedLightningAddress => 'Nincs Lightning-cím';
+
+  @override
+  String get orderNoticePlacingPrediction =>
+      'Előrejelzésed leadása folyamatban';
+
+  @override
+  String get orderNoticePlacingOrder => 'Megbízásod leadása folyamatban';
+
+  @override
+  String get orderNoticeWaitingMoney => 'Várjuk, hogy megérkezzen a pénzed';
+
+  @override
+  String get orderNoticeConverting => 'Dollárjaid átváltása';
+
+  @override
+  String get orderNoticeSettingUp => 'Fiókod beállítása';
+
+  @override
+  String get orderNoticeSending => 'Megbízásod küldése';
+
+  @override
+  String get orderNoticeConfirming => 'Megerősítés a platformmal';
+
+  @override
+  String get orderNoticePredictionPlaced => 'Előrejelzés leadva';
+
+  @override
+  String get orderNoticeOrderPlaced => 'Megbízás leadva';
+
+  @override
+  String get orderNoticePredictionNotPlaced => 'Az előrejelzés nem lett leadva';
+
+  @override
+  String get orderNoticeOrderNotPlaced => 'A megbízás nem lett leadva';
+
+  @override
+  String get orderNoticeNotConfirmed => 'Még nincs megerősítve';
+
+  @override
+  String get orderNoticeOpenToSee =>
+      'Nyisd meg a Kute-ot, hogy lásd, mi történt.';
+
+  @override
+  String get orderNoticeProgressChannel => 'Folyamatban lévő megbízások';
+
+  @override
+  String get orderNoticeProgressChannelDescription =>
+      'Egy előrejelzés vagy megbízás állása, amíg a Kute a háttérben van.';
+
+  @override
+  String get orderNoticeResultChannel => 'Megbízások eredménye';
+
+  @override
+  String get orderNoticeResultChannelDescription =>
+      'Hogy a Kute háttérben léte alatt leadott előrejelzés vagy megbízás sikerült-e.';
+
+  @override
+  String get predictionsInstant => 'Azonnali';
+
+  @override
+  String get categoryInstantLengths => '5 perc · 15 perc · 1 óra · 4 óra';
+
+  @override
+  String get categoryFiveMinuteMarkets => '5 perces piacok';
+
+  @override
+  String predictRoundNow(String time) {
+    return 'Most · $time';
+  }
+
+  @override
+  String get predictRoundNoPricesYet => 'Még nincs ár';
+
+  @override
+  String predictQuickWin(String amount, String payout) {
+    return '$amount · nyeremény $payout';
+  }
+
+  @override
+  String predictUpOrDownLength(String asset, String length) {
+    return '$asset fel vagy le · $length';
+  }
+
+  @override
+  String get standingPlacingPrediction => 'Előrejelzésed leadása folyamatban';
+
+  @override
+  String get standingPlacingOrder => 'Megbízásod leadása folyamatban';
+
+  @override
+  String get standingPlacingInvestment => 'Befektetésed leadása folyamatban';
+
+  @override
+  String get standingPredictionPlaced => 'Előrejelzés leadva';
+
+  @override
+  String get standingOrderPlaced => 'Megbízás leadva';
+
+  @override
+  String get standingPredictionFailed =>
+      'Az előrejelzésed nem lett leadva. A pénz az Előrejelzésekben van, elérhető.';
+
+  @override
+  String get standingOrderFailed =>
+      'A megbízásod nem lett leadva. A pénz a Befektetésben van, elérhető.';
+
+  @override
+  String get standingPredictionCancelled =>
+      'Megszakítva. A pénz az Előrejelzésekben marad, elérhető.';
+
+  @override
+  String get standingOrderCancelled =>
+      'Megszakítva. A pénz a Befektetésben marad, elérhető.';
+
+  @override
+  String standingPriceMoved(String price) {
+    return 'Az ár $price lett. Koppints, hogy az új áron add le.';
+  }
+
+  @override
+  String get standingStagePlacing => 'Leadás';
+
+  @override
+  String get standingStageApproval => 'Jóváhagyásodra vár';
 }

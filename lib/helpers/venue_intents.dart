@@ -1353,10 +1353,13 @@ abstract final class BitcoinLegGrants {
   /// The leg's route, as `RouteKey.label` spells it.
   static const String route = 'spark_btc>spark_usdb';
 
-  /// The approvals a Bitcoin leg may run under.
+  /// The approvals a Bitcoin leg may run under: an order's, and a claimed
+  /// gift's send (services/one_balance/gift_funding.dart), whose one
+  /// approval binds the payment and this leg the same way.
   static const Set<SensitiveAction> actions = {
     SensitiveAction.hlOrder,
     SensitiveAction.pmBet,
+    SensitiveAction.send,
   };
 
   static final Expando<bool> _taken = Expando<bool>('btcLegTaken');
@@ -1688,5 +1691,65 @@ abstract final class OrchestraGrants {
         if (auth.sourceFeeAsset != null) 'sourceFeeAsset': auth.sourceFeeAsset,
       },
     );
+  }
+  /// A Dollars send that brings venue cash home first: its ONE approval,
+  /// asked before any of that cash moves (founder rule: money moves only
+  /// after the person accepts with the step-up). It binds what the send's
+  /// own step-up binds ([settlement]) but the quote's terms, which do not
+  /// exist yet: the wallet, the final [recipient], the route [routeLabel]
+  /// and at most [amountMax] of [asset]. The venue cash comes home to
+  /// Dollars only, for this send's shortfall; then the send runs under
+  /// this same grant ([takeSend]), never a second prompt. [ttl] covers the
+  /// wait for the cash to land; the grant stays single use, memory only.
+  static SensitiveIntent sendWithVenueCash({
+    required String walletId,
+    required String recipient,
+    required String routeLabel,
+    required String asset,
+    required BigInt amountMax,
+    Duration ttl = AuthGrants.autofireTtl,
+  }) =>
+      SensitiveIntent.orchestraFunded(
+        action: SensitiveAction.send,
+        walletId: walletId,
+        finalRecipient: recipient.trim(),
+        routeVersion: routeLabel,
+        asset: asset,
+        amountMax: amountMax,
+        limits: const {IntentLimit.maxMode: false},
+        ttl: ttl,
+      );
+
+  /// The send's settlement step-up under [grant] ([sendWithVenueCash]),
+  /// with no prompt: the intent is derived again from the settlement
+  /// about to be paid ([auth]) and consumed against the grant. Another
+  /// wallet, recipient or route, or more than approved, refuses (false)
+  /// and nothing is sent; so does a grant used, revoked or expired.
+  static bool takeSend(
+    AuthGrant grant,
+    SettlementAuthorizationIntent auth, {
+    required String asset,
+    DateTime? now,
+  }) {
+    if (grant.action != SensitiveAction.send) return false;
+    if (auth.amountIn <= BigInt.zero) return false;
+    final sep = auth.destination.lastIndexOf('|');
+    final recipient =
+        sep < 0 ? auth.destination : auth.destination.substring(0, sep);
+    final version = sep < 0 ? '' : auth.destination.substring(sep + 1);
+    final actual = sendWithVenueCash(
+      walletId: auth.walletId,
+      recipient: recipient,
+      routeLabel:
+          version.isEmpty ? auth.routeLabel : '${auth.routeLabel}|$version',
+      asset: asset,
+      amountMax: auth.amountIn,
+    );
+    try {
+      AuthGrants.consume(grant, actual, now: now);
+      return true;
+    } on AuthGrantException {
+      return false;
+    }
   }
 }

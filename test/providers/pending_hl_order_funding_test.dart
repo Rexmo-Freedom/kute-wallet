@@ -4,13 +4,19 @@
 // order and the money visibly landed short, never when it is a limit
 // order; and gone with its grant when the move was refused.
 
+import 'dart:io';
+
 import 'package:fake_async/fake_async.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidTradingModelProvider;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -18,6 +24,9 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/one_balance/committed_funds.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyPlace;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -56,6 +65,67 @@ class _Account extends HlAccountNotifier {
   final double Function() read;
   @override
   Future<HlAccountSnapshot> build() async => _snapshot(read());
+}
+
+/// The venue as the real account notifier reads it: counts every read,
+/// each answering after [latency]; [fail] throws a 429.
+class _Venue extends HyperliquidModel {
+  _Venue(this.figure);
+  final double Function() figure;
+  final reads = <String>[];
+  Duration latency = Duration.zero;
+  bool fail = false;
+
+  Future<HlAccountSnapshot> _read(String kind) async {
+    reads.add(kind);
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+    if (fail) {
+      throw HyperliquidInfoException('info clearinghouseState failed',
+          statusCode: 429);
+    }
+    return _snapshot(figure());
+  }
+
+  @override
+  Future<HlAccountSnapshot> getPortfolioSnapshot(String address) =>
+      _read('full');
+
+  @override
+  Future<HlAccountSnapshot> getCreditSnapshot(String address) =>
+      _read('credit');
+}
+
+/// A venue with a builder dex: the main account holds [main], the dex
+/// [dex]. A full read sees both (and is what the light read's dex part
+/// is taken from, as `getCreditSnapshot` reuses it); the light read sees
+/// the main account now and the dex as the last full read saw it.
+class _DexVenue extends HyperliquidModel {
+  double main = 0;
+  double dex = 0;
+  double _dexAsLastRead = 0;
+  final reads = <String>[];
+
+  HlAccountSnapshot _of(double dexCash) => HlAccountSnapshot(
+        accountValue: main + dexCash,
+        withdrawable: main + dexCash,
+        totalMarginUsed: 0,
+        positions: const [],
+        spotBalances: const [],
+        activeDexes: {if (dexCash > 0) 'xyz'},
+      );
+
+  @override
+  Future<HlAccountSnapshot> getPortfolioSnapshot(String address) async {
+    reads.add('full');
+    _dexAsLastRead = dex;
+    return _of(dex);
+  }
+
+  @override
+  Future<HlAccountSnapshot> getCreditSnapshot(String address) async {
+    reads.add('credit');
+    return _of(_dexAsLastRead);
+  }
 }
 
 /// A controller that answers what the test says, after recording the ask.
@@ -507,6 +577,67 @@ void main() {
         expect(placement.placed, [20]);
       });
     });
+
+    test(
+        'a ledger CREDIT whose account read lags places within 1 s, not on '
+        'the 4 s tick', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = held(controller);
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        // Past the first 30 s the poll runs every 4 s: a credit the
+        // socket reports between ticks used to wait for the next one.
+        async.elapse(const Duration(seconds: 31));
+        expect(placement.placed, isEmpty);
+        final creditAt = async.elapsed;
+        // The venue's ledger credits the deposit; its account read shows
+        // the money 600 ms later.
+        c.read(pendingHlOrderAutoFireProvider).accountMoved(credited: true);
+        async.flushMicrotasks();
+        expect(placement.placed, isEmpty, reason: 'the first read lagged');
+        expect(c.read(pendingHyperliquidOrderProvider)!.readiness,
+            HlReadiness.crediting,
+            reason: 'a credit is a credit: the order is crediting, not '
+                'waiting for funds');
+        async.elapse(const Duration(milliseconds: 600));
+        withdrawable = 21;
+        async.elapse(const Duration(milliseconds: 400));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final placedAfter = async.elapsed - creditAt;
+        expect(placedAfter, const Duration(seconds: 1),
+            reason: 'the follow-up read 1 s after the credit placed it; '
+                'the next poll tick was 3 s further on');
+        expect(
+            placedAfter, lessThan(PendingHlOrderAutoFire.kAwaitSlowInterval));
+        expect(terminal().status, PendingHlOrderStatus.done);
+      });
+    });
+
+    test('a ledger update that credits nothing is one read, no follow-ups',
+        () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = held(controller);
+        final placement = _Placement(resizable: true);
+        var built = 0;
+        c.listen(hyperliquidAccountProvider, (_, n) {
+          if (n.hasValue && !n.isLoading) built++;
+        });
+        queue(c, controller, placement);
+        async.elapse(const Duration(seconds: 31));
+        final before = built;
+        c.read(pendingHlOrderAutoFireProvider).accountMoved();
+        async.flushMicrotasks();
+        expect(built, before + 1);
+        expect(c.read(pendingHyperliquidOrderProvider)!.readiness,
+            HlReadiness.waitingFunds);
+        // Nothing before the next 4 s tick but that tick itself.
+        async.elapse(const Duration(milliseconds: 3500));
+        expect(built, before + 1);
+      });
+    });
   });
 
   test('a refused move clears the order and its grant; Dollars untouched',
@@ -833,6 +964,416 @@ void main() {
       expect(
           events.singleWhere((e) => e.$1 == 'hl_builder_fee_after_funding').$2,
           {'approved': true});
+    });
+  });
+
+  test(
+      'an order held while its venue-cash legs run (awaitingDeposit) is never '
+      'overwritten: a second funded order is refused before anything moves',
+      () {
+    fakeAsync((async) {
+      FundedOrdersNotifier.persist = false;
+      addTearDown(() => FundedOrdersNotifier.persist = true);
+      final controller = _Controller(() async => _funded);
+      final c = container(controller);
+      final first = _intent(_Placement(resizable: true));
+      final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+      // The venue-cash path: held, never fired, while its legs run.
+      notifier.setIntent(first);
+      final run = c.read(fundedOrdersProvider.notifier).start(
+          const FundedOrderLabel(
+              venue: OneBalanceVenue.investing,
+              orderUsd: 20,
+              side: 'Long',
+              market: 'BTC',
+              marketKey: 'BTC'),
+          stage: FundedOrderStage.preparing);
+      // The guard every other state answers to said nothing here.
+      expect(PendingHyperliquidOrderNotifier.isActive(first), isFalse);
+      expect(
+          PendingHyperliquidOrderNotifier.blocksNewOrder(
+              c.read(pendingHyperliquidOrderProvider),
+              c.read(fundedOrdersProvider)),
+          isTrue);
+      final second = _intent(_Placement(resizable: true), marginUsd: 10);
+      OrderFundingOutcome? outcome;
+      notifier
+          .fundAndQueue(second,
+              grant: approve(second),
+              controller: controller,
+              orderUsd: 10,
+              requiredUsd: second.requiredUsd,
+              readyUsd: 0)
+          .then((o) => outcome = o);
+      async.flushMicrotasks();
+      expect((outcome as OrderFundingRefused).reason, kHlOrderQueuedReason);
+      expect(controller.asks, isEmpty);
+      expect(identical(c.read(pendingHyperliquidOrderProvider), first), isTrue);
+      // Its own queue (the chain's Dollars share) still goes.
+      notifier
+          .fundAndQueue(first,
+              grant: approve(first),
+              controller: controller,
+              orderUsd: 20,
+              requiredUsd: first.requiredUsd,
+              readyUsd: 0)
+          .then((o) => outcome = o);
+      async.flushMicrotasks();
+      expect(outcome, same(_funded));
+      // Once its run is over, a held order no longer blocks.
+      c
+          .read(fundedOrdersProvider.notifier)
+          .setStage(run, FundedOrderStage.failed);
+      notifier.clear();
+      notifier.setIntent(first);
+      expect(
+          PendingHyperliquidOrderNotifier.blocksNewOrder(
+              c.read(pendingHyperliquidOrderProvider),
+              c.read(fundedOrdersProvider)),
+          isFalse);
+    });
+  });
+
+  group('fresh account reads while an order waits for its credit', () {
+    late _Venue venue;
+    late Directory hiveDir;
+    setUpAll(() {
+      hiveDir = Directory.systemTemp.createTempSync('hl_fresh_read_test');
+      Hive.init(hiveDir.path);
+    });
+    tearDownAll(() async {
+      await Hive.close();
+      hiveDir.deleteSync(recursive: true);
+    });
+
+    ProviderContainer live(_Controller controller) {
+      venue = _Venue(() => withdrawable);
+      final c = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+        sessionUnlockedProvider.overrideWith((_) => true),
+        hyperliquidAddressProvider.overrideWith(
+            (_) async => '0x1111111111111111111111111111111111111111'),
+        hyperliquidTradingModelProvider.overrideWithValue(venue),
+        hyperliquidMoveRailProvider.overrideWithValue(rail),
+        orderFundingControllerProvider.overrideWithValue(controller),
+      ]);
+      addTearDown(c.dispose);
+      c.read(pendingHlOrderAutoFireProvider);
+      history = [];
+      c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
+      // On screen: the account stays alive between reads.
+      c.listen(hyperliquidAccountProvider, (_, __) {});
+      return c;
+    }
+
+    void queue(ProviderContainer c, _Controller controller,
+        _Placement placement) {
+      OrderFundingJourney.reset();
+      OrderFundingJourney.instance.start(OneBalanceVenue.investing,
+          orderUsd: 20, fundUsd: 20.03, readyUsd: 0, dollarsUsd: 20.03);
+      final intent = _intent(placement);
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: intent.requiredUsd,
+          readyUsd: 0);
+    }
+
+    test(
+        'every 1 s tick reads the venue (not the cached snapshot); the '
+        'credit places within a second, credited_by fresh_read', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        final start = venue.reads.length;
+        async.elapse(const Duration(seconds: 5));
+        // One light read a second, never two in the same second.
+        final reads = venue.reads.length - start;
+        expect(reads, inInclusiveRange(4, 5));
+        expect(venue.reads.skip(start).every((k) => k == 'credit'), isTrue);
+        expect(placement.placed, isEmpty);
+        withdrawable = 21;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final done = events
+            .lastWhere((e) => e.$1 == 'order_funding_completed')
+            .$2!;
+        expect(done['credited_by'], 'fresh_read');
+        expect(done['ms_funded_to_account_shows'], isA<int>());
+        expect(done['account_reads'] as int, greaterThanOrEqualTo(5));
+        expect(done['account_read_errors'], 0);
+      });
+    });
+
+    test(
+        'one read in flight: the ledger push sends no second one beside the '
+        'tick\'s read (its own goes behind it)', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        venue.latency = const Duration(milliseconds: 600);
+        async.elapse(const Duration(milliseconds: 1100));
+        // The 1 s tick's read is out (until 1.6 s).
+        final before = venue.reads.length;
+        withdrawable = 21;
+        c.read(pendingHlOrderAutoFireProvider).accountMoved(credited: true);
+        async.elapse(const Duration(milliseconds: 100));
+        expect(venue.reads.length, before,
+            reason: 'no second request while one is in flight');
+        async.elapse(const Duration(milliseconds: 600));
+        async.flushMicrotasks();
+        final done = events
+            .lastWhere((e) => e.$1 == 'order_funding_completed')
+            .$2!;
+        expect(done['ms_funded_to_ledger_push'], isA<int>());
+        // The tick's read showed the money and placed; the push's own
+        // read (sent behind it) finds the order gone: placed once, never
+        // a second placement that finds the approval spent.
+        expect(placement.placed, [20]);
+        expect(events.where((e) => e.$1 == 'order_funding_failed'), isEmpty);
+      });
+    });
+
+    test(
+        'the 1 s credit watch starts when the funding is handed over, '
+        'however long the legs before it took', () {
+      fakeAsync((async) {
+        final base = DateTime(2026, 11, 11, 12);
+        PendingHlOrderAutoFire.clock = () => base.add(async.elapsed);
+        addTearDown(() => PendingHlOrderAutoFire.clock = DateTime.now);
+        // The move leaves 40 s after the accept (a Bitcoin leg first, a
+        // slow quote): the order has been waiting, queued, all that time.
+        final controller = _Controller(() async {
+          await Future<void>.delayed(const Duration(seconds: 40));
+          return _funded;
+        });
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.elapse(const Duration(seconds: 40));
+        async.flushMicrotasks();
+        expect(c.read(pendingHyperliquidOrderProvider)!.fundedAt, isNotNull);
+        final start = venue.reads.length;
+        async.elapse(const Duration(seconds: 5));
+        expect(venue.reads.length - start, inInclusiveRange(4, 6),
+            reason: 'read every 4 s: the fast second-by-second watch had '
+                'run out before the money even left');
+        withdrawable = 21;
+        async.elapse(const Duration(milliseconds: 1100));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+      });
+    });
+
+    test('a 429 backs the fresh reads off (1, 2, 4, 8 s), the order waits',
+        () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        venue.fail = true;
+        final start = venue.reads.length;
+        async.elapse(const Duration(seconds: 16));
+        // Without backoff: 16 reads. With it: ticks at 1, 2 (after 1 s),
+        // 4 (after 2 s), 8 (after 4 s), 16 (after 8 s).
+        expect(venue.reads.length - start, lessThanOrEqualTo(6));
+        expect(placement.placed, isEmpty);
+        venue.fail = false;
+        withdrawable = 21;
+        async.elapse(const Duration(seconds: 16));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final done = events
+            .lastWhere((e) => e.$1 == 'order_funding_completed')
+            .$2!;
+        expect(done['account_read_errors'] as int, greaterThan(0));
+      });
+    });
+  });
+
+  group('one order, one outcome', () {
+    late _Venue venue;
+    late Directory hiveDir;
+    setUpAll(() {
+      hiveDir = Directory.systemTemp.createTempSync('hl_one_outcome_test');
+      Hive.init(hiveDir.path);
+    });
+    tearDownAll(() async {
+      await Hive.close();
+      hiveDir.deleteSync(recursive: true);
+    });
+
+    ProviderContainer live(_Controller controller) {
+      venue = _Venue(() => withdrawable);
+      final c = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+        sessionUnlockedProvider.overrideWith((_) => true),
+        hyperliquidAddressProvider.overrideWith(
+            (_) async => '0x1111111111111111111111111111111111111111'),
+        hyperliquidTradingModelProvider.overrideWithValue(venue),
+        hyperliquidMoveRailProvider.overrideWithValue(rail),
+        orderFundingControllerProvider.overrideWithValue(controller),
+      ]);
+      addTearDown(c.dispose);
+      c.read(pendingHlOrderAutoFireProvider);
+      history = [];
+      c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
+      c.listen(hyperliquidAccountProvider, (_, __) {});
+      return c;
+    }
+
+    PendingHlOrderIntent queue(ProviderContainer c, _Controller controller,
+        _Placement placement) {
+      OrderFundingJourney.reset();
+      OrderFundingJourney.instance.start(OneBalanceVenue.investing,
+          orderUsd: 20, fundUsd: 20.03, readyUsd: 0, dollarsUsd: 20.03);
+      final intent = _intent(placement);
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: intent.requiredUsd,
+          readyUsd: 0);
+      return intent;
+    }
+
+    test(
+        'Investing cash a prediction accepted meanwhile is about to pull is '
+        'never this order\'s: it waits for its own money', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = container(controller);
+        // Investing holds 30; a bet accepted a moment ago pulls 15 of it
+        // (committed_funds.dart). The slip sized this order's move on the
+        // 15 left, so 5.24 more is on its way from Dollars.
+        withdrawable = 30;
+        final commitments = c.read(committedFundsProvider.notifier);
+        commitments.hold(MoneyPlace.investing, OneBalanceVenue.predictions,
+            usd: 15);
+        final placement = _Placement(resizable: true);
+        final intent = _intent(placement);
+        c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+            grant: approve(intent),
+            controller: controller,
+            orderUsd: 20,
+            requiredUsd: intent.requiredUsd,
+            readyUsd: 15);
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+        expect(placement.placed, isEmpty,
+            reason: 'the 30 on the account is not all this order\'s: placing '
+                'now takes the cash the bet is about to move');
+        expect(c.read(pendingHyperliquidOrderProvider)!.status,
+            PendingHlOrderStatus.awaitingBalance);
+        // The bet's leg left (15 gone) and this order's money landed.
+        commitments.venueCashSent(OneBalanceVenue.investing);
+        withdrawable = 15 + 5.5;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(terminal().status, PendingHlOrderStatus.done);
+      });
+    });
+
+    test(
+        'what the queued order gained while its account read was out (its '
+        'standing order, its move\'s id) is on the order that is placed', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = live(controller);
+        async.flushMicrotasks();
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        venue.latency = const Duration(milliseconds: 600);
+        withdrawable = 21;
+        async.elapse(const Duration(milliseconds: 1100));
+        // The 1 s tick's read is out (until 1.6 s) and will show the money.
+        expect(placement.placed, isEmpty);
+        final notifier = c.read(pendingHyperliquidOrderProvider.notifier);
+        notifier.setIntent(c
+            .read(pendingHyperliquidOrderProvider)!
+            .copyWith(standingOrderId: 'so_late', fundOrderId: 'o_late'));
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final placing = history.firstWhere(
+            (s) => s != null && s.status == PendingHlOrderStatus.placing)!;
+        expect(placing.standingOrderId, 'so_late',
+            reason: 'placed from a copy read before the wait, the order '
+                'lost its standing order: that one stayed "Placing" and '
+                'was queued again after a restart');
+        expect(placing.fundOrderId, 'o_late');
+        expect(terminal().standingOrderId, 'so_late');
+      });
+    });
+
+    test(
+        'builder-dex cash the light read still counts (as the last full '
+        'read saw it) never places the order: the whole account is read '
+        'before it goes', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final dexVenue = _DexVenue()..dex = 21;
+        final c = ProviderContainer(overrides: [
+          settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+          sessionUnlockedProvider.overrideWith((_) => true),
+          hyperliquidAddressProvider.overrideWith(
+              (_) async => '0x1111111111111111111111111111111111111111'),
+          hyperliquidTradingModelProvider.overrideWithValue(dexVenue),
+          hyperliquidMoveRailProvider.overrideWithValue(rail),
+          orderFundingControllerProvider.overrideWithValue(controller),
+        ]);
+        addTearDown(c.dispose);
+        c.read(pendingHlOrderAutoFireProvider);
+        history = [];
+        c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
+        c.listen(hyperliquidAccountProvider, (_, __) {});
+        // The account as last read in full: 21 idle on the xyz dex.
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 10));
+        expect(c.read(hyperliquidWithdrawableProvider), 21);
+        // It has just become an order's margin there (nothing has read
+        // the account in full since); the next order is funded whole
+        // from Dollars and waits for its credit on the main account.
+        dexVenue.dex = 0;
+        final placement = _Placement(resizable: false);
+        final intent = _intent(placement, orderKind: 'limit');
+        OrderFundingJourney.reset();
+        c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+            grant: approve(intent),
+            controller: controller,
+            orderUsd: 20,
+            requiredUsd: intent.requiredUsd,
+            readyUsd: 0);
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+        expect(placement.placed, isEmpty,
+            reason: 'placed on 21 the account no longer has: the venue '
+                'refuses it for margin after the accept');
+        expect(c.read(pendingHyperliquidOrderProvider)!.status,
+            PendingHlOrderStatus.awaitingBalance);
+        // Its own money lands on the main account.
+        dexVenue.main = 20.5;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(terminal().status, PendingHlOrderStatus.done);
+      });
     });
   });
 }

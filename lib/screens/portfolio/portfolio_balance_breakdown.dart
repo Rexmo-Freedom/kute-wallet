@@ -403,10 +403,26 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     required this.predictions,
     this.overview = false,
     this.venues = const {},
+    this.sharesHeader = false,
+    this.venuesOnly = false,
+    this.refreshOnOpen = true,
   });
 
   final bool trading;
   final bool predictions;
+
+  /// The Portfolio screen's Positions section mounts this breakdown in the
+  /// [sharesHeader] layout drawing only the venues' positions
+  /// ([venuesOnly]) with no refresh of its own ([refreshOnOpen] false: the
+  /// hero above reads the venues as the screen opens,
+  /// components/portfolio_hero.dart).
+  final bool venuesOnly;
+  final bool refreshOnOpen;
+
+  /// The Portfolio screen's Positions: the venues' positions alone,
+  /// instead of Available to invest and Move money
+  /// (BalancesOverview.sharesHeader).
+  final bool sharesHeader;
 
   /// The Balances section's layout: Buying power with the ring, Move
   /// money, then Invested with each venue's positions
@@ -446,10 +462,11 @@ class _PortfolioBalanceBreakdownState
   void initState() {
     super.initState();
     // Right away, from what the app holds: no frame waits on a read.
+    if (!widget.refreshOnOpen) _firstReadDone = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _preview();
-      unawaited(_refresh());
+      if (widget.refreshOnOpen) unawaited(_refresh());
     });
   }
 
@@ -535,7 +552,7 @@ class _PortfolioBalanceBreakdownState
           }))
         : 0.0;
     String amount(double usd) =>
-        visible ? formatPolyFiatForced(ref, usd) : '••••••';
+        visible ? formatDollars(usd) : '••••••';
     final now = DateTime.now();
 
     final dollars = balance.dollarsUsd;
@@ -719,6 +736,8 @@ class _PortfolioBalanceBreakdownState
         steps: steps,
         venues: widget.venues,
         firstReadDone: _firstReadDone,
+        sharesHeader: widget.sharesHeader,
+        venuesOnly: widget.venuesOnly,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),

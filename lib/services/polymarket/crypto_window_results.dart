@@ -22,6 +22,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show polyCryptoRoundSlug;
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
     show kCryptoTwapLookbackSeconds;
 
@@ -50,7 +52,7 @@ class CryptoWindowResult {
 
 /// The slug of the [minutes] window of [asset] starting at [startEpoch].
 String cryptoWindowSlugAt(String asset, int minutes, int startEpoch) =>
-    '${asset.toLowerCase()}-updown-${minutes}m-$startEpoch';
+    polyCryptoRoundSlug(asset, minutes, startEpoch);
 
 double? _num(Object? v) {
   final p = v is num ? v.toDouble() : double.tryParse('$v');

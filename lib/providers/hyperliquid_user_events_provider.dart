@@ -33,6 +33,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
@@ -41,6 +42,7 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_cash_released.dart';
@@ -174,13 +176,22 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
       try {
         final rows = ref.read(swapOrdersProvider);
         for (final usd in credits) {
-          VenueArrivals.investingArrived(rows, account: account, usd: usd);
+          final row =
+              VenueArrivals.investingArrived(rows, account: account, usd: usd);
+          // The move landed: its source reads again, with Investing.
+          if (row != null) {
+            MoveSettledRefresh.settledRow(row, source: 'hypercore_credit');
+          }
         }
       } catch (_) {}
     }
     try {
       if (ref.exists(pendingHlOrderAutoFireProvider)) {
-        ref.read(pendingHlOrderAutoFireProvider).accountMoved();
+        // A credit is the queued order's money landing: the account is
+        // read now and again shortly after if that read lags the ledger.
+        ref
+            .read(pendingHlOrderAutoFireProvider)
+            .accountMoved(credited: credits.isNotEmpty);
       } else if (ref.exists(hyperliquidAccountProvider)) {
         ref.invalidate(hyperliquidAccountProvider);
       }
@@ -227,6 +238,9 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
         ctrl.add(f);
       }
     }
+    // Sal in the bar winks at a fill (one wink per live batch;
+    // sal_reactions.dart).
+    if (fillsIn.isNotEmpty) SalReactions.play(SalReaction.wink);
   }
 
   void _handleOrderUpdates(List<HlOrderUpdate> updates) {

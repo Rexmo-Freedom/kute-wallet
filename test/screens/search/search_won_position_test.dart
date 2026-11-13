@@ -20,7 +20,7 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
-import 'package:kute/screens/polymarket/components/position_card.dart';
+import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
@@ -140,7 +140,7 @@ void main() {
   testWidgets('a won, redeemable position reads Settled, never a claim',
       (tester) async {
     await _open(tester, 'bitcoin');
-    expect(find.byType(PolyPositionCard), findsOneWidget);
+    expect(find.byType(SearchPositionRow), findsOneWidget);
     expect(find.text('Settled'), findsOneWidget);
     expect(find.textContaining('Ready to claim'), findsNothing);
     expect(find.textContaining('Claim'), findsNothing);

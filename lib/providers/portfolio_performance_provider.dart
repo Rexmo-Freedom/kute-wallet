@@ -6,6 +6,7 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/providers/ledger/ledger_polymarket_account_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/services/polymarket/confirmed_sales.dart';
 import 'package:kute/services/polymarket/polymarket_account_resolver.dart';
 import 'package:kute/services/portfolio/portfolio_performance_service.dart';
 
@@ -152,9 +153,65 @@ final _performancePublicationProvider =
 /// That is useful for a same-account refresh but unsafe during a wallet switch:
 /// the next address may take time to resolve. Only the display layer masks the
 /// previous account; the public .future/override API stays unchanged.
+///
+/// The spending account's Predictions figures are also held against the
+/// sales the venue filled that the Data API's positions may not show yet
+/// ([PolymarketTradingState.confirmedSales], confirmed_sales.dart): a sold
+/// position's pre-sale row would otherwise keep counting at its live price
+/// as open P&L, instead of (or next to) what the sale realised (founder,
+/// 2026-11-01: more profit shown than made after selling a prediction).
 final portfolioPerformanceDisplayProvider = Provider.autoDispose
     .family<AsyncValue<PortfolioPerformance>, PortfolioPerformanceRequest>(
         (ref, request) {
+  final shown = _portfolioPerformanceShown(ref, request);
+  if (request.walletId != null ||
+      request.venue != PortfolioPerformanceVenue.predictions ||
+      !shown.hasValue) {
+    return shown;
+  }
+  // A plain FutureProvider override (no publication) stays a display
+  // fixture: it never opens the account providers. The real path has
+  // already watched the trading state above.
+  if (ref.watch(_performancePublicationProvider(request)) == null &&
+      !ref.exists(polymarketTradingProvider)) {
+    return shown;
+  }
+  final sales = ref.watch(polymarketTradingProvider.select((v) => (
+        proxy: v.valueOrNull?.proxyWalletAddress,
+        sales: v.valueOrNull?.confirmedSales ??
+            const <PolymarketConfirmedSale>[],
+      )));
+  final live = liveConfirmedSales(sales.sales, sales.proxy, DateTime.now());
+  if (live.isEmpty) return shown;
+  return _mapPerformance(shown, (p) {
+    final book = p.predictions;
+    if (book == null) return p;
+    final held = bookWithConfirmedSales(book, live);
+    return identical(held, book) ? p : p.withPredictions(held);
+  });
+});
+
+/// [value] with its figures mapped by [f], loading and error flags kept
+/// (the screens keep the last figures up while they reload).
+AsyncValue<PortfolioPerformance> _mapPerformance(
+    AsyncValue<PortfolioPerformance> value,
+    PortfolioPerformance Function(PortfolioPerformance) f) {
+  final current = value.valueOrNull;
+  if (!value.hasValue || current == null) return value;
+  final mapped = f(current);
+  if (identical(mapped, current)) return value;
+  if (value is AsyncData<PortfolioPerformance>) return AsyncData(mapped);
+  if (value.hasError) {
+    return AsyncError<PortfolioPerformance>(
+            value.error!, value.stackTrace ?? StackTrace.empty)
+        .copyWithPrevious(AsyncData(mapped));
+  }
+  return const AsyncLoading<PortfolioPerformance>()
+      .copyWithPrevious(AsyncData(mapped));
+}
+
+AsyncValue<PortfolioPerformance> _portfolioPerformanceShown(
+    Ref ref, PortfolioPerformanceRequest request) {
   final history = ref.watch(portfolioPerformanceProvider(request));
   final publication = ref.watch(_performancePublicationProvider(request));
   if (publication == null) return history;
@@ -224,7 +281,7 @@ final portfolioPerformanceDisplayProvider = Provider.autoDispose
             .copyWithPrevious(AsyncData(cached));
   }
   return history;
-});
+}
 
 const kPortfolioPerformanceRefresh = Duration(minutes: 1);
 

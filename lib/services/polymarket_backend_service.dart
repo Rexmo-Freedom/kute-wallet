@@ -19,11 +19,13 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show HandshakeException, SocketException;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:kute/constants/polymarket_constants.dart';
+import 'package:kute/services/http/connection_health.dart';
 import 'package:kute/services/polymarket/builder_code_resolver.dart';
 import 'package:kute/services/polymarket/builder_code_store.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
@@ -33,8 +35,10 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket_order_v2.dart';
 import 'package:kute/services/venue_owner_link_service.dart';
+// Its TimeoutException is not the one `Future.timeout` throws: with both in
+// scope the package's wins, and `on TimeoutException` here never matched.
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
-    hide PolymarketConstants;
+    hide PolymarketConstants, TimeoutException;
 
 /// Thrown when the CLOB API returns a 403 geo-restriction.
 class GeoBlockException implements Exception {
@@ -60,6 +64,67 @@ class PolymarketOrderNotAcceptedException implements Exception {
 
   @override
   String toString() => reason;
+}
+
+/// `POST /order` was still unanswered when its timeout ran out.
+class PolymarketOrderPostTimedOut implements Exception {
+  const PolymarketOrderPostTimedOut();
+  @override
+  String toString() => 'Order submission timed out';
+}
+
+/// The venue answered `POST /order` with a status its docs say to retry with
+/// backoff (425 restarting, 429 rate limited, 500 including "order timed out",
+/// which they call safe to resubmit). Proves nothing about the order.
+class PolymarketOrderTryAgainStatus implements Exception {
+  const PolymarketOrderTryAgainStatus(this.status, this.body);
+  final int status;
+  final String body;
+  @override
+  String toString() => 'Order rejected ($status): $body';
+}
+
+/// The venue already has this exact order: its documented answer to a resend
+/// is a 400 "order {id} is invalid. Duplicated." That is "accepted, go look it
+/// up", never a refusal, although it reads like one.
+/// https://docs.polymarket.com/resources/error-codes#order-processing-errors
+class PolymarketOrderDuplicated implements Exception {
+  const PolymarketOrderDuplicated();
+  @override
+  String toString() => 'The venue already has this order.';
+}
+
+/// Whether [message] is the venue's duplicate answer.
+bool isPolymarketDuplicateOrder(Object? message) =>
+    message is String && message.toLowerCase().contains('duplicated');
+
+/// Whether a `POST /order` failure is the kind that may be tried again: the
+/// venue said nothing about the order.
+bool isPolymarketOrderNoAnswer(Object error) =>
+    error is PolymarketOrderPostTimedOut ||
+    error is PolymarketOrderTryAgainStatus ||
+    error is TimeoutException ||
+    error is SocketException ||
+    error is HandshakeException ||
+    error is http.ClientException;
+
+/// Whether a `POST /order` failure proves the request never reached the
+/// venue: the connection itself could not be opened, so not one byte of the
+/// order was written. Everything else (a timeout, a reset, a closed
+/// connection) may have happened after the venue read it.
+bool polymarketPostNeverLeftDevice(Object error) {
+  if (error is HandshakeException) return true;
+  if (error is! SocketException && error is! http.ClientException) {
+    return false;
+  }
+  final text = error.toString().toLowerCase();
+  return const [
+    'failed host lookup',
+    'connection refused',
+    'network is unreachable',
+    'network is down',
+    'no route to host',
+  ].any(text.contains);
 }
 
 /// The CLOB's balance refusal. It is documented as the bare sentence, but
@@ -112,12 +177,20 @@ bool isDefinitivePolymarketOrderRejection(Object? message) =>
 ///    previous prediction is still being confirmed") with nothing for the
 ///    status check to find. A matching delay is never one of these.
 /// Network errors, timeouts, 5xx and every other status stay ambiguous.
+///
+/// The venue's duplicate answer is a 400 with an error too, and it is the
+/// opposite of a refusal: the venue HAS the order
+/// ([PolymarketOrderDuplicated]).
 String? polymarketHttpRejection(http.Response response) {
   if (response.statusCode != 400) return null;
   try {
     final body = jsonDecode(response.body);
     if (body is! Map) return null;
     final documented = body['error'];
+    if (isPolymarketDuplicateOrder(documented) ||
+        isPolymarketDuplicateOrder(body['errorMsg'])) {
+      return null;
+    }
     if (body.keys.every((key) => key == 'error' || key == 'orderID') &&
         // A rejected FAK request can still include its computed order hash.
         // It is not an acknowledgement or evidence of a fill.
@@ -156,7 +229,8 @@ class PolymarketBackendService {
   final String _passphrase;
   final String _walletAddress;
 
-  static const _clobBaseUrl = 'https://clob.polymarket.com';
+  static const _clobHost = 'clob.polymarket.com';
+  static const _clobBaseUrl = 'https://$_clobHost';
 
   PolymarketBackendService({
     required String apiKey,
@@ -417,12 +491,15 @@ class PolymarketBackendService {
             .timeout(const Duration(seconds: 20));
       } on TimeoutException {
         reportAck('timeout');
+        ConnectionHealth.instance.noteFailed(_clobHost);
         rethrow;
       } catch (_) {
         reportAck('error');
+        ConnectionHealth.instance.noteFailed(_clobHost);
         rethrow;
       }
       reportAck(response.statusCode == 200 ? 'ok' : 'rejected');
+      ConnectionHealth.instance.noteAnswered(_clobHost);
 
       if (kDebugMode) {
         debugPrint(
@@ -452,8 +529,13 @@ class PolymarketBackendService {
         return result;
       }
 
+      if (_answersDuplicate(response)) throw const PolymarketOrderDuplicated();
       final refusal = polymarketHttpRejection(response);
       if (refusal != null) throw PolymarketOrderNotAcceptedException(refusal);
+      if (const {425, 429, 500}.contains(response.statusCode)) {
+        throw PolymarketOrderTryAgainStatus(
+            response.statusCode, response.body);
+      }
       throw Exception(
           'Order rejected (${response.statusCode}): ${response.body}');
     } on GeoBlockException {
@@ -461,7 +543,19 @@ class PolymarketBackendService {
     } on InvalidApiKeyException {
       rethrow;
     } on TimeoutException {
-      throw Exception('Order submission timed out');
+      throw const PolymarketOrderPostTimedOut();
+    }
+  }
+
+  static bool _answersDuplicate(http.Response response) {
+    if (response.statusCode != 400) return false;
+    try {
+      final body = jsonDecode(response.body);
+      return body is Map &&
+          (isPolymarketDuplicateOrder(body['error']) ||
+              isPolymarketDuplicateOrder(body['errorMsg']));
+    } catch (_) {
+      return false;
     }
   }
 
@@ -717,12 +811,19 @@ class PolymarketBackendService {
       throw const FormatException('Invalid order ID.');
     }
     final path = '/data/order/$orderId';
-    final response = await http
-        .get(
-          Uri.parse('$_clobBaseUrl$path'),
-          headers: _authHeaders(method: 'GET', path: path),
-        )
-        .timeout(const Duration(seconds: 15));
+    final http.Response response;
+    try {
+      response = await http
+          .get(
+            Uri.parse('$_clobBaseUrl$path'),
+            headers: _authHeaders(method: 'GET', path: path),
+          )
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      ConnectionHealth.instance.noteFailed(_clobHost);
+      rethrow;
+    }
+    ConnectionHealth.instance.noteAnswered(_clobHost);
     if (response.statusCode == 401) throw InvalidApiKeyException();
     if (response.statusCode == 404) return null;
     if (response.statusCode != 200) {
@@ -767,6 +868,41 @@ class PolymarketBackendService {
       if (t is Map<String, dynamic> && t['id']?.toString() == tradeId) return t;
     }
     return null;
+  }
+
+  /// This account's trades on the token [assetId] since [after] (`GET
+  /// /data/trades?asset_id=&after=`, the first page): each with its taker
+  /// order and the maker orders it matched, for an order whose end was
+  /// never heard (standing_orders_provider.dart `standingPmPlacedBy`).
+  /// The L2 signature covers the path only, as the reference client signs
+  /// it.
+  Future<List<Map<String, dynamic>>> getTradesFor(
+      {required String assetId, required DateTime after}) async {
+    if (assetId.isEmpty || assetId.length > 128) {
+      throw const FormatException('Invalid token ID.');
+    }
+    const path = '/data/trades';
+    final response = await http
+        .get(
+          Uri.parse('$_clobBaseUrl$path').replace(queryParameters: {
+            'asset_id': assetId,
+            'after': '${after.millisecondsSinceEpoch ~/ 1000}',
+          }),
+          headers: _authHeaders(method: 'GET', path: path),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 401) throw InvalidApiKeyException();
+    if (response.statusCode != 200) {
+      throw StateError(
+          'Could not read the trades (HTTP ${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    final list = decoded is Map ? decoded['data'] : decoded;
+    if (list is! List) throw StateError('Could not read the trades.');
+    return [
+      for (final t in list)
+        if (t is Map<String, dynamic>) t,
+    ];
   }
 
   // No `/fee-rate` reader: V2 orders carry no feeRateBps (fees are set at

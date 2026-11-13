@@ -234,6 +234,9 @@ class _OneTimeRefundSheetState extends ConsumerState<OneTimeRefundSheet> {
                 UsdFlowAction(
                   label: l10n.continueLabel,
                   onPressed: _valid ? _continue : null,
+                  disabledLabel: _typed.isEmpty
+                      ? l10n.barNeedAddress
+                      : l10n.barNeedValidAddress,
                   secondaryLabel: l10n.skip,
                   onSecondary: _skip,
                 ),

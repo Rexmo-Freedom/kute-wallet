@@ -73,6 +73,7 @@ String? investingPhaseOf(PendingHlOrderIntent? intent) {
       };
     case PendingHlOrderStatus.awaitingDeposit:
     case PendingHlOrderStatus.failed:
+    case PendingHlOrderStatus.unconfirmed:
       return null;
   }
 }
