@@ -189,6 +189,9 @@ Future<RecordingRewardsApi> pumpInvestments(
 
   /// The viewer's text size (1: the default).
   double textScale = 1,
+
+  /// Settings' balance privacy (0: shown; 1 or 2: balances hidden).
+  int balancePrivacy = 0,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -204,6 +207,7 @@ Future<RecordingRewardsApi> pumpInvestments(
     bitcoinElectrumNode: '',
     nodeType: 'Blockstream',
     reviewDone: true,
+    balancePrivacy: balancePrivacy,
     activeWalletId: 'spending',
     wallets: [WalletConfig(id: 'spending', name: 'Spending')],
   );

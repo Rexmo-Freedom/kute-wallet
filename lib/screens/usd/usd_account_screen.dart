@@ -15,11 +15,10 @@
 //     unavailable until balancing completes"), so money in flight is
 //     never hidden. Never a line for an order on its way (founder, 10
 //     November 2026): its money is Invested at once and the Overview's
-//     card says Placing. THE BALANCE IS NOT A DOOR (owner
-//     decision October 2026, replacing "the balance is the door to the
-//     Portfolio"): neither the hero nor the compact bar's small total
-//     opens anything, and the hero wears no arrow; the Portfolio is the
-//     third pill;
+//     card says Placing. The balance was no door from October 2026
+//     until 13 November 2026, when it became the door to the Portfolio
+//     again (see 13 NOVEMBER 2026 below); the compact bar's small total
+//     still opens nothing;
 //   * one pill row under it, Investing · Predictions · Portfolio, the
 //     same pills the Home strip uses a step bigger ([KutePillSize.large]),
 //     each wearing a glyph of the one icon family the top tabs used
@@ -124,6 +123,22 @@
 // and the market map, moved here from Investing; its "Latest" list is gone,
 // the full activity being the Portfolio's, which the bar opens
 // (components/dollars_activity_tab.dart).
+//
+// 13 NOVEMBER 2026 (founder): "on the main balance, if we click on it, on
+// Dollars we should also take the user to the Portfolio. On the main
+// balance we should have a % of up and down of open positions also, to
+// know how much we earned." THE BALANCE OPENS THE PORTFOLIO: a tap on the
+// total or any line under it pushes the Portfolio screen exactly as the
+// Overview's bar does (same route, the section where it was last left;
+// [UsdAccountActionBar.openPortfolioFromBalance]), counted as the bar's
+// `quick_action_tapped` `portfolio` from source `usd_balance`, with the
+// hero's own press feedback and its portfolio glyph after the total
+// (investment_balance_header.dart). The tap never toggled hidden
+// balances here (the Bitcoin home's tap does), so nothing moved. UNDER
+// THE SPLIT, THE OPEN P&L: "Open profits ▲ $1.23 (+4.8%)", the Overview
+// card's own figure ([dollarsOpenPnl]) over what the open positions cost,
+// green up, red down, dots with balances hidden; nothing open with a
+// known cost, no line ([OneBalanceOpenPnlLine]).
 //
 // THE PILL IS SHARED STATE ([investmentsTabProvider]) so a deep link, a
 // placed bet or Sal can open a pill from anywhere: `/hyperliquid` and
@@ -907,11 +922,16 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                       Transform.scale(
                         scale: 1 - 0.6 * t,
                         alignment: Alignment.topLeft,
-                        // No onTap: the balance opens nothing and wears no
-                        // arrow (see the file header).
+                        // The balance and the lines under it open the
+                        // Portfolio, as the Overview's bar does (see the
+                        // file header, 13 November 2026).
                         child: InvestmentBalanceHeader(
                           product: InvestmentsProduct.trading,
                           oneBalance: true,
+                          showOpenPnl: true,
+                          onTap: () =>
+                              UsdAccountActionBar.openPortfolioFromBalance(
+                                  context),
                         ),
                       ),
                       // ONE compact row under the balance: Buy dollars ·
@@ -1314,6 +1334,22 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// key the row's Portfolio button sent, so the dashboards keep counting
   /// the Portfolio's opens.
   static const String portfolioActionId = 'portfolio';
+
+  /// The `quick_action_tapped` source of the Portfolio opened from the
+  /// Dollars balance (the hero's total and the lines under it), beside
+  /// the bar's [kUsdSurfaceSource]: the same `portfolio` action, so the
+  /// dashboards count both opens and can tell them apart.
+  static const String balanceSource = 'usd_balance';
+
+  /// The Dollars balance's tap (founder, 13 November 2026: "on the main
+  /// balance, if we click on it, on Dollars we should also take the user
+  /// to the Portfolio"): exactly the bar's "See full portfolio and
+  /// activity", the Portfolio screen where its section was last left,
+  /// reported as `quick_action_tapped` `portfolio` from [balanceSource].
+  static void openPortfolioFromBalance(BuildContext context) {
+    TrackingService.quickAction(portfolioActionId, source: balanceSource);
+    openPortfolioScreen(context);
+  }
 
   /// The bar over [tab] (see the file header): on Overview the primary
   /// "See full portfolio and activity", pushing the Portfolio screen; on a

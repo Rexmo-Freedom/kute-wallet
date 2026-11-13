@@ -180,7 +180,11 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioOpenPnl, portfolioOpenRanked, portfolioVenueLists;
+    show
+        dollarsOpenPnl,
+        portfolioOpenPnl,
+        portfolioOpenRanked,
+        portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
     show portfolioVenuesProvider;
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -682,10 +686,10 @@ class DollarsPnlStrip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final venues = ref.watch(portfolioVenuesProvider);
-    if (!venues.any) return const SizedBox.shrink();
-    final open = portfolioOpenPnl(ref, venues);
+    // The page's one open P&L, the figure under the balance too.
+    final open = dollarsOpenPnl(ref);
     if (open == null) return const SizedBox.shrink();
+    final venues = ref.watch(portfolioVenuesProvider);
     final status = ref.watch(openPnlChartStatusProvider);
     if (status == OpenPnlChartStatus.loading) {
       return const _PnlStripSkeleton(key: ValueKey('dollars-pnl-loading'));

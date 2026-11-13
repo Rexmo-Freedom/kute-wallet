@@ -84,7 +84,7 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesCategory, BalancesPnlText, BalancesVenueList;
+    show BalancesCategory, BalancesPnlText, BalancesVenueList, kBalancesCentUsd;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
@@ -657,6 +657,32 @@ PortfolioOpenPnlPart? portfolioOpenPnl(WidgetRef ref, PortfolioVenues venues,
   }
   if (count == 0) return null;
   return (usd: usd, costUsd: cost, count: count, costed: costed);
+}
+
+/// The Dollars page's one open P&L: [portfolioOpenPnl] over the venues
+/// the account shows ([portfolioVenuesProvider]), with nothing left out.
+/// The Overview's "Open profits" card (DollarsPnlStrip) and the line
+/// under the Dollars balance (InvestmentBalanceHeader) both read it, so
+/// they never disagree. Null with no venue shown or nothing open that
+/// writes a P&L (a prediction whose cost is not known yet counts for
+/// none, [portfolioPredictionsOpenPnl]).
+PortfolioOpenPnlPart? dollarsOpenPnl(WidgetRef ref) {
+  final venues = ref.watch(portfolioVenuesProvider);
+  if (!venues.any) return null;
+  return portfolioOpenPnl(ref, venues);
+}
+
+/// The open P&L as a share of what the open positions cost, in percent
+/// ([PortfolioOpenPnlPart.usd] over [PortfolioOpenPnlPart.costUsd]); null
+/// when a position has no cost of its own or the cost is under a cent.
+double? openPnlPercent(PortfolioOpenPnlPart open) {
+  if (!open.costed ||
+      !open.costUsd.isFinite ||
+      open.costUsd < kBalancesCentUsd) {
+    return null;
+  }
+  final pct = open.usd / open.costUsd * 100;
+  return pct.isFinite ? pct : null;
 }
 
 /// The open predictions' P&L at the live price, as their rows read it.

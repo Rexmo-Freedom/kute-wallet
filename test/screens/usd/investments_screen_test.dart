@@ -432,8 +432,9 @@ void main() {
         find.byType(InvestmentsPortfolio, skipOffstage: false), findsNothing);
 
     // The one-balance hero, once, above the pills: no title, the total
-    // with no arrow after it (it opens nothing), and "Invested · Available"
-    // under it, adding up to it (founder, 4 November 2026).
+    // with the portfolio glyph after it (it opens the Portfolio; founder,
+    // 13 November 2026), and "Invested · Available" under it, adding up to
+    // it (founder, 4 November 2026). Nothing open: no open P&L line.
     final header =
         tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
     expect(header.totalLabel, isNull);
@@ -446,8 +447,10 @@ void main() {
     expect(find.text('${l10n.betInvested} '), findsOneWidget);
     expect(find.text('${l10n.available} '), findsOneWidget);
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('investments-balance')), findsOneWidget);
+    expect(find.byKey(const ValueKey('investments-balance-open-pnl')),
         findsNothing);
-    expect(find.byKey(const ValueKey('investments-balance')), findsNothing);
     expect(find.byType(InvestmentBalanceHeader), findsOneWidget);
     expect(tester.getTopLeft(find.byType(PoolBalanceHeader)).dy,
         lessThan(tester.getTopLeft(find.byType(KutePillTabs).first).dy));
@@ -1468,25 +1471,65 @@ void main() {
   });
 
   testWidgets(
-      'the balance opens nothing: no arrow, and a tap on the total pushes '
-      'no Portfolio and sends no event', (tester) async {
+      'the balance opens the Portfolio, as the bar does (founder, 13 '
+      'November 2026): a tap on the total, or on the line under it, pushes '
+      'the Portfolio screen on the section it was left on, counted as the '
+      "bar's quick_action_tapped portfolio from usd_balance",
+      (tester) async {
     final events = recordEvents();
-    await pumpInvestments(tester);
+    await pumpRouted(tester);
+    await _pumpFrames(tester, 6);
+    final container = _container(tester);
+    container.read(portfolioSectionProvider.notifier).state =
+        PortfolioSection.charts;
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
-        findsNothing);
+        findsOneWidget);
+    // The big total.
     await tester.tap(find
         .descendant(
             of: find.byType(PoolBalanceHeader),
             matching: find.byType(RollingNumberText))
         .first);
     await _pumpFrames(tester, 6);
+    expect(find.byType(PortfolioScreen), findsOneWidget);
     expect(find.byType(OpenInvestmentsScreen), findsNothing);
-    expect(find.byType(PortfolioScreen), findsNothing);
-    expect(find.byType(KuteBackButton), findsNothing);
-    expect(events.where((e) => e.$1 == 'investments_balance_tapped'), isEmpty);
-    expect(events.where((e) => e.$1 == 'portfolio_opened'), isEmpty);
-    expect(_container(tester).read(investmentsTabProvider),
-        InvestmentsTab.activity);
+    // Same route and section as the bar: where it was left.
+    expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
+    expect(_sectionOn(tester), 'charts');
+    final opens = events
+        .where((e) => e.$1 == 'quick_action_tapped')
+        .map((e) => e.$2)
+        .toList();
+    expect(opens, [
+      {
+        'action': UsdAccountActionBar.portfolioActionId,
+        'source': UsdAccountActionBar.balanceSource,
+      }
+    ]);
+    expect(UsdAccountActionBar.balanceSource, 'usd_balance');
+    // The page under it keeps its pill.
+    expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+    await closePortfolio(tester);
+
+    // The line under the total opens it too.
+    await tester.tap(find.byKey(const ValueKey('investments-balance-split')));
+    await _pumpFrames(tester, 6);
+    expect(find.byType(PortfolioScreen), findsOneWidget);
+    expect(
+        events.where((e) =>
+            e.$1 == 'quick_action_tapped' &&
+            e.$2?['source'] == UsdAccountActionBar.balanceSource),
+        hasLength(2));
+    await closePortfolio(tester);
+
+    // The bar's own open, for comparison: the same screen, the bar's
+    // source.
+    await openPortfolio(tester);
+    expect(events.last.$1, 'quick_action_tapped');
+    expect(events.last.$2, {
+      'action': UsdAccountActionBar.portfolioActionId,
+      'source': kUsdSurfaceSource,
+    });
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
@@ -1525,12 +1568,6 @@ void main() {
     expect(find.textContaining('Placing'), findsNothing);
     expect(find.byType(PendingDepositLine), findsNothing);
     expect(find.text('${l10n.available} '), findsOneWidget);
-    expect(find.byKey(const ValueKey('investments-balance-chevron')),
-        findsNothing);
-    await tester.tap(find.byKey(const ValueKey('investments-balance-split')));
-    await _pumpFrames(tester, 6);
-    expect(find.byType(OpenInvestmentsScreen), findsNothing);
-    expect(find.byType(PortfolioScreen), findsNothing);
     expect(events.where((e) => e.$1 == 'investments_balance_tapped'), isEmpty);
     expect(events.where((e) => e.$1 == 'activity_history_opened'), isEmpty);
     expect(tester.takeException(), isNull);

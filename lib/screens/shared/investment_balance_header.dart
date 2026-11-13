@@ -16,7 +16,15 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show kBalancesCentUsd;
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show pnlResultColor;
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/shared/charts/kute_chart_format.dart'
+    show kuteSignedPercent;
+import 'package:kute/screens/shared/charts/kute_trend_window.dart'
+    show kuteTrendArrow;
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressScale;
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
@@ -98,7 +106,10 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     own accounts for no order (a sweep home) stays in the total with
 ///     no line: it is plumbing. Venue dust
 ///     below every route minimum is no line at all: it is part of the
-///     total like the rest of the venues' cash. No Deposit button:
+///     total like the rest of the venues' cash. Under the split, while
+///     positions with a known cost are open, their P&L: "Open profits
+///     ▲ $1.23 (+4.8%)" ([OneBalanceOpenPnlLine]; founder, 13 November
+///     2026), the Overview card's own figure. No Deposit button:
 ///     money only reaches a venue through an order. The whole block, the
 ///     total and the line under it, is one tap ([onTap]: the Portfolio),
 ///     with the cards' press feedback ([KutePressScale]).
@@ -115,12 +126,18 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   /// Portfolio). Null: the block is not tappable and wears no chevron.
   final VoidCallback? onTap;
 
+  /// One balance only: the open positions' P&L under the split
+  /// ([OneBalanceOpenPnlLine]). The Dollars page sets it; it reads the
+  /// venues' positions, so a hero mounted without them leaves it off.
+  final bool showOpenPnl;
+
   const InvestmentBalanceHeader({
     super.key,
     required this.product,
     this.showDepositButton = true,
     this.oneBalance = false,
     this.onTap,
+    this.showOpenPnl = false,
   });
 
   @override
@@ -303,17 +320,19 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   }
 
   Widget _buildOneBalance(BuildContext context, WidgetRef ref) =>
-      _OneBalanceHero(onTap: onTap);
+      _OneBalanceHero(onTap: onTap, showOpenPnl: showOpenPnl);
 }
 
 /// The one-balance hero: the total with the portfolio glyph after
-/// it, "Invested $X · Available $Y" under it ([OneBalanceSplitLine]) and
-/// the in-flight lines under that. Stateful only to ping the arrow's quick
+/// it, "Invested $X · Available $Y" under it ([OneBalanceSplitLine]), the
+/// open P&L under that ([OneBalanceOpenPnlLine]) and the in-flight lines
+/// last. Stateful only to ping the arrow's quick
 /// play on each press.
 class _OneBalanceHero extends ConsumerStatefulWidget {
-  const _OneBalanceHero({this.onTap});
+  const _OneBalanceHero({this.onTap, this.showOpenPnl = false});
 
   final VoidCallback? onTap;
+  final bool showOpenPnl;
 
   @override
   ConsumerState<_OneBalanceHero> createState() => _OneBalanceHeroState();
@@ -383,6 +402,10 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
               stale: split.stale,
             ),
           ),
+          // "Open profits ▲ $1.23 (+4.8%)" under the split, while
+          // positions with a known cost are open (founder, 13 November
+          // 2026).
+          if (widget.showOpenPnl) const OneBalanceOpenPnlLine(),
           if (lines.isNotEmpty) ...[
             SizedBox(height: 4.h),
             Row(
@@ -496,6 +519,80 @@ class OneBalanceSplitLine extends StatelessWidget {
           half(const ValueKey('investments-balance-available'),
               availableLabel, available, Alignment.centerLeft),
         ],
+      ),
+    );
+  }
+}
+
+/// The open positions' P&L under the Dollars split (founder, 13 November
+/// 2026: "on the main balance we should have a % of up and down of open
+/// positions also, to know how much we earned"): "Open profits ▲ $1.23
+/// (+4.8%)", the Overview's "Open profits" card's own figure
+/// ([dollarsOpenPnl]: the open Predictions and Investing positions at the
+/// live prices, a position whose cost is not known yet counting for none),
+/// the percent of what those positions cost ([openPnlPercent]), written as
+/// the Portfolio hero writes a change ("▲ $4.10 (+1.2%)"). Drawn like the
+/// split line over it: the word quiet (textTertiary), the figure carrying
+/// the line in its result colour, tabular digits rolling, the line scaled
+/// down rather than cut. Nothing open with a known cost: no line. Balances
+/// hidden: dots, no arrow, no colour.
+class OneBalanceOpenPnlLine extends ConsumerWidget {
+  const OneBalanceOpenPnlLine({super.key});
+
+  /// What the line writes for [usd] over [percent], as shown: the arrow,
+  /// the amount and the signed percent ("▲ $1.23 (+4.8%)"); under a cent,
+  /// "$0.00" alone.
+  static String figure(double usd, double? percent) {
+    final pnl = usd.abs() < kBalancesCentUsd ? 0.0 : usd;
+    final pct =
+        pnl == 0 || percent == null ? '' : ' (${kuteSignedPercent(percent)})';
+    return '${kuteTrendArrow(pnl)}${formatDollars(pnl.abs())}$pct';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final open = dollarsOpenPnl(ref);
+    if (open == null) return const SizedBox.shrink();
+    final c = context.colors;
+    final label = context.l10n.portfolioStatOpenPnl;
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final usd = open.usd.abs() < kBalancesCentUsd ? 0.0 : open.usd;
+    final text = visible ? figure(usd, openPnlPercent(open)) : '••••••';
+    final labelStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.2,
+    );
+    final valueStyle = TextStyle(
+      color: !visible || usd == 0 ? c.textSecondary : pnlResultColor(c, usd),
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Padding(
+      padding: EdgeInsets.only(top: 4.h),
+      child: Semantics(
+        container: true,
+        label: '$label $text',
+        excludeSemantics: true,
+        child: FittedBox(
+          key: const ValueKey('investments-balance-open-pnl'),
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$label ', maxLines: 1, style: labelStyle),
+              RollingNumberText(
+                  key: const ValueKey('investments-balance-open-pnl-figure'),
+                  text: text,
+                  style: valueStyle),
+            ],
+          ),
+        ),
       ),
     );
   }

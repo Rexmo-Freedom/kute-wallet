@@ -173,6 +173,13 @@ void main() {
   final squares = find.byKey(const ValueKey('dollars-activity-squares'));
   Finder inSquares(Finder f) => find.descendant(of: squares, matching: f);
 
+  /// The card keyed [key] within the squares: its place among them. The
+  /// hero above may gain its open P&L line as the first position lists
+  /// (founder, 13 November 2026), moving the whole list, never the slot.
+  Rect slotRect(WidgetTester tester, String key) => tester
+      .getRect(inSquares(find.byKey(ValueKey(key))))
+      .shift(-tester.getTopLeft(squares));
+
   /// The keys of the squares' cards, in order: every card is keyed by
   /// the position it is (or places into).
   List<String> order(WidgetTester tester) => [
@@ -617,7 +624,7 @@ void main() {
     await tester.pump();
     expect(order(tester), [key]);
     expect(text(key, 'Placing'), findsOneWidget);
-    final slot = tester.getRect(inSquares(find.byKey(const ValueKey(key))));
+    final slot = slotRect(tester, key);
 
     // Filled, the position not read yet: the same card says placed at
     // once, with what the fill cost; never a placing card after the fill.
@@ -631,7 +638,7 @@ void main() {
     expect(find.textContaining('Placing'), findsNothing);
     expect(figure(key, r'$9.80'), findsOneWidget);
     expectSameSlot(
-        tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
+        slotRect(tester, key), slot);
 
     // The position lists: the slot is the position's own row, under the
     // same key, in the same place, still saying placed. One card.
@@ -643,7 +650,7 @@ void main() {
     expect(inSquares(find.byType(PlacingBetRow)), findsNothing);
     expect(find.textContaining('placed'), findsNothing);
     expectSameSlot(
-        tester.getRect(inSquares(find.byKey(const ValueKey(key)))), slot);
+        slotRect(tester, key), slot);
 
     // The card hold ends: the position's own line, nothing else changes.
     clock = clock.add(kDollarsFilledCardHold);
@@ -689,7 +696,7 @@ void main() {
     expect(order(tester), ['hl-ETH', 'hl-BTC']);
     expect(text('hl-ETH', 'Long · Placing'), findsOneWidget);
     expect(figure('hl-ETH', r'$20.00'), findsOneWidget);
-    final slot = tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH'))));
+    final slot = slotRect(tester, 'hl-ETH');
 
     // The venue lists ETH while the order still reads posting: the listed
     // row takes the slot and says Placing. Not two ETH cards.
@@ -701,7 +708,7 @@ void main() {
     expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
     expect(text('hl-ETH', 'Long · Placing'), findsOneWidget);
     expectSameSlot(
-        tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))), slot);
+        slotRect(tester, 'hl-ETH'), slot);
     // Placing, its tap is the order's: its own ticket again, locked (no
     // journey sheet, no Cancel).
     addTearDown(StandingOrderSlips.debugReset);
@@ -758,7 +765,7 @@ void main() {
     final notifier = _container(tester).read(standingOrdersProvider.notifier);
     notifier.debugReplace([_investing()]);
     await tester.pump();
-    final slot = tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH'))));
+    final slot = slotRect(tester, 'hl-ETH');
     notifier.debugReplace([
       _investing(state: StandingOrderState.filled)
           .copyWith(filledSize: 0.0133, filledUsd: 40)
@@ -777,7 +784,7 @@ void main() {
     expect(inSquares(find.byType(HlPositionRow)), findsNWidgets(2));
     expect(find.textContaining('placed'), findsNothing);
     expectSameSlot(
-        tester.getRect(inSquares(find.byKey(const ValueKey('hl-ETH')))), slot);
+        slotRect(tester, 'hl-ETH'), slot);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
