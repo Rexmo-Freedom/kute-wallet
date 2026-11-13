@@ -195,7 +195,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ConfirmSend), findsOneWidget);
     final asked = SalSpriteCache.debugRequestLog!;
-    expect(asked, containsAll(['happy', 'sad', 'blink']),
+    expect(asked, containsAll(['happy', 'nod', 'shake_no', 'blink']),
         reason: 'the result sheet\'s clips');
     expect(asked.where((c) => c.startsWith('body_')), isEmpty,
         reason: 'no journey on the Bitcoin send');
