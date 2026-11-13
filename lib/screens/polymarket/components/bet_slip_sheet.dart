@@ -19,9 +19,14 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
         PolymarketMarketBuyQuote,
         PolymarketThinBook,
         polymarketBuyCap,
+        polymarketWalkAsks,
         polymarketCentsLabel,
         polymarketEstimatedTick;
 import 'package:kute/services/polymarket/placement_timeline.dart';
+import 'package:kute/services/polymarket/market_terms_store.dart'
+    show PolymarketMarketTermsStore;
+import 'package:kute/services/polymarket_clob_websocket.dart'
+    show PolymarketLiveBooks;
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
@@ -2026,6 +2031,82 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         tick: polymarketEstimatedTick(price));
   }
 
+  /// The book cannot fill the typed market buy under the cap it is sent
+  /// with, from the last build ([_typingBuy]): the button is shut and
+  /// the note over it says what fills. Null: it fills, or no book is
+  /// known (the placement then checks, before anything moves).
+  PolymarketThinBook? _thinBook;
+
+  /// How old the market feed's book may be to price the typed stake. The
+  /// feed applies every level change, so a connected socket's book is the
+  /// venue's whatever its age; this only drops one a dead socket left.
+  static const _typingBookAge = Duration(seconds: 30);
+
+  /// The typed market buy on the feed's live book for [tokenId]
+  /// (PolymarketLiveBooks, no request per keystroke): the cap the order
+  /// is sent with, the shares the stake buys walking the asks up to it
+  /// (polymarketWalkAsks), and [PolymarketThinBook] when the asks under
+  /// that cap cannot take the whole stake. The spending account's cap
+  /// follows the book exactly as its placement quote does
+  /// ([PolymarketMarketBuyQuote.fromBook]: the marginal ask the stake
+  /// reaches plus the slippage); a Ledger signs the cap at the price it
+  /// reviews (LedgerPmMarketRules.amounts). Null for a limit, before a
+  /// stake, or while no current book is known.
+  ({double maxPrice, double shares, PolymarketThinBook? thin})? _typingBuy(
+      String? tokenId, double currentPrice) {
+    if (_isLimitMode || !(_amount > 0) || !_amount.isFinite) return null;
+    if (tokenId == null || tokenId.isEmpty) return null;
+    final live =
+        PolymarketLiveBooks.instance.snapshot(tokenId, maxAge: _typingBookAge);
+    if (live == null) return null;
+    final reference = live.bestAsk ?? currentPrice;
+    final tick = PolymarketMarketTermsStore.currentTickSize(tokenId,
+            referencePrice: reference) ??
+        (polymarketEstimatedTick(reference) < 0.01 ? '0.001' : '0.01');
+    if (_isLedger) {
+      if (!(currentPrice > 0 && currentPrice < 1)) return null;
+      final cap = polymarketBuyCap(
+          ask: currentPrice,
+          slippagePct: _slippagePct,
+          tick: double.parse(tick));
+      final walk = polymarketWalkAsks(
+          [for (final l in live.asks) (l.price, l.size)],
+          amountUsd: _amount,
+          maxPrice: cap);
+      return (
+        maxPrice: cap,
+        shares: walk.shares,
+        thin: walk.fills
+            ? null
+            : PolymarketThinBook(fillableUsd: walk.depthUsd),
+      );
+    }
+    try {
+      final quote = PolymarketMarketBuyQuote.fromBook(
+          live.toOrderBook(tickSize: tick, negRisk: widget.negRisk),
+          tokenId: tokenId,
+          amount: _amount,
+          slippagePct: _slippagePct);
+      return (
+        maxPrice: quote.maxPrice,
+        shares: quote.shares,
+        // The very check the approval makes before anything moves.
+        thin: quote.fills
+            ? null
+            : PolymarketThinBook(fillableUsd: quote.fillableUsd),
+      );
+    } on StateError {
+      // Nothing is for sale on this side.
+      return (
+        maxPrice: _orderPriceFor(currentPrice),
+        shares: 0.0,
+        thin: const PolymarketThinBook(fillableUsd: 0),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Conservative share count: floors `_amount / orderPrice` to 2 decimals so
   /// the max USDC the CLOB will pull (`shares * orderPrice`) stays ≤ `_amount`.
   /// This is the key fix — the previous code divided by `bestAsk` instead of
@@ -2517,6 +2598,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           !buyingPower.isLoading &&
           _amount.isFinite &&
           _amount >= _effectiveMinBetUsd &&
+          // The book cannot fill the stake under the cap the device would
+          // sign: the note over the button says what does ([_thinBook]).
+          _thinBook == null &&
           _advancedBlock == null &&
           _tradeBlock == null,
       onTap: _handleBuy,
@@ -2605,6 +2689,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   Future<void> _handleBuy() async {
+    // The book cannot fill the typed stake under the order's cap: the
+    // button is shut and says so ([_thinBook]); nothing starts.
+    if (_thinBook != null && !_isLimitMode) return;
     if (_isLedger) {
       await _handleLedgerBuy();
       return;
@@ -4994,26 +5081,40 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             prepared?.amount == _amount
         ? prepared?.maxPrice
         : null;
+    // While typing, a market buy is the live book walked at the cap the
+    // order is sent with ([_typingBuy]); null before a book is known.
+    final typing = preparedPrice == null
+        ? _typingBuy(effectiveTokenId, currentPrice)
+        : null;
+    // A send places nothing here: its figures, never a shut button.
+    _thinBook = widget.sendPick == null ? typing?.thin : null;
     final double orderPrice = (_isLimitMode && _limitPrice > 0)
         ? _limitPrice
-        : preparedPrice ?? _orderPriceFor(currentPrice);
+        : preparedPrice ?? typing?.maxPrice ?? _orderPriceFor(currentPrice);
     final double shares = _sharesFor(orderPrice);
-    // What it pays if it wins: the shares the stake buys at the price it
-    // is expected to fill at (the prepared book's own price, else the
-    // side's price now), never at the slippage cap (founder, 12 November
-    // 2026, on 2.2.0 (110): "Payout if you win $4.83" on a $4.83 bet). A
-    // game in play starts at 10% slippage, so the cap of any side over
-    // 90c is 99c, and 99.9c over 96c: the stake back, whatever the odds.
-    // A limit pays at its own price.
-    final preparedFill = preparedPrice != null ? prepared?.price : null;
-    final double fillPrice = _isLimitMode && _limitPrice > 0
-        ? _limitPrice
-        : preparedFill != null && preparedFill > 0
-            ? min(preparedFill, orderPrice)
-            : currentPrice > 0
-                ? min(currentPrice, orderPrice)
-                : orderPrice;
-    final double payout = _sharesFor(fillPrice);
+    // What it pays if it wins: the shares the stake buys, $1 each. A
+    // market buy walks the ask book up to the cap it is sent with (the
+    // prepared quote's, else the live book's while typing), as the venue
+    // fills it (founder, 13 November 2026, on 2.2.0 (122): $500 on a
+    // 0.45c side read "Payout if you win $111,111.11", the stake over
+    // the mid, when the book sold about 7,800 shares for it). Never at
+    // the slippage cap either (founder, 12 November 2026, on 2.2.0
+    // (110): "Payout if you win $4.83" on a $4.83 bet). Before a book is
+    // known: the stake at the side's price now. A limit pays at its own
+    // price.
+    final preparedShares = preparedPrice != null ? prepared?.shares : null;
+    final double payout;
+    if (_isLimitMode && _limitPrice > 0) {
+      payout = _sharesFor(_limitPrice);
+    } else if (preparedShares != null && preparedShares > 0) {
+      payout = (preparedShares * 100).floorToDouble() / 100;
+    } else if (typing != null) {
+      payout = (typing.shares * 100).floorToDouble() / 100;
+    } else {
+      payout = _sharesFor(currentPrice > 0
+          ? min(currentPrice, orderPrice)
+          : orderPrice);
+    }
 
     double? cash;
     double? spendable;
@@ -5299,6 +5400,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             CapabilityBlockNote(note),
           if (_advancedBlock case final reason? when reason != _tradeBlock)
             CapabilityBlockNote(reason),
+          // The book cannot fill the stake under the order's cap: the
+          // same words a placement stopped for it says, before the tap.
+          if (_thinBook case final thin?
+              when !activelyPlacing && !placementFailed)
+            CapabilityBlockNote(polymarketThinBookMessage(context.l10n, thin),
+                key: const ValueKey('bet-slip-thin-book-note')),
           // Another prediction is still being placed (one at a time): said
           // here, and a tap opens the one placing ([_heldByOtherBet]).
           if (_heldByOtherBet())
@@ -6452,6 +6559,29 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         enabled: false,
         onTap: () {},
         label: context.l10n.loadingAccount,
+      );
+    }
+    // The book cannot fill the stake under the cap the order is sent
+    // with: the bet as it stands, shut, the note over it saying what does
+    // fill now ([_thinBook]), the way a short balance's door is shut.
+    // Before the deposit door too: nothing is funded for a bet that
+    // cannot fill.
+    if (_thinBook != null &&
+        !_isPlacing &&
+        !busy &&
+        !_buyInFlight &&
+        !_emptyStake &&
+        !_belowMinimumStake) {
+      return PolySlipCta(
+        key: const ValueKey('bet-slip-thin-book'),
+        band: band,
+        color: selectedColor,
+        // Dark on the white button, never the side colour (founder).
+        neutral: true,
+        isBusy: false,
+        enabled: false,
+        onTap: () {},
+        label: again(_betCtaLabel(selected, _amount)),
       );
     }
     if (noFunds && !_isPlacing) {

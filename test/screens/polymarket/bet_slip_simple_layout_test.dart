@@ -25,6 +25,8 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show PredictionsVenueFunder;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
+import 'package:kute/services/polymarket_clob_websocket.dart'
+    show PolymarketBookMessage, PolymarketLiveBooks;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
@@ -1265,6 +1267,137 @@ void main() {
       expect(cta(tester).enabled, isTrue);
       expect(find.byType(PolySlipCta), findsOneWidget);
       expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
+      await _release(tester, policy);
+    });
+  });
+
+  // Founder, 13 November 2026, on 2.2.0 (122): $500 on a 0.45c Yes read
+  // "Payout if you win $111,111.11", the stake over the mid. While typing
+  // the payout is the live ask book walked at the cap the order is sent
+  // with; a book that cannot take the stake shuts Place before the tap.
+  group('the payout walks the live book', () {
+    const outcomes = [
+      PolymarketOutcome(name: 'Yes', price: 0.0045, tokenId: 'walk-yes'),
+      PolymarketOutcome(name: 'No', price: 0.9955, tokenId: 'walk-no'),
+    ];
+    const terms = PolymarketFeeTerms(
+        rate: 0, exponent: 1, builderTakerBps: 0, builderMakerBps: 0);
+
+    void seed(List<(String, String)> asks) {
+      PolymarketLiveBooks.instance.debugSeed(PolymarketBookMessage.fromJson({
+        'event_type': 'book',
+        'asset_id': 'walk-yes',
+        'market': 'm',
+        'asks': [for (final (p, s) in asks) {'price': p, 'size': s}],
+        'bids': [
+          {'price': '0.004', 'size': '5000'},
+        ],
+        'hash': 'h',
+      }));
+    }
+
+    // The cheap end of the founder's book: $0.70 at or under 1c.
+    const cheapEnd = [
+      ('0.005', '20'),
+      ('0.006', '14'),
+      ('0.007', '20'),
+      ('0.01', '38'),
+    ];
+
+    setUp(PolymarketLiveBooks.instance.reset);
+    tearDown(PolymarketLiveBooks.instance.reset);
+
+    PolySlipCta cta(WidgetTester tester) =>
+        tester.widget<PolySlipCta>(find.byType(PolySlipCta));
+    Finder payoutTile() => find.byKey(const ValueKey('bet-slip-payout-tile'));
+
+    testWidgets('a deep book: \$500 pays the ~8.1k shares it buys, not 111k',
+        (tester) async {
+      final policy = await _allowEverything();
+      seed([
+        ...cheapEnd,
+        ('0.019', '38'),
+        ('0.02', '50'),
+        ('0.03', '1200'),
+        ('0.05', '2000'),
+        ('0.06', '2000'),
+        ('0.09', '5000'),
+        ('0.79', '1000'),
+      ]);
+      await _pumpSlip(tester,
+          balance: 1000, outcomes: outcomes, feeTerms: terms);
+      await _typeOnKeypad(tester, '500');
+      // $500 walks to the 9c level: 8,064.15 shares, $1 each.
+      expect(
+          find.descendant(of: payoutTile(), matching: find.text(r'$8,064.15')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: payoutTile(), matching: find.text(r'$111,111.11')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-thin-book-note')),
+          findsNothing);
+      expect(cta(tester).label, r'Place $500.00 on Yes');
+      expect(cta(tester).enabled, isTrue);
+      expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+
+    testWidgets(
+        'a book that cannot take the stake: the slip says so and Place is '
+        'shut before the tap', (tester) async {
+      final policy = await _allowEverything();
+      // $2.43 for sale in all.
+      const twoDollars = [...cheapEnd, ('0.019', '38'), ('0.02', '50')];
+      seed(twoDollars);
+      await _pumpSlip(tester,
+          balance: 1000, outcomes: outcomes, feeTerms: terms);
+      await _typeOnKeypad(tester, '500');
+      expect(
+          find.text('Up to \$2.42 fills now at this price. Nothing was '
+              'bought. Try that amount or less.'),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-thin-book')), findsOneWidget);
+      expect(cta(tester).label, r'Place $500.00 on Yes');
+      expect(cta(tester).enabled, isFalse);
+      // A tap on the shut button starts nothing.
+      await tester.tap(find.byType(PolySlipCta), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(cta(tester).enabled, isFalse);
+
+      // Only the $0.70 under 1c: under the venue's $1 floor, the plain
+      // not-enough-shares words.
+      seed(cheapEnd);
+      await _typeOnKeypad(tester, '500');
+      expect(
+          find.text('There are not enough shares available at this price. '
+              'Try a smaller amount or wait.'),
+          findsOneWidget);
+      expect(cta(tester).enabled, isFalse);
+
+      // A stake the book takes opens Place again.
+      seed(twoDollars);
+      await _typeOnKeypad(tester, '2');
+      expect(find.byKey(const ValueKey('bet-slip-thin-book-note')),
+          findsNothing);
+      expect(cta(tester).label, r'Place $2.00 on Yes');
+      expect(cta(tester).enabled, isTrue);
+      expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+
+    testWidgets('no book known yet: the estimate at the side\'s price, '
+        'nothing shut', (tester) async {
+      final policy = await _allowEverything();
+      await _pumpSlip(tester,
+          balance: 1000, outcomes: outcomes, feeTerms: terms);
+      await _typeOnKeypad(tester, '10');
+      expect(find.descendant(of: payoutTile(), matching: find.text(r'$2,222.22')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-thin-book-note')),
+          findsNothing);
+      expect(cta(tester).enabled, isTrue);
+      expect(tester.takeException(), isNull);
       await _release(tester, policy);
     });
   });

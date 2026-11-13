@@ -8,7 +8,12 @@ import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/sell_settlement.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
-    show PolymarketSellPriceMoved, polymarketCentsLabel, polymarketEstimatedTick;
+    show
+        PolymarketSellPriceMoved,
+        polymarketCentsLabel,
+        polymarketEstimatedTick,
+        polymarketLevels,
+        polymarketWalkBids;
 import 'package:kute/services/polymarket/order_connection.dart';
 import 'package:kute/services/polymarket/sell_ladder.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
@@ -237,6 +242,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// or when the fetch fails — in those cases we fall back to the
   /// displayed current price and a warning is suppressed.
   double? _liquidityBid;
+
+  /// The bids of the last book read (every 20 s while open): the sale's
+  /// figures walk them ([polymarketWalkBids]), never the mid price.
+  List<(double, double)>? _liquidityBids;
+
+  /// The increment of the last book read, for the floor the sale's
+  /// figures stop at.
+  double? _liquidityTick;
   Timer? _bidRefreshTimer;
 
   PolymarketPosition get pos => widget.position;
@@ -379,14 +392,19 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       final book = await model.getOrderBook(tokenId);
       if (!mounted) return;
       final bestBid = book.bestBid;
+      final tick = double.tryParse(book.minTickSize ?? '');
       if (bestBid == null || bestBid <= 0) {
         setState(() {
           _liquidityBid = null;
+          _liquidityBids = const [];
+          _liquidityTick = tick;
         });
         return;
       }
       setState(() {
         _liquidityBid = bestBid;
+        _liquidityBids = polymarketLevels(book.bids);
+        _liquidityTick = tick;
       });
     } catch (_) {
       // Keep the last quote when the provider is temporarily unavailable.
@@ -1737,17 +1755,39 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // sizes with (polymarketFeeTermsProvider) and the cost basis the
     // position screen reads: what the shares bring in after the fee, and
     // the profit or loss of the shares sold against what they cost.
-    final gross = _sharesToSell * orderPrice;
+    // A market sale is the book's bids walked dearest first down to the
+    // floor it is approved at (polymarketSellApprovalFloor at the best
+    // bid), as the venue fills it; shares no bid takes there bring
+    // nothing. Before a book was read, and for a limit: the shares at
+    // the price shown.
+    final bids = _isLimitMode ? null : _liquidityBids;
+    var gross = _sharesToSell * orderPrice;
+    var feePrice = orderPrice;
+    var feeShares = _sharesToSell;
+    if (bids != null && _sharesToSell > 0) {
+      final bestBid = _liquidityBid;
+      final floor = bestBid == null
+          ? 1.0
+          : polymarketSellApprovalFloor(
+              bid: bestBid,
+              slippagePct: _slippagePct,
+              tick: _liquidityTick ?? polymarketEstimatedTick(bestBid));
+      final walk =
+          polymarketWalkBids(bids, shares: _sharesToSell, minPrice: floor);
+      gross = walk.proceedsUsd;
+      feeShares = walk.soldShares;
+      if (walk.soldShares > 0) feePrice = walk.proceedsUsd / walk.soldShares;
+    }
     final tokenId = pos.tokenId;
     final feeTerms = tokenId == null || tokenId.isEmpty
         ? null
         : ref.watch(polymarketFeeTermsProvider(tokenId)).valueOrNull;
-    final double? fee = _sharesToSell <= 0
+    final double? fee = _sharesToSell <= 0 || feeShares <= 0
         ? 0
-        : feeTerms == null || !(orderPrice > 0 && orderPrice < 1)
+        : feeTerms == null || !(feePrice > 0 && feePrice < 1)
             ? null
-            : feeTerms.platformFee(_sharesToSell, orderPrice) +
-                feeTerms.builderFee(_sharesToSell, orderPrice, taker: true);
+            : feeTerms.platformFee(feeShares, feePrice) +
+                feeTerms.builderFee(feeShares, feePrice, taker: true);
     final proceeds = math.max(0.0, gross - (fee ?? 0));
     final costBasis = polymarketPositionCostBasis(ref, pos);
     final costSold =
