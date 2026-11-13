@@ -2234,7 +2234,10 @@ class _SearchHome extends ConsumerWidget {
   void _openInvestingTrending(BuildContext context, WidgetRef ref) {
     ref
         .read(hlBrowseSelectionProvider.notifier)
-        .update((s) => s.copyWith(tab: HlBrowseTab.trending));
+        // Named with its subcategory, so the way in keeps it (Investing
+        // otherwise opens on its Watchlist: enterInvestingOnDefault).
+        .update((s) =>
+            s.copyWith(tab: HlBrowseTab.trending, sub: HlBrowseSub.all));
     final router = GoRouter.maybeOf(context);
     Navigator.of(context).maybePop();
     router?.go('/hyperliquid');

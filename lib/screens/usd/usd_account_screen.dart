@@ -178,7 +178,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
-    show HlBrowseSelection, hlBrowseSelectionProvider;
+    show HlBrowseTab, hlBrowseSelectionProvider, hlDefaultBrowseSelection;
+import 'package:kute/providers/hyperliquid_watchlist_provider.dart'
+    show hlWatchlistProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolyBrowseSelection, polyBrowseSelectionProvider;
 import 'package:kute/providers/refresh_everything_provider.dart';
@@ -346,12 +348,14 @@ void openInvestmentsOnDefaultTab(WidgetRef ref) {
 /// page leaves that pill, by a pick or by coming back to Dollars
 /// ([openInvestmentsOnDefaultTab]). A pill left is hidden at once, so nothing
 /// moves on screen, and opening a market from a list changes no pill, so the
-/// way back still lands on the same list.
+/// way back still lands on the same list. Investing's first one is its
+/// Watchlist once that holds a market (founder, 13 November 2026;
+/// hlDefaultBrowseSelection); Predictions keeps Trending.
 void resetInvestmentsPicks(WidgetRef ref, InvestmentsTab left) {
   switch (left) {
     case InvestmentsTab.investing:
       ref.read(hlBrowseSelectionProvider.notifier).state =
-          const HlBrowseSelection();
+          hlDefaultBrowseSelection(ref.read(hlWatchlistProvider));
     case InvestmentsTab.predictions:
       ref.read(polyBrowseSelectionProvider.notifier).state =
           const PolyBrowseSelection();
@@ -359,6 +363,20 @@ void resetInvestmentsPicks(WidgetRef ref, InvestmentsTab left) {
     case InvestmentsTab.positions:
       break;
   }
+}
+
+/// Investing entered: a selection still at its untouched default (Trending,
+/// nothing picked: what [resetInvestmentsPicks] left before the first
+/// market was starred, by a market page's star or the watchlist sheet
+/// anywhere) becomes the default now, the Watchlist once it holds a
+/// market. A pick made on the way in (a link, search's "See all", which
+/// names its subcategory) is kept.
+void enterInvestingOnDefault(WidgetRef ref) {
+  final sel = ref.read(hlBrowseSelectionProvider);
+  if (sel.tab != HlBrowseTab.trending || sel.subs.isNotEmpty) return;
+  final next = hlDefaultBrowseSelection(ref.read(hlWatchlistProvider));
+  if (next.tab == sel.tab) return;
+  ref.read(hlBrowseSelectionProvider.notifier).state = next;
 }
 
 /// The pill [openInvestmentsOnDefaultTab] last put on the page, until a
@@ -702,6 +720,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     if (!tabs.contains(selected)) selected = InvestmentsTab.activity;
     ref.listen<InvestmentsTab>(investmentsTabProvider, (prev, next) {
       if (prev != null && prev != next) resetInvestmentsPicks(ref, prev);
+      if (next == InvestmentsTab.investing) enterInvestingOnDefault(ref);
     });
 
     // The picked pill always carries its context ("Investing · Trending",

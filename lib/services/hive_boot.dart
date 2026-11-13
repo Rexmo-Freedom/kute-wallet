@@ -8,6 +8,8 @@
 // test in test/services/hive_boot_test.dart runs exactly this path.
 
 import 'package:hive_ce/hive.dart';
+import 'package:kute/providers/hyperliquid_watchlist_provider.dart'
+    show HlWatchlistNotifier;
 import 'package:kute/services/branta/branta_payee_records.dart';
 import 'package:kute/services/device_currency.dart';
 import 'package:kute/services/share_links_store.dart';
@@ -75,6 +77,10 @@ Future<void> openStartupHiveBoxes(
   //    initialSettingsProvider on the splash critical path; opening it
   //    in this parallel batch removes that sequential cost — openBox
   //    on an already-open box is a fast no-op there).
+  //  * hyperliquid_watchlist — the Investing markets starred here, read
+  //    synchronously so Investing opens on its Watchlist from the first
+  //    frame (hlDefaultBrowseSelection). A plain open like settings: the
+  //    person's own picks are never wiped for a bad read.
   await Future.wait([
     _openHiveBoxSafe<String>('asset_icons'),
     _openHiveBoxSafe<String>(TxFiatSnapshotService.boxName),
@@ -112,6 +118,8 @@ Future<void> openStartupHiveBoxes(
     // just falls through; initialSettingsProvider retries it and owns
     // the error surface exactly as before.
     _openSettingsBox(region).then((_) {}, onError: (_) {}),
+    Hive.openBox<String>(HlWatchlistNotifier.boxName)
+        .then((_) {}, onError: (_) {}),
   ]);
   // The analytics opt-out lives in the settings box, so apply it the
   // moment the box is open and before anything can fire an event: `track`

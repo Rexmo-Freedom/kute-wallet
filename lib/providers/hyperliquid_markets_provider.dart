@@ -579,8 +579,27 @@ class HlBrowseSelection {
   }
 }
 
-final hlBrowseSelectionProvider =
-    StateProvider<HlBrowseSelection>((ref) => const HlBrowseSelection());
+/// Where Investing opens (founder, 13 November 2026: "The watchlist, after
+/// it is created, should be the one it always opens with. Only on
+/// Investing"): the Watchlist while it holds a market, else Trending.
+/// Every time the Investing pill is entered (resetInvestmentsPicks) and on
+/// a fresh start (the watchlist's box is opened at boot, hive_boot.dart,
+/// so its list is read before the first frame).
+HlBrowseSelection hlDefaultBrowseSelection(List<String> watchlist) =>
+    watchlist.isEmpty
+        ? const HlBrowseSelection()
+        : const HlBrowseSelection(tab: HlBrowseTab.watchlist);
+
+final hlBrowseSelectionProvider = StateProvider<HlBrowseSelection>((ref) {
+  // The Watchlist emptied while it is the list on screen: Trending, as the
+  // default falls back.
+  ref.listen<List<String>>(hlWatchlistProvider, (prev, next) {
+    if (next.isEmpty && ref.controller.state.tab == HlBrowseTab.watchlist) {
+      ref.controller.state = const HlBrowseSelection();
+    }
+  });
+  return hlDefaultBrowseSelection(ref.read(hlWatchlistProvider));
+});
 
 /// Base symbols listed BOTH ways — a spot market and a perp for the same
 
