@@ -3124,6 +3124,8 @@
   "polyPillWatchlist": "A seguir",
   "polyWatchlistAdd": "Adicionar à lista a seguir",
   "polyWatchlistRemove": "Remover da lista a seguir",
+  "hlWatchlistCreate": "Criar lista a seguir",
+  "hlWatchlistCreateHint": "Escolha os mercados que acompanha. Investir abre neles.",
   "livestreamInMiniPlayer": "A tocar no minileitor",
   "polyLivePossession": "{team} tem a bola",
   "polyMomentumTitle": "Dinâmica do jogo",

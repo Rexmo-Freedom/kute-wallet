@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Preferiti",
   "polyWatchlistAdd": "Aggiungi ai preferiti",
   "polyWatchlistRemove": "Rimuovi dai preferiti",
+  "hlWatchlistCreate": "Crea i preferiti",
+  "hlWatchlistCreateHint": "Scegli i mercati che segui. Investire si aprirà su di loro.",
   "livestreamInMiniPlayer": "In riproduzione nel mini player",
   "polyLivePossession": "Palla a {team}",
   "polyMomentumTitle": "Momentum",

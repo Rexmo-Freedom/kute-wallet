@@ -10021,6 +10021,13 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polyWatchlistRemove => 'Eemalda jälgimisloendist';
 
   @override
+  String get hlWatchlistCreate => 'Loo jälgimisloend';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Vali turud, mida jälgid. Investeerimine avaneb nendega.';
+
+  @override
   String get livestreamInMiniPlayer => 'Mängib minimängijas';
 
   @override

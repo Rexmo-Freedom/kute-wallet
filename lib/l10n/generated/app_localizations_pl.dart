@@ -10072,6 +10072,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get polyWatchlistRemove => 'Usuń z obserwowanych';
 
   @override
+  String get hlWatchlistCreate => 'Utwórz listę obserwowanych';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Wybierz rynki, które śledzisz. Inwestowanie będzie się na nich otwierać.';
+
+  @override
   String get livestreamInMiniPlayer => 'Odtwarzanie w miniodtwarzaczu';
 
   @override

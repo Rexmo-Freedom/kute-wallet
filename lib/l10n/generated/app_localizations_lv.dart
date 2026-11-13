@@ -10006,6 +10006,13 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyWatchlistRemove => 'Noņemt no vērošanas saraksta';
 
   @override
+  String get hlWatchlistCreate => 'Izveidot vērošanas sarakstu';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Izvēlieties tirgus, kuriem sekojat. Investēšana atvērsies ar tiem.';
+
+  @override
   String get livestreamInMiniPlayer => 'Atskaņo mini atskaņotājā';
 
   @override

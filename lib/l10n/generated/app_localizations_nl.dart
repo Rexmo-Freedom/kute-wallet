@@ -10067,6 +10067,13 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polyWatchlistRemove => 'Van volglijst verwijderen';
 
   @override
+  String get hlWatchlistCreate => 'Volglijst maken';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Kies de markten die je volgt. Beleggen opent ermee.';
+
+  @override
   String get livestreamInMiniPlayer => 'Speelt af in de minispeler';
 
   @override

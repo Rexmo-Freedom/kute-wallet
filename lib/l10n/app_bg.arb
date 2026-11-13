@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Наблюдавани",
   "polyWatchlistAdd": "Добави в наблюдавани",
   "polyWatchlistRemove": "Премахни от наблюдавани",
+  "hlWatchlistCreate": "Създай списък с наблюдавани",
+  "hlWatchlistCreateHint": "Изберете пазарите, които следите. Инвестиране ще се отваря с тях.",
   "livestreamInMiniPlayer": "Пуска се в мини плейъра",
   "polyLivePossession": "{team} владее топката",
   "polyMomentumTitle": "Инерция",

@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Obserwowane",
   "polyWatchlistAdd": "Dodaj do obserwowanych",
   "polyWatchlistRemove": "Usuń z obserwowanych",
+  "hlWatchlistCreate": "Utwórz listę obserwowanych",
+  "hlWatchlistCreateHint": "Wybierz rynki, które śledzisz. Inwestowanie będzie się na nich otwierać.",
   "livestreamInMiniPlayer": "Odtwarzanie w miniodtwarzaczu",
   "polyLivePossession": "{team} przy piłce",
   "polyMomentumTitle": "Momentum",

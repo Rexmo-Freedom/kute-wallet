@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Spremljam",
   "polyWatchlistAdd": "Dodaj na seznam spremljanja",
   "polyWatchlistRemove": "Odstrani s seznama spremljanja",
+  "hlWatchlistCreate": "Ustvari seznam spremljanja",
+  "hlWatchlistCreateHint": "Izberite trge, ki jih spremljate. Investiranje se bo odpiralo z njimi.",
   "livestreamInMiniPlayer": "Predvajanje v mini predvajalniku",
   "polyLivePossession": "{team} ima žogo",
   "polyMomentumTitle": "Zagon",

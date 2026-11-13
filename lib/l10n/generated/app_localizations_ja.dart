@@ -9649,6 +9649,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polyWatchlistRemove => 'ウォッチリストから削除';
 
   @override
+  String get hlWatchlistCreate => 'ウォッチリストを作成';
+
+  @override
+  String get hlWatchlistCreateHint => 'フォローするマーケットを選んでください。投資はそこから開きます。';
+
+  @override
   String get livestreamInMiniPlayer => 'ミニプレーヤーで再生中';
 
   @override

@@ -10082,6 +10082,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get polyWatchlistRemove => 'Quitar de favoritos';
 
   @override
+  String get hlWatchlistCreate => 'Crear favoritos';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Elige los mercados que sigues. Invertir se abrirá con ellos.';
+
+  @override
   String get livestreamInMiniPlayer => 'Reproduciendo en el minirreproductor';
 
   @override

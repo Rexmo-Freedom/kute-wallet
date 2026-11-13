@@ -10105,6 +10105,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get polyWatchlistRemove => 'Von der Watchlist entfernen';
 
   @override
+  String get hlWatchlistCreate => 'Watchlist erstellen';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Wähle die Märkte, denen du folgst. Investieren öffnet mit ihnen.';
+
+  @override
   String get livestreamInMiniPlayer => 'Läuft im Mini-Player';
 
   @override

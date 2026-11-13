@@ -10052,6 +10052,13 @@ class AppLocalizationsBg extends AppLocalizations {
   String get polyWatchlistRemove => 'Премахни от наблюдавани';
 
   @override
+  String get hlWatchlistCreate => 'Създай списък с наблюдавани';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Изберете пазарите, които следите. Инвестиране ще се отваря с тях.';
+
+  @override
   String get livestreamInMiniPlayer => 'Пуска се в мини плейъра';
 
   @override

@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Favorite",
   "polyWatchlistAdd": "Adaugă la favorite",
   "polyWatchlistRemove": "Elimină din favorite",
+  "hlWatchlistCreate": "Creează favorite",
+  "hlWatchlistCreateHint": "Alege piețele pe care le urmărești. Investiții se va deschide cu ele.",
   "livestreamInMiniPlayer": "Rulează în mini player",
   "polyLivePossession": "{team} are mingea",
   "polyMomentumTitle": "Moment",

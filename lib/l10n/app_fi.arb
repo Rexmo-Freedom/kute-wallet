@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Seurantalista",
   "polyWatchlistAdd": "Lisää seurantalistalle",
   "polyWatchlistRemove": "Poista seurantalistalta",
+  "hlWatchlistCreate": "Luo seurantalista",
+  "hlWatchlistCreateHint": "Valitse seuraamasi markkinat. Sijoita avautuu niihin.",
   "livestreamInMiniPlayer": "Toistetaan minisoittimessa",
   "polyLivePossession": "Pallo: {team}",
   "polyMomentumTitle": "Momentum",

@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Overvågning",
   "polyWatchlistAdd": "Tilføj til overvågningsliste",
   "polyWatchlistRemove": "Fjern fra overvågningsliste",
+  "hlWatchlistCreate": "Opret en overvågningsliste",
+  "hlWatchlistCreateHint": "Vælg de markeder, du følger. Investering åbner på dem.",
   "livestreamInMiniPlayer": "Afspiller i miniafspilleren",
   "polyLivePossession": "{team} har bolden",
   "polyMomentumTitle": "Momentum",

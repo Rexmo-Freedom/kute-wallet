@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Bevakningslista",
   "polyWatchlistAdd": "Lägg till i bevakningslistan",
   "polyWatchlistRemove": "Ta bort från bevakningslistan",
+  "hlWatchlistCreate": "Skapa en bevakningslista",
+  "hlWatchlistCreateHint": "Välj marknaderna du följer. Investera öppnas med dem.",
   "livestreamInMiniPlayer": "Spelas i minispelaren",
   "polyLivePossession": "{team} har bollen",
   "polyMomentumTitle": "Momentum",

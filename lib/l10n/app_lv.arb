@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Vērošanas saraksts",
   "polyWatchlistAdd": "Pievienot vērošanas sarakstam",
   "polyWatchlistRemove": "Noņemt no vērošanas saraksta",
+  "hlWatchlistCreate": "Izveidot vērošanas sarakstu",
+  "hlWatchlistCreateHint": "Izvēlieties tirgus, kuriem sekojat. Investēšana atvērsies ar tiem.",
   "livestreamInMiniPlayer": "Atskaņo mini atskaņotājā",
   "polyLivePossession": "{team} kontrolē bumbu",
   "polyMomentumTitle": "Moments",

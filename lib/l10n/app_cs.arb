@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Sledované",
   "polyWatchlistAdd": "Přidat do sledovaných",
   "polyWatchlistRemove": "Odebrat ze sledovaných",
+  "hlWatchlistCreate": "Vytvořit seznam sledovaných",
+  "hlWatchlistCreateHint": "Vyberte trhy, které sledujete. Investování se bude otevírat na nich.",
   "livestreamInMiniPlayer": "Přehrává se v mini přehrávači",
   "polyLivePossession": "{team} má míč",
   "polyMomentumTitle": "Momentum",

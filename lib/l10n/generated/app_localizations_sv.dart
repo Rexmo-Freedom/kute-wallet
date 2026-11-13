@@ -10029,6 +10029,13 @@ class AppLocalizationsSv extends AppLocalizations {
   String get polyWatchlistRemove => 'Ta bort från bevakningslistan';
 
   @override
+  String get hlWatchlistCreate => 'Skapa en bevakningslista';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Välj marknaderna du följer. Investera öppnas med dem.';
+
+  @override
   String get livestreamInMiniPlayer => 'Spelas i minispelaren';
 
   @override

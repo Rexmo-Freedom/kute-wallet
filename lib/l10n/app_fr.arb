@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Favoris",
   "polyWatchlistAdd": "Ajouter aux favoris",
   "polyWatchlistRemove": "Retirer des favoris",
+  "hlWatchlistCreate": "Créer des favoris",
+  "hlWatchlistCreateHint": "Choisissez les marchés que vous suivez. Investir s’ouvrira sur eux.",
   "livestreamInMiniPlayer": "Lecture dans le mini-lecteur",
   "polyLivePossession": "{team} a le ballon",
   "polyMomentumTitle": "Dynamique",

@@ -10104,6 +10104,13 @@ class AppLocalizationsEl extends AppLocalizations {
   String get polyWatchlistRemove => 'Αφαίρεση από τη λίστα παρακολούθησης';
 
   @override
+  String get hlWatchlistCreate => 'Δημιουργία λίστας παρακολούθησης';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Επιλέξτε τις αγορές που παρακολουθείτε. Οι Επενδύσεις θα ανοίγουν σε αυτές.';
+
+  @override
   String get livestreamInMiniPlayer => 'Παίζει στο μίνι πρόγραμμα αναπαραγωγής';
 
   @override

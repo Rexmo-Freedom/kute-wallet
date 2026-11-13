@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Popis praćenja",
   "polyWatchlistAdd": "Dodaj na popis praćenja",
   "polyWatchlistRemove": "Ukloni s popisa praćenja",
+  "hlWatchlistCreate": "Izradi popis praćenja",
+  "hlWatchlistCreateHint": "Odaberite tržišta koja pratite. Ulaganje će se otvarati na njima.",
   "livestreamInMiniPlayer": "Reproducira se u mini playeru",
   "polyLivePossession": "{team} ima loptu",
   "polyMomentumTitle": "Zamah",

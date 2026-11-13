@@ -10033,6 +10033,13 @@ class AppLocalizationsDa extends AppLocalizations {
   String get polyWatchlistRemove => 'Fjern fra overvågningsliste';
 
   @override
+  String get hlWatchlistCreate => 'Opret en overvågningsliste';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Vælg de markeder, du følger. Investering åbner på dem.';
+
+  @override
   String get livestreamInMiniPlayer => 'Afspiller i miniafspilleren';
 
   @override

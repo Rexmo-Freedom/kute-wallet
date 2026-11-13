@@ -10040,6 +10040,13 @@ class AppLocalizationsFi extends AppLocalizations {
   String get polyWatchlistRemove => 'Poista seurantalistalta';
 
   @override
+  String get hlWatchlistCreate => 'Luo seurantalista';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Valitse seuraamasi markkinat. Sijoita avautuu niihin.';
+
+  @override
   String get livestreamInMiniPlayer => 'Toistetaan minisoittimessa';
 
   @override

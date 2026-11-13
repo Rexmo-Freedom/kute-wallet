@@ -10058,6 +10058,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyWatchlistRemove => 'Eltávolítás a figyelőlistáról';
 
   @override
+  String get hlWatchlistCreate => 'Figyelőlista létrehozása';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Válaszd ki a követett piacokat. A Befektetés ezekkel nyílik meg.';
+
+  @override
   String get livestreamInMiniPlayer => 'Lejátszás a minilejátszóban';
 
   @override

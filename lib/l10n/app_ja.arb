@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "ウォッチリスト",
   "polyWatchlistAdd": "ウォッチリストに追加",
   "polyWatchlistRemove": "ウォッチリストから削除",
+  "hlWatchlistCreate": "ウォッチリストを作成",
+  "hlWatchlistCreateHint": "フォローするマーケットを選んでください。投資はそこから開きます。",
   "livestreamInMiniPlayer": "ミニプレーヤーで再生中",
   "polyLivePossession": "{team}がボールを保持",
   "polyMomentumTitle": "勢い",

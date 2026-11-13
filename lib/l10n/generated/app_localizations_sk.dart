@@ -10042,6 +10042,13 @@ class AppLocalizationsSk extends AppLocalizations {
   String get polyWatchlistRemove => 'Odstrániť zo sledovaných';
 
   @override
+  String get hlWatchlistCreate => 'Vytvoriť zoznam sledovaných';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Vyberte trhy, ktoré sledujete. Investovanie sa bude otvárať na nich.';
+
+  @override
   String get livestreamInMiniPlayer => 'Prehráva sa v mini prehrávači';
 
   @override

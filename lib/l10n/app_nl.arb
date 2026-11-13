@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Volglijst",
   "polyWatchlistAdd": "Aan volglijst toevoegen",
   "polyWatchlistRemove": "Van volglijst verwijderen",
+  "hlWatchlistCreate": "Volglijst maken",
+  "hlWatchlistCreateHint": "Kies de markten die je volgt. Beleggen opent ermee.",
   "livestreamInMiniPlayer": "Speelt af in de minispeler",
   "polyLivePossession": "{team} heeft de bal",
   "polyMomentumTitle": "Momentum",

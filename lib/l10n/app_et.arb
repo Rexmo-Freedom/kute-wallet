@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Jälgimisloend",
   "polyWatchlistAdd": "Lisa jälgimisloendisse",
   "polyWatchlistRemove": "Eemalda jälgimisloendist",
+  "hlWatchlistCreate": "Loo jälgimisloend",
+  "hlWatchlistCreateHint": "Vali turud, mida jälgid. Investeerimine avaneb nendega.",
   "livestreamInMiniPlayer": "Mängib minimängijas",
   "polyLivePossession": "Pall on meeskonnal {team}",
   "polyMomentumTitle": "Hoog",

@@ -10055,6 +10055,13 @@ class AppLocalizationsHr extends AppLocalizations {
   String get polyWatchlistRemove => 'Ukloni s popisa praćenja';
 
   @override
+  String get hlWatchlistCreate => 'Izradi popis praćenja';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Odaberite tržišta koja pratite. Ulaganje će se otvarati na njima.';
+
+  @override
   String get livestreamInMiniPlayer => 'Reproducira se u mini playeru';
 
   @override

@@ -10087,6 +10087,13 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polyWatchlistRemove => 'Pašalinti iš stebimų';
 
   @override
+  String get hlWatchlistCreate => 'Sukurti stebimų sąrašą';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Pasirinkite rinkas, kurias stebite. Investavimas atsidarys jose.';
+
+  @override
   String get livestreamInMiniPlayer => 'Rodoma mini grotuve';
 
   @override

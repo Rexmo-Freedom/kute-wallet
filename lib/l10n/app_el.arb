@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Λίστα παρακολούθησης",
   "polyWatchlistAdd": "Προσθήκη στη λίστα παρακολούθησης",
   "polyWatchlistRemove": "Αφαίρεση από τη λίστα παρακολούθησης",
+  "hlWatchlistCreate": "Δημιουργία λίστας παρακολούθησης",
+  "hlWatchlistCreateHint": "Επιλέξτε τις αγορές που παρακολουθείτε. Οι Επενδύσεις θα ανοίγουν σε αυτές.",
   "livestreamInMiniPlayer": "Παίζει στο μίνι πρόγραμμα αναπαραγωγής",
   "polyLivePossession": "Μπάλα: {team}",
   "polyMomentumTitle": "Δυναμική",

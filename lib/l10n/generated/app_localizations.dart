@@ -17254,6 +17254,18 @@ abstract class AppLocalizations {
   /// **'Remove from watchlist'**
   String get polyWatchlistRemove;
 
+  /// Investing filter sheet: the Watchlist card before one exists (with a + glyph), and the title of the sheet that creates it.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a watchlist'**
+  String get hlWatchlistCreate;
+
+  /// Investing watchlist sheet, creating one: the line under the title. Once a watchlist holds a market, the Investing pill opens on it.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the markets you follow. Investing opens on them.'**
+  String get hlWatchlistCreateHint;
+
   /// No description provided for @livestreamInMiniPlayer.
   ///
   /// In en, this message translates to:

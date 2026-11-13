@@ -6293,6 +6293,14 @@
   "polyPillWatchlist": "Watchlist",
   "polyWatchlistAdd": "Add to watchlist",
   "polyWatchlistRemove": "Remove from watchlist",
+  "hlWatchlistCreate": "Create a watchlist",
+  "@hlWatchlistCreate": {
+    "description": "Investing filter sheet: the Watchlist card before one exists (with a + glyph), and the title of the sheet that creates it."
+  },
+  "hlWatchlistCreateHint": "Pick the markets you follow. Investing opens on them.",
+  "@hlWatchlistCreateHint": {
+    "description": "Investing watchlist sheet, creating one: the line under the title. Once a watchlist holds a market, the Investing pill opens on it."
+  },
   "livestreamInMiniPlayer": "Playing in the mini player",
   "polyLivePossession": "{team} has the ball",
   "@polyLivePossession": {

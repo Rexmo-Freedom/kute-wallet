@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Figyelőlista",
   "polyWatchlistAdd": "Hozzáadás a figyelőlistához",
   "polyWatchlistRemove": "Eltávolítás a figyelőlistáról",
+  "hlWatchlistCreate": "Figyelőlista létrehozása",
+  "hlWatchlistCreateHint": "Válaszd ki a követett piacokat. A Befektetés ezekkel nyílik meg.",
   "livestreamInMiniPlayer": "Lejátszás a minilejátszóban",
   "polyLivePossession": "{team} birtokolja a labdát",
   "polyMomentumTitle": "Lendület",

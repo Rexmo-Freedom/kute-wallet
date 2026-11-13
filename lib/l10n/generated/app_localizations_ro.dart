@@ -10088,6 +10088,13 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polyWatchlistRemove => 'Elimină din favorite';
 
   @override
+  String get hlWatchlistCreate => 'Creează favorite';
+
+  @override
+  String get hlWatchlistCreateHint =>
+      'Alege piețele pe care le urmărești. Investiții se va deschide cu ele.';
+
+  @override
   String get livestreamInMiniPlayer => 'Rulează în mini player';
 
   @override

@@ -2858,6 +2858,8 @@
   "polyPillWatchlist": "Stebimi",
   "polyWatchlistAdd": "Įtraukti į stebimus",
   "polyWatchlistRemove": "Pašalinti iš stebimų",
+  "hlWatchlistCreate": "Sukurti stebimų sąrašą",
+  "hlWatchlistCreateHint": "Pasirinkite rinkas, kurias stebite. Investavimas atsidarys jose.",
   "livestreamInMiniPlayer": "Rodoma mini grotuve",
   "polyLivePossession": "Kamuolį valdo {team}",
   "polyMomentumTitle": "Iniciatyva",
