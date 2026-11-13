@@ -210,9 +210,8 @@ class _HlWatchlistSheetState extends ConsumerState<HlWatchlistSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final c = context.colors;
-    final universe =
-        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
-            const <HlMarket>[];
+    final universe = ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
+        const <HlMarket>[];
     final rows = hlWatchlistSheetRows(universe, _openOrder, _query);
     final picked = _picked.toSet();
 
@@ -248,7 +247,8 @@ class _HlWatchlistSheetState extends ConsumerState<HlWatchlistSheet> {
           children: [
             AppBottomSheetHeader(
               key: const ValueKey('hl-watchlist-sheet-header'),
-              title: _creating ? l10n.hlWatchlistCreate : l10n.polyPillWatchlist,
+              title:
+                  _creating ? l10n.hlWatchlistCreate : l10n.polyPillWatchlist,
               subtitle: _creating ? l10n.hlWatchlistCreateHint : null,
               trailing: const AppBottomSheetCloseButton(),
             ),

@@ -773,6 +773,8 @@ wallet_wiped
 wallet_wiped_forgot_pin
 wallet_wiped_pin_limit
 wallets_wallet_row_tapped
+watchlist_saved
+watchlist_sheet_opened
 watchlist_toggled
 xpub_address_type_selected
 xpub_advanced_toggled

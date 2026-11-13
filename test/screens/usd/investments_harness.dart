@@ -192,6 +192,9 @@ Future<RecordingRewardsApi> pumpInvestments(
 
   /// Settings' balance privacy (0: shown; 1 or 2: balances hidden).
   int balancePrivacy = 0,
+
+  /// The Investing watchlist in place of none (a test's own stars).
+  HlWatchlistNotifier Function()? hlStars,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -237,7 +240,7 @@ Future<RecordingRewardsApi> pumpInvestments(
       hyperliquidPerpCoreMarketsProvider
           .overrideWith((_) async => <HlMarket>[]),
       hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
-      hlWatchlistProvider.overrideWith(_NoStars.new),
+      hlWatchlistProvider.overrideWith(hlStars ?? _NoStars.new),
       hyperliquidAddressProvider.overrideWith((_) async => null),
       // The Predictions browser: no stars.
       polyWatchlistProvider.overrideWith(_NoPolyStars.new),
