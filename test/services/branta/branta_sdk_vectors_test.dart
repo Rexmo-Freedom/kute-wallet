@@ -8,6 +8,13 @@
 // warning, and the privacy model: what reaches Branta is the encrypted
 // id (or the invoice encrypted under its own hash), never the address,
 // the invoice or the secret; a bare address sends nothing at all.
+//
+// branta 4.3.0's stablecoin rails (`eth:`, `bsc:`, `tron:`, `sol:`) have
+// no published staging sample codes yet (developer.branta.pro lists the
+// Polygon ones only), so their group publishes each through the package's
+// own `addPayment` into an in-memory registry (the addresses are the ones
+// Branta's own multi-rail round-trip test uses) and verifies the code it
+// hands back: the same encryption, parsing and binding as a real code.
 
 import 'dart:convert';
 import 'dart:io';
@@ -16,6 +23,7 @@ import 'package:branta/branta.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/services/branta/branta_payee_service.dart';
 
 const _btcAddr = 'bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr';
@@ -150,5 +158,192 @@ void main() {
     expect((await sdk.verify(_btcAddr)).status, VerifyStatus.unknown);
     expect((await sdk.verify(_usdcAddr)).status, VerifyStatus.unknown);
     expect(requests, isEmpty);
+  });
+
+  group('branta 4.3.0 stablecoin rails, round trip', () {
+    // Published payments, by their encrypted destination value.
+    final registry = <String, Map<String, dynamic>>{};
+    final lookups = <Uri>[];
+    late BrantaService publisher;
+    late BrantaService verifier;
+    late BrantaPayeeService payees;
+
+    setUp(() {
+      registry.clear();
+      lookups.clear();
+      final client = MockClient((request) async {
+        if (request.method == 'POST') {
+          final payment =
+              Map<String, dynamic>.from(jsonDecode(request.body) as Map)
+                ..['platform'] = 'Branta'
+                ..['platform_logo_url'] =
+                    'https://staging.guardrail.branta.pro/logo.png';
+          for (final d in payment['destinations'] as List) {
+            registry[(d as Map)['value'] as String] = payment;
+          }
+          return http.Response(jsonEncode(payment), 201,
+              headers: {'content-type': 'application/json'});
+        }
+        lookups.add(request.url);
+        final hit = registry[request.url.pathSegments.last];
+        return hit == null
+            ? http.Response('', 404)
+            : http.Response(jsonEncode([hit]), 200,
+                headers: {'content-type': 'application/json'});
+      });
+      publisher = BrantaService(
+          environment: BrantaEnvironment.staging,
+          apiKey: 'test-publisher',
+          httpClient: client);
+      verifier = BrantaService(
+          environment: BrantaEnvironment.staging, httpClient: client);
+      payees = BrantaPayeeService(verifier: verifier.verify);
+    });
+
+    /// A merchant's code for [address] on [type], as Branta hands it out.
+    Future<({String code, String secret})> publish(
+        String scheme, String address, DestinationType type) async {
+      final result = await publisher.addPayment(
+          PaymentBuilder().addDestination(address, type: type).build());
+      final id = result.payment.destinations.single.value;
+      return (
+        code: '$scheme:$address?value=50&currency=USD'
+            '&branta_id=${Uri.encodeComponent(id)}'
+            '&branta_secret=${Uri.encodeComponent(result.secret)}',
+        secret: result.secret,
+      );
+    }
+
+    // (scheme, address, Branta type, Kute's rail, Kute's chain slug,
+    // asset, a rail on the same address Kute must not badge)
+    final rails = [
+      (
+        'eth',
+        '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        DestinationType.usdcEthereum,
+        BrantaRail.usdcEthereum,
+        'ethereum',
+        'USDC',
+        BrantaRail.usdtEthereum,
+      ),
+      (
+        'eth',
+        '0xBF5550253939187432Ef4dccE8089765d3DCb47f',
+        DestinationType.usdtEthereum,
+        BrantaRail.usdtEthereum,
+        'ethereum',
+        'USDT',
+        BrantaRail.usdtPolygon,
+      ),
+      (
+        'bsc',
+        '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+        DestinationType.usdcBsc,
+        BrantaRail.usdcBsc,
+        'bsc',
+        'USDC',
+        BrantaRail.usdcEthereum,
+      ),
+      (
+        'bsc',
+        '0x55d398326f99059fF775485246999027B3197955',
+        DestinationType.usdtBsc,
+        BrantaRail.usdtBsc,
+        'bsc',
+        'USDT',
+        BrantaRail.usdcBsc,
+      ),
+      (
+        'tron',
+        'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb',
+        DestinationType.usdtTron,
+        BrantaRail.usdtTron,
+        'tron',
+        'USDT',
+        BrantaRail.usdtSolana,
+      ),
+      (
+        'sol',
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+        DestinationType.usdtSolana,
+        BrantaRail.usdtSolana,
+        'solana',
+        'USDT',
+        BrantaRail.usdcSolana,
+      ),
+      (
+        'sol',
+        '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf',
+        DestinationType.usdcSolana,
+        BrantaRail.usdcSolana,
+        'solana',
+        'USDC',
+        BrantaRail.usdtSolana,
+      ),
+    ];
+
+    for (final (scheme, address, type, rail, chain, asset, wrong) in rails) {
+      test('${type.jsonValue}: the payee only when paid on that very rail',
+          () async {
+        final (:code, :secret) = await publish(scheme, address, type);
+        // What Kute pays for this code: its address, on this rail.
+        expect(bareRecipientAddress(code), address);
+        expect(bareCrossChainRecipient(code), address);
+        expect(brantaRailFor(assetCode: asset, chain: chain), rail);
+
+        payees.noteInput(code);
+        final payee = await payees.lookup(address, rail);
+        expect(payee?.verified, isTrue);
+        expect(payee?.name, 'Branta');
+        expect(payee?.logoUrl, 'https://staging.guardrail.branta.pro/logo.png');
+        // Another token or another network on the same address: nothing.
+        expect(await payees.lookup(address, wrong), isNull);
+
+        // Branta saw the encrypted id only: never the address or secret.
+        expect(lookups, isNotEmpty);
+        for (final uri in lookups) {
+          final sent = Uri.decodeFull(uri.toString()).toLowerCase();
+          expect(sent.contains(address.toLowerCase()), isFalse);
+          expect(sent.contains(secret.toLowerCase()), isFalse);
+        }
+      });
+    }
+
+    test('eth: and bsc: codes name their network for the Dollars Send', () {
+      expect(
+          evmPaymentChainId('eth:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+              '?branta_id=x&branta_secret=y'),
+          1);
+      expect(
+          evmPaymentChainId('BSC:0x55d398326f99059fF775485246999027B3197955'),
+          56);
+    });
+
+    test('a swapped Tron or Solana address: the warning, never a payee',
+        () async {
+      const tron = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
+      const swappedTron = 'TXyZ1111111111111111111111111111111';
+      final t = await publish('tron', tron, DestinationType.usdtTron);
+      final swapped = t.code.replaceFirst(tron, swappedTron);
+      payees.noteInput(swapped);
+      expect(await payees.lookup(swappedTron, BrantaRail.usdtTron),
+          const BrantaPayee.tampered());
+
+      const sol = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+      const swappedSol = '11111111111111111111111111111111';
+      final s = await publish('sol', sol, DestinationType.usdtSolana);
+      payees.noteInput(s.code.replaceFirst(sol, swappedSol));
+      expect(await payees.lookup(swappedSol, BrantaRail.usdtSolana),
+          const BrantaPayee.tampered());
+    });
+
+    test('a bare address on a new rail reaches Branta not at all', () async {
+      const sol = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+      await publish('sol', sol, DestinationType.usdtSolana);
+      expect(await payees.lookup(sol, BrantaRail.usdtSolana), isNull);
+      expect((await verifier.verify(sol)).status, VerifyStatus.unknown);
+      expect((await verifier.verify('sol:$sol')).status, VerifyStatus.unknown);
+      expect(lookups, isEmpty);
+    });
   });
 }

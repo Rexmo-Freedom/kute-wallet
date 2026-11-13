@@ -6342,8 +6342,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// How this send pays [addr], for Branta's payee lookup
-  /// (services/branta): the chosen coin on its network (USDC or USDT on
-  /// Polygon), else the bitcoin rail the address itself names (a BOLT11
+  /// (services/branta): the chosen coin on its network (a stablecoin
+  /// Branta covers, [brantaRailFor]), else the bitcoin rail the address itself names (a BOLT11
   /// invoice on Lightning, a bitcoin address on chain); null when Branta
   /// has nothing for it.
   BrantaRail? _brantaRail(String addr) {

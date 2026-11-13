@@ -130,6 +130,22 @@ void main() {
     final first = ProviderContainer();
     await notifier(first).record(
         paymentIds: ['ln-1'], payee: _strike, rail: BrantaRail.lightning);
+    // Every stablecoin rail of branta 4.3.0 is kept by its name too.
+    final stableRails = [
+      BrantaRail.usdcEthereum,
+      BrantaRail.usdtEthereum,
+      BrantaRail.usdcBsc,
+      BrantaRail.usdtBsc,
+      BrantaRail.usdtTron,
+      BrantaRail.usdcSolana,
+      BrantaRail.usdtSolana,
+    ];
+    for (final rail in stableRails) {
+      expect(
+          await notifier(first).record(
+              paymentIds: ['ord-${rail.name}'], payee: _strike, rail: rail),
+          isTrue);
+    }
     first.dispose();
     await Hive.close();
 
@@ -142,6 +158,10 @@ void main() {
     expect(r?.name, 'Strike');
     expect(r?.logoUrl, _logo);
     expect(r?.rail, BrantaRail.lightning);
+    for (final rail in stableRails) {
+      expect(next.read(brantaPayeeRecordsProvider)['ord-${rail.name}']?.rail,
+          rail);
+    }
 
     // Another phone (nothing on disk): no record, the row as always.
     await Hive.deleteBoxFromDisk(BrantaPayeeRecordStore.boxName);

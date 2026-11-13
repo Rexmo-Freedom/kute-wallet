@@ -77,8 +77,9 @@ dependencies:
   # Branta (MIT, pure Dart, no native code): names and logos the payee of
   # a scanned or pasted destination on Send (services/branta). Verify
   # only, no account or key. Pinned exactly: it decides what Send calls
-  # verified (founder, 12 November 2026).
-  branta: 4.2.0
+  # verified (founder, 12 November 2026). 4.3.0 (13 November 2026) adds
+  # USDC/USDT on Ethereum, BNB Smart Chain and Solana, USDT on Tron and TON.
+  branta: 4.3.0
 
   # Breez SDK
   breez_sdk_spark_flutter:

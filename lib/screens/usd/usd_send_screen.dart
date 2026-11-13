@@ -542,7 +542,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   }
 
   /// The Branta lookup's rail for [d] (services/branta): USDC or USDT on
-  /// Polygon; null for every other coin and network.
+  /// Polygon, Ethereum, BNB Smart Chain or Solana, USDT on Tron; null for
+  /// every other coin and network.
   static BrantaRail? _brantaRail(UsdSendDestination d) =>
       brantaRailFor(assetCode: d.assetCode, chain: d.chain);
 

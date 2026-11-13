@@ -17,6 +17,8 @@ const _invoice = 'lnbc10u1p4w23tzpp50uc6g4020tt3ffp5xfpp83k0lcv2spyt';
 const _evm = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B';
 const _polCode = 'pol:$_evm?value=50&branta_id=xyz&branta_secret=k';
 const _logo = 'https://guardrail.branta.pro/logo.png';
+const _sol = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+const _tron = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 
 VerifyResult _match(String value, DestinationType type,
         {String name = 'Bitfinex', String? logo = _logo}) =>
@@ -91,6 +93,32 @@ void main() {
       service.noteInput(_polCode);
       expect((await service.lookup(_evm, BrantaRail.usdcPolygon))?.name,
           'Bitfinex');
+    });
+
+    test('Solana and Tron addresses (base58) match only exactly', () async {
+      final sol = BrantaPayeeService(
+          verifier:
+              _Fake((_) => _match(_sol, DestinationType.usdtSolana)).call);
+      sol.noteInput('sol:$_sol?branta_id=x&branta_secret=k');
+      expect((await sol.lookup(_sol, BrantaRail.usdtSolana))?.name, 'Bitfinex');
+      // The same code paid as USDC on Solana, or USDT on another chain:
+      // not the rail Branta bound.
+      expect(await sol.lookup(_sol, BrantaRail.usdcSolana), isNull);
+      expect(await sol.lookup(_sol, BrantaRail.usdtTron), isNull);
+
+      final caseOff = BrantaPayeeService(
+          verifier: _Fake(
+                  (_) => _match(_sol.toLowerCase(), DestinationType.usdcSolana))
+              .call);
+      caseOff.noteInput('sol:$_sol?branta_id=x&branta_secret=k');
+      expect(await caseOff.lookup(_sol, BrantaRail.usdcSolana), isNull);
+
+      final tron = BrantaPayeeService(
+          verifier: _Fake(
+                  (_) => _match(_tron.toUpperCase(), DestinationType.usdtTron))
+              .call);
+      tron.noteInput('tron:$_tron?branta_id=x&branta_secret=k');
+      expect(await tron.lookup(_tron, BrantaRail.usdtTron), isNull);
     });
 
     test('a match naming nobody shows nothing; a non-https logo is dropped',
@@ -240,14 +268,38 @@ void main() {
   });
 
   group('rails', () {
-    test('coins on networks: USDC and USDT on Polygon only', () {
+    test('coins on networks: the stablecoins Branta has and Kute pays', () {
       expect(brantaRailFor(assetCode: 'USDC', chain: 'polygon'),
           BrantaRail.usdcPolygon);
       expect(brantaRailFor(assetCode: 'usdt', chain: 'Polygon'),
           BrantaRail.usdtPolygon);
       expect(brantaRailFor(assetCode: 'USDC.e', chain: 'polygon'), isNull);
-      for (final chain in ['base', 'arbitrum', 'ethereum', 'solana', 'tron']) {
+      // branta 4.3.0: Ethereum, BNB Smart Chain, Tron (USDT), Solana.
+      expect(brantaRailFor(assetCode: 'USDC', chain: 'ethereum'),
+          BrantaRail.usdcEthereum);
+      expect(brantaRailFor(assetCode: 'USDT', chain: 'ethereum'),
+          BrantaRail.usdtEthereum);
+      expect(
+          brantaRailFor(assetCode: 'USDC', chain: 'bsc'), BrantaRail.usdcBsc);
+      expect(
+          brantaRailFor(assetCode: 'USDT', chain: 'bsc'), BrantaRail.usdtBsc);
+      expect(
+          brantaRailFor(assetCode: 'USDT', chain: 'tron'), BrantaRail.usdtTron);
+      expect(brantaRailFor(assetCode: 'USDC', chain: 'solana'),
+          BrantaRail.usdcSolana);
+      expect(brantaRailFor(assetCode: 'USDT', chain: 'solana'),
+          BrantaRail.usdtSolana);
+      // Branta has no USDC on Tron; Kute pays no TON; other tokens and
+      // other networks have nothing.
+      expect(brantaRailFor(assetCode: 'USDC', chain: 'tron'), isNull);
+      expect(brantaRailFor(assetCode: 'USDT', chain: 'ton'), isNull);
+      expect(brantaRailFor(assetCode: 'USDT0', chain: 'ethereum'), isNull);
+      expect(brantaRailFor(assetCode: 'USDB', chain: 'ethereum'), isNull);
+      expect(brantaRailFor(assetCode: 'BTC', chain: 'solana'), isNull);
+      for (final chain in ['base', 'arbitrum', 'optimism', 'avalanche']) {
         expect(brantaRailFor(assetCode: 'USDC', chain: chain), isNull,
+            reason: chain);
+        expect(brantaRailFor(assetCode: 'USDT', chain: chain), isNull,
             reason: chain);
       }
       expect(brantaRailFor(assetCode: 'BTC', chain: 'bitcoin'),
@@ -275,6 +327,22 @@ void main() {
       expect(BrantaRail.lightning.type, DestinationType.bolt11);
       expect(BrantaRail.usdcPolygon.type, DestinationType.usdcPolygon);
       expect(BrantaRail.usdtPolygon.type, DestinationType.usdtPolygon);
+      expect(BrantaRail.usdcEthereum.type, DestinationType.usdcEthereum);
+      expect(BrantaRail.usdtEthereum.type, DestinationType.usdtEthereum);
+      expect(BrantaRail.usdcBsc.type, DestinationType.usdcBsc);
+      expect(BrantaRail.usdtBsc.type, DestinationType.usdtBsc);
+      expect(BrantaRail.usdtTron.type, DestinationType.usdtTron);
+      expect(BrantaRail.usdcSolana.type, DestinationType.usdcSolana);
+      expect(BrantaRail.usdtSolana.type, DestinationType.usdtSolana);
+    });
+
+    test('every Branta chain code is noted by the address Send keeps', () {
+      final service = BrantaPayeeService(verifier: _Fake((_) => _unknown).call);
+      for (final scheme in kBrantaChainSchemes) {
+        final code = '$scheme:$_sol?branta_id=x&branta_secret=k';
+        service.noteInput(code);
+        expect(service.inputFor(_sol), code, reason: scheme);
+      }
     });
 
     test('what Branta can verify', () {

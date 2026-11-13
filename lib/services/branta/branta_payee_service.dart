@@ -13,7 +13,8 @@
 //
 // PRIVACY. Branta never sees the address:
 //
-//   * a `bitcoin:` or `pol:` code from a Branta merchant carries
+//   * a `bitcoin:` code or a stablecoin chain code (`pol:`, `eth:`,
+//     `bsc:`, `tron:`, `sol:`) from a Branta merchant carries
 //     `branta_id` (the address already encrypted with `branta_secret`) and
 //     `branta_secret`; the lookup sends the id alone, the secret never
 //     leaves the phone, and the answer is decrypted here;
@@ -32,10 +33,19 @@
 //
 //   * Bitcoin on-chain: a `bitcoin:` code with `branta_id`/`branta_secret`;
 //   * Lightning: a BOLT11 invoice (also from a unified `bitcoin:` code);
-//   * USDC and USDT on Polygon: a `pol:` code with the Branta params.
+//   * stablecoins (branta 4.3.0, founder 13 November 2026: "it accepts
+//     other stables"), each a chain code with the Branta params, the
+//     scheme naming the network and Branta's answer the token:
+//       - USDC and USDT on Polygon (`pol:`),
+//       - USDC and USDT on Ethereum (`eth:`),
+//       - USDC and USDT on BNB Smart Chain (`bsc:`),
+//       - USDT on Tron (`tron:`),
+//       - USDC and USDT on Solana (`sol:`).
 //
-// Nothing else is in Branta (no USDC on Base, Arbitrum, Solana …, no Spark
-// or Lightning addresses): those never show a badge.
+// Branta also has USDT on TON (`ton:`), but Kute never pays TON (it is
+// not a sendable chain), so it has no rail here. Nothing else is in
+// Branta (no USDC on Base or Arbitrum, no USDC on Tron, no Spark or
+// Lightning addresses): those never show a badge.
 //
 // A NAME ONLY FOR WHAT IS PAID. A payee is shown only when Branta bound
 // the very address Send pays, on the rail it pays ([BrantaRail]): a
@@ -69,7 +79,14 @@ enum BrantaRail {
   bitcoinOnchain(DestinationType.bitcoinAddress),
   lightning(DestinationType.bolt11),
   usdcPolygon(DestinationType.usdcPolygon),
-  usdtPolygon(DestinationType.usdtPolygon);
+  usdtPolygon(DestinationType.usdtPolygon),
+  usdcEthereum(DestinationType.usdcEthereum),
+  usdtEthereum(DestinationType.usdtEthereum),
+  usdcBsc(DestinationType.usdcBsc),
+  usdtBsc(DestinationType.usdtBsc),
+  usdtTron(DestinationType.usdtTron),
+  usdcSolana(DestinationType.usdcSolana),
+  usdtSolana(DestinationType.usdtSolana);
 
   const BrantaRail(this.type);
 
@@ -78,20 +95,43 @@ enum BrantaRail {
 }
 
 /// The rail of a send of [assetCode] on [chain] (an Orchestra slug or a
-/// network name), or null when Branta has nothing for it. USDC.e is a
-/// different token from Polygon's USDC and gets none.
+/// network name), or null when Branta has nothing for it. Only the
+/// exact tokens Branta names count: USDC.e (bridged), USDT0 and the like
+/// are different tokens and get none.
 BrantaRail? brantaRailFor({required String assetCode, required String chain}) {
   final asset = assetCode.trim().toUpperCase();
   final network = chain.trim().toLowerCase();
-  if (network == 'polygon' || network == 'matic' || network == 'pol') {
-    if (asset == 'USDC') return BrantaRail.usdcPolygon;
-    if (asset == 'USDT') return BrantaRail.usdtPolygon;
-    return null;
-  }
+  final (usdc, usdt) = switch (network) {
+    'polygon' || 'matic' || 'pol' => (
+        BrantaRail.usdcPolygon,
+        BrantaRail.usdtPolygon
+      ),
+    'ethereum' || 'eth' => (BrantaRail.usdcEthereum, BrantaRail.usdtEthereum),
+    'bsc' || 'bnb' => (BrantaRail.usdcBsc, BrantaRail.usdtBsc),
+    // Branta has no USDC on Tron.
+    'tron' || 'trx' => (null, BrantaRail.usdtTron),
+    'solana' || 'sol' => (BrantaRail.usdcSolana, BrantaRail.usdtSolana),
+    _ => (null, null),
+  };
+  if (asset == 'USDC') return usdc;
+  if (asset == 'USDT') return usdt;
   if (asset == 'BTC' && network == 'bitcoin') return BrantaRail.bitcoinOnchain;
   if (asset == 'BTC' && network == 'lightning') return BrantaRail.lightning;
   return null;
 }
+
+/// The URI schemes Branta's stablecoin codes use (one per network; the
+/// token is in Branta's answer, never in the scheme). `ton:` is among
+/// them though Kute pays no TON, so such a code still reduces to its
+/// address like the others.
+const Set<String> kBrantaChainSchemes = {
+  'pol',
+  'eth',
+  'bsc',
+  'tron',
+  'ton',
+  'sol'
+};
 
 /// The rail a bitcoin destination is paid on by its shape: a BOLT11
 /// invoice on Lightning, a bitcoin address (or `bitcoin:` code) on chain;
@@ -207,8 +247,8 @@ class BrantaPayeeService {
   final Map<String, Future<BrantaPayee?>> _inFlight = {};
 
   /// What the person scanned or pasted, by the bare destination Send kept
-  /// of it (lower case): Send strips a `bitcoin:` or `pol:` code down to
-  /// its address, and the Branta params go with it.
+  /// of it (lower case): Send strips a `bitcoin:` or chain code (`pol:`,
+  /// `eth:` …) down to its address, and the Branta params go with it.
   final Map<String, String> _inputs = {};
 
   /// Production uses Branta's production registry; `BRANTA_STAGING=true`
@@ -343,7 +383,7 @@ class BrantaPayeeService {
 BrantaPayee? payeeFromMatch(VerifyResult result,
     {required String payTo, required BrantaRail rail}) {
   bool same(Destination d) =>
-      d.type == rail.type && _sameDestination(d.value, payTo);
+      d.type == rail.type && _sameDestination(d.value, payTo, rail);
   if (!result.matchedDestinations.any(same)) return null;
   final payment = result.payments
           .where((p) => p.destinations.any((d) => !d.isEncrypted && same(d)))
@@ -366,10 +406,17 @@ String? _httpsOrNull(String? url) {
 }
 
 /// Addresses and invoices compare without case (bech32, BOLT11 and EVM
-/// checksums are all case-insensitive); base58 compares exactly.
-bool _sameDestination(String a, String b) {
+/// checksums are all case-insensitive); base58 compares exactly, and the
+/// Tron and Solana rails are base58 only (a Solana address may well start
+/// with "ln" or "bc1").
+bool _sameDestination(String a, String b, BrantaRail rail) {
   final x = a.trim();
   final y = b.trim();
+  if (rail == BrantaRail.usdtTron ||
+      rail == BrantaRail.usdcSolana ||
+      rail == BrantaRail.usdtSolana) {
+    return x == y;
+  }
   final lower = x.toLowerCase();
   final caseless = lower.startsWith('bc1') ||
       lower.startsWith('tb1') ||
@@ -379,14 +426,16 @@ bool _sameDestination(String a, String b) {
   return caseless ? lower == y.toLowerCase() : x == y;
 }
 
-/// [destination] as Send pays it: a `bitcoin:`, `lightning:` or `pol:`
-/// code reduced to its address or invoice.
+/// [destination] as Send pays it: a `bitcoin:`, `lightning:` or Branta
+/// chain code ([kBrantaChainSchemes]) reduced to its address or invoice.
 String _bareDestination(String destination) {
   var d = destination.trim();
   final colon = d.indexOf(':');
   if (colon > 0) {
     final scheme = d.substring(0, colon).toLowerCase();
-    if (scheme == 'bitcoin' || scheme == 'lightning' || scheme == 'pol') {
+    if (scheme == 'bitcoin' ||
+        scheme == 'lightning' ||
+        kBrantaChainSchemes.contains(scheme)) {
       d = d.substring(colon + 1);
       final q = d.indexOf('?');
       if (q != -1) d = d.substring(0, q);

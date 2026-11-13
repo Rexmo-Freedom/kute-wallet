@@ -764,6 +764,12 @@ void main() {
     expect(usdSendPaymentRequestDestination(_evm, offered), isNull);
     expect(usdSendPaymentRequestDestination(_tron, offered), isNull);
     expect(usdSendPaymentRequestDestination('ethereum:$_evm', offered), isNull);
+    // Branta's chain codes pin their network by the scheme.
+    const branta = '?branta_id=a&branta_secret=b';
+    expect(usdSendPaymentRequestDestination('eth:$_evm$branta', offered)?.id,
+        'ethereum:USDC');
+    expect(usdSendPaymentRequestDestination('tron:$_tron$branta', offered)?.id,
+        'tron:USDT');
     expect(usdSendPaymentRequestDestination('ethereum:$_evm@424242', offered),
         isNull);
   });

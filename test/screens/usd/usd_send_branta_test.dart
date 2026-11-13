@@ -4,7 +4,9 @@
 // Review name the payee with its logo and "Verified by Branta", and
 // analytics gets a yes/no only (`verified_payee`): never the address, the
 // code's id or secret, nor the payee's name. Nothing here reaches a money
-// call: the case stops on Review.
+// call: the case stops on Review. The same for branta 4.3.0's chain codes
+// (13 November 2026): `eth:` USDC on Ethereum, `bsc:` USDT on BNB Smart
+// Chain, `tron:` USDT on Tron, `sol:` USDC on Solana.
 
 import 'dart:convert';
 import 'dart:io';
@@ -45,6 +47,8 @@ const _brantaId = '8rnGGWZcg%2Fg3He1OK6yZ6OLOEyusldwIDaoPImRzWjoUGgu';
 const _secret = '0515039f-2c31-4467-b62a-4e919079a44e';
 const _code = 'pol:$_evm?value=50&user=send&currency=USD'
     '&branta_id=$_brantaId&branta_secret=$_secret';
+const _tron = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+const _sol = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
 
@@ -71,6 +75,11 @@ class _Routes extends OrchestraSupportedRoutesNotifier {
           _row('polygon', 'USDC'),
           _row('polygon', 'USDT'),
           _row('base', 'USDC'),
+          _row('ethereum', 'USDC'),
+          _row('bsc', 'USDT', decimals: 18),
+          _row('tron', 'USDT'),
+          _row('solana', 'USDC'),
+          _row('solana', 'USDT'),
         ],
       },
       source: OrchestraCatalogSource.live,
@@ -183,9 +192,14 @@ void main() {
     TrackingService.debugTrackObserver = null;
   });
 
-  testWidgets(
-      'a Branta USDC code on Polygon: the payee on the row and on Review, '
-      'analytics a yes/no only', (tester) async {
+  /// A Branta [code] for [address] matched on [type]: the payee on the
+  /// row and on Review when Send pays [network], analytics a yes/no only.
+  Future<void> verifiedFlow(WidgetTester tester,
+      {required String code,
+      required String address,
+      required DestinationType type,
+      required String network,
+      required String scheme}) async {
     final inputs = <String>[];
     // The screens note the code on the app's service and read the same.
     final branta = BrantaPayeeService(verifier: (input) async {
@@ -196,8 +210,8 @@ void main() {
           Payment(
             destinations: [
               Destination(
-                  value: _evm,
-                  type: DestinationType.usdcPolygon,
+                  value: address,
+                  type: type,
                   isEncrypted: false)
             ],
             platform: 'Bitfinex',
@@ -205,8 +219,7 @@ void main() {
           ),
         ],
         matchedDestinations: [
-          Destination(
-              value: _evm, type: DestinationType.usdcPolygon, isEncrypted: false)
+          Destination(value: address, type: type, isEncrypted: false)
         ],
         verifyUrl: '',
       );
@@ -215,15 +228,16 @@ void main() {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
 
-    await _pump(tester, branta);
+    await _pump(tester, branta, recipient: code);
 
-    // The code pins USDC on Polygon and fills the field with the address.
-    expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text, _evm);
+    // The code pins its coin and network and fills the field with the
+    // address.
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        address);
     expect(find.text('Bitfinex'), findsOneWidget);
     expect(find.byKey(const ValueKey('send-branta-logo')), findsOneWidget);
     // Looked up by the code as handed over, its Branta params intact.
-    expect(inputs.toSet(), {_code});
+    expect(inputs.toSet(), {code});
 
     await tester.tap(find.text(_l10n.continueLabel));
     await tester.pumpAndSettle();
@@ -251,17 +265,17 @@ void main() {
         .toList();
     expect(steps, isNotEmpty);
     expect(steps.last.$2!['verified_payee'], isTrue);
-    expect(steps.last.$2!['to_network'], 'polygon');
+    expect(steps.last.$2!['to_network'], network);
     // ... and nothing that names the address, the code or the payee, in
     // any event at all.
     final forbidden = [
-      _evm.toLowerCase(),
-      _evm.substring(2, 12).toLowerCase(),
+      address.toLowerCase(),
+      address.substring(2, 12).toLowerCase(),
       _secret,
       Uri.decodeComponent(_brantaId).toLowerCase(),
       'bitfinex',
       'branta',
-      'pol:',
+      '$scheme:',
     ];
     for (final (name, params) in events) {
       final text = '$name ${jsonEncode(params?.map((k, v) => MapEntry(k, '$v')))}'
@@ -271,6 +285,98 @@ void main() {
             reason: 'event "$name" carried "$f": $text');
       }
     }
+  }
+
+  String brantaCode(String scheme, String address) =>
+      '$scheme:$address?value=50&user=send&currency=USD'
+      '&branta_id=$_brantaId&branta_secret=$_secret';
+
+  testWidgets(
+      'a Branta USDC code on Polygon: the payee on the row and on Review, '
+      'analytics a yes/no only',
+      (tester) => verifiedFlow(tester,
+          code: _code,
+          address: _evm,
+          type: DestinationType.usdcPolygon,
+          network: 'polygon',
+          scheme: 'pol'));
+
+  testWidgets(
+      'a Branta USDC code on Ethereum (eth:, branta 4.3.0): the payee on the '
+      'row and on Review',
+      (tester) => verifiedFlow(tester,
+          code: brantaCode('eth', _evm),
+          address: _evm,
+          type: DestinationType.usdcEthereum,
+          network: 'ethereum',
+          scheme: 'eth'));
+
+  testWidgets(
+      'a Branta USDT code on BNB Smart Chain (bsc:): the payee on the row '
+      'and on Review',
+      (tester) => verifiedFlow(tester,
+          code: brantaCode('bsc', _evm),
+          address: _evm,
+          type: DestinationType.usdtBsc,
+          network: 'bsc',
+          scheme: 'bsc'));
+
+  testWidgets(
+      'a Branta USDT code on Tron (tron:): the payee on the row and on Review',
+      (tester) => verifiedFlow(tester,
+          code: brantaCode('tron', _tron),
+          address: _tron,
+          type: DestinationType.usdtTron,
+          network: 'tron',
+          scheme: 'tron'));
+
+  testWidgets(
+      'a Branta USDC code on Solana (sol:): the payee on the row and on Review',
+      (tester) => verifiedFlow(tester,
+          code: brantaCode('sol', _sol),
+          address: _sol,
+          type: DestinationType.usdcSolana,
+          network: 'solana',
+          scheme: 'sol'));
+
+  testWidgets(
+      'a Branta code bound to USDT on Solana, paid as USDC (the coin the '
+      'code lands on): no badge, verified_payee false', (tester) async {
+    final branta = BrantaPayeeService(
+        verifier: (_) async => VerifyResult(
+              status: VerifyStatus.match,
+              payments: [
+                Payment(
+                  destinations: [
+                    Destination(
+                        value: _sol,
+                        type: DestinationType.usdtSolana,
+                        isEncrypted: false)
+                  ],
+                  platform: 'Bitfinex',
+                ),
+              ],
+              matchedDestinations: [
+                Destination(
+                    value: _sol,
+                    type: DestinationType.usdtSolana,
+                    isEncrypted: false)
+              ],
+              verifyUrl: '',
+            ));
+    BrantaPayeeService.shared = branta;
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    await _pump(tester, branta, recipient: brantaCode('sol', _sol));
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        _sol);
+    expect(find.text('Bitfinex'), findsNothing);
+    expect(find.byKey(const ValueKey('send-branta-logo')), findsNothing);
+    final flagged = events
+        .where((e) => e.$2?.containsKey('verified_payee') ?? false)
+        .map((e) => e.$2!['verified_payee'])
+        .toSet();
+    expect(flagged, isNot(contains(true)));
   });
 
   testWidgets('a bare address: no lookup, verified_payee false',
