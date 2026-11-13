@@ -41,6 +41,16 @@
 // The squares are only shown when [kHlMoverCardMin] (four) markets
 // qualify: a grid with a hole reads as a mistake.
 //
+// THE WATCHLIST WEARS THE SAME SQUARES (founder, 13 November 2026: "show
+// [it] with the design of the 4 main squares after it is created"): on
+// Investing's Watchlist the first markets of the list, in its order
+// ([hlWatchlistSquareCount]: four from four, two for two or three, none
+// for one, never a lone half square), as these squares, entry_source
+// 'watchlist', each logo's usual fallback (the glyph or letter tile) where
+// a market has no logo of its own ([HlMovingNowStrip.blankUntilLogo]
+// false: a market the person picked is shown whatever its logo); the rest
+// of the list as the rows under them (hyperliquid_screen.dart).
+//
 // Only markets with a logo of their own are on it (founder, 11 November
 // 2026: "don't show Moving now without svg, means that they have low
 // liquidity"): [hlStripWithLogos] keeps the ranking and its rules and
@@ -359,8 +369,16 @@ double hlMovingNowCardHeight(BuildContext context) {
   return content > least ? content : least;
 }
 
+/// How many of a Watchlist of [count] markets are squares (see the file
+/// header): full rows of two only, four at most; the rest are rows.
+int hlWatchlistSquareCount(int count) => count >= kHlMoverCardMax
+    ? kHlMoverCardMax
+    : count >= 2
+        ? 2
+        : 0;
+
 /// The four squares, two by two, one per market in [markets] (the strip's
-/// own order: [hlTrendingStrip] / [hlMovingNow]).
+/// own order: [hlTrendingStrip] / [hlMovingNow]; the Watchlist's).
 class HlMovingNowStrip extends StatelessWidget {
   final List<HlMarket> markets;
 
@@ -368,7 +386,22 @@ class HlMovingNowStrip extends StatelessWidget {
   /// default opens the spending account's market detail sheet.
   final void Function(HlMarket market)? onTap;
 
-  const HlMovingNowStrip({super.key, required this.markets, this.onTap});
+  /// The market page's entry source for a tap ([kHlMovingNowSource]; the
+  /// Watchlist's 'watchlist').
+  final String source;
+
+  /// A blank plate where a market has no logo (Moving now, whose markets
+  /// all have one); false: the logo's usual glyph or letter tile (the
+  /// Watchlist, see the file header).
+  final bool blankUntilLogo;
+
+  const HlMovingNowStrip({
+    super.key,
+    required this.markets,
+    this.onTap,
+    this.source = kHlMovingNowSource,
+    this.blankUntilLogo = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -382,6 +415,8 @@ class HlMovingNowStrip extends StatelessWidget {
           HlMovingNowCard(
             key: ValueKey('hl-mover-${m.kind.name}-${m.wireCoin}'),
             market: m,
+            source: source,
+            blankUntilLogo: blankUntilLogo,
             onTap: tap == null ? null : () => tap(m),
           ),
       ]),
@@ -433,7 +468,17 @@ class HlMovingNowCard extends ConsumerStatefulWidget {
   final HlMarket market;
   final VoidCallback? onTap;
 
-  const HlMovingNowCard({super.key, required this.market, this.onTap});
+  /// As [HlMovingNowStrip.source] and [HlMovingNowStrip.blankUntilLogo].
+  final String source;
+  final bool blankUntilLogo;
+
+  const HlMovingNowCard({
+    super.key,
+    required this.market,
+    this.onTap,
+    this.source = kHlMovingNowSource,
+    this.blankUntilLogo = true,
+  });
 
   @override
   ConsumerState<HlMovingNowCard> createState() => _HlMovingNowCardState();
@@ -460,7 +505,7 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
       // hyperliquid_market_viewed fires once, from the sheet, with this
       // grid as its entry source.
       HlMarketDetailSheet.show(context,
-          market: widget.market, source: kHlMovingNowSource);
+          market: widget.market, source: widget.source);
     }
   }
 
@@ -505,18 +550,21 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
                       ClipOval(
                         // A blank plate until the logo paints, never the
                         // letter tile or a glyph (only markets with a
-                        // logo are on the strip).
+                        // logo are on the strip); the Watchlist's keep
+                        // the logo's usual fallback.
                         child: HlCoinIcon(
                           coin: m.coin,
                           wireCoin: m.wireCoin,
                           category: m.category,
                           iconUrl: m.iconUrl,
                           size: kHlMoverCardIcon,
-                          placeholder: Container(
-                            width: kHlMoverCardIcon.w,
-                            height: kHlMoverCardIcon.w,
-                            color: c.surfaceElevated,
-                          ),
+                          placeholder: widget.blankUntilLogo
+                              ? Container(
+                                  width: kHlMoverCardIcon.w,
+                                  height: kHlMoverCardIcon.w,
+                                  color: c.surfaceElevated,
+                                )
+                              : null,
                         ),
                       ),
                       SizedBox(width: 8.w),

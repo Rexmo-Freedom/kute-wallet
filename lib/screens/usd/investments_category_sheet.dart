@@ -174,6 +174,21 @@
 // closes; a tile without subcategories picks and closes at once. The
 // pick writes the same providers and sends the same events the pills did.
 //
+// THE INVESTING WATCHLIST (founder, 13 November 2026: "on Investing, when
+// we click on the filters we should have 'create a watchlist'"). Under
+// Trending's card, Investing's sheet always has the Watchlist's wide card.
+// Before a market is on it, the card reads "Create a watchlist" with a "+"
+// in the tint's circle (the glyph art of the Portfolio's cards) and opens
+// the watchlist sheet (hl_watchlist_sheet.dart) over this one; a Done that
+// leaves markets on it closes this sheet on the Watchlist (picked as any
+// card is, `hl_category_pill_tapped` {section: watchlist}). Once it holds a
+// market, the card is Trending's: the stack of its newest markets, its name
+// and its numbers ("3 markets · ▲ 1.2%"), and an "Edit" at its end that
+// opens the same sheet. Investing then opens on the Watchlist every time
+// (hlDefaultBrowseSelection); emptied, the card reads "Create a watchlist"
+// again and Investing opens on Trending. Predictions' Watchlist is
+// unchanged (its card only once something is starred).
+//
 // THE BAR OVER THIS SHEET reads "Pick a market group"; tapped, the Sal
 // sheet opens with every category of the venue under its composer, as
 // these same cards in the same two-column grid (an odd last one full
@@ -213,6 +228,8 @@ import 'package:kute/providers/polymarket_provider.dart'
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+import 'package:kute/screens/hyperliquid/components/hl_watchlist_sheet.dart'
+    show showHlWatchlistSheet;
 import 'package:kute/screens/polymarket/components/market_card.dart'
     show polyGroupRowDivider;
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
@@ -908,10 +925,20 @@ class _InvestmentsCategorySheetState
             current.copyWith(tab: t, sub: s);
       });
 
+  /// The watchlist sheet over this one (see the file header): a Done that
+  /// leaves markets on the watchlist closes this sheet on it.
+  Future<void> _openWatchlistSheet() async {
+    final saved = await showHlWatchlistSheet(context, source: 'category_sheet');
+    if (!mounted || !saved || ref.read(hlWatchlistProvider).isEmpty) return;
+    _pickHl(HlBrowseTab.watchlist, HlBrowseSub.all, hold: false);
+  }
+
   List<Widget> _investing(BuildContext context) {
     final l10n = context.l10n;
     final c = context.colors;
     final sel = ref.watch(hlBrowseSelectionProvider);
+    // The Watchlist's card follows its stars, empty or not.
+    ref.watch(hlWatchlistProvider);
     final onOffer = hlCategoriesOnOffer(ref);
     // The coins the tiles above already show, so the stacks differ.
     final shown = <String>{};
@@ -937,6 +964,13 @@ class _InvestmentsCategorySheetState
         logos: _hlLogos(top),
         picked: _picked(t, HlBrowseSub.all, sel.tab == t),
         onTap: () => _pickHl(t, HlBrowseSub.all),
+        action: t == HlBrowseTab.watchlist
+            ? _TileAction(
+                key: const ValueKey('category-tile-watchlist-edit'),
+                label: l10n.edit,
+                onTap: _openWatchlistSheet,
+              )
+            : null,
       );
     }
 
@@ -961,7 +995,18 @@ class _InvestmentsCategorySheetState
       if (onOffer.contains(HlBrowseTab.trending))
         _rise(0, wide(HlBrowseTab.trending, lead: l10n.categoryStatMostActive)),
       if (onOffer.contains(HlBrowseTab.watchlist))
-        _rise(1, wide(HlBrowseTab.watchlist)),
+        _rise(1, wide(HlBrowseTab.watchlist))
+      else if (onOffer.isNotEmpty)
+        // No market on it yet: the way to make one (see the file header).
+        _rise(
+            1,
+            _Tile.wide(
+              key: const ValueKey('category-tile-watchlist-create'),
+              tint: _hlTint(c, HlBrowseTab.watchlist),
+              glyph: Icons.add_rounded,
+              name: l10n.hlWatchlistCreate,
+              onTap: _openWatchlistSheet,
+            )),
       _rise(2, _label(context, l10n.categoryGroupMarkets)),
       _grid([
         for (final t in onOffer)
@@ -1742,6 +1787,7 @@ class _Tile extends StatelessWidget {
   })  : shape = _TileShape.grid,
         chevron = false,
         fitLogos = false,
+        action = null,
         lone = false;
 
   const _Tile.wide({
@@ -1750,14 +1796,15 @@ class _Tile extends StatelessWidget {
     required this.name,
     required this.onTap,
     this.logos = const [],
+    this.glyph,
     this.asset,
     this.plateIcon,
     this.stat,
     this.picked = false,
     this.chevron = false,
     this.fitLogos = false,
+    this.action,
   })  : shape = _TileShape.wide,
-        glyph = null,
         lone = false;
 
   const _Tile._lone({
@@ -1774,6 +1821,7 @@ class _Tile extends StatelessWidget {
   })  : shape = _TileShape.wide,
         chevron = false,
         fitLogos = false,
+        action = null,
         lone = true;
 
   /// This card as a grid's odd last one: full width, laid out as the wide
@@ -1810,6 +1858,10 @@ class _Tile extends StatelessWidget {
   /// A chevron at the row's right: the lone card of a row (the one-card
   /// rule, kute_action_cards.dart), Predictions' Trending.
   final bool chevron;
+
+  /// A second tap target at the row's end, its own word (the Watchlist's
+  /// "Edit"); the rest of the card picks as ever.
+  final _TileAction? action;
 
   /// The stack gives way to the name (a half-width row, Predictions'
   /// Trending beside "5 minute markets"): as many of the logos as leave
@@ -1895,6 +1947,10 @@ class _Tile extends StatelessWidget {
               SizedBox(width: 10.w),
               Expanded(
                   child: _NameAndStat(name: name, style: nameStyle, stat: stat)),
+              if (action != null) ...[
+                SizedBox(width: 6.w),
+                action!,
+              ],
               // The lone card's chevron (kute_action_cards.dart).
               if (chevron) ...[
                 SizedBox(width: 6.w),
@@ -1960,6 +2016,46 @@ class _Tile extends StatelessWidget {
             // the ring changes.
             decoration: soft.copyWith(border: ring),
             child: body,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A card's own action at its end (the Watchlist's "Edit"): its word in
+/// the numbers line's quiet colour a step bolder, on a tap target the
+/// card's height, the app's press spring; never cut (it is short, and the
+/// name beside it wraps first).
+class _TileAction extends StatelessWidget {
+  const _TileAction(
+      {super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 10.h),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
           ),
         ),
       ),

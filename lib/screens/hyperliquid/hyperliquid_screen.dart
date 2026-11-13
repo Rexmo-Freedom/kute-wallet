@@ -34,6 +34,8 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconAvailability, HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
+import 'package:kute/screens/hyperliquid/components/hl_watchlist_sheet.dart'
+    show showHlWatchlistSheet;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
@@ -158,7 +160,12 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// logo of their own ([hlStripWithLogos]); chosen again when logos are
   /// settled ([HlIconAvailability.revision]), and while ones that could
   /// fill it are unknown the squares' skeleton stands ([_moversLoading]).
+  ///
+  /// The Watchlist has its squares too (founder, 13 November 2026): its
+  /// first markets, in its order, as many as fill full rows of two
+  /// ([hlWatchlistSquareCount]), the rest of it the rows under them.
   List<HlMarket>? _moversListed;
+  HlBrowseTab? _moversTab;
   bool _moversPerpsLanded = false;
   bool _moversDefault = false;
   int _moversLogos = -1;
@@ -174,13 +181,24 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     final defaultView = hlBrowseIsDefaultView(tab, sub);
     final logos = HlIconAvailability.revision.value;
     if (!identical(markets, _moversListed) ||
+        tab != _moversTab ||
         perpsLanded != _moversPerpsLanded ||
         defaultView != _moversDefault ||
         logos != _moversLogos) {
       _moversListed = markets;
+      _moversTab = tab;
       _moversPerpsLanded = perpsLanded;
       _moversDefault = defaultView;
       _moversLogos = logos;
+      if (tab == HlBrowseTab.watchlist) {
+        // Exactly what was picked: no ranking, no logo rule, nothing
+        // left out (see [hlWatchlistSquareCount]).
+        final n = hlWatchlistSquareCount(markets.length);
+        _moversLoading = false;
+        _movers = markets.sublist(0, n);
+        _rest = markets.sublist(n);
+        return _movers;
+      }
       final pick = defaultView
           ? hlStripWithLogos(
               (keep) => _trendingStrip(markets, universe, keep: keep))
@@ -526,8 +544,11 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     var selection = ref.watch(hlBrowseSelectionProvider);
     ref.listen<HlBrowseSelection>(hlBrowseSelectionProvider, (prev, next) {
       final drill = _drillFor(next);
-      // A pick drills in; the reset when the pill is left drills out.
-      final reset = next.tab == HlBrowseTab.trending && next.subs.isEmpty;
+      // A pick drills in; the reset when the pill is left drills out (to
+      // Trending, or to the Watchlist once one holds a market).
+      final reset = next.subs.isEmpty &&
+          (next.tab == HlBrowseTab.trending ||
+              next.tab == HlBrowseTab.watchlist);
       if (drill != _drilledInto && (drill != null || reset)) {
         setState(() => _drilledInto = drill);
       }
@@ -674,9 +695,20 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: EdgeInsets.only(top: 8.h),
-                                  child: HlMovingNowStrip(
-                                      markets: _moversFor(
-                                          tab, sub, markets, universe)),
+                                  child: tab == HlBrowseTab.watchlist
+                                      // The Watchlist's own squares: every
+                                      // market shown whatever its logo.
+                                      ? HlMovingNowStrip(
+                                          key: const ValueKey(
+                                              'hl-watchlist-squares'),
+                                          markets: _moversFor(
+                                              tab, sub, markets, universe),
+                                          source: 'watchlist',
+                                          blankUntilLogo: false,
+                                        )
+                                      : HlMovingNowStrip(
+                                          markets: _moversFor(
+                                              tab, sub, markets, universe)),
                                 ),
                               ),
                             SliverToBoxAdapter(child: SizedBox(height: 8.h)),
@@ -700,6 +732,15 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                 ),
                               ),
                             ),
+                            // The Watchlist's Edit, under its list: the
+                            // watchlist sheet (hl_watchlist_sheet.dart).
+                            if (tab == HlBrowseTab.watchlist)
+                              SliverToBoxAdapter(
+                                child: _WatchlistEditRow(
+                                  onTap: () => showHlWatchlistSheet(context,
+                                      source: 'watchlist_view'),
+                                ),
+                              ),
                           ],
                         ],
                       ),
@@ -789,6 +830,55 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     );
   }
 
+}
+
+// ───────────────────────── watchlist edit ─────────────────────────
+
+/// "Edit ›" under the Watchlist's list: the quiet fold row of the
+/// Portfolio's cards (BalancesFoldRow: 13 sp, w600, the secondary ink, the
+/// chevron in the tertiary), at the list's 16 gutter and the rows' inset.
+class _WatchlistEditRow extends StatelessWidget {
+  const _WatchlistEditRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final label = context.l10n.edit;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: InkWell(
+          key: const ValueKey('hl-watchlist-edit'),
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Row(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+                SizedBox(width: 2.w),
+                Icon(Icons.chevron_right_rounded,
+                    size: 16.w, color: c.textTertiary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ───────────────────────── empty state ─────────────────────────

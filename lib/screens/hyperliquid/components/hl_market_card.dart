@@ -81,8 +81,16 @@ class HlMarketCard extends ConsumerStatefulWidget {
   /// group's rows. The list draws the card and the hairlines.
   final bool inGroup;
 
+  /// After the price and its change, at the row's end: the watchlist
+  /// sheet's check (hl_watchlist_sheet.dart). Null on every list.
+  final Widget? trailing;
+
   const HlMarketCard(
-      {super.key, required this.market, this.onTap, this.inGroup = false});
+      {super.key,
+      required this.market,
+      this.onTap,
+      this.inGroup = false,
+      this.trailing});
 
   @override
   ConsumerState<HlMarketCard> createState() => _HlMarketCardState();
@@ -175,6 +183,7 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
           ? (change == null ? '—' : hlArrowPct(change))
           : null,
       changeColor: changeColor,
+      trailing: widget.trailing,
     );
   }
 }
@@ -202,7 +211,11 @@ class HlListRow extends StatelessWidget {
     this.nameKey,
     this.figureKey,
     this.changeKey,
+    this.trailing,
   });
+
+  /// At the row's end, after the figure ([HlMarketCard.trailing]).
+  final Widget? trailing;
 
   final Widget leading;
   final String name;
@@ -285,6 +298,10 @@ class HlListRow extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (trailing != null) ...[
+                    SizedBox(width: 12.w),
+                    trailing!,
+                  ],
                 ],
               ),
             ),
