@@ -11,7 +11,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:bc_ur_dart/bc_ur_dart.dart';
+import 'package:cbor/cbor.dart';
+import 'package:kute/helpers/ur/ur.dart';
 
 /// QR encoding format for PSBT display.
 enum QrPsbtFormat {
