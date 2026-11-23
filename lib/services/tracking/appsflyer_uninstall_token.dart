@@ -16,12 +16,12 @@
 //   * Fire-and-forget, offline-safe: every failure is swallowed, the token
 //     is never logged or tracked, and the same token is not re-sent.
 import 'dart:async';
-import 'dart:io';
 
 import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// The platform pieces [AppsFlyerUninstallToken] touches, injectable so the
 /// gating logic is testable without Firebase or the AppsFlyer plugin.
@@ -49,8 +49,9 @@ class AppsFlyerUninstallTokenPorts {
   /// this after `AppsFlyerService.init` has set it up.
   factory AppsFlyerUninstallTokenPorts.production() =>
       AppsFlyerUninstallTokenPorts(
-        isIOS: Platform.isIOS,
+        isIOS: PlatformOs.isIOS,
         canTrack: () =>
+            PlatformCaps.hasAppsFlyer &&
             !kDebugMode &&
             !TrackingService.isDisabled &&
             TrackingService.isOptedIn,

@@ -151,6 +151,7 @@ import 'package:kute/screens/shared/animations/fade_in_slide.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 
 /// Rows an activity preview shows before "See all" (Home, Dollars, the
@@ -252,7 +253,7 @@ class _TransactionListState extends ConsumerState<TransactionList> {
 
     try {
       final inAppReview = InAppReview.instance;
-      if (await inAppReview.isAvailable()) {
+      if (PlatformCaps.hasInAppReview && await inAppReview.isAvailable()) {
         await inAppReview.requestReview();
         TrackingService.track('review_prompted',
             params: const {'trigger': 'first_tx'});

@@ -64,7 +64,6 @@
 // Painters here never read Theme — the widget resolves colours once per
 // build and hands them down.
 
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -74,6 +73,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// The plot's height: the standard, and the compact (a tight card).
 const double kKuteTrendPlotHeight = 200;
@@ -302,7 +302,7 @@ class KuteTrendChart extends StatefulWidget {
   @visibleForTesting
   static bool? debugBreathe;
 
-  static final bool _inTest = Platform.environment.containsKey('FLUTTER_TEST');
+  static final bool _inTest = PlatformOs.isFlutterTest;
 
   static bool get _breathes => debugBreathe ?? !_inTest;
 

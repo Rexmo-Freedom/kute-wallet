@@ -65,6 +65,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// What the scanner does with a code.
 enum ScannerMode {
@@ -289,6 +290,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
   }
 
   Future<bool> _isCameraDenied() async {
+    if (!PlatformCaps.hasPermissionHandler) return false;
     try {
       final status = await Permission.camera.status;
       return status.isDenied ||
@@ -306,7 +308,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
   Future<void> _openCameraSettings() async {
     HapticFeedback.lightImpact();
     TrackingService.track('scanner_open_camera_settings');
-    await openAppSettings();
+    if (PlatformCaps.hasPermissionHandler) await openAppSettings();
   }
 
   /// Tap-to-retry handler — the failed camera is in a bad state, so swap

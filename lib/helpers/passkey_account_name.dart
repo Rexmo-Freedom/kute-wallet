@@ -16,13 +16,13 @@
 // say the common case plainly rather than say something vague that is
 // technically true for everyone and useful to no one.
 
-import 'dart:io' show Platform;
 
 import 'package:flutter/widgets.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// "Apple account" or "Google account", already localized.
-String passkeyAccountName(BuildContext context) => Platform.isIOS
+String passkeyAccountName(BuildContext context) => PlatformOs.isIOS
     ? context.l10n.passkeyChoiceAppleAccount
     : context.l10n.passkeyChoiceGoogleAccount;

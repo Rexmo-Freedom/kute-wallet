@@ -84,6 +84,7 @@ abstract final class PushPermission {
   /// Every later call is a no-op, so Home can call this on every mount.
   /// Returns the outcome when a prompt ran, null when it was skipped.
   static Future<PushPermissionStatus?> requestOnceFromHome() async {
+    if (debugPorts == null && !FirebaseService.pushAvailable) return null;
     if (!OnceFlagsService.claimOnce(promptedFlag)) return null;
     final status = await _request(surface: homeSurface);
     if (status == null) {
@@ -106,6 +107,7 @@ abstract final class PushPermission {
   /// a denied result so the funnel always closes.
   static Future<PushPermissionStatus?> _request(
       {required String surface}) async {
+    if (debugPorts == null && !FirebaseService.pushAvailable) return null;
     TrackingService.pushPermissionRequested(surface: surface);
     PushPermissionStatus? status;
     try {
@@ -121,6 +123,9 @@ abstract final class PushPermission {
 
   /// The OS-side status right now, without prompting.
   static Future<PushPermissionStatus> currentStatus() async {
+    if (debugPorts == null && !FirebaseService.pushAvailable) {
+      return PushPermissionStatus.denied;
+    }
     try {
       return _bucket(await _ports.currentStatus());
     } catch (_) {

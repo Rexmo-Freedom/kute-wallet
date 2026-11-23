@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
@@ -25,6 +24,7 @@ import 'package:local_auth/local_auth.dart'
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Unified analytics wrapper.
 ///
@@ -165,7 +165,7 @@ class TrackingService {
     final id = crashlyticsUserId(
         deviceId == null || deviceId.isEmpty ? 'unknown' : deviceId);
     debugCrashlyticsObserver?.call('user', 'user_id', id);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       unawaited(FirebaseCrashlytics.instance
           .setUserIdentifier(id)
@@ -394,7 +394,7 @@ class TrackingService {
       setUserProperty('app_version', info.version);
       setUserProperty('build_number', info.buildNumber);
     } catch (_) {}
-    setUserProperty('platform', Platform.isIOS ? 'ios' : 'android');
+    setUserProperty('platform', PlatformOs.iosOrAndroid);
   }
 
   /// Call after wallet creation / login to tag the user session.
@@ -1021,7 +1021,7 @@ class TrackingService {
     ];
     debugCrashObserver?.call(envelope, safeStack, safeReason, log);
     debugCrashExtrasObserver?.call(safeInformation, fatal);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       if (log != null) FirebaseCrashlytics.instance.log(log);
       FirebaseCrashlytics.instance.recordError(
@@ -1264,7 +1264,7 @@ class TrackingService {
     if (_crashKeys[key] == v) return;
     _crashKeys[key] = v;
     debugCrashlyticsObserver?.call('key', key, v);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       unawaited(FirebaseCrashlytics.instance
           .setCustomKey(key, v)
@@ -1438,7 +1438,7 @@ class TrackingService {
     }
     final line = b.toString();
     debugCrashlyticsObserver?.call('log', event, line);
-    if (kDebugMode) return;
+    if (kDebugMode || !PlatformCaps.hasCrashlytics) return;
     try {
       unawaited(
           FirebaseCrashlytics.instance.log(line).catchError((Object _) {}));
@@ -5875,7 +5875,7 @@ class TrackingService {
       ..sort();
     final firstMoneyAction = firstMoneyActionAt;
     final props = <String, Object>{
-      'platform': Platform.isIOS ? 'ios' : 'android',
+      'platform': PlatformOs.iosOrAndroid,
       if (_packageVersion != null) 'app_version': _packageVersion!,
       if (_packageBuild != null) 'build_number': _packageBuild!,
       if (country != null && country.isNotEmpty) 'country': country,

@@ -3,7 +3,6 @@ import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:math' as math;
 import 'package:kute/services/evm_derivation_policy.dart';
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -41,6 +40,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Analytics for the wallet restore funnel: `restore_started` (this
 /// screen) → `restore_step {step, method}` → `wallet_added
@@ -1203,7 +1203,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                             // their two widths, centred.
                             Builder(builder: (context) {
                               final accountLabel = l10n.recoverWithAccount(
-                                  Platform.isIOS
+                                  PlatformOs.isIOS
                                       ? l10n.passkeyChoiceAppleAccount
                                       : l10n.passkeyChoiceGoogleAccount);
                               // At most the page's own width (its 24
@@ -1220,7 +1220,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                                   Center(
                                     child: KuteBarSecondaryPill(
                                       label: accountLabel,
-                                      leading: Platform.isIOS
+                                      leading: PlatformOs.isIOS
                                           ? Icons.apple
                                           : Icons.fingerprint_rounded,
                                       width: width,
@@ -1244,7 +1244,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                                     child: SizedBox(
                                         height: KuteBarPrimaryButton.roomUnder(
                                                 context,
-                                                pageToFoot: !Platform.isAndroid) -
+                                                pageToFoot: !PlatformOs.isAndroid) -
                                             math.max(16.h,
                                                 MediaQuery.of(context)
                                                     .padding

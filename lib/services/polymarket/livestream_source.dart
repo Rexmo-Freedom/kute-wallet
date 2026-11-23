@@ -145,6 +145,20 @@ class LivestreamSource {
   /// A stable key for "is this the same stream" checks.
   String get key => '${host.key}:$id';
 
+  /// The stream's own page on its host, for platforms without an in-app
+  /// web view (web opens it in a new tab).
+  Uri get watchUri => switch (host) {
+        LivestreamHost.twitch =>
+          Uri.parse('https://www.twitch.tv/${Uri.encodeComponent(id)}'),
+        LivestreamHost.youtube => youtubeChannelLive
+            ? Uri.parse(
+                'https://www.youtube.com/channel/${Uri.encodeComponent(id)}/live')
+            : Uri.parse(
+                'https://www.youtube.com/watch?v=${Uri.encodeComponent(id)}'),
+        LivestreamHost.kick =>
+          Uri.parse('https://kick.com/${Uri.encodeComponent(id)}'),
+      };
+
   /// Width / height of the player box for [width] logical pixels of room,
   /// meeting the host's minimum. Twitch is 4:3 and is laid out on a page
   /// at least [kTwitchMinPlayerWidth] CSS pixels wide (see [embedHtml]), so

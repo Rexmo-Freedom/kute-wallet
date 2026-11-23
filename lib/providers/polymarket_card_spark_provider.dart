@@ -5,7 +5,6 @@
 // cancellable reads) over the market sheet's own history cache, and one
 // series per card, keyed by (token, range).
 
-import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,10 +12,11 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolyPriceHistoryCache;
 import 'package:kute/services/polymarket/poly_card_spark_store.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Under `flutter test` the cards read no network unless a test gives
 /// the store a fake read (an override of [polyCardSparkStoreProvider]).
-final bool _inTest = Platform.environment.containsKey('FLUTTER_TEST');
+final bool _inTest = PlatformOs.isFlutterTest;
 
 /// The one store of the session. Kept alive: its memory and queue outlive
 /// any one card.

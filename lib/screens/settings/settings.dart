@@ -57,8 +57,12 @@ import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/open_external.dart';
 
 final biometricsAvailableProvider = FutureProvider<bool>((ref) async {
+  // No local_auth on web: the PIN is the only lock there.
+  if (!PlatformCaps.hasBiometrics) return false;
   try {
     return await LocalAuthentication().canCheckBiometrics;
   } catch (e) {
@@ -80,6 +84,13 @@ const kAdvancedCapability = 'settings.advanced';
 /// program is withheld) both ask through it, each tracking its own tap.
 Future<void> requestAppReview(WidgetRef ref) async {
   final settingsNotifier = ref.read(settingsProvider.notifier);
+  if (!PlatformCaps.hasInAppReview) {
+    // No review sheet here (web, Windows): the App Store page in a new tab.
+    final listing = appStoreListingUri(dotenv.env['APP_STORE_ID']);
+    if (listing != null) await openExternally(listing);
+    settingsNotifier.setReviewDone(true);
+    return;
+  }
   final inAppReview = InAppReview.instance;
   if (await inAppReview.isAvailable()) {
     await inAppReview.requestReview();
@@ -2816,7 +2827,8 @@ class _NotificationsRowState extends State<_NotificationsRow>
       TrackingService.settingsActionTapped('notifications_open_settings');
       var opened = false;
       try {
-        opened = await openAppSettings();
+        opened =
+            PlatformCaps.hasPermissionHandler && await openAppSettings();
       } catch (_) {
         opened = false;
       }

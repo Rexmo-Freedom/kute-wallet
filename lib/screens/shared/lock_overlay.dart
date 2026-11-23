@@ -23,7 +23,6 @@
 //     resets the small-action allowance budget, and a biometric unlock
 //     stores the iOS biometry domain state (D-14).
 
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +47,7 @@ import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/secure/biometric_pin_policy.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 class LockOverlay extends ConsumerStatefulWidget {
   const LockOverlay({super.key});
@@ -135,6 +135,8 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   Future<void> _tryBiometrics({bool auto = false}) async {
     if (_biometricInFlight || _lockedOut) return;
     if (!ref.read(settingsProvider).biometricsEnabled) return;
+    // No local_auth on web: the PIN keypad is the only way in.
+    if (!PlatformCaps.hasBiometrics) return;
     _biometricInFlight = true;
     try {
       final dependency = await _v1Dependency();
@@ -416,7 +418,7 @@ class PrivacyCover extends ConsumerWidget {
     // the themed background rather than a bare rectangle. It no longer
     // appears during a biometric prompt (see privacy_cover_bridge.dart), so
     // it is not in the user's face on every fingerprint scan.
-    if (!Platform.isAndroid) return const SizedBox.shrink();
+    if (!PlatformOs.isAndroid) return const SizedBox.shrink();
     final visible = ref.watch(appVisibleProvider);
     if (visible) return const SizedBox.shrink();
     final c = context.colors;

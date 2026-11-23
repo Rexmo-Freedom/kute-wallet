@@ -84,6 +84,7 @@ import 'package:kute/services/security/address_guard.dart'
     show orchestraAddressFamily;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Whether what is typed has the shape of a destination (an address, an
 /// invoice, a payment request, a Lightning address) rather than a name to
@@ -925,7 +926,7 @@ class _SendContactsPickerSheetState
           subtitle: l10n.sendAllowContactsInSettingsSub,
           onTap: () => unawaited(notifier.openSettings()),
         )
-      else if (!granted)
+      else if (!granted && PlatformCaps.hasContacts)
         SendToListRow(
           key: const ValueKey('send-contacts-ask'),
           colors: c,
@@ -1074,8 +1075,9 @@ class SendToFriendRow extends ConsumerWidget {
 
   Future<void> _open(BuildContext context, WidgetRef ref) async {
     final permission = ref.read(sendContactsProvider).permission;
-    if (permission == SendContactsPermission.unknown ||
-        permission == SendContactsPermission.denied) {
+    if (PlatformCaps.hasContacts &&
+        (permission == SendContactsPermission.unknown ||
+            permission == SendContactsPermission.denied)) {
       await ref.read(sendContactsProvider.notifier).request();
     }
     if (!context.mounted) return;

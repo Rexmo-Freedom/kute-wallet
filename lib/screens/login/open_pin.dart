@@ -32,6 +32,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 class OpenPin extends ConsumerStatefulWidget {
   const OpenPin({super.key, @visibleForTesting this.localAuth});
@@ -317,6 +318,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
     // otherwise start a second ceremony over the first and run the
     // unlock path twice.
     if (_isLocked || _biometricInFlight) return;
+    // No local_auth on web: the PIN keypad is the only way in.
+    if (!PlatformCaps.hasBiometrics) return;
     _biometricInFlight = true;
 
     try {
