@@ -23,11 +23,11 @@
 // THE SOCIAL SEND OFF (config/feature_flags.dart, [socialSendEnabled]):
 // the notifier never touches the gateway, so nothing reads the book or
 // asks the permission; the state stays "never asked", empty, and the
-// Send screens draw no contacts row.
+// Send screens draw no contacts row. The library itself is out of the
+// build for now (NoPhoneContactsGateway), with the iOS and Android
+// contacts permissions.
 
 import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
-import 'package:flutter_contacts/flutter_contacts.dart' as fc;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
@@ -123,91 +123,35 @@ abstract class SendContactsGateway {
   Future<void> openSettings();
 }
 
-/// `flutter_contacts`.
-class FlutterContactsGateway implements SendContactsGateway {
-  const FlutterContactsGateway();
-
-  SendContactsPermission _map(fc.PermissionStatus s) => switch (s) {
-        fc.PermissionStatus.granted ||
-        fc.PermissionStatus.limited =>
-          SendContactsPermission.granted,
-        fc.PermissionStatus.denied => SendContactsPermission.denied,
-        fc.PermissionStatus.permanentlyDenied ||
-        fc.PermissionStatus.restricted =>
-          SendContactsPermission.blocked,
-        _ => SendContactsPermission.unknown,
-      };
+/// No phone contacts in this build (founder, 24 November 2026: the
+/// contacts permission and the `flutter_contacts` library are out of the
+/// app until the social send rolls out, so the binary declares and links
+/// nothing about contacts). Never asked, nothing to read. To bring them
+/// back: re-add `flutter_contacts` to pubspec.yaml, the iOS
+/// NSContactsUsageDescription and the Android READ_CONTACTS permission,
+/// and restore `FlutterContactsGateway` from git (the commit removing it
+/// says so).
+class NoPhoneContactsGateway implements SendContactsGateway {
+  const NoPhoneContactsGateway();
 
   @override
-  Future<SendContactsPermission> status() async {
-    try {
-      return _map(
-          await fc.FlutterContacts.permissions.check(fc.PermissionType.read));
-    } catch (_) {
-      return SendContactsPermission.unknown;
-    }
-  }
+  Future<SendContactsPermission> status() async =>
+      SendContactsPermission.unknown;
 
   @override
-  Future<SendContactsPermission> request() async {
-    try {
-      return _map(
-          await fc.FlutterContacts.permissions.request(fc.PermissionType.read));
-    } catch (_) {
-      return SendContactsPermission.denied;
-    }
-  }
+  Future<SendContactsPermission> request() async =>
+      SendContactsPermission.denied;
 
   @override
-  Future<List<SendContact>> load() async {
-    final rows = await fc.FlutterContacts.getAll(
-      properties: {
-        fc.ContactProperty.name,
-        fc.ContactProperty.phone,
-        fc.ContactProperty.email,
-        fc.ContactProperty.photoThumbnail,
-      },
-    );
-    final out = <SendContact>[];
-    for (final c in rows) {
-      final id = c.id;
-      if (id == null || c.phones.isEmpty) continue;
-      final primary = c.phones.where((p) => p.isPrimary == true).firstOrNull;
-      final phone = (primary ?? c.phones.first).number.trim();
-      if (phone.isEmpty) continue;
-      final display = (c.displayName ?? '').trim();
-      final given = (c.name?.first ?? '').trim();
-      final name = display.isNotEmpty
-          ? display
-          : given.isNotEmpty
-              ? given
-              : phone;
-      final kute = c.emails
-          .map((e) => e.address.trim())
-          .where(isKuteLightningAddress)
-          .firstOrNull;
-      final thumb = c.photo?.thumbnail;
-      out.add(SendContact(
-        id: id,
-        displayName: name,
-        firstName: given.isNotEmpty ? given : name.split(' ').first,
-        phone: phone,
-        lightningAddress: kute,
-        photo: thumb != null && thumb.isNotEmpty ? thumb : null,
-      ));
-    }
-    out.sort((a, b) =>
-        a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
-    return out;
-  }
+  Future<List<SendContact>> load() async => const [];
 
   @override
-  Future<void> openSettings() => fc.FlutterContacts.permissions.openSettings();
+  Future<void> openSettings() async {}
 }
 
 /// Test seam and the real thing: override in a ProviderScope.
 final sendContactsGatewayProvider =
-    Provider<SendContactsGateway>((_) => const FlutterContactsGateway());
+    Provider<SendContactsGateway>((_) => const NoPhoneContactsGateway());
 
 @immutable
 class SendContactsState {
