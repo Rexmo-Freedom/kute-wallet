@@ -15,6 +15,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart' show KuteBarPrimaryButton;
+import 'package:kute/screens/home/components/kute_bar_trade_row.dart'
+    show KuteBarShareSlot;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -446,10 +448,30 @@ class PolySlipCta extends StatelessWidget {
       return Padding(
         key: const ValueKey('poly-slip-cta-in-place'),
         padding: EdgeInsets.symmetric(vertical: 10.h),
-        child: Center(
-          child: Theme(
-            data: inPlace.theme,
-            child: KuteBarPrimaryButton(barContext: primary, onAsk: () {}),
+        // The bar's pair, as the Investing ticket in place draws it:
+        // the button and the round Sal button at its right, centred.
+        child: Theme(
+          data: inPlace.theme,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: KuteBarPrimaryButton(barContext: primary, onAsk: () {}),
+              ),
+              KuteBarShareSlot(
+                share: inPlace.share,
+                onTap: (_) {
+                  final share = inPlace.share;
+                  final direct = share?.brag ??
+                      share?.send ??
+                      share?.open ??
+                      share?.barContext?.directAction;
+                  if (direct == null) return;
+                  HapticFeedback.lightImpact();
+                  direct();
+                },
+              ),
+            ],
           ),
         ),
       );
@@ -487,15 +509,20 @@ class PolySlipCta extends StatelessWidget {
 /// (bet_slip_in_place.dart): its [PolySlipCta] draws the bar's button in
 /// the slip, in [theme] (the app's, outside the slip's side tint).
 class PolySlipInPlace extends InheritedWidget {
-  const PolySlipInPlace({super.key, required this.theme, required super.child});
+  const PolySlipInPlace(
+      {super.key, required this.theme, this.share, required super.child});
 
   final ThemeData theme;
+
+  /// The page's round Sal button beside the slip's button; null for none.
+  final KuteBarShare? share;
 
   static PolySlipInPlace? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PolySlipInPlace>();
 
   @override
-  bool updateShouldNotify(PolySlipInPlace old) => old.theme != theme;
+  bool updateShouldNotify(PolySlipInPlace old) =>
+      old.theme != theme || old.share != share;
 }
 
 /// What went wrong, told on the ticket the person is still looking at.

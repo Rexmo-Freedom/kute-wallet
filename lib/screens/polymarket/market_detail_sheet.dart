@@ -782,6 +782,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           child: BetSlipInPlaceHost(
             active: expanded,
             defaultOpener: _openDefaultSlip,
+            // The trade row's round Sal button (an event's "Send to a
+            // friend"): the market sent at once, as on a phone.
+            share: widget.sendPick == null
+                ? KuteBarShare(barContext: bar)
+                : null,
             child: KeyedSubtree(
               key: _slipContextKey,
               child: switch (form) {

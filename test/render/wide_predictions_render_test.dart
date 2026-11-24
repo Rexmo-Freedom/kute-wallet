@@ -426,6 +426,12 @@ void main() {
     expect(
         find.byKey(const ValueKey('poly-slip-cta-in-place')), findsOneWidget);
     expect(find.byKey(const ValueKey('kute-bar-trade-row')), findsNothing);
+    // The trade row's round Sal button, beside Place in the pane.
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('poly-slip-cta-in-place')),
+            matching: find.byKey(const ValueKey('kute-bar-share-slot'))),
+        findsOneWidget);
     // The position's card under the slip.
     expect(find.byKey(const ValueKey('wide-position-y')), findsOneWidget);
     expect(find.text('Place minimum on Yes'), findsOneWidget);

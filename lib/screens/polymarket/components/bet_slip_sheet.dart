@@ -5882,6 +5882,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         },
         child: PolySlipInPlace(
           theme: baseTheme,
+          // Send mode has no look-only link (the trade row's rule).
+          share: widget.sendPick == null ? inPlace.share : null,
           child: KeyboardDismissOnTap(
             child: tinted(
               AnimatedContainer(

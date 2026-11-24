@@ -32,6 +32,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import 'package:kute/screens/shared/kute_bar_context.dart' show KuteBarShare;
+
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
     show BetSlipSheet;
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
@@ -57,6 +59,10 @@ class BetSlipInPlaceLink {
   /// toast); written by the slip.
   VoidCallback? leave;
 
+  /// The page's round Sal button (the trade row's, or its "Send to a
+  /// friend" pill's action), drawn beside the slip's button in place.
+  KuteBarShare? get share => _host.widget.share;
+
   /// The slip is done (its order placed, or its OK): a fresh slip on the
   /// same market takes its place.
   void reset() => _host._reset(this);
@@ -67,7 +73,12 @@ class BetSlipInPlaceHost extends StatefulWidget {
       {super.key,
       required this.active,
       this.defaultOpener,
+      this.share,
       required this.child});
+
+  /// The page's round Sal button for the slip's button row (see
+  /// [BetSlipInPlaceLink.share]); null for none (send mode).
+  final KuteBarShare? share;
 
   /// Slips opened under it go to the pane (EXPANDED); false: as sheets.
   final bool active;
