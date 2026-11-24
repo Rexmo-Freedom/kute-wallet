@@ -27,11 +27,11 @@
 //  * The device wipe (lib/services/hive_wipe.dart) deletes the file, so the
 //    next open is a new install, as the wipe intends.
 
-import 'dart:io' show Platform;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:hive_ce/hive.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// The key in the settings box, shared with `SettingsModel.setCurrency` and
 /// `initialSettingsProvider`.
@@ -81,7 +81,7 @@ String currencyForCountry(String? country) =>
 /// bounded because this runs in the boot, and a missing answer falls to the
 /// locale. On Android the locale's own country is the region the device has.
 Future<String?> deviceRegion() async {
-  if (Platform.isIOS) {
+  if (PlatformOs.isIOS) {
     try {
       final region = await _regionChannel
           .invokeMethod<String>('region')

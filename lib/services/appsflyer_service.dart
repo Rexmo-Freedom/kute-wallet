@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +8,7 @@ import 'package:kute/services/tracking/appsflyer_uninstall_token.dart';
 import 'package:kute/services/share_link_claims.dart';
 import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// AppsFlyer wrapper — install attribution + ad-campaign ROAS ONLY.
 ///
@@ -69,7 +69,7 @@ class AppsFlyerService {
   /// post S2S revenue events for this device. Available after [init].
   static String? get appsflyerId => _appsflyerId;
 
-  static String get platform => Platform.isIOS ? 'ios' : 'android';
+  static String get platform => PlatformOs.iosOrAndroid;
 
   /// Tag every AppsFlyer event with the affiliate_code so its rows are
   /// filterable by the SAME id used in PostHog (person property) and the
@@ -97,7 +97,7 @@ class AppsFlyerService {
   /// `analytics_opt_in` flag that gates PostHog) never init either, so
   /// no AppsFlyer traffic leaves the device at all (GDPR-clean).
   static Future<void> init() async {
-    if (!_canTrack) return;
+    if (!PlatformCaps.hasAppsFlyer || !_canTrack) return;
     final pending = _initialization;
     if (pending != null) return pending;
     if (_sdk != null) return;
@@ -119,7 +119,7 @@ class AppsFlyerService {
       // authenticates SDK traffic only; the backend's S2S API uses a
       // separate token from the AppsFlyer Security Center
       // (APPSFLYER_S2S_TOKEN on the server).
-      final devKey = (Platform.isIOS
+      final devKey = (PlatformOs.isIOS
               ? dotenv.env['APPSFLYER_DEV_KEY_IOS']
               : dotenv.env['APPSFLYER_DEV_KEY_ANDROID']) ??
           dotenv.env['APPSFLYER_DEV_KEY'] ??

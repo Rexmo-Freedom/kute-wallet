@@ -101,6 +101,7 @@ import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// The badge on an entry's avatar.
 enum SendPersonBadge { none, kute, lightning }
@@ -439,7 +440,8 @@ class SendContactsSection extends ConsumerWidget {
             onTap: () => onPhoneLink(phone),
           )
         : null;
-    final Widget? askRow = state.granted || chosen || typing
+    final Widget? askRow =
+        state.granted || chosen || typing || !PlatformCaps.hasContacts
         ? null
         : SendToListRow(
             key: const ValueKey('send-contacts-ask-row'),

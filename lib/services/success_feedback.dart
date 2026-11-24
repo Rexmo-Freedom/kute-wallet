@@ -32,9 +32,7 @@
 // live in kute_haptics.dart.
 
 import 'dart:async';
-import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:vibration/vibration.dart';
@@ -42,6 +40,7 @@ import 'package:vibration/vibration.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/haptic_patterns.dart';
 import 'package:kute/services/kute_haptics.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// One in-flight guard so a double-wired success (e.g. an overlay pushed
 /// twice in the same frame) can't stack two overlapping choreographies.
@@ -63,7 +62,7 @@ Future<void> moneySuccessFeedback() async {
       await Future<void>.delayed(pattern.duration);
       return;
     }
-    if (!kIsWeb && Platform.isAndroid) {
+    if (PlatformCaps.hasVibration && PlatformOs.isAndroid) {
       bool custom = false;
       try {
         custom = await Vibration.hasCustomVibrationsSupport();

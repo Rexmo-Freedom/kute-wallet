@@ -27,6 +27,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Wall-clock stamp taken at the very first line of `main()`. Read once
 /// from the first home render to emit the `app_cold_start` latency
@@ -182,13 +183,29 @@ Future<void> _bootstrap() async {
 /// so desktop works without a bundled plist; on timeout/failure the app
 /// simply continues without Firebase (handlers are no-op-safe).
 Future<void> _initFirebase() async {
+  // Web (and Windows) have no generated options until a web app is added
+  // in the Firebase console and `flutterfire configure` is run: boot skips
+  // Firebase there instead of throwing. Push, Crashlytics and the uninstall
+  // token check `Firebase.apps` / PlatformCaps before touching it.
+  final options = _firebaseOptionsOrNull();
+  if (options == null) return;
   try {
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: options,
     ).timeout(const Duration(seconds: 8));
   } catch (_) {
     // Offline cold start, Firebase outage, or an unconfigured platform —
     // analytics resume on a later launch; never block first frame.
+  }
+}
+
+/// The generated options for this platform, or null where none were
+/// generated (`DefaultFirebaseOptions` throws UnsupportedError there).
+FirebaseOptions? _firebaseOptionsOrNull() {
+  try {
+    return DefaultFirebaseOptions.currentPlatform;
+  } on UnsupportedError {
+    return null;
   }
 }
 
@@ -268,11 +285,13 @@ Future<void> _initializeApp() async {
   // Crash reports are NOT tied to the analytics opt-out: the privacy policy
   // (§6.3) covers them separately. Crashlytics is offline-safe; not awaited
   // so a slow/failed enable can never block first frame or throw into boot.
-  try {
-    unawaited(FirebaseCrashlytics.instance
-        .setCrashlyticsCollectionEnabled(!kDebugMode)
-        .catchError((_) {}));
-  } catch (_) {/* Firebase not ready (offline cold start) — retries next launch */}
+  if (PlatformCaps.hasCrashlytics) {
+    try {
+      unawaited(FirebaseCrashlytics.instance
+          .setCrashlyticsCollectionEnabled(!kDebugMode)
+          .catchError((_) {}));
+    } catch (_) {/* Firebase not ready (offline cold start) — retries next launch */}
+  }
   // Once-per-session crash context key (release-gated inside).
   try {
     TrackingService.setSessionKey(
@@ -472,8 +491,14 @@ Future<void> _initPostHog() async {
 }
 
 Future<void> _initHive() async {
-  final directory = await getApplicationDocumentsDirectory();
-  Hive.init(directory.path);
+  // Web has no app directory (no path_provider); Hive keeps its boxes in
+  // IndexedDB there and ignores the path.
+  if (PlatformCaps.hasFileSystem) {
+    final directory = await getApplicationDocumentsDirectory();
+    Hive.init(directory.path);
+  } else {
+    Hive.init(null);
+  }
   Hive.registerAdapter(SwapOrderAdapter());
   // Every startup box, the stored analytics opt-out and the once-per-
   // launch reusable-deposit hygiene live in lib/services/hive_boot.dart

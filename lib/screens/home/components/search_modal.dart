@@ -6,6 +6,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/transaction_search_provider.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/open_external.dart';
 
 class SearchModal extends ConsumerStatefulWidget {
   const SearchModal({super.key});
@@ -15,13 +17,17 @@ class SearchModal extends ConsumerStatefulWidget {
 }
 
 class _SearchModalState extends ConsumerState<SearchModal> with AutomaticKeepAliveClientMixin {
-  late final WebViewController controller;
+  /// Null where there is no web view (web, Windows): the explorer opens
+  /// in a new tab and this route closes.
+  WebViewController? controller;
 
   @override
   void initState() {
     super.initState();
-    controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+    if (PlatformCaps.hasWebView) {
+      controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted);
+    }
     _loadUrl();
   }
 
@@ -65,7 +71,15 @@ class _SearchModalState extends ConsumerState<SearchModal> with AutomaticKeepAli
       uri = 'https://mempool.space/tx/$transactionHash';
     }
 
-    controller.loadRequest(Uri.parse(uri));
+    final webView = controller;
+    if (webView != null) {
+      webView.loadRequest(Uri.parse(uri));
+      return;
+    }
+    openExternally(Uri.parse(uri));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
   }
 
   @override
@@ -84,9 +98,11 @@ class _SearchModalState extends ConsumerState<SearchModal> with AutomaticKeepAli
           ),
           leading: const KuteBackButton(),
         ),
-        body: WebViewWidget(
-          controller: controller,
-        ),
+        body: controller == null
+            ? const SizedBox.shrink()
+            : WebViewWidget(
+                controller: controller!,
+              ),
       ),
     );
   }

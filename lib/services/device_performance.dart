@@ -9,8 +9,8 @@
 // blurs become translucent fills, glass becomes flat, live feeds coalesce
 // over a longer frame, sparklines paint fewer points.
 
-import 'dart:io' show Platform;
 import 'dart:ui' show PlatformDispatcher;
+import 'package:kute/platform/platform_caps.dart';
 
 class DevicePerformance {
   DevicePerformance._();
@@ -28,7 +28,7 @@ class DevicePerformance {
 
   static bool _measure() {
     try {
-      if (!Platform.isAndroid) return false;
+      if (!PlatformOs.isAndroid) return false;
       final views = PlatformDispatcher.instance.views;
       if (views.isEmpty) return false;
       final size = views.first.physicalSize;

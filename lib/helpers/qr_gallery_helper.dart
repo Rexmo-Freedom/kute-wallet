@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Picks an image from the device gallery and decodes the first QR
 /// code found in it, returning the raw payload string (Bitcoin
@@ -21,6 +22,7 @@ class QrGalleryHelper {
   ///   * no QR code detected in the image
   ///   * decode threw (corrupt image, unsupported format)
   static Future<String?> pickAndDecode() async {
+    if (!PlatformCaps.hasImageQrDecode) return null;
     final picked = await FilePicker.pickFile(
       type: FileType.image,
     );

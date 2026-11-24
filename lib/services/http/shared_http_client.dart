@@ -37,7 +37,7 @@ import 'dart:convert' show Encoding;
 import 'dart:io' show HttpClient, SocketException, HandshakeException;
 import 'dart:math' show Random;
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -69,6 +69,9 @@ abstract final class SharedHttpClient {
     final override = debugOverride;
     if (override != null) return override;
     final key = host.toLowerCase();
+    // Web has no dart:io HttpClient: the browser's fetch client, which
+    // pools connections itself.
+    if (kIsWeb) return _byHost.putIfAbsent(key, http.Client.new);
     return _byHost.putIfAbsent(key, () {
       final inner = HttpClient()
         ..connectionTimeout =

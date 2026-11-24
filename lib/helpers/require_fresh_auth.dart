@@ -39,7 +39,6 @@
 // addresses.
 
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +57,7 @@ import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/screens/shared/step_up_review_again_sheet.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Inputs for the small-action allowance (`SmallActionAllowance`): the
 /// order's USD amount. Pass it on every order the allowance may cover; the
@@ -423,7 +423,10 @@ Future<AuthGrantMethod?> _runPromptPolicy(
   // (`canCheckBiometrics` lies on iOS when Face ID is disabled).
   var biometricUsable = false;
   String? skippedReasonClass;
-  if (biometricsOn) {
+  // No local_auth on web: the step-up goes straight to the Kute PIN.
+  if (biometricsOn && !PlatformCaps.hasBiometrics) {
+    skippedReasonClass = 'no_hardware';
+  } else if (biometricsOn) {
     try {
       final supported = await localAuth.isDeviceSupported();
       final enrolled = supported
@@ -482,7 +485,7 @@ Future<AuthGrantMethod?> _runPromptPolicy(
       return AuthGrantMethod.biometric;
     }
     if (result == _BioResult.lockout || result == _BioResult.unavailable) {
-      subtitle = Platform.isAndroid
+      subtitle = PlatformOs.isAndroid
           ? l10n.stepUpBiometricUnavailableAndroid
           : l10n.stepUpBiometricUnavailable;
     }

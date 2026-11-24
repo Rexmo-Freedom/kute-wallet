@@ -26,6 +26,7 @@ import 'package:flutter_contacts/flutter_contacts.dart' as fc;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Where the person stands on the contacts permission.
 enum SendContactsPermission {
@@ -199,9 +200,31 @@ class FlutterContactsGateway implements SendContactsGateway {
   Future<void> openSettings() => fc.FlutterContacts.permissions.openSettings();
 }
 
+/// No address book on this platform (web, Windows): never granted, no
+/// prompt, no contacts. The Send screens hide the contacts rows.
+class UnavailableContactsGateway implements SendContactsGateway {
+  const UnavailableContactsGateway();
+
+  @override
+  Future<SendContactsPermission> status() async =>
+      SendContactsPermission.unknown;
+
+  @override
+  Future<SendContactsPermission> request() async =>
+      SendContactsPermission.denied;
+
+  @override
+  Future<List<SendContact>> load() async => const [];
+
+  @override
+  Future<void> openSettings() async {}
+}
+
 /// Test seam and the real thing: override in a ProviderScope.
-final sendContactsGatewayProvider =
-    Provider<SendContactsGateway>((_) => const FlutterContactsGateway());
+final sendContactsGatewayProvider = Provider<SendContactsGateway>((_) =>
+    PlatformCaps.hasContacts
+        ? const FlutterContactsGateway()
+        : const UnavailableContactsGateway());
 
 @immutable
 class SendContactsState {

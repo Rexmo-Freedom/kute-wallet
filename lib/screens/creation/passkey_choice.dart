@@ -1,7 +1,6 @@
 import 'package:kute/services/evm_derivation_policy.dart';
 import 'package:kute/models/evm_derivation_version.dart';
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' show Wallet;
@@ -38,6 +37,7 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Post-PIN screen presented when the user is creating a NEW wallet
 /// (not when restoring from seed). Toggle defaults ON when the
@@ -136,6 +136,8 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     var hasFace = false;
     var hasFingerprint = false;
     try {
+      // No local_auth on web: reported as no biometrics, as an old phone.
+      if (!PlatformCaps.hasBiometrics) throw UnsupportedError('local_auth');
       final supported = await auth.isDeviceSupported();
       final canCheck = await auth.canCheckBiometrics;
       available = supported && canCheck;
@@ -492,7 +494,7 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
   /// term and never says biometrics or passkey.
   String _methodName(BuildContext context) {
     final l10n = context.l10n;
-    if (Platform.isIOS) {
+    if (PlatformOs.isIOS) {
       return _hasFace || !_hasFingerprint
           ? l10n.biometricFaceId
           : l10n.biometricTouchId;
@@ -502,7 +504,7 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
         : l10n.biometricFingerprint;
   }
 
-  bool get _usesFace => _hasFace && (Platform.isIOS || !_hasFingerprint);
+  bool get _usesFace => _hasFace && (PlatformOs.isIOS || !_hasFingerprint);
 
   /// The wallet name stays out of the way: one quiet row with the current
   /// name and Rename, which opens the field in place. Continue still needs

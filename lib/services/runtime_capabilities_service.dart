@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/widgets.dart';
@@ -14,6 +13,7 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// The regions a region block covers, as the backend's policy names them
 /// (founder decision, October 2026: region blocks are configured only in
@@ -477,7 +477,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
         _ensureSession = (() => AffiliateService.ensureSession()),
         _renewSession =
             ((token) => AffiliateService.ensureSession(rejected: token)),
-        _platform = Platform.isIOS ? 'ios' : 'android',
+        _platform = PlatformOs.iosOrAndroid,
         _appVersion = (() async => (await PackageInfo.fromPlatform()).version),
         _clock = DateTime.now,
         _store = const HiveRuntimePolicySnapshotStore(),

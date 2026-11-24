@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Under this share of the whole a chart slice wears the "Other" grey.
 const double kChartOtherShare = 0.02;
@@ -391,7 +391,7 @@ class PlatformSafeArea extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: top,
-      bottom: Platform.isAndroid,
+      bottom: PlatformOs.isAndroid,
       child: child,
     );
   }

@@ -33,15 +33,15 @@
 //
 // This is feedback, not an action: no analytics event fires here.
 
-import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/haptic_patterns.dart';
 import 'package:kute/services/haptic_lifecycle.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 enum KuteHaptic {
   /// Money landed in Bitcoin or in Dollars: a soft rising swell, one
@@ -277,7 +277,9 @@ abstract final class KuteHaptics {
   static Future<void> _emit(List<_Beat> beats) async {
     // Android shapes a multi-beat pattern as one waveform, the way
     // success_feedback.dart does; a single tap stays a system haptic.
-    if (beats.length > 1 && !kIsWeb && Platform.isAndroid) {
+    if (beats.length > 1 &&
+        PlatformCaps.hasVibration &&
+        PlatformOs.isAndroid) {
       var custom = false;
       try {
         custom = await Vibration.hasCustomVibrationsSupport();

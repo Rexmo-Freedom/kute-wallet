@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -15,6 +14,7 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteBarPrimaryButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 class Start extends ConsumerStatefulWidget {
   const Start({super.key});
@@ -380,7 +380,7 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
               // the 20 the column keeps under it.
               child: SizedBox(
                   height: KuteBarPrimaryButton.roomUnder(context,
-                          pageToFoot: !Platform.isAndroid) -
+                          pageToFoot: !PlatformOs.isAndroid) -
                       20.h),
             ),
           ],

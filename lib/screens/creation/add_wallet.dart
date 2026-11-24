@@ -1,5 +1,4 @@
 import 'package:kute/models/evm_derivation_version.dart';
-import 'dart:io';
 import 'dart:math';
 import 'package:kute/screens/creation/bitcoin_wallet_setup.dart';
 import 'package:kute/models/add_wallet_model.dart';
@@ -27,6 +26,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 class AddWallet extends ConsumerStatefulWidget {
   const AddWallet({super.key});
@@ -337,7 +337,7 @@ class _AddWalletState extends ConsumerState<AddWallet> {
               ),
             Positioned.fill(
               child: SafeArea(
-                bottom: Platform.isAndroid,
+                bottom: PlatformOs.isAndroid,
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 32.h),
