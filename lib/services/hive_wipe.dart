@@ -113,6 +113,9 @@ const List<String> hiveBoxesWipedOnWipe = [
   // A wiped wallet's standing orders can never be placed; their signed
   // secrets live in secure storage, cleared with the wallet.
   'standing_orders',
+  // Web build only: each Bitcoin wallet's BDK changeset (the browser's
+  // stand-in for the native SQLite file).
+  'onchain_web_wallets',
 ];
 
 /// Deletes every box in [hiveBoxesWipedOnWipe] from disk, best-effort:

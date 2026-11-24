@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:kute/models/onchain_types.dart';
+import 'package:kute/services/onchain/onchain_transport.dart';
 
 typedef OnchainTransport = Future<Object?> Function(
     String method, Map<String, Object?> arguments);
@@ -47,7 +49,21 @@ class OnchainEndpoint {
   static const defaultMainnet = 'electrum.blockstream.info:50002';
   static const defaultTestnet = 'electrum.blockstream.info:60002';
 
+  /// The Esplora host the web build uses in place of an Electrum node: a
+  /// browser cannot open Electrum's TCP connection.
+  static const webEsploraMainnet = 'https://blockstream.info/api';
+  static const webEsploraTestnet = 'https://blockstream.info/testnet/api';
+
   factory OnchainEndpoint.fromStored(String value, {bool testnet = false}) {
+    final endpoint = OnchainEndpoint._parse(value, testnet: testnet);
+    if (kIsWeb && endpoint.kind == 'electrum') {
+      return OnchainEndpoint(
+          'esplora', testnet ? webEsploraTestnet : webEsploraMainnet);
+    }
+    return endpoint;
+  }
+
+  factory OnchainEndpoint._parse(String value, {required bool testnet}) {
     final node = value.trim();
     if (node.isEmpty) {
       return OnchainEndpoint(
@@ -129,8 +145,7 @@ class NativeOnchainService {
     this.syncTimeout = const Duration(seconds: 60),
     this.fullScanTimeout = const Duration(minutes: 5),
     this.maxPending = 16,
-  }) : _transport = transport ??
-            ((method, args) => channel.invokeMethod<Object?>(method, args));
+  }) : _transport = transport ?? platformOnchainTransport(channel);
 
   Future<Object?> _invoke(
       String method, Map<String, Object?> args, Duration timeout) async {

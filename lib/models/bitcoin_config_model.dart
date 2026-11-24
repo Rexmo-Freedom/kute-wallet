@@ -2,7 +2,8 @@ import 'package:kute/models/onchain_types.dart';
 import 'package:kute/services/onchain/native_bitcoin_primitives.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:kute/services/onchain/onchain_web_store.dart'
+    show onchainDatabaseDirectory;
 import 'package:crypto/crypto.dart';
 
 class BitcoinConfigModel {
@@ -178,10 +179,10 @@ class BitcoinConfigModel {
   /// Native opens existing SQLite in place. Load errors preserve the database.
   Future<NativeWalletSession> restoreWallet(
       String descriptor, String change) async {
-    final appDocDir = await getApplicationDocumentsDirectory();
+    final directory = await onchainDatabaseDirectory();
     return NativeOnchainService.instance.open(
       walletId: config.walletId,
-      dbPath: '${appDocDir.path}/bdk_wallet_${config.walletId}.sqlite',
+      dbPath: '$directory/bdk_wallet_${config.walletId}.sqlite',
       descriptor: descriptor,
       changeDescriptor: change,
       network: config.network.name,
