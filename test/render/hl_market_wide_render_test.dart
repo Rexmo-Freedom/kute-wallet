@@ -28,6 +28,8 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
+import 'package:kute/models/chart_drawing.dart';
+import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_candles_provider.dart';
@@ -321,6 +323,10 @@ void main() {
   setUpAll(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
     Hive.init(Directory.systemTemp.createTempSync('hl-wide').path);
+    // Open before any test's fake clock: the chart editor's drawings and
+    // preferences read them.
+    await Hive.openBox<String>('hl_chart_drawings');
+    await Hive.openBox<String>('hl_chart_preferences');
     await _fonts();
   });
   setUp(() {
@@ -462,6 +468,119 @@ void main() {
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
+
+  // THE ADVANCED CHART EDITOR on a laptop (founder, 25 November 2026:
+  // "even now it looks bad"): the whole window, the interval pills in the
+  // header, a roomy rail with tooltips, no tap hint for a mouse, a real
+  // price scale; keys: Escape, Delete, Cmd/Ctrl+Z.
+  Future<void> openEditor(WidgetTester tester, Size size, bool dark) async {
+    await _pump(tester, size: size, dark: dark, market: _btc, held: true);
+    await tester.tap(find.byKey(const ValueKey('hl-advanced-chart')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final tape = hlEditCandles(count: 160);
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HlMarketDetailSheet)));
+    // The drawings load from Hive first (real IO): let it finish.
+    container.read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)));
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
+    {
+      container
+        .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)).notifier)
+        .add(ChartDrawing(
+          id: 'trend-1',
+          tool: ChartDrawingTool.trendline,
+          points: [
+            ChartDrawingPoint(
+                timeMs: tape[95].openTime.millisecondsSinceEpoch,
+                price: tape[95].low),
+            ChartDrawingPoint(
+                timeMs: tape[150].openTime.millisecondsSinceEpoch,
+                price: tape[150].high),
+          ],
+        ));
+    }
+    // Until the drawing is in (the add waits on that load too).
+    for (var i = 0;
+        i < 60 &&
+            container
+                .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)))
+                .isEmpty;
+        i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  testWidgets('the editor on EXPANDED: whole window, pills, keys',
+      (tester) async {
+    await openEditor(tester, const Size(1440, 900), false);
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('hl-chart-edit-top-bar-wide')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-chart-edit-interval-row')),
+        findsOneWidget);
+    final rail = tester.getRect(find.byKey(const ValueKey('hl-chart-tool-rail')));
+    expect(rail.width, 52);
+    expect(rail.left, lessThan(40));
+    // The hint never shows below the window's bottom edge.
+    final hint = find.byKey(const ValueKey('hl-chart-edit-hint'));
+    if (hint.evaluate().isNotEmpty) {
+      expect(tester.getRect(hint).bottom, lessThanOrEqualTo(900));
+    }
+    // Arm a tool, Escape puts it down.
+    await tester.tap(find.byKey(const ValueKey('hl-chart-rail-trendline')));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    // Cmd+Z undoes the drawing added, Shift+Cmd+Z brings it back.
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HlMarketDetailSheet)));
+    List<ChartDrawing> drawings() => container
+        .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)));
+    expect(drawings(), hasLength(1));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(drawings(), isEmpty);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(drawings(), hasLength(1));
+    // Delete removes the selected drawing (the toolbar's Delete).
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  for (final (label, size) in [
+    ('1440x900', const Size(1440, 900)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('1100x700', const Size(1100, 700)),
+  ]) {
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('render: editor $label $mode', skip: _dir == null,
+          (tester) async {
+        await openEditor(tester, size, dark);
+        expect(tester.takeException(), isNull);
+        await _shoot(tester, 'hl_editor_${label}_$mode');
+        await _unmount(tester);
+      });
+    }
+  }
 
   for (final (label, size) in [
     ('1440x900', const Size(1440, 900)),

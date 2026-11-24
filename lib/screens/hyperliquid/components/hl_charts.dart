@@ -884,7 +884,13 @@ class _HlPriceScalePainter extends CustomPainter {
   /// price line), so no label is written over that tag.
   final double? lastValue;
 
+  /// One label for about every [labelSpacing] of the price area's height
+  /// (at least three): the Advanced chart on a tall desktop window gets a
+  /// real scale. Null keeps the reading view's three.
+  final double? labelSpacing;
+
   _HlPriceScalePainter({
+    this.labelSpacing,
     required this.candles,
     required this.renderAsLine,
     required this.showVolume,
@@ -941,10 +947,14 @@ class _HlPriceScalePainter extends CustomPainter {
     final loPrice = geom.log ? math.exp(geom.loP) : geom.loP;
     final hiPrice =
         geom.log ? math.exp(geom.loP + geom.rangeP) : geom.loP + geom.rangeP;
+    final spacing = labelSpacing;
     final labels = hlPriceAxisLabels(
       loPrice,
       hiPrice,
       decimals: hlPriceDecimals(hiPrice, decimalCap: decimalCap),
+      maxLabels: spacing == null
+          ? 3
+          : (priceH / spacing).floor().clamp(3, 12).toInt(),
     );
     if (labels.isEmpty) return;
 
@@ -998,6 +1008,7 @@ class _HlPriceScalePainter extends CustomPainter {
       old.labelColor != labelColor ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||
+      old.labelSpacing != labelSpacing ||
       old.lastValue != lastValue;
 }
 
@@ -3777,6 +3788,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                       child: CustomPaint(
                                         size: Size.infinite,
                                         painter: _HlPriceScalePainter(
+                                          // Advanced: a label every ~70 px.
+                                          labelSpacing: widget.drawingMode
+                                              ? 70
+                                              : null,
                                           candles: candles,
                                           renderAsLine: _asLine,
                                           showVolume: widget.showVolume,

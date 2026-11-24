@@ -273,7 +273,11 @@ class HlRailButton extends StatelessWidget {
     this.icon,
     this.selected = false,
     this.sticky = false,
+    this.large = false,
   }) : assert(glyph != null || icon != null);
+
+  /// EXPANDED's roomier rail (a mouse): a 52 x 48 target.
+  final bool large;
 
   final HlRailGlyph? glyph;
   final IconData? icon;
@@ -296,23 +300,25 @@ class HlRailButton extends StatelessWidget {
       selected: selected,
       label: label,
       excludeSemantics: true,
+      // The tool's name: on a long press, and on hover with a mouse.
       child: Tooltip(
         message: label,
         triggerMode: TooltipTriggerMode.longPress,
+        waitDuration: const Duration(milliseconds: 300),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: SizedBox(
-            width: 44,
-            height: 42,
+            width: large ? 52 : 44,
+            height: large ? 48 : 42,
             child: Center(
               child: AnimatedContainer(
                 duration: reduce
                     ? Duration.zero
                     : const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
-                width: 38,
-                height: 34,
+                width: large ? 44 : 38,
+                height: large ? 40 : 34,
                 decoration: selected
                     ? hlSelectedPillDecoration(context, radius: 17)
                     : BoxDecoration(
