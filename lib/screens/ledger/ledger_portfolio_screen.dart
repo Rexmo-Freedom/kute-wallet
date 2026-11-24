@@ -1,4 +1,7 @@
 import 'package:kute/screens/shared/kute_page_route.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/desk_lists.dart';
 import 'package:kute/screens/hyperliquid/components/hl_portfolio_card.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart';
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart';
@@ -52,6 +55,13 @@ class LedgerPortfolioScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"), standing alone: the back and
+    // the title on the left gutter, the pills on it too, each tab's cards
+    // and day cards in columns across the window (desk_lists.dart), the
+    // dock at its phone width under the page. Embedded or narrower: as on
+    // a phone.
+    final wide = !embedded && kuteIsExpanded(context);
     final trading = product == InvestmentsProduct.trading;
     final tabLabels = <(String, IconData)>[
       (context.l10n.portfolioTabOpen, Icons.account_balance_wallet_outlined),
@@ -94,8 +104,12 @@ class LedgerPortfolioScreen extends StatelessWidget {
                 surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
-                centerTitle: true,
-                leading: const KuteBackButton(),
+                centerTitle: !wide,
+                titleSpacing: wide ? 8 : null,
+                leadingWidth: wide ? kDeskLeadingWidth : null,
+                leading: wide
+                    ? const DeskGutterLeading(child: KuteBackButton())
+                    : const KuteBackButton(),
                 title: Text(context.l10n.walletPortfolioAction,
                     style: TextStyle(
                         color: c.textPrimary,
@@ -108,14 +122,26 @@ class LedgerPortfolioScreen extends StatelessWidget {
                 // Same dock mount as Home and the spending wallet's
                 // portfolio; the dock stays bound to this Ledger wallet.
                 child: KuteDockHost(
-                  dockBuilder: (onHeightChanged) => LedgerAccountActionBar(
-                    walletId: walletId,
-                    tab: trading
-                        ? LedgerAccountTab.investing
-                        : LedgerAccountTab.predictions,
-                    onHeightChanged: onHeightChanged,
-                    onPortfolio: true,
-                  ),
+                  dockBuilder: (onHeightChanged) {
+                    final dock = LedgerAccountActionBar(
+                      walletId: walletId,
+                      tab: trading
+                          ? LedgerAccountTab.investing
+                          : LedgerAccountTab.predictions,
+                      onHeightChanged: onHeightChanged,
+                      onPortfolio: true,
+                    );
+                    if (!wide) return dock;
+                    return Align(
+                      alignment: Alignment.bottomCenter,
+                      heightFactor: 1,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                            maxWidth: KuteLayout.columnMaxWidth),
+                        child: dock,
+                      ),
+                    );
+                  },
                   body: SafeArea(
                       top: false,
                       bottom: false,
@@ -126,7 +152,9 @@ class LedgerPortfolioScreen extends StatelessWidget {
                                   walletId: walletId, product: product)),
                           // Pinned, exactly as on the spending account's
                           // portfolio: Ledger mirrors Home.
-                          PortfolioTabsSliver(tabs: tabLabels),
+                          PortfolioTabsSliver(
+                              tabs: tabLabels,
+                              inset: wide ? kuteWideGutter : null),
                         ],
                         // The tabs run to the bottom of the screen, under
                         // the frost band and the dock, as on Home; each
@@ -174,6 +202,33 @@ class _LedgerPortfolioBody extends ConsumerWidget {
         : _predictions(context, ref, identity);
   }
 
+  /// [rows] (the first [notes] of them notes over the cards) as the list
+  /// they always were; on EXPANDED the cards in a grid across the page,
+  /// the notes over its first column.
+  Widget _cards(BuildContext context, List<Widget> rows, {int notes = 0}) {
+    final end = 16.h + kuteDockScrollClearance(context);
+    if (!kuteIsExpanded(context)) {
+      return ListView(padding: EdgeInsets.only(bottom: end), children: rows);
+    }
+    final cards = rows.sublist(notes);
+    return CustomScrollView(slivers: [
+      SliverPadding(
+        padding: deskListPadding().copyWith(bottom: end),
+        sliver: SliverMainAxisGroup(slivers: [
+          for (final note in rows.take(notes))
+            SliverToBoxAdapter(child: DeskFirstColumn(child: note)),
+          SliverKuteGrid(
+            itemCount: cards.length,
+            itemBuilder: (_, i) => cards[i],
+            minItemWidth: kDeskListCellMin,
+            gap: 0,
+            rowGap: 0,
+          ),
+        ]),
+      ),
+    ]);
+  }
+
   Widget _trading(
       BuildContext context, WidgetRef ref, LedgerIdentity identity) {
     final data = ref.watch(ledgerHlAccountProvider(walletId));
@@ -218,10 +273,7 @@ class _LedgerPortfolioBody extends ConsumerWidget {
                   ? context.l10n.hlOrdersEmpty
                   : context.l10n.ledgerInvestingEmpty);
         }
-        return ListView(
-            padding: EdgeInsets.only(
-                bottom: 16.h + kuteDockScrollClearance(context)),
-            children: rows);
+        return _cards(context, rows, notes: account.hasPartialFailure ? 1 : 0);
       },
     );
   }
@@ -248,13 +300,13 @@ class _LedgerPortfolioBody extends ConsumerWidget {
         if (positions.isEmpty && !account.hasPartialFailure) {
           return _EmptyPortfolio(message: context.l10n.ledgerNoPositionsYet);
         }
-        return ListView(
-            padding: EdgeInsets.only(
-                bottom: 16.h + kuteDockScrollClearance(context)),
-            children: [
+        final notes = [
           if (account.hasPartialFailure) LedgerPartialLoadNote(onRetry: retry),
           if (account.isReadOnly)
             LedgerTabNote(text: context.l10n.ledgerPmLegacyReadOnly),
+        ];
+        return _cards(context, notes: notes.length, [
+          ...notes,
           for (final position in positions)
             LedgerPmPositionRow(
               position: position,
@@ -306,9 +358,7 @@ class _LedgerSpotRow extends ConsumerWidget {
             balance.coin,
         caption: '${balance.coin} · ${context.l10n.investingSpot}',
         trailing: PortfolioCardValue(
-          value: value == null || !value.isFinite
-              ? '—'
-              : formatDollars(value),
+          value: value == null || !value.isFinite ? '—' : formatDollars(value),
         ),
         footer: [
           context.l10n
@@ -350,6 +400,7 @@ class _LedgerActivityBody extends ConsumerWidget {
               }
               final live = ref.watch(ledgerHlFillsProvider(walletId));
               return HyperliquidActivityList(
+                  columns: kuteIsExpanded(context),
                   fills: live.valueOrNull ?? account.fills!,
                   walletId: walletId,
                   loading: live.isLoading,
@@ -385,6 +436,7 @@ class _LedgerActivityBody extends ConsumerWidget {
             // "Merged shares") instead of the raw TRADE, REDEEM, MERGE
             // and SPLIT types, on the same day cards as every surface.
             return LedgerPmActivityList(
+                columns: kuteIsExpanded(context),
                 rows: rows,
                 positions: data?.positions ?? const [],
                 walletId: walletId);

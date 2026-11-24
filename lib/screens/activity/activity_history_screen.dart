@@ -26,6 +26,7 @@ import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/all_activity.dart'
     show ActivityScope, AllActivitySliver;
+import 'package:kute/screens/shared/desk_lists.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
 
@@ -92,14 +93,25 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the page spans the window, the
+    // back and the title on its left gutter, the day cards in masonry
+    // columns (desk_lists.dart), the links card over the first column.
+    // Narrower: as on a phone.
+    final wide = kuteIsExpanded(context);
+    final side = wide ? deskListPadding() : EdgeInsets.zero;
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
         backgroundColor: c.background,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: const KuteBackButton(),
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? kDeskLeadingWidth : null,
+        leading: wide
+            ? const DeskGutterLeading(child: KuteBackButton())
+            : const KuteBackButton(),
         automaticallyImplyLeading: false,
         title: Text(
           widget.title ?? context.l10n.activity,
@@ -120,9 +132,21 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                   SliverPadding(padding: EdgeInsets.only(top: 8.h)),
                   // Share links this wallet sent and nobody has claimed
                   // or that still wait to be paid: not transactions yet.
-                  const SliverToBoxAdapter(child: PendingShareLinksCard()),
-                  AllActivitySliver(
-                      controller: _scroll, scope: widget.listedScope),
+                  SliverPadding(
+                    padding: side,
+                    sliver: SliverToBoxAdapter(
+                        child: wide
+                            ? const DeskFirstColumn(
+                                child: PendingShareLinksCard())
+                            : const PendingShareLinksCard()),
+                  ),
+                  SliverPadding(
+                    padding: side,
+                    sliver: AllActivitySliver(
+                        controller: _scroll,
+                        scope: widget.listedScope,
+                        columns: wide),
+                  ),
                   // The last rows scroll clear of the floating bar.
                   SliverPadding(
                       padding: EdgeInsets.only(
@@ -132,11 +156,15 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
             : SingleChildScrollView(
                 // The last rows scroll clear of the floating bar.
                 padding: EdgeInsets.only(
-                    top: 8.h, bottom: 24.h + kuteBarScrollClearance.h),
+                    left: side.left,
+                    right: side.right,
+                    top: 8.h,
+                    bottom: 24.h + kuteBarScrollClearance.h),
                 child: TransactionList(
                   walletIdOverride: widget.walletIdOverride,
                   onlyUsdb: widget.onlyUsdb,
                   showAll: true,
+                  columns: wide,
                 ),
               ),
       ),
@@ -192,9 +220,10 @@ Future<void> showActivityHistory(
   return Navigator.of(context, rootNavigator: true).push<void>(
     KutePageRoute<void>(
       settings: const RouteSettings(name: ActivityHistoryScreen.routeName),
-      // A readable column from MEDIUM up, never a list stretched across
-      // the window (kute_wide_frames.dart).
-      builder: (_) => KuteFormColumn(child: screen),
+      // A readable column on MEDIUM; on EXPANDED the page across the
+      // window, its day cards in columns (never a row stretched across).
+      wide: KuteWideMode.full,
+      builder: (_) => screen,
     ),
   );
 }

@@ -10,7 +10,9 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/category_pill_strip.dart';
+import 'package:kute/screens/shared/desk_lists.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -87,8 +89,7 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
   final String product;
 
   /// A market as its own card, or ([inGroup]) as a row of a grouped card.
-  final Widget Function(T market, VoidCallback onTap, bool inGroup)
-      cardBuilder;
+  final Widget Function(T market, VoidCallback onTap, bool inGroup) cardBuilder;
   final ValueChanged<T> onOpenMarket;
 
   /// Which markets share one grouped card like Home's Activity (as on the
@@ -114,6 +115,8 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
         params: {'product': product, 'source': 'account'});
     Navigator.of(context, rootNavigator: true).push(
       KutePageRoute<void>(
+        // EXPANDED: the page across the window, its markets in columns.
+        wide: KuteWideMode.full,
         builder: (_) => _CategoryPage<T>(
           title: section.label,
           groups: groups,
@@ -258,8 +261,7 @@ class _CategoryPage<T> extends StatelessWidget {
 
   final String title;
   final List<T> markets;
-  final Widget Function(T market, VoidCallback onTap, bool inGroup)
-      cardBuilder;
+  final Widget Function(T market, VoidCallback onTap, bool inGroup) cardBuilder;
   final void Function(T market) onOpenMarket;
   final bool Function(T market) groups;
   final double Function() groupRowIndent;
@@ -268,6 +270,11 @@ class _CategoryPage<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the back and the title on the
+    // left gutter, the markets in columns across the window
+    // (desk_lists.dart). Narrower: as on a phone (MEDIUM's column).
+    final wide = kuteIsExpanded(context);
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
@@ -276,7 +283,9 @@ class _CategoryPage<T> extends StatelessWidget {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        centerTitle: true,
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? kDeskLeadingWidth : null,
         title: Text(
           title,
           maxLines: 1,
@@ -288,7 +297,9 @@ class _CategoryPage<T> extends StatelessWidget {
             letterSpacing: -0.3,
           ),
         ),
-        leading: const KuteBackButton(),
+        leading: wide
+            ? const DeskGutterLeading(child: KuteBackButton())
+            : const KuteBackButton(),
       ),
       body: Stack(
         children: [
@@ -297,15 +308,31 @@ class _CategoryPage<T> extends StatelessWidget {
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-                ...marketGroupSlivers<T>(
-                  context,
-                  items: markets,
-                  groups: groups,
-                  dividerIndent: groupRowIndent(),
-                  divider: groupDivider,
-                  build: (market, inGroup) => cardBuilder(
-                      market, () => onOpenMarket(market), inGroup),
-                ),
+                if (wide)
+                  SliverPadding(
+                    padding: deskListPadding(),
+                    sliver: SliverMainAxisGroup(
+                      slivers: deskMarketColumnSlivers<T>(
+                        context,
+                        items: markets,
+                        groups: groups,
+                        dividerIndent: groupRowIndent(),
+                        divider: groupDivider,
+                        build: (market, inGroup) => cardBuilder(
+                            market, () => onOpenMarket(market), inGroup),
+                      ),
+                    ),
+                  )
+                else
+                  ...marketGroupSlivers<T>(
+                    context,
+                    items: markets,
+                    groups: groups,
+                    dividerIndent: groupRowIndent(),
+                    divider: groupDivider,
+                    build: (market, inGroup) => cardBuilder(
+                        market, () => onOpenMarket(market), inGroup),
+                  ),
                 SliverToBoxAdapter(child: SizedBox(height: 24.h)),
               ],
             ),
