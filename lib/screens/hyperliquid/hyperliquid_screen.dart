@@ -11,6 +11,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show kuteBrowseColumnsMax;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -525,10 +526,14 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   }
 
   /// How many categories follow Trending on the wide board, and how many
-  /// of each one's rows (two full rows of the page's four columns, four
-  /// of two; market_groups.dart, marketGridAlignedColumns).
-  static const int _kBoardSections = 2;
-  static const int _kBoardRows = 8;
+  /// of each one's rows it reads: two full rows of the page's columns
+  /// ([_kBoardGridRows]; market_groups.dart, marketGridAlignedColumns),
+  /// up to six columns, the grid showing the full rows its width takes.
+  /// Four categories, so a tall window is filled where the data exists
+  /// (founder, 24 November 2026: "occupy full screen?").
+  static const int _kBoardSections = 4;
+  static const int _kBoardGridRows = 2;
+  static const int _kBoardRows = _kBoardGridRows * kuteBrowseColumnsMax;
 
   /// THE WIDE BOARD (24 November 2026). Embedded in the Dollars page on
   /// EXPANDED, the default view (Trending: its squares and its curated
@@ -590,6 +595,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
           dividerIndent: hlGroupRowIndent(),
           divider: hlGroupRowDivider,
           alignedGrid: true,
+          fullRows: _kBoardGridRows,
           build: (market, inGroup) => RepaintBoundary(
             child: HlMarketCard(
               key: ValueKey(
@@ -819,6 +825,10 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               divider: hlGroupRowDivider,
                               // The Dollars page's one grid (round two).
                               alignedGrid: _wideBoard,
+                              fullRows: _wideBoard &&
+                                      hlBrowseIsDefaultView(tab, sub)
+                                  ? _kBoardGridRows
+                                  : null,
                               build: (market, inGroup) => RepaintBoundary(
                                 child: HlMarketCard(
                                   key: ValueKey(

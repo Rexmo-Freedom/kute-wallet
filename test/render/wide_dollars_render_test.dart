@@ -329,6 +329,7 @@ void main() {
     '1440x900': Size(1440, 900),
     '1180x820': Size(1180, 820),
     '1920x1080': Size(1920, 1080),
+    '2400x1200': Size(2400, 1200),
     '1000x700': Size(1000, 700),
     '820x1180': Size(820, 1180),
     '430x932': Size(430, 932),
@@ -341,6 +342,9 @@ void main() {
       c.read(polyBrowseSelectionProvider.notifier).state =
           const PolyBrowseSelection(
               pill: PolyPill.crypto, subs: {PolyPill.crypto: '5m'});
+  void politics(ProviderContainer c) =>
+      c.read(polyBrowseSelectionProvider.notifier).state =
+          const PolyBrowseSelection(pill: PolyPill.politics);
   final cases = <String,
       ({
     String pill,
@@ -354,6 +358,11 @@ void main() {
     'investing_crypto': (pill: 'Investing', positions: 4, pick: crypto),
     'predictions': (pill: 'Predictions', positions: 4, pick: null),
     'predictions_5min': (pill: 'Predictions', positions: 0, pick: fiveMin),
+    'investing_none': (pill: 'Investing', positions: 0, pick: null),
+    'investing_crypto_none': (pill: 'Investing', positions: 0, pick: crypto),
+    'predictions_none': (pill: 'Predictions', positions: 0, pick: null),
+    'predictions_politics_none':
+        (pill: 'Predictions', positions: 0, pick: politics),
   };
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';

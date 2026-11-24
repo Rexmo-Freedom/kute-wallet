@@ -143,8 +143,8 @@ class KuteTopNavBar extends ConsumerWidget {
 }
 
 /// THE DESKTOP TOP BAR (founder, 25 November 2026: "Tabs on top look bad
-/// in desktop"; wide_design_2.md, A). On EXPANDED one bar across the page
-/// ([KuteLayout.pageMaxWidth], the page's gutters), [kuteTopBarHeight]
+/// in desktop"; wide_design_2.md, A). On EXPANDED one bar across the
+/// window (its gutters, [KuteLayout.paneGap]), [kuteTopBarHeight]
 /// tall, in place of the phone strip centred in an empty band:
 ///   * LEFT: Sal and the wordmark, the lockup the PIN screen shows
 ///     (kute_pin_scaffold.dart), then the Bitcoin | Dollars switch beside
@@ -205,65 +205,64 @@ class _KuteDesktopTopBar extends StatelessWidget {
       color: context.colors.background,
       child: SafeArea(
         bottom: false,
+        // Across the whole window (founder, 24 November 2026: "occupy
+        // full screen?"): the lockup on the window's left gutter, the
+        // Dollars browse's edge under it, the hub on the right gutter.
         child: Center(
           heightFactor: 1,
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
-            child: SizedBox(
-              key: const ValueKey('kute-desktop-top-bar'),
-              height: kuteTopBarHeight,
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
-                child: CustomMultiChildLayout(
-                  delegate: _TopBarSlots(),
-                  children: [
-                    LayoutId(
-                      id: _TopBarSlot.left,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const _KuteLockup(),
-                          SizedBox(width: narrow ? 20 : 28),
-                          SizedBox(
-                            width: switchStrip
-                                ? (narrow ? _switchWidthNarrow : _switchWidth)
-                                : _stripWidth,
-                            child: FloatingActionPill(
-                              activeTab: activeTab,
-                              onSelectTab: onSelectTab,
-                              pagePosition: pagePosition,
-                            ),
+          child: SizedBox(
+            key: const ValueKey('kute-desktop-top-bar'),
+            height: kuteTopBarHeight,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
+              child: CustomMultiChildLayout(
+                delegate: _TopBarSlots(),
+                children: [
+                  LayoutId(
+                    id: _TopBarSlot.left,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _KuteLockup(),
+                        SizedBox(width: narrow ? 20 : 28),
+                        SizedBox(
+                          width: switchStrip
+                              ? (narrow ? _switchWidthNarrow : _switchWidth)
+                              : _stripWidth,
+                          child: FloatingActionPill(
+                            activeTab: activeTab,
+                            onSelectTab: onSelectTab,
+                            pagePosition: pagePosition,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    // The active tab's balance in the bar's centre, its
-                    // actions at the right, as the fintech desktops put
-                    // the money (desktop_top_bar_money.dart).
-                    LayoutId(
-                      id: _TopBarSlot.centre,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: KuteDesktopMoney.balance(activeTab: activeTab),
-                      ),
+                  ),
+                  // The active tab's balance in the bar's centre, its
+                  // actions at the right, as the fintech desktops put
+                  // the money (desktop_top_bar_money.dart).
+                  LayoutId(
+                    id: _TopBarSlot.centre,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: KuteDesktopMoney.balance(activeTab: activeTab),
                     ),
-                    LayoutId(
-                      id: _TopBarSlot.right,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          KuteDesktopMoney.actions(
-                              activeTab: activeTab,
-                              labels: window >= _labelsMinWidth),
-                          const SizedBox(width: 16),
-                          _FinancialHubButton(activeTab: activeTab),
-                        ],
-                      ),
+                  ),
+                  LayoutId(
+                    id: _TopBarSlot.right,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        KuteDesktopMoney.actions(
+                            activeTab: activeTab,
+                            labels: window >= _labelsMinWidth),
+                        const SizedBox(width: 16),
+                        _FinancialHubButton(activeTab: activeTab),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
