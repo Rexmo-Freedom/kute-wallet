@@ -1,4 +1,5 @@
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/standing_order_slips.dart'
@@ -6058,6 +6059,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   ),
                 ),
               ),
+              // In the side panel (EXPANDED), what the person holds on
+              // this market, over the button (kute_side_panel.dart).
+              if (widget.embedded)
+                SlipPanelFooterSlot(horizontal: 20.w),
               action,
             ],
           );
@@ -6115,17 +6120,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ? Duration.zero
                 : const Duration(milliseconds: 200),
             curve: Curves.easeOut,
-            // In place the ticket is a card in the pane: every corner
-            // round, the hairline all around.
-            decoration: BoxDecoration(
-              color: sideColor,
-              borderRadius: widget.embedded
-                  ? BorderRadius.circular(24.r)
-                  : BorderRadius.vertical(top: Radius.circular(24.r)),
-              border: widget.embedded
-                  ? Border.all(color: c.border, width: 0.5)
-                  : Border(top: BorderSide(color: c.border)),
-            ),
+            // In place the ticket IS the side panel: its colour the
+            // panel's surface from the window's top to its bottom,
+            // rounded only where it meets the page (kute_side_panel.dart).
+            decoration: widget.embedded
+                ? kuteSidePanelDecoration(sideColor)
+                : BoxDecoration(
+                    color: sideColor,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(24.r)),
+                    border: Border(top: BorderSide(color: c.border)),
+                  ),
             // Top inset only, so the action block below is the single
             // place that decides the gap under the button. SafeArea
             // zeroes the bottom padding it consumes for everything
@@ -6137,7 +6142,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // In place it is a full-height card: the keypad takes the
             // pane's spare height, the button at its foot.
             child: widget.embedded
-                ? SlipFit(fill: true, child: ticket)
+                ? Padding(
+                    padding: kuteSidePanelInsets,
+                    child: SlipFit(fill: true, child: ticket))
                 : SafeArea(
                     bottom: false,
                     child: ConstrainedBox(
@@ -6232,6 +6239,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final key = event.logicalKey;
     final value = _amountController.text;
     if (key == LogicalKeyboardKey.backspace) {
+      // The editor beside the panel removes its selected drawing.
+      if (KuteDeskKeys.editorHoldsSelection) return false;
       _onKeypadAmount(amountBackspace(value));
       return true;
     }

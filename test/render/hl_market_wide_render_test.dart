@@ -27,6 +27,7 @@ import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
@@ -353,10 +354,18 @@ void main() {
         findsOneWidget);
     expect(find.byKey(const ValueKey('kute-bar-trade-invest')), findsNothing);
     expect(find.byKey(const ValueKey('hl-pane-position-BTC')), findsOneWidget);
-    // The pane is the right column, phone wide.
+    // The ticket is the side panel: at the window's right edge, top to
+    // bottom, and the position sits in it.
     final pane = tester.getRect(find.byKey(const ValueKey('hl-ticket-pane')));
-    expect(pane.width, KuteLayout.paneWidth);
-    expect(pane.right, lessThanOrEqualTo(1440 - KuteLayout.paneGap + 0.5));
+    expect(pane.width, kuteSidePanelWidth);
+    expect(pane.right, 1440);
+    expect(pane.top, 0);
+    expect(pane.bottom, 900);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('hl-ticket-pane')),
+            matching: find.byKey(const ValueKey('hl-pane-position-BTC'))),
+        findsOneWidget);
     // A hardware key types the amount, as the keypad would.
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
@@ -551,6 +560,16 @@ void main() {
     final rail = tester.getRect(find.byKey(const ValueKey('hl-chart-tool-rail')));
     expect(rail.width, 52);
     expect(rail.left, lessThan(40));
+    // The ticket's side panel beside the editor (1280+), the volume in a
+    // pane of its own; the header's control folds the panel away.
+    expect(find.byKey(const ValueKey('hl-ticket-pane')), findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-chart-volume-pane')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('hl-chart-edit-panel-toggle')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byKey(const ValueKey('hl-ticket-pane')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('hl-chart-edit-panel-toggle')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byKey(const ValueKey('hl-ticket-pane')), findsOneWidget);
     // The hint never shows below the window's bottom edge.
     final hint = find.byKey(const ValueKey('hl-chart-edit-hint'));
     if (hint.evaluate().isNotEmpty) {
@@ -587,7 +606,9 @@ void main() {
   for (final (label, size) in [
     ('1440x900', const Size(1440, 900)),
     ('1920x1080', const Size(1920, 1080)),
-    ('1100x700', const Size(1100, 700)),
+    ('2560x1300', const Size(2560, 1300)),
+    ('1180x820', const Size(1180, 820)),
+    ('1000x700', const Size(1000, 700)),
   ]) {
     for (final dark in [false, true]) {
       final mode = dark ? 'dark' : 'light';
@@ -595,7 +616,19 @@ void main() {
           (tester) async {
         await openEditor(tester, size, dark);
         expect(tester.takeException(), isNull);
-        await _shoot(tester, 'hl_editor_${label}_$mode');
+        final open =
+            find.byKey(const ValueKey('hl-ticket-pane')).evaluate().isNotEmpty;
+        await _shoot(tester,
+            'hl_editor_${label}_${mode}_${open ? 'panel' : 'folded'}');
+        // The other state, from the header's control.
+        await tester
+            .tap(find.byKey(const ValueKey('hl-chart-edit-panel-toggle')));
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(tester.takeException(), isNull);
+        await _shoot(tester,
+            'hl_editor_${label}_${mode}_${open ? 'folded' : 'panel'}');
         await _unmount(tester);
       });
     }
@@ -605,6 +638,7 @@ void main() {
     ('1440x900', const Size(1440, 900)),
     ('1180x820', const Size(1180, 820)),
     ('1920x1080', const Size(1920, 1080)),
+    ('2560x1300', const Size(2560, 1300)),
     ('1000x700', const Size(1000, 700)),
     ('820x1180', const Size(820, 1180)),
     ('430x932', const Size(430, 932)),

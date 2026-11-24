@@ -10,7 +10,6 @@
 //   WIDE_PREDICTIONS_RENDER=<dir> flutter test \
 //     test/render/wide_predictions_render_test.dart
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -233,6 +232,7 @@ const _sizes = [
   ('1440x900', Size(1440, 900)),
   ('1180x820', Size(1180, 820)),
   ('1920x1080', Size(1920, 1080)),
+  ('2560x1300', Size(2560, 1300)),
   ('1000x700', Size(1000, 700)),
   ('820x1180', Size(820, 1180)),
   ('430x932', Size(430, 932)),
@@ -456,12 +456,14 @@ void main() {
     await release(tester);
   });
 
-  testWidgets('wide: the slip is a full-height card down to the gutter',
+  testWidgets('wide: the slip is the side panel, window edge to edge',
       (tester) async {
     await pumpMarket(tester, const Size(1440, 900), _aliens);
+    // The slip is the side panel: the window's right edge, top to bottom.
     final slip = tester.getRect(find.byKey(const ValueKey('bet-slip-in-place')));
-    expect(slip.bottom, closeTo(900 - KuteLayout.paneGap, 1));
-    expect(slip.top, lessThan(20));
+    expect(slip.bottom, 900);
+    expect(slip.top, 0);
+    expect(slip.right, 1440);
     expect(tester.takeException(), isNull);
     await release(tester);
   });

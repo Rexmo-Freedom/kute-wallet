@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
@@ -631,6 +633,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // slip open in place on the right ([kuteWidePanes]).
     final form = KuteLayout.of(context);
     final expanded = form == KuteFormFactor.expanded;
+    // EXPANDED: the chart takes the whole left side; the outcomes, the
+    // board and Rules under it keep a readable width at its left.
+    Widget capped(Widget sliver) => expanded
+        ? SliverConstrainedCrossAxis(
+            maxExtent: kuteDeskListMaxWidth, sliver: sliver)
+        : sliver;
     final page = Column(
             mainAxisSize: MainAxisSize.max,
             children: [
@@ -729,8 +737,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                           SliverToBoxAdapter(
                               child: SizedBox(key: _outcomesAnchor)),
                         if (!event.isBinary)
-                          PolySpecialEventSection.sliver(event,
-                              onPickOutcome: _openCandidateDetail),
+                          capped(PolySpecialEventSection.sliver(event,
+                              onPickOutcome: _openCandidateDetail)),
                         // Own Consumer, returning slivers: it rebuilds when
                         // the order of the outcomes changes; a price tick
                         // repaints the one row (or board button) it moved.
@@ -740,14 +748,14 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         // outcome list. A Yes/No market has neither: its two
                         // buttons below carry both chances.
                         if (!event.isBinary)
-                          Consumer(
+                          capped(Consumer(
                             builder: (context, priceRef, _) => _ladder != null
                                 ? _buildLadder(priceRef, c)
                                 : _showsGameLines
                                     ? _buildGameMarkets(priceRef, c)
                                     : _buildMultiOutcomeList(priceRef, c),
-                          ),
-                        SliverToBoxAdapter(
+                          )),
+                        capped(SliverToBoxAdapter(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -756,7 +764,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                               SizedBox(height: 24.h),
                             ],
                           ),
-                        ),
+                        )),
                       ]),
                     ),
                     // The last rows (the outcomes, Rules) scroll clear of
@@ -3880,7 +3888,7 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
                             roundMinutes: minutes,
                             // EXPANDED: the live chart has the left pane.
                             chartHeight: expanded
-                                ? kuteWideChartHeight(context)
+                                ? kuteWideChartHeight(context, chrome: 360)
                                 : 200,
                           ),
                         )
@@ -3891,7 +3899,7 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
                           ledgerWalletId: ledgerWalletId,
                           roundMinutes: minutes,
                           chartHeight:
-                              expanded ? kuteWideChartHeight(context) : 200,
+                              expanded ? kuteWideChartHeight(context, chrome: 360) : 200,
                         ),
                     ],
                   ),
@@ -3945,9 +3953,14 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
 
 // ── Wide layouts (platform/kute_layout.dart) ─────────────────────────────
 
-/// The chart's height on EXPANDED: about half the window, at least 380.
-double kuteWideChartHeight(BuildContext context) =>
-    math.max(380.0, MediaQuery.sizeOf(context).height * 0.5);
+/// The chart's height on EXPANDED: the window's height less the room
+/// the page's header and the card over the chart take, so the chart is
+/// the hero and grows with a tall window (founder, 25 November 2026:
+/// "this page make it use the full screen"); at least 380.
+/// [chrome] is the height the page keeps for what is above and under the
+/// chart (a timed round's card keeps less).
+double kuteWideChartHeight(BuildContext context, {double chrome = 440}) =>
+    math.max(380.0, MediaQuery.sizeOf(context).height - chrome);
 
 /// MEDIUM: the phone's column, centred at [KuteLayout.columnMaxWidth].
 Widget kuteWideColumn(Widget page) => Center(
@@ -3957,34 +3970,26 @@ Widget kuteWideColumn(Widget page) => Center(
       ),
     );
 
-/// EXPANDED: [left] (the page: its title, chart, outcomes and rules,
-/// scrolling) and [right] (the slip in place and the position), a
-/// [KuteLayout.paneWidth] column that stays put; the two centred at
-/// [KuteLayout.pageMaxWidth] with [KuteLayout.paneGap] between and at
-/// the sides.
-Widget kuteWidePanes({required Widget left, required Widget right}) => Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: left),
-              const SizedBox(width: KuteLayout.paneGap),
-              SizedBox(width: KuteLayout.paneWidth, child: right),
-            ],
-          ),
-        ),
+/// EXPANDED: the market desk (kute_side_panel.dart). [left] (the page:
+/// its title, chart, outcomes and rules, scrolling) from the window's
+/// left edge, at the page's gutter ([kuteDeskGutter], the page's own 20
+/// included), and [right] (the slip in place), the side panel at the
+/// window's right edge, full height.
+Widget kuteWidePanes({required Widget left, required Widget right}) =>
+    kuteDeskPanes(
+      left: Padding(
+        padding: const EdgeInsets.only(left: kuteDeskGutter - 20, right: 4),
+        child: left,
       ),
+      panel: right,
     );
 
-/// The right pane on EXPANDED: the bet slip open in place
-/// ([BetSlipInPlacePane]) and, under it, the person's positions in this
-/// market ([holds]) as the Portfolio lists them (a tap opens the position,
-/// with Sell). The slip is a full-height card and gives up height
-/// first; the positions scroll on their own past a third of the pane.
+/// The side panel on EXPANDED: the bet slip open in place
+/// ([BetSlipInPlacePane]), its side colour the panel's surface, and in it,
+/// over its button, the person's positions in this market ([holds]) as
+/// the Portfolio lists them (a tap opens the position, with Sell). With
+/// no slip (a market over, a round with no prices yet) the panel is the
+/// sheet's plain surface.
 class KuteWideSlipPane extends ConsumerWidget {
   const KuteWideSlipPane({super.key, required this.holds});
 
@@ -3996,32 +4001,22 @@ class KuteWideSlipPane extends ConsumerWidget {
       for (final p in ref.watch(polymarketActivePositionsProvider))
         if (holds(p)) p,
     ];
-    return Padding(
-      padding: const EdgeInsets.only(
-          top: KuteLayout.paneGap / 2, bottom: KuteLayout.paneGap),
-      child: LayoutBuilder(
-        builder: (context, constraints) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // The slip is a full-height card (its foot on the window's
-            // bottom gutter), less the positions under it.
-            const Expanded(child: BetSlipInPlacePane()),
-            if (held.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints:
-                    BoxConstraints(maxHeight: constraints.maxHeight / 3),
-                child: SingleChildScrollView(
-                  child: PortfolioCardList(rows: [
-                    for (final p in held)
-                      PolyPositionRow(
-                          key: ValueKey('wide-position-${p.tokenId}'),
-                          position: p),
-                  ]),
-                ),
-              ),
-            ],
-          ],
+    return SlipPanelFooter(
+      // In the app's palette (not the slip's tint): the Portfolio's own
+      // card, reading on the side colour as the button does.
+      footer: held.isEmpty
+          ? null
+          : Theme(
+              data: Theme.of(context),
+              child: PortfolioCardList(rows: [
+              for (final p in held)
+                PolyPositionRow(
+                    key: ValueKey('wide-position-${p.tokenId}'), position: p),
+            ])),
+      child: BetSlipInPlacePane(
+        empty: DecoratedBox(
+          decoration: kuteSidePanelDecoration(context.colors.surface),
+          child: const SizedBox.expand(),
         ),
       ),
     );

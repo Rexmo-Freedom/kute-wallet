@@ -463,3 +463,28 @@ class _KuteDialogCloseMarkState extends State<KuteDialogCloseMark> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
+
+// ── Round three: the market desk (founder, 25 November 2026: "not
+// occupying full screen", "the card on the right should be a clear screen
+// part on the right, not this small") ───────────────────────────────────
+
+/// The side panel of a market page and of the Advanced chart editor on
+/// EXPANDED: the order ticket or the bet slip, attached to the window's
+/// right edge from its top to its bottom, its side colour the panel's
+/// surface. The left side takes the rest of the window, uncapped.
+const double kuteSidePanelWidth = 448;
+
+/// The gutter between the window's left edge and a market page's
+/// content on EXPANDED.
+const double kuteDeskGutter = 24;
+
+/// The widest a block of prose runs on a market page's left side.
+const double kuteDeskProseMaxWidth = 720;
+
+/// The Advanced chart editor opens with the ticket's side panel beside
+/// it from this window width; narrower, folded (its header opens it).
+const double kuteEditorPanelOpensAt = 1280;
+
+/// The widest a list of rows (a market's outcomes, its board, Rules) runs
+/// under the chart on a market page's left side.
+const double kuteDeskListMaxWidth = 960;

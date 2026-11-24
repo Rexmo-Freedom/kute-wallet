@@ -1,6 +1,7 @@
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
+import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart'
     show StandingOrderSlips;
@@ -5814,6 +5815,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ),
             ),
           ),
+          // In the side panel (EXPANDED), what the person holds on this
+          // market, over the button (kute_side_panel.dart).
+          if (_inPlace != null) SlipPanelFooterSlot(horizontal: 20.w),
           action,
         ],
       );
@@ -5894,14 +5898,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 duration: tintDuration,
                 curve: Curves.easeOut,
                 clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: selectedColor,
-                  borderRadius: BorderRadius.circular(24.r),
-                  border: Border.all(color: tintColors.border),
-                ),
-                // A full-height card: the keypad takes the pane's spare
+                // The slip IS the side panel: its colour the panel's
+                // surface from the window's top to its bottom, rounded
+                // only where it meets the page (kute_side_panel.dart).
+                decoration: kuteSidePanelDecoration(selectedColor),
+                // Full height: the keypad takes the panel's spare
                 // height, the button at its foot.
-                child: SlipFit(fill: true, child: ticket(fullscreen: false)),
+                child: Padding(
+                  padding: kuteSidePanelInsets,
+                  child: SlipFit(fill: true, child: ticket(fullscreen: false)),
+                ),
               ),
             ),
           ),

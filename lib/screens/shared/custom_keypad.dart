@@ -428,8 +428,8 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
 
   /// Non-null on a full-height ticket ([SlipDensity.fills]): given more
   /// than its designed height, the keys grow up to this, the gaps between
-  /// the rows to [_kFillMaxRowGap], and what is left is split evenly above
-  /// and below the pad.
+  /// the rows to [_kFillMaxRowGap], and what is left goes above the pad
+  /// (at most [_kFillAirUnder] under it).
   final double? maxKeyHeight;
   final ValueChanged<double> onRange;
 
@@ -460,6 +460,9 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
 /// The widest gap between a full-height pad's rows (see
 /// [_KeypadRows.maxKeyHeight]).
 const double _kFillMaxRowGap = 20;
+
+/// The most room under a full-height pad (see [_RenderKeypadRows]).
+const double _kFillAirUnder = 24;
 
 class _KeypadRowParentData extends ContainerBoxParentData<RenderBox> {}
 
@@ -567,14 +570,18 @@ class _RenderKeypadRows extends RenderBox
     final grow = _maxKeyHeight;
     if (grow != null && height > _natural && childCount > 0) {
       // A full-height ticket: the keys grow first (to [grow]), then the
-      // gaps between the rows, and the rest is even room above and below.
+      // gaps between the rows; the rest goes above the pad, all but a
+      // little air under it, so on a tall side panel the pad sits by the
+      // button it feeds (the thumb's place on a phone) and the form
+      // keeps the top.
       final rows = childCount;
       key = math.min(grow, (height - _gaps * _rowGap) / rows);
       final rest = height - rows * key;
       gap = _gaps == 0
           ? 0
           : math.min(math.max(_rowGap, _kFillMaxRowGap), rest / _gaps);
-      y = math.max(0.0, (rest - _gaps * gap) / 2);
+      final spare = math.max(0.0, rest - _gaps * gap);
+      y = math.max(spare / 2, spare - _kFillAirUnder);
     }
     final width = constraints.maxWidth;
     for (var c = firstChild; c != null; c = childAfter(c)) {

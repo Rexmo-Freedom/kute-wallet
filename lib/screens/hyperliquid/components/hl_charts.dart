@@ -889,8 +889,12 @@ class _HlPriceScalePainter extends CustomPainter {
   /// real scale. Null keeps the reading view's three.
   final double? labelSpacing;
 
+  /// The labels' size; null: the reading view's 11 sp.
+  final double? labelFontSize;
+
   _HlPriceScalePainter({
     this.labelSpacing,
+    this.labelFontSize,
     required this.candles,
     required this.renderAsLine,
     required this.showVolume,
@@ -958,7 +962,7 @@ class _HlPriceScalePainter extends CustomPainter {
     );
     if (labels.isEmpty) return;
 
-    final fontSize = 11.sp;
+    final fontSize = labelFontSize ?? 11.sp;
     final plotW = hlPlotWidth(size.width, tagGutter);
     // In the column, past the data, their digits ending where the live
     // price pill's do.
@@ -1008,6 +1012,7 @@ class _HlPriceScalePainter extends CustomPainter {
       old.labelColor != labelColor ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||
+      old.labelFontSize != labelFontSize ||
       old.labelSpacing != labelSpacing ||
       old.lastValue != lastValue;
 }
@@ -1376,6 +1381,15 @@ class HlCandlestickChart extends StatefulWidget {
 
   /// Advanced drawing mode: pan/scrub is suspended and pans/taps place,
   /// select or edit drawings instead. The host owns the toolbar + state.
+  /// The Advanced chart editor on an EXPANDED window (the desk; founder,
+  /// 25 November 2026: "there is much more space to make the advanced
+  /// graph on desktop much better"): while [drawingMode], the volume is a
+  /// pane of its own under the plot with real height instead of a thin
+  /// band in it, the indicator panes are taller, the price and date axes
+  /// are larger with more labels, and the dates sit under every pane.
+  /// False everywhere else (phones never set it).
+  final bool desk;
+
   final bool drawingMode;
 
   /// When true the plot takes whatever height the parent column leaves
@@ -1497,6 +1511,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.height = 240,
     this.timeframeLabel,
     this.showVolume = true,
+    this.desk = false,
     this.renderAsLine = false,
     this.fills = const [],
     this.entryPx,
@@ -1576,6 +1591,19 @@ class HlCandlestickChart extends StatefulWidget {
 
 class _HlCandlestickChartState extends State<HlCandlestickChart>
     with TickerProviderStateMixin {
+  /// The editor on a desktop window ([HlCandlestickChart.desk]).
+  bool get _deskEditor => widget.desk && widget.drawingMode;
+
+  /// Whether the plot draws its volume band: at the desk the volume is a
+  /// pane of its own instead ([_volumePane]).
+  bool get _plotVolume => widget.showVolume && !_deskEditor;
+
+  /// A pane's height under the plot: 76 as designed; at the desk about
+  /// an eighth of the window, 96 to 150.
+  double _paneHeight(BuildContext context) => _deskEditor
+      ? (MediaQuery.sizeOf(context).height * 0.125).clamp(96.0, 150.0)
+      : 76.h;
+
   int? _touchIndex;
 
   /// The finger's height during an Advanced crosshair (the price pill
@@ -2155,7 +2183,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// per pixel), up stretches it, about the middle of the shown domain.
   void _onAxisDrag(double y, Size size) {
     final d0 = _axisStartDomain;
-    final priceH = _hlPriceAreaHeight(size.height, widget.showVolume);
+    final priceH = _hlPriceAreaHeight(size.height, _plotVolume);
     if (d0 == null || priceH <= 0) return;
     final f = math.exp((y - _axisStartY) / priceH * 1.6);
     final mid = (d0.lo + d0.hi) / 2;
@@ -2275,7 +2303,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       fills: widget.fills,
       size: size,
       renderAsLine: _asLine,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       logScale: widget.logScale,
       leadingClose: candles.last.close,
       domain: _shownDomain,
@@ -2492,7 +2520,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (_tradeDrag != null) return;
     _dismissFillTip();
     final pos = d.localPosition;
-    final priceH = _hlPriceAreaHeight(size.height, widget.showVolume);
+    final priceH = _hlPriceAreaHeight(size.height, _plotVolume);
     final total = widget.candles.length;
     _gestureStart = pos;
     _axisCandidate = _onAxisStrip(pos, size.width) &&
@@ -2715,7 +2743,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final geom = _hlPriceGeometry(
       candles: candles,
       renderAsLine: _asLine,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       height: size.height,
       logScale: widget.logScale,
       leadingClose: _asLine ? leadingClose : null,
@@ -3232,7 +3260,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         _asLine != _isLine(old) ||
         widget.style != old.style ||
         widget.logScale != old.logScale ||
-        widget.showVolume != old.showVolume ||
+        _plotVolume != old.showVolume ||
         widget.magnet != old.magnet ||
         widget.height != old.height) {
       _touchIndex = null;
@@ -3710,7 +3738,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         isDark ? Colors.black : Colors.white,
                                     labelFg: c.textPrimary,
                                     decimalCap: widget.decimalCap,
-                                    showVolume: widget.showVolume,
+                                    showVolume: _plotVolume,
                                     renderAsLine: _asLine,
                                     fills: widget.fills,
                                     entryPx: widget.entryPx,
@@ -3755,7 +3783,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         log: domain.log,
                                         priceH: _hlPriceAreaHeight(
                                             chartSize.height,
-                                            widget.showVolume),
+                                            _plotVolume),
                                         plotW: plotW,
                                         up: AppColors.marketUp,
                                         down: AppColors.marketDown,
@@ -3788,13 +3816,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                       child: CustomPaint(
                                         size: Size.infinite,
                                         painter: _HlPriceScalePainter(
-                                          // Advanced: a label every ~70 px.
-                                          labelSpacing: widget.drawingMode
-                                              ? 70
-                                              : null,
+                                          // Advanced: a label every ~70 px
+                                          // (~56 at the desk, larger).
+                                          labelSpacing: _deskEditor
+                                              ? 56
+                                              : widget.drawingMode
+                                                  ? 70
+                                                  : null,
+                                          labelFontSize:
+                                              _deskEditor ? 12 : null,
                                           candles: candles,
                                           renderAsLine: _asLine,
-                                          showVolume: widget.showVolume,
+                                          showVolume: _plotVolume,
                                           logScale: widget.logScale,
                                           leadingClose: leadingClose,
                                           morphSeries: morphSeries,
@@ -3857,7 +3890,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -3905,7 +3938,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           domain,
                                         ),
@@ -3940,7 +3973,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           last,
                                           leadingClose,
                                           morphSeries != null,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           domain,
                                         ),
@@ -4003,7 +4036,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -4068,7 +4101,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           leadingClose,
                                           morphSeries != null,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -4114,7 +4147,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           plotBottom: _hlPriceGeometry(
                                             candles: candles,
                                             renderAsLine: _asLine,
-                                            showVolume: widget.showVolume,
+                                            showVolume: _plotVolume,
                                             height: size.height,
                                             logScale: widget.logScale,
                                           ).priceH,
@@ -4135,7 +4168,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                               .millisecondsSinceEpoch,
                                           last,
                                           _asLine,
-                                          widget.showVolume,
+                                          _plotVolume,
                                           widget.logScale,
                                           isDark,
                                           domain,
@@ -4227,7 +4260,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                       y: _touchY!,
                                       plotW: plotW,
                                       priceH: _hlPriceAreaHeight(
-                                          chartSize.height, widget.showVolume),
+                                          chartSize.height, _plotVolume),
                                       price: (y) {
                                         final g = _drawingGeometry(
                                           Size(plotW, chartSize.height),
@@ -4285,7 +4318,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 top: math.max(
                                   0.0,
                                   _hlPriceAreaHeight(chartSize.height,
-                                          widget.showVolume) -
+                                          _plotVolume) -
                                       30,
                                 ),
                                 child: HlAutoScalePill(
@@ -4312,7 +4345,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     plot: Size(
                                         plotW,
                                         _hlPriceAreaHeight(chartSize.height,
-                                            widget.showVolume)),
+                                            _plotVolume)),
                                   ),
                                 ),
                               ),
@@ -4337,7 +4370,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         // The signals' dates and caption, under the plot, off the data.
         if (kuteSignalBandRows(widget.signals) > 0)
           _signalBand(c, isDark, candles),
-        if (widget.drawingMode && candles.isNotEmpty) _dateAxis(c, candles),
+        if (widget.drawingMode && candles.isNotEmpty && !_deskEditor)
+          _dateAxis(c, candles),
+        // At the desk the volume is a pane of its own.
+        if (_deskEditor && widget.showVolume) _volumePane(c, candles),
         // The oscillators, one pane each, in the order switched on.
         for (final pane in _indVis.panes)
           _pane(
@@ -4356,6 +4392,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
               gutter: gutter,
             ),
           ),
+        // At the desk the dates run under every pane, as on TradingView.
+        if (_deskEditor && candles.isNotEmpty) _dateAxis(c, candles),
         if (widget.footer != null) widget.footer!,
         if (widget.showSummary && widget.summaryBelow) ...[
           SizedBox(height: 8.h),
@@ -4572,13 +4610,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// under two days shows the clock time, with the day on the first
   /// label, and a longer window shows dates.
   Widget _dateAxis(AppColorsExtension c, List<HyperliquidCandle> candles) {
-    if (candles.isEmpty) return SizedBox(height: 16.h);
+    // At the desk: larger dates, one about every 170 px of the plot.
+    final desk = _deskEditor;
+    final axisH = desk ? 24.0 : 16.h;
+    if (candles.isEmpty) return SizedBox(height: axisH);
     final span = candles.last.openTime.difference(candles.first.openTime);
     final intraday = span < const Duration(days: 2);
     final multiYear = span > const Duration(days: 365);
     final style = TextStyle(
       color: c.textTertiary,
-      fontSize: 10.sp,
+      fontSize: desk ? 12 : 10.sp,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final locale = kuteChartLocale(context);
@@ -4593,11 +4634,29 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       // the lower one, which num.clamp throws on).
       final labelW = 80.w;
       final maxLeft = math.max(0.0, w - labelW);
-      for (final fraction in const [0.08, 0.36, 0.64, 0.92]) {
+      final count = desk ? (plotW / 170).floor().clamp(4, 14) : 4;
+      final fractions = desk
+          ? [for (var i = 0; i < count; i++) (i + 0.5) / count]
+          : const [0.08, 0.36, 0.64, 0.92];
+      // At the desk, more labels than days on screen: the date where the
+      // day changes, the time of day between, never one date twice.
+      final byDay = desk &&
+          !intraday &&
+          !multiYear &&
+          span.inHours < 24 * fractions.length;
+      DateTime? lastDay;
+      for (final fraction in fractions) {
         final index = (fraction * n).floor().clamp(0, n - 1);
         final time = candles[index].openTime.toLocal();
-        final text = intraday
-            ? (fraction == 0.08
+        final day = DateTime(time.year, time.month, time.day);
+        final newDay = day != lastDay;
+        lastDay = day;
+        final text = byDay
+            ? (newDay
+                ? DateFormat.MMMd(locale).format(time)
+                : kuteChartClock(time, locale))
+            : intraday
+            ? (fraction == fractions.first
                 ? kuteChartDayTime(time, locale)
                 : kuteChartClock(time, locale))
             : multiYear
@@ -4625,9 +4684,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         ));
       }
       return SizedBox(
-        height: 16.h,
+        height: axisH,
         width: double.infinity,
-        child: Stack(clipBehavior: Clip.none, children: labels),
+        child: Padding(
+          padding: EdgeInsets.only(top: desk ? 6 : 0),
+          child: Stack(clipBehavior: Clip.none, children: labels),
+        ),
       );
     });
   }
@@ -4638,7 +4700,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// with its name and the current value of each line at its top left
   /// (the scrubbed bar's while the crosshair is up).
   Widget _pane(AppColorsExtension c, String label,
-      _HlPanePainter Function(double gutter) painter) {
+      _HlPanePainter Function(double gutter) painter,
+      {String? value, Color? valueColor}) {
     final series = painter(0).series;
     const tabular = [FontFeature.tabularFigures()];
     return Column(
@@ -4651,7 +4714,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
           color: c.border,
         ),
         SizedBox(
-          height: 76.h,
+          height: _paneHeight(context),
           width: double.infinity,
           child: Stack(
             children: [
@@ -4680,6 +4743,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                         text: label,
                         style: TextStyle(color: c.textTertiary),
                       ),
+                      if (value != null)
+                        TextSpan(
+                          text: '  $value',
+                          style: TextStyle(
+                            color: valueColor ?? c.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       for (final (values, color) in series)
                         if (_valueAt(values) case final v?)
                           TextSpan(
@@ -4709,6 +4780,42 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   }
 
   /// [values] at the scrubbed bar, else its newest finite value.
+  /// The volume as a pane of its own at the desk
+  /// ([HlCandlestickChart.desk]): each bar's volume in its candle's
+  /// colour, autoscaled to the bars on screen, aligned with the plot's
+  /// bars; its name and the scrubbed (else the latest) bar's volume at
+  /// its top left, as the indicator panes have theirs.
+  Widget _volumePane(AppColorsExtension c, List<HyperliquidCandle> candles) {
+    final volumes = [for (final k in candles) k.volume];
+    final colors = [
+      for (final k in candles)
+        k.close >= k.open ? AppColors.marketUp : AppColors.marketDown,
+    ];
+    final ti = _touchIndex;
+    final at = ti != null && ti >= 0 && ti < candles.length
+        ? ti
+        : candles.length - 1;
+    return KeyedSubtree(
+      key: const ValueKey('hl-chart-volume-pane'),
+      child: _pane(
+        c,
+        context.l10n.chartVolume,
+        (gutter) => _HlPanePainter(
+          series: const [],
+          histogram: volumes,
+          histogramColors: colors,
+          fixedRange: (0, double.infinity),
+          selectedIndex: _touchIndex,
+          labelColor: c.textTertiary,
+          hairlineColor: c.textTertiary,
+          gutter: gutter,
+        ),
+        value: at < 0 ? null : hlLegendVolume(candles[at].volume),
+        valueColor: at < 0 ? null : colors[at],
+      ),
+    );
+  }
+
   double? _valueAt(List<double> values) {
     final ti = _touchIndex;
     if (ti != null && ti >= 0 && ti < values.length) {
@@ -4732,7 +4839,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final geom = _hlPriceGeometry(
       candles: candles,
       renderAsLine: true,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       height: size.height,
       logScale: widget.logScale,
       leadingClose: leadingClose,
@@ -4837,7 +4944,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final geom = _hlPriceGeometry(
       candles: candles,
       renderAsLine: _asLine,
-      showVolume: widget.showVolume,
+      showVolume: _plotVolume,
       height: size.height,
       logScale: widget.logScale,
       domain: _shownDomain,
@@ -6438,7 +6545,12 @@ class _HlPanePainter extends CustomPainter {
     this.fixedRange,
     this.gutter = 0,
     this.hairlineColor,
+    this.histogramColors,
   });
+
+  /// Each histogram bar's own colour (the volume pane: its candle's);
+  /// null colours them by sign.
+  final List<Color>? histogramColors;
 
   /// The crosshair's vertical line through the pane at [selectedIndex]
   /// (none when null).
@@ -6458,8 +6570,9 @@ class _HlPanePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (series.isEmpty || size.width <= 0) return;
-    final n = series.first.$1.length;
+    if ((series.isEmpty && histogram == null) || size.width <= 0) return;
+    final n =
+        series.isNotEmpty ? series.first.$1.length : histogram!.length;
     if (n == 0) return;
     // Autoscaled to the visible values (and the guide levels, so 30/70
     // or 20/80 stay in view); a bounded oscillator never pads past its
@@ -6481,6 +6594,11 @@ class _HlPanePainter extends CustomPainter {
     for (final l in levels) {
       if (l < lo) lo = l;
       if (l > hi) hi = l;
+    }
+    // The volume pane's bars stand on zero and leave its name room.
+    if (histogramColors != null) {
+      if (lo > 0) lo = 0;
+      hi = lo + (hi - lo) * 1.3;
     }
     final bounds = fixedRange;
     if (!lo.isFinite || !hi.isFinite) {
@@ -6540,7 +6658,10 @@ class _HlPanePainter extends CustomPainter {
         final v = hist[i];
         if (!v.isFinite) continue;
         final y = toY(v);
-        final color = (v >= 0 ? histogramUp : histogramDown) ?? labelColor;
+        final own = histogramColors;
+        final color = own != null && i < own.length
+            ? own[i]
+            : (v >= 0 ? histogramUp : histogramDown) ?? labelColor;
         canvas.drawRect(
             Rect.fromLTRB((i + 0.5) * slot - barW / 2, math.min(y, zero),
                 (i + 0.5) * slot + barW / 2, math.max(y, zero)),
