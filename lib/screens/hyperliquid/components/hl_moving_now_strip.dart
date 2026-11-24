@@ -553,7 +553,12 @@ class HlMovingNowCard extends ConsumerStatefulWidget {
     this.onTap,
     this.source = kHlMovingNowSource,
     this.blankUntilLogo = true,
+    this.height,
   });
+
+  /// The square's height; null for [hlMovingNowCardHeight] (a featured
+  /// category page's squares are taller, [HlFeaturedSquares]).
+  final double? height;
 
   @override
   ConsumerState<HlMovingNowCard> createState() => _HlMovingNowCardState();
@@ -626,7 +631,7 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
     final radius = decoration.borderRadius as BorderRadius?;
     return KutePressable(
       child: Container(
-        height: hlMovingNowCardHeight(context),
+        height: widget.height ?? hlMovingNowCardHeight(context),
         decoration: decoration,
         child: Material(
           color: Colors.transparent,
@@ -761,6 +766,101 @@ class _HlMoverWideFoot extends ConsumerWidget {
               ),
             ),
           ),
+        ],
+      );
+    });
+  }
+}
+
+/// A FEATURED CATEGORY PAGE on a desktop (EXPANDED; founder, 24 November
+/// 2026, of five indices as thin rows on an empty window: "See these
+/// screens are missing something"): a short list is drawn as the squares
+/// Trending leads with on a laptop (the logo, the day's move, the name,
+/// the price and the market's line, [HlMovingNowCard]), in an even grid.
+///
+/// The least width a featured square stands at: its line still drawn
+/// beside the name and the price ([_HlMoverWideFoot]).
+const double kHlFeaturedSquareMinWidth = 264;
+
+/// The widest a featured square grows when a row holds few of them.
+const double kHlFeaturedSquareMaxWidth = 420;
+
+/// The most featured squares in one row.
+const int kHlFeaturedColumnsMax = 6;
+
+/// How many featured squares stand in a row [width] wide (the list's 16
+/// already out): as many as hold [kHlFeaturedSquareMinWidth], up to
+/// [kHlFeaturedColumnsMax]; zero when fewer than two do (a page that
+/// narrow keeps its rows).
+int hlFeaturedColumns(double width) {
+  if (!width.isFinite || width <= 0) return 0;
+  final fit = ((width + kMarketGridGutter) /
+          (kHlFeaturedSquareMinWidth + kMarketGridGutter))
+      .floor();
+  return fit < 2 ? 0 : math.min(fit, kHlFeaturedColumnsMax);
+}
+
+/// Whether a list of [count] markets in a [width] wide page is featured:
+/// up to two rows of squares ([hlFeaturedColumns]).
+bool hlFeaturedFits(int count, double width) =>
+    count > 0 && count <= 2 * hlFeaturedColumns(width);
+
+/// [markets] as featured squares ([hlFeaturedFits]), row by row: in as few
+/// rows as the width allows, then as few squares a row as fill them (five
+/// in a row of four are three over two), every square as wide as the
+/// first row's ([kHlFeaturedSquareMaxWidth] at most) and a little taller
+/// than Trending's, the rows on the list's left edge. [onTap] opens a market as its list row would.
+class HlFeaturedSquares extends StatelessWidget {
+  const HlFeaturedSquares({
+    super.key,
+    required this.markets,
+    required this.onTap,
+  });
+
+  final List<HlMarket> markets;
+  final void Function(HlMarket market) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, box) {
+      const gap = kMarketGridGutter;
+      final columns = math.max(1, hlFeaturedColumns(box.maxWidth));
+      final rows = (markets.length + columns - 1) ~/ columns;
+      final perRow = (markets.length + rows - 1) ~/ rows;
+      final width = math.min(kHlFeaturedSquareMaxWidth,
+          (box.maxWidth - gap * (perRow - 1)) / perRow);
+      // A little taller than Trending's, the line given the room: a
+      // short page reads as a few proper cards.
+      final least = hlMovingNowCardHeight(context);
+      final height = math.max(least, math.min(width * 0.6, least * 1.4));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var r = 0; r < rows; r++) ...[
+            if (r > 0) const SizedBox(height: gap),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = r * perRow;
+                    i < math.min(markets.length, (r + 1) * perRow);
+                    i++) ...[
+                  if (i > r * perRow) const SizedBox(width: gap),
+                  SizedBox(
+                    width: width,
+                    child: HlMovingNowCard(
+                      key: ValueKey(
+                          'hl-featured-${markets[i].kind.name}-${markets[i].wireCoin}'),
+                      market: markets[i],
+                      // Every market shown whatever its logo.
+                      blankUntilLogo: false,
+                      height: height,
+                      onTap: () => onTap(markets[i]),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ],
       );
     });

@@ -36,6 +36,8 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconAvailability, HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
+import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
+    show HlMarketDetailSheet;
 import 'package:kute/screens/hyperliquid/components/hl_watchlist_sheet.dart'
     show showHlWatchlistSheet;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
@@ -269,6 +271,57 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// Embedded in the Dollars page on EXPANDED: the wide board
   /// ([_boardSlivers]) and the page's one grid.
   bool get _wideBoard => widget.embedded && KuteLayout.isExpanded(context);
+
+  /// A category page on the Dollars page on EXPANDED (any category or
+  /// subcategory but Trending's default view and the Watchlist, which
+  /// lead with their own squares): its name as a heading over it, and a
+  /// short list drawn as featured squares ([_featuredOrRows]).
+  bool _featuredPage(HlBrowseTab tab, HlBrowseSub sub) =>
+      _wideBoard &&
+      !hlBrowseIsDefaultView(tab, sub) &&
+      tab != HlBrowseTab.watchlist;
+
+  /// A category page's markets (founder, 24 November 2026, of five
+  /// indices as thin rows on an empty window: "See these screens are
+  /// missing something"): up to two rows of squares' worth
+  /// ([hlFeaturedFits]) as the featured squares Trending leads with, each
+  /// opening the market as its row does; a longer list as the page's
+  /// grid of rows, evenly filled ([marketGridDealEven]).
+  Widget _featuredOrRows(List<HlMarket> items) =>
+      SliverLayoutBuilder(builder: (context, constraints) {
+        final width = constraints.crossAxisExtent - 2 * 16.w;
+        if (hlFeaturedFits(items.length, width)) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: HlFeaturedSquares(
+                key: const ValueKey('hl-featured-squares'),
+                markets: items,
+                // What the row's tap opens (HlMarketCard), with its
+                // source.
+                onTap: (m) => HlMarketDetailSheet.show(context, market: m),
+              ),
+            ),
+          );
+        }
+        return SliverMainAxisGroup(
+          slivers: marketGroupSlivers<HlMarket>(
+            context,
+            items: items,
+            groups: (_) => true,
+            dividerIndent: hlGroupRowIndent(),
+            divider: hlGroupRowDivider,
+            alignedGrid: true,
+            build: (market, inGroup) => RepaintBoundary(
+              child: HlMarketCard(
+                key: ValueKey('hl-${market.kind.name}-${market.wireCoin}'),
+                market: market,
+                inGroup: inGroup,
+              ),
+            ),
+          ),
+        );
+      });
 
   /// The category whose subcategories the one browse row shows, in place
   /// of the categories ([PolyDrillRow]); null shows the categories.
@@ -810,6 +863,21 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               ),
                             // The page grid's gutter under the squares on
                             // the wide board (4 under the strip, then 12).
+                            // A category page's heading in its place.
+                            if (_featuredPage(tab, sub))
+                              SliverToBoxAdapter(
+                                child: _HlBoardHeading(
+                                  // What the navigation names: the
+                                  // category for its "All …".
+                                  selection.sub == HlBrowseSub.all
+                                      ? tab.localizedLabel(context.l10n)
+                                      : sub.localizedLabel(context.l10n),
+                                  key: const ValueKey('hl-page-heading'),
+                                  page: true,
+                                  seeAll: const SizedBox.shrink(),
+                                ),
+                              )
+                            else
                             SliverToBoxAdapter(
                                 child: SizedBox(height: _wideBoard ? 12 : 8.h)),
                             // The whole list is in memory, in ONE grouped
@@ -817,6 +885,12 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             // 2026); the same self-subscribing
                             // [HlMarketCard] rows build lazily as they
                             // scroll in, so every price on screen is live.
+                            // A short category page: its markets as the
+                            // featured squares ([HlFeaturedSquares]).
+                            if (_featuredPage(tab, sub))
+                              _featuredOrRows(
+                                  _listedFor(tab, sub, markets, universe))
+                            else
                             ...marketGroupSlivers<HlMarket>(
                               context,
                               items: _listedFor(tab, sub, markets, universe),
@@ -1027,16 +1101,27 @@ class _HlFoldRow extends StatelessWidget {
 /// right (the list's 16 gutter), the space over it the space between two
 /// blocks of the page.
 class _HlBoardHeading extends StatelessWidget {
-  const _HlBoardHeading(this.label, {super.key, required this.seeAll});
+  const _HlBoardHeading(this.label,
+      {super.key, required this.seeAll, this.page = false});
 
   final String label;
   final Widget seeAll;
 
+  /// A category page's own heading (see [_HyperliquidScreenState
+  /// ._featuredPage]): at the page's top, its words on the left
+  /// navigation's first line (a 40 row, as its first item).
+  final bool page;
+
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(16.w, kHlBoardBlockGap, 16.w, 6),
+        padding: page
+            // The browse's first line: the page's 12 under the top bar.
+            ? EdgeInsets.fromLTRB(16.w, 12, 16.w, 4)
+            : EdgeInsets.fromLTRB(16.w, kHlBoardBlockGap, 16.w, 6),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (page) const SizedBox(height: 40),
             Expanded(
               child: Text(
                 label,
