@@ -20,6 +20,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
@@ -43,11 +45,16 @@ class ShellWalletScreen extends ConsumerWidget {
       // Home's dock mount: frost band + floating dock, bound to the wallet
       // this tab is showing.
       child: KuteDockHost(
-        dockBuilder: (onHeightChanged) => WalletBitcoinActionBar(
-          wallet: wallet,
-          onHeightChanged: onHeightChanged,
-          onSearch: () => showKuteSearch(context,
-              walletId: wallet.id, source: 'wallet_detail'),
+        // On EXPANDED the dock is a phone's width, centred under the
+        // page, never stretched across the window.
+        dockBuilder: (onHeightChanged) => _phoneWidthOnExpanded(
+          context,
+          WalletBitcoinActionBar(
+            wallet: wallet,
+            onHeightChanged: onHeightChanged,
+            onSearch: () => showKuteSearch(context,
+                walletId: wallet.id, source: 'wallet_detail'),
+          ),
         ),
         body: SafeArea(
           bottom: false,
@@ -57,11 +64,19 @@ class ShellWalletScreen extends ConsumerWidget {
               SizedBox(height: kShellTopBarSpacing.h),
               if (needsWalletBackup(wallet,
                   pendingLabels: ref.watch(passkeyPendingLabelsProvider)))
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-                  child: SecurityActionCard(walletId: wallet.id),
+                _phoneWidthOnExpanded(
+                  context,
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                    child: SecurityActionCard(walletId: wallet.id),
+                  ),
                 ),
-              Expanded(child: WalletBitcoinBody(wallet: wallet)),
+              // EXPANDED: centred like the Bitcoin home
+              // (bitcoin_home_panes.dart); MEDIUM is a centred column
+              // (main_screen.dart), a phone as it was.
+              Expanded(
+                  child: WalletBitcoinBody(
+                      wallet: wallet, wide: KuteLayout.isExpanded(context))),
             ],
           ),
         ),
@@ -69,3 +84,11 @@ class ShellWalletScreen extends ConsumerWidget {
     );
   }
 }
+
+/// [child] at a phone's width, centred, on EXPANDED; as it is otherwise.
+Widget _phoneWidthOnExpanded(BuildContext context, Widget child) =>
+    KuteLayout.isExpanded(context)
+        ? KutePhoneColumn(
+            child: kuteNarrowMedia(context,
+                width: KuteLayout.paneWidth, child: child))
+        : child;
