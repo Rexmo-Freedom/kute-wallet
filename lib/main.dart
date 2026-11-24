@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/wallet_icon.dart' show BrandMark;
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:async';
@@ -75,6 +76,13 @@ Future<void> _bootstrap() async {
   // (the bottom command bar) doesn't flash. Fire-and-forget — it warms via
   // a post-frame callback and must never delay boot.
   unawaited(LiquidGlassWidgets.initialize());
+
+  // The web reads Sal's sheets over the network: the wallet mark's sheet
+  // first, and kept (BrandMark.warmForWeb).
+  if (kIsWeb) {
+    final views = widgetsBinding.platformDispatcher.views;
+    BrandMark.warmForWeb(views.isEmpty ? 2.0 : views.first.devicePixelRatio);
+  }
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

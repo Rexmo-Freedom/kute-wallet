@@ -608,7 +608,6 @@ class KuteSalPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     // DARK IN LIGHT MODE (founder, 7 November 2026; kute_bar_surface.dart):
     // the primary button's fill and white words, the second line quieter;
@@ -621,7 +620,11 @@ class KuteSalPill extends StatelessWidget {
         isLight ? KuteBarSurface.ink : KuteBarSurface.inkOnWhite;
     final sublabelColor =
         isLight ? KuteBarSurface.quietInk : KuteBarSurface.quietInkOnWhite;
-    final glyphColor = isLight ? KuteBarSurface.ink : c.textPrimary;
+    // The glyph is the words' ink: on the dark-mode white pill the
+    // theme's text colour was white on white (the plain magnifier shown
+    // while the backend's policy has not loaded, and Sal's rig fallback).
+    final glyphColor =
+        isLight ? KuteBarSurface.ink : KuteBarSurface.inkOnWhite;
     final reduce = kuteReduceMotion(context);
     final height = collapsed
         ? collapsedSize

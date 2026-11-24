@@ -91,4 +91,46 @@ void main() {
     expect(await reading, isNotNull, reason: 'the caller still gets it');
     expect(SalSpriteCache.residentBytes, 0);
   });
+
+  test('a kept clip is never given up for the cap (the web\'s wallet mark)',
+      () async {
+    SalSpriteCache.debugSetManifest({
+      for (final n in ['idle', 'b', 'c']) n: {'framing': 'face', 'frames': 1},
+    });
+    const one = 16 * 16 * 4;
+    SalSpriteCache.maxBytes = 2 * one;
+    SalSpriteCache.keep('idle');
+    SalSpriteCache.debugPutClip('idle', 2, _sheet(16));
+    SalSpriteCache.debugPutClip('b', 2, _sheet(16));
+    // idle is the least recently used, but kept: b goes instead.
+    SalSpriteCache.debugPutClip('c', 2, _sheet(16));
+    expect(SalSpriteCache.residentAt(2).toSet(), {'idle', 'c'});
+    // Only kept clips older than the newcomer: it is held over the cap.
+    SalSpriteCache.maxBytes = one;
+    SalSpriteCache.debugPutClip('b', 2, _sheet(16));
+    expect(SalSpriteCache.residentAt(2).toSet(), {'idle', 'b'});
+    // evict still gives it up when asked by name.
+    SalSpriteCache.evict('idle', 2);
+    expect(SalSpriteCache.ready('idle', 2), isNull);
+  });
+
+  testWidgets('a sprite is an empty square while its sheet is read, its '
+      'fallback once the read comes back empty', (tester) async {
+    SalSpriteCache.debugSetManifest({
+      'idle': {'framing': 'face', 'frames': 1},
+    });
+    SalSpriteCache.debugLoader = (name, density) =>
+        Future<SalClip?>.delayed(const Duration(milliseconds: 50), () => null);
+    await tester.pumpWidget(const Directionality(
+      textDirection: TextDirection.ltr,
+      child: Center(
+        child: SalSprite(clip: 'idle', size: 24, fallback: Text('fallback')),
+      ),
+    ));
+    expect(find.text('fallback'), findsNothing);
+    expect(tester.getSize(find.byType(SizedBox).last), const Size(24, 24));
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pump();
+    expect(find.text('fallback'), findsOneWidget);
+  });
 }

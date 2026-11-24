@@ -14,6 +14,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/theme/app_theme.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,10 +72,42 @@ class _SplashState extends ConsumerState<Splash>
     if (_salChecked) return;
     _salChecked = true;
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
-    unawaited(SalSpriteCache.clip('body_idle', dpr >= 2.5 ? 3 : 2).then((c) {
+    final density = dpr >= 2.5 ? 3 : 2;
+    final read = SalSpriteCache.clip('body_idle', density);
+    _salRead = read;
+    unawaited(read.then((c) {
       if (mounted && c != null) setState(() => _sal3d = true);
     }));
+    // The web reads the last beat's sheet ahead too, so the wag is there
+    // when the app routes on (a phone decodes it in a frame).
+    if (kIsWeb) unawaited(SalSpriteCache.clip('body_wag', density));
   }
+
+  /// The read of `body_idle`, the still the native splash shows.
+  Future<SalClip?>? _salRead;
+
+  /// The web's handoff: the page's own splash (the same still, in
+  /// index.html) stays until Sal's sheet is decoded and laid out, so the
+  /// still turns into the 3D Sal in place, as on a phone. A browser reads
+  /// the sheet over the network and decodes it on the page; removed at
+  /// once, the page showed a blank white screen for that second. Never
+  /// longer than [_webHandoffMax].
+  Future<void> _webHandoff() async {
+    final read = _salRead;
+    if (read != null) {
+      try {
+        await read.timeout(_webHandoffMax);
+      } catch (_) {}
+    }
+    if (mounted) await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      FlutterNativeSplash.remove();
+      return;
+    }
+    _afterFirstFrame();
+  }
+
+  static const Duration _webHandoffMax = Duration(milliseconds: 1500);
 
   // Phase 1: Logo + text entrance
   late final AnimationController _entranceController;
@@ -205,41 +238,49 @@ class _SplashState extends ConsumerState<Splash>
     ));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      FlutterNativeSplash.remove();
-      // `remove()` lets the engine send its first frame; the callback
-      // registered here runs right after that frame, which is the first
-      // one the user sees. One `app_time_to_first_frame` per cold start
-      // (the key is consumed, so a later splash visit is a no-op).
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        LatencyTracker.stop(LatencyKeys.appTimeToFirstFrame);
-      });
-      // ── Choreography ──
-      // Reduce-motion: skip the decorative entrance/dot-escape/dog-chase
-      // animations entirely. Snap the entrance controller to its end so
-      // the logo, subtitle and loading dots render fully visible (their
-      // opacity/slide are driven off this controller), but don't run any
-      // of the looping/transition motion. The loading indicator itself
-      // stays animating — that's essential progress feedback.
-      final reduceMotion =
-          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-      if (reduceMotion) {
-        _entranceController.value = 1.0;
+      if (kIsWeb) {
+        unawaited(_webHandoff());
       } else {
-        _entranceController.forward().then((_) {
-          // After entrance, pause, then dot escapes
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (!mounted) return;
-            _dotEscapeController.forward();
-          });
-          // Dog starts chasing slightly after the dot moves
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (!mounted) return;
-            _chaseController.forward();
-          });
-        });
+        _afterFirstFrame();
       }
-      _initializeAppAndRedirect();
     });
+  }
+
+  void _afterFirstFrame() {
+    FlutterNativeSplash.remove();
+    // `remove()` lets the engine send its first frame; the callback
+    // registered here runs right after that frame, which is the first
+    // one the user sees. One `app_time_to_first_frame` per cold start
+    // (the key is consumed, so a later splash visit is a no-op).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      LatencyTracker.stop(LatencyKeys.appTimeToFirstFrame);
+    });
+    // ── Choreography ──
+    // Reduce-motion: skip the decorative entrance/dot-escape/dog-chase
+    // animations entirely. Snap the entrance controller to its end so
+    // the logo, subtitle and loading dots render fully visible (their
+    // opacity/slide are driven off this controller), but don't run any
+    // of the looping/transition motion. The loading indicator itself
+    // stays animating — that's essential progress feedback.
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) {
+      _entranceController.value = 1.0;
+    } else {
+      _entranceController.forward().then((_) {
+        // After entrance, pause, then dot escapes
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!mounted) return;
+          _dotEscapeController.forward();
+        });
+        // Dog starts chasing slightly after the dot moves
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          _chaseController.forward();
+        });
+      });
+    }
+    _initializeAppAndRedirect();
   }
 
   Future<void> _initializeAppAndRedirect() async {
