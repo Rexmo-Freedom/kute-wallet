@@ -817,7 +817,15 @@ class KuteMasterDetail extends StatelessWidget {
             child: kuteNarrowMedia(context, width: masterWidth, child: master),
           ),
         ),
-        Expanded(child: kuteNarrowMedia(context, width: rest, child: detail)),
+        // A detail narrower than EXPANDED (a window of about 1300 or
+        // less) is the centred column a MEDIUM page is.
+        Expanded(
+          child: kuteNarrowMedia(context,
+              width: rest,
+              child: KuteLayout.forWidth(rest) == KuteFormFactor.expanded
+                  ? detail
+                  : KuteFormColumn(child: detail)),
+        ),
       ],
     );
   }
