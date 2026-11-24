@@ -11,6 +11,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
+import 'package:kute/screens/shared/kute_password_field.dart';
+import 'package:kute/screens/shared/password_copy.dart';
+import 'package:kute/platform/unlock_secret.dart';
+import 'package:kute/services/secure/web_vault/seed_vault.dart'
+    show normalizeVaultSecret;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
@@ -42,6 +47,29 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
 
   /// Onboarding path (create | restore | restore_secrets), read once.
   late final String _path;
+
+  /// A laptop browser confirms a password instead (unlock_secret.dart).
+  final bool _password =
+      UnlockSecret.deviceKind == VaultSecretKind.password;
+  final TextEditingController _field = TextEditingController();
+
+  bool get _ready => _password
+      ? UnlockSecret.meetsRule(confirmPin)
+      : confirmPin.length == 6;
+
+  bool _sameAs(String originalPin) => _password
+      ? normalizeVaultSecret(confirmPin) == normalizeVaultSecret(originalPin)
+      : confirmPin == originalPin;
+
+  void _submit(String originalPin) {
+    if (!_ready || ref.read(confirmPinLoadingProvider)) return;
+    if (_sameAs(originalPin)) {
+      if (_password) KutePasswordField.finishAutofill();
+      _handleSetPin(originalPin);
+    } else {
+      _handlePinMismatch();
+    }
+  }
 
   @override
   void initState() {
@@ -173,6 +201,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
     // it belongs on that screen, in the line that was telling them what
     // to do. A toast sliding over the bottom of a keypad said it in the
     // one place they were not looking.
+    _field.clear();
     setState(() {
       confirmPin = '';
       _mismatched = true;
@@ -181,6 +210,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
 
   @override
   void dispose() {
+    _field.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -190,6 +220,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final originalPin = ref.watch(pinProvider);
     final isLoading = ref.watch(confirmPinLoadingProvider);
+    final ready = _ready;
 
     return Stack(
       children: [
@@ -199,11 +230,17 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
           // A mismatch still says so here, in red, in place of nothing,
           // instead of arriving as a snackbar over a screen that reads as
           // if nothing went wrong.
-          title: context.l10n.confirmYourPin,
-          salMood: confirmPin.length == 6 && confirmPin == originalPin
+          title: _password
+              ? PasswordCopy.confirm
+              : context.l10n.confirmYourPin,
+          salMood: ready && _sameAs(originalPin)
               ? 'happy'
               : salMoodFor(confirmPin.length),
-          subtitle: _mismatched ? context.l10n.pinsDoNotMatchRetry : null,
+          subtitle: _mismatched
+              ? (_password
+                  ? PasswordCopy.mismatch
+                  : context.l10n.pinsDoNotMatchRetry)
+              : null,
           subtitleIsError: _mismatched,
           dots: AnimatedBuilder(
             animation: _animation,
@@ -213,9 +250,22 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
                 child: child,
               );
             },
-            child: PinProgressIndicator(currentLength: confirmPin.length),
+            child: _password
+                ? KutePasswordField(
+                    controller: _field,
+                    isNew: true,
+                    enabled: !isLoading,
+                    onChanged: (value) => setState(() {
+                      confirmPin = value;
+                      _mismatched = false;
+                    }),
+                    onSubmitted: (_) => _submit(originalPin),
+                  )
+                : PinProgressIndicator(currentLength: confirmPin.length),
           ),
-          keypad: IgnorePointer(
+          keypad: _password
+              ? const SizedBox.shrink()
+              : IgnorePointer(
             ignoring: isLoading,
             child: CustomKeypad(
               chromed: true,
@@ -240,34 +290,29 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
             ),
           ),
           footer: AnimatedOpacity(
-            opacity: confirmPin.length == 6 ? 1.0 : 0.0,
+            opacity: ready || _password ? 1.0 : 0.0,
             duration: reduceMotion
                 ? Duration.zero
                 : const Duration(milliseconds: 250),
             curve: Curves.easeOut,
             child: IgnorePointer(
-              ignoring: confirmPin.length != 6 || isLoading,
+              ignoring: !ready || isLoading,
               // THE BAR IS THE BUTTON (kute_bar_context.dart): Set PIN is
               // the floating Sal bar's primary action, on with six digits.
               // The wait is on the button, the way the bet slip waits
               // (user decision): no full-screen overlay after the PIN.
               child: KuteBarContextScope(
                 barContext: KuteBarContext.primary(
-                label: context.l10n.setPin,
+                label:
+                    _password ? PasswordCopy.setPassword : context.l10n.setPin,
                 busyLabel: context.l10n.creatingWallet,
                 busy: isLoading,
-                enabled: confirmPin.length == 6,
+                enabled: ready,
                 source: 'confirm_pin',
-                onPrimary: () {
-                  if (confirmPin.length == 6) {
-                    if (confirmPin == originalPin) {
-                      _handleSetPin(originalPin);
-                    } else {
-                      _handlePinMismatch();
-                    }
-                  }
-                },
-                disabledLabel: context.l10n.barNeedPinAgain,
+                onPrimary: () => _submit(originalPin),
+                disabledLabel: _password
+                    ? PasswordCopy.typeAgain
+                    : context.l10n.barNeedPinAgain,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               ),

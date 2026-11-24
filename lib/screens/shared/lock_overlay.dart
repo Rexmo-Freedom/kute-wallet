@@ -31,6 +31,11 @@ import 'package:local_auth/local_auth.dart';
 
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
 import 'package:kute/screens/shared/kute_split_screen.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_password_field.dart';
+import 'package:kute/screens/shared/password_copy.dart';
+import 'package:kute/screens/shared/password_upgrade_page.dart';
+import 'package:kute/platform/unlock_secret.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/pin_attempt_guard.dart';
 import 'package:kute/helpers/privacy_cover_bridge.dart';
@@ -81,8 +86,29 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       if (s == AnimationStatus.completed) _shake.reverse();
     });
 
+  /// The vault's secret is a password (a laptop browser,
+  /// unlock_secret.dart): one field instead of the pad. Read per lock.
+  bool _password = UnlockSecret.current == VaultSecretKind.password;
+  final TextEditingController _field = TextEditingController();
+
+  /// Set when a PIN opened a PIN vault in a laptop browser: the unlock
+  /// waits until a password is created (password_upgrade_page.dart).
+  VoidCallback? _afterUpgrade;
+
+  void _clearEntry() {
+    _field.clear();
+    _pin = '';
+  }
+
+  void _submitPassword() {
+    if (_lockedOut || _verifying || _field.text.isEmpty) return;
+    _pin = _field.text;
+    _verifyPin();
+  }
+
   @override
   void dispose() {
+    _field.dispose();
     _shake.dispose();
     super.dispose();
   }
@@ -91,7 +117,9 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   /// restore the persisted attempt/lockout state, then auto-prompt
   /// biometrics exactly like the cold-start PIN screen does.
   Future<void> _onLockEngaged() async {
-    _pin = '';
+    _clearEntry();
+    _afterUpgrade = null;
+    _password = UnlockSecret.current == VaultSecretKind.password;
     // Once per lock engagement (the listener in build fires on the
     // false → true edge only), so never per rebuild.
     TrackingService.track('lock_overlay_shown', params: {
@@ -221,7 +249,11 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   }
 
   Future<void> _verifyPin() async {
-    if (_pin.length != 6 || _verifying || _lockedOut) return;
+    if ((_password ? _pin.isEmpty : _pin.length != 6) ||
+        _verifying ||
+        _lockedOut) {
+      return;
+    }
     setState(() => _verifying = true);
     try {
       final auth = AuthModel();
@@ -238,11 +270,24 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
         await BiometricPinPolicy()
             .applyAfterUnlock(dependency, typedPin: typedPin);
         if (!mounted) return;
-        markSessionUnlocked(ref,
-            method: UnlockMethod.pin,
-            typedPin: typedPin,
-            dependency: dependency);
-        _finishUnlock(method: 'pin');
+        void finish() {
+          if (!mounted) return;
+          markSessionUnlocked(ref,
+              method: UnlockMethod.pin,
+              typedPin: typedPin,
+              dependency: dependency);
+          _finishUnlock(method: 'pin');
+        }
+
+        if (UnlockSecret.needsPasswordUpgrade) {
+          setState(() {
+            _clearEntry();
+            _verifying = false;
+            _afterUpgrade = finish;
+          });
+          return;
+        }
+        finish();
         return;
       }
       if (check == PinCheck.mismatch) {
@@ -255,7 +300,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       salSad();
       HapticFeedback.heavyImpact();
       setState(() {
-        _pin = '';
+        _clearEntry();
         _verifying = false;
       });
     } catch (e, st) {
@@ -269,7 +314,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
           flow: 'unlock', stage: 'pin_check');
       if (mounted) {
         setState(() {
-          _pin = '';
+          _clearEntry();
           _verifying = false;
         });
       }
@@ -290,7 +335,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     );
     if (!mounted) return;
     setState(() {
-      _pin = '';
+      _clearEntry();
       _verifying = false;
     });
 
@@ -316,8 +361,9 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     // this one names the resume overlay.
     TrackingService.track('lock_overlay_unlocked', params: {'method': method});
     setState(() {
-      _pin = '';
+      _clearEntry();
       _verifying = false;
+      _afterUpgrade = null;
     });
     // Drop the cover FIRST so the user's screen is instantly back,
     // then run the shared bootstrap + sync kick after the frame. NO
@@ -354,20 +400,29 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     final biometricsEnabled =
         ref.watch(settingsProvider.select((s) => s.biometricsEnabled));
     final padInert = _lockedOut || _verifying;
+    final afterUpgrade = _afterUpgrade;
+    if (afterUpgrade != null) {
+      return Positioned.fill(
+        child: KuteOverlayHost(
+          child: KuteSplitScreen(
+            child: PasswordUpgradePage(onUpgraded: afterUpgrade),
+          ),
+        ),
+      );
+    }
     // The same scaffold, title, dots and keypad as the cold-start PIN
     // screen, so a relock after backgrounding looks like Welcome back
     // and nothing else.
     // The whole window covered; on MEDIUM the PIN pad is the centred
     // form column on the background (kute_wide_frames.dart), on EXPANDED
     // the split screen of the PIN steps (kute_split_screen.dart).
-    return Positioned.fill(
-      child: KuteSplitScreen(
+    final page = KuteSplitScreen(
         child: KutePinScaffold(
           title: context.l10n.welcomeBack,
-          salMood: salMoodFor(_pin.length),
+          salMood: salMoodFor(_password ? _field.text.length : _pin.length),
           subtitle: _lockedOut
               ? (ref.watch(pinSheetLockedProvider)
-                  ? '${context.l10n.pinSheetLocked}\n'
+                  ? '${_password ? PasswordCopy.sheetLocked : context.l10n.pinSheetLocked}\n'
                       '${context.l10n.lockedForTime(_formatLockout(_lockoutRemaining))}'
                   : context.l10n
                       .lockedForTime(_formatLockout(_lockoutRemaining)))
@@ -379,9 +434,28 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
               offset: Offset(_shakeAnim.value, 0),
               child: child,
             ),
-            child: PinProgressIndicator(currentLength: _pin.length),
+            child: _password
+                ? KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: context.l10n.unlock,
+                      enabled: !padInert && _field.text.isNotEmpty,
+                      busy: _verifying,
+                      source: 'lock_overlay',
+                      onPrimary: _submitPassword,
+                      disabledLabel: PasswordCopy.needPassword,
+                    ),
+                    child: KutePasswordField(
+                      controller: _field,
+                      enabled: !padInert,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _submitPassword(),
+                    ),
+                  )
+                : PinProgressIndicator(currentLength: _pin.length),
           ),
-          keypad: IgnorePointer(
+          keypad: _password
+              ? const SizedBox.shrink()
+              : IgnorePointer(
             ignoring: padInert,
             child: Opacity(
               opacity: padInert ? 0.4 : 1.0,
@@ -414,8 +488,10 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
             ),
           ),
         ),
-      ),
     );
+    // A text field above the Navigator needs an Overlay of its own.
+    return Positioned.fill(
+        child: _password ? KuteOverlayHost(child: page) : page);
   }
 }
 
