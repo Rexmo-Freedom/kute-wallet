@@ -28,6 +28,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:icons_plus/src/flag.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
+import 'package:kute/platform/web_image.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
@@ -121,6 +122,10 @@ class AssetGallery extends StatefulWidget {
   static const String rig = 'rig';
   static const String fonts = 'fonts';
   static const String surfaces = 'surfaces';
+
+  /// Web only: network logos (`<img>` platform views) under a floating
+  /// pill, with and without its backdrop blur, to see what draws on top.
+  static const String overlay = 'overlay';
 
   @override
   State<AssetGallery> createState() => _AssetGalleryState();
@@ -328,6 +333,55 @@ class _AssetGalleryState extends State<AssetGallery> {
                       child: Icon(i.$2, size: 28, color: c.textPrimary)),
               ]),
             ],
+            if (widget.sections?.contains(AssetGallery.overlay) ?? false) ...[
+              const _Heading('Network logos under a floating pill'),
+              SizedBox(
+                height: 260,
+                child: Stack(children: [
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    for (final coin in const [
+                      'BTC',
+                      'ETH',
+                      'SOL',
+                      'HYPE',
+                      'XRP',
+                      'ZEC',
+                      'NEAR',
+                      'PUMP',
+                      'xyz:NVDA',
+                      'xyz:SP500',
+                      'xyz:MU',
+                      'xyz:SNDK',
+                      'xyz:SOXL',
+                      'xyz:DRAM',
+                      'xyz:SMSN',
+                      'xyz:SKHX',
+                      'xyz:ANT',
+                      'xyz:SILVER',
+                      'xyz:BRENTOIL',
+                      'xyz:XYZ100',
+                    ])
+                      WebNetworkImage(
+                        url: 'https://app.hyperliquid.xyz/coins/$coin.svg',
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.contain,
+                        placeholder: const SizedBox(width: 44, height: 44),
+                      ),
+                  ]),
+                  Positioned(
+                    left: 0,
+                    top: 20,
+                    child: _Pill(label: 'blurred pill', blur: true),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: 120,
+                    child: _Pill(label: 'plain pill', blur: false),
+                  ),
+                ]),
+              ),
+            ],
             if (_on(AssetGallery.surfaces)) ...[
               const _Heading('Glass, blur and shaders'),
               Wrap(spacing: 8, runSpacing: 8, children: [
@@ -384,6 +438,41 @@ class _AssetGalleryState extends State<AssetGallery> {
         ),
       ),
     );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.label, required this.blur});
+  final String label;
+  final bool blur;
+
+  @override
+  Widget build(BuildContext context) {
+    final pill = Container(
+      width: 420,
+      height: 48,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [BoxShadow(blurRadius: 8, color: Colors.black26)],
+      ),
+      child: Text(label, style: const TextStyle(color: Colors.black)),
+    );
+    if (!blur) return pill;
+    return Stack(clipBehavior: Clip.none, children: [
+      Positioned(
+        left: -8,
+        right: -8,
+        top: -8,
+        bottom: -8,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(31),
+          child: const KuteBlur(sigmaX: 2, sigmaY: 2, child: SizedBox.expand()),
+        ),
+      ),
+      pill,
+    ]);
   }
 }
 
