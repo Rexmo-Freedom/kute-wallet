@@ -1,5 +1,6 @@
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
+import 'package:kute/services/onchain/onchain_web_store.dart';
 import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/models/auth_model.dart';
@@ -7,7 +8,7 @@ import 'package:kute/models/evm_derivation_version.dart';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/tracking_service.dart' show TrackingService;
@@ -641,6 +642,13 @@ class SettingsModel extends StateNotifier<Settings> {
   Future<void> _deleteWalletData(WalletConfig wallet) async {
     final walletId = wallet.id;
     await _bestEffort('local_files', () async {
+      if (kIsWeb) {
+        // No files in a browser: the wallet's BDK data is its stored
+        // changeset (the Breez SDK keeps its own browser database).
+        final directory = await onchainDatabaseDirectory();
+        await OnchainWebStore.delete('$directory/bdk_wallet_$walletId.sqlite');
+        return;
+      }
       final appDocDir = await getApplicationDocumentsDirectory();
       final dbFile = File('${appDocDir.path}/bdk_wallet_$walletId.sqlite');
       if (await dbFile.exists()) await dbFile.delete();

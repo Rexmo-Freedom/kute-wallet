@@ -47,7 +47,13 @@ class EsploraFallback extends ChangeNotifier {
     final key = _key(url);
     final index = key.isEmpty ? 0 : ring.indexOf(key);
     if (index < 0) return null;
-    return ring[(index + 1) % ring.length];
+    for (var step = 1; step < ring.length; step++) {
+      final next = ring[(index + step) % ring.length];
+      // The web build reaches Esplora only (no TCP for Electrum in a
+      // browser), so only an Esplora host can stand in there.
+      if (!kIsWeb || next.startsWith('https://')) return next;
+    }
+    return null;
   }
 
   /// Error codes from the native session that mean the host, not the

@@ -7,7 +7,8 @@ import 'package:kute/models/bitcoin_model.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:kute/services/onchain/onchain_web_store.dart'
+    show onchainDatabaseDirectory;
 
 /// Represents a single derivation path's balance check result.
 class DerivationBalance {
@@ -149,8 +150,7 @@ class BalanceCheckerService extends StateNotifier<BalanceCheckState> {
         _xpubDescriptorBuilder = xpubDescriptorBuilder,
         super(const BalanceCheckState());
 
-  static Future<String> _documentsPath() async =>
-      (await getApplicationDocumentsDirectory()).path;
+  static Future<String> _documentsPath() => onchainDatabaseDirectory();
 
   /// A failed path is unknown, never a successful zero-balance result.
   Future<BalanceCheckResult> checkAllPaths(String mnemonic) async {
