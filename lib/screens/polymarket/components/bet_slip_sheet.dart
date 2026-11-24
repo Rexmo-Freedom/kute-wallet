@@ -88,6 +88,7 @@ import 'package:kute/screens/home/home_feature_carousel.dart'
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
+import 'package:kute/platform/kute_layout.dart' show KuteLayout;
 import 'package:kute/services/polymarket/crypto_round.dart'
     show
         polyRoundBuyClosed,
@@ -559,6 +560,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     String source = 'unknown',
     PolymarketEvent? event,
     SendPickSession? sendPick,
+    void Function(BetSlipSheet slip)? widePage,
   }) async {
     // A wide market page with the slip in its pane (bet_slip_in_place.dart)
     // takes the slip there instead of a sheet, after the same guards. Its
@@ -721,7 +723,24 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         sendPick: ledgerWalletId == null ? sendPick : null,
       );
     if (inPlace != null && inPlace.present(slip)) return;
+    // EXPANDED, a browse card's button ([widePage]): never a slip floating
+    // over the browse. The market's own page opens with this slip, already
+    // counted above, in its side panel ([presentOnPage]).
+    if (widePage != null && KuteLayout.isExpanded(context)) {
+      widePage(slip);
+      return;
+    }
     _present(context, slip);
+  }
+
+  /// A market page's first slip handed to it by the door that opened the
+  /// page ([show]'s `widePage`): into the page's side panel under [under],
+  /// as a tap on the page opens it; as the sheet where the page takes no
+  /// slips (the window narrowed meanwhile). Nothing is counted again.
+  static void presentOnPage(BuildContext under, BetSlipSheet slip) {
+    final host = BetSlipInPlaceHost.maybeOf(under);
+    if (host != null && host.present(slip)) return;
+    _present(under, slip);
   }
 
   /// The slip's sheet over everything (the root navigator), as [show]
