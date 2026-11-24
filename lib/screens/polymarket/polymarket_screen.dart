@@ -966,47 +966,102 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// round card of that length, full size ([CryptoRoundHeroCard]: "BTC 5
   /// min up or down card should be bigger"), the lengths as a row of pills,
   /// then the other coins' rows at the same length.
-  List<Widget> _roundPageSlivers(int minutes) => [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
-            child: RepaintBoundary(
-              child: CryptoPredictBanner(
-                key: ValueKey('crypto-round-page-$minutes'),
-                config: kCryptoPredictAssets.first,
-                roundMinutes: minutes,
-                chartHeight: CryptoPredictBanner.kPageChartHeight,
-                onDeposit: () {
-                  openPredictionsDeposit(context, ref);
-                },
+  List<Widget> _roundPageSlivers(int minutes) {
+    final card = RepaintBoundary(
+      child: CryptoPredictBanner(
+        key: ValueKey('crypto-round-page-$minutes'),
+        config: kCryptoPredictAssets.first,
+        roundMinutes: minutes,
+        chartHeight: CryptoPredictBanner.kPageChartHeight,
+        onDeposit: () {
+          openPredictionsDeposit(context, ref);
+        },
+      ),
+    );
+    // The lengths, polymarket.com's "5 Min | 15 Min | 1 Hour" row: the
+    // whole page switches, the same page the Crypto row's length chips
+    // open.
+    final lengths = _CryptoLengthTabs(
+      selected: minutes,
+      onSelect: (sub) => _onSub(PolySub(sub)),
+    );
+    final rows = _MoreCryptoMarketsCard(
+      minutes: minutes,
+      onDeposit: () {
+        openPredictionsDeposit(context, ref);
+      },
+    );
+    // The Dollars page on EXPANDED (round two: nothing stretched): the
+    // round card with its lengths beside the other coins' rows, two
+    // columns of the pane's grid, when each column is at least a phone's
+    // card; else the phone's stack, no wider than [kPolyWideBlockMax], on
+    // the pane's left edge.
+    if (widget.embedded && KuteLayout.isExpanded(context)) {
+      return [
+        SliverLayoutBuilder(builder: (context, constraints) {
+          final inner = constraints.crossAxisExtent - 32;
+          final column = (inner - kMarketGridGutter) / 2;
+          final Widget block = column >= kPolyRoundSideBySideMin
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [card, const SizedBox(height: 12), lengths],
+                      ),
+                    ),
+                    const SizedBox(width: kMarketGridGutter),
+                    Expanded(child: rows),
+                  ],
+                )
+              : Align(
+                  alignment: Alignment.topLeft,
+                  child: ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(maxWidth: kPolyWideBlockMax),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        card,
+                        const SizedBox(height: 12),
+                        lengths,
+                        const SizedBox(height: 10),
+                        rows,
+                      ],
+                    ),
+                  ),
+                );
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: block,
             ),
-          ),
-        ),
-        ),
-        // The lengths, polymarket.com's "5 Min | 15 Min | 1 Hour" row: the
-        // whole page switches, the same page the Crypto row's length
-        // chips open.
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-            child: _CryptoLengthTabs(
-              selected: minutes,
-              onSelect: (sub) => _onSub(PolySub(sub)),
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: _MoreCryptoMarketsCard(
-              minutes: minutes,
-              onDeposit: () {
-                openPredictionsDeposit(context, ref);
-              },
-            ),
-          ),
-        ),
+          );
+        }),
       ];
+    }
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+          child: card,
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+          child: lengths,
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: rows,
+        ),
+      ),
+    ];
+  }
 
   /// The rest of a longer length's list under its rows (Crypto › 15 Min,
   /// 1 Hour, 4 Hours): every market the list holds but the rounds the card
@@ -1045,7 +1100,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   Widget _heroSliver() => SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-          child: RepaintBoundary(
+          // The Dollars page on EXPANDED: no wider than a wide block may be
+          // (round two: nothing stretched), on the pane's left edge.
+          child: _capOnWide(RepaintBoundary(
             child: CryptoPredictBanner(
               config: kCryptoPredictAssets.first,
               showLiveIndicator: true,
@@ -1054,9 +1111,22 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                 openPredictionsDeposit(context, ref);
               },
             ),
-          ),
+          )),
         ),
       );
+
+  /// [child] no wider than [kPolyWideBlockMax] on the pane's left edge in
+  /// the Dollars page on EXPANDED; as it is everywhere else.
+  Widget _capOnWide(Widget child) =>
+      widget.embedded && KuteLayout.isExpanded(context)
+          ? Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: kPolyWideBlockMax),
+                child: child,
+              ),
+            )
+          : child;
 
   /// The list itself: games in play grouped under their leagues,
   /// everything else as market cards (Breaking in the order of the day's
@@ -1153,10 +1223,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
               SliverLayoutBuilder(
                 builder: (context, constraints) => SliverMainAxisGroup(
                     slivers: trending(
-                        // The Dollars page on EXPANDED: four, one per
-                        // column of its grid (round two).
+                        // The Dollars page on EXPANDED: one per square of
+                        // its grid (round two, market_groups.dart).
                         widget.embedded && KuteLayout.isExpanded(context)
-                            ? 4
+                            ? marketSquaresPerRow(
+                                constraints.crossAxisExtent - 32)
                             : polyTopMarketsFitting(
                                 constraints.crossAxisExtent))),
               ),
@@ -1353,6 +1424,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         lockedSide: MoveLockedSide.withdrawFromPredictions);
   }
 }
+
+/// The widest a single block of the Predictions page may stand in the
+/// Dollars page's left pane on EXPANDED (a round card, its rows): never
+/// stretched across the pane (round two).
+const double kPolyWideBlockMax = 720;
+
+/// The least column at which a round page's card and its rows stand side
+/// by side in that pane: about a phone's card.
+const double kPolyRoundSideBySideMin = 380;
 
 /// The narrowest column of the wide Predictions list (market_groups.dart):
 /// the card on the narrowest phone (320 less its 16 margins), so no card
