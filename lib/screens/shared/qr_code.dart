@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -12,7 +14,13 @@ Widget buildQrCode(String address, BuildContext context) {
       child: QrImageView(
         data: address,
         version: QrVersions.auto,
-        size: 0.5.sw,
+        // Half the screen, or half the box the content is laid out in
+        // when that is narrower: a laptop's panel (kute_dialog.dart) or a
+        // wide window's sheet gives its content the panel's width as the
+        // screen's, while `.sw` is the whole window, so a 720 px code
+        // filled the panel and pushed everything under it out of view.
+        // On a phone the two are the same width.
+        size: math.min(0.5.sw, 0.5 * MediaQuery.sizeOf(context).width),
         // Quiet-zone padding around the modules. Was 3, which let
         // the outer 14r ClipRRect (`_RevealSheet`, receive sheet)
         // cut INTO the eye-finder squares on low-version QRs (e.g.
