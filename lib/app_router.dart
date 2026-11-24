@@ -116,15 +116,21 @@ class AppRouter {
   /// nothing to put side by side), [KuteWideMode.own] a page with panes
   /// of its own from MEDIUM up (Portfolio, Search). MEDIUM is the
   /// centred column but for `own`; a phone sees no difference.
+  ///
+  /// [masterDetail]: a Settings detail ([_settingsDetail]): one page key
+  /// for all of them, so a detail opened from the master column replaces
+  /// the shown one in place, and on EXPANDED the [KuteMasterDetail] plays
+  /// the route's motion itself.
   static CustomTransitionPage<void> _buildFadeScalePage({
     required Widget child,
     required GoRouterState state,
     required KuteWideMode wide,
     Duration duration = KuteMotion.settleDuration,
+    bool masterDetail = false,
   }) {
     child = KutePageFrame(mode: wide, child: child);
     return CustomTransitionPage<void>(
-      key: state.pageKey,
+      key: masterDetail ? kuteSettingsDetailPageKey : state.pageKey,
       // Carry the GoRoute's name onto the page so NavigatorObservers
       // (SyncRouteObserver / PostHog) see it — without this every
       // route.settings.name was null and the route-gated background
@@ -137,16 +143,19 @@ class AppRouter {
       // so the brand never seems to move between them.
       transitionsBuilder: (context, animation, secondaryAnimation, child) =>
           kutePageTransition(context, animation, child,
-              scale: wide != KuteWideMode.split),
+              scale: wide != KuteWideMode.split, masterDetail: masterDetail),
     );
   }
 
   /// A Settings sub-page opened from Settings
   /// ([kuteSettingsDetailExtra]): on EXPANDED the detail beside Settings
   /// as the section list ([KuteMasterDetail]); else the page as it is.
-  static Widget _settingsDetail(GoRouterState state, Widget page) =>
+  /// [selected] names the detail (the master marks its row).
+  static Widget _settingsDetail(
+          GoRouterState state, Widget page, String selected) =>
       state.extra == kuteSettingsDetailExtra
-          ? KuteMasterDetail(master: const Settings(), detail: page)
+          ? KuteMasterDetail(
+              master: const Settings(), detail: page, selected: selected)
           : page;
 
   // ── deep_link_opened bookkeeping (analytics only) ──
@@ -867,9 +876,11 @@ class AppRouter {
         GoRoute(
           path: '/affiliate',
           pageBuilder: (context, state) => _buildFadeScalePage(
-            child: _settingsDetail(state, const AffiliateScreen()),
+            child:
+                _settingsDetail(state, const AffiliateScreen(), 'affiliate'),
             state: state,
             wide: KuteWideMode.full,
+            masterDetail: state.extra == kuteSettingsDetailExtra,
           ),
         ),
         // The Portfolio, its own screen over the shell (founder, 31 October
@@ -1051,10 +1062,11 @@ class AppRouter {
           name: 'wallets',
           // Masked: reveals recovery phrases and public keys.
           pageBuilder: (context, state) => _buildFadeScalePage(
-            child: _settingsDetail(
-                state, const PostHogMaskWidget(child: WalletsScreen())),
+            child: _settingsDetail(state,
+                const PostHogMaskWidget(child: WalletsScreen()), 'wallets'),
             state: state,
             wide: KuteWideMode.full,
+            masterDetail: state.extra == kuteSettingsDetailExtra,
           ),
         ),
       ],

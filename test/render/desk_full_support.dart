@@ -128,6 +128,28 @@ Future<void> pumpDeskPage(
     ),
   ]);
   addTearDown(router.dispose);
+  await pumpDeskRouter(tester,
+      size: size,
+      dark: dark,
+      router: router,
+      overrides: overrides,
+      frames: frames);
+}
+
+/// Pumps the app's frame around [router] at [size] (the view's size set
+/// as [pumpDeskPage] sets it): for a test that walks between pages.
+Future<void> pumpDeskRouter(
+  WidgetTester tester, {
+  required Size size,
+  required bool dark,
+  required GoRouter router,
+  List<Override> overrides = const [],
+  int frames = 12,
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
     overrides: overrides,
     child: ScreenUtilInit(
