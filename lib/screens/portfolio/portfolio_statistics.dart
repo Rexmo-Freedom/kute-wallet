@@ -5,6 +5,7 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/hyperliquid_activity.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -218,7 +219,16 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     this.endClearance,
     this.header,
     this.sectionEmpty,
+    this.wideColumns,
   });
+
+  /// EXPANDED (round three, the Portfolio screen): the page across the
+  /// window, the figures (the header and the chart's card) in the first
+  /// column and each of these lists of slivers (Positions, the Activity)
+  /// in a column of its own beside them, two to three columns as the
+  /// width takes (two: the lists one under the other). Replaces [footer]
+  /// there; null keeps the one column.
+  final List<List<Widget>>? wideColumns;
 
   /// False on the Portfolio screen, whose hero draws the one P&L chart
   /// (components/portfolio_hero.dart): the section is the P&L tab without
@@ -308,6 +318,48 @@ class _PortfolioStatisticsOverviewState
         ),
       );
     }
+    final wide = widget.wideColumns;
+    if (wide != null && kuteIsExpanded(context)) {
+      return CustomScrollView(
+        slivers: [
+          SliverPadding(
+            // The page gutter less the lists' own 16 inset.
+            padding: kuteWidePadding(context) -
+                EdgeInsets.symmetric(horizontal: 16.w),
+            sliver: SliverLayoutBuilder(builder: (context, constraints) {
+              final lists = [
+                for (final c in wide)
+                  if (c.isNotEmpty) c
+              ];
+              final n = kuteColumnsFor(constraints.crossAxisExtent,
+                  min: kuteWideColumnMin + 32.w, gap: 0, max: 1 + lists.length);
+              final columns = <List<Widget>>[
+                [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+                    sliver: SliverList(delegate: SliverChildListDelegate(all)),
+                  ),
+                ],
+                if (n >= 3 || lists.length < 2)
+                  ...lists
+                else
+                  [for (final c in lists) ...c],
+              ];
+              if (columns.length == 1) {
+                return SliverMainAxisGroup(slivers: columns.single);
+              }
+              return SliverCrossAxisGroup(slivers: [
+                for (final c in columns)
+                  SliverCrossAxisExpanded(
+                      flex: 1, sliver: SliverMainAxisGroup(slivers: c)),
+              ]);
+            }),
+          ),
+          SliverToBoxAdapter(
+              child: SizedBox(height: 32.h + kuteDockScrollClearance(context))),
+        ],
+      );
+    }
     return CustomScrollView(
       slivers: [
         if (all.isNotEmpty)
@@ -335,7 +387,7 @@ class _PortfolioStatisticsOverviewState
             children: [header, empty]),
       );
     }
-    return CustomScrollView(
+    final page = CustomScrollView(
       slivers: [
         SliverPadding(
           padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
@@ -344,6 +396,11 @@ class _PortfolioStatisticsOverviewState
         SliverFillRemaining(child: empty),
       ],
     );
+    // EXPANDED, the Portfolio screen: a readable column in the middle.
+    if (widget.wideColumns != null && kuteIsExpanded(context)) {
+      return KuteFormColumn(background: false, child: page);
+    }
+    return page;
   }
 
   @override
@@ -405,8 +462,7 @@ class _PortfolioStatisticsOverviewState
       charted: widget.chart ? _charted : null,
       onChart: _chart,
       // The Portfolio screen's "By product" rows pick what its hero shows.
-      productPick:
-          widget.chart ? null : ref.watch(portfolioPnlVenueProvider),
+      productPick: widget.chart ? null : ref.watch(portfolioPnlVenueProvider),
       onProductPick: (v) => portfolioPickPnlVenue(ref, v),
       chart: widget.chart,
       orders: widget.orders,
@@ -595,8 +651,7 @@ class _OverviewBody extends ConsumerWidget {
           PortfolioPnlBreakdown(
             listed: listed,
             quiet: quietVenues,
-            quietText: (v) =>
-                _quietText(l10n, v, StatisticsScope.historic),
+            quietText: (v) => _quietText(l10n, v, StatisticsScope.historic),
             selected: productPicked,
             onPick: productsPickable
                 ? (v) => onProductPick(v == productPicked ? null : v)
@@ -736,8 +791,8 @@ class _PnlVenues extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final now = DateTime.now();
-    String logoOf(PortfolioPerformanceVenue v) => venueMarkAsset(
-        v == PortfolioPerformanceVenue.predictions
+    String logoOf(PortfolioPerformanceVenue v) =>
+        venueMarkAsset(v == PortfolioPerformanceVenue.predictions
             ? InvestmentsProduct.predictions
             : InvestmentsProduct.trading);
     // Where the money is: the venue's own name.

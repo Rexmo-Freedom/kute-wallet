@@ -1,3 +1,5 @@
+import 'package:kute/screens/shared/desk_lists.dart'
+    show ActivityDayColumns;
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
@@ -190,7 +192,13 @@ class TransactionList extends ConsumerStatefulWidget {
     this.showAll = false,
     this.onlyUsdb = false,
     this.emptyState,
+    this.columns = false,
   });
+
+  /// The Activity screen on EXPANDED: the day cards in masonry columns
+  /// (ActivityDayColumns, desk_lists.dart).
+  final bool columns;
+
   @override
   _TransactionListState createState() => _TransactionListState();
 }
@@ -396,6 +404,27 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     // "Balances hidden" placeholder.
     if (sortedDates.isEmpty) {
       return widget.emptyState ?? buildNoTransactionsFound(context);
+    }
+
+    if (widget.columns) {
+      return ActivityDayColumns(
+        weights: [
+          for (final date in sortedDates) groupedTransactions[date]!.length + 2
+        ],
+        sections: [
+          for (final (i, date) in sortedDates.indexed)
+            FadeInSlide(
+              index: i,
+              child: ActivityDaySection(
+                day: date,
+                rows: [
+                  for (final tx in groupedTransactions[date]!)
+                    _buildUnifiedTransactionItem(tx, context, ref),
+                ],
+              ),
+            ),
+        ],
+      );
     }
 
     return Column(

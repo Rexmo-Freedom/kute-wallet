@@ -11,7 +11,8 @@ const kPortfolioTabKeys = ['open', 'orders', 'activity', 'statistics'];
 /// the category rows ([KutePillTabs]), each with a 44 pt hit target. Stays
 /// in sync with the enclosing [DefaultTabController].
 class PortfolioTabs extends StatelessWidget {
-  const PortfolioTabs({super.key, required this.tabs, this.keys = kPortfolioTabKeys});
+  const PortfolioTabs(
+      {super.key, required this.tabs, this.keys = kPortfolioTabKeys});
 
   final List<(String, IconData)> tabs;
 
@@ -59,15 +60,20 @@ class PortfolioTabs extends StatelessWidget {
 /// is what made the scrolling read as broken. Pinned, the strip stays
 /// put and each tab keeps its own offset.
 class PortfolioTabsSliver extends StatelessWidget {
-  const PortfolioTabsSliver({super.key, required this.tabs});
+  const PortfolioTabsSliver({super.key, required this.tabs, this.inset});
 
   final List<(String, IconData)> tabs;
+
+  /// The strip's side inset; null: the lists' 16 (a page across the
+  /// window on EXPANDED passes its gutter).
+  final double? inset;
 
   @override
   Widget build(BuildContext context) => SliverPersistentHeader(
         pinned: true,
         delegate: _PortfolioTabsDelegate(
           tabs: tabs,
+          inset: inset ?? 16.w,
           extent: PortfolioTabs.height(context) + 12.h,
           background: Theme.of(context).scaffoldBackgroundColor,
         ),
@@ -76,9 +82,13 @@ class PortfolioTabsSliver extends StatelessWidget {
 
 class _PortfolioTabsDelegate extends SliverPersistentHeaderDelegate {
   _PortfolioTabsDelegate(
-      {required this.tabs, required this.extent, required this.background});
+      {required this.tabs,
+      required this.inset,
+      required this.extent,
+      required this.background});
 
   final List<(String, IconData)> tabs;
+  final double inset;
   final double extent;
   final Color background;
 
@@ -91,12 +101,13 @@ class _PortfolioTabsDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
       Container(
         color: background,
-        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
+        padding: EdgeInsets.fromLTRB(inset, 4.h, inset, 8.h),
         child: PortfolioTabs(tabs: tabs),
       );
 
   @override
   bool shouldRebuild(_PortfolioTabsDelegate old) =>
+      old.inset != inset ||
       old.extent != extent ||
       old.background != background ||
       old.tabs.length != tabs.length ||

@@ -16,6 +16,8 @@ import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/desk_lists.dart';
 import 'package:kute/screens/shared/kute_glass.dart';
 
 /// Grouped view of a single match's sub-markets (moneyline + Both Teams to
@@ -44,8 +46,7 @@ class GroupLandingScreen extends ConsumerStatefulWidget {
         fixedEvents = events;
 
   @override
-  ConsumerState<GroupLandingScreen> createState() =>
-      _GroupLandingScreenState();
+  ConsumerState<GroupLandingScreen> createState() => _GroupLandingScreenState();
 }
 
 class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
@@ -66,6 +67,12 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
     // WIDE (MEDIUM and EXPANDED; platform/kute_layout.dart): the list and
     // its search bar stay a column of readable width, centred; the page
     // scrolls from anywhere across the window. A phone is as it was.
+    //
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the markets in columns across
+    // the window (desk_lists.dart), the back and the title on the left
+    // gutter; the search bar stays the centred column's at the bottom.
+    final wide = kuteIsExpanded(context);
     final side = KuteLayout.isWide(context)
         ? ((MediaQuery.sizeOf(context).width - KuteLayout.columnMaxWidth) / 2)
             .clamp(0.0, double.infinity)
@@ -88,7 +95,9 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        centerTitle: true,
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? kDeskLeadingWidth : null,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -107,7 +116,9 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
             ),
           ],
         ),
-        leading: const KuteBackButton(),
+        leading: wide
+            ? const DeskGutterLeading(child: KuteBackButton())
+            : const KuteBackButton(),
       ),
       body: Stack(
         children: [
@@ -147,20 +158,36 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                       parent: BouncingScrollPhysics()),
                   slivers: [
                     SliverToBoxAdapter(child: SizedBox(height: 12.h)),
-                    SliverPadding(
-                      padding: EdgeInsets.symmetric(horizontal: side),
-                      sliver: SliverMainAxisGroup(slivers: [
-                        ...marketGroupSlivers<PolymarketEvent>(
-                          context,
-                          items: events,
-                          groups: (e) => polyCardGroups(e.title, e.outcomes),
-                          dividerIndent: polyGroupRowIndent(),
-                          divider: polyGroupRowDivider,
-                          build: (market, inGroup) =>
-                              _GroupFeedCard(market: market, inGroup: inGroup),
+                    if (wide)
+                      SliverPadding(
+                        padding: deskListPadding(),
+                        sliver: SliverMainAxisGroup(
+                          slivers: deskMarketColumnSlivers<PolymarketEvent>(
+                            context,
+                            items: events,
+                            groups: (e) => polyCardGroups(e.title, e.outcomes),
+                            dividerIndent: polyGroupRowIndent(),
+                            divider: polyGroupRowDivider,
+                            build: (market, inGroup) => _GroupFeedCard(
+                                market: market, inGroup: inGroup),
+                          ),
                         ),
-                      ]),
-                    ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: EdgeInsets.symmetric(horizontal: side),
+                        sliver: SliverMainAxisGroup(slivers: [
+                          ...marketGroupSlivers<PolymarketEvent>(
+                            context,
+                            items: events,
+                            groups: (e) => polyCardGroups(e.title, e.outcomes),
+                            dividerIndent: polyGroupRowIndent(),
+                            divider: polyGroupRowDivider,
+                            build: (market, inGroup) => _GroupFeedCard(
+                                market: market, inGroup: inGroup),
+                          ),
+                        ]),
+                      ),
                     SliverToBoxAdapter(child: SizedBox(height: 96.h)),
                   ],
                 );
@@ -212,7 +239,8 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                             decoration: InputDecoration(
                               isCollapsed: true,
                               border: InputBorder.none,
-                              hintText: context.l10n.groupSearchIn(widget.title),
+                              hintText:
+                                  context.l10n.groupSearchIn(widget.title),
                               hintStyle: TextStyle(
                                 color: c.textSecondary,
                                 fontSize: 16.sp,
@@ -229,8 +257,7 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                               setState(() => _query = '');
                             },
                             child: Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: 12.w),
+                              padding: EdgeInsets.symmetric(horizontal: 12.w),
                               child: Icon(Icons.close_rounded,
                                   size: 18.sp, color: c.textSecondary),
                             ),
@@ -295,7 +322,8 @@ class _GroupFeedCard extends ConsumerWidget {
         livePrices: cardLivePrices,
         priceDirections: cardDirections,
         // The score Gamma seeded on the event (no live feed join here).
-        liveGame: market.isSportsCategory ? PolyLiveGame.of(market, null) : null,
+        liveGame:
+            market.isSportsCategory ? PolyLiveGame.of(market, null) : null,
         dayMove: market.oneDayPriceChange,
         teams: market.teams,
         slug: market.slug,

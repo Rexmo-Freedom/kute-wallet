@@ -9,6 +9,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/models/polymarket_model.dart' show ActivityType;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/transactions_provider.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/desk_lists.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
     show
@@ -42,6 +44,8 @@ class PredictionHistoryScreen extends ConsumerWidget {
       // with the 0.97 → 1 scale, down on the close easing.
       KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
+        // EXPANDED: a page across the window, its day cards in columns.
+        wide: KuteWideMode.full,
         barrierColor: Colors.black.withValues(alpha: 0.4),
         builder: (_) => const PredictionHistoryScreen(),
       ),
@@ -78,11 +82,23 @@ class PredictionHistoryScreen extends ConsumerWidget {
       }),
     ]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"), the page standing alone: the
+    // close and the title on the left gutter, the day cards in masonry
+    // columns across the window (desk_lists.dart). Embedded or narrower:
+    // as on a phone.
+    final wide = !embedded && kuteIsExpanded(context);
+    final sections = activityDaySections<BaseTransaction>(
+      bets,
+      timeOf: (tx) => tx.timestamp,
+      rowOf: (tx) => buildUnifiedTransactionItem(tx, context, ref),
+    );
     final content = Column(
       children: [
         if (!embedded)
           Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
+            padding: EdgeInsets.fromLTRB(
+                wide ? kuteWideGutter : 16.w, 8.h, 16.w, 4.h),
             child: Row(
               children: [
                 const KuteCloseButton(),
@@ -109,16 +125,17 @@ class PredictionHistoryScreen extends ConsumerWidget {
               // Same day cards, headers and rows as Home and the
               // wallets.
               : ListView(
-                  padding: EdgeInsets.fromLTRB(0, 4.h, 0,
+                  padding: EdgeInsets.fromLTRB(
+                      wide ? deskListPadding().left : 0,
+                      4.h,
+                      wide ? deskListPadding().right : 0,
                       40.h + (embedded ? kuteDockScrollClearance(context) : 0)),
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: BouncingScrollPhysics(),
                   ),
-                  children: activityDaySections<BaseTransaction>(
-                    bets,
-                    timeOf: (tx) => tx.timestamp,
-                    rowOf: (tx) => buildUnifiedTransactionItem(tx, context, ref),
-                  ),
+                  children: wide
+                      ? [ActivityDayColumns(sections: sections)]
+                      : sections,
                 ),
         ),
       ],
