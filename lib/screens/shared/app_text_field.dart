@@ -35,6 +35,11 @@ class AppTextField extends StatelessWidget {
   /// whose floating bar rides above the keyboard keeps it clear of that).
   final EdgeInsets scrollPadding;
 
+  /// What a browser or OS password manager may fill or save here.
+  final Iterable<String>? autofillHints;
+  final bool autocorrect;
+  final bool enableSuggestions;
+
   const AppTextField({
     super.key,
     this.controller,
@@ -58,6 +63,9 @@ class AppTextField extends StatelessWidget {
     this.textInputAction,
     this.onSubmitted,
     this.scrollPadding = const EdgeInsets.all(20),
+    this.autofillHints,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
   });
 
   @override
@@ -78,6 +86,9 @@ class AppTextField extends StatelessWidget {
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
       scrollPadding: scrollPadding,
+      autofillHints: autofillHints,
+      autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions,
       cursorColor: context.colors.accent,
       style: style ?? TextStyle(
         color: context.colors.textPrimary,

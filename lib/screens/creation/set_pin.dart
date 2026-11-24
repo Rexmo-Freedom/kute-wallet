@@ -1,5 +1,8 @@
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
+import 'package:kute/screens/shared/kute_password_field.dart';
+import 'package:kute/screens/shared/password_copy.dart';
+import 'package:kute/platform/unlock_secret.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,6 +68,28 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
   bool _advanced = false;
   late final String _path;
 
+  /// A laptop browser creates a password instead (unlock_secret.dart).
+  final bool _password =
+      UnlockSecret.deviceKind == VaultSecretKind.password;
+  final TextEditingController _field = TextEditingController();
+
+  bool get _ready =>
+      _password ? UnlockSecret.meetsRule(pin) : pin.length == 6;
+
+  void _next() {
+    if (!_ready) return;
+    HapticFeedback.mediumImpact();
+    ref.read(pinProvider.notifier).state = pin;
+    _advanced = true;
+    context.push('/confirm_pin').then((_) {
+      // Back from confirm with the PIN still pending: the entry
+      // is open again. A saved PIN cleared pinProvider.
+      if (mounted && ref.read(pinProvider).isNotEmpty) {
+        _advanced = false;
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,22 +112,34 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
         'time_in_flow_bucket': _timeBucket(_elapsed.elapsed),
       });
     }
+    _field.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final ready = _ready;
 
     // Just the title and the dots (user decision, September 2026): no step
     // counter, no subtitle, no reminder chip on the first PIN screen.
     return KutePinScaffold(
       leading: const KuteBackButton(fallbackRoute: '/start'),
-      title: context.l10n.createAPin,
+      title: _password ? PasswordCopy.create : context.l10n.createAPin,
       // Happy once the six digits are in, before Next is tapped.
-      salMood: pin.length == 6 ? 'happy' : salMoodFor(pin.length),
-      dots: PinProgressIndicator(currentLength: pin.length),
-      keypad: CustomKeypad(
+      salMood: ready ? 'happy' : salMoodFor(pin.length),
+      dots: _password
+          ? KutePasswordField(
+              controller: _field,
+              isNew: true,
+              showRule: true,
+              onChanged: (value) => setState(() => pin = value),
+              onSubmitted: (_) => _next(),
+            )
+          : PinProgressIndicator(currentLength: pin.length),
+      keypad: _password
+          ? const SizedBox.shrink()
+          : CustomKeypad(
         chromed: true,
         onDigitPressed: (digit) {
           if (pin.length < 6) {
@@ -118,34 +155,22 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
         },
       ),
       footer: AnimatedOpacity(
-        opacity: pin.length == 6 ? 1.0 : 0.0,
+        opacity: ready || _password ? 1.0 : 0.0,
         duration:
             reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
         curve: Curves.easeOut,
         child: IgnorePointer(
-          ignoring: pin.length != 6,
+          ignoring: !ready,
           // THE BAR IS THE BUTTON (kute_bar_context.dart): Next is the
           // floating Sal bar's primary action, on with six digits.
           child: KuteBarContextScope(
             barContext: KuteBarContext.primary(
             label: context.l10n.next,
-            enabled: pin.length == 6,
+            enabled: ready,
             source: 'set_pin',
-            onPrimary: () {
-              if (pin.length == 6) {
-                HapticFeedback.mediumImpact();
-                ref.read(pinProvider.notifier).state = pin;
-                _advanced = true;
-                context.push('/confirm_pin').then((_) {
-                  // Back from confirm with the PIN still pending: the entry
-                  // is open again. A saved PIN cleared pinProvider.
-                  if (mounted && ref.read(pinProvider).isNotEmpty) {
-                    _advanced = false;
-                  }
-                });
-              }
-            },
-            disabledLabel: context.l10n.barNeedPin,
+            onPrimary: _next,
+            disabledLabel:
+                _password ? PasswordCopy.rule : context.l10n.barNeedPin,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

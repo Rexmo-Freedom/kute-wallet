@@ -1,3 +1,8 @@
+import 'package:kute/platform/unlock_secret.dart';
+import 'package:kute/screens/shared/kute_password_field.dart';
+import 'package:kute/screens/shared/password_copy.dart';
+import 'package:kute/services/secure/web_vault/seed_vault.dart'
+    show normalizeVaultSecret;
 import 'dart:async';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -604,8 +609,13 @@ class _SettingsState extends ConsumerState<Settings> {
           context,
           key: const ValueKey('settings-card-pin'),
           icon: Icons.lock_rounded,
-          title: l10n.appPin,
-          subtitle: l10n.changeUnlockCode,
+          // A laptop browser locks with a password (unlock_secret.dart).
+          title: UnlockSecret.forChange == VaultSecretKind.password
+              ? PasswordCopy.settingsTitle
+              : l10n.appPin,
+          subtitle: UnlockSecret.forChange == VaultSecretKind.password
+              ? PasswordCopy.settingsSubtitle
+              : l10n.changeUnlockCode,
           onTap: () {
             HapticFeedback.lightImpact();
             _openChangePin(context, ref);
@@ -1543,6 +1553,24 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
   static const List<String> _stepNames = ['current', 'new', 'confirm'];
 
+  /// The current secret's kind and the new one's (unlock_secret.dart): in
+  /// a laptop browser the steps take a password in one field, and a PIN
+  /// vault there moves to a password.
+  final VaultSecretKind _oldKind = UnlockSecret.current;
+  final VaultSecretKind _newKind = UnlockSecret.forChange;
+  final TextEditingController _field = TextEditingController();
+
+  bool get _stepIsPassword =>
+      (_step == 0 ? _oldKind : _newKind) == VaultSecretKind.password;
+
+  /// The active step's entry is complete: six digits, or a password (any
+  /// for the current one, the rule for a new one).
+  bool get _entryReady => !_stepIsPassword
+      ? _activePin.length == 6
+      : _step == 0
+          ? _activePin.isNotEmpty
+          : UnlockSecret.meetsRule(_activePin);
+
   String get _stepName => _stepNames[_step];
 
   @override
@@ -1572,6 +1600,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       });
     }
     TrackingService.clearFlowContext('pin_change');
+    _field.dispose();
     super.dispose();
   }
 
@@ -1586,6 +1615,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
   /// A real step transition (never on a retry of the same step).
   void _goToStep(int step) {
+    _field.clear();
     setState(() {
       _step = step;
       _isLoading = false;
@@ -1659,12 +1689,15 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final password = _stepIsPassword;
     final titleText = switch (_step) {
-      0 => context.l10n.changePinEnterCurrent,
-      1 => context.l10n.changePinCreateNew,
-      _ => context.l10n.changePinConfirmNew,
+      0 => password
+          ? PasswordCopy.enterCurrent
+          : context.l10n.changePinEnterCurrent,
+      1 => password ? PasswordCopy.createNew : context.l10n.changePinCreateNew,
+      _ => password ? PasswordCopy.confirm : context.l10n.changePinConfirmNew,
     };
-    final canContinue = _activePin.length == 6 && !_isLoading;
+    final canContinue = _entryReady && !_isLoading;
 
     return AppBottomSheetContainer(
       child: Column(
@@ -1675,6 +1708,23 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
             title: titleText,
             trailing: const _SheetCloseButton(),
           ),
+          if (password)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: KutePasswordField(
+                // A fresh field per step, so autofocus lands in it again.
+                key: ValueKey('change-password-$_step'),
+                controller: _field,
+                isNew: _step > 0,
+                showRule: _step == 1,
+                enabled: !_isLoading,
+                onChanged: _setActivePin,
+                onSubmitted: (_) {
+                  if (_entryReady && !_isLoading) _handleNextStep();
+                },
+              ),
+            )
+          else
           PinProgressIndicator(currentLength: _activePin.length),
           SizedBox(height: 12.h),
           // Reserved line so the keypad doesn't jump when an error lands.
@@ -1699,6 +1749,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
                   ),
           ),
           SizedBox(height: 12.h),
+          if (!password)
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12.w),
             child: IgnorePointer(
@@ -1720,7 +1771,9 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
               enabled: canContinue,
               busy: _isLoading,
               source: 'change_pin',
-              disabledLabel: context.l10n.barNeedPin,
+              disabledLabel: password
+                  ? (_step == 1 ? PasswordCopy.rule : PasswordCopy.needPassword)
+                  : context.l10n.barNeedPin,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),
@@ -1757,8 +1810,12 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     final authModel = ref.read(authModelProvider);
 
     // 1. Validation
-    if (_activePin.length != 6) {
-      setState(() => _errorText = context.l10n.mustBe6Digits);
+    if (!_entryReady) {
+      setState(() => _errorText = !_stepIsPassword
+          ? context.l10n.mustBe6Digits
+          : _step == 0
+              ? PasswordCopy.needPassword
+              : PasswordCopy.rule);
       return;
     }
 
@@ -1774,6 +1831,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           return;
         }
         if (lockout > Duration.zero) {
+          _field.clear();
           setState(() {
             _errorText = context.l10n.lockedForTime('${lockout.inSeconds}s');
             _oldPin = '';
@@ -1796,8 +1854,11 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           if (!mounted) {
             return;
           }
+          _field.clear();
           setState(() {
-            _errorText = context.l10n.incorrectPin;
+            _errorText = _oldKind == VaultSecretKind.password
+                ? PasswordCopy.wrong
+                : context.l10n.incorrectPin;
             _oldPin = '';
             _isLoading = false;
           });
@@ -1819,11 +1880,16 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         _goToStep(2);
       } else {
         // Verify Match & Execute Change
-        if (_newPin != _confirmPin) {
+        if (_newKind == VaultSecretKind.password
+            ? normalizeVaultSecret(_newPin) != normalizeVaultSecret(_confirmPin)
+            : _newPin != _confirmPin) {
           _trackFailed('mismatch');
           HapticFeedback.heavyImpact();
+          _field.clear();
           setState(() {
-            _errorText = context.l10n.pinsDoNotMatch;
+            _errorText = _newKind == VaultSecretKind.password
+                ? PasswordCopy.mismatch
+                : context.l10n.pinsDoNotMatch;
             _confirmPin = '';
             _isLoading = false;
           });
@@ -1863,7 +1929,9 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
               return;
             }
             setState(() {
-              _errorText = context.l10n.incorrectPin;
+              _errorText = _oldKind == VaultSecretKind.password
+                  ? PasswordCopy.wrong
+                  : context.l10n.incorrectPin;
               _oldPin = '';
               _newPin = '';
               _confirmPin = '';
@@ -1893,7 +1961,12 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         if (mounted) {
           // The shared result sheet. The keypad sheet closes first, so
           // the sheet slides up over Settings and Done only closes it.
-          final message = context.l10n.confirmationPinUpdated;
+          if (_newKind == VaultSecretKind.password) {
+            KutePasswordField.finishAutofill();
+          }
+          final message = _newKind == VaultSecretKind.password
+              ? PasswordCopy.updated
+              : context.l10n.confirmationPinUpdated;
           final rootNav = Navigator.of(context, rootNavigator: true);
           context.pop();
           TrackingService.track('pin_change_confirmation_shown',
