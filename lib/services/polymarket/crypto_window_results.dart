@@ -22,6 +22,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/polymarket/web_relay.dart';
 import 'package:kute/services/polymarket/crypto_round.dart'
     show polyCryptoRoundSlug;
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
@@ -213,8 +214,7 @@ Future<bool?> _closeAgainstOpen(
   String iso(int epoch) =>
       '${DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true).toIso8601String().split('.').first}Z';
   try {
-    final uri = Uri.parse('https://polymarket.com/api/crypto/crypto-price')
-        .replace(queryParameters: {
+    final uri = polyCryptoPriceUri({
       'symbol': asset.toUpperCase(),
       'eventStartTime': iso(start),
       'variant': variant,
