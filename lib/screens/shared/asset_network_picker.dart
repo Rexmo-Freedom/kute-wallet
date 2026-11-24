@@ -25,6 +25,8 @@
 //                             full network sheet), then the asset rows.
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:kute/platform/web_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -317,7 +319,16 @@ class ChainAvatarIcon extends StatelessWidget {
       return ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.28),
         child: isRaster
-            ? CachedNetworkImage(
+            ? kIsWeb
+                // Web: no CORS on the artwork host; the browser's <img>.
+                ? WebNetworkImage(
+                    url: url,
+                    width: s,
+                    height: s,
+                    fit: BoxFit.contain,
+                    error: fallback(),
+                  )
+                : CachedNetworkImage(
                 imageUrl: url,
                 width: s,
                 height: s,

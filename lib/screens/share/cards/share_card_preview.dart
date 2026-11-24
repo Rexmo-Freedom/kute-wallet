@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:kute/platform/web_image.dart' show WebImagesOff;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart'
     show shareCardMessage;
@@ -170,10 +171,14 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
           child: FittedBox(
             child: RepaintBoundary(
               key: widget.boundaryKey,
-              child: ShareCard(
-                  data: widget.data,
-                  mark: ShareCardSal.peek(),
-                  lineSeed: widget.lineSeed),
+              // Captured with toImage, which cannot hold the web's <img>
+              // views: on web the logos draw their stand-ins.
+              child: WebImagesOff(
+                child: ShareCard(
+                    data: widget.data,
+                    mark: ShareCardSal.peek(),
+                    lineSeed: widget.lineSeed),
+              ),
             ),
           ),
         ),

@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/polymarket_artwork.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/platform/web_image.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/services/icon_cache/icon_disk_cache.dart' show IconCaches, runBounded;
 
@@ -65,6 +67,17 @@ class PolyCrestImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(radius),
       child: normalized == null
           ? fb
+          // Web: Polymarket's hosts send no CORS headers, so the bytes
+          // cannot be read; the browser's <img> draws the image, SVG or
+          // raster, whatever the URL says.
+          : kIsWeb && cacheManager == null && debugCacheManager == null
+          ? WebNetworkImage(
+              url: normalized,
+              width: size,
+              height: size,
+              fit: fit,
+              error: fb,
+            )
           : _CachedArtwork(
               url: normalized,
               size: size,
@@ -89,6 +102,15 @@ class PolyCrestImage extends StatelessWidget {
   static Future<void> prefetch(Iterable<String?> urls,
       {BaseCacheManager? cacheManager}) {
     if (!IconCaches.prefetchEnabled) return Future.value();
+    if (kIsWeb && cacheManager == null && debugCacheManager == null) {
+      final todo = <String>[];
+      for (final raw in urls) {
+        if (raw == null || raw.trim().isEmpty) continue;
+        final u = polymarketArtworkUrl(raw);
+        if (u != null && _requested.add(u)) todo.add(u);
+      }
+      return WebImageLoader.prefetch(todo, concurrency: prefetchConcurrency);
+    }
     final cm = cacheManager ?? debugCacheManager ?? polyArtworkCacheManager;
     final todo = <String>[];
     for (final raw in urls) {

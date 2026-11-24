@@ -39,6 +39,15 @@
 // through the same memory and disk caches as every other candidate, so a
 // coin no host knows costs its three requests once per miss TTL, not once
 // per list build; the letter tile shows until an image lands.
+//
+// On web the browser draws the logo, not flutter_svg: the hosts send no
+// CORS headers, so the bytes cannot be read. A candidate is tried by
+// loading it in an `<img>` ([WebImageLoader]: onload is a hit, onerror —
+// a 404, the venue's HTML catch-all — a miss) and a hit draws through
+// [WebNetworkImage]. The browser paints the pattern-wrapped rasters and
+// nested SVGs flutter_svg cannot, so neither repair is needed there; a
+// white-only mark is not detected (its pixels are unreadable) and draws
+// as it is. There is no disk cache on web; the memory caches work the same.
 
 import 'dart:async';
 import 'dart:convert';
@@ -50,6 +59,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/helpers/svg_class_styles.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/platform/web_image.dart';
 import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -251,10 +261,15 @@ List<String> hlIconSiblingWires(String coin, String? wireCoin, String? category)
 /// A loaded logo: the SVG document itself, or the raster taken out of an
 /// SVG that only wraps one. [aspect] is its width over height when known.
 class HlIconArt {
-  const HlIconArt({required this.bytes, required this.raster, this.aspect});
+  const HlIconArt(
+      {required this.bytes, required this.raster, this.aspect, this.webUrl});
   final Uint8List bytes;
   final bool raster;
   final double? aspect;
+
+  /// Web only: the URL the browser loaded, drawn by an `<img>` ([bytes] is
+  /// empty; the page cannot read them).
+  final String? webUrl;
 }
 
 final RegExp _svgShape = RegExp(
@@ -442,6 +457,7 @@ bool hlLooksLikePng(Uint8List bytes) {
 }
 
 Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
+  if (kIsWeb) return _probeHlWeb(url);
   try {
     IconLoadStats.network++;
     final resp = await SharedHttpClient.get(Uri.parse(url),
@@ -477,6 +493,21 @@ Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
   } catch (_) {
     return (_HlFetch.failed, null);
   }
+}
+
+/// Web: [url] loaded in an `<img>`. A load is a hit; an error or a timeout
+/// is remembered for the session only (there is no disk cache on web).
+Future<(_HlFetch, HlIconArt?)> _probeHlWeb(String url) async {
+  IconLoadStats.network++;
+  final load =
+      await WebImageLoader.load(url, timeout: const Duration(seconds: 8));
+  if (load == null) return (_HlFetch.failed, null);
+  final svg = Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') ?? false;
+  return (
+    _HlFetch.hit,
+    HlIconArt(
+        bytes: Uint8List(0), raster: !svg, aspect: load.aspect, webUrl: url)
+  );
 }
 
 Future<HlIconArt?> _loadHlSvg(String url) {
@@ -1012,7 +1043,15 @@ class _HlCoinIconState extends State<HlCoinIcon> {
         // it filled the box and then cropped, which left a fragment of
         // the logo. The rounded clip stays, so a mark that does fill
         // its box keeps the same silhouette as every other row.
-        child: art.raster
+        child: art.webUrl != null
+            ? WebNetworkImage(
+                url: art.webUrl!,
+                width: size.w,
+                height: size.w,
+                fit: fit,
+                error: _fallback(context),
+              )
+            : art.raster
             // The raster an SVG only wrapped, decoded at the icon's own
             // pixel size (the originals are photo-sized).
             ? Image.memory(

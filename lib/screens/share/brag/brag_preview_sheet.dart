@@ -48,6 +48,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:share_plus/share_plus.dart';
 
+import 'package:kute/platform/web_image.dart' show WebImagesOff;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart' show BalanceRange;
 import 'package:kute/models/portfolio_performance.dart'
@@ -263,15 +264,19 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                 child: FittedBox(
                   child: RepaintBoundary(
                     key: _boundary,
-                    child: data is BragPnl
-                        ? PnlShareCard(
-                            data: data,
-                            mark: ShareCardSal.peek(),
-                            lineSeed: _lineSeed)
-                        : BragCard(
-                            data: data,
-                            mark: ShareCardSal.peek(),
-                            lineSeed: _lineSeed),
+                    // Captured with toImage, which cannot hold the web's
+                    // <img> views: on web the logos draw their stand-ins.
+                    child: WebImagesOff(
+                      child: data is BragPnl
+                          ? PnlShareCard(
+                              data: data,
+                              mark: ShareCardSal.peek(),
+                              lineSeed: _lineSeed)
+                          : BragCard(
+                              data: data,
+                              mark: ShareCardSal.peek(),
+                              lineSeed: _lineSeed),
+                    ),
                   ),
                 ),
               ),
