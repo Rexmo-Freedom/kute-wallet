@@ -95,7 +95,7 @@ import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart'
-    show kuteBarBottomRoomFor, kuteBarPane, kuteDialogsOpen;
+    show kuteBarBottomRoomFor, kuteBarPane, kuteDialogsOpen, kuteWindowWidth;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
@@ -734,12 +734,19 @@ class KuteBarPrimaryButton extends StatefulWidget {
   /// sits [gap] above the bar: the bar's height, its 2 px lift and, where
   /// the page runs to the screen's foot ([pageToFoot]: iOS screens that
   /// leave the home-indicator inset to the bar), that inset too.
+  ///
+  /// From MEDIUM up the bar stands higher off the window's foot
+  /// ([kuteBarBottomRoomFor]), and the room follows it: without that the
+  /// Start screen's "I already have an account" sat under the bar on a
+  /// laptop (25 November 2026).
   static double roomUnder(BuildContext context,
-          {double gap = 12, bool pageToFoot = false}) =>
-      height +
-      2.h +
-      gap +
-      (pageToFoot ? MediaQuery.paddingOf(context).bottom : 0);
+      {double gap = 12, bool pageToFoot = false}) {
+    final lift = kuteBarBottomRoomFor(kuteWindowWidth(context));
+    return height +
+        (lift <= 2 ? 2.h : lift) +
+        gap +
+        (pageToFoot ? MediaQuery.paddingOf(context).bottom : 0);
+  }
 
   @override
   State<KuteBarPrimaryButton> createState() => _KuteBarPrimaryButtonState();
