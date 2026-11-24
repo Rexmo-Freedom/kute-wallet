@@ -149,9 +149,13 @@ class KuteTopNavBar extends ConsumerWidget {
 ///   * LEFT: Sal and the wordmark, the lockup the PIN screen shows
 ///     (kute_pin_scaffold.dart), then the Bitcoin | Dollars switch beside
 ///     it at its phone size (another wallet's tab strip likewise).
-///   * RIGHT: the active tab's balance and its actions
-///     ([KuteDesktopMoney]; founder, 26 November 2026: "the balance always
-///     on the top"), then the hub button. The search stays the floating
+///   * CENTRE: the active tab's balance ([KuteDesktopMoney.balance];
+///     founder, 26 November 2026: "the balance always on the top"; 24
+///     November 2026: "make the balance bigger in the center"), in the
+///     bar's own middle, held clear of the switch and the actions on a
+///     narrower window ([_TopBarSlots]).
+///   * RIGHT: its actions ([KuteDesktopMoney.actions]), then the hub
+///     button. The search stays the floating
 ///     bar's pill at the foot, as on a phone (founder, 25 November 2026:
 ///     "put the search on the bottom always"). The actions lose their
 ///     words under [_labelsMinWidth] and the switch narrows under
@@ -212,29 +216,52 @@ class _KuteDesktopTopBar extends StatelessWidget {
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
-                child: Row(
+                child: CustomMultiChildLayout(
+                  delegate: _TopBarSlots(),
                   children: [
-                    const _KuteLockup(),
-                    SizedBox(width: narrow ? 20 : 28),
-                    SizedBox(
-                      width: switchStrip
-                          ? (narrow ? _switchWidthNarrow : _switchWidth)
-                          : _stripWidth,
-                      child: FloatingActionPill(
-                        activeTab: activeTab,
-                        onSelectTab: onSelectTab,
-                        pagePosition: pagePosition,
+                    LayoutId(
+                      id: _TopBarSlot.left,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const _KuteLockup(),
+                          SizedBox(width: narrow ? 20 : 28),
+                          SizedBox(
+                            width: switchStrip
+                                ? (narrow ? _switchWidthNarrow : _switchWidth)
+                                : _stripWidth,
+                            child: FloatingActionPill(
+                              activeTab: activeTab,
+                              onSelectTab: onSelectTab,
+                              pagePosition: pagePosition,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Spacer(),
-                    // The active tab's balance and its actions, as the
-                    // fintech desktops put the money (founder, 26
-                    // November 2026; desktop_top_bar_money.dart).
-                    KuteDesktopMoney(
-                        activeTab: activeTab,
-                        labels: window >= _labelsMinWidth),
-                    const SizedBox(width: 16),
-                    _FinancialHubButton(activeTab: activeTab),
+                    // The active tab's balance in the bar's centre, its
+                    // actions at the right, as the fintech desktops put
+                    // the money (desktop_top_bar_money.dart).
+                    LayoutId(
+                      id: _TopBarSlot.centre,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: KuteDesktopMoney.balance(activeTab: activeTab),
+                      ),
+                    ),
+                    LayoutId(
+                      id: _TopBarSlot.right,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          KuteDesktopMoney.actions(
+                              activeTab: activeTab,
+                              labels: window >= _labelsMinWidth),
+                          const SizedBox(width: 16),
+                          _FinancialHubButton(activeTab: activeTab),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -244,6 +271,43 @@ class _KuteDesktopTopBar extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _TopBarSlot { left, centre, right }
+
+/// The desktop top bar's three places: the left group at the left edge,
+/// the right group at the right edge, and the balance in the bar's TRUE
+/// centre (the window's, not the middle of whatever room is left), moved
+/// off it only as far as keeping [_gap] from either group asks, and
+/// scaled down (its [FittedBox]) if even that room is too little.
+class _TopBarSlots extends MultiChildLayoutDelegate {
+  _TopBarSlots();
+
+  static const double _gap = 20;
+
+  @override
+  void performLayout(Size size) {
+    final left = layoutChild(_TopBarSlot.left, BoxConstraints.loose(size));
+    final right = layoutChild(
+        _TopBarSlot.right,
+        BoxConstraints.loose(
+            Size(math.max(0, size.width - left.width), size.height)));
+    final room =
+        math.max(0.0, size.width - left.width - right.width - 2 * _gap);
+    final centre = layoutChild(
+        _TopBarSlot.centre, BoxConstraints.loose(Size(room, size.height)));
+    double middle(Size child) => (size.height - child.height) / 2;
+    positionChild(_TopBarSlot.left, Offset(0, middle(left)));
+    positionChild(
+        _TopBarSlot.right, Offset(size.width - right.width, middle(right)));
+    final least = left.width + _gap;
+    final most = math.max(least, size.width - right.width - _gap - centre.width);
+    final x = ((size.width - centre.width) / 2).clamp(least, most);
+    positionChild(_TopBarSlot.centre, Offset(x, middle(centre)));
+  }
+
+  @override
+  bool shouldRelayout(_TopBarSlots oldDelegate) => false;
 }
 
 /// Sal and the wordmark as one lockup, as the PIN screen shows them.

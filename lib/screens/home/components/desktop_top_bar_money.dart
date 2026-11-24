@@ -6,8 +6,12 @@
 // fintech apps, and do what they do, like Polymarket and such … but keep
 // the same feel as Kute mobile, don't change that much"). As Polymarket,
 // Kalshi, Robinhood and Coinbase do on a desktop, the account's money
-// lives at the right of the top bar, always in view: the ACTIVE TAB'S
-// balance, then its actions, then the hub button (kute_top_nav_bar.dart).
+// lives in the top bar, always in view: the ACTIVE TAB'S balance, its
+// actions at the right, then the hub button (kute_top_nav_bar.dart). The
+// balance itself stands in the bar's CENTRE, larger (founder, 24 November
+// 2026, of the figure beside the actions: "make the balance bigger in the
+// center"; of Bitcoin's: "same here"): [KuteDesktopMoney.balance] and
+// [KuteDesktopMoney.actions] are the two halves the bar places.
 //
 //   * Dollars: the one-balance total ([InvestmentBalanceHeader.
 //     oneBalanceFigure]: rolling, dimmed with the stale sweep while saved,
@@ -66,25 +70,35 @@ import 'package:kute/screens/usd/usd_account_screen.dart'
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 
-/// The balance figure's size in the bar.
-const double _kFigure = 26;
+/// The balance figure's size in the bar: as large as the bar's height
+/// carries with its line under it.
+const double _kFigure = 34;
 
 /// The line under it.
-const double _kLine = 12.5;
+const double _kLine = 13.5;
 
 /// The Dollars line's width: its two halves meet at a dot under the
 /// figure, as on the phone ([OneBalancePnlAvailableLine]).
-const double _kDollarsLineWidth = 232;
+const double _kDollarsLineWidth = 264;
 
-/// The active tab's balance and actions, for the desktop top bar (see the
-/// file header). [labels]: the actions with their words (a wide window),
-/// else icons with tooltips.
+/// The active tab's balance, or its actions, for the desktop top bar (see
+/// the file header): the bar puts the balance in its centre and the
+/// actions at its right. [labels]: the actions with their words (a wide
+/// window), else icons with tooltips.
 class KuteDesktopMoney extends ConsumerWidget {
-  const KuteDesktopMoney(
-      {super.key, required this.activeTab, required this.labels});
+  /// The balance, for the bar's centre.
+  const KuteDesktopMoney.balance({super.key, required this.activeTab})
+      : _actions = false,
+        labels = false;
+
+  /// The actions, for the bar's right.
+  const KuteDesktopMoney.actions(
+      {super.key, required this.activeTab, required this.labels})
+      : _actions = true;
 
   final ActiveNavTab activeTab;
   final bool labels;
+  final bool _actions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,35 +107,32 @@ class KuteDesktopMoney extends ConsumerWidget {
     final (Object key, Widget? group) = switch (activeTab) {
       ActiveNavTab.usd => (
           'usd',
-          _group(
-            const _DollarsTopBalance(),
-            KuteTopBarActions(
-                actions: UsdAccountActionBar.moneyActions(context),
-                source: kUsdSurfaceSource,
-                labels: labels),
-          ),
+          _actions
+              ? KuteTopBarActions(
+                  actions: UsdAccountActionBar.moneyActions(context),
+                  source: kUsdSurfaceSource,
+                  labels: labels)
+              : const _DollarsTopBalance(),
         ),
       ActiveNavTab.home when shell != null => (
           'wallet-${shell.id}',
-          _group(
-            _BitcoinTopBalance(wallet: shell),
-            KuteTopBarActions(
-                actions: bitcoinHomeDockActions(context, ref, shell,
-                    source: 'wallet_detail'),
-                source: 'wallet_detail',
-                labels: labels),
-          ),
+          _actions
+              ? KuteTopBarActions(
+                  actions: bitcoinHomeDockActions(context, ref, shell,
+                      source: 'wallet_detail'),
+                  source: 'wallet_detail',
+                  labels: labels)
+              : _BitcoinTopBalance(wallet: shell),
         ),
       ActiveNavTab.home when active != null && !active.isSigner => (
           'home-${active.id}',
-          _group(
-            const _BitcoinTopBalance(),
-            KuteTopBarActions(
-                actions: bitcoinHomeDockActions(context, ref, active,
-                    source: 'home'),
-                source: 'home',
-                labels: labels),
-          ),
+          _actions
+              ? KuteTopBarActions(
+                  actions: bitcoinHomeDockActions(context, ref, active,
+                      source: 'home'),
+                  source: 'home',
+                  labels: labels)
+              : const _BitcoinTopBalance(),
         ),
       _ => ('none', null),
     };
@@ -132,7 +143,7 @@ class KuteDesktopMoney extends ConsumerWidget {
       switchInCurve: KuteMotion.settle,
       switchOutCurve: KuteMotion.settle,
       layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.centerRight,
+        alignment: _actions ? Alignment.centerRight : Alignment.center,
         children: [...previous, if (current != null) current],
       ),
       child: KeyedSubtree(
@@ -141,11 +152,6 @@ class KuteDesktopMoney extends ConsumerWidget {
       ),
     );
   }
-
-  static Widget _group(Widget balance, Widget actions) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [balance, const SizedBox(width: 20), actions],
-      );
 }
 
 /// The Dollars total in the bar (see the file header).
@@ -184,8 +190,8 @@ class _DollarsTopBalance extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
-                PortfolioArrowGlyph(color: c.textTertiary, size: 18),
+                const SizedBox(width: 6),
+                PortfolioArrowGlyph(color: c.textTertiary, size: 22),
               ],
             ),
             const SizedBox(height: 3),
