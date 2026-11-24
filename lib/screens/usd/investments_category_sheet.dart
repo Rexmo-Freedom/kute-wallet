@@ -212,7 +212,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart' show PointerScrollEvent;
+import 'package:flutter/gestures.dart'
+    show GestureBinding, PointerDeviceKind, PointerScrollEvent;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2405,57 +2406,142 @@ class _ChipRowState extends State<_ChipRow> {
     }
   }
 
+  /// A step sideways (the edge arrows): most of what is in view.
+  void _step(int direction) {
+    if (!_controller.hasClients) return;
+    final p = _controller.position;
+    _controller.animateTo(
+      (p.pixels + direction * p.viewportDimension * 0.7)
+          .clamp(0.0, p.maxScrollExtent),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _edges();
     });
     final row = Listener(
-      // A mouse wheel's vertical turn scrolls the row sideways.
+      // A mouse wheel's vertical turn scrolls the row sideways while the
+      // row has further to go that way; at its end the page scrolls as
+      // usual. A sideways turn (a trackpad, a tilt wheel) is the list's
+      // own.
       onPointerSignal: (event) {
         if (event is! PointerScrollEvent || !_controller.hasClients) return;
-        final delta = event.scrollDelta.dy != 0
-            ? event.scrollDelta.dy
-            : event.scrollDelta.dx;
+        final d = event.scrollDelta;
+        if (d.dx.abs() >= d.dy.abs()) return;
         final p = _controller.position;
-        _controller
-            .jumpTo((p.pixels + delta).clamp(0.0, p.maxScrollExtent));
+        final to = (p.pixels + d.dy).clamp(0.0, p.maxScrollExtent);
+        if (to == p.pixels) return;
+        GestureBinding.instance.pointerSignalResolver
+            .register(event, (_) => _controller.jumpTo(to));
       },
       child: SizedBox(
         height: kutePillRowHeight(),
-        child: ListView.separated(
-          controller: _controller,
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          itemCount: widget.chips.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 6),
-          itemBuilder: (context, i) {
-            final chip = widget.chips[i];
-            return Center(
-              child: KutePill(
-                key: chip.key,
-                label: chip.label,
-                selected: chip.selected,
-                onTap: chip.onTap,
-              ),
-            );
-          },
+        // A mouse drags the row too (founder, 24 November 2026, of the
+        // Predictions categories on a laptop: "can't scroll to the right
+        // here"): a browser's Flutter only drags by touch otherwise.
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            scrollbars: false,
+            dragDevices: PointerDeviceKind.values.toSet(),
+          ),
+          child: ListView.separated(
+            controller: _controller,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            itemCount: widget.chips.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 6),
+            itemBuilder: (context, i) {
+              final chip = widget.chips[i];
+              return Center(
+                child: KutePill(
+                  key: chip.key,
+                  label: chip.label,
+                  selected: chip.selected,
+                  onTap: chip.onTap,
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
     if (!_before && !_after) return row;
-    return ShaderMask(
-      blendMode: BlendMode.dstIn,
-      shaderCallback: (rect) => LinearGradient(
-        colors: [
-          _before ? Colors.transparent : Colors.black,
-          Colors.black,
-          Colors.black,
-          _after ? Colors.transparent : Colors.black,
-        ],
-        stops: const [0, 0.06, 0.94, 1],
-      ).createShader(rect),
-      child: row,
+    return Stack(
+      children: [
+        ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => LinearGradient(
+            colors: [
+              _before ? Colors.transparent : Colors.black,
+              Colors.black,
+              Colors.black,
+              _after ? Colors.transparent : Colors.black,
+            ],
+            stops: const [0, 0.08, 0.92, 1],
+          ).createShader(rect),
+          child: row,
+        ),
+        // The way on, said plainly for a mouse: an arrow at the edge that
+        // has more behind it.
+        if (_before)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: _ChipRowArrow(forward: false, onTap: () => _step(-1)),
+          ),
+        if (_after)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: _ChipRowArrow(forward: true, onTap: () => _step(1)),
+          ),
+      ],
+    );
+  }
+}
+
+/// The arrow at a chip row's faded edge: a small round button on the
+/// page's surface, one step that way.
+class _ChipRowArrow extends StatelessWidget {
+  const _ChipRowArrow({required this.forward, required this.onTap});
+
+  final bool forward;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Center(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          key: ValueKey(forward ? 'chip-row-next' : 'chip-row-previous'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: c.background,
+              shape: BoxShape.circle,
+              border: Border.all(color: c.border),
+            ),
+            child: Icon(
+              forward
+                  ? Icons.chevron_right_rounded
+                  : Icons.chevron_left_rounded,
+              size: 20,
+              color: c.textSecondary,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
