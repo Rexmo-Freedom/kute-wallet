@@ -58,11 +58,14 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
 import 'package:kute/platform/open_external.dart';
 
 final biometricsAvailableProvider = FutureProvider<bool>((ref) async {
-  // No local_auth on web: the PIN is the only lock there.
+  // Web without a platform authenticator: the PIN is the only lock.
   if (!PlatformCaps.hasBiometrics) return false;
+  // Web with one: WebAuthn, checked at boot (web_biometrics.dart).
+  if (PlatformCaps.isWeb) return true;
   try {
     return await LocalAuthentication().canCheckBiometrics;
   } catch (e) {
@@ -620,8 +623,11 @@ class _SettingsState extends ConsumerState<Settings> {
   }
 
   Widget _buildBiometricsSection(BuildContext context, WidgetRef ref) {
-    final biometricsEnabled =
+    final setting =
         ref.watch(settingsProvider.select((s) => s.biometricsEnabled));
+    // Web: on only once this browser holds its credential.
+    final biometricsEnabled =
+        setting && (!PlatformCaps.isWeb || WebBiometrics.enrolled);
 
     return _SettingsRow(
       title: context.l10n.biometricUnlock,
@@ -708,6 +714,24 @@ class _SettingsState extends ConsumerState<Settings> {
       }
       if (!mounted) {
         return;
+      }
+      if (PlatformCaps.isWeb) {
+        // Web: turning it on creates this browser's credential (one
+        // platform check); a cancel leaves it off. Turning it off drops
+        // the stored id. A local gate only, see web_biometrics.dart.
+        if (enable) {
+          if (!await WebBiometrics.enrol()) {
+            TrackingService.track('biometrics_toggle_cancelled',
+                params: {'enable': enable});
+            return;
+          }
+        } else {
+          await WebBiometrics.forget();
+        }
+        if (!mounted) {
+          return;
+        }
+        setState(() {});
       }
       await ref.read(settingsProvider.notifier).setBiometricsEnabled(enable);
       TrackingService.settingsChanged(

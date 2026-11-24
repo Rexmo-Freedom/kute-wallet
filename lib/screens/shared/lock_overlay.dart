@@ -48,6 +48,7 @@ import 'package:kute/services/secure/biometric_pin_policy.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
 
 class LockOverlay extends ConsumerStatefulWidget {
   const LockOverlay({super.key});
@@ -135,7 +136,8 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   Future<void> _tryBiometrics({bool auto = false}) async {
     if (_biometricInFlight || _lockedOut) return;
     if (!ref.read(settingsProvider).biometricsEnabled) return;
-    // No local_auth on web: the PIN keypad is the only way in.
+    // Web without a platform authenticator: the PIN keypad is the only
+    // way in.
     if (!PlatformCaps.hasBiometrics) return;
     _biometricInFlight = true;
     try {
@@ -150,9 +152,15 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       // Gate on ENROLLED biometrics, not just hardware presence —
       // same rule as open_pin (`canCheckBiometrics` lies on iOS when
       // Face ID is disabled).
-      final supported = await _localAuth.isDeviceSupported();
-      final enrolled = await _localAuth.getAvailableBiometrics();
-      if (!supported || enrolled.isEmpty || !mounted) return;
+      // Web: "enrolled" is this browser's WebAuthn credential (a local
+      // gate, see web_biometrics.dart).
+      if (PlatformCaps.isWeb) {
+        if (!WebBiometrics.enrolled || !mounted) return;
+      } else {
+        final supported = await _localAuth.isDeviceSupported();
+        final enrolled = await _localAuth.getAvailableBiometrics();
+        if (!supported || enrolled.isEmpty || !mounted) return;
+      }
       // Read the reason BEFORE the prompt so no BuildContext is touched
       // across the await inside the scope below.
       final reason = context.l10n.pleaseAuthenticateToOpenTheApp;
@@ -163,11 +171,14 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       // Inside the scope the privacy cover stays down, so the user reads
       // this lock screen behind Face ID instead of a blank rectangle.
       final ok = await runBiometricPrompt(
-        () => _localAuth.authenticate(
-          localizedReason: reason,
-          persistAcrossBackgrounding: true,
-          biometricOnly: true,
-        ),
+        () => PlatformCaps.isWeb
+            ? WebBiometrics.verify()
+                .then((r) => r == WebBiometricResult.approved)
+            : _localAuth.authenticate(
+                localizedReason: reason,
+                persistAcrossBackgrounding: true,
+                biometricOnly: true,
+              ),
       );
       if (!ok) {
         TrackingService.track('biometric_prompt_cancelled',
@@ -389,9 +400,11 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
                   setState(() => _pin = _pin.substring(0, _pin.length - 1));
                 }
               },
-              onBiometricPressed:
-                  biometricsEnabled && !padInert && !_biometricInFlight
-                      ? _tryBiometrics
+              onBiometricPressed: biometricsEnabled &&
+                      !padInert &&
+                      !_biometricInFlight &&
+                      (!PlatformCaps.isWeb || WebBiometrics.enrolled)
+                  ? _tryBiometrics
                       : null,
             ),
           ),

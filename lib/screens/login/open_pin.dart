@@ -33,6 +33,7 @@ import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
 
 class OpenPin extends ConsumerStatefulWidget {
   const OpenPin({super.key, @visibleForTesting this.localAuth});
@@ -318,7 +319,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
     // otherwise start a second ceremony over the first and run the
     // unlock path twice.
     if (_isLocked || _biometricInFlight) return;
-    // No local_auth on web: the PIN keypad is the only way in.
+    // Web without a platform authenticator: the PIN keypad is the only
+    // way in.
     if (!PlatformCaps.hasBiometrics) return;
     _biometricInFlight = true;
 
@@ -332,9 +334,15 @@ class _OpenPinState extends ConsumerState<OpenPin>
       // + `isDeviceSupported`, so we only prompt when biometrics can
       // actually succeed; otherwise fall straight through to the PIN
       // keypad (the always-available fallback).
-      final supported = await _localAuth.isDeviceSupported();
-      final enrolled = await _localAuth.getAvailableBiometrics();
-      if (!supported || enrolled.isEmpty) return;
+      // Web: "enrolled" is this browser's WebAuthn credential (a local
+      // gate, see web_biometrics.dart).
+      if (PlatformCaps.isWeb) {
+        if (!WebBiometrics.enrolled) return;
+      } else {
+        final supported = await _localAuth.isDeviceSupported();
+        final enrolled = await _localAuth.getAvailableBiometrics();
+        if (!supported || enrolled.isEmpty) return;
+      }
       if (!mounted || !context.mounted) return;
 
       {
@@ -348,11 +356,14 @@ class _OpenPinState extends ConsumerState<OpenPin>
         TrackingService.track('biometric_prompt_shown',
             params: {'surface': 'cold_start', 'trigger': trigger});
         bool authenticated = await runBiometricPrompt(
-          () => _localAuth.authenticate(
-            localizedReason: reason,
-            persistAcrossBackgrounding: true,
-            biometricOnly: true,
-          ),
+          () => PlatformCaps.isWeb
+              ? WebBiometrics.verify()
+                  .then((r) => r == WebBiometricResult.approved)
+              : _localAuth.authenticate(
+                  localizedReason: reason,
+                  persistAcrossBackgrounding: true,
+                  biometricOnly: true,
+                ),
         );
 
         if (authenticated && mounted) {
@@ -597,7 +608,9 @@ class _OpenPinState extends ConsumerState<OpenPin>
                   setState(() => pin = pin.substring(0, pin.length - 1));
                 }
               },
-              onBiometricPressed: biometricsEnabled && !padInert
+              onBiometricPressed: biometricsEnabled &&
+                      !padInert &&
+                      (!PlatformCaps.isWeb || WebBiometrics.enrolled)
                   ? () => _checkBiometrics(context, ref)
                   : null,
             ),

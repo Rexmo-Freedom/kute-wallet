@@ -28,6 +28,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
 
 /// Wall-clock stamp taken at the very first line of `main()`. Read once
 /// from the first home render to emit the `app_cold_start` latency
@@ -506,4 +507,7 @@ Future<void> _initHive() async {
   await openStartupHiveBoxes();
   // Boxes a retired build left behind that nothing reads (best-effort).
   await deleteOrphanedHiveBoxes();
+  // Web only: is there a platform authenticator for biometric unlock, and
+  // this browser's stored credential id (PlatformCaps.hasBiometrics).
+  await WebBiometrics.prime();
 }

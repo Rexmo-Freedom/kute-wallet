@@ -20,6 +20,8 @@ import 'dart:io' as io show Platform;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
+import 'web_biometrics.dart';
+
 /// The platforms Kute builds for.
 enum KutePlatform { ios, android, macos, windows, web }
 
@@ -67,9 +69,12 @@ abstract final class PlatformCaps {
   /// that only exists once web options are added to firebase_options.dart.
   static bool get hasPushNotifications => _mobile || _macos || kIsWeb;
 
-  /// `local_auth` (Face ID / Touch ID / fingerprint / Windows Hello). Not
-  /// on web: the PIN is the only lock there.
-  static bool get hasBiometrics => !kIsWeb;
+  /// Biometric unlock. Native: `local_auth` (Face ID / Touch ID /
+  /// fingerprint / Windows Hello), as before. Web: the browser's platform
+  /// authenticator through WebAuthn ([WebBiometrics], a local gate), only
+  /// when [WebBiometrics.prime] found one at boot; otherwise the PIN is
+  /// the only lock there.
+  static bool get hasBiometrics => !kIsWeb || WebBiometrics.available;
 
   /// `webview_flutter` (in-app browser, livestream players). iOS,
   /// Android, macOS. Elsewhere links open in a new browser tab.
