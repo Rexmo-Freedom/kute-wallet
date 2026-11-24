@@ -12133,6 +12133,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendRecipientSearchHint => 'Nimi, puhelin tai kryptoosoite';
 
   @override
+  String get sendRecipientSearchHintNoPhone => 'Nimi tai kryptoosoite';
+
+  @override
+  String get shareGetKuteLine => 'Lähde mukaan: getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Siirrä Dollareihisi';
 
   @override

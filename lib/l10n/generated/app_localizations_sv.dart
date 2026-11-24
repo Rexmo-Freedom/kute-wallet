@@ -12115,6 +12115,12 @@ class AppLocalizationsSv extends AppLocalizations {
       'Namn, telefon eller valfri kryptoadress';
 
   @override
+  String get sendRecipientSearchHintNoPhone => 'Namn eller valfri kryptoadress';
+
+  @override
+  String get shareGetKuteLine => 'Häng med på getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Flytta till dina Dollar';
 
   @override

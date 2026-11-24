@@ -1,3 +1,4 @@
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/models/advisor_context.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
@@ -7849,7 +7850,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     } else if (isExternalSigner) {
       hintText = context.l10n.sendPasteBitcoinAddress;
     } else {
-      hintText = context.l10n.sendRecipientSearchHint;
+      // The social send off (config/feature_flags.dart): no phone.
+      hintText = socialSendEnabled
+          ? context.l10n.sendRecipientSearchHint
+          : context.l10n.sendRecipientSearchHintNoPhone;
     }
     final detected = _detectAddressType(addr);
     final nativeRail = detected.label == 'Bitcoin on-chain' ||

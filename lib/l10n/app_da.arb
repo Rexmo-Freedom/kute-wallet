@@ -3326,6 +3326,8 @@
   "shareMarketLookAt": "Se det her på Kute: {title} {link}",
   "shareMarketChance": "{chance} % chance",
   "sendRecipientSearchHint": "Navn, telefon eller kryptoadresse",
+  "sendRecipientSearchHintNoPhone": "Navn eller kryptoadresse",
+  "shareGetKuteLine": "Vær med på getkute.com",
   "sendMoveToYourDollars": "Flyt til dine Dollars",
   "sendMoveToYourBitcoin": "Flyt til din Bitcoin",
   "sendWhatTitle": "Send til {name}",

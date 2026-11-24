@@ -60,6 +60,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
@@ -855,21 +856,25 @@ Future<void> showSendContactsPicker(
   String initialQuery = '',
   required ValueChanged<SendContact> onPick,
   required VoidCallback onSomeoneElse,
-}) =>
-    showAppBottomSheet<void>(
-      context: context,
-      builder: (sheetCtx) => _SendContactsPickerSheet(
-        initialQuery: initialQuery,
-        onPick: (contact) {
-          Navigator.of(sheetCtx).pop();
-          onPick(contact);
-        },
-        onSomeoneElse: () {
-          Navigator.of(sheetCtx).pop();
-          onSomeoneElse();
-        },
-      ),
-    );
+}) async {
+  // The social send off (config/feature_flags.dart): no picker, whoever
+  // asks.
+  if (!socialSendEnabled) return;
+  return showAppBottomSheet<void>(
+    context: context,
+    builder: (sheetCtx) => _SendContactsPickerSheet(
+      initialQuery: initialQuery,
+      onPick: (contact) {
+        Navigator.of(sheetCtx).pop();
+        onPick(contact);
+      },
+      onSomeoneElse: () {
+        Navigator.of(sheetCtx).pop();
+        onSomeoneElse();
+      },
+    ),
+  );
+}
 
 class _SendContactsPickerSheet extends ConsumerStatefulWidget {
   const _SendContactsPickerSheet({

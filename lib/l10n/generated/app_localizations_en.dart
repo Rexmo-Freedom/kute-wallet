@@ -12074,6 +12074,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendRecipientSearchHint => 'Name, phone or any crypto address';
 
   @override
+  String get sendRecipientSearchHintNoPhone => 'Name or any crypto address';
+
+  @override
+  String get shareGetKuteLine => 'Get in on the action at getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Move to your Dollars';
 
   @override

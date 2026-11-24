@@ -44,7 +44,7 @@ import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/cards/share_card_copy.dart'
-    show shareCardMessage;
+    show shareCardMessage, withGetKuteLine;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
@@ -201,8 +201,12 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
     if (_busy) return;
     setState(() => _busy = true);
     final l10n = context.l10n;
-    final text = shareCardMessage(
-        l10n, data, l10n.shareMarketLookAt(widget.title, _link));
+    // The getkute.com line last while the social send is off
+    // (share_card_copy.dart).
+    final text = withGetKuteLine(
+        l10n,
+        shareCardMessage(
+            l10n, data, l10n.shareMarketLookAt(widget.title, _link)));
     final result =
         await shareCardImage(context, _boundary, text: text, name: data.kind);
     TrackingService.track('share_market_link_shared', params: {

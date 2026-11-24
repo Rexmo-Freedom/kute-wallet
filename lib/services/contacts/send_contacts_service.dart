@@ -19,12 +19,18 @@
 // address (`name@paykute.com`), that address: the list badges it as a
 // Kute user and a tap pays it directly. Both stay on the phone too. The platform is behind
 // [SendContactsGateway] so widget tests drive every state with a fake.
+//
+// THE SOCIAL SEND OFF (config/feature_flags.dart, [socialSendEnabled]):
+// the notifier never touches the gateway, so nothing reads the book or
+// asks the permission; the state stays "never asked", empty, and the
+// Send screens draw no contacts row.
 
 import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
 import 'package:flutter_contacts/flutter_contacts.dart' as fc;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/services/tracking_service.dart';
 
 /// Where the person stands on the contacts permission.
@@ -249,6 +255,8 @@ class SendContactsNotifier extends Notifier<SendContactsState> {
   /// On the Send to step's open: the status only, never a prompt. Loads
   /// the book when it was granted before.
   Future<void> refresh() async {
+    // The social send off: the platform is never asked (see the header).
+    if (!socialSendEnabled) return;
     final permission = await _gateway.status();
     state = state.copyWith(permission: permission);
     if (permission == SendContactsPermission.granted &&
@@ -259,6 +267,8 @@ class SendContactsNotifier extends Notifier<SendContactsState> {
 
   /// The "Send to a friend" row tapped: the system prompt, then the book.
   Future<SendContactsPermission> request() async {
+    // The social send off: no prompt, never asked (see the header).
+    if (!socialSendEnabled) return state.permission;
     final permission = await _gateway.request();
     TrackingService.track('send_contacts_permission', params: {
       'granted': permission == SendContactsPermission.granted,
@@ -268,7 +278,10 @@ class SendContactsNotifier extends Notifier<SendContactsState> {
     return permission;
   }
 
-  Future<void> openSettings() => _gateway.openSettings();
+  Future<void> openSettings() async {
+    if (!socialSendEnabled) return;
+    await _gateway.openSettings();
+  }
 
   Future<void> _load() async {
     state = state.copyWith(loading: true);

@@ -44,6 +44,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'dart:async' show Completer;
 
+import 'package:kute/config/feature_flags.dart'
+    show debugSocialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/account.dart' show BtcSpendingAccount;
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
@@ -267,6 +269,12 @@ Future<void> _capture(WidgetTester tester, String name) async {
 }
 
 void main() {
+  // The social send's own flows (config/feature_flags.dart): pinned on, as
+  // flipping the flag restores them; the build ships it off
+  // (test/config/social_send_flag_test.dart).
+  setUp(() => debugSocialSendEnabled = true);
+  tearDown(() => debugSocialSendEnabled = null);
+
   late Directory hiveDir;
 
   setUpAll(() async {

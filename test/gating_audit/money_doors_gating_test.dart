@@ -55,6 +55,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/config/feature_flags.dart'
+    show debugSocialSendEnabled;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/account.dart';
@@ -326,6 +328,12 @@ const _nonRegion = [
 ];
 
 void main() {
+  // The social send's own flows (config/feature_flags.dart): pinned on, as
+  // flipping the flag restores them; the build ships it off
+  // (test/config/social_send_flag_test.dart).
+  setUp(() => debugSocialSendEnabled = true);
+  tearDown(() => debugSocialSendEnabled = null);
+
   late Directory hiveDir;
 
   setUpAll(() async {

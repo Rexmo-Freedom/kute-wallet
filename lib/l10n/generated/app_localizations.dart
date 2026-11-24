@@ -20322,6 +20322,18 @@ abstract class AppLocalizations {
   /// **'Name, phone or any crypto address'**
   String get sendRecipientSearchHint;
 
+  /// Send (Bitcoin and Dollars): the search field's placeholder on the Who step while the phone's contacts and links to a phone number are off (a local feature flag). A name finds the recent recipients; the field takes any crypto address. One line in the field beside two small buttons: keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'Name or any crypto address'**
+  String get sendRecipientSearchHintNoPhone;
+
+  /// The last line of the text that goes with a shared prediction, position, win, P&L, portfolio, level or receipt card: invites whoever sees it to get the app. Keep "getkute.com" exactly as it is (the website, never translated or changed). Casual, short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Get in on the action at getkute.com'**
+  String get shareGetKuteLine;
+
   /// Send's search result when the person types the name of their own Dollars account ('dollars', 'my dollars'): opens Move money from their Bitcoin into their Dollars. Dollars is the account name.
   ///
   /// In en, this message translates to:

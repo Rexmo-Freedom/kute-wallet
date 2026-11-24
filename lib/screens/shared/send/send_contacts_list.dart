@@ -85,6 +85,10 @@
 // Until the contacts are granted, "All contacts" holds the ask row (and,
 // while typing, the matching recents). Everything is local: numbers never
 // leave the phone.
+//
+// THE SOCIAL SEND OFF (config/feature_flags.dart, [socialSendEnabled]): no
+// ask row and no "Send a link to +351…" row; the list is the recents alone,
+// as it is before the contacts are granted.
 
 import 'dart:async';
 
@@ -93,6 +97,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/send/send_branta_payee.dart';
@@ -422,7 +427,8 @@ class SendContactsSection extends ConsumerWidget {
         (sendAddressKey(p.address) != chosenKey &&
             sendAddressKey(p.contact?.lightningAddress) != chosenKey);
 
-    final phone = chosen ? null : sendTypedPhone(query);
+    // The social send off: a number is no recipient (see the file header).
+    final phone = chosen || !socialSendEnabled ? null : sendTypedPhone(query);
     final phoneDigits = phone?.replaceAll(RegExp(r'\D'), '');
     final phoneKnown = phoneDigits != null &&
         contacts.any((ct) {
@@ -439,7 +445,10 @@ class SendContactsSection extends ConsumerWidget {
             onTap: () => onPhoneLink(phone),
           )
         : null;
-    final Widget? askRow = state.granted || chosen || typing
+    final Widget? askRow = state.granted ||
+            chosen ||
+            typing ||
+            !socialSendEnabled
         ? null
         : SendToListRow(
             key: const ValueKey('send-contacts-ask-row'),

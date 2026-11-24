@@ -12178,6 +12178,12 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendRecipientSearchHint => 'Vardas, telefonas ar kripto adresas';
 
   @override
+  String get sendRecipientSearchHintNoPhone => 'Vardas ar kripto adresas';
+
+  @override
+  String get shareGetKuteLine => 'Prisijunk prie veiksmo: getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Perkelti į tavo Dolerius';
 
   @override

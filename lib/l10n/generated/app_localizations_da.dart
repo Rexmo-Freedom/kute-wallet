@@ -12116,6 +12116,12 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendRecipientSearchHint => 'Navn, telefon eller kryptoadresse';
 
   @override
+  String get sendRecipientSearchHintNoPhone => 'Navn eller kryptoadresse';
+
+  @override
+  String get shareGetKuteLine => 'Vær med på getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Flyt til dine Dollars';
 
   @override

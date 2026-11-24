@@ -3326,6 +3326,8 @@
   "shareMarketLookAt": "Pozri si toto na Kute: {title} {link}",
   "shareMarketChance": "Šanca {chance} %",
   "sendRecipientSearchHint": "Meno, telefón či krypto adresa",
+  "sendRecipientSearchHintNoPhone": "Meno či krypto adresa",
+  "shareGetKuteLine": "Pridaj sa k akcii na getkute.com",
   "sendMoveToYourDollars": "Presunúť na tvoje Doláre",
   "sendMoveToYourBitcoin": "Presunúť na tvoj Bitcoin",
   "sendWhatTitle": "Príjemca: {name}",

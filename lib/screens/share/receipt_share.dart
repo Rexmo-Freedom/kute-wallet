@@ -49,6 +49,8 @@ import 'package:kute/screens/share/brag/brag_data.dart'
     show BragWin, bragMoney, bragSignedMoney, kBragCentUsd;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
     show showBragPreviewSheet;
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show withGetKuteLine;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart'
     show showShareCardPreviewSheet;
@@ -90,7 +92,10 @@ Future<void> openReceiptShare(BuildContext context, ReceiptShare share) {
     routeName: kReceiptCardPreviewRoute,
     source: 'receipt_card',
     build: share.card,
-    text: (context) => receiptShareText(context.l10n, share.card(read)),
+    // The getkute.com line last while the social send is off
+    // (share_card_copy.dart).
+    text: (context) => withGetKuteLine(
+        context.l10n, receiptShareText(context.l10n, share.card(read))),
     onShared: (result) => TrackingService.track('receipt_card_shared',
         params: {'card': share.card(read).kind, 'result': result}),
   );

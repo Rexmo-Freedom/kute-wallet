@@ -35,6 +35,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/config/feature_flags.dart'
+    show debugSocialSendEnabled;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
@@ -306,6 +308,12 @@ const _oldChipWords = [
 ];
 
 void main() {
+  // The social send's own flows (config/feature_flags.dart): pinned on, as
+  // flipping the flag restores them; the build ships it off
+  // (test/config/social_send_flag_test.dart).
+  setUp(() => debugSocialSendEnabled = true);
+  tearDown(() => debugSocialSendEnabled = null);
+
   late Directory hiveDir;
 
   setUpAll(() async {
@@ -394,6 +402,27 @@ void main() {
     _expectNoAnotherCrypto();
     // Never a prompt on open.
     expect(_gateway.prompts, 0);
+  });
+
+  testWidgets(
+      'the social send off (the build\'s state, config/feature_flags.dart): '
+      'the field takes a name or any crypto address; no contacts asked or '
+      'read, no ask row, no contacts, a typed number is no recipient',
+      (tester) async {
+    debugSocialSendEnabled = false;
+    _gateway.permission = SendContactsPermission.granted;
+    await _pump(tester);
+    expect(find.text(_l10n.sendRecipientSearchHintNoPhone), findsOneWidget);
+    expect(_l10n.sendRecipientSearchHintNoPhone, 'Name or any crypto address');
+    expect(find.text(_l10n.sendRecipientSearchHint), findsNothing);
+    expect(find.byKey(const ValueKey('send-field-paste')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-field-scan')), findsOneWidget);
+    expect(find.byKey(ask), findsNothing);
+    expect(_text(_l10n.sendContactsSeeYours), findsNothing);
+    expect(person('c1'), findsNothing);
+    expect(_gateway.prompts, 0);
+    await type(tester, '+351 999 888 777');
+    expect(find.byKey(const ValueKey('send-phone-link-row')), findsNothing);
   });
 
   testWidgets(

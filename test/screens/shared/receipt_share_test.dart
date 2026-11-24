@@ -590,8 +590,10 @@ void main() {
         find.byKey(const ValueKey('share-card-receipt_sent')), findsOneWidget);
     // The preview's own bar: Share, handing the OS the PNG.
     final sent = <String>[];
+    final texts = <String>[];
     ShareCardShare.debugSharer = (image, text) async {
       sent.add(image.name);
+      texts.add(text);
       return 'success';
     };
     addTearDown(() => ShareCardShare.debugSharer = null);
@@ -604,6 +606,9 @@ void main() {
       await tester.pump();
     }
     expect(sent, hasLength(1));
+    // The getkute.com line last while the social send is off
+    // (config/feature_flags.dart, the build's state).
+    expect(texts.single, endsWith('Get in on the action at getkute.com'));
     expect(
         events.where((e) => e.$1 == 'receipt_card_shared').map((e) => e.$2), [
       {'card': 'receipt_sent', 'result': 'success'}

@@ -53,6 +53,7 @@
 
 import 'package:flutter/widgets.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/screens/search/unified_search_screen.dart'
     show showKuteSearch;
 import 'package:kute/screens/share/send_pick_session.dart';
@@ -88,9 +89,11 @@ CapabilityRegionBlock? sendGiftBrowseBlock(RuntimeCapabilitiesService policy) {
 }
 
 /// Whether the What step shows the gift, and the coin step its row (see the
-/// file header).
+/// file header). Never while the social send is off
+/// (config/feature_flags.dart).
 bool sendGiftShown(RuntimeCapabilitiesService policy) =>
-    sendPickOffered(policy) || sendGiftBrowseBlock(policy) != null;
+    socialSendEnabled &&
+    (sendPickOffered(policy) || sendGiftBrowseBlock(policy) != null);
 
 /// The tap on the gift: true when nothing can be listed, so the caller must
 /// not open the search. False at once with a browse open, whatever the
@@ -123,6 +126,9 @@ Future<bool?> showSendPickMarketSheet(
   String? senderLabel,
   String? recipientPhone,
 }) async {
+  // The social send off (config/feature_flags.dart): no gift search,
+  // whoever asks. Nothing sent.
+  if (!socialSendEnabled) return false;
   TrackingService.track('send_pick_market_opened', params: {'source': 'send'});
   final session = SendPickSession(
     entrySource: entrySource,

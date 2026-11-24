@@ -18,6 +18,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/config/feature_flags.dart'
+    show debugSocialSendEnabled;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
@@ -461,6 +463,12 @@ Future<void> _dragSheetDown(WidgetTester tester, double dy,
 }
 
 void main() {
+  // The social send's own flows (config/feature_flags.dart): pinned on, as
+  // flipping the flag restores them; the build ships it off
+  // (test/config/social_send_flag_test.dart).
+  setUp(() => debugSocialSendEnabled = true);
+  tearDown(() => debugSocialSendEnabled = null);
+
   late Directory hiveDir;
 
   setUpAll(() async {
@@ -542,6 +550,18 @@ void main() {
     // A link needs no coin: the Send to card sits under the grid.
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
+  });
+
+  testWidgets(
+      'the social send off (the build\'s state, config/feature_flags.dart): '
+      'the coin grid alone, no "To a friend" card, no prediction row',
+      (tester) async {
+    debugSocialSendEnabled = false;
+    await _pump(tester);
+    expect(_grid, findsOneWidget);
+    expect(find.text(_l10n.sendToAFriendLabel), findsNothing);
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
   });
 
   testWidgets(

@@ -99,6 +99,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -281,6 +282,9 @@ Future<void> showKuteSearch(
   SendPickSession? sendPick,
 }) async {
   assert(walletId == null || ledgerWalletId == null);
+  // The social send off (config/feature_flags.dart): never in send mode,
+  // the plain search instead.
+  if (!socialSendEnabled) sendPick = null;
   // One search sheet at a time: a second tap while it slides in must not
   // reseed (and so empty) the session of the sheet already opening.
   if (OpenOnce.isOpen(_kSearchSheetKey)) return;

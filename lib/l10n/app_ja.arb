@@ -3326,6 +3326,8 @@
   "shareMarketLookAt": "Kuteでこれを見て：{title} {link}",
   "shareMarketChance": "{chance}%の確率",
   "sendRecipientSearchHint": "名前、電話番号、各種暗号資産アドレス",
+  "sendRecipientSearchHintNoPhone": "名前または暗号資産アドレス",
+  "shareGetKuteLine": "getkute.com で参加しよう",
   "sendMoveToYourDollars": "ドルへ移動",
   "sendMoveToYourBitcoin": "ビットコインへ移動",
   "sendWhatTitle": "{name}さんに送金",

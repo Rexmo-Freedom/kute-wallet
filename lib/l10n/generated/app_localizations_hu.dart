@@ -12147,6 +12147,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendRecipientSearchHint => 'Név, telefon vagy bármilyen kriptocím';
 
   @override
+  String get sendRecipientSearchHintNoPhone => 'Név vagy bármilyen kriptocím';
+
+  @override
+  String get shareGetKuteLine => 'Szállj be te is: getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Áthelyezés a Dollárodba';
 
   @override

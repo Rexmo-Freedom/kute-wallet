@@ -3326,6 +3326,8 @@
   "shareMarketLookAt": "Nézd meg ezt a Kute-ban: {title} {link}",
   "shareMarketChance": "{chance}% esély",
   "sendRecipientSearchHint": "Név, telefon vagy bármilyen kriptocím",
+  "sendRecipientSearchHintNoPhone": "Név vagy bármilyen kriptocím",
+  "shareGetKuteLine": "Szállj be te is: getkute.com",
   "sendMoveToYourDollars": "Áthelyezés a Dollárodba",
   "sendMoveToYourBitcoin": "Áthelyezés a Bitcoinodba",
   "sendWhatTitle": "Címzett: {name}",
