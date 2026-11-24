@@ -10,6 +10,7 @@ import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -513,6 +514,81 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     ];
   }
 
+  /// How many categories follow Trending on the wide board, and how many
+  /// of each one's rows (two full rows of three columns, three of two).
+  static const int _kBoardSections = 2;
+  static const int _kBoardRows = 6;
+
+  /// THE WIDE BOARD (24 November 2026). Embedded in the Dollars page on
+  /// EXPANDED, the default view (Trending: its squares and its curated
+  /// [kHlTrendingListRows] rows) leaves most of the pane empty. It is
+  /// followed by the next categories the row offers ([_availableTabs] in
+  /// its order, after the Watchlist and Trending: Tradfi, then Crypto),
+  /// each under its own name with its first rows (none already shown
+  /// above) and "See all ›", which picks that category as its pill
+  /// would. A phone and MEDIUM are untouched; any other category is its
+  /// full list already.
+  List<Widget> _boardSlivers(List<HlBrowseTab> availableTabs,
+      List<HlMarket> universe, List<HlMarket> shown) {
+    final seen = {for (final m in shown) '${m.kind.name}-${m.wireCoin}'};
+    final out = <Widget>[];
+    var sections = 0;
+    for (final next in availableTabs) {
+      if (sections == _kBoardSections) break;
+      if (next == HlBrowseTab.watchlist || next == HlBrowseTab.trending) {
+        continue;
+      }
+      final rows = <HlMarket>[
+        for (final m in _listFor(next, HlBrowseSub.all, universe))
+          if (!seen.contains('${m.kind.name}-${m.wireCoin}')) m,
+      ].take(_kBoardRows).toList();
+      if (rows.isEmpty) continue;
+      sections++;
+      for (final m in rows) {
+        seen.add('${m.kind.name}-${m.wireCoin}');
+      }
+      final label = next.localizedLabel(context.l10n);
+      out.addAll([
+        SliverToBoxAdapter(
+          child: _HlBoardHeading(label,
+              key: ValueKey('hl-board-heading-${next.key}')),
+        ),
+        ...marketGroupSlivers<HlMarket>(
+          context,
+          items: rows,
+          groups: (_) => true,
+          dividerIndent: hlGroupRowIndent(),
+          divider: hlGroupRowDivider,
+          build: (market, inGroup) => RepaintBoundary(
+            child: HlMarketCard(
+              key: ValueKey(
+                  'hl-board-${next.key}-${market.kind.name}-${market.wireCoin}'),
+              market: market,
+              inGroup: inGroup,
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Builder(
+            builder: (rowContext) => _HlFoldRow(
+              key: ValueKey('hl-board-see-all-${next.key}'),
+              label: context.l10n.seeAll,
+              onTap: () {
+                // The category's own list from its top.
+                final position = Scrollable.maybeOf(rowContext)?.position;
+                if (position != null && position.hasPixels) {
+                  position.jumpTo(position.minScrollExtent);
+                }
+                _onTab(next);
+              },
+            ),
+          ),
+        ),
+      ]);
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -741,6 +817,15 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                       source: 'watchlist_view'),
                                 ),
                               ),
+                            // Wide, the board under Trending (see
+                            // [_boardSlivers]).
+                            if (embedded &&
+                                KuteLayout.isExpanded(context) &&
+                                hlBrowseIsDefaultView(tab, sub))
+                              ..._boardSlivers(availableTabs, universe, [
+                                ..._moversFor(tab, sub, markets, universe),
+                                ..._listedFor(tab, sub, markets, universe),
+                              ]),
                           ],
                         ],
                       ),
@@ -843,9 +928,24 @@ class _WatchlistEditRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  Widget build(BuildContext context) => _HlFoldRow(
+        key: const ValueKey('hl-watchlist-edit'),
+        label: context.l10n.edit,
+        onTap: onTap,
+      );
+}
+
+/// The quiet fold row ("Edit ›", "See all ›"): 13 sp, w600, the secondary
+/// ink, the chevron in the tertiary, at the list's 16 gutter.
+class _HlFoldRow extends StatelessWidget {
+  const _HlFoldRow({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final label = context.l10n.edit;
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
       child: Semantics(
@@ -853,7 +953,6 @@ class _WatchlistEditRow extends StatelessWidget {
         label: label,
         excludeSemantics: true,
         child: InkWell(
-          key: const ValueKey('hl-watchlist-edit'),
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
@@ -879,6 +978,30 @@ class _WatchlistEditRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A category's name over its first rows on the wide board (see
+/// [_HyperliquidScreenState._boardSlivers]): the Dollars Overview's
+/// heading style (14 sp, w600, the secondary ink, 12 inside the list's
+/// 16 gutter).
+class _HlBoardHeading extends StatelessWidget {
+  const _HlBoardHeading(this.label, {super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.fromLTRB(28.w, 18.h, 28.w, 8.h),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: context.colors.textSecondary,
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+      );
 }
 
 // ───────────────────────── empty state ─────────────────────────

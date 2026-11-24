@@ -2189,59 +2189,41 @@ class _FiveMinTile extends ConsumerWidget {
     final st = predictAsync.asData?.value;
     final ev = st?.event;
 
-    // Loading: keep the tile's exact footprint as a skeleton card so the
-    // grid doesn't jump when the event lands.
-    if (ev == null) {
-      final skeleton = SkeletonCard(
-        height: wide ? 92.h : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              SkeletonCircle(28.w),
-              const Spacer(),
-              SkeletonBar(48.w, 12.h),
-            ]),
-            const Spacer(),
-            SkeletonBar(90.w, 14.h),
-            SizedBox(height: 10.h),
-            Row(children: [
-              Expanded(child: SkeletonBar(double.infinity, 26.h)),
-              SizedBox(width: 6.w),
-              Expanded(child: SkeletonBar(double.infinity, 26.h)),
-            ]),
-          ],
-        ),
-      );
-      return KuteSkeleton(
-        child:
-            wide ? skeleton : AspectRatio(aspectRatio: 1.15, child: skeleton),
-      );
-    }
+    // LOADING IS THE ROW ITSELF, BONED (24 November 2026: the old
+    // skeleton card stood 92 tall with 111 of content and overflowed on
+    // every phone and laptop). The loaded layout is built with the round
+    // still unknown (no clock, no price, no odds) and every text, the
+    // logo and the chips drawn as bones over their own invisible selves,
+    // so the placeholder is exactly the loaded tile's height on every
+    // form factor and nothing moves when the round lands. No tap.
+    final loading = ev == null;
 
-    final upToken = ev.upTokenId;
-    final downToken = ev.downTokenId;
+    final upToken = ev?.upTokenId;
+    final downToken = ev?.downTokenId;
     // The chips are the round the coin's card would bet (founder, 12
     // November 2026; crypto_next_round.dart): the round in play until its
     // cutoff, at its live odds, then the next one, at its live book odds
     // once it has real prices, the chips dimmed with no figure until then.
     // The clock is the round in play's time left.
     final now = ref.read(cryptoOddsClockProvider)();
-    final shownFrom = ev.windowStartTime;
-    final shownTo = ev.endDate;
+    final shownFrom = ev?.windowStartTime;
+    final shownTo = ev?.endDate;
     final liveStart = shownFrom != null &&
             shownTo != null &&
             shownTo.difference(shownFrom).inMinutes == minutes
         ? shownFrom.millisecondsSinceEpoch ~/ 1000
         : polyRoundStartAt(now, minutes);
     final nextStart = liveStart + minutes * 60;
-    final next = ref
-        .watch(cryptoNextRoundProvider((
-          asset: config.asset.toLowerCase(),
-          minutes: minutes,
-          start: nextStart,
-        )))
-        .valueOrNull;
+    // Nothing of the next round is read before this one has landed.
+    final next = loading
+        ? null
+        : ref
+            .watch(cryptoNextRoundProvider((
+              asset: config.asset.toLowerCase(),
+              minutes: minutes,
+              start: nextStart,
+            )))
+            .valueOrNull;
     final nextUpToken = next?.upTokenId;
     final nextDownToken = next?.downTokenId;
     // Narrowed select: the row repaints only when ITS next Up chance moves.
@@ -2261,9 +2243,12 @@ class _FiveMinTile extends ConsumerWidget {
         ? null
         : ref.watch(cryptoLiveOddsProvider
             .select((s) => upToken == null ? null : s[upToken]?.up));
-    final betUp = rolled
-        ? nextUp
-        : polyCurrentRoundUp(event: ev, start: liveStart, liveUp: liveUp);
+    final betUp = loading
+        ? null
+        : rolled
+            ? nextUp
+            : polyCurrentRoundUp(
+                event: ev, start: liveStart, liveUp: liveUp);
     // Up and Down written off the one price, so they add up to 100.
     final odds = betUp == null ? null : formatPolyChancePair(betUp);
     final countdown = st == null
@@ -2273,7 +2258,19 @@ class _FiveMinTile extends ConsumerWidget {
 
     // Every coin the same circle (crypto_asset_logo.dart; founder, 12
     // November 2026: XRP's bare X stood oversized beside the discs).
-    Widget logo(double size) => CryptoAssetLogo(config: config, size: size);
+    Widget logo(double size) => loading
+        ? SkeletonCircle(size)
+        : CryptoAssetLogo(config: config, size: size);
+
+    // A text or a chip while loading: its own invisible self (its exact
+    // size) under a bone of that size.
+    Widget bone(Widget child) => loading
+        ? Stack(children: [
+            Opacity(opacity: 0, child: child),
+            const Positioned.fill(
+                child: SkeletonBar(double.infinity, double.infinity)),
+          ])
+        : child;
 
     final countdownStyle = TextStyle(
       color: c.textPrimary,
@@ -2285,7 +2282,7 @@ class _FiveMinTile extends ConsumerWidget {
 
     // Time left as a plain figure (no chip): the red live dot is the only
     // colour, the clock in the primary text colour.
-    Widget countdownPill() => Padding(
+    Widget countdownPill() => bone(Padding(
           padding: EdgeInsets.symmetric(vertical: 4.h),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -2302,7 +2299,7 @@ class _FiveMinTile extends ConsumerWidget {
               Text(countdown, maxLines: 1, style: countdownStyle),
             ],
           ),
-        );
+        ));
 
     TextStyle oddsStyle(Color color) => TextStyle(
           color: color,
@@ -2318,7 +2315,7 @@ class _FiveMinTile extends ConsumerWidget {
     Widget oddsChip({required bool isUp, required String? text}) {
       final accent = isUp ? _kPolyGreen : _kPolyRed;
       final onColor = contrastingOnColor(accent);
-      return Opacity(
+      return bone(Opacity(
         key: ValueKey('five-min-chip-${config.asset}-${isUp ? 'up' : 'down'}'),
         opacity: text == null ? 0.35 : 1,
         child: Container(
@@ -2351,7 +2348,7 @@ class _FiveMinTile extends ConsumerWidget {
           ),
         ),
       ),
-      );
+      ));
     }
 
     final nameStyle = TextStyle(
@@ -2378,19 +2375,19 @@ class _FiveMinTile extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
+        bone(Text(
           nameText,
           maxLines: wide ? null : 1,
           overflow: wide ? null : TextOverflow.ellipsis,
           style: nameStyle,
-        ),
+        )),
         SizedBox(height: 2.h),
-        Text(
+        bone(Text(
           spotText,
           maxLines: wide ? null : 1,
           overflow: wide ? null : TextOverflow.ellipsis,
           style: spotStyle,
-        ),
+        )),
       ],
     );
 
@@ -2513,6 +2510,31 @@ class _FiveMinTile extends ConsumerWidget {
       if (nextUpToken case final t? when t.isNotEmpty) t,
       if (nextDownToken case final t? when t.isNotEmpty) t,
     ];
+    if (loading) {
+      // The bones (see above): the same row or card, no tap, no tokens.
+      final Widget shape = bare
+          ? Padding(
+              padding: EdgeInsets.symmetric(vertical: 10.h),
+              child: body,
+            )
+          : Container(
+              height: wide ? 92.h : null,
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: BorderRadius.circular(18.r),
+                border: Border.all(color: c.borderSubtle, width: 0.5),
+              ),
+              child: body,
+            );
+      return KuteSkeleton(
+        child: ExcludeSemantics(
+          child: bare || wide
+              ? shape
+              : AspectRatio(aspectRatio: 1.15, child: shape),
+        ),
+      );
+    }
     if (bare) {
       return LiveTokenScope(
         tokens: tokens,
