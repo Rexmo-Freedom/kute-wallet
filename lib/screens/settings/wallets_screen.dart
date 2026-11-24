@@ -178,7 +178,22 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
             ? [
                 if (both)
                   KuteColumns.fixed(columns: [
-                    walletList,
+                    // The wallet list's card on the accounts' card's top
+                    // line: the heading's room above it, unpainted (the
+                    // list has no heading of its own).
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ExcludeSemantics(
+                          child: Visibility.maintain(
+                            visible: false,
+                            child: _SectionTitle(
+                                context.l10n.walletsInvestingAndPredictions),
+                          ),
+                        ),
+                        walletList,
+                      ],
+                    ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [

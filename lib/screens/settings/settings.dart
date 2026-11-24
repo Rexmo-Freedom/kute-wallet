@@ -228,7 +228,14 @@ class _SettingsState extends ConsumerState<Settings> {
     // Advanced, three from about 1200 wide, two under it), Advanced open
     // (nothing in it is destructive). In the master column beside a
     // sub-page (KuteMasterDetail) and everywhere narrower: as on a phone.
-    final wide = kuteIsExpanded(context);
+    // The master column (founder, 24 November 2026, of the squeezed copy
+    // of this page beside Backup and recovery: "this is incorrectly
+    // formatted"): a compact list on the page's own left gutter, the four
+    // cards as rows of the sections' card (the open sub-page's row
+    // marked), the sections under it as on a phone.
+    final master = KuteMasterScope.of(context);
+    final inMaster = master != null;
+    final wide = !inMaster && kuteIsExpanded(context);
 
     final security = _section(context, context.l10n.security, [
       if (showBiometrics)
@@ -287,7 +294,7 @@ class _SettingsState extends ConsumerState<Settings> {
       ];
     } else {
       body = [
-        SizedBox(height: 24.h),
+        if (!inMaster) SizedBox(height: 24.h),
         // FOUR BIG CARDS ON TOP (founder, 4 November 2026: "the
         // passwords/backup, referrals, and support should be 4 big
         // cards on the top and the rest of the items below"): the
@@ -295,7 +302,11 @@ class _SettingsState extends ConsumerState<Settings> {
         // Backup, the app PIN, the referral program and support;
         // with the referral program withheld, Rate the app takes
         // its place so the grid stays whole.
-        _buildTopCards(context, ref, showReferral: showReferral),
+        if (inMaster)
+          _buildTopRows(context, ref,
+              showReferral: showReferral, selected: master.selected)
+        else
+          _buildTopCards(context, ref, showReferral: showReferral),
         SizedBox(height: 24.h),
         // Each section below is one grouped card (AppDecorations.card)
         // with hairline dividers between its rows, the same
@@ -341,27 +352,39 @@ class _SettingsState extends ConsumerState<Settings> {
       ];
     }
 
-    final side = wide ? kuteWidePadding(context) : EdgeInsets.symmetric(horizontal: 16.w);
+    final side = inMaster
+        ? EdgeInsets.only(left: master.gutter, right: kuteWideGutter)
+        : wide
+            ? kuteWidePadding(context)
+            : EdgeInsets.symmetric(horizontal: 16.w);
+    // The back button and the title on the left gutter: the full page on
+    // EXPANDED and the master column (where back leaves Settings, the
+    // detail's own back closing the detail).
+    final gutterBar = wide || inMaster;
     return Scaffold(
-      backgroundColor: c.background,
+      // The master column's background is the split's own (its fade).
+      backgroundColor: inMaster ? Colors.transparent : c.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         // On EXPANDED the back button and the title sit on the page's
         // left gutter.
-        centerTitle: !wide,
-        titleSpacing: wide ? 8 : null,
-        leadingWidth: wide ? side.left + 40 : null,
+        centerTitle: !gutterBar,
+        titleSpacing: gutterBar ? 8 : null,
+        leadingWidth: gutterBar ? side.left + 40 : null,
         elevation: 0,
         // The bar reads "Ask Sal about Kute" over Settings.
         leading: KuteBarContextScope(
           barContext: KuteBarContext(
               label: context.l10n.barAskAboutKute, source: 'settings'),
-          child: wide
+          child: gutterBar
               ? Padding(
                   padding: EdgeInsets.only(left: side.left - 2),
-                  child: const Align(
+                  child: Align(
                       alignment: Alignment.centerLeft,
-                      child: KuteBackButton()),
+                      child: inMaster
+                          ? KuteBackButton(
+                              onPressed: () => _leaveFromMaster(context))
+                          : const KuteBackButton()),
                 )
               : const KuteBackButton(),
         ),
@@ -377,18 +400,21 @@ class _SettingsState extends ConsumerState<Settings> {
       ),
       extendBodyBehindAppBar: true,
       body: Container(
-        decoration: AppDecorations.screenGradient(context),
+        decoration: inMaster
+            ? const BoxDecoration()
+            : AppDecorations.screenGradient(context),
         child: SafeArea(
           bottom: false,
-          child: SingleChildScrollView(
+          child: kuteMasterReveal(master, SingleChildScrollView(
             // The last rows scroll clear of the floating bar.
-            padding: EdgeInsets.fromLTRB(side.left, 16.h, side.right,
-                40.h + kuteBarScrollClearance.h),
+            // The master's list starts on the detail's first line.
+            padding: EdgeInsets.fromLTRB(side.left, inMaster ? 8 : 16.h,
+                side.right, 40.h + kuteBarScrollClearance.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: body,
             ),
-          ),
+          )),
         ),
       ),
     );
@@ -580,88 +606,151 @@ class _SettingsState extends ConsumerState<Settings> {
   /// support, each doing what its row did.
   Widget _buildTopCards(BuildContext context, WidgetRef ref,
       {required bool showReferral, int? across}) {
-    final l10n = context.l10n;
     return KuteActionCardGrid(
       key: const ValueKey('settings-top-cards'),
       across: across,
       cards: [
-        _SettingsCard.of(
-          context,
-          key: const ValueKey('settings-card-backup'),
-          icon: Icons.account_balance_wallet_rounded,
-          title: l10n.settingsBackupAndRecovery,
-          subtitle: l10n.settingsBackupAndRecoverySubtitle,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            TrackingService.settingsActionTapped('backup_and_recovery');
-            // Auth happens INSIDE the wallets screen on mount — matches the
-            // existing seed-words flow (biometric attempt first, falls back
-            // to the PIN bottom sheet).
-            _openDetail(context, name: 'wallets');
-          },
-        ),
-        _SettingsCard.of(
-          context,
-          key: const ValueKey('settings-card-pin'),
-          icon: Icons.lock_rounded,
-          title: l10n.appPin,
-          subtitle: l10n.changeUnlockCode,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            _openChangePin(context, ref);
-          },
-        ),
-        if (showReferral)
+        for (final item in _topItems(context, ref, showReferral: showReferral))
           _SettingsCard.of(
             context,
-            key: const ValueKey('settings-card-referral'),
-            icon: Icons.group_rounded,
-            title: l10n.settingsReferralProgram,
-            subtitle: l10n.shareCodeTitle,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              TrackingService.settingsActionTapped('referral_program');
-              _openDetail(context, location: '/affiliate');
-            },
-          )
-        else
-          _SettingsCard.of(
-            context,
-            key: const ValueKey('settings-card-rate'),
-            icon: Icons.star_rounded,
-            title: l10n.settingsRateTheApp,
-            subtitle: l10n.settingsLeaveAReview,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              // ignore: discarded_futures
-              _rateApp(context, ref);
-            },
+            key: ValueKey('settings-card-${item.id}'),
+            icon: item.icon,
+            title: item.title,
+            subtitle: item.subtitle,
+            onTap: item.onTap,
           ),
-        // Opens live Crisp chat.
-        _SettingsCard.of(
-          context,
-          key: const ValueKey('settings-card-support'),
-          icon: Icons.support_agent_rounded,
-          title: l10n.chatWithSupport,
-          subtitle: l10n.getHelpFromKuteTeam,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            TrackingService.supportOpened(source: 'settings');
-            // ignore: discarded_futures
-            openSupportChat();
-          },
-        ),
       ],
     );
+  }
+
+  /// The four cards as rows of one grouped card, for the master column
+  /// beside a sub-page: the sections' own rows (icon, title, subtitle,
+  /// chevron), the open sub-page's row ([selected]) on the rows' pressed
+  /// surface.
+  Widget _buildTopRows(BuildContext context, WidgetRef ref,
+      {required bool showReferral, Object? selected}) {
+    return _GroupedCard(children: [
+      for (final item in _topItems(context, ref, showReferral: showReferral))
+        ColoredBox(
+          key: ValueKey('settings-master-${item.id}'),
+          color: item.detail != null && item.detail == selected
+              ? context.colors.surfaceLight
+              : Colors.transparent,
+          child: _SettingsRow(
+            title: item.title,
+            icon: item.icon,
+            subtitle: item.subtitle,
+            onTap: item.onTap,
+          ),
+        ),
+    ]);
+  }
+
+  /// What the four cards are ([_buildTopCards], [_buildTopRows]): [id]
+  /// names the card, [detail] the sub-page it opens beside Settings.
+  List<
+      ({
+        String id,
+        String? detail,
+        IconData icon,
+        String title,
+        String subtitle,
+        VoidCallback onTap,
+      })> _topItems(BuildContext context, WidgetRef ref,
+      {required bool showReferral}) {
+    final l10n = context.l10n;
+    return [
+      (
+        id: 'backup',
+        detail: 'wallets',
+        icon: Icons.account_balance_wallet_rounded,
+        title: l10n.settingsBackupAndRecovery,
+        subtitle: l10n.settingsBackupAndRecoverySubtitle,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          TrackingService.settingsActionTapped('backup_and_recovery');
+          // Auth happens INSIDE the wallets screen on mount — matches the
+          // existing seed-words flow (biometric attempt first, falls back
+          // to the PIN bottom sheet).
+          _openDetail(context, 'wallets', name: 'wallets');
+        },
+      ),
+      (
+        id: 'pin',
+        detail: null,
+        icon: Icons.lock_rounded,
+        title: l10n.appPin,
+        subtitle: l10n.changeUnlockCode,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _openChangePin(context, ref);
+        },
+      ),
+      if (showReferral)
+        (
+          id: 'referral',
+          detail: 'affiliate',
+          icon: Icons.group_rounded,
+          title: l10n.settingsReferralProgram,
+          subtitle: l10n.shareCodeTitle,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            TrackingService.settingsActionTapped('referral_program');
+            _openDetail(context, 'affiliate', location: '/affiliate');
+          },
+        )
+      else
+        (
+          id: 'rate',
+          detail: null,
+          icon: Icons.star_rounded,
+          title: l10n.settingsRateTheApp,
+          subtitle: l10n.settingsLeaveAReview,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            // ignore: discarded_futures
+            _rateApp(context, ref);
+          },
+        ),
+      // Opens live Crisp chat.
+      (
+        id: 'support',
+        detail: null,
+        icon: Icons.support_agent_rounded,
+        title: l10n.chatWithSupport,
+        subtitle: l10n.getHelpFromKuteTeam,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          TrackingService.supportOpened(source: 'settings');
+          // ignore: discarded_futures
+          openSupportChat();
+        },
+      ),
+    ];
+  }
+
+  /// Back from the master column beside a sub-page leaves Settings: the
+  /// sub-page's route and Settings' own, as back on the full page does
+  /// (the sub-page's own back closes it alone).
+  void _leaveFromMaster(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    if (navigator.canPop()) navigator.pop();
   }
 
   /// A sub-page that is a full page (Wallets, the referral program): on
   /// EXPANDED the detail beside Settings (KuteMasterDetail, pushed with
   /// [kuteSettingsDetailExtra]); from the master column beside one, in
-  /// place of the detail shown. As before everywhere else.
-  void _openDetail(BuildContext context, {String? name, String? location}) {
+  /// place of the detail shown ([detail] names it; nothing when it is the
+  /// one shown). As before everywhere else.
+  void _openDetail(BuildContext context, String detail,
+      {String? name, String? location}) {
     final router = GoRouter.of(context);
-    if (KuteMasterScope.inMaster(context)) {
+    final master =
+        context.getInheritedWidgetOfExactType<KuteMasterScope>();
+    if (master != null) {
+      // Already the detail shown.
+      if (master.selected == detail) return;
       if (name != null) {
         // ignore: discarded_futures
         router.pushReplacementNamed(name, extra: kuteSettingsDetailExtra);

@@ -49,13 +49,20 @@ import 'package:kute/theme/kute_motion.dart';
 /// The transition every pushed page wears: fade and 0.97 → 1 scale in on
 /// the settle easing, out on the close easing; a fade alone under Reduce
 /// Motion. [child] is wrapped in [KuteBackSwipe] when [backSwipe].
+/// [masterDetail]: a Settings detail, whose [KuteMasterDetail] plays the
+/// route's motion itself on EXPANDED (the full page settling into the
+/// master column, the detail sliding in beside it): no fade or scale.
 Widget kutePageTransition(
   BuildContext context,
   Animation<double> animation,
   Widget child, {
   bool backSwipe = true,
   bool scale = true,
+  bool masterDetail = false,
 }) {
+  if (masterDetail && kuteWindowIsExpanded(context)) {
+    return backSwipe ? KuteBackSwipe(child: child) : child;
+  }
   final reduce = KuteMotion.reduce(context);
   final curved = CurvedAnimation(
     parent: animation,

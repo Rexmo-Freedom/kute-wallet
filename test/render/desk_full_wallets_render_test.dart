@@ -23,6 +23,7 @@ import 'package:kute/models/evm_derivation_version.dart';
 import 'package:kute/models/settings_model.dart' as settings_model;
 import 'package:kute/models/settings_model.dart' hide Settings;
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:money2/money2.dart';
@@ -41,7 +42,10 @@ import 'package:kute/screens/settings/affiliate_screen.dart';
 import 'package:kute/screens/settings/settings.dart' as settings_screen;
 import 'package:kute/screens/settings/wallets_screen.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 import '../helpers/runtime_policy_fixture.dart';
 import 'desk_full_support.dart';
@@ -261,6 +265,85 @@ Future<void> _end(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 40));
 }
 
+/// A page as app_router.dart builds it (`_buildFadeScalePage`): a Settings
+/// detail ([masterDetail]) under the one detail key, its motion played by
+/// the [KuteMasterDetail].
+CustomTransitionPage<void> _routerPage(GoRouterState state, Widget child,
+        {bool masterDetail = false}) =>
+    CustomTransitionPage<void>(
+      key: masterDetail ? kuteSettingsDetailPageKey : state.pageKey,
+      child: KutePageFrame(mode: KuteWideMode.full, child: child),
+      transitionDuration: KuteMotion.settleDuration,
+      reverseTransitionDuration: KuteMotion.settleDuration,
+      transitionsBuilder: (context, animation, _, child) =>
+          kutePageTransition(context, animation, child,
+              masterDetail: masterDetail),
+    );
+
+CustomTransitionPage<void> _detailPage(
+        GoRouterState state, Widget page, String selected) =>
+    _routerPage(
+      state,
+      state.extra == kuteSettingsDetailExtra
+          ? KuteMasterDetail(
+              master: const settings_screen.Settings(),
+              detail: page,
+              selected: selected)
+          : page,
+      masterDetail: state.extra == kuteSettingsDetailExtra,
+    );
+
+/// Settings over a root page, its two details routed as the app routes
+/// them, at [size].
+Future<GoRouter> _pumpSettingsFlow(WidgetTester tester,
+    {required Size size, required bool dark}) async {
+  final router = GoRouter(initialLocation: '/settings', routes: [
+    GoRoute(
+      path: '/',
+      builder: (_, __) => const Scaffold(body: SizedBox.expand()),
+      routes: [
+        GoRoute(
+          path: 'settings',
+          pageBuilder: (context, state) =>
+              _routerPage(state, const settings_screen.Settings()),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/wallets',
+      name: 'wallets',
+      pageBuilder: (context, state) =>
+          _detailPage(state, const WalletsScreen(), 'wallets'),
+    ),
+    GoRoute(
+      path: '/affiliate',
+      pageBuilder: (context, state) =>
+          _detailPage(state, const AffiliateScreen(), 'affiliate'),
+    ),
+  ]);
+  addTearDown(router.dispose);
+  await http.runWithClient(() async {
+    await pumpDeskRouter(tester,
+        size: size,
+        dark: dark,
+        router: router,
+        overrides: _overrides(),
+        frames: 2);
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
+    await deskFullFrames(tester, 8);
+  }, _backend);
+  return router;
+}
+
+/// Lets a page's loads land (the referral program's backend calls).
+Future<void> _settle(WidgetTester tester) => http.runWithClient(() async {
+      await deskFullFrames(tester, 2);
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 80)));
+      await deskFullFrames(tester, 8);
+    }, _backend);
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -305,7 +388,7 @@ void main() {
         // The detail is the window less the Settings column: from about
         // 1300 wide it is EXPANDED and lays itself out; narrower it is a
         // MEDIUM detail, the page's phone column (as asked).
-        if (size.width - kuteMasterWidth >= 900) {
+        if (kuteMasterDetailLayout(size.width).detailWidth >= 900) {
           expectDeskNothingStretched(tester, maxCard: kuteWideColumnMax + 1);
         }
         await _end(tester);
@@ -363,6 +446,114 @@ void main() {
           await _end(tester);
         });
       }
+    }
+  }
+  // The split itself: Settings opening Backup and recovery beside it
+  // (the full page settling into the master column, the detail sliding
+  // in), the referral program swapped in from the master (the detail
+  // cross-fading, the master still), and back.
+  for (final (label, size) in [
+    ('1440x900', const Size(1440, 900)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('1300x800', const Size(1300, 800)),
+  ]) {
+    testWidgets('settings split at $label: the master on the page gutter, '
+        'the detail swapped in place, back to the full page',
+        (tester) async {
+      await deskFullAssets(tester);
+      await _up(tester);
+      await http.runWithClient(() async {
+        await _pumpSettingsFlow(tester, size: size, dark: false);
+        final layout = kuteMasterDetailLayout(size.width);
+        final fullBack = tester.getRect(find.byType(KuteBackButton).last);
+        final fullTitle = tester.getRect(find.text('Settings').last);
+        await tester.tap(find.byKey(const ValueKey('settings-card-backup')));
+        await deskFullFrames(tester, 6);
+        expect(tester.takeException(), isNull);
+        // The master's back button and title where the full page's were.
+        final masterTitle = tester.getRect(find.text('Settings').last);
+        expect(masterTitle.left, closeTo(fullTitle.left, 0.5));
+        expect(masterTitle.top, closeTo(fullTitle.top, 0.5));
+        final backs = find.byType(KuteBackButton).evaluate().toList();
+        expect(
+            tester.getRect(find.byWidget(backs[backs.length - 2].widget)).left,
+            closeTo(fullBack.left, 0.5));
+        // The four cards are rows of the master's list, Backup marked.
+        final row = tester.getRect(
+            find.byKey(const ValueKey('settings-master-backup')));
+        expect(row.left, closeTo(layout.gutter, 0.5));
+        expect(row.width, closeTo(kuteMasterWidth, 0.5));
+        expect(find.text('Investing and Predictions'), findsWidgets);
+        // Referral from the master: the same route, the detail swapped.
+        await tester
+            .tap(find.byKey(const ValueKey('settings-master-referral')));
+        await _settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(find.byType(AffiliateScreen), findsOneWidget);
+        expect(find.byType(WalletsScreen), findsNothing);
+        expect(
+            tester
+                .getRect(find.byKey(const ValueKey('settings-master-backup')))
+                .top,
+            closeTo(row.top, 0.5));
+        // The detail's back: the full page again.
+        await tester.tap(find.byType(KuteBackButton).last);
+        await deskFullFrames(tester, 6);
+        expect(find.byType(KuteMasterDetail), findsNothing);
+        expect(find.byKey(const ValueKey('settings-card-backup')),
+            findsOneWidget);
+      }, _backend);
+      await _end(tester);
+    });
+  }
+
+  for (final (label, size) in [
+    ('1440x900', const Size(1440, 900)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('1300x800', const Size(1300, 800)),
+  ]) {
+    for (final dark in [false, true]) {
+      final tone = dark ? 'dark' : 'light';
+      testWidgets('render: settings split $label $tone',
+          skip: deskFullDir == null, (tester) async {
+        await deskFullAssets(tester,
+            clips: const ['idle', 'body_idle', 'blink', 'share', 'body_wag']);
+        await _up(tester);
+        await http.runWithClient(() async {
+          await _pumpSettingsFlow(tester, size: size, dark: dark);
+          await deskFullShoot(tester, 'split_${label}_${tone}_0_full');
+          await tester
+              .tap(find.byKey(const ValueKey('settings-card-backup')));
+          // Through the open: the route's 300 ms at four points (the
+          // first frame starts it).
+          await tester.pump();
+          var at = 0;
+          for (final ms in [40, 80, 120, 200]) {
+            await tester.pump(Duration(milliseconds: ms - at));
+            at = ms;
+            await deskFullShoot(tester, 'split_${label}_${tone}_1_open_$ms');
+          }
+          await deskFullFrames(tester, 6);
+          await deskFullShoot(tester, 'split_${label}_${tone}_2_wallets');
+          await tester
+              .tap(find.byKey(const ValueKey('settings-master-referral')));
+          await tester.pump();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+          await deskFullShoot(tester, 'split_${label}_${tone}_3_swap_mid');
+          await _settle(tester);
+          await deskFullShoot(tester, 'split_${label}_${tone}_4_referral');
+          await tester.tap(find.byType(KuteBackButton).last);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 60));
+          await deskFullShoot(tester, 'split_${label}_${tone}_5_back_60');
+          await tester.pump(const Duration(milliseconds: 80));
+          await deskFullShoot(tester, 'split_${label}_${tone}_5_back_140');
+          await deskFullFrames(tester, 6);
+          await deskFullShoot(tester, 'split_${label}_${tone}_6_full_again');
+        }, _backend);
+        await _end(tester);
+      });
     }
   }
 }

@@ -25,6 +25,7 @@ import 'package:flutter/rendering.dart' show BoxParentData;
 import 'package:flutter/widgets.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// [child] with the MediaQuery's width set to [width] (the height and
 /// everything else as they are).
@@ -930,49 +931,174 @@ class SliverKuteGrid extends StatelessWidget {
   }
 }
 
-/// The master column's width in a [KuteMasterDetail].
-const double kuteMasterWidth = 400;
+/// The width of the master column's list in a [KuteMasterDetail] (its
+/// rows and cards; the page's left gutter is outside it).
+const double kuteMasterWidth = 380;
+
+/// Where a [KuteMasterDetail] puts its two panes in a window [width]
+/// wide: the master's list on the page's own left gutter ([gutter], the
+/// full page's and the top bar's, so the back button and the title never
+/// move sideways when the split opens), the hairline at [divider] (the
+/// list plus a [kuteWideGutter] after it), the detail from there to the
+/// page's right gutter less the [kuteWideGutter] the detail pads itself
+/// with ([detailWidth]), so both panes sit inside the page as the full
+/// page's content does.
+({double gutter, double divider, double detailWidth}) kuteMasterDetailLayout(
+    double width,
+    {double listWidth = kuteMasterWidth}) {
+  final gutter = kuteWidePaddingFor(width).left;
+  final divider = gutter + listWidth + kuteWideGutter;
+  final right = width - math.max(0.0, gutter - kuteWideGutter);
+  return (
+    gutter: gutter,
+    divider: divider,
+    detailWidth: math.max(0.0, right - divider),
+  );
+}
 
 /// A real MASTER / DETAIL on EXPANDED (round three; Settings and the
-/// pages it opens): [master] in a [kuteMasterWidth] column on the left
-/// (the section list, laid out as on a phone), [detail] across the rest
-/// of the window, each scrolling on its own. The master's subtree is
-/// marked ([KuteMasterScope]) so it can open the next detail in place of
-/// this one. Off EXPANDED it is [detail] alone, as before.
+/// pages it opens; founder, 24 November 2026: "this is incorrectly
+/// formatted. and should animate from this screen to the shared view"):
+/// [master] as a section list on the page's left gutter, a quiet hairline,
+/// [detail] beside it ([kuteMasterDetailLayout]), each scrolling on its
+/// own. The master's subtree is marked ([KuteMasterScope], with the
+/// gutter and the [selected] detail) so it lays itself out as the list
+/// and opens the next detail in place of this one. Off EXPANDED it is
+/// [detail] alone, as before.
+///
+/// THE MOTION. The route that shows this ([kuteSettingsDetailPageKey],
+/// app_router.dart) wears no page transition of its own on EXPANDED; this
+/// widget plays the route's animation instead, over the full page it was
+/// pushed from (still painted under it while the route moves): the master
+/// pane (the window's background and the list) fades in over the full
+/// page, whose back button and title sit exactly where the list's do, so
+/// they hold still while the page's sections settle into the list; the
+/// detail slides in from the window's right edge on the settle easing,
+/// its hairline leading. Back plays it in reverse. Opening another detail
+/// from the list keeps this route (the same page key): the master stays
+/// put, scroll and all, and only the detail cross-fades ([selected] keys
+/// it). Reduce Motion: plain fades, no slide.
 class KuteMasterDetail extends StatelessWidget {
   const KuteMasterDetail({
     super.key,
     required this.master,
     required this.detail,
+    this.selected,
     this.masterWidth = kuteMasterWidth,
   });
 
   final Widget master;
   final Widget detail;
+
+  /// Which detail is open (the master marks its row); a new value
+  /// cross-fades the detail.
+  final Object? selected;
+
+  /// The master's list width.
   final double masterWidth;
 
   @override
   Widget build(BuildContext context) {
     if (!kuteIsExpanded(context)) return detail;
+    final c = context.colors;
     final width = MediaQuery.sizeOf(context).width;
-    final rest = math.max(0.0, width - masterWidth);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          width: masterWidth,
-          child: KuteMasterScope(
-            child: kuteNarrowMedia(context, width: masterWidth, child: master),
-          ),
+    final layout = kuteMasterDetailLayout(width, listWidth: masterWidth);
+    final rest = layout.detailWidth;
+    final reduce = KuteMotion.reduce(context);
+    final animation = ModalRoute.of(context)?.animation ?? kAlwaysCompleteAnimation;
+    // A fade THROUGH, never two layouts over each other: the window's
+    // background first covers the full page under the route (all but its
+    // back button and title, which the list's own sit on exactly), then
+    // the list's rows come in. Back: the rows go, then the background.
+    // Each part leaves on the settle easing played backwards, so back
+    // answers at once.
+    final ease = reduce ? Curves.linear : KuteMotion.settle;
+    final back = reduce ? Curves.linear : KuteMotion.settle.flipped;
+    final cover = CurvedAnimation(
+      parent: animation,
+      curve: Interval(0, reduce ? 1 : 0.45, curve: ease),
+      reverseCurve: Interval(0, reduce ? 1 : 0.45, curve: back),
+    );
+    final reveal = CurvedAnimation(
+      parent: animation,
+      curve: Interval(reduce ? 0 : 0.4, 1, curve: ease),
+      reverseCurve: Interval(reduce ? 0 : 0.4, 1, curve: back),
+    );
+    final slide =
+        CurvedAnimation(parent: animation, curve: ease, reverseCurve: back);
+    // A detail narrower than EXPANDED (a window of about 1300 or less)
+    // is the centred column a MEDIUM page is.
+    final detailPane = DecoratedBox(
+      // The hairline over the detail's own background.
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: c.border)),
+      ),
+      // The floating bar centres under the detail.
+      child: KuteBarPane(
+        child: ColoredBox(
+          color: c.background,
+          child: AnimatedSwitcher(
+        duration:
+            reduce ? KuteMotion.reducedDuration : KuteMotion.settleDuration,
+        // A fade through: the old detail is gone before the new one
+        // comes in, never two pages over each other.
+        switchInCurve: Interval(reduce ? 0 : 0.35, 1, curve: ease),
+        switchOutCurve: Interval(reduce ? 0 : 0.6, 1, curve: ease),
+        layoutBuilder: (current, previous) => Stack(
+          fit: StackFit.expand,
+          children: [...previous, if (current != null) current],
         ),
-        // A detail narrower than EXPANDED (a window of about 1300 or
-        // less) is the centred column a MEDIUM page is.
-        Expanded(
+        child: KeyedSubtree(
+          key: ValueKey<Object?>(selected),
           child: kuteNarrowMedia(context,
               width: rest,
               child: KuteLayout.forWidth(rest) == KuteFormFactor.expanded
                   ? detail
                   : KuteFormColumn(child: detail)),
+            ),
+          ),
+        ),
+      ),
+    );
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: FadeTransition(
+            opacity: cover,
+            child: ColoredBox(color: c.background),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          width: layout.divider,
+          top: 0,
+          bottom: 0,
+          child: KuteMasterScope(
+            gutter: layout.gutter,
+            selected: selected,
+            reveal: reveal,
+            child: kuteNarrowMedia(context,
+                width: layout.divider, child: master),
+          ),
+        ),
+        Positioned(
+          left: layout.divider,
+          width: rest,
+          top: 0,
+          bottom: 0,
+          // The detail slides in from the window's right edge, its
+          // hairline leading (a plain fade under Reduce Motion).
+          child: reduce
+              ? FadeTransition(opacity: slide, child: detailPane)
+              : SlideTransition(
+                  position: Tween<Offset>(
+                    begin: Offset(
+                        rest > 0 ? (width - layout.divider) / rest : 0, 0),
+                    end: Offset.zero,
+                  ).animate(slide),
+                  child: detailPane,
+                ),
         ),
       ],
     );
@@ -980,20 +1106,58 @@ class KuteMasterDetail extends StatelessWidget {
 }
 
 /// Marks the master column of a [KuteMasterDetail]: a page drawn there is
-/// the section list beside a detail, and opens its next detail in place
+/// the section list beside a detail, on the page's left [gutter], with
+/// the [selected] detail's row marked, and opens its next detail in place
 /// of the one shown.
 class KuteMasterScope extends InheritedWidget {
-  const KuteMasterScope({super.key, required super.child});
+  const KuteMasterScope({
+    super.key,
+    this.gutter = kuteWideGutter,
+    this.selected,
+    this.reveal = kAlwaysCompleteAnimation,
+    required super.child,
+  });
+
+  /// The page's left gutter, where the list starts.
+  final double gutter;
+
+  /// Which detail is open beside the list.
+  final Object? selected;
+
+  /// The list's rows' opacity as the split opens and closes (the back
+  /// button and the title hold still; the [KuteMasterDetail] paints the
+  /// background under the list, so the list paints none of its own).
+  final Animation<double> reveal;
 
   static bool inMaster(BuildContext context) =>
       context.getElementForInheritedWidgetOfExactType<KuteMasterScope>() !=
       null;
 
+  /// The scope [context] is drawn in, or null outside a master column.
+  static KuteMasterScope? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<KuteMasterScope>();
+
   @override
-  bool updateShouldNotify(KuteMasterScope oldWidget) => false;
+  bool updateShouldNotify(KuteMasterScope oldWidget) =>
+      gutter != oldWidget.gutter ||
+      selected != oldWidget.selected ||
+      reveal != oldWidget.reveal;
 }
+
+/// [child] (a master column's rows, under its fixed back button and
+/// title) at [scope]'s reveal as the split opens and closes; [child] as
+/// it is outside a master column.
+Widget kuteMasterReveal(KuteMasterScope? scope, Widget child) =>
+    scope == null ? child : FadeTransition(opacity: scope.reveal, child: child);
 
 /// The `extra` a Settings sub-page is pushed with when Settings opened it:
 /// on EXPANDED the router shows it as the detail beside Settings
 /// ([KuteMasterDetail], app_router.dart).
 const String kuteSettingsDetailExtra = 'kute.settings.detail';
+
+/// The page key every Settings detail is shown under (app_router.dart):
+/// opening another detail from the master column replaces the page with
+/// one of the same key, so the navigator keeps the route (and the master
+/// in it) and only the detail changes ([KuteMasterDetail]).
+const ValueKey<String> kuteSettingsDetailPageKey =
+    ValueKey<String>(kuteSettingsDetailExtra);
