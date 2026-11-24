@@ -14,6 +14,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,7 +42,13 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlCandlestickChart;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart'
+    show KuteScrubCard;
+import 'package:kute/screens/shared/charts/kute_chart_drawings.dart'
+    show KuteChartDrawingsPainter;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
@@ -356,9 +363,111 @@ void main() {
     await _unmount(tester);
   });
 
+  // THE POINTER KIND DECIDES (founder, 25 November 2026: a plain mouse
+  // drag drew a grey measuring box): a plain drag pans with any pointer,
+  // the measuring box comes only from a Shift-drag with a mouse, hovering
+  // a mouse shows the crosshair, and the wheel zooms the chart instead of
+  // scrolling the page.
+  Finder measureBox() => find.byWidgetPredicate((w) =>
+      w is CustomPaint && w.painter is KuteChartDrawingsPainter);
+
+  Future<Offset> chartCentre(WidgetTester tester) async {
+    await _pump(tester,
+        size: const Size(1440, 900), dark: false, market: _btc);
+    return tester.getCenter(find.byType(HlCandlestickChart).first) -
+        const Offset(60, 40);
+  }
+
+  for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+    testWidgets('a plain ${kind.name} drag pans, never measures',
+        (tester) async {
+      final at = await chartCentre(tester);
+      final g = await tester.startGesture(at, kind: kind);
+      for (var i = 0; i < 8; i++) {
+        await g.moveBy(const Offset(-20, 6));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(measureBox(), findsNothing);
+      await g.up();
+      await tester.pump();
+      expect(measureBox(), findsNothing);
+      expect(tester.takeException(), isNull);
+      await _unmount(tester);
+    });
+  }
+
+  testWidgets('a Shift-drag with a mouse measures, gone on release',
+      (tester) async {
+    final at = await chartCentre(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    final g = await tester.startGesture(at, kind: PointerDeviceKind.mouse);
+    for (var i = 0; i < 8; i++) {
+      await g.moveBy(const Offset(-20, 6));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(measureBox(), findsOneWidget);
+    await g.up();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(measureBox(), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets('a Shift-drag with a finger is a plain drag', (tester) async {
+    final at = await chartCentre(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    final g = await tester.startGesture(at, kind: PointerDeviceKind.touch);
+    for (var i = 0; i < 8; i++) {
+      await g.moveBy(const Offset(-20, 6));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(measureBox(), findsNothing);
+    await g.up();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    await _unmount(tester);
+  });
+
+  testWidgets('hovering a mouse shows the crosshair; leaving hides it',
+      (tester) async {
+    final at = await chartCentre(tester);
+    expect(find.byType(KuteScrubCard), findsNothing);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: at);
+    await mouse.moveTo(at + const Offset(10, 0));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(KuteScrubCard), findsOneWidget);
+    await mouse.moveTo(const Offset(1430, 890));
+    // The crosshair fades out (120ms) and leaves the tree.
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(KuteScrubCard), findsNothing);
+    await mouse.removePointer();
+    await _unmount(tester);
+  });
+
+  testWidgets('the wheel over the chart zooms; the page does not scroll',
+      (tester) async {
+    final at = await chartCentre(tester);
+    final scrollable = tester.state<ScrollableState>(find
+        .ancestor(
+            of: find.byType(HlCandlestickChart).first,
+            matching: find.byType(Scrollable))
+        .first);
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.hover(at));
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 120)));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(scrollable.position.pixels, 0);
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
   for (final (label, size) in [
     ('1440x900', const Size(1440, 900)),
     ('1180x820', const Size(1180, 820)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('1000x700', const Size(1000, 700)),
     ('820x1180', const Size(820, 1180)),
     ('430x932', const Size(430, 932)),
   ]) {
@@ -369,8 +478,6 @@ void main() {
         ('spot', _hype, false),
         ('spot_held', _hype, true),
       ]) {
-        // Every size and theme on the perp; the spot and held variants on
-        // the two EXPANDED sizes and the phone, light and dark.
         final mode = dark ? 'dark' : 'light';
         testWidgets('render: $label $mode $kind', skip: _dir == null,
             (tester) async {
@@ -378,6 +485,19 @@ void main() {
               size: size, dark: dark, market: market, held: held);
           expect(tester.takeException(), isNull);
           await _shoot(tester, 'hl_market_${label}_${mode}_$kind');
+          // EXPANDED: the area under the chart (stats, book, trades),
+          // scrolled down.
+          final about = find.byKey(const ValueKey('hl-about-in-place'));
+          if (about.evaluate().isNotEmpty) {
+            final scrollable = tester.state<ScrollableState>(find
+                .ancestor(of: about, matching: find.byType(Scrollable))
+                .first);
+            scrollable.position
+                .jumpTo(scrollable.position.maxScrollExtent);
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(tester.takeException(), isNull);
+            await _shoot(tester, 'hl_market_${label}_${mode}_${kind}_below');
+          }
           await _unmount(tester);
         });
       }

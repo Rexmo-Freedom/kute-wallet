@@ -3972,8 +3972,8 @@ Widget kuteWidePanes({required Widget left, required Widget right}) => Center(
 /// The right pane on EXPANDED: the bet slip open in place
 /// ([BetSlipInPlacePane]) and, under it, the person's positions in this
 /// market ([holds]) as the Portfolio lists them (a tap opens the position,
-/// with Sell). The slip gives up height first; the positions scroll on
-/// their own past a third of the pane.
+/// with Sell). The slip is a full-height card and gives up height
+/// first; the positions scroll on their own past a third of the pane.
 class KuteWideSlipPane extends ConsumerWidget {
   const KuteWideSlipPane({super.key, required this.holds});
 
@@ -3992,7 +3992,9 @@ class KuteWideSlipPane extends ConsumerWidget {
         builder: (context, constraints) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Flexible(child: BetSlipInPlacePane()),
+            // The slip is a full-height card (its foot on the window's
+            // bottom gutter), less the positions under it.
+            const Expanded(child: BetSlipInPlacePane()),
             if (held.isNotEmpty) ...[
               const SizedBox(height: 16),
               ConstrainedBox(

@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/kute_page_route.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart' show AmountActionChip;
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
@@ -438,7 +439,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                 Container(
                   alignment: Alignment.centerLeft,
                   padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-                  child: Column(
+                  child: _withAdvancedPill(inPlace, Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Smaller rather than cut on a long price. The
@@ -500,7 +501,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         ],
                       ),
                     ],
-                  ),
+                  )),
                 ),
 
               // ── Body ──────────────────────────────────────────────
@@ -607,10 +608,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                             market: widget.market,
                             isStock: isStock,
                             position: position,
-                            leading: KuteActionCardGrid(
-                              key: const ValueKey('hl-market-options'),
-                              cards: [_advancedCard()],
-                            ),
+                            wide: true,
                           )
                         else if (!_advancedChart)
                           KuteActionCardGrid(
@@ -703,8 +701,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// ([HlOrderSlipSheet.embedded], the trade row's Invest: the buy side,
   /// Short / Sell its own switch), and under it what the person holds on
   /// this market, as the Portfolio lists it (a position's row opens the
-  /// position, where Close is). The pane stays put; the ticket fits the
-  /// room it has (SlipFit).
+  /// position, where Close is). The pane stays put; the ticket is a
+  /// full-height card that fits the room it has (SlipFit.fill).
   Widget _ticketPane(HlMarket m, HlPerpPosition? position, double spotHeld,
       KuteBarContext bar) {
     HlSpotBalance? holding;
@@ -717,7 +715,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       key: const ValueKey('hl-ticket-pane'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Flexible(
+        // The card fills the pane's height (its top on the title row, its
+        // foot on the window's bottom gutter), less the position's row.
+        Expanded(
           child: HlOrderSlipSheet.inPlace(
             key: ValueKey('hl-ticket-in-place-$_ticketGeneration'),
             market: m,
@@ -827,6 +827,29 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     );
   }
 
+  /// EXPANDED (founder, 25 November 2026: "the Advanced chart button just
+  /// seems put there, should be more prominent"): "Advanced chart" is a
+  /// pill on the price row, right-aligned, the app's amount-chip face with
+  /// the candles glyph, instead of a card under the chart. Elsewhere the
+  /// price block as it was (the card stays under the chart).
+  Widget _withAdvancedPill(bool inPlace, Widget price) {
+    if (!inPlace) return price;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: price),
+        SizedBox(width: 12.w),
+        AmountActionChip(
+          key: const ValueKey('hl-advanced-chart'),
+          label: context.l10n.hlAdvancedChart,
+          semanticLabel: context.l10n.hlAdvancedChart,
+          icon: Icons.candlestick_chart_rounded,
+          onTap: () => HlCandleChart.openAdvanced(_chartHostKey),
+        ),
+      ],
+    );
+  }
+
   /// "Advanced chart": the chart's editing mode (drawing tools,
   /// indicators).
   KuteActionCard _advancedCard() => KuteActionCard.option(
@@ -882,17 +905,19 @@ class _HlAboutContent extends ConsumerWidget {
   final bool isStock;
   final HlPerpPosition? position;
 
-  /// Non-null: the page's own About (EXPANDED, in place), in two columns:
-  /// [leading] (the Advanced chart card) over what the market is, its
-  /// Stats and how it trades on the left, the order book and the recent
-  /// trades on the right. Null: the sheet's one column.
-  final Widget? leading;
+  /// The page's own About (EXPANDED, in place; founder, 25 November
+  /// 2026: "data here seems too compressed"): what the market is across
+  /// the pane's full width, the Stats as one band of tiles under it, the
+  /// funding line and the notice at full width, then the order book and
+  /// the recent trades side by side (stacked when the pane is too narrow
+  /// for two readable columns). False: the sheet's one column.
+  final bool wide;
 
   const _HlAboutContent({
     required this.market,
     required this.isStock,
     required this.position,
-    this.leading,
+    this.wide = false,
   });
 
   @override
@@ -978,8 +1003,11 @@ class _HlAboutContent extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      SizedBox(height: 20.h),
-                      HlStatsSection(title: l10n.investingStats, stats: stats),
+                      SizedBox(height: wide ? 28.h : 20.h),
+                      HlStatsSection(
+                          title: l10n.investingStats,
+                          stats: stats,
+                          tiles: wide),
                       SizedBox(height: 12.h),
                       if (position != null) ...[
                         SheetDetailRow(
@@ -1049,30 +1077,42 @@ class _HlAboutContent extends ConsumerWidget {
       SizedBox(height: 16.h),
       HlRecentTradesSection(market: m),
     ];
-    final leading = this.leading;
-    if (leading == null) {
+    if (!wide) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [...info, SizedBox(height: 16.h), ...book],
       );
     }
-    return Row(
+    return Column(
       key: const ValueKey('hl-about-in-place'),
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: Column(
+        ...info,
+        SizedBox(height: 28.h),
+        LayoutBuilder(builder: (context, constraints) {
+          // Two readable columns need about 300 each; narrower, stacked.
+          const gap = KuteLayout.paneGap;
+          if (constraints.maxWidth < 2 * 300 + gap) {
+            return Column(
+              key: const ValueKey('hl-about-book-stacked'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                HlOrderBookSection(market: m),
+                SizedBox(height: 28.h),
+                HlRecentTradesSection(market: m),
+              ],
+            );
+          }
+          return Row(
+            key: const ValueKey('hl-about-book-row'),
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [leading, SizedBox(height: 20.h), ...info],
-          ),
-        ),
-        SizedBox(width: KuteLayout.paneGap),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: book,
-          ),
-        ),
+            children: [
+              Expanded(child: HlOrderBookSection(market: m)),
+              const SizedBox(width: gap),
+              Expanded(child: HlRecentTradesSection(market: m)),
+            ],
+          );
+        }),
       ],
     );
   }
