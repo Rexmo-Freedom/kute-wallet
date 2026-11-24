@@ -148,6 +148,11 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// ladder sheet). Only the Bitcoin home's spending wallet passes true.
   final bool balanceGoals;
 
+  /// The widget's outer padding; null is the phone's 24 above and below.
+  /// The wide Bitcoin surfaces' right column (bitcoin_home_panes.dart)
+  /// passes less above, its top on the pills' line.
+  final EdgeInsetsGeometry? padding;
+
   const HomeAnalyticsWidget({
     super.key,
     this.surface,
@@ -162,6 +167,7 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
     this.activityAndBalanceOnly = false,
     this.onSeeAllActivity,
     this.selectActivityRequest,
+    this.padding,
   });
 
   @override
@@ -339,7 +345,7 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
       // Horizontal padding moves onto the strip/charts individually:
       // the Activity list carries its own row insets (it used to sit
       // directly in the Home column) and double-padding squeezed it.
-      padding: EdgeInsets.symmetric(vertical: 24.h),
+      padding: widget.padding ?? EdgeInsets.symmetric(vertical: 24.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

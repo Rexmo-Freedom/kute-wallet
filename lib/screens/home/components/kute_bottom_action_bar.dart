@@ -1041,3 +1041,143 @@ class _RenderDockHeight extends RenderProxyBox {
     });
   }
 }
+
+/// A surface's actions in the DESKTOP TOP BAR (EXPANDED; founder, 26
+/// November 2026: "on the desktop these buttons should move more towards
+/// the top, the balance always on the top"): the same [actions] as the
+/// compact row under a phone's balance ([KuteCompactActions]), same order,
+/// handlers and events, as compact pills: the solid one (Purchase, Buy
+/// dollars) on the primary fill, the rest outlined as the squares are.
+/// Without [labels] (a narrower window) each pill is its icon alone, the
+/// label its tooltip, never a second row.
+class KuteTopBarActions extends StatelessWidget {
+  const KuteTopBarActions(
+      {super.key,
+      required this.actions,
+      required this.source,
+      this.labels = true});
+
+  final List<KuteDockAction> actions;
+  final String source;
+  final bool labels;
+
+  /// The pills' height.
+  static const double height = 38;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Row(
+      key: const ValueKey('kute-top-bar-actions'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          _TopBarAction(
+              action: actions[i],
+              source: source,
+              labels: labels,
+              isLight: isLight,
+              colors: c),
+        ],
+      ],
+    );
+  }
+}
+
+class _TopBarAction extends StatelessWidget {
+  const _TopBarAction(
+      {required this.action,
+      required this.source,
+      required this.labels,
+      required this.isLight,
+      required this.colors});
+
+  final KuteDockAction action;
+  final String source;
+  final bool labels;
+  final bool isLight;
+  final AppColorsExtension colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colors;
+    final enabled = action.onTap != null && !action.soon;
+    final solid = action.solid;
+    final foreground = solid ? context.ctaOnColor : c.textPrimary;
+    // The squares' glyph sizes, a step down for the pill.
+    final big = action.icon == Icons.currency_bitcoin_rounded ||
+        action.icon == Icons.attach_money_rounded;
+    final icon = action.glyph?.call(foreground, 18) ??
+        Icon(action.icon, size: big ? 21 : 18, color: foreground);
+    final radius = BorderRadius.circular(KuteTopBarActions.height / 2);
+    final pill = Container(
+      height: KuteTopBarActions.height,
+      constraints: const BoxConstraints(minWidth: KuteTopBarActions.height),
+      padding: EdgeInsets.symmetric(horizontal: labels ? 14 : 0),
+      decoration: BoxDecoration(
+        color: solid ? context.ctaFill : (isLight ? Colors.white : c.surface),
+        borderRadius: radius,
+        border: solid
+            ? null
+            : Border.all(
+                color: isLight ? c.border : c.borderSubtle,
+                width: isLight ? 1.0 : 0.5,
+              ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          icon,
+          if (labels) ...[
+            const SizedBox(width: 6),
+            Text(
+              action.label,
+              maxLines: 1,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+    final button = Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: action.label,
+        excludeSemantics: true,
+        child: _glyphPress(
+          action,
+          enabled,
+          KutePressable(
+            enabled: enabled,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: radius,
+                onTap: !enabled
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        TrackingService.quickAction(action.trackingId,
+                            source: source);
+                        action.onTap!();
+                      },
+                child: pill,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return labels ? button : Tooltip(message: action.label, child: button);
+  }
+}

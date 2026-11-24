@@ -33,6 +33,9 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconAvailability;
 import 'package:kute/screens/usd/usd_account_screen.dart';
+import 'package:kute/providers/active_shell_tab_provider.dart'
+    show ActiveNavTab;
+import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -191,7 +194,18 @@ Future<void> _render(WidgetTester tester, String name,
         child: Theme(
           data: theme.copyWith(
               textTheme: theme.textTheme.apply(fontFamily: 'Inter')),
-          child: const Scaffold(body: UsdAccountScreen()),
+          // The shell's layering: the page, the top bar over it.
+          child: const Scaffold(
+            body: Stack(children: [
+              Positioned.fill(child: UsdAccountScreen()),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: KuteTopNavBar(activeTab: ActiveNavTab.usd),
+              ),
+            ]),
+          ),
         ),
       ),
       openPnlSources: OpenPnlSources(
@@ -316,6 +330,7 @@ void main() {
     '1180x820': Size(1180, 820),
     '1920x1080': Size(1920, 1080),
     '1000x700': Size(1000, 700),
+    '820x1180': Size(820, 1180),
     '430x932': Size(430, 932),
   };
   final only = const String.fromEnvironment('WIDE_DOLLARS_ONLY');

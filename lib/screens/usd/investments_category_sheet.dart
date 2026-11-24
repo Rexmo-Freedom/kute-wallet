@@ -212,6 +212,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -248,6 +249,8 @@ import 'package:kute/screens/shared/kute_action_cards.dart'
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn, kuteReduceMotion;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, kutePillRowHeight;
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -448,6 +451,43 @@ Future<void> showInvestmentsCategorySheet(
 /// most of the way down, so the page's switch (the pill's words, the list
 /// sliding in) plays in full view rather than under the sheet.
 final Duration kCategoryPickWriteDelay = KuteMotion.sheetOutDuration * 0.3;
+
+// ── A pick's write, the sheet's and the chips' ────────────────────────
+
+/// An Investing pick written: the browse selection and its event (the
+/// sheet's tiles and the desktop chips, [InvestmentsCategoryChips]).
+void _writeHl(ProviderContainer c, HlBrowseTab t, HlBrowseSub s) {
+  final current = c.read(hlBrowseSelectionProvider);
+  if (t == current.tab && s == current.sub) return;
+  TrackingService.track('hl_category_pill_tapped', params: {
+    'section': t.key,
+    if (s != HlBrowseSub.all) 'subcategory': s.key,
+  });
+  c.read(hlBrowseSelectionProvider.notifier).state =
+      current.copyWith(tab: t, sub: s);
+}
+
+/// A Predictions pick written (see [_writeHl]); [surface] names a card
+/// that is a way in, [also] runs with the pick whether or not the
+/// category changes.
+void _writePoly(ProviderContainer c, PolyPill p, PolySub s,
+    {String? surface, void Function(ProviderContainer)? also}) {
+  also?.call(c);
+  final current = c.read(polyBrowseSelectionProvider);
+  if (p == current.pill && s.key == current.subOf(p)) return;
+  TrackingService.track('category_pill_tapped', params: {
+    'section': p.key,
+    if (s.key != p.defaultSub) 'subcategory': s.route,
+    if (surface != null) 'surface': surface,
+  });
+  c.read(polyBrowseSelectionProvider.notifier).state =
+      current.copyWith(pill: p).copyWith(sub: s.key);
+}
+
+/// The "5 minute markets" way in: the five-minute rounds, whatever length
+/// the page's chips were last left on.
+void _fiveMinuteWindow(ProviderContainer c) =>
+    c.read(cryptoPredictWindowProvider.notifier).state = 5;
 
 // ── Numbers ────────────────────────────────────────────────────────────
 
@@ -914,16 +954,7 @@ class _InvestmentsCategorySheetState
   // ── Investing ────────────────────────────────────────────────────────
 
   void _pickHl(HlBrowseTab t, HlBrowseSub s, {bool hold = true}) =>
-      _pick((t, s), hold: hold, (c) {
-        final current = c.read(hlBrowseSelectionProvider);
-        if (t == current.tab && s == current.sub) return;
-        TrackingService.track('hl_category_pill_tapped', params: {
-          'section': t.key,
-          if (s != HlBrowseSub.all) 'subcategory': s.key,
-        });
-        c.read(hlBrowseSelectionProvider.notifier).state =
-            current.copyWith(tab: t, sub: s);
-      });
+      _pick((t, s), hold: hold, (c) => _writeHl(c, t, s));
 
   /// The watchlist sheet over this one (see the file header): a Done that
   /// leaves markets on the watchlist closes this sheet on it.
@@ -1066,25 +1097,14 @@ class _InvestmentsCategorySheetState
           {bool hold = true,
           String? surface,
           void Function(ProviderContainer)? also}) =>
-      _pick((p, s.key), hold: hold, (c) {
-        also?.call(c);
-        final current = c.read(polyBrowseSelectionProvider);
-        if (p == current.pill && s.key == current.subOf(p)) return;
-        TrackingService.track('category_pill_tapped', params: {
-          'section': p.key,
-          if (s.key != p.defaultSub) 'subcategory': s.route,
-          if (surface != null) 'surface': surface,
-        });
-        c.read(polyBrowseSelectionProvider.notifier).state =
-            current.copyWith(pill: p).copyWith(sub: s.key);
-      });
+      _pick((p, s.key), hold: hold,
+          (c) => _writePoly(c, p, s, surface: surface, also: also));
 
   /// The "5 minute markets" card (see the file header): Predictions ›
   /// Crypto › 5 Min, on its five-minute rounds whatever length the page's
   /// chips were last left on.
   void _pickFiveMinute() => _pickPoly(PolyPill.crypto, _kFiveMinuteSub,
-      surface: 'five_minute_card',
-      also: (c) => c.read(cryptoPredictWindowProvider.notifier).state = 5);
+      surface: 'five_minute_card', also: _fiveMinuteWindow);
 
   List<Widget> _predictions(BuildContext context) {
     final l10n = context.l10n;
@@ -2140,6 +2160,302 @@ class _LogoStack extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+
+// ── The categories as chips (EXPANDED) ────────────────────────────────
+
+/// THE CATEGORIES AS VISIBLE CHIPS on a desktop (EXPANDED; founder, 26
+/// November 2026: "the sub selections maybe make it intelligent … check
+/// main fintech apps, and do what they do, like Polymarket"): as
+/// Polymarket and Kalshi list theirs, the picked Investing or Predictions
+/// pill's categories are ONE row of the app's pills right under the page's
+/// pills, in the sheet's order ([_InvestmentsCategorySheetState]):
+///   * Investing: Trending, the Watchlist ("Create a watchlist" before a
+///     market is on it, and an Edit beside it while it is picked: the
+///     sheet's two doors to the watchlist sheet), then the markets on
+///     offer;
+///   * Predictions: Trending, "5 minute markets", the Watchlist once
+///     something is starred, the topics, then Trending's themes.
+/// The picked one wears the selected pill. A click writes exactly what
+/// the sheet's tile writes, with the same event ([_writeHl],
+/// [_writePoly]). A category with subcategories puts them in a second row
+/// under the first ("All …" first), as the sheet's group page lists them.
+/// The rows scroll sideways with the wheel or the trackpad, their edges
+/// fading while there is more. Browsing withheld: no chips (the page shows
+/// its notice).
+class InvestmentsCategoryChips extends ConsumerStatefulWidget {
+  const InvestmentsCategoryChips({super.key, required this.tab});
+
+  final InvestmentsTab tab;
+
+  @override
+  ConsumerState<InvestmentsCategoryChips> createState() =>
+      _InvestmentsCategoryChipsState();
+}
+
+typedef _Chip = ({Key key, String label, bool selected, VoidCallback onTap});
+
+class _InvestmentsCategoryChipsState
+    extends ConsumerState<InvestmentsCategoryChips>
+    with _CategoryData<InvestmentsCategoryChips> {
+  ProviderContainer get _c => ProviderScope.containerOf(context, listen: false);
+
+  void _tap(void Function(ProviderContainer) write) {
+    HapticFeedback.selectionClick();
+    write(_c);
+  }
+
+  Future<void> _watchlist() async {
+    final saved =
+        await showHlWatchlistSheet(context, source: 'category_sheet');
+    if (!mounted || !saved || ref.read(hlWatchlistProvider).isEmpty) return;
+    _writeHl(_c, HlBrowseTab.watchlist, HlBrowseSub.all);
+  }
+
+  (List<_Chip>, List<_Chip>) _investing(AppLocalizations l10n) {
+    final sel = ref.watch(hlBrowseSelectionProvider);
+    // The offer follows the universe and the stars.
+    ref.watch(hyperliquidBrowseUniverseProvider);
+    ref.watch(hlWatchlistProvider);
+    ref.watch(hyperliquidBuilderMarketsMissingProvider);
+    final onOffer = hlCategoriesOnOffer(ref);
+    _Chip chip(HlBrowseTab t, String label) => (
+          key: ValueKey('category-chip-${t.key}'),
+          label: label,
+          selected: sel.tab == t,
+          onTap: () => _tap((c) => _writeHl(c, t, HlBrowseSub.all)),
+        );
+    final top = <_Chip>[
+      if (onOffer.contains(HlBrowseTab.trending))
+        chip(HlBrowseTab.trending, HlBrowseTab.trending.localizedLabel(l10n)),
+      if (onOffer.contains(HlBrowseTab.watchlist)) ...[
+        chip(HlBrowseTab.watchlist, l10n.polyPillWatchlist),
+        if (sel.tab == HlBrowseTab.watchlist)
+          (
+            key: const ValueKey('category-chip-watchlist-edit'),
+            label: l10n.edit,
+            selected: false,
+            onTap: () => unawaited(_watchlist()),
+          ),
+      ] else if (onOffer.isNotEmpty)
+        (
+          key: const ValueKey('category-chip-watchlist-create'),
+          label: l10n.hlWatchlistCreate,
+          selected: false,
+          onTap: () => unawaited(_watchlist()),
+        ),
+      for (final t in onOffer)
+        if (t != HlBrowseTab.trending && t != HlBrowseTab.watchlist)
+          chip(t, t.localizedLabel(l10n)),
+    ];
+    final subs = onOffer.contains(sel.tab)
+        ? _hlSubs(sel.tab)
+        : const <HlBrowseSub>[];
+    final second = <_Chip>[
+      if (subs.isNotEmpty) ...[
+        (
+          key: ValueKey('category-chip-all-${sel.tab.key}'),
+          label: l10n.categoryAllOf(sel.tab.localizedLabel(l10n)),
+          selected: sel.sub == HlBrowseSub.all,
+          onTap: () => _tap((c) => _writeHl(c, sel.tab, HlBrowseSub.all)),
+        ),
+        for (final s in subs)
+          (
+            key: ValueKey('category-chip-${s.key}'),
+            label: s.localizedLabel(l10n),
+            selected: sel.sub == s,
+            onTap: () => _tap((c) => _writeHl(c, sel.tab, s)),
+          ),
+      ],
+    ];
+    return (top, second);
+  }
+
+  (List<_Chip>, List<_Chip>) _predictions(AppLocalizations l10n) {
+    final sel = polyShownSelection(ref);
+    final watchlist = ref.watch(polyWatchlistProvider);
+    final pills = [
+      for (final p in PolyPill.values)
+        if (p != PolyPill.watchlist || watchlist.isNotEmpty) p,
+    ];
+    final fiveMinute = sel.pill == PolyPill.crypto &&
+        sel.subOf(PolyPill.crypto) == _kFiveMinuteSub.key;
+    _Chip pill(PolyPill p, {bool? selected}) => (
+          key: ValueKey('category-chip-${p.key}'),
+          label: p == PolyPill.watchlist
+              ? l10n.polyPillWatchlist
+              : polyPillLabel(l10n, p),
+          selected: selected ?? sel.pill == p,
+          onTap: () =>
+              _tap((c) => _writePoly(c, p, PolySub(p.defaultSub))),
+        );
+    final top = <_Chip>[
+      pill(PolyPill.trending,
+          selected: sel.pill == PolyPill.trending &&
+              sel.subOf(PolyPill.trending) == PolyPill.trending.defaultSub),
+      if (pills.contains(PolyPill.crypto))
+        (
+          key: const ValueKey('category-chip-five-minute'),
+          label: l10n.categoryFiveMinuteMarkets,
+          selected: fiveMinute,
+          onTap: () => _tap((c) => _writePoly(
+              c, PolyPill.crypto, _kFiveMinuteSub,
+              surface: 'five_minute_card', also: _fiveMinuteWindow)),
+        ),
+      if (pills.contains(PolyPill.watchlist)) pill(PolyPill.watchlist),
+      for (final p in pills)
+        if (p != PolyPill.trending && p != PolyPill.watchlist)
+          pill(p,
+              selected: sel.pill == p && !(p == PolyPill.crypto && fiveMinute)),
+      for (final s in _polySubs(PolyPill.trending))
+        if (s.key != PolyPill.trending.defaultSub)
+          (
+            key: ValueKey('category-chip-${s.key}'),
+            label: polySubLabel(l10n, s),
+            selected:
+                sel.pill == PolyPill.trending && sel.sub == s.key,
+            onTap: () => _tap((c) => _writePoly(c, PolyPill.trending, s)),
+          ),
+    ];
+    final p = sel.pill;
+    final subs = p == PolyPill.trending || p == PolyPill.watchlist
+        ? const <PolySub>[]
+        : _polySubs(p);
+    final second = <_Chip>[
+      for (final s in subs)
+        (
+          key: ValueKey('category-chip-sub-${s.key}'),
+          label: s.key == p.defaultSub
+              ? l10n.categoryAllOf(polyPillLabel(l10n, p))
+              : polySubLabel(l10n, s),
+          selected: sel.subOf(p) == s.key,
+          onTap: () => _tap((c) => _writePoly(c, p, s)),
+        ),
+    ];
+    return (top, second);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (investmentsBrowseWithheld(
+            ref.watch(runtimeCapabilitiesProvider), widget.tab) !=
+        null) {
+      return const SizedBox.shrink();
+    }
+    final (top, second) = switch (widget.tab) {
+      InvestmentsTab.investing => _investing(l10n),
+      InvestmentsTab.predictions => _predictions(l10n),
+      _ => (const <_Chip>[], const <_Chip>[]),
+    };
+    if (top.isEmpty) return const SizedBox.shrink();
+    return Column(
+      key: ValueKey('category-chips-${widget.tab.key}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ChipRow(chips: top),
+        if (second.isNotEmpty) _ChipRow(chips: second),
+      ],
+    );
+  }
+}
+
+/// One sideways row of chips: the wheel and the trackpad scroll it, its
+/// edges fade while there is more that way.
+class _ChipRow extends StatefulWidget {
+  const _ChipRow({required this.chips});
+
+  final List<_Chip> chips;
+
+  @override
+  State<_ChipRow> createState() => _ChipRowState();
+}
+
+class _ChipRowState extends State<_ChipRow> {
+  final _controller = ScrollController();
+  bool _before = false;
+  bool _after = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_edges);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _edges() {
+    if (!_controller.hasClients) return;
+    final p = _controller.position;
+    final before = p.pixels > 1;
+    final after = p.pixels < p.maxScrollExtent - 1;
+    if (before != _before || after != _after) {
+      setState(() {
+        _before = before;
+        _after = after;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _edges();
+    });
+    final row = Listener(
+      // A mouse wheel's vertical turn scrolls the row sideways.
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent || !_controller.hasClients) return;
+        final delta = event.scrollDelta.dy != 0
+            ? event.scrollDelta.dy
+            : event.scrollDelta.dx;
+        final p = _controller.position;
+        _controller
+            .jumpTo((p.pixels + delta).clamp(0.0, p.maxScrollExtent));
+      },
+      child: SizedBox(
+        height: kutePillRowHeight(),
+        child: ListView.separated(
+          controller: _controller,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          itemCount: widget.chips.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (context, i) {
+            final chip = widget.chips[i];
+            return Center(
+              child: KutePill(
+                key: chip.key,
+                label: chip.label,
+                selected: chip.selected,
+                onTap: chip.onTap,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    if (!_before && !_after) return row;
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (rect) => LinearGradient(
+        colors: [
+          _before ? Colors.transparent : Colors.black,
+          Colors.black,
+          Colors.black,
+          _after ? Colors.transparent : Colors.black,
+        ],
+        stops: const [0, 0.06, 0.94, 1],
+      ).createShader(rect),
+      child: row,
     );
   }
 }

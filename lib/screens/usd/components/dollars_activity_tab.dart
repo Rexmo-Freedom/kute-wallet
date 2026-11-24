@@ -435,10 +435,11 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
 ///
-/// [inPane]: the Dollars page's right pane on EXPANDED, under Investing
+/// [inPane]: the Dollars page's right column on EXPANDED, under Investing
 /// and Predictions (usd_account_screen.dart): the same blocks as a plain
 /// column, no scroll of its own and no room for the dock under it (the
-/// pane holds both).
+/// pane holds both). It tells [onHeld] whether it holds anything (open
+/// positions, or their loading): with nothing, the page draws no column.
 ///
 /// [wide]: the Overview pill on EXPANDED, the left pane (founder, 24 and
 /// 25 November 2026: "Overview is open positions"; round two's grid): the
@@ -447,10 +448,14 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
 /// by two as on a phone, the Open profits card across the grid under them;
 /// nothing open, the phone's Sal centred in the pane close under the pills.
 class DollarsActivityTab extends ConsumerStatefulWidget {
-  const DollarsActivityTab({super.key, this.inPane = false, this.wide = false});
+  const DollarsActivityTab(
+      {super.key, this.inPane = false, this.wide = false, this.onHeld});
 
   final bool inPane;
   final bool wide;
+
+  /// [inPane] only: whether the column holds anything, after each change.
+  final ValueChanged<bool>? onHeld;
 
   /// The Open profits line's height on the [wide] pane, design units.
   static const double widePlotHeight = 180;
@@ -464,6 +469,9 @@ class DollarsActivityTab extends ConsumerStatefulWidget {
 }
 
 class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
+  /// What [DollarsActivityTab.onHeld] was last told.
+  bool? _toldHeld;
+
   /// Rebuilds the tab when the next hold ends ([dollarsNextHoldEnd]).
   Timer? _holdTimer;
   DateTime? _holdTimerAt;
@@ -750,6 +758,14 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     }
 
     if (widget.inPane) {
+      final onHeld = widget.onHeld;
+      if (onHeld != null && _toldHeld != held) {
+        _toldHeld = held;
+        // After the frame: the page rebuilds on it.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) onHeld(held);
+        });
+      }
       return Column(
         key: const ValueKey('dollars-activity-pane'),
         mainAxisSize: MainAxisSize.min,

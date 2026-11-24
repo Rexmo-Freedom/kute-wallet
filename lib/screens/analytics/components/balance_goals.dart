@@ -529,7 +529,9 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
     return KuteBarContextScope(
       // Held only while this tab is on screen (the shell parks the other
       // tab's branch with its tickers off), as the Dollars home's.
-      active: shareLevel != null && TickerMode.valuesOf(context).enabled,
+      active: shareLevel != null &&
+          TickerMode.valuesOf(context).enabled &&
+          !BalanceGoalsNoBar.on(context),
       barContext: KuteBarContext.primary(
         label: context.l10n.balanceGoalShareMyLevel,
         onPrimary: shareLevel,
@@ -544,6 +546,22 @@ class _BalanceGoalsState extends ConsumerState<BalanceGoals> {
       ),
     );
   }
+}
+
+/// The goals drawn beside the activity on a desktop (the Bitcoin home's
+/// right column, bitcoin_home_panes.dart): always on screen there, so they
+/// never take the floating bar ("Share my level"), which stays the search
+/// pill (founder: the search at the bottom always). The Level square's
+/// ladder is the way to the level there.
+class BalanceGoalsNoBar extends InheritedWidget {
+  const BalanceGoalsNoBar({super.key, required super.child});
+
+  static bool on(BuildContext context) =>
+      context.getElementForInheritedWidgetOfExactType<BalanceGoalsNoBar>() !=
+      null;
+
+  @override
+  bool updateShouldNotify(BalanceGoalsNoBar old) => false;
 }
 
 /// The Next goal square's move: its line ("Move $25 to Dollars") and its
