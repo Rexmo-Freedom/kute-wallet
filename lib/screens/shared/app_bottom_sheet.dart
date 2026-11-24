@@ -11,6 +11,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/web_image.dart' show WebPanelCover;
 
 /// EVERY modal bottom sheet in the app opens through this (founder, 31
 /// October 2026): Flutter's [showModalBottomSheet] with the same
@@ -57,9 +58,12 @@ Future<T?> showKuteModalSheet<T>({
   }
   return showModalBottomSheet<T>(
     context: context,
+    // The web: the page's `<img>` pictures under the sheet step aside
+    // (WebPanels, platform/web_image.dart); off the web the wrapper is
+    // its child.
     builder: kuteWindowIsWide(context)
-        ? (ctx) => KuteSheetMedia(child: builder(ctx))
-        : builder,
+        ? (ctx) => WebPanelCover(child: KuteSheetMedia(child: builder(ctx)))
+        : (ctx) => WebPanelCover(child: builder(ctx)),
     constraints: kuteSheetConstraints(context),
     backgroundColor: backgroundColor,
     barrierColor: barrierColor,

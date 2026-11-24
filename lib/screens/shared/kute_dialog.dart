@@ -47,6 +47,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/platform/web_image.dart' show WebPanelCover;
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteBarPrimaryButton, openKuteBarSheet;
@@ -296,7 +297,10 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
     );
 
     final decoration = kutePanelDecoration(context);
-    final surface = Container(
+    // The web: the page's `<img>` pictures under this panel step aside
+    // (WebPanels, platform/web_image.dart).
+    final surface = WebPanelCover(
+        child: Container(
       key: const ValueKey('kute-dialog-card'),
       width: width,
       height: height,
@@ -325,7 +329,7 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
             ),
         ],
       ),
-    );
+    ));
     // Under Reduce Motion it changes height at once (an AnimatedSize of no
     // duration re-dirties itself in its own layout).
     final panel = KuteMotion.reduce(context)
@@ -426,7 +430,7 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
     final route = widget.route;
     final animation = route is TransitionRoute ? route.animation : null;
     final Widget moving = animation == null || KuteMotion.reduce(context)
-        ? panel
+        ? WebPanelCover(child: panel)
         : SlideTransition(
             position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
                 .animate(_slide ??= CurvedAnimation(
@@ -434,7 +438,8 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
               curve: KuteMotion.settle,
               reverseCurve: KuteMotion.sheetOut,
             )),
-            child: panel,
+            // The web: the page's pictures under it step aside.
+            child: WebPanelCover(child: panel),
           );
 
     return Focus(

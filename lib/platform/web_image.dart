@@ -157,6 +157,123 @@ abstract final class WebCovers {
   }
 }
 
+/// The panels that stand over a page still in view (a laptop's centred
+/// panel and side panel, a short sheet on a narrower window), web only.
+///
+/// Why: the same canvas limit as [WebCovers], but here the page under the
+/// panel stays in view around it, so its images cannot all step aside.
+/// Founder, 24 November 2026, of a bet slip opened from a Predictions card
+/// on a laptop, a portrait and two team logos from the page drawn over the
+/// slip's buttons and keypad: "this is wrong and broken". So an image
+/// steps aside (its placeholder) only while its own rectangle is under a
+/// panel's; the rest of the dimmed page keeps its pictures. An image
+/// inside a panel yields only to a panel opened after its own.
+abstract final class WebPanels {
+  static final List<WebPanelCoverState> _order = <WebPanelCoverState>[];
+  static final Map<WebPanelCoverState, Rect> _rects =
+      <WebPanelCoverState, Rect>{};
+
+  static bool get isEmpty => _rects.isEmpty;
+
+  static void _set(WebPanelCoverState panel, Rect rect) {
+    final was = _rects[panel];
+    if (was != null &&
+        (was.left - rect.left).abs() < 1 &&
+        (was.top - rect.top).abs() < 1 &&
+        (was.right - rect.right).abs() < 1 &&
+        (was.bottom - rect.bottom).abs() < 1) {
+      return;
+    }
+    if (was == null) _order.add(panel);
+    _rects[panel] = rect;
+    WebCovers.changes.value++;
+  }
+
+  static void _remove(WebPanelCoverState panel) {
+    _order.remove(panel);
+    if (_rects.remove(panel) != null) WebCovers.changes.value++;
+  }
+
+  /// Whether a panel stands over [image] (global coordinates). [inside]:
+  /// the panel the image itself is drawn in, if any.
+  static bool hides(Rect image, {WebPanelCoverState? inside}) {
+    final from = inside == null ? 0 : _order.indexOf(inside) + 1;
+    for (var i = from; i < _order.length; i++) {
+      final rect = _rects[_order[i]];
+      if (rect != null && rect.overlaps(image)) return true;
+    }
+    return false;
+  }
+
+  @visibleForTesting
+  static void debugReset() {
+    _order.clear();
+    _rects.clear();
+  }
+}
+
+/// Wraps the surface of a panel that stands over a page still in view
+/// (see [WebPanels]). Off the web it is its [child] and nothing else.
+class WebPanelCover extends StatefulWidget {
+  const WebPanelCover({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<WebPanelCover> createState() => WebPanelCoverState();
+}
+
+class WebPanelCoverState extends State<WebPanelCover> {
+  Animation<double>? _animation;
+  Rect? _rect;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!kIsWeb) return;
+    final animation = ModalRoute.of(context)?.animation;
+    if (!identical(animation, _animation)) {
+      _animation?.removeListener(_measure);
+      _animation = animation?..addListener(_measure);
+    }
+  }
+
+  @override
+  void dispose() {
+    _animation?.removeListener(_measure);
+    if (kIsWeb) WebPanels._remove(this);
+    super.dispose();
+  }
+
+  /// Where the panel is now. While it comes in (a side panel slides, a
+  /// sheet rises) the rectangle only grows, so nothing shows through the
+  /// way; once it is up, it is the panel's own.
+  void _measure() {
+    if (!mounted) return;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return;
+    final now = box.localToGlobal(Offset.zero) & box.size;
+    final moving = _animation != null &&
+        _animation!.status != AnimationStatus.completed;
+    final rect = moving && _rect != null ? _rect!.expandToInclude(now) : now;
+    _rect = rect;
+    WebPanels._set(this, rect);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kIsWeb) return widget.child;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(child: widget.child),
+    );
+  }
+}
+
 /// Below this widget, [WebNetworkImage] draws its error widget instead of an
 /// `<img>`: a subtree that is captured to pixels (a share card's
 /// RepaintBoundary.toImage) cannot hold a platform view, and its stand-in is
@@ -206,7 +323,12 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) WebCovers.changes.addListener(_coversChanged);
+    if (kIsWeb) {
+      WebCovers.changes.addListener(_coversChanged);
+      // An image that appears while a panel is already up (a list that
+      // loads under it).
+      if (!WebPanels.isEmpty) _checkPanels();
+    }
     _start();
   }
 
@@ -217,7 +339,35 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
   }
 
   void _coversChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _checkPanels();
+  }
+
+  /// Under a panel's rectangle (see [WebPanels]): measured after layout,
+  /// as it needs this image's own place on the screen.
+  bool _underPanel = false;
+
+  void _checkPanels() {
+    if (WebPanels.isEmpty) {
+      if (_underPanel) setState(() => _underPanel = false);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      var under = false;
+      final box = context.findRenderObject();
+      if (!WebPanels.isEmpty &&
+          box is RenderBox &&
+          box.attached &&
+          box.hasSize) {
+        under = WebPanels.hides(
+          box.localToGlobal(Offset.zero) & box.size,
+          inside: context.findAncestorStateOfType<WebPanelCoverState>(),
+        );
+      }
+      if (under != _underPanel) setState(() => _underPanel = under);
+    });
   }
 
   @override
@@ -252,7 +402,7 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
     final ok = _ok;
     if (ok == null) return placeholder;
     if (!ok) return error;
-    if (WebCovers.covers(context)) return placeholder;
+    if (_underPanel || WebCovers.covers(context)) return placeholder;
     Widget image = SizedBox(
       width: widget.width,
       height: widget.height,
