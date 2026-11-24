@@ -42,7 +42,6 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
 import 'package:kute/screens/settings/wallets_screen.dart';
 
 import 'package:flutter/material.dart';
-import 'package:kute/platform/kute_layout.dart' show KuteLayout;
 import 'package:kute/platform/kute_wide_frames.dart';
 
 import 'package:posthog_flutter/posthog_flutter.dart';
@@ -103,18 +102,22 @@ class AppRouter {
   /// pushed page in the app (kute_page_route.dart; the numbers in
   /// lib/theme/kute_motion.dart).
   ///
-  /// [form]: a form or a flow (onboarding, PIN, seed words, settings, add
-  /// wallet, import, a coming-soon page), a centred
-  /// [KuteLayout.columnMaxWidth] column on the app's background from
-  /// MEDIUM up ([KuteFormColumn]); a phone sees no difference. A page
-  /// with a wide layout of its own (Portfolio, Search) passes false.
+  /// [wide]: how the page sits on EXPANDED, named per route (round
+  /// three, founder 25 November 2026: "it must be all occupying full
+  /// screen when we can"; kute_page_route.dart, [KutePageFrame]):
+  /// [KuteWideMode.full] spans the window and lays itself out,
+  /// [KuteWideMode.split] is the onboarding split screen,
+  /// [KuteWideMode.column] the centred column still (a short page with
+  /// nothing to put side by side), [KuteWideMode.own] a page with panes
+  /// of its own from MEDIUM up (Portfolio, Search). MEDIUM is the
+  /// centred column but for `own`; a phone sees no difference.
   static CustomTransitionPage<void> _buildFadeScalePage({
     required Widget child,
     required GoRouterState state,
+    required KuteWideMode wide,
     Duration duration = KuteMotion.settleDuration,
-    bool form = true,
   }) {
-    if (form) child = KuteFormColumn(child: child);
+    child = KutePageFrame(mode: wide, child: child);
     return CustomTransitionPage<void>(
       key: state.pageKey,
       // Carry the GoRoute's name onto the page so NavigatorObservers
@@ -125,10 +128,21 @@ class AppRouter {
       child: child,
       transitionDuration: duration,
       reverseTransitionDuration: duration,
+      // A split screen's steps share their brand half: a fade, no scale,
+      // so the brand never seems to move between them.
       transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-          kutePageTransition(context, animation, child),
+          kutePageTransition(context, animation, child,
+              scale: wide != KuteWideMode.split),
     );
   }
+
+  /// A Settings sub-page opened from Settings
+  /// ([kuteSettingsDetailExtra]): on EXPANDED the detail beside Settings
+  /// as the section list ([KuteMasterDetail]); else the page as it is.
+  static Widget _settingsDetail(GoRouterState state, Widget page) =>
+      state.extra == kuteSettingsDetailExtra
+          ? KuteMasterDetail(master: const Settings(), detail: page)
+          : page;
 
   // ── deep_link_opened bookkeeping (analytics only) ──
   // First router creation ≈ process start (RestartWidget rebuilds keep it).
@@ -299,6 +313,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const Splash(),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -310,6 +325,7 @@ class AppRouter {
               challenge: ShareLinkClaims.challengeFromLink(state.uri),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -318,6 +334,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const Start(),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -330,6 +347,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const PostHogMaskWidget(child: SeedWords()),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -338,6 +356,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const OpenPin(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -346,6 +365,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const ConfirmPin(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -356,6 +376,7 @@ class AppRouter {
             return _buildFadeScalePage(
               child: PasskeyChoice(nextRoute: next),
               state: state,
+              wide: KuteWideMode.split,
             );
           },
         ),
@@ -365,6 +386,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const BetaSurveyScreen(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -373,6 +395,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const ReferrerCodeScreen(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -381,6 +404,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const ShareCodeScreen(),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -394,6 +418,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const SetPin(),
             state: state,
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(
@@ -408,6 +433,7 @@ class AppRouter {
             return _buildFadeScalePage(
               child: Settings(initialActionKey: extra),
               state: state,
+              wide: KuteWideMode.full,
             );
           },
         ),
@@ -497,6 +523,7 @@ class AppRouter {
                                 walletId: extras['walletId'] as String?,
                               ),
                               state: state,
+                              wide: KuteWideMode.full,
                             );
                           },
                         ),
@@ -572,6 +599,7 @@ class AppRouter {
                       pageBuilder: (context, state) => _buildFadeScalePage(
                         child: const AddWallet(),
                         state: state,
+                        wide: KuteWideMode.full,
                       ),
                     ),
                     GoRoute(
@@ -579,21 +607,24 @@ class AppRouter {
                       name: 'importXpub',
                       parentNavigatorKey: _rootNavigatorKey,
                       builder: (context, state) =>
-                          const KuteFormColumn(child: XPubImportScreen()),
+                          const KutePageFrame(
+                              mode: KuteWideMode.full, child: XPubImportScreen()),
                     ),
                     GoRoute(
                       path: '/import-external-address',
                       name: 'importExternalAddress',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => const KuteFormColumn(
+                      builder: (context, state) => const KutePageFrame(
+                          mode: KuteWideMode.full,
                           child: ExternalAddressImportScreen()),
                     ),
                     GoRoute(
                       path: '/wallet/:walletId',
                       name: 'walletDetail',
                       parentNavigatorKey: _rootNavigatorKey,
-                      // A phone column from MEDIUM up, never stretched.
-                      builder: (context, state) => KuteFormColumn(
+                      // A phone column on MEDIUM, the window on EXPANDED.
+                      builder: (context, state) => KutePageFrame(
+                        mode: KuteWideMode.full,
                         child: WalletDetailScreen(
                           walletId: state.pathParameters['walletId']!,
                           // Opened from a pending Ledger settlement in
@@ -610,7 +641,8 @@ class AppRouter {
                       path: '/ledger/:walletId/investing-setup',
                       name: 'ledgerInvestingSetup',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => KuteFormColumn(
+                      builder: (context, state) => KutePageFrame(
+                        mode: KuteWideMode.full,
                         child: LedgerInvestingSetupScreen(
                           walletId: state.pathParameters['walletId']!,
                           fromImport:
@@ -637,6 +669,7 @@ class AppRouter {
                       pageBuilder: (context, state) => _buildFadeScalePage(
                         child: const Settings(),
                         state: state,
+                        wide: KuteWideMode.full,
                       ),
                     ),
                   ],
@@ -766,8 +799,9 @@ class AppRouter {
         GoRoute(
           path: '/affiliate',
           pageBuilder: (context, state) => _buildFadeScalePage(
-            child: const AffiliateScreen(),
+            child: _settingsDetail(state, const AffiliateScreen()),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         // The Portfolio, its own screen over the shell (founder, 31 October
@@ -780,7 +814,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const PortfolioScreen(),
             state: state,
-            form: false,
+            wide: KuteWideMode.own,
           ),
         ),
         // The '/earn' route is gone: the Flashnet USDB Earn product was
@@ -796,6 +830,7 @@ class AppRouter {
               color: Color(0xFF9D4EDD),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -809,6 +844,7 @@ class AppRouter {
               color: Color(0xFF3266CC),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -822,6 +858,7 @@ class AppRouter {
               color: Color(0xFF3266CC),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -835,6 +872,7 @@ class AppRouter {
               color: Color(0xFFEF4444),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -848,6 +886,7 @@ class AppRouter {
               color: Color(0xFFFF6B00),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -861,6 +900,7 @@ class AppRouter {
               color: Color(0xFF8B5CF6),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -869,6 +909,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const RecoverChoiceScreen(),
             state: state,
+            wide: KuteWideMode.split,
           ),
           routes: [
             GoRoute(
@@ -878,6 +919,7 @@ class AppRouter {
               pageBuilder: (context, state) => _buildFadeScalePage(
                 child: const PostHogMaskWidget(child: RecoverWallet()),
                 state: state,
+                wide: KuteWideMode.full,
               ),
             ),
           ],
@@ -888,7 +930,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const SearchModal(),
             state: state,
-            form: false,
+            wide: KuteWideMode.own,
           ),
         ),
         GoRoute(
@@ -903,6 +945,7 @@ class AppRouter {
             child: PostHogMaskWidget(
                 child: BackupWallet(walletId: state.extra as String?)),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -918,6 +961,7 @@ class AppRouter {
               ),
             ),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
         GoRoute(
@@ -931,6 +975,7 @@ class AppRouter {
                       StorageBootState.storageUnavailable),
             ),
             state: state,
+            wide: KuteWideMode.column,
           ),
         ),
         GoRoute(
@@ -938,8 +983,10 @@ class AppRouter {
           name: 'wallets',
           // Masked: reveals recovery phrases and public keys.
           pageBuilder: (context, state) => _buildFadeScalePage(
-            child: const PostHogMaskWidget(child: WalletsScreen()),
+            child: _settingsDetail(
+                state, const PostHogMaskWidget(child: WalletsScreen())),
             state: state,
+            wide: KuteWideMode.full,
           ),
         ),
       ],

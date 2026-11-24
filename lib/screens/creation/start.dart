@@ -519,3 +519,169 @@ class _SparkPainter extends CustomPainter {
   bool shouldRepaint(covariant _SparkPainter old) =>
       old.entrance != entrance || old.twinkle != twinkle || old.color != color;
 }
+
+/// THE BRAND SIDE of a split screen on EXPANDED (round three, founder 25
+/// November 2026: "it must be all occupying full screen when we can";
+/// kute_split_screen.dart): the Start screen's own hero, Sal idling in his
+/// spark burst over the tagline, on its breathing glow background across
+/// the whole half. No entrance (the steps after Start show it already
+/// composed, so moving between steps never replays it) and no haptics;
+/// the glow breathes and the sparks twinkle unless Reduce Motion is on.
+class StartBrandSide extends StatefulWidget {
+  const StartBrandSide({super.key});
+
+  @override
+  State<StartBrandSide> createState() => _StartBrandSideState();
+}
+
+class _StartBrandSideState extends State<StartBrandSide>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _breatheController = AnimationController(
+    duration: const Duration(seconds: 4),
+    vsync: this,
+  );
+  late final Animation<double> _breathe = CurvedAnimation(
+      parent: _breatheController, curve: Curves.easeInOut);
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduce) {
+      _breatheController.stop();
+      _started = false;
+    } else if (!_started) {
+      _started = true;
+      _breatheController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _breatheController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = !context.isDark;
+    final accent = c.accent;
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      final h = constraints.maxHeight;
+      // The Start screen's 220 burst, a little larger on a wide half.
+      final box = (w * 0.42).clamp(220.0, 320.0);
+      final scale = box / 220;
+      return AnimatedBuilder(
+        animation: _breathe,
+        builder: (context, _) {
+          final t = _breathe.value;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              DecoratedBox(
+                decoration: isLight
+                    ? BoxDecoration(color: c.background)
+                    : BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [c.gradientTop, c.gradientBottom],
+                        ),
+                      ),
+              ),
+              // The Start screen's two glows, sized to the half.
+              Positioned(
+                top: -h * 0.16 + (10 * sin(t * pi)),
+                right: -w * 0.12,
+                child: _glow(
+                  w * 0.85,
+                  accent.withValues(
+                      alpha: isLight ? 0.06 + 0.02 * t : 0.10 + 0.04 * t),
+                ),
+              ),
+              Positioned(
+                bottom: -h * 0.06 - (15 * sin(t * pi * 0.7)),
+                left: -w * 0.18,
+                child: _glow(
+                  w * 0.7,
+                  (isLight ? accent : c.surfaceLight)
+                      .withValues(alpha: isLight ? 0.04 : 0.12 + 0.04 * t),
+                ),
+              ),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: box,
+                        height: box,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CustomPaint(
+                              size: Size(box, box),
+                              painter: _SparkPainter(
+                                entrance: 1,
+                                twinkle: _breatheController.value,
+                                color: accent,
+                              ),
+                            ),
+                            SalSprite(
+                              clip: 'body_idle',
+                              size: 160 * scale,
+                              fallback: KuteDogIdle(size: 160 * scale),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 40 * min(scale, 1.3),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1.6,
+                            height: 1.05,
+                            fontFamily: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.fontFamily,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: context.l10n.startTaglineLead,
+                              style: TextStyle(color: c.textPrimary),
+                            ),
+                            TextSpan(
+                              text: context.l10n.startTaglineAccent,
+                              style: TextStyle(color: accent),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
+  Widget _glow(double size, Color color) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [color, Colors.transparent]),
+        ),
+      );
+}

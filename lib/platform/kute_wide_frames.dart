@@ -353,7 +353,6 @@ Widget kutePanelTransition(Animation<double> curved, Widget child) =>
 bool kuteWindowIsExpanded(BuildContext context) =>
     KuteLayout.forWidth(kuteWindowWidth(context)) == KuteFormFactor.expanded;
 
-
 /// The floating bar's air under it from the window's bottom edge (founder,
 /// round two: "the button in the end give it more space"): 32 on
 /// EXPANDED, 24 on MEDIUM, the phone's 2 on a phone. [width] is the
@@ -380,6 +379,13 @@ double kutePlatformWindowWidth() {
 /// How many sheet panels (kute_dialog.dart) are up: the floating
 /// bar stays away while any is, their primary is drawn inside them.
 final ValueNotifier<int> kuteDialogsOpen = ValueNotifier<int>(0);
+
+/// The routes whose bar contexts a page draws IN PLACE on EXPANDED
+/// (KuteInPlaceBar, kute_dialog.dart: a split screen's form half): while
+/// one of them is on top the floating bar stays away, as it does for a
+/// panel.
+final ValueNotifier<Set<Route<dynamic>>> kuteInPlaceRoutes =
+    ValueNotifier<Set<Route<dynamic>>>(<Route<dynamic>>{});
 
 /// Marks a subtree as the content of a sheet drawn as a panel on
 /// EXPANDED (kute_dialog.dart). Inside it a sheet draws no drag handle,
@@ -463,3 +469,375 @@ class _KuteDialogCloseMarkState extends State<KuteDialogCloseMark> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
+
+// ── Round three: pages that use the window (founder, 25 November 2026) ──
+//
+// Of Settings on a laptop, a 560 column in the middle of a wide empty
+// window: "lots of screens are vertical only. It must be all occupying
+// full screen when we can." Round one's rule (every pushed page a centred
+// [KuteFormColumn]) holds on MEDIUM only. On EXPANDED a page spans the
+// window: page gutters of [kuteWideGutter], at most
+// [KuteLayout.pageMaxWidth] for a reading page, its content arranged in
+// COLUMNS ([KuteColumns]) and GRIDS ([KuteGrid], [SliverKuteGrid]) of the
+// existing cards and rows, so no row, card or button is stretched and no
+// half of the window is empty. A rows card stays about 360-560 wide, prose
+// at most about 720. One scroll per page unless it is a real master /
+// detail. The back button and the title sit on the page's left gutter.
+//
+// Every pushed page names how it sits on EXPANDED ([KuteWideMode]); the
+// router and the page routes frame it (kute_page_route.dart,
+// kutePageFrame). MEDIUM keeps the centred column, a phone is untouched.
+
+/// How a pushed page sits on an EXPANDED window (MEDIUM is always the
+/// centred [KuteFormColumn], a phone the page as it is).
+enum KuteWideMode {
+  /// The centred [KuteLayout.columnMaxWidth] column on EXPANDED too: a
+  /// page with nothing to put side by side.
+  column,
+
+  /// The page spans the window and lays itself out ([KuteWidePage],
+  /// [kuteWidePadding], [KuteColumns], [KuteGrid]).
+  full,
+
+  /// A split screen (kute_split_screen.dart): the brand on the left half,
+  /// the step's form at phone width on the right, its primary button
+  /// under it.
+  split,
+
+  /// The shared panel (kute_dialog.dart) over the dimmed page: a page
+  /// that is truly short.
+  panel,
+
+  /// The page lays itself out from MEDIUM up (its own panes: a market,
+  /// the Portfolio, the search).
+  own,
+}
+
+/// A full page's side gutter on EXPANDED.
+const double kuteWideGutter = 32;
+
+/// The least width of a column of rows or cards on EXPANDED: three
+/// columns from a window of about 1200, two under it.
+const double kuteWideColumnMin = 360;
+
+/// A column's widest for a rows card: past it a row reads stretched.
+const double kuteWideColumnMax = 560;
+
+/// The gap between columns and between the cards of a grid on EXPANDED.
+const double kuteWideGap = 24;
+
+/// Whether [context]'s width (a pane's narrowed MediaQuery included) is
+/// EXPANDED: a full page lays itself out by this.
+bool kuteIsExpanded(BuildContext context) =>
+    KuteLayout.forWidth(MediaQuery.sizeOf(context).width) ==
+    KuteFormFactor.expanded;
+
+/// The horizontal padding that centres a full page's content at
+/// [maxWidth] with at least [kuteWideGutter] at its sides, for a scroll
+/// view's own padding (the whole window scrolls, the content stays in the
+/// page). [width] is the page's width.
+EdgeInsets kuteWidePaddingFor(double width,
+    {double maxWidth = KuteLayout.pageMaxWidth}) {
+  final side = math.max(kuteWideGutter, (width - maxWidth) / 2);
+  return EdgeInsets.symmetric(horizontal: side);
+}
+
+/// [kuteWidePaddingFor] for [context]'s width.
+EdgeInsets kuteWidePadding(BuildContext context,
+        {double maxWidth = KuteLayout.pageMaxWidth}) =>
+    kuteWidePaddingFor(MediaQuery.sizeOf(context).width, maxWidth: maxWidth);
+
+/// A full page's content on EXPANDED: centred at [maxWidth] inside the
+/// page gutters ([kuteWidePadding]). Elsewhere [child] as it is.
+class KuteWidePage extends StatelessWidget {
+  const KuteWidePage({
+    super.key,
+    required this.child,
+    this.maxWidth = KuteLayout.pageMaxWidth,
+  });
+
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kuteIsExpanded(context)) return child;
+    return Padding(
+      padding: kuteWidePadding(context, maxWidth: maxWidth),
+      child: child,
+    );
+  }
+}
+
+/// How many columns of at least [min] wide (with [gap] between) fit in
+/// [width], from 1 to [max].
+int kuteColumnsFor(double width,
+    {double min = kuteWideColumnMin, double gap = kuteWideGap, int max = 4}) {
+  if (!width.isFinite || width <= 0) return 1;
+  return ((width + gap) / (min + gap)).floor().clamp(1, math.max(1, max));
+}
+
+/// Sections side by side: [children] (each a section: its header and its
+/// grouped card, or any block) laid out in as many columns of at least
+/// [minColumnWidth] as the width takes, at most [maxColumns] and never
+/// more than there are children, filled in reading order across the
+/// columns (the first child top left, the second top of the next column,
+/// …). Each column's children stack with [spacing] between. One column:
+/// a plain stack, as on a phone.
+///
+/// [KuteColumns.fixed] puts the given [columns] side by side whatever the
+/// width (two panes of a detail page), at [flex] proportions.
+class KuteColumns extends StatelessWidget {
+  const KuteColumns({
+    super.key,
+    required this.children,
+    this.minColumnWidth = kuteWideColumnMin,
+    this.maxColumns = 3,
+    this.gap = kuteWideGap,
+    this.spacing = kuteWideGap,
+  })  : columns = null,
+        flex = null;
+
+  const KuteColumns.fixed({
+    super.key,
+    required List<Widget> this.columns,
+    this.flex,
+    this.gap = kuteWideGap,
+  })  : children = const [],
+        minColumnWidth = 0,
+        maxColumns = 0,
+        spacing = 0;
+
+  final List<Widget> children;
+  final double minColumnWidth;
+  final int maxColumns;
+  final double gap;
+  final double spacing;
+
+  /// The fixed columns ([KuteColumns.fixed]).
+  final List<Widget>? columns;
+
+  /// Their proportions; equal when null.
+  final List<int>? flex;
+
+  Widget _row(List<Widget> cols, List<int>? flex) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < cols.length; i++) ...[
+            if (i > 0) SizedBox(width: gap),
+            Expanded(flex: flex?[i] ?? 1, child: cols[i]),
+          ],
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final fixed = columns;
+    if (fixed != null) return _row(fixed, flex);
+    final items = [
+      for (final c in children)
+        if (c is! SizedBox || c.child != null) c
+    ];
+    return LayoutBuilder(builder: (context, constraints) {
+      final n = kuteColumnsFor(constraints.maxWidth,
+          min: minColumnWidth,
+          gap: gap,
+          max: math.min(maxColumns, math.max(1, items.length)));
+      Widget stack(List<Widget> list) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < list.length; i++) ...[
+                if (i > 0) SizedBox(height: spacing),
+                list[i],
+              ],
+            ],
+          );
+      if (n <= 1) return stack(items);
+      final cols = List.generate(n, (_) => <Widget>[]);
+      for (var i = 0; i < items.length; i++) {
+        cols[i % n].add(items[i]);
+      }
+      return _row([for (final c in cols) stack(c)], null);
+    });
+  }
+}
+
+/// A grid of the existing cards or rows: [children] in rows of as many
+/// columns of at least [minItemWidth] as the width takes (at most
+/// [maxColumns]), each cell the same width, [gap] between columns and
+/// [rowGap] between rows. [equalHeight]: the cells of a row stretch to the
+/// tallest (cards with a foot); else each sits at its own height, top
+/// aligned. A last row short of cells keeps the others' width (never one
+/// card stretched across). Not lazy: for a long list use
+/// [SliverKuteGrid].
+class KuteGrid extends StatelessWidget {
+  const KuteGrid({
+    super.key,
+    required this.children,
+    this.minItemWidth = kuteWideColumnMin,
+    this.maxColumns = 4,
+    this.gap = kuteWideGap,
+    this.rowGap = kuteWideGap,
+    this.equalHeight = false,
+  });
+
+  final List<Widget> children;
+  final double minItemWidth;
+  final int maxColumns;
+  final double gap;
+  final double rowGap;
+  final bool equalHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final n = kuteColumnsFor(constraints.maxWidth,
+          min: minItemWidth, gap: gap, max: maxColumns);
+      final rows = <Widget>[];
+      for (var i = 0; i < children.length; i += n) {
+        if (i > 0) rows.add(SizedBox(height: rowGap));
+        rows.add(kuteGridRow([
+          for (var j = i; j < math.min(i + n, children.length); j++) children[j]
+        ], columns: n, gap: gap, equalHeight: equalHeight));
+      }
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: rows,
+      );
+    });
+  }
+}
+
+/// One row of a [KuteGrid] / [SliverKuteGrid]: [cells] in [columns]
+/// equal slots (empty slots at the end of a short row).
+Widget kuteGridRow(List<Widget> cells,
+    {required int columns,
+    double gap = kuteWideGap,
+    bool equalHeight = false}) {
+  final row = Row(
+    crossAxisAlignment:
+        equalHeight ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+    children: [
+      for (var i = 0; i < columns; i++) ...[
+        if (i > 0) SizedBox(width: gap),
+        Expanded(child: i < cells.length ? cells[i] : const SizedBox.shrink()),
+      ],
+    ],
+  );
+  return equalHeight ? IntrinsicHeight(child: row) : row;
+}
+
+/// A long list as a grid, built lazily row by row: [itemCount] items from
+/// [itemBuilder] in rows of as many columns of at least [minItemWidth] as
+/// the sliver's width takes (at most [maxColumns]); see [KuteGrid].
+class SliverKuteGrid extends StatelessWidget {
+  const SliverKuteGrid({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.minItemWidth = kuteWideColumnMin,
+    this.maxColumns = 4,
+    this.gap = kuteWideGap,
+    this.rowGap = 12,
+    this.equalHeight = false,
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final double minItemWidth;
+  final int maxColumns;
+  final double gap;
+  final double rowGap;
+  final bool equalHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverLayoutBuilder(builder: (context, constraints) {
+      final n = kuteColumnsFor(constraints.crossAxisExtent,
+          min: minItemWidth, gap: gap, max: maxColumns);
+      final rows = (itemCount + n - 1) ~/ n;
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, r) {
+            final start = r * n;
+            return Padding(
+              padding: EdgeInsets.only(top: r == 0 ? 0 : rowGap),
+              child: kuteGridRow(
+                [
+                  for (var j = start; j < math.min(start + n, itemCount); j++)
+                    itemBuilder(context, j)
+                ],
+                columns: n,
+                gap: gap,
+                equalHeight: equalHeight,
+              ),
+            );
+          },
+          childCount: rows,
+        ),
+      );
+    });
+  }
+}
+
+/// The master column's width in a [KuteMasterDetail].
+const double kuteMasterWidth = 400;
+
+/// A real MASTER / DETAIL on EXPANDED (round three; Settings and the
+/// pages it opens): [master] in a [kuteMasterWidth] column on the left
+/// (the section list, laid out as on a phone), [detail] across the rest
+/// of the window, each scrolling on its own. The master's subtree is
+/// marked ([KuteMasterScope]) so it can open the next detail in place of
+/// this one. Off EXPANDED it is [detail] alone, as before.
+class KuteMasterDetail extends StatelessWidget {
+  const KuteMasterDetail({
+    super.key,
+    required this.master,
+    required this.detail,
+    this.masterWidth = kuteMasterWidth,
+  });
+
+  final Widget master;
+  final Widget detail;
+  final double masterWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kuteIsExpanded(context)) return detail;
+    final width = MediaQuery.sizeOf(context).width;
+    final rest = math.max(0.0, width - masterWidth);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: masterWidth,
+          child: KuteMasterScope(
+            child: kuteNarrowMedia(context, width: masterWidth, child: master),
+          ),
+        ),
+        Expanded(child: kuteNarrowMedia(context, width: rest, child: detail)),
+      ],
+    );
+  }
+}
+
+/// Marks the master column of a [KuteMasterDetail]: a page drawn there is
+/// the section list beside a detail, and opens its next detail in place
+/// of the one shown.
+class KuteMasterScope extends InheritedWidget {
+  const KuteMasterScope({super.key, required super.child});
+
+  static bool inMaster(BuildContext context) =>
+      context.getElementForInheritedWidgetOfExactType<KuteMasterScope>() !=
+      null;
+
+  @override
+  bool updateShouldNotify(KuteMasterScope oldWidget) => false;
+}
+
+/// The `extra` a Settings sub-page is pushed with when Settings opened it:
+/// on EXPANDED the router shows it as the detail beside Settings
+/// ([KuteMasterDetail], app_router.dart).
+const String kuteSettingsDetailExtra = 'kute.settings.detail';
