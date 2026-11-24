@@ -997,3 +997,41 @@ class KuteMasterScope extends InheritedWidget {
 /// on EXPANDED the router shows it as the detail beside Settings
 /// ([KuteMasterDetail], app_router.dart).
 const String kuteSettingsDetailExtra = 'kute.settings.detail';
+
+// ── The Dollars browse uses the window (founder, 24 November 2026) ──
+//
+// Of the Investing and Predictions browse on a wide laptop window: "maybe
+// for desktop make this look a bit better? occupy full screen?" On
+// EXPANDED the Dollars page spans the window, as the market pages do: no
+// [KuteLayout.pageMaxWidth] cap, the lists' edges on the desktop top
+// bar's gutter (its logo, the pills, the chips and the grid on one left
+// edge), and the grid's columns growing with the width
+// ([kuteBrowseColumnsFor]).
+
+/// The lists' own inset inside a browse pane (market_groups.dart's 16 at
+/// the list's sides).
+const double kuteBrowseListInset = 16;
+
+/// The Dollars page's side padding on EXPANDED: with the lists' own
+/// [kuteBrowseListInset] inside it, the content's edges sit on
+/// [kuteDeskGutter], the top bar's (KuteLayout.paneGap, the same 24).
+const double kuteBrowsePagePadding = kuteDeskGutter - kuteBrowseListInset;
+
+/// The narrowest list column of the browse grid on EXPANDED: an Investing
+/// row and a Predictions card read whole at it.
+const double kuteBrowseColumnMin = 300;
+
+/// The most columns the browse grid takes, however wide the window
+/// (each about 380 on a 2400 window).
+const int kuteBrowseColumnsMax = 6;
+
+/// How many list columns of the browse grid stand in a content [width]
+/// (the lists' insets already out) with [gap] between them: as many of
+/// at least [kuteBrowseColumnMin] as fit, from 1 to
+/// [kuteBrowseColumnsMax].
+int kuteBrowseColumnsFor(double width, {double gap = 16}) {
+  if (!width.isFinite || width <= 0) return 1;
+  return ((width + gap) / (kuteBrowseColumnMin + gap))
+      .floor()
+      .clamp(1, kuteBrowseColumnsMax);
+}

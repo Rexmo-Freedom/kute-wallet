@@ -203,7 +203,11 @@ import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/platform/kute_wide_frames.dart'
-    show KuteBarPane, kuteTopBarHeight;
+    show
+        KuteBarPane,
+        kuteBrowseListInset,
+        kuteBrowsePagePadding,
+        kuteTopBarHeight;
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
@@ -940,8 +944,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 /// ... check main fintech apps, and do what they do, like Polymarket").
 /// The balance and Buy dollars · Move · Receive · Send are the desktop top
 /// bar's (desktop_top_bar_money.dart), so the page is what you look at,
-/// centred at [KuteLayout.pageMaxWidth] with [KuteLayout.paneGap] at its
-/// sides:
+/// across the whole window (founder, 24 November 2026: "occupy full
+/// screen?"), its lists' edges on the top bar's gutter
+/// ([kuteBrowsePagePadding]):
 ///
 ///   * LEFT, the one scroll: the pill row at its top (Overview · Investing
 ///     · Predictions, their names alone), under Investing and Predictions
@@ -999,7 +1004,10 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
         // The phone's pill row, at a phone's width: never three pills
         // stretched across the pane.
         Padding(
-          padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 10.h),
+          // On the lists' edge (kuteBrowseListInset): the logo's, the
+          // chips' and the grid's left edge are one line.
+          padding: const EdgeInsets.fromLTRB(
+              kuteBrowseListInset, 8, kuteBrowseListInset, 10),
           child: Align(
             alignment: Alignment.centerLeft,
             child: ConstrainedBox(
@@ -1011,7 +1019,8 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
         ),
         if (widget.chips != null)
           Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 8.h),
+            padding: const EdgeInsets.fromLTRB(
+                kuteBrowseListInset, 0, kuteBrowseListInset, 8),
             child: widget.chips,
           ),
         const _InFlightLines(),
@@ -1052,42 +1061,34 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
       ],
     );
     return Padding(
-      // The desktop top bar's room, which the shell keeps.
-      padding: const EdgeInsets.only(top: kuteTopBarHeight),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints:
-              const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // The floating Sal bar sits under the browse
-                // (kute_wide_frames.dart, KuteBarPane).
-                Expanded(child: KuteBarPane(child: left)),
-                if (column) const SizedBox(width: KuteLayout.paneGap),
-                // Always mounted (its order timers run on, and it says
-                // whether it holds anything); drawn only as the column.
-                Offstage(
-                  offstage: !column,
-                  child: SizedBox(
-                    width: KuteLayout.paneWidth,
-                    child: _InvestmentsPositionsColumn(
-                      onHeld: (held) {
-                        if (mounted && held != _held) {
-                          setState(() => _held = held);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ],
+      // The desktop top bar's room, which the shell keeps; the whole
+      // window's width (founder, 24 November 2026: "occupy full screen?"),
+      // the lists' edges on the top bar's gutter ([kuteBrowsePagePadding]).
+      padding: const EdgeInsets.fromLTRB(kuteBrowsePagePadding,
+          kuteTopBarHeight, kuteBrowsePagePadding, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The floating Sal bar sits under the browse
+          // (kute_wide_frames.dart, KuteBarPane).
+          Expanded(child: KuteBarPane(child: left)),
+          if (column) const SizedBox(width: KuteLayout.paneGap),
+          // Always mounted (its order timers run on, and it says
+          // whether it holds anything); drawn only as the column.
+          Offstage(
+            offstage: !column,
+            child: SizedBox(
+              width: KuteLayout.paneWidth,
+              child: _InvestmentsPositionsColumn(
+                onHeld: (held) {
+                  if (mounted && held != _held) {
+                    setState(() => _held = held);
+                  }
+                },
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

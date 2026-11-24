@@ -1639,6 +1639,25 @@ class PolyOutcomeChanceBar extends StatelessWidget {
   }
 }
 
+/// [token]'s 7-day line as the list cards draw it ([_CardSpark]: the
+/// Yes line of a Yes/No card), ending on [live], in [color], [width] by
+/// [height] (design units; [double.infinity] for the room given). For the
+/// Top markets cards on a desktop (top_markets_strip.dart).
+Widget polyCardWeekLine(
+        {required String token,
+        required double live,
+        required Color color,
+        double width = double.infinity,
+        required double height}) =>
+    _CardSpark(
+      tokenId: token,
+      interval: '1w',
+      live: live,
+      color: color,
+      width: width,
+      height: height,
+    );
+
 /// A card's tiny chart: one token's line ([HlLineSparkline], the
 /// Investing cards' own) in [color], no fill and no baseline, ending on
 /// [live] (the figure the card shows), from [since] when given. Until the

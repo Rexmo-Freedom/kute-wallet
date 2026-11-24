@@ -71,6 +71,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_sparkline_provider.dart'
+    show hyperliquidSparklineProvider;
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlLineSparkline;
+import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
+    show hlSparklineWithLivePrice;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show HlBrowseSub, HlBrowseTab, hlMarketMatchesTab;
 import 'package:kute/screens/home/components/action_pill.dart'
@@ -596,6 +602,26 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
     final name =
         hlFriendlyName(m.underlyingTicker) ?? m.unitAssetName ?? m.coin;
 
+    final figures = <Widget>[
+      Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _nameStyle(context),
+      ),
+      SizedBox(height: 4.h),
+      // A price too wide for the square (BTC's) shrinks rather
+      // than overflow it.
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: RollingNumberText(
+          text: formatHlListPrice(price, decimalCap: m.pxDecimalCap),
+          style: _priceStyle(context),
+        ),
+      ),
+    ];
+
     final decoration = PremiumGroupContainer.decorationOf(context);
     final radius = decoration.borderRadius as BorderRadius?;
     return KutePressable(
@@ -653,25 +679,16 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _nameStyle(context),
-                  ),
-                  SizedBox(height: 4.h),
-                  // A price too wide for the square (BTC's) shrinks rather
-                  // than overflow it.
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: RollingNumberText(
-                      text: formatHlListPrice(price,
-                          decimalCap: m.pxDecimalCap),
-                      style: _priceStyle(context),
-                    ),
-                  ),
+                  if (KuteLayout.isExpanded(context))
+                    Expanded(
+                        child: _HlMoverWideFoot(
+                            market: m,
+                            price: price,
+                            figures: figures))
+                  else ...[
+                    const Spacer(),
+                    ...figures,
+                  ],
                 ],
               ),
             ),
@@ -679,5 +696,73 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
         ),
       ),
     );
+  }
+}
+
+/// THE SQUARE'S FOOT ON A DESKTOP (EXPANDED; founder, 24 November 2026:
+/// the squares "occupy full screen" and were mostly empty): the name over
+/// the price on the left as on a phone, and the market's line filling
+/// the rest of the square beside them, from under the logo row to the
+/// price's foot: the browse cards' own sparkline ([HlLineSparkline], the
+/// search rows' and the share cards' daily closes,
+/// [hyperliquidSparklineProvider]) ending on the live price, coloured by
+/// its own move. A square too narrow for both (under
+/// [_kWideFootLineMinWidth]), or a market whose series is not there, is
+/// the phone's foot: the name and the price at the bottom.
+class _HlMoverWideFoot extends ConsumerWidget {
+  const _HlMoverWideFoot({
+    required this.market,
+    required this.price,
+    required this.figures,
+  });
+
+  final HlMarket market;
+  final double price;
+
+  /// The name over the price, as the phone's square draws them.
+  final List<Widget> figures;
+
+  /// The least width the foot needs to give the line its half.
+  static const double _kWideFootLineMinWidth = 240;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: figures,
+    );
+    return LayoutBuilder(builder: (context, box) {
+      if (box.maxWidth < _kWideFootLineMinWidth) return text;
+      final series = ref.watch(hyperliquidSparklineProvider(market.wireCoin));
+      final closes = series == null
+          ? const <double>[]
+          : hlSparklineWithLivePrice(series.closes, price);
+      const gap = 16.0;
+      final textWidth = (box.maxWidth - gap) * 0.45;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(width: textWidth, child: text),
+          const SizedBox(width: gap),
+          Expanded(
+            child: Padding(
+              // Clear of the day's move over it, level with the price's
+              // foot under it.
+              padding: const EdgeInsets.only(top: 10, bottom: 2),
+              child: LayoutBuilder(
+                builder: (context, line) => HlLineSparkline(
+                  closes: closes,
+                  width: line.maxWidth,
+                  height: line.maxHeight,
+                  strokeWidth: 1.6,
+                  baseline: false,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 }

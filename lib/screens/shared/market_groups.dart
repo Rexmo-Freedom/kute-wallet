@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show kuteBrowseColumnsFor;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:kute/theme/app_theme.dart';
@@ -96,6 +97,10 @@ Widget _clipped(Widget row, {required bool first, required bool last}) {
 /// column, so the first markets stay along the top), its groups and its
 /// own cards as on a phone. No row is stretched across the pane. A phone
 /// is untouched: the slivers below, as they always were.
+///
+/// [fullRows], with [alignedGrid]: at most that many rows of the grid's
+/// columns are shown (a curated slice, the wide board's), so its rows
+/// fill the width evenly at any column count.
 List<Widget> marketGroupSlivers<T>(
   BuildContext context, {
   required List<T> items,
@@ -106,6 +111,7 @@ List<Widget> marketGroupSlivers<T>(
   double? gap,
   double minColumnWidth = kMarketGridMinColumn,
   bool alignedGrid = false,
+  int? fullRows,
 }) {
   List<Widget> column(List<T> items, EdgeInsets inset, {bool stagger = true}) =>
       _marketGroupColumnSlivers<T>(context,
@@ -126,12 +132,20 @@ List<Widget> marketGroupSlivers<T>(
           ? marketGridAlignedColumns(constraints.crossAxisExtent)
           : marketGridColumns(constraints.crossAxisExtent,
               minColumn: minColumnWidth);
-      if (count <= 1 || items.length < 2) {
+      // [fullRows] of the grid's columns at most, so a short list's rows
+      // fill the width evenly whatever the column count.
+      final rows = fullRows;
+      final shown = rows != null && alignedGrid && items.length > rows * count
+          ? items.sublist(0, rows * count)
+          : items;
+      // A single market on the page's grid keeps a column's width (never
+      // one row stretched across the window).
+      if (count <= 1 || (shown.length < 2 && !alignedGrid)) {
         return SliverMainAxisGroup(
-            slivers: column(items, EdgeInsets.symmetric(horizontal: 16.w)));
+            slivers: column(shown, EdgeInsets.symmetric(horizontal: 16.w)));
       }
       final dealt =
-          marketGridDeal(items, count, weight: (item) => groups(item) ? 1 : 3);
+          marketGridDeal(shown, count, weight: (item) => groups(item) ? 1 : 3);
       // Equal columns: the list's 16 at its sides, the gutter between.
       return SliverPadding(
         padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -183,11 +197,6 @@ int marketGridColumns(double width, {double minColumn = kMarketGridMinColumn}) {
   return fit < 1 ? 1 : (fit < byWidth ? fit : byWidth);
 }
 
-/// The narrowest list column of the Dollars page's grid on EXPANDED
-/// ([marketGridAlignedColumns]): an Investing row and a Predictions card
-/// (the narrowest phone's, 288) both read whole at it.
-const double kMarketGridAlignedMinColumn = 288;
-
 /// The narrowest square of the grid ([marketSquaresPerRow]): a phone's
 /// square (half the 430 design less its gutters, about 194), less a little.
 const double kMarketSquareMinWide = 190;
@@ -200,21 +209,14 @@ const double kMarketSquareMinWide = 190;
 ///   * the squares (Investing's movers, Predictions' top markets, the
 ///     Overview's positions) four in a row when four fit at
 ///     [kMarketSquareMinWide], else two by two ([marketSquaresPerRow]);
-///   * the lists in four columns when four hold
-///     [kMarketGridAlignedMinColumn], else two, else one
-///     ([marketGridAlignedColumns]): never three, so a list column always
-///     starts on a square's edge (four squares over two columns, two over
-///     two, two over one).
-int marketGridAlignedColumns(double width) {
-  final fit = ((width - 32 + kMarketGridGutter) /
-          (kMarketGridAlignedMinColumn + kMarketGridGutter))
-      .floor();
-  return fit >= 4
-      ? 4
-      : fit >= 2
-          ? 2
-          : 1;
-}
+///   * the lists in as many columns as stand at [kuteBrowseColumnsFor]'s
+///     least (300), up to six ([marketGridAlignedColumns]). Since the page
+///     uses the window (founder, 24 November 2026: "occupy full
+///     screen?"), five on a 1920 window and six on 2400 rather than four
+///     capped: the squares are a band of four across the same outer
+///     edges over them.
+int marketGridAlignedColumns(double width) =>
+    kuteBrowseColumnsFor(width - 32, gap: kMarketGridGutter);
 
 /// How many squares stand in a row of the grid ([marketGridAlignedColumns])
 /// in a content [width] (the list's 16 already out): four when each is at
