@@ -65,6 +65,27 @@ class KutePasswordField extends StatefulWidget {
 
 class _KutePasswordFieldState extends State<KutePasswordField> {
   bool _visible = false;
+  FocusNode? _own;
+  FocusNode get _focus => widget.focusNode ?? (_own ??= FocusNode());
+
+  @override
+  void initState() {
+    super.initState();
+    // Focus asked for outright, not only `autofocus`: above the Navigator
+    // (the lock overlay) the route's scope already holds focus, and
+    // `autofocus` gives way to it.
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.enabled) _focus.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _own?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +93,7 @@ class _KutePasswordFieldState extends State<KutePasswordField> {
     final field = AppTextField(
       key: const ValueKey('kute-password-field'),
       controller: widget.controller,
-      focusNode: widget.focusNode,
+      focusNode: _focus,
       hintText: PasswordCopy.hint,
       obscureText: !_visible,
       autofocus: widget.autofocus,

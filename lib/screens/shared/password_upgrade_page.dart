@@ -160,7 +160,7 @@ class _PasswordUpgradePageState extends State<PasswordUpgradePage>
             source: _confirming ? 'confirm_pin' : 'set_pin',
             onPrimary: _submit,
             disabledLabel:
-                _confirming ? PasswordCopy.typeAgain : PasswordCopy.rule,
+                _confirming ? PasswordCopy.typeAgain : PasswordCopy.needPassword,
           ),
           child: SizedBox(height: kuteBarScrollClearance.h),
         ),

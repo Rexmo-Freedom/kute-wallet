@@ -1772,7 +1772,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
               busy: _isLoading,
               source: 'change_pin',
               disabledLabel: password
-                  ? (_step == 1 ? PasswordCopy.rule : PasswordCopy.needPassword)
+                  ? (_step == 2 ? PasswordCopy.typeAgain : PasswordCopy.needPassword)
                   : context.l10n.barNeedPin,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),

@@ -170,7 +170,7 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
             source: 'set_pin',
             onPrimary: _next,
             disabledLabel:
-                _password ? PasswordCopy.rule : context.l10n.barNeedPin,
+                _password ? PasswordCopy.needPassword : context.l10n.barNeedPin,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),
