@@ -64,9 +64,18 @@
 //     message is the invite with the link, never an amount.
 //   * THE FIGURES: prices, percents and amounts in the locale's own number
 //     format ("41 %", "242,10 $" in German).
+//   * GETKUTE.COM AT THE END (founder, 24 November 2026: "when sharing
+//     predictions or wins or something, that is still allowed, but have a
+//     text that says like getkute.com to get in the action in the end, so
+//     users can download and use"): while the social send is off
+//     (config/feature_flags.dart), [withGetKuteLine] ends the text of a
+//     market, brag (a position, a win, the P&L, the portfolio), receipt or
+//     level share with "Get in on the action at getkute.com". Never on the
+//     referral code's own share, a claim link or an export.
 
 import 'package:intl/intl.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/screens/polymarket/components/poly_chart_tags.dart'
@@ -757,4 +766,16 @@ String shareCardMessage(
     if (headline != null) headline,
     message,
   ].join('\n');
+}
+
+/// [text] with the getkute.com line as its last line while the social send
+/// is off (see the file header); [text] as it is otherwise. An empty
+/// [text] is the line alone; the line is never added twice.
+String withGetKuteLine(AppLocalizations l10n, String text) {
+  if (socialSendEnabled) return text;
+  final line = l10n.shareGetKuteLine;
+  final t = text.trimRight();
+  if (t.isEmpty) return line;
+  if (t.endsWith(line)) return t;
+  return '$t\n$line';
 }

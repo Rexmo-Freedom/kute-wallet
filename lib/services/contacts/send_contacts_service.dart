@@ -19,14 +19,19 @@
 // address (`name@paykute.com`), that address: the list badges it as a
 // Kute user and a tap pays it directly. Both stay on the phone too. The platform is behind
 // [SendContactsGateway] so widget tests drive every state with a fake.
+//
+// THE SOCIAL SEND OFF (config/feature_flags.dart, [socialSendEnabled]):
+// the notifier never touches the gateway, so nothing reads the book or
+// asks the permission; the state stays "never asked", empty, and the
+// Send screens draw no contacts row. The library itself is out of the
+// build for now (NoPhoneContactsGateway), with the iOS and Android
+// contacts permissions.
 
 import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
-import 'package:flutter_contacts/flutter_contacts.dart' as fc;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/platform/platform_caps.dart';
 
 /// Where the person stands on the contacts permission.
 enum SendContactsPermission {
@@ -118,92 +123,16 @@ abstract class SendContactsGateway {
   Future<void> openSettings();
 }
 
-/// `flutter_contacts`.
-class FlutterContactsGateway implements SendContactsGateway {
-  const FlutterContactsGateway();
-
-  SendContactsPermission _map(fc.PermissionStatus s) => switch (s) {
-        fc.PermissionStatus.granted ||
-        fc.PermissionStatus.limited =>
-          SendContactsPermission.granted,
-        fc.PermissionStatus.denied => SendContactsPermission.denied,
-        fc.PermissionStatus.permanentlyDenied ||
-        fc.PermissionStatus.restricted =>
-          SendContactsPermission.blocked,
-        _ => SendContactsPermission.unknown,
-      };
-
-  @override
-  Future<SendContactsPermission> status() async {
-    try {
-      return _map(
-          await fc.FlutterContacts.permissions.check(fc.PermissionType.read));
-    } catch (_) {
-      return SendContactsPermission.unknown;
-    }
-  }
-
-  @override
-  Future<SendContactsPermission> request() async {
-    try {
-      return _map(
-          await fc.FlutterContacts.permissions.request(fc.PermissionType.read));
-    } catch (_) {
-      return SendContactsPermission.denied;
-    }
-  }
-
-  @override
-  Future<List<SendContact>> load() async {
-    final rows = await fc.FlutterContacts.getAll(
-      properties: {
-        fc.ContactProperty.name,
-        fc.ContactProperty.phone,
-        fc.ContactProperty.email,
-        fc.ContactProperty.photoThumbnail,
-      },
-    );
-    final out = <SendContact>[];
-    for (final c in rows) {
-      final id = c.id;
-      if (id == null || c.phones.isEmpty) continue;
-      final primary = c.phones.where((p) => p.isPrimary == true).firstOrNull;
-      final phone = (primary ?? c.phones.first).number.trim();
-      if (phone.isEmpty) continue;
-      final display = (c.displayName ?? '').trim();
-      final given = (c.name?.first ?? '').trim();
-      final name = display.isNotEmpty
-          ? display
-          : given.isNotEmpty
-              ? given
-              : phone;
-      final kute = c.emails
-          .map((e) => e.address.trim())
-          .where(isKuteLightningAddress)
-          .firstOrNull;
-      final thumb = c.photo?.thumbnail;
-      out.add(SendContact(
-        id: id,
-        displayName: name,
-        firstName: given.isNotEmpty ? given : name.split(' ').first,
-        phone: phone,
-        lightningAddress: kute,
-        photo: thumb != null && thumb.isNotEmpty ? thumb : null,
-      ));
-    }
-    out.sort((a, b) =>
-        a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
-    return out;
-  }
-
-  @override
-  Future<void> openSettings() => fc.FlutterContacts.permissions.openSettings();
-}
-
-/// No address book on this platform (web, Windows): never granted, no
-/// prompt, no contacts. The Send screens hide the contacts rows.
-class UnavailableContactsGateway implements SendContactsGateway {
-  const UnavailableContactsGateway();
+/// No phone contacts in this build (founder, 24 November 2026: the
+/// contacts permission and the `flutter_contacts` library are out of the
+/// app until the social send rolls out, so the binary declares and links
+/// nothing about contacts). Never asked, nothing to read. To bring them
+/// back: re-add `flutter_contacts` to pubspec.yaml, the iOS
+/// NSContactsUsageDescription and the Android READ_CONTACTS permission,
+/// and restore `FlutterContactsGateway` from git (the commit removing it
+/// says so).
+class NoPhoneContactsGateway implements SendContactsGateway {
+  const NoPhoneContactsGateway();
 
   @override
   Future<SendContactsPermission> status() async =>
@@ -221,10 +150,8 @@ class UnavailableContactsGateway implements SendContactsGateway {
 }
 
 /// Test seam and the real thing: override in a ProviderScope.
-final sendContactsGatewayProvider = Provider<SendContactsGateway>((_) =>
-    PlatformCaps.hasContacts
-        ? const FlutterContactsGateway()
-        : const UnavailableContactsGateway());
+final sendContactsGatewayProvider =
+    Provider<SendContactsGateway>((_) => const NoPhoneContactsGateway());
 
 @immutable
 class SendContactsState {
@@ -272,6 +199,8 @@ class SendContactsNotifier extends Notifier<SendContactsState> {
   /// On the Send to step's open: the status only, never a prompt. Loads
   /// the book when it was granted before.
   Future<void> refresh() async {
+    // The social send off: the platform is never asked (see the header).
+    if (!socialSendEnabled) return;
     final permission = await _gateway.status();
     state = state.copyWith(permission: permission);
     if (permission == SendContactsPermission.granted &&
@@ -282,6 +211,8 @@ class SendContactsNotifier extends Notifier<SendContactsState> {
 
   /// The "Send to a friend" row tapped: the system prompt, then the book.
   Future<SendContactsPermission> request() async {
+    // The social send off: no prompt, never asked (see the header).
+    if (!socialSendEnabled) return state.permission;
     final permission = await _gateway.request();
     TrackingService.track('send_contacts_permission', params: {
       'granted': permission == SendContactsPermission.granted,
@@ -291,7 +222,10 @@ class SendContactsNotifier extends Notifier<SendContactsState> {
     return permission;
   }
 
-  Future<void> openSettings() => _gateway.openSettings();
+  Future<void> openSettings() async {
+    if (!socialSendEnabled) return;
+    await _gateway.openSettings();
+  }
 
   Future<void> _load() async {
     state = state.copyWith(loading: true);

@@ -25,6 +25,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/config/feature_flags.dart'
+    show debugSocialSendEnabled;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_model.dart';
@@ -292,6 +294,12 @@ List<KuteBarContext> _primaryScopes() => [
     ];
 
 void main() {
+  // The social send's own flows (config/feature_flags.dart): pinned on, as
+  // flipping the flag restores them; the build ships it off
+  // (test/config/social_send_flag_test.dart).
+  setUp(() => debugSocialSendEnabled = true);
+  tearDown(() => debugSocialSendEnabled = null);
+
   late List<(String, Map<String, Object>?)> events;
   late List<(String, String?)> sendsOpened;
   late List<(String?, String?)> picksOpened;
@@ -562,6 +570,29 @@ void main() {
     expect(paramsOf('send_what_picked').single,
         {'what': 'money', 'home': 'dollars', 'from': 'dollars'});
     expect(find.byType(UsdWithdrawScreen), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'the social send off (the build\'s state, config/feature_flags.dart): '
+      'no contacts asked or read, no ask row, no contacts listed, a typed '
+      'number is no recipient, and the field says it takes a name or any '
+      'crypto address', (tester) async {
+    debugSocialSendEnabled = false;
+    _gateway.permission = SendContactsPermission.granted;
+    await _pump(tester, dollars: 12.34, spendingSats: 400000);
+    await _settle(tester);
+    expect(_gateway.prompts, 0);
+    expect(find.text(_l10n.sendRecipientSearchHintNoPhone), findsOneWidget);
+    expect(find.text(_l10n.sendRecipientSearchHint), findsNothing);
+    expect(
+        find.byKey(const ValueKey('send-contacts-ask-row')), findsNothing);
+    for (final c in fakeContacts()) {
+      expect(find.text(c.displayName), findsNothing, reason: c.displayName);
+    }
+    await type(tester, '+351 999 888 777');
+    expect(find.byKey(const ValueKey('send-phone-link-row')), findsNothing);
+    expect(find.byType(SendWhatSheet), findsNothing);
     await _unmount(tester);
   });
 

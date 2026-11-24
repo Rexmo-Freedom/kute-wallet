@@ -12164,6 +12164,13 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ime, telefon ali kateri koli kripto naslov';
 
   @override
+  String get sendRecipientSearchHintNoPhone =>
+      'Ime ali kateri koli kripto naslov';
+
+  @override
+  String get shareGetKuteLine => 'Pridruži se dogajanju na getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Prenesi na tvoje Dolarje';
 
   @override

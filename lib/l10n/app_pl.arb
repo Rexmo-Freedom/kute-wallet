@@ -3326,6 +3326,8 @@
   "shareMarketLookAt": "Zobacz to w Kute: {title} {link}",
   "shareMarketChance": "{chance}% szans",
   "sendRecipientSearchHint": "Imię, telefon lub dowolny adres krypto",
+  "sendRecipientSearchHintNoPhone": "Imię lub dowolny adres krypto",
+  "shareGetKuteLine": "Dołącz do akcji na getkute.com",
   "sendMoveToYourDollars": "Przenieś na twoje Dolary",
   "sendMoveToYourBitcoin": "Przenieś na twój Bitcoin",
   "sendWhatTitle": "Odbiorca: {name}",

@@ -73,6 +73,7 @@ import 'package:kute/helpers/orchestra_router.dart'
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/helpers/venue_intents.dart' show OrchestraGrants;
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
 import 'package:kute/models/orchestra_routes_model.dart'
@@ -1353,8 +1354,12 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                   onPick: _pickGroup,
                 ),
           // A link needs no coin: the Send to card sits under the grid.
-          SizedBox(height: 16.h),
-          _sendToCard(context.colors),
+          // The social send off (config/feature_flags.dart): no card, no
+          // gap; the grid alone.
+          if (socialSendEnabled) ...[
+            SizedBox(height: 16.h),
+            _sendToCard(context.colors),
+          ],
         ],
       ),
     );

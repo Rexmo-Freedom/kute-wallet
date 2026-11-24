@@ -63,6 +63,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/asset_icon_provider.dart' show kBitcoinMarkAsset;
@@ -442,7 +443,11 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                   children: [
                     SendRecipientSearchField(
                       controller: _search,
-                      hintText: l10n.sendRecipientSearchHint,
+                      // The social send off (config/feature_flags.dart):
+                      // no phone.
+                      hintText: socialSendEnabled
+                          ? l10n.sendRecipientSearchHint
+                          : l10n.sendRecipientSearchHintNoPhone,
                       onChanged: (v) {
                         brantaNoteInput(v);
                         setState(() {});

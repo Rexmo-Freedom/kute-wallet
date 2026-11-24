@@ -3326,6 +3326,8 @@
   "shareMarketLookAt": "Vaata seda Kute'is: {title} {link}",
   "shareMarketChance": "{chance}% tõenäosus",
   "sendRecipientSearchHint": "Nimi, telefon või krüptoaadress",
+  "sendRecipientSearchHintNoPhone": "Nimi või krüptoaadress",
+  "shareGetKuteLine": "Löö kaasa: getkute.com",
   "sendMoveToYourDollars": "Teisalda oma Dollaritesse",
   "sendMoveToYourBitcoin": "Teisalda oma Bitcoini",
   "sendWhatTitle": "Saaja: {name}",

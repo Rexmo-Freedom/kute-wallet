@@ -75,6 +75,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/share_link_model.dart';
@@ -149,7 +150,10 @@ Future<bool?> showSendToAnyoneSheet(
   String? senderLabel,
   String? recipientPhone,
   required String entrySource,
-}) {
+}) async {
+  // The social send off (config/feature_flags.dart): no link to a person
+  // and no gift, whichever door asked. Nothing created.
+  if (!socialSendEnabled) return null;
   TrackingService.markEntrySource('share_link', entrySource);
   return showAppBottomSheet<bool>(
     context: context,

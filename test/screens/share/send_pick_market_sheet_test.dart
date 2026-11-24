@@ -15,6 +15,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/config/feature_flags.dart'
+    show debugSocialSendEnabled;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -158,6 +160,12 @@ class _Launcher extends StatelessWidget {
 }
 
 void main() {
+  // The social send's own flows (config/feature_flags.dart): pinned on, as
+  // flipping the flag restores them; the build ships it off
+  // (test/config/social_send_flag_test.dart).
+  setUp(() => debugSocialSendEnabled = true);
+  tearDown(() => debugSocialSendEnabled = null);
+
   // Moving now lists only markets with a logo of their own: the movers'
   // logos are known.
   setUp(() {

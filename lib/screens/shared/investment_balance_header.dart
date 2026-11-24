@@ -394,18 +394,25 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
         children: [
           Padding(
             padding: EdgeInsets.only(top: 2.h),
-            child: OneBalanceSplitLine(
-              invested: amount(split.investedUsd),
-              available: amount(split.availableUsd),
-              investedLabel: context.l10n.betInvested,
-              availableLabel: context.l10n.available,
-              stale: split.stale,
-            ),
+            // The Dollars page: "▲ $1.23 (+4.8%) · Available $Y", what the
+            // open positions are up or down in Invested's place (founder,
+            // 24 November 2026: "only show available, and instead of
+            // invested have the amount we are up or down"); Available
+            // alone while nothing with a known cost is open.
+            child: widget.showOpenPnl
+                ? OneBalancePnlAvailableLine(
+                    available: amount(split.availableUsd),
+                    availableLabel: context.l10n.available,
+                    stale: split.stale,
+                  )
+                : OneBalanceSplitLine(
+                    invested: amount(split.investedUsd),
+                    available: amount(split.availableUsd),
+                    investedLabel: context.l10n.betInvested,
+                    availableLabel: context.l10n.available,
+                    stale: split.stale,
+                  ),
           ),
-          // "Open profits ▲ $1.23 (+4.8%)" under the split, while
-          // positions with a known cost are open (founder, 13 November
-          // 2026).
-          if (widget.showOpenPnl) const OneBalanceOpenPnlLine(),
           if (lines.isNotEmpty) ...[
             SizedBox(height: 4.h),
             Row(
@@ -518,6 +525,104 @@ class OneBalanceSplitLine extends StatelessWidget {
           ),
           half(const ValueKey('investments-balance-available'),
               availableLabel, available, Alignment.centerLeft),
+        ],
+      ),
+    );
+  }
+}
+
+/// The Dollars page's line under the total (founder, 24 November 2026):
+/// what the open positions are up or down, "▲ $1.23 (+4.8%)" in its
+/// result colour ([OneBalanceOpenPnlLine.figure], [dollarsOpenPnl]), where
+/// [OneBalanceSplitLine] writes Invested, then "· Available $Y", laid out
+/// as that line is (the dot fixed under the total, each half moving only
+/// outwards, scaled down rather than cut). Nothing open with a known cost:
+/// "Available $Y" alone, centred. Balances hidden: dots, no arrow, no
+/// colour.
+class OneBalancePnlAvailableLine extends ConsumerWidget {
+  const OneBalancePnlAvailableLine({
+    super.key,
+    required this.available,
+    required this.availableLabel,
+    this.stale = false,
+  });
+
+  final String available;
+  final String availableLabel;
+  final bool stale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final open = dollarsOpenPnl(ref);
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final labelStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.2,
+    );
+    final valueStyle = TextStyle(
+      color: stale ? c.textTertiary : c.textSecondary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final availableRow = Row(
+      key: const ValueKey('investments-balance-available'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$availableLabel ', maxLines: 1, style: labelStyle),
+        RollingNumberText(text: available, style: valueStyle),
+      ],
+    );
+    if (open == null) {
+      return Semantics(
+        container: true,
+        label: '$availableLabel $available',
+        excludeSemantics: true,
+        child: FittedBox(
+          key: const ValueKey('investments-balance-split'),
+          fit: BoxFit.scaleDown,
+          child: availableRow,
+        ),
+      );
+    }
+    final usd = open.usd.abs() < kBalancesCentUsd ? 0.0 : open.usd;
+    final pnl = visible
+        ? OneBalanceOpenPnlLine.figure(usd, openPnlPercent(open))
+        : '••••••';
+    final pnlStyle = valueStyle.copyWith(
+        color: !visible || usd == 0 ? c.textSecondary : pnlResultColor(c, usd));
+    Widget half(Widget child, Alignment align) => Expanded(
+          child: Align(
+            alignment: align,
+            child: FittedBox(
+                fit: BoxFit.scaleDown, alignment: align, child: child),
+          ),
+        );
+    return Semantics(
+      container: true,
+      label: '${context.l10n.portfolioStatOpenPnl} $pnl, '
+          '$availableLabel $available',
+      excludeSemantics: true,
+      child: Row(
+        key: const ValueKey('investments-balance-split'),
+        children: [
+          half(
+              RollingNumberText(
+                  key: const ValueKey('investments-balance-open-pnl-figure'),
+                  text: pnl,
+                  style: pnlStyle),
+              Alignment.centerRight),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.w),
+            child: Text('·', style: labelStyle),
+          ),
+          half(availableRow, Alignment.centerLeft),
         ],
       ),
     );

@@ -92,6 +92,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:kute/config/feature_flags.dart' show socialSendEnabled;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
 import 'package:kute/providers/usd_account_provider.dart'
@@ -263,6 +264,9 @@ Future<bool> sendToPerson(
   required Future<bool?> Function() openLink,
   required Future<bool?> Function() openGift,
 }) async {
+  // The social send off (config/feature_flags.dart): a person is no
+  // recipient; nothing asked, nothing sent.
+  if (!socialSendEnabled) return false;
   final name = contact?.displayName.trim().isNotEmpty == true
       ? contact!.displayName
       : (phone ?? contact?.phone ?? '');

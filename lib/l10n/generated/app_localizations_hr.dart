@@ -12150,6 +12150,13 @@ class AppLocalizationsHr extends AppLocalizations {
       'Ime, telefon ili bilo koja kripto adresa';
 
   @override
+  String get sendRecipientSearchHintNoPhone =>
+      'Ime ili bilo koja kripto adresa';
+
+  @override
+  String get shareGetKuteLine => 'Uključi se na getkute.com';
+
+  @override
   String get sendMoveToYourDollars => 'Premjesti u tvoje Dolare';
 
   @override

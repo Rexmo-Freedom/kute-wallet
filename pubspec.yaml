@@ -7,7 +7,7 @@ publish_to: "none"
 # then allows choosing any version of the GPL ever published by the
 # FSF; Kute is distributed under GPL-3.0-or-later.
 # SPDX-License-Identifier: GPL-3.0-or-later
-version: 2.2.0+123
+version: 2.2.0+125
 
 environment:
   sdk: ">=3.2.3 <4.0.0"
@@ -186,7 +186,6 @@ dependencies:
   convert: any
   barcode: any
   audioplayers: ^6.6.0
-  flutter_contacts: ^2.6.0
 dependency_overrides:
   vector_math: 2.2.0
   pointycastle: ^4.0.0

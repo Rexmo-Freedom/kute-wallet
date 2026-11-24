@@ -785,12 +785,15 @@ void main() {
       expect(file.mimeType, 'image/png');
       final bytes = await tester.runAsync(file.readAsBytes) as Uint8List;
       expect(bytes.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
-      // The link alone: the edgy line is on the card.
+      // The link alone: the edgy line is on the card. The getkute.com
+      // line last while the social send is off (config/feature_flags.dart,
+      // the build's state).
       expect(
           text,
           'LoL Worlds 2026: Gen.G vs T1 on Kute '
           'https://backend.kutewallet.com/m/predictions/lol-worlds-geng-t1'
-          '?ref=$kBragTestCode');
+          '?ref=$kBragTestCode\n'
+          'Get in on the action at getkute.com');
       expect(textAt(tester, 'brag-card-edge').data,
           r'+$36.90 while you were scrolling.');
       expect(env.paramsOf('brag_shared').single,

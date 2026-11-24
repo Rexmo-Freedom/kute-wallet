@@ -24,6 +24,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kute/config/feature_flags.dart'
+    show debugSocialSendEnabled;
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
@@ -458,6 +460,12 @@ Future<void> _end(WidgetTester tester) async {
 }
 
 void main() {
+  // The social send's own flows (config/feature_flags.dart): pinned on, as
+  // flipping the flag restores them; the build ships it off
+  // (test/config/social_send_flag_test.dart).
+  setUp(() => debugSocialSendEnabled = true);
+  tearDown(() => debugSocialSendEnabled = null);
+
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     // The recents store and the order slip's boxes.

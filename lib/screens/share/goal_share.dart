@@ -10,7 +10,9 @@
 //
 // NO MONEY: the image shows a level, not what someone holds, and the
 // message under it is the app's invite with the sharer's link or code
-// (appInviteShareText, as a money receipt's), nothing without a code.
+// (appInviteShareText, as a money receipt's), nothing without a code;
+// while the social send is off, the getkute.com line ends it
+// (withGetKuteLine, share_card_copy.dart).
 //
 // Analytics: `balance_goal_card_shared {level, result, source}` once the OS
 // share sheet answered: `level` the exact level, `result` its status
@@ -21,6 +23,8 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show withGetKuteLine;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart'
     show showShareCardPreviewSheet;
@@ -62,8 +66,10 @@ Future<void> openGoalCardShare(
       still: still,
       referralCode: receiptReferralCode(),
     ),
-    text: (context) =>
-        appInviteShareText(context.l10n, receiptReferralCode()),
+    // The getkute.com line last while the social send is off
+    // (share_card_copy.dart).
+    text: (context) => withGetKuteLine(
+        context.l10n, appInviteShareText(context.l10n, receiptReferralCode())),
     onShared: (result) => TrackingService.track('balance_goal_card_shared',
         params: {'level': level, 'result': result, 'source': source}),
   );
