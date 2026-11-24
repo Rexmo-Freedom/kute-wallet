@@ -3914,7 +3914,13 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
             child: switch (form) {
               KuteFormFactor.compact => page,
               KuteFormFactor.medium => kuteWideColumn(page),
-              KuteFormFactor.expanded => kuteWidePanes(
+              // EXPANDED: the slip is open in the right pane with its
+              // button, and the round's own Up / Down sit at the left
+              // pane's foot: the floating bar stays away, as on the
+              // other market pages (_buildTradeBar, inPlace).
+              KuteFormFactor.expanded => KuteBarContextScope(
+                  barContext: const KuteBarContext.hidden(),
+                  child: kuteWidePanes(
                   left: page,
                   right: KuteWideSlipPane(
                     // The rounds of this coin the person holds.
@@ -3927,6 +3933,7 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
                           polyRoundTicker(round.asset) == config.asset;
                     },
                   ),
+                ),
                 ),
             },
           ),

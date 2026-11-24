@@ -251,7 +251,9 @@ void _keypadSheet(BuildContext ctx) {
   showAppBottomSheet<void>(
     context: ctx,
     builder: (c) => AppBottomSheetContainer(
-      child: Column(
+      // Scrolls when the window is short (1000x700), as a real sheet does.
+      child: SingleChildScrollView(
+          child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const AppBottomSheetHeader(
@@ -280,7 +282,7 @@ void _keypadSheet(BuildContext ctx) {
             child: SizedBox(height: kuteBarScrollClearance),
           ),
         ],
-      ),
+      )),
     ),
   );
 }
@@ -290,8 +292,7 @@ void main() {
 
   for (final (label, size) in [
     ('1440x900', const Size(1440, 900)),
-    ('1180x820', const Size(1180, 820)),
-    ('1920x1080', const Size(1920, 1080)),
+    ('1000x700', const Size(1000, 700)),
     ('430x932', const Size(430, 932)),
   ]) {
     for (final dark in [false, true]) {

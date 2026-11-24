@@ -10,6 +10,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart'
     show kuteSearchLoading, kuteSearchSheetOpen;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -231,9 +232,21 @@ class KuteBottomActionBar extends ConsumerWidget {
         ]),
       ),
     );
-    return onHeightChanged == null
+    final reported = onHeightChanged == null
         ? dock
         : _DockHeightReporter(onChanged: onHeightChanged!, child: dock);
+    // A dock with its own search square (another wallet's tab: Receive ·
+    // Send · Sal) IS that surface's door to search: the shell bar's pill
+    // stays away while it is up, rather than sitting on its buttons
+    // (round two: the pill is at the foot on a laptop too).
+    if (onSearch == null) return reported;
+    return KuteBarContextScope(
+      barContext: const KuteBarContext.hidden(),
+      // Only while its tab is the one on screen (a parked tab's tickers
+      // are off): the Dollars tab beside it keeps its own bar.
+      active: TickerMode.valuesOf(context).enabled,
+      child: reported,
+    );
   }
 }
 

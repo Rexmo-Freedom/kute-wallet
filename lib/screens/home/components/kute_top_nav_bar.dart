@@ -32,13 +32,7 @@ import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/shell_wallet_provider.dart';
 import 'package:kute/platform/kute_layout.dart';
-import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
-import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
-    show KuteSalPill;
-import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show openKuteBarSheet;
-import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_wordmark.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/home/components/home_tab_switch.dart'
@@ -154,10 +148,9 @@ class KuteTopNavBar extends ConsumerWidget {
 ///   * LEFT: Sal and the wordmark, the lockup the PIN screen shows
 ///     (kute_pin_scaffold.dart), then the Bitcoin | Dollars switch beside
 ///     it at its phone size (another wallet's tab strip likewise).
-///   * RIGHT: the search, a field-shaped Sal pill ([kuteTopBarSearchWidth]
-///     wide, the floating bar's own pill and words), which opens the
-///     search panel; then the hub button. With the search here the floating
-///     bar never shows the search pill on EXPANDED (kute_shell_bar.dart).
+///   * RIGHT: the hub button alone. The search stays the floating bar's
+///     pill at the foot, as on a phone (founder, 25 November 2026: "put
+///     the search on the bottom always").
 /// It does not hide on scroll: a laptop has the room. MEDIUM and phones
 /// keep the strip above.
 class _KuteDesktopTopBar extends StatelessWidget {
@@ -184,41 +177,40 @@ class _KuteDesktopTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Center(
-        heightFactor: 1,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
-          child: SizedBox(
-            key: const ValueKey('kute-desktop-top-bar'),
-            height: kuteTopBarHeight,
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
-              child: Row(
-                children: [
-                  const _KuteLockup(),
-                  const SizedBox(width: 28),
-                  SizedBox(
-                    width: switchStrip ? _switchWidth : _stripWidth,
-                    child: FloatingActionPill(
-                      activeTab: activeTab,
-                      onSelectTab: onSelectTab,
-                      pagePosition: pagePosition,
+    // It stays put while the page scrolls under it, so it is drawn on the
+    // page's own background across the window: a scrolled card never
+    // shows through the switch.
+    return ColoredBox(
+      color: context.colors.background,
+      child: SafeArea(
+        bottom: false,
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
+            child: SizedBox(
+              key: const ValueKey('kute-desktop-top-bar'),
+              height: kuteTopBarHeight,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
+                child: Row(
+                  children: [
+                    const _KuteLockup(),
+                    const SizedBox(width: 28),
+                    SizedBox(
+                      width: switchStrip ? _switchWidth : _stripWidth,
+                      child: FloatingActionPill(
+                        activeTab: activeTab,
+                        onSelectTab: onSelectTab,
+                        pagePosition: pagePosition,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  // At most its width, narrower on a narrow laptop.
-                  const Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _KuteTopBarSearch(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  _FinancialHubButton(activeTab: activeTab),
-                ],
+                    const Spacer(),
+                    _FinancialHubButton(activeTab: activeTab),
+                  ],
+                ),
               ),
             ),
           ),
@@ -246,49 +238,6 @@ class _KuteLockup extends StatelessWidget {
         SizedBox(width: 8),
         KuteWordmark(size: 24),
       ],
-    );
-  }
-}
-
-/// The search in the top bar: the floating bar's Sal pill, field-shaped
-/// ([kuteTopBarSearchWidth] wide), saying what the bar would say on this
-/// screen ("Search investments or Manage with AI" on Investing), and
-/// opening the same search panel with that context (no pill travel: the
-/// panel stands just under the bar).
-class _KuteTopBarSearch extends ConsumerWidget {
-  const _KuteTopBarSearch();
-
-  /// The search context of the screen under the bar, else the default.
-  static KuteBarContext _context(BuildContext context, WidgetRef ref) {
-    final top = kuteBarTop(ref.watch(kuteBarContextProvider));
-    if (top != null &&
-        top.current &&
-        !top.hidden &&
-        top.kind == KuteBarKind.search &&
-        !top.market) {
-      return top;
-    }
-    return KuteBarContext(
-        label: context.l10n.searchOrManageAi, source: 'top_bar');
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ctx = _context(context, ref);
-    final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
-    return LayoutBuilder(
-      builder: (context, box) => SizedBox(
-        key: const ValueKey('kute-top-bar-search'),
-        width: math.min(kuteTopBarSearchWidth, box.maxWidth),
-        height: 48,
-        child: KuteSalPill(
-          width: math.min(kuteTopBarSearchWidth, box.maxWidth),
-          label: ctx.label,
-          clip: ctx.clip,
-          aiEnabled: aiEnabled,
-          onTap: () => unawaited(openKuteBarSheet(ctx)),
-        ),
-      ),
     );
   }
 }
