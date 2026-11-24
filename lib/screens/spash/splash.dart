@@ -26,6 +26,12 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 class Splash extends ConsumerStatefulWidget {
   const Splash({super.key});
 
+  /// True once a splash route was built in this run: it takes the native
+  /// (or the page's own) splash down itself. A browser can also start on
+  /// another route (a reload on the unlock page, a link into the app);
+  /// main.dart takes the splash down then.
+  static bool handsOff = false;
+
   @override
   ConsumerState<Splash> createState() => _SplashState();
 }
@@ -138,6 +144,7 @@ class _SplashState extends ConsumerState<Splash>
   @override
   void initState() {
     super.initState();
+    Splash.handsOff = true;
 
     // ── Phase 1: Entrance (0–900ms) ──
     _entranceController = AnimationController(

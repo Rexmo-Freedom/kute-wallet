@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:kute/screens/spash/splash.dart' show Splash;
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
@@ -182,6 +183,20 @@ Future<void> _bootstrap() async {
       child: AppWidget(),
     ),
   );
+
+  // A browser can start on any route (a reload on the unlock page, a link
+  // into the app), and only the splash route takes the page's own splash
+  // down and lets the first frame through (FlutterNativeSplash.remove).
+  // Started elsewhere, the app ran behind that splash for good (founder,
+  // 24 November 2026: "stuck here?"). So: once the first tree is built
+  // and no splash route is in it, take it down here; and whatever
+  // happens, never later than a few seconds in.
+  if (kIsWeb) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!Splash.handsOff) FlutterNativeSplash.remove();
+    });
+    Timer(const Duration(seconds: 6), FlutterNativeSplash.remove);
+  }
 }
 
 /// Firebase init that can NEVER sink the boot `Future.wait`. The old
