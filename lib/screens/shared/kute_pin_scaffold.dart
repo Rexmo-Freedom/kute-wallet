@@ -30,7 +30,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/platform/kute_wide_frames.dart'
-    show kuteBarBottomRoomFor, kuteWindowWidth;
+    show KuteDialogScope, kuteBarBottomRoomFor, kuteWindowWidth;
 import 'package:kute/screens/shared/kute_wordmark.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -119,135 +119,171 @@ class KutePinScaffold extends StatelessWidget {
 
   final bool showWordmark;
 
+  /// A split screen's form (kute_split_screen.dart) shorter than this
+  /// tightens the brand's gaps so the dots, the pad and the footer still
+  /// fit whole (a 1180x820 window's form is about 670 high, a 1000x700
+  /// one's about 550).
+  static const double _inPlaceRoomy = 620;
+
+  /// The least height the PIN page is laid out at in a split screen's
+  /// form: a shorter form (a long translated title on a 700 high window)
+  /// draws it scaled down a little, whole, rather than overflowing.
+  static const double _inPlaceLeast = 540;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // In a split screen's form (KuteInPlaceBar, kute_dialog.dart) the
+    // page's primary is drawn under the form, not on the floating bar: no
+    // room kept for the bar, and on a short form the gaps over the dots
+    // tighten.
+    final inPlace = KuteDialogScope.inDialog(context);
     return Scaffold(
       backgroundColor: c.background,
       body: Container(
         decoration: AppDecorations.screenGradient(context),
         child: PlatformSafeArea(
-          child: Stack(
-            children: [
-              if (leading != null)
-                Positioned(top: 4.h, left: 4.w, child: leading!),
-              Column(
-                children: [
-                  SizedBox(height: 28.h),
-                  if (showWordmark) ...[
-                    // Sal and the wordmark as one lockup.
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SalSprite(
-                          key: const ValueKey('pin-sal'),
-                          clip: salMood,
-                          size: 44,
-                          // The sad face plays once; the others loop.
-                          loop: salMood == 'sad' ? false : null,
-                          fallback: const SizedBox.shrink(),
-                        ),
-                        const SizedBox(width: 10),
-                        const KuteWordmark(size: 30),
-                      ],
-                    ),
-                    SizedBox(height: 28.h),
-                  ],
-                  if (step != null) ...[
-                    Text(
-                      step!,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    SizedBox(height: 8.h),
-                  ],
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 28.w),
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 28.sp,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
-                        height: 1.05,
-                      ),
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    SizedBox(height: 10.h),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 28.w),
-                      child: Text(
-                        subtitle!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: subtitleIsError ? c.error : c.textTertiary,
-                          fontSize: 15.sp,
-                          fontWeight: subtitleIsError
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          letterSpacing: -0.1,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (notice != null) ...[
-                    SizedBox(height: 18.h),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 28.w),
-                      child: notice!,
-                    ),
-                  ],
-                  SizedBox(height: 32.h),
-                  dots,
-                  const Spacer(),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w),
-                    child: keypad,
-                  ),
-                  SizedBox(height: 20.h),
-                  // The footer slot always occupies its height, whether or
-                  // not anything is in it, so the pad never shifts when a
-                  // link appears or a button fades in.
-                  SizedBox(
-                    height: 56.h,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 24.w),
-                      child: Center(child: footer ?? const SizedBox.shrink()),
-                    ),
-                  ),
-                  // The greater of a comfortable gap and the home-indicator
-                  // inset, never both: PlatformSafeArea leaves the bottom
-                  // to the screen on iOS, so the footer clears the bar here.
-                  // Read below PlatformSafeArea, where Android's inset is
-                  // already consumed, so Android doesn't get it twice.
-                  // From MEDIUM up the bar stands higher off the window's
-                  // foot (kuteBarBottomRoomFor): the pad and the footer
-                  // rise by as much, so the bar's Next never sits on the
-                  // pad's last row.
-                  Builder(
-                    builder: (context) => SizedBox(
-                        height: math.max(
-                                12.h, MediaQuery.of(context).padding.bottom) +
-                            math.max(
-                                0.0,
-                                kuteBarBottomRoomFor(kuteWindowWidth(context)) -
-                                    2)),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          child: LayoutBuilder(builder: (context, box) {
+            final body = _body(context,
+                tight: inPlace && box.maxHeight < _inPlaceRoomy,
+                inPlace: inPlace);
+            if (!inPlace || box.maxHeight >= _inPlaceLeast) return body;
+            return FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                  width: box.maxWidth, height: _inPlaceLeast, child: body),
+            );
+          }),
         ),
       ),
+    );
+  }
+
+  Widget _body(BuildContext context,
+      {required bool tight, required bool inPlace}) {
+    final c = context.colors;
+    // The brand's gaps: the phone's, or about half on a tight form.
+    double gap(double phone) => tight ? phone * 0.5 : phone;
+    return Stack(
+      children: [
+        if (leading != null) Positioned(top: 4.h, left: 4.w, child: leading!),
+        Column(
+          children: [
+            SizedBox(height: gap(28.h)),
+            if (showWordmark) ...[
+              // Sal and the wordmark as one lockup.
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SalSprite(
+                    key: const ValueKey('pin-sal'),
+                    clip: salMood,
+                    size: 44,
+                    // The sad face plays once; the others loop.
+                    loop: salMood == 'sad' ? false : null,
+                    fallback: const SizedBox.shrink(),
+                  ),
+                  const SizedBox(width: 10),
+                  const KuteWordmark(size: 30),
+                ],
+              ),
+              SizedBox(height: gap(28.h)),
+            ],
+            if (step != null) ...[
+              Text(
+                step!,
+                style: TextStyle(
+                  color: c.textTertiary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              SizedBox(height: 8.h),
+            ],
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 28.w),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 28.sp,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.6,
+                  height: 1.05,
+                ),
+              ),
+            ),
+            if (subtitle != null) ...[
+              SizedBox(height: 10.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 28.w),
+                child: Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: subtitleIsError ? c.error : c.textTertiary,
+                    fontSize: 15.sp,
+                    fontWeight:
+                        subtitleIsError ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: -0.1,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+            if (notice != null) ...[
+              SizedBox(height: 18.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 28.w),
+                child: notice!,
+              ),
+            ],
+            SizedBox(height: gap(32.h)),
+            dots,
+            const Spacer(),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: keypad,
+            ),
+            SizedBox(height: gap(20.h)),
+            // The footer slot always occupies its height, whether or
+            // not anything is in it, so the pad never shifts when a
+            // link appears or a button fades in.
+            SizedBox(
+              height: tight ? 44 : 56.h,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                child: Center(child: footer ?? const SizedBox.shrink()),
+              ),
+            ),
+            // The greater of a comfortable gap and the home-indicator
+            // inset, never both: PlatformSafeArea leaves the bottom
+            // to the screen on iOS, so the footer clears the bar here.
+            // Read below PlatformSafeArea, where Android's inset is
+            // already consumed, so Android doesn't get it twice.
+            // From MEDIUM up the bar stands higher off the window's
+            // foot (kuteBarBottomRoomFor): the pad and the footer
+            // rise by as much, so the bar's Next never sits on the
+            // pad's last row.
+            // In a split screen's form the in-place foot under it
+            // keeps its own room (kuteDialogFootBottom): none here.
+            Builder(
+              builder: (context) => SizedBox(
+                  height: math.max(
+                          12.h, MediaQuery.of(context).padding.bottom) +
+                      (inPlace
+                          ? 0.0
+                          : math.max(
+                              0.0,
+                              kuteBarBottomRoomFor(kuteWindowWidth(context)) -
+                                  2))),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

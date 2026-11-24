@@ -325,7 +325,9 @@ class AppRouter {
               challenge: ShareLinkClaims.challengeFromLink(state.uri),
             ),
             state: state,
-            wide: KuteWideMode.column,
+            // The gift beside the brand, its Claim under it: a claim link
+            // is often the first thing a new person opens.
+            wide: KuteWideMode.split,
           ),
         ),
         GoRoute(

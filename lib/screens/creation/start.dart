@@ -540,8 +540,8 @@ class _StartBrandSideState extends State<StartBrandSide>
     duration: const Duration(seconds: 4),
     vsync: this,
   );
-  late final Animation<double> _breathe = CurvedAnimation(
-      parent: _breatheController, curve: Curves.easeInOut);
+  late final Animation<double> _breathe =
+      CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut);
   bool _started = false;
 
   @override
@@ -581,21 +581,16 @@ class _StartBrandSideState extends State<StartBrandSide>
           return Stack(
             fit: StackFit.expand,
             children: [
-              DecoratedBox(
-                decoration: isLight
-                    ? BoxDecoration(color: c.background)
-                    : BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [c.gradientTop, c.gradientBottom],
-                        ),
-                      ),
-              ),
-              // The Start screen's two glows, sized to the half.
+              // The app's background, as the form half's: the seam
+              // between the halves is no line, only the glow fading out.
+              ColoredBox(color: c.background),
+              // The Start screen's two glows, sized to the half. Each
+              // fades out whole before the seam (a radial glow cut at the
+              // half's edge would stand as a hard vertical line); they
+              // bleed off the window's own edges only.
               Positioned(
                 top: -h * 0.16 + (10 * sin(t * pi)),
-                right: -w * 0.12,
+                right: w * 0.06,
                 child: _glow(
                   w * 0.85,
                   accent.withValues(
