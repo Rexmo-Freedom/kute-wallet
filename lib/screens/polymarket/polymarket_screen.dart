@@ -63,6 +63,7 @@ import 'package:kute/screens/home/components/btc_predict_chart.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -997,7 +998,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: _MoreCryptoMarketsCard(
+            child: CryptoMoreRoundsCard(
               minutes: minutes,
               onDeposit: () {
                 openPredictionsDeposit(context, ref);
@@ -1110,35 +1111,52 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // The list's first Yes/No markets as big cards in a side-scrolling
       // strip, on the default view only (founder, 1 November 2026). The list
       // under it is polymarket.com's Trending in the site's order, without
-      // the strip's markets (founder, 9 November 2026: no repeats).
-      final split = polyTrendingSplit(
-          defaultView ? polyTopMarkets(open) : const <PolymarketEvent>[],
-          events);
-      final top = split.top;
-      final listed = split.listed;
-      // Plain Yes/No markets share one grouped card like Home's
-      // Activity; an event with many outcomes or a game keeps its own
-      // card and breaks the group (founder, October 2026).
-      body = [
-        // No title over the strip (founder, 1 November 2026): the big
-        // cards simply open the feed.
-        if (top.isNotEmpty) ...[
+      // the strip's markets (founder, 9 November 2026: no repeats). Wide,
+      // the strip is one still row of as many as fit its width
+      // ([polyTopMarketsFitting]); the others stay in the list.
+      List<Widget> trending(int max) {
+        final split = polyTrendingSplit(
+            defaultView
+                ? polyTopMarkets(open, max: max)
+                : const <PolymarketEvent>[],
+            events);
+        final top = split.top;
+        final listed = split.listed;
+        // Plain Yes/No markets share one grouped card like Home's
+        // Activity; an event with many outcomes or a game keeps its own
+        // card and breaks the group (founder, October 2026).
+        return [
+          // No title over the strip (founder, 1 November 2026): the big
+          // cards simply open the feed.
+          if (top.isNotEmpty) ...[
+            SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+            SliverToBoxAdapter(child: _topMarketsStrip(top)),
+            SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+          ],
           SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-          SliverToBoxAdapter(child: _topMarketsStrip(top)),
+          ..._groupedSlivers(
+              listed,
+              (market) => (
+                    isSportsCategory: market.category == 'sports',
+                    siblings: market.gameId != null
+                        ? (siblings[market.gameId!] ??
+                            const <PolymarketEvent>[])
+                        : const <PolymarketEvent>[],
+                  ),
+              source: source),
           SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        ],
-        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        ..._groupedSlivers(
-            listed,
-            (market) => (
-                  isSportsCategory: market.category == 'sports',
-                  siblings: market.gameId != null
-                      ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
-                      : const <PolymarketEvent>[],
-                ),
-            source: source),
-        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-      ];
+        ];
+      }
+
+      body = defaultView && KuteLayout.isWide(context)
+          ? [
+              SliverLayoutBuilder(
+                builder: (context, constraints) => SliverMainAxisGroup(
+                    slivers: trending(
+                        polyTopMarketsFitting(constraints.crossAxisExtent))),
+              ),
+            ]
+          : trending(kPolyTopMarketsMax);
     }
     return [
       ...body,
@@ -1302,6 +1320,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         groups: (e) => polyCardGroups(e.title, e.outcomes),
         dividerIndent: polyGroupRowIndent(),
         divider: polyGroupRowDivider,
+        // Wide, no column narrower than the narrowest phone's card.
+        minColumnWidth: kPolyGridMinColumn,
         build: (market, inGroup) {
           final row = rowOf(market);
           return _PolyFeedCard(
@@ -1326,6 +1346,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         lockedSide: MoveLockedSide.withdrawFromPredictions);
   }
 }
+
+/// The narrowest column of the wide Predictions list (market_groups.dart):
+/// the card on the narrowest phone (320 less its 16 margins), so no card
+/// is drawn tighter than a phone ever draws it.
+const double kPolyGridMinColumn = 288;
 
 /// One feed row. Its own ConsumerWidget (repo rule: lazy-list items that
 /// read Theme must be standalone widget classes) watching ONLY this
@@ -2032,12 +2057,12 @@ class _CryptoLengthTabs extends StatelessWidget {
 
 /// The other crypto markets in one card under the hero, the way the open
 /// predictions strip reads: a titled surface with one row per asset.
-class _MoreCryptoMarketsCard extends StatelessWidget {
+class CryptoMoreRoundsCard extends StatelessWidget {
   final VoidCallback? onDeposit;
 
   /// The page's round length: every row is that coin's round of it.
   final int minutes;
-  const _MoreCryptoMarketsCard({required this.minutes, this.onDeposit});
+  const CryptoMoreRoundsCard({super.key, required this.minutes, this.onDeposit});
 
   @override
   Widget build(BuildContext context) {
