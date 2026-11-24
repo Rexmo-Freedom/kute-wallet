@@ -1,3 +1,5 @@
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show kuteWindowIsWide;
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +23,28 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 /// Directional pairs (BUY/SELL, YES/NO) are NOT AppButton tiers — they use
 /// `AppColors.marketUp`/`marketDown` via `color:` or the paired widgets.
 enum AppButtonVariant { primary, moneyIn, secondary, destructive }
+
+/// A full-width button from MEDIUM up (kute_layout.dart) is never wider
+/// than the phone design ([KuteLayout.paneWidth]): a button stretched
+/// across a laptop window (founder, 25 November 2026, a 1900 px red bar
+/// under "Forgot your PIN?") is never right. Inside a column, a sheet or a
+/// panel (they narrow the MediaQuery to their own width, at most
+/// [KuteLayout.columnMaxWidth]) the button is as it is, aligned with
+/// what is around it; outside one it is the phone's width, centred. A
+/// phone: [button] untouched.
+Widget kuteButtonWidthCap(BuildContext context, Widget button) {
+  if (!kuteWindowIsWide(context)) return button;
+  if (MediaQuery.sizeOf(context).width <= KuteLayout.columnMaxWidth) {
+    return button;
+  }
+  return Center(
+    heightFactor: 1,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: KuteLayout.paneWidth),
+      child: button,
+    ),
+  );
+}
 
 /// Unified primary button used across the entire app.
 ///
@@ -135,7 +159,7 @@ class _AppButtonState extends State<AppButton>
     // haptics + onPressed still fire so the button behaves identically.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
-    return GestureDetector(
+    return kuteButtonWidthCap(context, GestureDetector(
       onTapDown: (_isDisabled || widget.isLoading || reduceMotion)
           ? null
           : (_) => _animationController.forward(),
@@ -173,7 +197,7 @@ class _AppButtonState extends State<AppButton>
           ),
         ),
       ),
-    );
+    ));
   }
 
   /// The dots, with [AppButton.loadingLabel] beside them when given.
@@ -363,7 +387,7 @@ class AppTextButton extends StatelessWidget {
       ),
     );
     final glyph = icon;
-    return SizedBox(
+    return kuteButtonWidthCap(context, SizedBox(
       width: double.infinity,
       height: 44.h,
       child: glyph == null
@@ -374,6 +398,6 @@ class AppTextButton extends StatelessWidget {
               icon: Icon(glyph, size: 18.sp),
               label: label,
             ),
-    );
+    ));
   }
 }

@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -1425,8 +1426,9 @@ class _HomeActions extends ConsumerWidget {
           strongIcon: true,
           onTap: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute(
-                  builder: (_) =>
-                      const OpenInvestmentsScreen(source: 'home')))),
+                  // A centred column from MEDIUM up.
+                  builder: (_) => const KuteFormColumn(
+                      child: OpenInvestmentsScreen(source: 'home'))))),
       KuteDockAction(
           icon: Icons.north_east_rounded,
           label: context.l10n.withdraw,

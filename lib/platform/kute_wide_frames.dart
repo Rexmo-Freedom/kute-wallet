@@ -42,25 +42,30 @@ Widget kuteNarrowMedia(BuildContext context,
 /// column on the app's background from MEDIUM up (see the file header).
 /// Nested, it is a no-op: inside one the width is a phone's.
 class KuteFormColumn extends StatelessWidget {
-  const KuteFormColumn({super.key, required this.child});
+  const KuteFormColumn(
+      {super.key, required this.child, this.background = true});
 
   final Widget child;
+
+  /// Paint the app's background at the column's sides. False for a page
+  /// that rises over a dimmed page (a detail sheet, a confirmation over
+  /// the screen it confirms): the dimmed page stays in view at its sides.
+  final bool background;
 
   @override
   Widget build(BuildContext context) {
     final window = MediaQuery.sizeOf(context).width;
     if (KuteLayout.forWidth(window) == KuteFormFactor.compact) return child;
     final width = math.min(window, KuteLayout.columnMaxWidth);
-    return ColoredBox(
-      color: context.colors.background,
-      child: Center(
-        child: SizedBox(
-          width: width,
-          height: double.infinity,
-          child: kuteNarrowMedia(context, width: width, child: child),
-        ),
+    final column = Center(
+      child: SizedBox(
+        width: width,
+        height: double.infinity,
+        child: kuteNarrowMedia(context, width: width, child: child),
       ),
     );
+    if (!background) return column;
+    return ColoredBox(color: context.colors.background, child: column);
   }
 }
 

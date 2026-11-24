@@ -252,6 +252,8 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
       KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
         barrierColor: Colors.black.withValues(alpha: 0.4),
+        // Two panes of its own on a wide window.
+        form: false,
         builder: (_) => FastBetScope(
           active: ledgerWalletId == null && polyIsFastBetRound(event.slug),
           child: MarketDetailSheet(
@@ -3776,6 +3778,8 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
       KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
         barrierColor: Colors.black.withValues(alpha: 0.4),
+        // Two panes of its own on a wide window.
+        form: false,
         builder: (_) => FastBetScope(
           active: ledgerWalletId == null && polyIsFastBetRound(event.slug),
           child: FiveMinMarketDetailSheet(

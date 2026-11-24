@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
 import 'package:kute/screens/shared/sal_sprite.dart';
@@ -119,8 +120,10 @@ class PortfolioBuilderScreen extends ConsumerStatefulWidget {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) =>
-            PortfolioBuilderScreen(pool: pool, ledgerWalletId: ledgerWalletId),
+        // A centred column from MEDIUM up (kute_wide_frames.dart).
+        builder: (_) => KuteFormColumn(
+            child: PortfolioBuilderScreen(
+                pool: pool, ledgerWalletId: ledgerWalletId)),
       ),
     );
   }

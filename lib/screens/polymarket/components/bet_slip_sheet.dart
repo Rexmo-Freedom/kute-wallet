@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/side_tint_palette.dart';
@@ -1719,7 +1720,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         MaterialPageRoute(
           fullscreenDialog: true,
           settings: const RouteSettings(name: BetSlipSheet.routeName),
-          builder: (_) => BetSlipSheet._advanced(widget, _draft),
+          // A centred column from MEDIUM up (kute_wide_frames.dart).
+          builder: (_) =>
+              KuteFormColumn(child: BetSlipSheet._advanced(widget, _draft)),
         ),
       );
     } finally {

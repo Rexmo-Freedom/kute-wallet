@@ -487,106 +487,101 @@ class WalletMenuButton extends ConsumerWidget {
     TrackingService.track('wallet_rename_started',
         params: {'surface': 'wallet_detail'});
     var saved = false;
-    await showDialog<void>(
+    // A sheet from MEDIUM up, never a card stretched across the window
+    // (showKuteAlert).
+    await showKuteAlert<void>(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (dialogCtx) {
         final c = dialogCtx.colors;
-        return KuteBlur(
-          sigmaX: 5,
-          sigmaY: 5,
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            insetPadding: EdgeInsets.symmetric(horizontal: 24.w),
-            child: Container(
-              padding: EdgeInsets.all(20.w),
-              decoration: BoxDecoration(
-                color: c.surfaceLight.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(color: c.border),
+        final shell = KuteAlertShell(
+          insetPadding: EdgeInsets.symmetric(horizontal: 24.w),
+          padding: EdgeInsets.all(20.w),
+          decoration: BoxDecoration(
+            color: c.surfaceLight.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: c.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.l10n.rename,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              SizedBox(height: 16.h),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: TextStyle(color: c.textPrimary, fontSize: 15.sp),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: c.surface,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(color: c.borderSubtle, width: 0.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(color: c.borderSubtle, width: 0.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(color: c.accent, width: 1),
+                  ),
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Row(
                 children: [
-                  Text(
-                    context.l10n.rename,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: CustomButton(
+                      onPressed: () => dialogCtx.pop(),
+                      text: context.l10n.cancel,
+                      primaryColor: c.surfaceLight,
+                      textColor: c.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 16.h),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    style: TextStyle(color: c.textPrimary, fontSize: 15.sp),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: c.surface,
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 14.w, vertical: 12.h),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide:
-                            BorderSide(color: c.borderSubtle, width: 0.5),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide:
-                            BorderSide(color: c.borderSubtle, width: 0.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: BorderSide(color: c.accent, width: 1),
-                      ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: CustomButton(
+                      onPressed: () async {
+                        final next = controller.text.trim();
+                        if (next.isEmpty || next == wallet.name) {
+                          dialogCtx.pop();
+                          return;
+                        }
+                        await ref
+                            .read(settingsProvider.notifier)
+                            .renameWallet(wallet.id, next);
+                        saved = true;
+                        TrackingService.track('wallet_renamed', params: {
+                          'surface': 'wallet_detail',
+                          'changed': true,
+                        });
+                        if (dialogCtx.mounted) dialogCtx.pop();
+                      },
+                      text: context.l10n.save,
+                      primaryColor: context.ctaFill,
                     ),
-                  ),
-                  SizedBox(height: 20.h),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomButton(
-                          onPressed: () => dialogCtx.pop(),
-                          text: context.l10n.cancel,
-                          primaryColor: c.surfaceLight,
-                          textColor: c.textPrimary,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: CustomButton(
-                          onPressed: () async {
-                            final next = controller.text.trim();
-                            if (next.isEmpty || next == wallet.name) {
-                              dialogCtx.pop();
-                              return;
-                            }
-                            await ref
-                                .read(settingsProvider.notifier)
-                                .renameWallet(wallet.id, next);
-                            saved = true;
-                            TrackingService.track('wallet_renamed', params: {
-                              'surface': 'wallet_detail',
-                              'changed': true,
-                            });
-                            if (dialogCtx.mounted) dialogCtx.pop();
-                          },
-                          text: context.l10n.save,
-                          primaryColor: context.ctaFill,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         );
+        return KuteAlertShell.asSheet(dialogCtx)
+            ? shell
+            : KuteBlur(sigmaX: 5, sigmaY: 5, child: shell);
       },
     );
     if (!saved) {

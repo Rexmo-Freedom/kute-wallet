@@ -56,6 +56,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogRoute;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,7 +128,17 @@ class ScannerSheetPage<T> extends Page<T> {
   final ScannerMode mode;
 
   @override
-  Route<T> createRoute(BuildContext context) => ModalBottomSheetRoute<T>(
+  Route<T> createRoute(BuildContext context) {
+    // EXPANDED: the panel every sheet is there (kute_dialog.dart), as the
+    // in-app Scan button's sheet already is (showAppBottomSheet); never a
+    // bottom sheet under a laptop's top bar.
+    if (kuteWindowIsExpanded(context)) {
+      return KuteDialogRoute<T>(
+        settings: this,
+        builder: (_) => ScannerSheet(mode: mode),
+      );
+    }
+    return ModalBottomSheetRoute<T>(
         settings: this,
         isScrollControlled: true,
         useSafeArea: true,
@@ -139,6 +150,7 @@ class ScannerSheetPage<T> extends Page<T> {
         constraints: kuteSheetConstraints(context),
         builder: (_) => KuteSheetMedia(child: ScannerSheet(mode: mode)),
       );
+  }
 }
 
 class ScannerSheet extends ConsumerStatefulWidget {
