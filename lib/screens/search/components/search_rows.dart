@@ -713,10 +713,17 @@ class SearchMoverRow extends StatelessWidget {
 /// leaves its second cell empty.
 class SearchMoverGrid extends StatelessWidget {
   const SearchMoverGrid(
-      {super.key, required this.markets, required this.onTap});
+      {super.key,
+      required this.markets,
+      required this.onTap,
+      this.columns = 2});
 
   final List<HlMarket> markets;
   final void Function(HlMarket market) onTap;
+
+  /// The grid's columns: two on a phone, three in the wide search panel
+  /// (unified_search_screen.dart, WIDE).
+  final int columns;
 
   /// How many the grid shows.
   static const int count = 6;
@@ -725,20 +732,19 @@ class SearchMoverGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final shown = markets.take(count).toList();
     final rows = <Widget>[];
-    for (var i = 0; i < shown.length; i += 2) {
+    for (var i = 0; i < shown.length; i += columns) {
       rows.add(Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-              child: SearchMoverRow(
-                  market: shown[i], onTap: () => onTap(shown[i]))),
-          SizedBox(width: kSearchGridGap.w),
-          Expanded(
-            child: i + 1 < shown.length
-                ? SearchMoverRow(
-                    market: shown[i + 1], onTap: () => onTap(shown[i + 1]))
-                : const SizedBox.shrink(),
-          ),
+          for (var j = i; j < i + columns; j++) ...[
+            if (j > i) SizedBox(width: kSearchGridGap.w),
+            Expanded(
+              child: j < shown.length
+                  ? SearchMoverRow(
+                      market: shown[j], onTap: () => onTap(shown[j]))
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ],
       ));
     }

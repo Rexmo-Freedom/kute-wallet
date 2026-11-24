@@ -49,6 +49,22 @@
 // `?tab=positions|portfolio|open` on Positions), a filled order's "View
 // positions", a placed order's "View orders" or a trade notification can
 // open a section from anywhere.
+//
+// WIDE (lib/platform/kute_layout.dart; founder, 24 November 2026: "on
+// larger screens show the graphs on the left with the interfaces on the
+// right"). Compact is the page above, untouched.
+//
+//   * MEDIUM: the same one scroll, centred at KuteLayout.columnMaxWidth.
+//   * EXPANDED ([_WidePortfolioPage]): two panes centred at
+//     KuteLayout.pageMaxWidth. LEFT, its own scroll: the hero with the
+//     chart given the room (about 45% of the window's height), then the
+//     P&L section's breakdown under it ("You're up", By product, closed
+//     positions, resting orders; a By product row still draws its venue in
+//     the hero). RIGHT, a KuteLayout.paneWidth column: the pills,
+//     Positions | Activity (P&L lives on the left), pinned at its top, and
+//     the section under them, scrolling on its own. So the chart stays in
+//     view while the positions go by. A link that names P&L lands on
+//     Positions on the right, the P&L in view on the left.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show precisionErrorTolerance;
@@ -57,6 +73,7 @@ import 'package:flutter/rendering.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidUserFillsProvider;
 import 'package:kute/screens/home/components/kute_dock_host.dart'
@@ -138,9 +155,135 @@ class InvestmentsPortfolio extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(portfolioSectionProvider);
-    return _PortfolioPage(
+    if (KuteLayout.isExpanded(context)) {
+      // P&L sits on the left under the hero: the right pane's section is
+      // Positions or Activity (see WIDE in the file header).
+      final right = section == PortfolioSection.charts
+          ? PortfolioSection.balances
+          : section;
+      return _WidePortfolioPage(
+          section: right,
+          pills: _SectionPills(
+              selected: right,
+              onPick: onSection,
+              sections: const [
+                PortfolioSection.balances,
+                PortfolioSection.activity,
+              ]));
+    }
+    final page = _PortfolioPage(
         section: section,
         pills: _SectionPills(selected: section, onPick: onSection));
+    if (KuteLayout.isCompact(context)) return page;
+    // MEDIUM: the one column at its readable width.
+    return Center(
+      child: ConstrainedBox(
+        constraints:
+            const BoxConstraints(maxWidth: KuteLayout.columnMaxWidth),
+        child: page,
+      ),
+    );
+  }
+}
+
+/// The plot's share of the window's height on EXPANDED (see WIDE in the
+/// file header).
+const double _kWidePlotShare = 0.45;
+
+/// EXPANDED: the hero and the P&L on the left, the pills and the section
+/// on the right, each pane its own scroll (see WIDE in the file header).
+class _WidePortfolioPage extends ConsumerWidget {
+  const _WidePortfolioPage({required this.section, required this.pills});
+
+  final PortfolioSection section;
+  final Widget pills;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The Investing history is kept warm, as on the phone.
+    if (ref.watch(portfolioVenuesProvider.select((v) => v.trading))) {
+      ref.listen(hyperliquidUserFillsProvider, (_, __) {});
+    }
+    // The By product row picked draws its venue in the hero: P&L is always
+    // in view here, so the pick stands whatever the right pane shows.
+    final picked = ref.watch(portfolioPnlVenueProvider);
+    final plot = MediaQuery.sizeOf(context).height * _kWidePlotShare;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
+        child: Padding(
+          // The panes' own 16 gutters plus this make the page's paneGap.
+          padding: const EdgeInsets.symmetric(
+              horizontal: KuteLayout.paneGap - 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: CustomScrollView(
+                  key: const ValueKey('portfolio-wide-left'),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        child: KeyedSubtree(
+                          key: const ValueKey('portfolio-top'),
+                          child: PortfolioHero(venue: picked, plotHeight: plot),
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: _kStripTop.h),
+                        // Its rows at a readable width, never across the
+                        // pane (the chart above takes the room).
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                                maxWidth: KuteLayout.columnMaxWidth + 32),
+                            child: const KeyedSubtree(
+                              key: ValueKey('portfolio-section-charts'),
+                              child: _ChartsBox(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: KuteLayout.paneGap - 16),
+              SizedBox(
+                width: KuteLayout.paneWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      key: const ValueKey('portfolio-strip'),
+                      padding: EdgeInsets.fromLTRB(
+                          16, _kStripTop.h, 16, _kStripBottom.h),
+                      child: pills,
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        key: const ValueKey('portfolio-wide-right'),
+                        child: KeyedSubtree(
+                          key: ValueKey('portfolio-section-${section.key}'),
+                          child: switch (section) {
+                            PortfolioSection.activity => const _ActivityBox(),
+                            _ => const _BalancesBox(),
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -415,14 +558,20 @@ class _ChartsBox extends ConsumerWidget {
 /// ([portfolioSeeAllActivity]); on another section it reads Activity
 /// again. The section itself has no See all button of its own.
 class _SectionPills extends StatelessWidget {
-  const _SectionPills({required this.selected, required this.onPick});
+  const _SectionPills(
+      {required this.selected,
+      required this.onPick,
+      this.sections = PortfolioSection.values});
 
   final PortfolioSection selected;
   final ValueChanged<PortfolioSection> onPick;
 
+  /// The pills shown, in order: all three; on EXPANDED Positions and
+  /// Activity (P&L is on the left).
+  final List<PortfolioSection> sections;
+
   @override
   Widget build(BuildContext context) {
-    final sections = PortfolioSection.values;
     final seesAll = selected == PortfolioSection.activity;
     return KutePillTabs(
       horizontalPadding: 0,
