@@ -998,7 +998,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: CryptoMoreRoundsCard(
+            child: _MoreCryptoMarketsCard(
               minutes: minutes,
               onDeposit: () {
                 openPredictionsDeposit(context, ref);
@@ -2057,12 +2057,12 @@ class _CryptoLengthTabs extends StatelessWidget {
 
 /// The other crypto markets in one card under the hero, the way the open
 /// predictions strip reads: a titled surface with one row per asset.
-class CryptoMoreRoundsCard extends StatelessWidget {
+class _MoreCryptoMarketsCard extends StatelessWidget {
   final VoidCallback? onDeposit;
 
   /// The page's round length: every row is that coin's round of it.
   final int minutes;
-  const CryptoMoreRoundsCard({super.key, required this.minutes, this.onDeposit});
+  const _MoreCryptoMarketsCard({required this.minutes, this.onDeposit});
 
   @override
   Widget build(BuildContext context) {
