@@ -4,7 +4,10 @@ import 'package:kute/services/runtime_capabilities_service.dart'
     show runtimeCapabilitiesProvider;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show showCapabilityDecisionSheet;
-import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_detail_panes.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/share/brag/brag_data.dart'
@@ -163,8 +166,7 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
   /// While the needle is dragged, the what-if tile's large figure (the
   /// profit or loss at the explored chance) and its "Worth then $17.00".
   static const thenPnlFigureKey = ValueKey('poly-position-worth-then-pnl');
-  static const thenWorthCaptionKey =
-      ValueKey('poly-position-worth-then-value');
+  static const thenWorthCaptionKey = ValueKey('poly-position-worth-then-value');
 
   /// The payout tile's figure ("$4.98") and its "Paid $4.32".
   static const payoutFigureKey = ValueKey('poly-position-payout-figure');
@@ -183,25 +185,29 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
     TrackingService.predictionsPositionDetailViewed(
         dialHintShown: !PolyDialDragMemory.dragged);
     final navigator = Navigator.of(context, rootNavigator: true);
-    OpenOnce.run(key, () => navigator.push(
-      // The detail sheet's rise (kute_page_route.dart): the settle easing
-      // with the 0.97 → 1 scale, down on the close easing.
-      KuteSheetPageRoute(
-        settings: const RouteSettings(name: routeName),
-        barrierColor: Colors.black.withValues(alpha: 0.4),
-        // Still while the sell slip (or any sheet) covers it, so its tick
-        // animations never share the frames of the slip being scrolled.
-        builder: (_) => FastBetScope(
-          active: polyIsFastBetRound(position.eventSlug),
-          child: KuteStillWhenCovered(
-            child: PositionDetailSheet(
-              position: position,
-              onDeposit: onDeposit,
-            ),
-          ),
-        ),
-      ),
-    ));
+    OpenOnce.run(
+        key,
+        () => navigator.push(
+              // The detail sheet's rise (kute_page_route.dart): the settle easing
+              // with the 0.97 → 1 scale, down on the close easing.
+              KuteSheetPageRoute(
+                settings: const RouteSettings(name: routeName),
+                barrierColor: Colors.black.withValues(alpha: 0.4),
+                // EXPANDED: across the window, two panes (kute_detail_panes.dart).
+                wide: KuteWideMode.full,
+                // Still while the sell slip (or any sheet) covers it, so its tick
+                // animations never share the frames of the slip being scrolled.
+                builder: (_) => FastBetScope(
+                  active: polyIsFastBetRound(position.eventSlug),
+                  child: KuteStillWhenCovered(
+                    child: PositionDetailSheet(
+                      position: position,
+                      onDeposit: onDeposit,
+                    ),
+                  ),
+                ),
+              ),
+            ));
   }
 
   @override
@@ -279,7 +285,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   }
 
   void _onExploreEnd(double whatIf,
-      {required double live, double? entry, required Map<String, Object> kind}) {
+      {required double live,
+      double? entry,
+      required Map<String, Object> kind}) {
     _whatIf.value = null;
     _sellAt.value = whatIf;
     _pendingWhatIf = {
@@ -413,8 +421,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         'poly-position-closing:${pos.tokenId ?? pos.marketId}',
         () => showAppBottomSheet<void>(
               context: context,
-              builder: (_) =>
-                  _ClosingConditionsSheet(description: description),
+              builder: (_) => _ClosingConditionsSheet(description: description),
             )));
   }
 
@@ -511,7 +518,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
     final headerTeams = event == null
         ? const <PolymarketTeam>[]
         : (event.teams.isNotEmpty ? event.teams : fetchedTeams);
-    final sportsTeams = event == null ? null : _sportsTeams(event, fetchedTeams);
+    final sportsTeams =
+        event == null ? null : _sportsTeams(event, fetchedTeams);
     // When the market ends ("Ends Dec 9, 00:00", "Ends today at 21:00", a
     // countdown under an hour, what an ended market waits for, "Settled"
     // (polyPositionEndsText)): a line right under
@@ -557,9 +565,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
             resolved: pos.isResolved,
             // The game's header already says when it kicks off; a match's
             // end is its kickoff.
-            quietBeforeEnd: event != null &&
-                sportsTeams != null &&
-                event.kickoff != null,
+            quietBeforeEnd:
+                event != null && sportsTeams != null && event.kickoff != null,
             // Over but not claimable yet: say what is being waited for
             // (position_awaiting.dart).
             ended: over,
@@ -626,6 +633,146 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
               currentPrice: currentPrice,
               imageUrl: headerImage),
     );
+    // EXPANDED: the page across the window, two panes
+    // (kute_detail_panes.dart). Elsewhere as it was.
+    final wide = kuteIsExpanded(context);
+    // The profit or loss since the buy, large, with what
+    // it is worth now under it (founder, 11 November
+    // 2026: the value is the top left over the dial, so
+    // the tile leads with the result; the Sell sheet's
+    // own word for it, "Profits"), and what it pays if
+    // the held side wins (once settled: what it paid),
+    // each on its own tile. No cost known (just filled,
+    // listed before its entry is priced): no P&L, never
+    // the whole value as a profit, as on its card; the
+    // value alone, as the tile's figure. While the
+    // needle is dragged only the first tile changes, to
+    // the what-if profit with "Worth then" under it, so
+    // the header's what-if value is never a tile's large
+    // figure; the payout tile stays as it is (founder,
+    // 11 November 2026: two profit tiles side by side
+    // read the same). Balances hidden: every sum masked,
+    // no colour.
+    final Widget tiles = ValueListenableBuilder<double?>(
+      valueListenable: _whatIf,
+      builder: (context, whatIf, _) {
+        final worthLabel = pos.isResolved
+            ? context.l10n.betCurrentValue
+            : context.l10n.polyPosWorthNow;
+        // A profit tile: [change] large, signed, in the
+        // up / down colour (flat, "$0.00" plain), and
+        // "[worthLabel] [worth]" under it. Rolling
+        // digits, so it visibly ticks with the live
+        // price (quicker while scrubbing).
+        PositionStatTile profitTile({
+          required Key key,
+          required String label,
+          required double change,
+          required String worthLabel,
+          required double worth,
+          required Key figureKey,
+          required Key captionKey,
+          Duration duration = const Duration(milliseconds: 250),
+        }) {
+          final flat = polyResultIsFlat(change);
+          return PositionStatTile(
+            key: key,
+            label: label,
+            value: RollingNumberText(
+              key: figureKey,
+              text: shown(flat
+                  ? formatDollars(0)
+                  : '${change > 0 ? '+' : '-'}'
+                      '${formatDollars(change.abs())}'),
+              style: positionTileValueStyle(c,
+                  color: !balanceVisible || flat
+                      ? null
+                      : (change > 0 ? _kPolyGreen : _kPolyRed)),
+              duration: duration,
+            ),
+            caption: RollingNumberText(
+              key: captionKey,
+              text: '$worthLabel '
+                  '${shown(formatDollars(worth))}',
+              style: positionTileCaptionStyle(c),
+              duration: duration,
+            ),
+          );
+        }
+
+        // The value alone (no cost known).
+        PositionStatTile worthTile(Key key, String label, double worth) =>
+            PositionStatTile(
+              key: key,
+              label: label,
+              value: RollingNumberText(
+                text: shown(formatDollars(worth)),
+                style: positionTileValueStyle(c),
+              ),
+            );
+
+        const nowKey = ValueKey('poly-position-value');
+        const thenKey = ValueKey('poly-position-worth-then');
+        final dragging = whatIf != null && showGauge;
+        final then = dragging ? pos.size * whatIf : 0.0;
+        final PositionStatTile left;
+        if (dragging) {
+          left = costBasis > 0
+              ? profitTile(
+                  key: thenKey,
+                  label: context.l10n.portfolioProfitLoss,
+                  change: then - costBasis,
+                  worthLabel: context.l10n.polyPosWorthThen,
+                  worth: then,
+                  figureKey: PositionDetailSheet.thenPnlFigureKey,
+                  captionKey: PositionDetailSheet.thenWorthCaptionKey,
+                  duration: const Duration(milliseconds: 120),
+                )
+              : worthTile(thenKey, context.l10n.polyPosWorthThen, then);
+        } else {
+          left = costBasis > 0
+              ? profitTile(
+                  key: nowKey,
+                  label: context.l10n.portfolioProfitLoss,
+                  change: pnl,
+                  worthLabel: worthLabel,
+                  worth: currentValue,
+                  figureKey: PositionDetailSheet.pnlFigureKey,
+                  captionKey: PositionDetailSheet.worthCaptionKey,
+                )
+              : worthTile(nowKey, worthLabel, currentValue);
+        }
+        return PositionStatTiles(
+          left: left,
+          right: PositionStatTile(
+            key: const ValueKey('poly-position-payout'),
+            label: pos.isResolved
+                ? context.l10n.payout
+                : context.l10n.polyPosIfWins(pos.outcome),
+            // A dollar a share if the held side wins.
+            value: Text(
+              pos.isResolved && !won
+                  ? context.l10n.betNoPayout
+                  : shown(formatDollars(pos.size)),
+              key: PositionDetailSheet.payoutFigureKey,
+              maxLines: 1,
+              style: positionTileValueStyle(c),
+            ),
+            caption: costBasis > 0
+                ? Text(
+                    '${context.l10n.paid} '
+                    '${shown(investedText)}',
+                    key: PositionDetailSheet.paidCaptionKey,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: positionTileCaptionStyle(c),
+                  )
+                : null,
+          ),
+        );
+      },
+    );
+
     return Scaffold(
       backgroundColor: context.isDark
           ? context.colors.gradientBottom
@@ -638,7 +785,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
             mainAxisSize: MainAxisSize.max,
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
+                // EXPANDED: the close on the page's left gutter, over the
+                // panes' edge (kute_detail_panes.dart).
+                padding: wide
+                    ? kuteWidePadding(context).copyWith(top: 8.h, bottom: 4.h)
+                    : EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
                 child: Row(
                   children: [
                     KuteBarContextScope(
@@ -684,15 +835,16 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                   // The foot scrolls clear of the floating Sell (and of
                   // the home indicator: the page runs to the screen's foot
                   // on iOS).
-                  padding: EdgeInsets.fromLTRB(
-                      20.w,
-                      0,
-                      20.w,
-                      kuteBarScrollClearance.h +
-                          MediaQuery.paddingOf(context).bottom),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                  padding: (wide
+                          ? kuteWidePadding(context)
+                          : EdgeInsets.symmetric(horizontal: 20.w))
+                      .copyWith(
+                          top: 0,
+                          bottom: kuteBarScrollClearance.h +
+                              MediaQuery.paddingOf(context).bottom),
+                  child: _panes(
+                    wide,
+                    hero: [
                       SizedBox(height: 10.h),
                       // Watching: the stream at the top, as on the market
                       // sheet.
@@ -777,8 +929,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                           MainAxisAlignment.spaceBetween,
                                       children: [
                                         Flexible(
-                                          child: ValueListenableBuilder<
-                                              double?>(
+                                          child:
+                                              ValueListenableBuilder<double?>(
                                             valueListenable: _whatIf,
                                             builder: (context, whatIf, _) {
                                               final worth = whatIf == null
@@ -790,19 +942,14 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                               final percent = whatIf == null
                                                   ? pnlPercent
                                                   : (costBasis > 0
-                                                      ? change /
-                                                          costBasis *
-                                                          100
+                                                      ? change / costBasis * 100
                                                       : 0.0);
                                               return PolyPositionResultLine(
-                                                valueText:
-                                                    formatDollars(worth),
+                                                valueText: formatDollars(worth),
                                                 // No cost known: no change
                                                 // claimed, never the whole
                                                 // value as a profit.
-                                                pnl: costBasis > 0
-                                                    ? change
-                                                    : 0,
+                                                pnl: costBasis > 0 ? change : 0,
                                                 pnlPercent: percent,
                                                 masked: !balanceVisible,
                                                 boughtText: bought == null
@@ -816,8 +963,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                         SizedBox(width: 12.w),
                                         Flexible(
                                           child: Padding(
-                                            padding:
-                                                EdgeInsets.only(top: 3.h),
+                                            padding: EdgeInsets.only(top: 3.h),
                                             child: FittedBox(
                                               fit: BoxFit.scaleDown,
                                               alignment: Alignment.topRight,
@@ -873,8 +1019,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               }
                               final lineColor = event == null
                                   ? null
-                                  : _heldLineColor(barRef, event,
-                                      sportsTeams, tokenId);
+                                  : _heldLineColor(
+                                      barRef, event, sportsTeams, tokenId);
                               final spec = polyPositionChanceBarSpec(
                                 outcome: pos.outcome,
                                 chance:
@@ -926,8 +1072,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                           ),
                         ),
                       ],
-
-                      SizedBox(height: 20.h),
+                    ],
+                    // Then, under the hero (on EXPANDED, the right pane).
+                    actions: [
                       // Actions first (founder, 6 November 2026): what can
                       // be done to the position, right under the dial, as
                       // the option cards (kute_action_cards.dart; a lone
@@ -948,8 +1095,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               title: context.l10n.positionProtectIt,
                               subtitle: context.l10n.optionProtectSellSub,
                               onTap: () {
-                                TrackingService.track(
-                                    'position_protect_tapped',
+                                TrackingService.track('position_protect_tapped',
                                     params: {
                                       'venue': 'polymarket',
                                       ...VenueAnalytics.pmKindParams([
@@ -972,154 +1118,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         ),
                         SizedBox(height: 12.h),
                       ],
-
-                      // The profit or loss since the buy, large, with what
-                      // it is worth now under it (founder, 11 November
-                      // 2026: the value is the top left over the dial, so
-                      // the tile leads with the result; the Sell sheet's
-                      // own word for it, "Profits"), and what it pays if
-                      // the held side wins (once settled: what it paid),
-                      // each on its own tile. No cost known (just filled,
-                      // listed before its entry is priced): no P&L, never
-                      // the whole value as a profit, as on its card; the
-                      // value alone, as the tile's figure. While the
-                      // needle is dragged only the first tile changes, to
-                      // the what-if profit with "Worth then" under it, so
-                      // the header's what-if value is never a tile's large
-                      // figure; the payout tile stays as it is (founder,
-                      // 11 November 2026: two profit tiles side by side
-                      // read the same). Balances hidden: every sum masked,
-                      // no colour.
-                      ValueListenableBuilder<double?>(
-                        valueListenable: _whatIf,
-                        builder: (context, whatIf, _) {
-                          final worthLabel = pos.isResolved
-                              ? context.l10n.betCurrentValue
-                              : context.l10n.polyPosWorthNow;
-                          // A profit tile: [change] large, signed, in the
-                          // up / down colour (flat, "$0.00" plain), and
-                          // "[worthLabel] [worth]" under it. Rolling
-                          // digits, so it visibly ticks with the live
-                          // price (quicker while scrubbing).
-                          PositionStatTile profitTile({
-                            required Key key,
-                            required String label,
-                            required double change,
-                            required String worthLabel,
-                            required double worth,
-                            required Key figureKey,
-                            required Key captionKey,
-                            Duration duration =
-                                const Duration(milliseconds: 250),
-                          }) {
-                            final flat = polyResultIsFlat(change);
-                            return PositionStatTile(
-                              key: key,
-                              label: label,
-                              value: RollingNumberText(
-                                key: figureKey,
-                                text: shown(flat
-                                    ? formatDollars(0)
-                                    : '${change > 0 ? '+' : '-'}'
-                                        '${formatDollars(change.abs())}'),
-                                style: positionTileValueStyle(c,
-                                    color: !balanceVisible || flat
-                                        ? null
-                                        : (change > 0
-                                            ? _kPolyGreen
-                                            : _kPolyRed)),
-                                duration: duration,
-                              ),
-                              caption: RollingNumberText(
-                                key: captionKey,
-                                text: '$worthLabel '
-                                    '${shown(formatDollars(worth))}',
-                                style: positionTileCaptionStyle(c),
-                                duration: duration,
-                              ),
-                            );
-                          }
-
-                          // The value alone (no cost known).
-                          PositionStatTile worthTile(
-                                  Key key, String label, double worth) =>
-                              PositionStatTile(
-                                key: key,
-                                label: label,
-                                value: RollingNumberText(
-                                  text: shown(formatDollars(worth)),
-                                  style: positionTileValueStyle(c),
-                                ),
-                              );
-
-                          const nowKey = ValueKey('poly-position-value');
-                          const thenKey = ValueKey('poly-position-worth-then');
-                          final dragging = whatIf != null && showGauge;
-                          final then = dragging ? pos.size * whatIf : 0.0;
-                          final PositionStatTile left;
-                          if (dragging) {
-                            left = costBasis > 0
-                                ? profitTile(
-                                    key: thenKey,
-                                    label: context.l10n.portfolioProfitLoss,
-                                    change: then - costBasis,
-                                    worthLabel: context.l10n.polyPosWorthThen,
-                                    worth: then,
-                                    figureKey:
-                                        PositionDetailSheet.thenPnlFigureKey,
-                                    captionKey: PositionDetailSheet
-                                        .thenWorthCaptionKey,
-                                    duration:
-                                        const Duration(milliseconds: 120),
-                                  )
-                                : worthTile(thenKey,
-                                    context.l10n.polyPosWorthThen, then);
-                          } else {
-                            left = costBasis > 0
-                                ? profitTile(
-                                    key: nowKey,
-                                    label: context.l10n.portfolioProfitLoss,
-                                    change: pnl,
-                                    worthLabel: worthLabel,
-                                    worth: currentValue,
-                                    figureKey:
-                                        PositionDetailSheet.pnlFigureKey,
-                                    captionKey:
-                                        PositionDetailSheet.worthCaptionKey,
-                                  )
-                                : worthTile(nowKey, worthLabel, currentValue);
-                          }
-                          return PositionStatTiles(
-                            left: left,
-                            right: PositionStatTile(
-                              key: const ValueKey('poly-position-payout'),
-                              label: pos.isResolved
-                                  ? context.l10n.payout
-                                  : context.l10n.polyPosIfWins(pos.outcome),
-                              // A dollar a share if the held side wins.
-                              value: Text(
-                                pos.isResolved && !won
-                                    ? context.l10n.betNoPayout
-                                    : shown(formatDollars(pos.size)),
-                                key: PositionDetailSheet.payoutFigureKey,
-                                maxLines: 1,
-                                style: positionTileValueStyle(c),
-                              ),
-                              caption: costBasis > 0
-                                  ? Text(
-                                      '${context.l10n.paid} '
-                                      '${shown(investedText)}',
-                                      key: PositionDetailSheet.paidCaptionKey,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: positionTileCaptionStyle(c),
-                                    )
-                                  : null,
-                            ),
-                          );
-                        },
-                      ),
-
+                    ],
+                    // The profit and payout tiles (on EXPANDED under the
+                    // dial, on the left).
+                    tiles: tiles,
+                    rest: [
                       // The journey since the buy stays read while the
                       // page is up, for the brag card's line (the round
                       // Sal button beside Sell opens the card in profit).
@@ -1139,7 +1142,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         SizedBox(height: 16.h),
                         buildExpiry(),
                       ],
-
 
                       SizedBox(height: 12.h),
                       // The cards to read more, two side by side (founder,
@@ -1274,6 +1276,43 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// The scrolling body: [hero] (the game, the stream, the dial), then
+  /// [actions] (Protect it), [tiles] (the profit and the payout) and
+  /// [rest] (the cards to read more) as on a phone; on EXPANDED two
+  /// panes (kute_detail_panes.dart): the dial with the tiles under it
+  /// centred at the dial's size on the left, the actions and the cards a
+  /// phone column on the right with Sell under it.
+  Widget _panes(bool wide,
+      {required List<Widget> hero,
+      required List<Widget> actions,
+      required Widget tiles,
+      required List<Widget> rest}) {
+    if (!wide) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...hero,
+          SizedBox(height: 20.h),
+          ...actions,
+          tiles,
+          ...rest,
+        ],
+      );
+    }
+    return KuteDetailPanes(
+      // About the dial's own widest (position_speedometer.dart).
+      heroMaxWidth: 520,
+      hero: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [...hero, SizedBox(height: 20.h), tiles],
+      ),
+      details: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [SizedBox(height: 10.h), ...actions, ...rest],
       ),
     );
   }
@@ -1623,10 +1662,7 @@ class _PositionExpiryState extends State<_PositionExpiry> {
     var end = widget.end;
     // Past the market's own end but not over: the event's later end, or
     // nothing. Never "Ended" on a date alone.
-    if (!widget.resolved &&
-        !widget.ended &&
-        end != null &&
-        !end.isAfter(now)) {
+    if (!widget.resolved && !widget.ended && end != null && !end.isAfter(now)) {
       final eventEnd = widget.eventEnd;
       end = eventEnd != null && eventEnd.isAfter(now) ? eventEnd : null;
     }
