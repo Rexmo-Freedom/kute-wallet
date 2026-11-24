@@ -52,6 +52,7 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/appsflyer_service.dart';
 
 /// The market share sheet's route name.
 const String kShareMarketRouteName = 'share_market';
@@ -102,16 +103,17 @@ Future<void> openShareForMarket(
   );
 }
 
-/// [deepLink] with the referral code appended as `ref`, when the wallet
-/// has one. Other query parameters are kept.
-String shareLinkWithReferral(String deepLink, {String? code}) {
-  final c = code?.trim() ?? '';
-  if (c.isEmpty) return deepLink;
-  final uri = Uri.tryParse(deepLink);
-  if (uri == null) return deepLink;
-  return uri
-      .replace(queryParameters: {...uri.queryParameters, 'ref': c}).toString();
-}
+/// The link a share's words carry. FOR NOW it is the sharer's own
+/// AppsFlyer invite link ([AppsFlyerService.appShareLink], their referral
+/// [code] on it), whatever market is shared: the market's own address
+/// ([deepLink], marketShareLink) is served by the backend, does not open
+/// yet, and must never be shown to anyone (founder, 25 November 2026:
+/// "we are showing our literal backend link. never do this. just share
+/// the own link from appsflyer for now to recommend"). When market pages
+/// open from a link again, this is the one place that hands [deepLink]
+/// back.
+String shareLinkWithReferral(String deepLink, {String? code}) =>
+    AppsFlyerService.appShareLink(code: code);
 
 class ShareMarketSheet extends ConsumerStatefulWidget {
   const ShareMarketSheet({

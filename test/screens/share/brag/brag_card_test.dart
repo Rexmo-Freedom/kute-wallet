@@ -790,9 +790,7 @@ void main() {
       // the build's state).
       expect(
           text,
-          'LoL Worlds 2026: Gen.G vs T1 on Kute '
-          'https://backend.kutewallet.com/m/predictions/lol-worlds-geng-t1'
-          '?ref=$kBragTestCode\n'
+          'LoL Worlds 2026: Gen.G vs T1 on Kute https://getkute.com\n'
           'Get in on the action at getkute.com');
       expect(textAt(tester, 'brag-card-edge').data,
           r'+$36.90 while you were scrolling.');
