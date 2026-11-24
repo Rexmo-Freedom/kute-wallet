@@ -16,6 +16,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceCheckProvider;
 import 'package:kute/models/settings_model.dart' show Settings;
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/web_safe_area.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart'
     show needsWalletBackup;
@@ -648,7 +649,12 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                   child: AnnotatedRegion<SystemUiOverlayStyle>(
                     value: overlayStyle,
                     child: MediaQuery(
-                      data: MediaQuery.of(context).copyWith(
+                      // Web: the page's safe-area insets as padding, which
+                      // Flutter web leaves at zero (web_safe_area.dart).
+                      data: (kIsWeb
+                              ? withWebSafeArea(MediaQuery.of(context))
+                              : MediaQuery.of(context))
+                          .copyWith(
                         textScaler: const TextScaler.linear(1.0),
                       ),
                       child: Stack(
