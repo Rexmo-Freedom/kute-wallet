@@ -718,7 +718,7 @@ class _SettingsState extends ConsumerState<Settings> {
       if (PlatformCaps.isWeb) {
         // Web: turning it on creates this browser's credential (one
         // platform check); a cancel leaves it off. Turning it off drops
-        // the stored id. A local gate only, see web_biometrics.dart.
+        // the stored id. Needs PRF; see web_biometrics.dart.
         if (enable) {
           if (!await WebBiometrics.enrol()) {
             TrackingService.track('biometrics_toggle_cancelled',

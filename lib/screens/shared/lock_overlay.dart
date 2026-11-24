@@ -153,8 +153,8 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       // Gate on ENROLLED biometrics, not just hardware presence —
       // same rule as open_pin (`canCheckBiometrics` lies on iOS when
       // Face ID is disabled).
-      // Web: "enrolled" is this browser's WebAuthn credential (a local
-      // gate, see web_biometrics.dart).
+      // Web: "enrolled" is this browser's WebAuthn PRF credential (it
+      // opens the vault, see web_biometrics.dart).
       if (PlatformCaps.isWeb) {
         if (!WebBiometrics.enrolled || !mounted) return;
       } else {

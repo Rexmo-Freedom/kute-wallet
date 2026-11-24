@@ -428,8 +428,8 @@ Future<AuthGrantMethod?> _runPromptPolicy(
   if (biometricsOn && !PlatformCaps.hasBiometrics) {
     skippedReasonClass = 'no_hardware';
   } else if (biometricsOn && PlatformCaps.isWeb) {
-    // Web: "enrolled" is this browser's WebAuthn credential (a local
-    // gate, see web_biometrics.dart).
+    // Web: "enrolled" is this browser's WebAuthn PRF credential (it
+    // opens the vault, see web_biometrics.dart).
     biometricUsable = WebBiometrics.enrolled;
     if (!biometricUsable) skippedReasonClass = 'not_enrolled';
   } else if (biometricsOn) {

@@ -35,6 +35,7 @@ import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/secret_store.dart';
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/platform/platform_caps.dart';
@@ -131,15 +132,32 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   WalletConfig? _wallet(String id) =>
       ref.read(settingsProvider).wallets.where((w) => w.id == id).firstOrNull;
 
+  /// Web: presence only (key names are not secret), so a locked vault is
+  /// never read here and nothing waits for an unlock.
   Future<bool> _present(SecretStore store, String key) async =>
-      await store.read(key: key) is SecretPresent;
+      WebVault.instance != null
+          ? await store.containsKey(key: key)
+          : await store.read(key: key) is SecretPresent;
+
+  /// A stored copy for a comparison. Web, locked: unknown, read as absent
+  /// instead of waiting for an unlock that this screen does not run.
+  Future<SecretRead> _readForCompare(SecretStore store, String key) async {
+    final web = WebVault.instance;
+    if (web != null && !web.unlocked) return const SecretAbsent();
+    return store.read(key: key);
+  }
 
   Future<void> _probe() async {
     final local = SecretStores.local;
     final synced = SecretStores.synced;
-    final pinHash = await local.read(key: 'pin_hash');
-    final legacyPin = await local.read(key: 'pin');
-    _hasPinMaterial = pinHash is! SecretAbsent || legacyPin is! SecretAbsent;
+    final web = WebVault.instance;
+    if (web != null) {
+      _hasPinMaterial = web.hasPinMaterial;
+    } else {
+      final pinHash = await local.read(key: 'pin_hash');
+      final legacyPin = await local.read(key: 'pin');
+      _hasPinMaterial = pinHash is! SecretAbsent || legacyPin is! SecretAbsent;
+    }
 
     for (final wallet in ref.read(settingsProvider).wallets) {
       final row = _rows.putIfAbsent(wallet.id, _RowState.new);
@@ -251,7 +269,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
       return;
     }
     if (stored == null) {
-      final local = await SecretStores.local.read(key: _v2Key(walletId));
+      final local = await _readForCompare(SecretStores.local, _v2Key(walletId));
       if (local is SecretPresent &&
           RecoveryCheck.normalize(local.value) != phrase) {
         _trackRestoreFailed('phrase', 'mismatch');
@@ -302,7 +320,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   /// Writes the V2 copy for [walletId] unless a synced copy with the same
   /// phrase already serves it. Nothing is ever deleted.
   Future<bool> _writeSeed(String walletId, String phrase) async {
-    final synced = await SecretStores.synced.read(key: _v2Key(walletId));
+    final synced = await _readForCompare(SecretStores.synced, _v2Key(walletId));
     if (synced is SecretPresent &&
         RecoveryCheck.normalize(synced.value) == phrase) {
       return true;
@@ -498,8 +516,11 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
     setState(() {});
     try {
       final pending = await rescue.apply(scan, source: source);
-      final pinHash = await SecretStores.local.read(key: 'pin_hash');
-      if (pinHash is SecretPresent) _rescuedPendingPin.addAll(pending);
+      final web = WebVault.instance;
+      final hasHash = web != null
+          ? web.hasPinMaterial
+          : await SecretStores.local.read(key: 'pin_hash') is SecretPresent;
+      if (hasHash) _rescuedPendingPin.addAll(pending);
     } catch (_) {
       // Reported by the rescue; the rows below show what is readable now.
     }

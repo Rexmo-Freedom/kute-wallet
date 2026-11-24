@@ -3,6 +3,7 @@ import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/services/secure/secret_store.dart';
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:kute/services/tracking_service.dart';
 
 enum StoredPinState { present, absent, failed }
@@ -62,6 +63,13 @@ class BiometricPinPolicy {
   static const String _key = 'biometric_pin';
 
   Future<V1Dependency> evaluate(List<WalletConfig> wallets) async {
+    // Web: no wallet there was ever PIN-encrypted, and a raw PIN copy is
+    // never kept (biometrics open the vault through WebAuthn PRF). Reading
+    // the seeds here would also wait for the unlock this runs before.
+    if (WebVault.instance != null) {
+      return const V1Dependency(
+          exists: false, biometricPin: StoredPinState.absent, pinFree: true);
+    }
     try {
       final biometricPin = switch (await _store.read(key: _key)) {
         SecretPresent(:final value) when value.isNotEmpty =>

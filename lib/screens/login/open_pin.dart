@@ -334,8 +334,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
       // + `isDeviceSupported`, so we only prompt when biometrics can
       // actually succeed; otherwise fall straight through to the PIN
       // keypad (the always-available fallback).
-      // Web: "enrolled" is this browser's WebAuthn credential (a local
-      // gate, see web_biometrics.dart).
+      // Web: "enrolled" is this browser's WebAuthn PRF credential (it
+      // opens the vault, see web_biometrics.dart).
       if (PlatformCaps.isWeb) {
         if (!WebBiometrics.enrolled) return;
       } else {

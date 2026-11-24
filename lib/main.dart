@@ -29,6 +29,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/platform/platform_caps.dart';
 import 'package:kute/platform/web_biometrics.dart';
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 
 /// Wall-clock stamp taken at the very first line of `main()`. Read once
 /// from the first home render to emit the `app_cold_start` latency
@@ -226,6 +227,10 @@ Future<void> _timedBootStep(String name, Future<void> step) async {
 }
 
 Future<void> _initializeApp() async {
+  // Web only, before anything touches secure storage: the seed vault takes
+  // over flutter_secure_storage (lib/services/secure/web_vault/). No-op on
+  // iOS and Android.
+  if (kIsWeb) await _timedBootStep('vault', WebVault.install());
   // Boot fan-out. Each leg is wrapped in its own try-catch so a single
   // failure (no internet, missing `.env`, Hive corruption, Firebase
   // outage) can't sink the whole boot. Without this, `Future.wait`

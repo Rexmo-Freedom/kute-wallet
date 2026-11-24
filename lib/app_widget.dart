@@ -5,6 +5,8 @@ import 'package:kute/screens/shared/kute_bar_context.dart' show kuteBarScroll;
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab, activeShellTabProvider;
 import 'package:kute/providers/auth_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:kute/providers/current_route_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
@@ -186,6 +188,15 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     // down, onboarding done) open a parked `/c/{id}` claim and pay the
     // links this wallet's recipients claimed. A claim that arrives while
     // unlocked (AppsFlyer UDL parks it) opens on the store's own signal.
+    // Web seed vault: the decrypted vault key lives only while the session
+    // is unlocked. A lock, an auto-lock, the PIN sheet's lockout and a
+    // restart (a new container starts locked) all drop it.
+    if (kIsWeb) {
+      WebVault.lock();
+      ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
+        if (!next) WebVault.lock();
+      });
+    }
     ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
       if (next && prev != true) {
         WidgetsBinding.instance.addPostFrameCallback((_) {

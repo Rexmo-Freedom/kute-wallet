@@ -1,14 +1,12 @@
 /// Web: the browser's platform authenticator (Touch ID, Face ID, Windows
-/// Hello, an Android fingerprint) through WebAuthn, as a LOCAL gate.
+/// Hello, an Android fingerprint) through WebAuthn, with the PRF extension.
 ///
-/// What this is NOT: it is not a key, it is not sent anywhere and it
-/// protects nothing cryptographically. No server sees the challenge or the
-/// assertion, the signature is never checked against a public key, and
-/// nothing is derived from or decrypted with it: the seed stays exactly as
-/// protected as it is with the PIN alone. It only answers "did the person
-/// at this browser just pass the device's own biometric check", the same
-/// yes/no `local_auth` gives on a phone. The Kute PIN remains the real
-/// lock and every PIN rule stays.
+/// No server sees the challenge or the assertion and the signature is never
+/// checked against a public key: the assertion itself proves nothing. What
+/// unlocks is the PRF output: a secret only the authenticator can compute,
+/// after its own user verification. web_biometrics.dart derives a key from
+/// it (HKDF) that unwraps the seed vault's key; without PRF support there
+/// is no biometric unlock on web and the Kute PIN is the only way in.
 ///
 /// It is also not the Breez passkey wallet (keys.breez.technology, PRF):
 /// this credential is created for the page's own host, carries a generic
@@ -96,9 +94,39 @@ Future<bool> platformAuthenticatorAvailable() async {
   }
 }
 
-/// Creates a platform credential and returns its id (base64url), or null
-/// when the user cancelled or the browser refused.
-Future<String?> createPlatformCredential() async {
+/// The PRF output in a WebAuthn result's client extension results, or
+/// null; [enabled] reports `prf.enabled` from a create.
+({Uint8List? first, bool enabled}) _prfResult(JSObject credential) {
+  try {
+    final ext = credential
+        .callMethod<JSObject?>('getClientExtensionResults'.toJS);
+    final prf = ext?['prf'] as JSObject?;
+    if (prf == null) return (first: null, enabled: false);
+    final enabled = (prf['enabled'] as JSBoolean?)?.toDart ?? false;
+    final results = prf['results'] as JSObject?;
+    final first = results?['first'] as JSObject?;
+    if (first == null) return (first: null, enabled: enabled);
+    final bytes = first.instanceOfString('ArrayBuffer')
+        ? (first as JSArrayBuffer).toDart.asUint8List()
+        : (first as JSUint8Array).toDart;
+    return (first: bytes.isEmpty ? null : Uint8List.fromList(bytes), enabled: true);
+  } catch (_) {
+    return (first: null, enabled: false);
+  }
+}
+
+JSObject _prfExtension(Uint8List input) => _object({
+      'prf': _object({
+        'eval': _object({'first': input.toJS}),
+      }),
+    });
+
+/// Creates a platform credential asking for the PRF extension with
+/// [prfInput]. Returns its id (base64url), the PRF output when the browser
+/// returned one at creation, and whether PRF is enabled; null when the user
+/// cancelled or the browser refused.
+Future<({String id, Uint8List? prf, bool prfEnabled})?>
+    createPlatformCredential(Uint8List prfInput) async {
   try {
     final credentials = _credentialsContainer();
     final host = _host();
@@ -123,6 +151,7 @@ Future<String?> createPlatformCredential() async {
       }),
       'attestation': 'none'.toJS,
       'timeout': _timeoutMs.toJS,
+      'extensions': _prfExtension(prfInput),
     });
     final credential = await credentials
         .callMethod<JSPromise<JSObject?>>(
@@ -132,20 +161,25 @@ Future<String?> createPlatformCredential() async {
     final rawId = credential['rawId'] as JSArrayBuffer?;
     if (rawId == null) return null;
     final id = rawId.toDart.asUint8List();
-    return id.isEmpty ? null : _encode(id);
+    if (id.isEmpty) return null;
+    final prf = _prfResult(credential);
+    return (id: _encode(id), prf: prf.first, prfEnabled: prf.enabled);
   } catch (_) {
     return null;
   }
 }
 
-/// Asks the platform authenticator for [credentialId]. True only when an
-/// assertion for that credential came back with the UV flag set; null when
-/// the user dismissed the sheet; false for any other failure.
-Future<bool?> verifyPlatformCredential(String credentialId) async {
+/// Asks the platform authenticator for [credentialId], evaluating PRF on
+/// [prfInput]. `verified` is true only when an assertion for that
+/// credential came back with the UV flag set, null when the user dismissed
+/// the sheet, false for any other failure; `prf` is the PRF output.
+Future<({bool? verified, Uint8List? prf})> getPlatformAssertion(
+    String credentialId, Uint8List prfInput) async {
+  const failed = (verified: false, prf: null);
   try {
     final credentials = _credentialsContainer();
     final host = _host();
-    if (credentials == null || host == null) return false;
+    if (credentials == null || host == null) return failed;
     final id = _decode(credentialId);
     final publicKey = _object({
       'challenge': _randomBytes(32),
@@ -159,25 +193,27 @@ Future<bool?> verifyPlatformCredential(String credentialId) async {
       ].toJS,
       'userVerification': 'required'.toJS,
       'timeout': _timeoutMs.toJS,
+      'extensions': _prfExtension(prfInput),
     });
     final assertion = await credentials
         .callMethod<JSPromise<JSObject?>>(
             'get'.toJS, _object({'publicKey': publicKey}))
         .toDart;
-    if (assertion == null) return false;
+    if (assertion == null) return failed;
     final rawId = assertion['rawId'] as JSArrayBuffer?;
     if (rawId == null ||
         _encode(rawId.toDart.asUint8List()) != credentialId) {
-      return false;
+      return failed;
     }
     final response = assertion['response'] as JSObject?;
     final authData = response?['authenticatorData'] as JSArrayBuffer?;
-    if (authData == null) return false;
+    if (authData == null) return failed;
     final bytes = authData.toDart.asUint8List();
     // 32 bytes of rpIdHash, then the flags byte.
-    if (bytes.length < 37) return false;
-    return (bytes[32] & _flagUserVerified) != 0;
+    if (bytes.length < 37) return failed;
+    if ((bytes[32] & _flagUserVerified) == 0) return failed;
+    return (verified: true, prf: _prfResult(assertion).first);
   } catch (e) {
-    return _isCancel(e) ? null : false;
+    return _isCancel(e) ? (verified: null, prf: null) : failed;
   }
 }

@@ -71,7 +71,7 @@ abstract final class PlatformCaps {
 
   /// Biometric unlock. Native: `local_auth` (Face ID / Touch ID /
   /// fingerprint / Windows Hello), as before. Web: the browser's platform
-  /// authenticator through WebAuthn ([WebBiometrics], a local gate), only
+  /// authenticator through WebAuthn ([WebBiometrics], a PRF key for the seed vault), only
   /// when [WebBiometrics.prime] found one at boot; otherwise the PIN is
   /// the only lock there.
   static bool get hasBiometrics => !kIsWeb || WebBiometrics.available;
