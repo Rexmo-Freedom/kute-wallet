@@ -54,6 +54,7 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogRoute;
@@ -270,6 +271,9 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
   /// forever, so it is detected (via the scanner's own error code and
   /// permission_handler) and surfaced as an "open Settings" notice instead.
   Future<void> _safeStart() async {
+    // The camera itself said the permission is off (the one way a browser
+    // tells: there is no permission_handler answer for it there).
+    var refused = false;
     for (var attempt = 0; attempt < 5; attempt++) {
       if (!mounted || _camera == null || _closing) return;
       try {
@@ -283,6 +287,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
         }
         return;
       } on ScannerCameraDenied {
+        refused = true;
         break;
       } on ScannerCameraUnavailable {
         if (!mounted || _closing) return;
@@ -296,7 +301,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
         await Future.delayed(const Duration(milliseconds: 300));
       }
     }
-    final denied = await _isCameraDenied();
+    final denied = refused || await _isCameraDenied();
     if (!mounted || _closing) return;
     setState(() {
       _cameraDenied = denied;
@@ -334,6 +339,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     setState(() {
       _camera = _newCamera();
       _cameraError = false;
+      _cameraDenied = false;
     });
     WidgetsBinding.instance
         .addPostFrameCallback((_) => unawaited(old?.dispose()));
@@ -1255,7 +1261,22 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
           // Camera permission denied: retrying can never succeed, so
           // point at the OS Settings instead of the retry loop. The
           // photo control stays usable.
-          if (_cameraDenied)
+          if (_cameraDenied && kIsWeb)
+            // A browser has no Settings page the app can open: the person
+            // allows the camera for this site in the address bar, and
+            // Try Again asks the browser once more (English only on this
+            // experimental branch).
+            _CameraOff(
+              message: 'Camera access is off',
+              detail: 'Allow the camera for this site in your browser, '
+                  'then try again.',
+              action: AppButton(
+                text: l10n.tryAgain,
+                compact: true,
+                onPressed: _retryCamera,
+              ),
+            )
+          else if (_cameraDenied)
             _CameraOff(
               message: l10n.scannerCameraAccessOff,
               action: AppButton(
@@ -1379,13 +1400,21 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
             Positioned(
               left: 16.w,
               bottom: bottomInset,
+              // No flash control on a camera without a torch (a laptop's,
+              // a browser's).
               child: ValueListenableBuilder<bool>(
-                valueListenable: camera.torchOn,
-                builder: (context, isOn, _) => _ScannerControl(
-                  key: const ValueKey('scanner-torch'),
-                  icon: isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-                  label: l10n.flash,
-                  onPressed: () => _toggleTorch(isOn),
+                valueListenable: camera.hasTorch,
+                builder: (context, hasTorch, child) =>
+                    hasTorch ? child! : const SizedBox.shrink(),
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: camera.torchOn,
+                  builder: (context, isOn, _) => _ScannerControl(
+                    key: const ValueKey('scanner-torch'),
+                    icon:
+                        isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                    label: l10n.flash,
+                    onPressed: () => _toggleTorch(isOn),
+                  ),
                 ),
               ),
             ),

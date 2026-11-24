@@ -30,6 +30,11 @@ abstract class ScannerCamera {
   /// Whether the torch is on, for the flash control.
   ValueListenable<bool> get torchOn;
 
+  /// Whether this camera has a torch (a laptop's, and any camera in a
+  /// browser, has none): the flash control shows only while it does. True
+  /// until a running camera says otherwise.
+  ValueListenable<bool> get hasTorch;
+
   /// Start the preview. Throws [ScannerCameraDenied] when the camera
   /// permission is off and [ScannerCameraUnavailable] when the device has
   /// no camera; anything else it throws is worth a retry.
@@ -76,20 +81,33 @@ class MobileScannerCamera implements ScannerCamera {
 
   final MobileScannerController _controller;
   final ValueNotifier<bool> _torchOn = ValueNotifier(false);
+  final ValueNotifier<bool> _hasTorch = ValueNotifier(true);
   bool _disposed = false;
 
   void _syncTorch() {
     if (_disposed) return;
     _torchOn.value = _controller.value.torchState == TorchState.on;
+    _hasTorch.value = !(_controller.value.isRunning &&
+        _controller.value.torchState == TorchState.unavailable);
   }
 
   @override
   ValueListenable<bool> get torchOn => _torchOn;
 
   @override
+  ValueListenable<bool> get hasTorch => _hasTorch;
+
+  @override
   Future<void> start() async {
     try {
       await _controller.start();
+      // mobile_scanner v7 does not throw a start the platform refused (a
+      // camera permission that is off, no camera, a browser that blocks
+      // it): it keeps the error in its own value and returns. Hand it on,
+      // or the sheet takes a dead black preview for a live one and never
+      // says why.
+      final error = _controller.value.error;
+      if (error != null && !_controller.value.isRunning) throw error;
     } on MobileScannerException catch (e) {
       if (e.errorCode == MobileScannerErrorCode.permissionDenied) {
         throw const ScannerCameraDenied();
@@ -119,6 +137,7 @@ class MobileScannerCamera implements ScannerCamera {
     _disposed = true;
     _controller.removeListener(_syncTorch);
     _torchOn.dispose();
+    _hasTorch.dispose();
     // `dispose()` is async in v7: fire it so the OS frees the camera as
     // fast as it can (scan, pay, scan again must not find it "in use").
     await _controller.dispose();
