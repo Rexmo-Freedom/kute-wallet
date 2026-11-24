@@ -1199,3 +1199,29 @@ int kuteBrowseColumnsFor(double width, {double gap = 16}) {
 /// in it) and only the detail changes ([KuteMasterDetail]).
 const ValueKey<String> kuteSettingsDetailPageKey =
     ValueKey<String>(kuteSettingsDetailExtra);
+
+// ── The Dollars page's left navigation (founder, 24 November 2026) ──
+//
+// Of the three stacked rows of pills and chips over the browse: "also
+// these layers deep, I don't like it. Even on desktop … make use of the
+// left side of the screen, which is empty now, for this please". From
+// [kuteDeskNavMinWidth] the sections, their categories and the open
+// category's subcategories are one tree down the page's left side
+// (dollars_desk_nav.dart), [kuteDeskNavWidthFor] wide, its left edge on
+// the top bar's logo ([kuteDeskGutter]). Narrower EXPANDED windows (900
+// to 1099) keep the pills and the chips over the browse: there, with the
+// open positions' column beside it, the browse would be left one column
+// of about 270, its names cut ("Nasdaq …").
+
+/// The narrowest window that shows the Dollars page's left navigation.
+const double kuteDeskNavMinWidth = 1100;
+
+/// The left navigation's width in a window [width] wide: 192 up to a
+/// 1200 window, then growing with it to 248 (from 1550).
+double kuteDeskNavWidthFor(double width) =>
+    (width * 0.16).clamp(192.0, 248.0);
+
+/// The room between the left navigation's items and the hairline that
+/// closes it, and between the hairline and the browse's edge (the lists'
+/// own [kuteBrowseListInset] then inside the browse).
+const double kuteDeskNavGap = 12;

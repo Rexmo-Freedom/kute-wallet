@@ -144,8 +144,10 @@ List<Widget> marketGroupSlivers<T>(
         return SliverMainAxisGroup(
             slivers: column(shown, EdgeInsets.symmetric(horizontal: 16.w)));
       }
-      final dealt =
-          marketGridDeal(shown, count, weight: (item) => groups(item) ? 1 : 3);
+      final dealt = alignedGrid
+          ? marketGridDealEven(shown, count, groups: groups)
+          : marketGridDeal(shown, count,
+              weight: (item) => groups(item) ? 1 : 3);
       // Equal columns: the list's 16 at its sides, the gutter between.
       return SliverPadding(
         padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -239,6 +241,31 @@ List<List<T>> marketGridDeal<T>(List<T> items, int count,
     }
     out[best].add(item);
     height[best] += weight(item);
+  }
+  return out;
+}
+
+/// EVEN FILL on the Dollars page's grid (founder, 24 November 2026, of
+/// five indices in four columns, the first column's card holding two rows
+/// and the others one: "these screens are missing something"). A list of
+/// rows that all share the grouped card ([groups]) is laid across the
+/// columns row by row, in as few rows as [count] columns allow, and then
+/// in as few columns as hold those rows: nine markets in four columns are
+/// three columns of three, ten are 3 · 3 · 2 · 2, five 2 · 2 · 1. The
+/// columns left over stand empty at the grid's right, so every card's
+/// edges stay on the grid's. A list with cards of their own (a Predictions
+/// event with several outcomes) is dealt by height ([marketGridDeal]).
+List<List<T>> marketGridDealEven<T>(List<T> items, int count,
+    {required bool Function(T item) groups}) {
+  if (count <= 1 || items.isEmpty || !items.every(groups)) {
+    return marketGridDeal(items, count,
+        weight: (item) => groups(item) ? 1 : 3);
+  }
+  final rows = (items.length + count - 1) ~/ count;
+  final used = (items.length + rows - 1) ~/ rows;
+  final out = [for (var c = 0; c < count; c++) <T>[]];
+  for (var i = 0; i < items.length; i++) {
+    out[i % used].add(items[i]);
   }
   return out;
 }

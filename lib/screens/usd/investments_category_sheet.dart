@@ -252,6 +252,8 @@ import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, KuteStaggerIn, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, kutePillRowHeight;
+import 'package:kute/screens/usd/dollars_desk_nav.dart'
+    show DollarsDeskNavItem;
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -2188,9 +2190,16 @@ class _LogoStack extends StatelessWidget {
 /// fading while there is more. Browsing withheld: no chips (the page shows
 /// its notice).
 class InvestmentsCategoryChips extends ConsumerStatefulWidget {
-  const InvestmentsCategoryChips({super.key, required this.tab});
+  const InvestmentsCategoryChips(
+      {super.key, required this.tab, this.tree = false});
 
   final InvestmentsTab tab;
+
+  /// The same categories as the left navigation's tree on a laptop
+  /// (dollars_desk_nav.dart): one item per chip, in the chips' order,
+  /// the second row's subcategories indented under the category they
+  /// belong to, the Watchlist's Edit at its row's end.
+  final bool tree;
 
   @override
   ConsumerState<InvestmentsCategoryChips> createState() =>
@@ -2353,6 +2362,7 @@ class _InvestmentsCategoryChipsState
       _ => (const <_Chip>[], const <_Chip>[]),
     };
     if (top.isEmpty) return const SizedBox.shrink();
+    if (widget.tree) return _tree(top, second);
     return Column(
       key: ValueKey('category-chips-${widget.tab.key}'),
       mainAxisSize: MainAxisSize.min,
@@ -2360,6 +2370,60 @@ class _InvestmentsCategoryChipsState
       children: [
         _ChipRow(chips: top),
         if (second.isNotEmpty) _ChipRow(chips: second),
+      ],
+    );
+  }
+
+  /// The chips as the left navigation's tree (see [tree]): the second
+  /// row under the category it opens (the picked Investing category, the
+  /// picked Predictions topic), indented.
+  Widget _tree(List<_Chip> top, List<_Chip> second) {
+    const editKey = ValueKey('category-chip-watchlist-edit');
+    final parent = ValueKey(switch (widget.tab) {
+      InvestmentsTab.investing =>
+        'category-chip-${ref.read(hlBrowseSelectionProvider).tab.key}',
+      _ => 'category-chip-${polyShownSelection(ref).pill.key}',
+    });
+    final edit = top.where((c) => c.key == editKey).firstOrNull;
+    final rows = [for (final c in top) if (c.key != editKey) c];
+    var hung = false;
+    final subPicked = second.any((c) => c.selected);
+    DollarsDeskNavItem item(_Chip c, int level) => DollarsDeskNavItem(
+          key: c.key,
+          label: c.label,
+          selected: c.selected,
+          onTap: c.onTap,
+          level: level,
+          ancestor: level == 1 && c.key == parent && subPicked,
+          trailing: edit != null &&
+                  c.key == const ValueKey('category-chip-watchlist')
+              ? (key: edit.key, label: edit.label, onTap: edit.onTap)
+              : null,
+        );
+    final children = <Widget>[];
+    for (final c in rows) {
+      children.add(item(c, 1));
+      if (c.key == parent && second.isNotEmpty) {
+        hung = true;
+        for (final s in second) {
+          children.add(item(s, 2));
+        }
+      }
+    }
+    if (!hung) {
+      for (final s in second) {
+        children.add(item(s, 2));
+      }
+    }
+    return Column(
+      key: ValueKey('category-tree-${widget.tab.key}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, w) in children.indexed) ...[
+          if (i > 0) const SizedBox(height: 2),
+          w,
+        ],
       ],
     );
   }

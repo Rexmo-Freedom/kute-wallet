@@ -207,6 +207,9 @@ import 'package:kute/platform/kute_wide_frames.dart'
         KuteBarPane,
         kuteBrowseListInset,
         kuteBrowsePagePadding,
+        kuteDeskNavGap,
+        kuteDeskNavMinWidth,
+        kuteDeskNavWidthFor,
         kuteTopBarHeight;
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
@@ -228,6 +231,7 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
     show DollarsActivityTab;
+import 'package:kute/screens/usd/dollars_desk_nav.dart' show DollarsDeskNav;
 import 'package:kute/screens/usd/investments_category_sheet.dart'
     show
         InvestmentsCategoryChips,
@@ -792,6 +796,10 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     // NestedScrollView's body below). On EXPANDED the Overview is the
     // left pane, its cards given the room ([DollarsActivityTab.wide]).
     final expanded = form == KuteFormFactor.expanded;
+    // The left navigation in place of the pills and the chips
+    // (dollars_desk_nav.dart), from [kuteDeskNavMinWidth].
+    final deskNav = expanded &&
+        MediaQuery.sizeOf(context).width >= kuteDeskNavMinWidth;
     final pillBody = SelectionFade(
       selection: selected,
       order: tabs.indexOf(selected),
@@ -835,6 +843,29 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       barContext: UsdAccountActionBar.barContext(context, selected),
       child: expanded
           ? _InvestmentsPanes(
+              nav: deskNav
+                  ? DollarsDeskNav(
+                      // The first item on the browse's first line.
+                      top: 12,
+                      sections: [
+                        for (final tab in tabs)
+                          (
+                            key: ValueKey('dollars-desk-nav-${tab.key}'),
+                            label: item(tab).label,
+                            selected: tab == selected,
+                            onTap: () => _pick(tab),
+                          ),
+                      ],
+                      categories: selected == InvestmentsTab.investing ||
+                              selected == InvestmentsTab.predictions
+                          ? InvestmentsCategoryChips(
+                              key: ValueKey(
+                                  'dollars-desk-nav-categories-${selected.key}'),
+                              tab: selected,
+                              tree: true)
+                          : null,
+                    )
+                  : null,
               pills: KutePillTabs(
                 items: [for (final tab in tabs) item(tab)],
                 selectedIndex: tabs.indexOf(selected),
@@ -965,6 +996,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 ///     takes the page and its grids reflow.
 class _InvestmentsPanes extends ConsumerStatefulWidget {
   const _InvestmentsPanes({
+    this.nav,
     required this.pills,
     required this.chips,
     required this.onRefresh,
@@ -972,6 +1004,10 @@ class _InvestmentsPanes extends ConsumerStatefulWidget {
     required this.notificationPredicate,
     required this.body,
   });
+
+  /// The left navigation (dollars_desk_nav.dart) in place of [pills] and
+  /// [chips], or null for the pills and the chips over the browse.
+  final Widget? nav;
 
   final Widget pills;
 
@@ -998,11 +1034,13 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final column = widget.positionsAtRight && _held;
+    final nav = widget.nav;
     final left = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // The phone's pill row, at a phone's width: never three pills
         // stretched across the pane.
+        if (nav == null)
         Padding(
           // On the lists' edge (kuteBrowseListInset): the logo's, the
           // chips' and the grid's left edge are one line.
@@ -1017,7 +1055,7 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
             ),
           ),
         ),
-        if (widget.chips != null)
+        if (nav == null && widget.chips != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(
                 kuteBrowseListInset, 0, kuteBrowseListInset, 8),
@@ -1069,6 +1107,26 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The left navigation, its items' edge on the logo's
+          // (kuteBrowseListInset in from the page's padding), closed by a
+          // hairline; the browse's lists keep their own inset after it.
+          if (nav != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(
+                  left: kuteBrowseListInset, right: kuteDeskNavGap),
+              child: SizedBox(
+                width: kuteDeskNavWidthFor(MediaQuery.sizeOf(context).width),
+                child: nav,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
+              child: VerticalDivider(
+                  width: 1, thickness: 1, color: c.borderSubtle),
+            ),
+            // With the lists' own inset, the browse's cards stand 24 after it.
+            const SizedBox(width: kuteDeskNavGap - 4),
+          ],
           // The floating Sal bar sits under the browse
           // (kute_wide_frames.dart, KuteBarPane).
           Expanded(child: KuteBarPane(child: left)),
