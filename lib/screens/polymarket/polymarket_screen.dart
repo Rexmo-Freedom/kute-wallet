@@ -1966,7 +1966,15 @@ class CryptoPredictBanner extends ConsumerWidget {
           marketCategory: 'crypto',
           onDeposit: onDeposit,
           ledgerWalletId: ledgerWalletId,
-          source: slipSource);
+          source: slipSource,
+          // EXPANDED, off a market page (the Trending card): the round's
+          // page, the slip open in its side panel on the side clicked.
+          widePage: (slip) => FiveMinMarketDetailSheet.show(context,
+              event: polyCryptoRoundShell(context, config, target, minutes),
+              onDeposit: onDeposit,
+              ledgerWalletId: ledgerWalletId,
+              minutes: minutes,
+              initialSlip: slip));
     }
 
     // The round on show's tokens and the rounds ahead stay on the feed;

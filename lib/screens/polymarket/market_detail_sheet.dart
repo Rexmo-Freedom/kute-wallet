@@ -198,6 +198,11 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
   /// page.
   final SendPickSession? sendPick;
 
+  /// EXPANDED: the slip a browse card's button opened (Yes / No, a team),
+  /// shown in the page's side panel from the first frame
+  /// ([BetSlipSheet.presentOnPage]); null: the panel's own quiet open.
+  final BetSlipSheet? initialSlip;
+
   const MarketDetailSheet({
     super.key,
     required this.event,
@@ -205,6 +210,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     this.ledgerWalletId,
     this.source = 'unknown',
     this.sendPick,
+    this.initialSlip,
   });
 
   static const routeName = 'polymarket-market-detail-sheet';
@@ -216,8 +222,13 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     String? ledgerWalletId,
     String source = 'unknown',
     SendPickSession? sendPick,
+    BetSlipSheet? initialSlip,
   }) {
-    trackViewed(event, source: source, ledgerWalletId: ledgerWalletId);
+    // A card's button opening the page with its slip ([initialSlip]) counts
+    // the slip it opened, as it always has, and no view besides.
+    if (initialSlip == null) {
+      trackViewed(event, source: source, ledgerWalletId: ledgerWalletId);
+    }
     // Drop the active focus before we push the detail route. The
     // predictions search field stays focused when the route pushes,
     // so when the user closes the detail sheet the keyboard
@@ -242,6 +253,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
         event: event,
         onDeposit: onDeposit,
         ledgerWalletId: ledgerWalletId,
+        initialSlip: initialSlip,
       );
       return;
     }
@@ -264,6 +276,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
             ledgerWalletId: ledgerWalletId,
             source: source,
             sendPick: ledgerWalletId == null ? sendPick : null,
+            initialSlip: initialSlip,
           ),
         ),
       ),
@@ -473,6 +486,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         ref.read(sportsLiveProvider.notifier).connect();
       }
     });
+    // A card's button opened this page with its slip (EXPANDED): the
+    // slip, already counted, into the side panel ahead of the panel's own
+    // quiet open (which then finds it full).
+    final slip = widget.initialSlip;
+    if (slip != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) BetSlipSheet.presentOnPage(_slipContext, slip);
+      });
+    }
   }
 
   /// Odds ticks: the lightest haptic when the live price of the market on
@@ -3762,6 +3784,11 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
   /// open the page with it); null: the panel's own quiet Up.
   final int? initialSide;
 
+  /// EXPANDED: the slip a card's Up / Down opened, shown in the panel
+  /// from the first frame ([BetSlipSheet.presentOnPage]), as
+  /// [MarketDetailSheet.initialSlip].
+  final BetSlipSheet? initialSlip;
+
   const FiveMinMarketDetailSheet({
     super.key,
     required this.event,
@@ -3769,6 +3796,7 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
     this.ledgerWalletId,
     this.minutes,
     this.initialSide,
+    this.initialSlip,
   });
 
   static const routeName = 'polymarket-5min-market-detail-sheet';
@@ -3784,6 +3812,7 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
     String? ledgerWalletId,
     int? minutes,
     int? initialSide,
+    BetSlipSheet? initialSlip,
   }) {
     // Skip the slide-up transition entirely when the OS asks to reduce
     // motion (the route still appears, just without the animated slide).
@@ -3803,6 +3832,7 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
             ledgerWalletId: ledgerWalletId,
             minutes: minutes,
             initialSide: initialSide,
+            initialSlip: initialSlip,
           ),
         ),
       ),
@@ -3828,6 +3858,14 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
     if (side != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && KuteLayout.isExpanded(context)) _openDefaultSlip(side);
+      });
+    }
+    // A card's Up / Down slip, already counted, into the panel.
+    final slip = widget.initialSlip;
+    if (slip != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        BetSlipSheet.presentOnPage(_cardArea.currentContext ?? context, slip);
       });
     }
   }

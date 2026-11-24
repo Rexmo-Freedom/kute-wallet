@@ -4,6 +4,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventTeamsProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
     show BetSlipSheet;
+import 'package:kute/screens/polymarket/market_detail_sheet.dart'
+    show MarketDetailSheet;
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
@@ -150,6 +152,13 @@ void polyCardOpenSlip(
         outcomeColors: colors,
         outcomeLabels: labels,
         source: source,
+        // EXPANDED: the market's page, the slip open in its side panel.
+        widePage: (slip) => MarketDetailSheet.show(context,
+            event: event,
+            onDeposit: onDeposit,
+            ledgerWalletId: ledgerWalletId,
+            source: source,
+            initialSlip: slip),
       );
   // One market's two sides, Yes first, opened on [no] or not.
   List<PolymarketOutcome> pair(PolymarketOutcome m) {
