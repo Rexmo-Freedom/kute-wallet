@@ -3,6 +3,9 @@ import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show HlPositionRow, HlSpotRow;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart'
@@ -360,13 +363,19 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       searchHint: context.l10n.searchInvestmentsHint,
       source: 'trading',
     );
-    return Scaffold(
-      backgroundColor: context.isDark ? c.gradientBottom : c.background,
-      body: Container(
-        decoration: AppDecorations.screenGradient(context),
-        child: PlatformSafeArea(
-          child: Column(
-            children: [
+    // WIDE LAYOUTS (kute_layout.dart). EXPANDED: two panes, the market on
+    // the left (title, price, the chart taller, About's stats beside the
+    // order book) and the order ticket open in place on the right with the
+    // position under it; the floating trade row is away, the ticket's own
+    // button is in the pane. A Ledger page or a page in send mode keeps
+    // the trade row and stays one centred column, as on MEDIUM. COMPACT:
+    // exactly as before.
+    final formFactor = KuteLayout.of(context);
+    final inPlace = formFactor == KuteFormFactor.expanded &&
+        widget.ledgerWalletId == null &&
+        widget.sendPick == null &&
+        !_advancedChart;
+    final pageChildren = <Widget>[
               // ── Header ────────────────────────────────────────────
               // Edit mode hides it: the chart's own slim top bar names
               // the market there, and Done brings the header back.
@@ -525,7 +534,17 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       ),
                     );
                   }
-                  const chartHeight = kKuteMarketChartHeight;
+                  // In place (EXPANDED) the chart gets the room: about
+                  // 55% of the window's height, at least 420.
+                  // On MEDIUM (a tall portrait tablet) it takes 40% of
+                  // the height, never less than the phone's.
+                  final windowHeight = MediaQuery.sizeOf(context).height;
+                  final chartHeight = inPlace
+                      ? math.max(420.0, windowHeight * 0.55)
+                      : formFactor == KuteFormFactor.compact
+                          ? kKuteMarketChartHeight
+                          : math.max(kKuteMarketChartHeight,
+                              windowHeight * 0.4);
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -543,7 +562,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // the screen's foot (the inset as seen below
                         // PlatformSafeArea: none on Android, which padded
                         // it already).
-                        kuteBarScrollClearance.h +
+                        (inPlace
+                                ? KuteLayout.paneGap
+                                : kuteBarScrollClearance.h) +
                             MediaQuery.viewPaddingOf(context).bottom),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -577,18 +598,25 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // (The "Why is it moving?" row is gone: that
                         // question is the first Ask Sal chip in the bar's
                         // Sal sheet; founder, 31 October 2026.)
-                        if (!_advancedChart)
+                        // In place (EXPANDED) About is on the page: its
+                        // stats and long-form details beside the order book
+                        // and the recent trades, the Advanced chart card
+                        // over them.
+                        if (inPlace)
+                          _HlAboutContent(
+                            market: widget.market,
+                            isStock: isStock,
+                            position: position,
+                            leading: KuteActionCardGrid(
+                              key: const ValueKey('hl-market-options'),
+                              cards: [_advancedCard()],
+                            ),
+                          )
+                        else if (!_advancedChart)
                           KuteActionCardGrid(
                             key: const ValueKey('hl-market-options'),
                             cards: [
-                              KuteActionCard.option(
-                                key: const ValueKey('hl-advanced-chart'),
-                                icon: Icons.candlestick_chart_rounded,
-                                title: context.l10n.hlAdvancedChart,
-                                subtitle: context.l10n.optionAdvancedChartSub,
-                                onTap: () =>
-                                    HlCandleChart.openAdvanced(_chartHostKey),
-                              ),
+                              _advancedCard(),
                               _aboutCard(m, isStock, position),
                             ],
                           ),
@@ -610,15 +638,111 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
               // gate on tap and explains when investing is unavailable.
               // The chart editor takes them away (its hidden context
               // above) and Done brings them back.
+              // In place (EXPANDED) the ticket in the right pane does the
+              // trade row's job: the bar is away.
               KuteBarContextScope(
                 active: !_advancedChart,
-                barContext: _tradeBar(m, spotHeld, bar),
+                barContext: inPlace
+                    ? const KuteBarContext.hidden()
+                    : _tradeBar(m, spotHeld, bar),
                 child: const SizedBox.shrink(),
               ),
-            ],
+    ];
+    final column = Column(children: pageChildren);
+    final Widget page = switch (formFactor) {
+      KuteFormFactor.compact => column,
+      _ when inPlace => Center(
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The market: its own gutters (16 / 20) inside the page's.
+                Expanded(child: column),
+                SizedBox(width: KuteLayout.paneGap - 20),
+                SizedBox(
+                  width: KuteLayout.paneWidth,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        0, 8, 0, KuteLayout.paneGap),
+                    child: _ticketPane(m, position, spotHeld, bar),
+                  ),
+                ),
+                const SizedBox(width: KuteLayout.paneGap),
+              ],
+            ),
           ),
         ),
+      // MEDIUM (and a Ledger or send-mode page on EXPANDED): one centred
+      // column; the chart editor takes the page's width.
+      _ => Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+                maxWidth: _advancedChart
+                    ? KuteLayout.pageMaxWidth
+                    : KuteLayout.columnMaxWidth),
+            child: column,
+          ),
+        ),
+    };
+    return Scaffold(
+      backgroundColor: context.isDark ? c.gradientBottom : c.background,
+      body: Container(
+        decoration: AppDecorations.screenGradient(context),
+        child: PlatformSafeArea(child: page),
       ),
+    );
+  }
+
+  /// Bumped after a placed order (or the "OK" of one on its way) in the
+  /// in-place ticket: a fresh ticket takes its place.
+  int _ticketGeneration = 0;
+
+  /// EXPANDED's right pane: the order ticket open in place
+  /// ([HlOrderSlipSheet.embedded], the trade row's Invest: the buy side,
+  /// Short / Sell its own switch), and under it what the person holds on
+  /// this market, as the Portfolio lists it (a position's row opens the
+  /// position, where Close is). The pane stays put; the ticket fits the
+  /// room it has (SlipFit).
+  Widget _ticketPane(HlMarket m, HlPerpPosition? position, double spotHeld,
+      KuteBarContext bar) {
+    HlSpotBalance? holding;
+    if (m.isSpot && spotHeld > 0) {
+      for (final b in ref.watch(hyperliquidSpotBalancesProvider)) {
+        if (b.coin == m.coin) holding = b;
+      }
+    }
+    return Column(
+      key: const ValueKey('hl-ticket-pane'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Flexible(
+          child: HlOrderSlipSheet.inPlace(
+            key: ValueKey('hl-ticket-in-place-$_ticketGeneration'),
+            market: m,
+            entrySource: widget.source,
+            share: KuteBarShare(barContext: bar),
+            onDone: () {
+              if (mounted) setState(() => _ticketGeneration++);
+            },
+          ),
+        ),
+        if (position != null) ...[
+          const SizedBox(height: 12),
+          HlPositionRow(
+              key: ValueKey('hl-pane-position-${position.coin}'),
+              position: position),
+        ] else if (holding != null) ...[
+          const SizedBox(height: 12),
+          // The holding's row opens this very market: here it only reads.
+          IgnorePointer(
+            child: HlSpotRow(
+                key: ValueKey('hl-pane-holding-${holding.coin}'),
+                balance: holding),
+          ),
+        ],
+      ],
     );
   }
 
@@ -703,6 +827,16 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     );
   }
 
+  /// "Advanced chart": the chart's editing mode (drawing tools,
+  /// indicators).
+  KuteActionCard _advancedCard() => KuteActionCard.option(
+        key: const ValueKey('hl-advanced-chart'),
+        icon: Icons.candlestick_chart_rounded,
+        title: context.l10n.hlAdvancedChart,
+        subtitle: context.l10n.optionAdvancedChartSub,
+        onTap: () => HlCandleChart.openAdvanced(_chartHostKey),
+      );
+
   /// "About Bitcoin": the option card beside Advanced chart, opening the
   /// sheet with the market's Stats and everything the old Details
   /// expander held.
@@ -742,19 +876,23 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 /// countdown, the stock notice, the order book and the recent trades. Its
 /// requests (the 24h candles, the book, the trades) only run while it is
 /// open. It scrolls clear of the floating bar.
-class _HlAboutSheet extends ConsumerWidget {
-  final String title;
-
+class _HlAboutContent extends ConsumerWidget {
   /// The row snapshot the market sheet was opened on.
   final HlMarket market;
   final bool isStock;
   final HlPerpPosition? position;
 
-  const _HlAboutSheet({
-    required this.title,
+  /// Non-null: the page's own About (EXPANDED, in place), in two columns:
+  /// [leading] (the Advanced chart card) over what the market is, its
+  /// Stats and how it trades on the left, the order book and the recent
+  /// trades on the right. Null: the sheet's one column.
+  final Widget? leading;
+
+  const _HlAboutContent({
     required this.market,
     required this.isStock,
     required this.position,
+    this.leading,
   });
 
   @override
@@ -811,24 +949,7 @@ class _HlAboutSheet extends ConsumerWidget {
         HlStat(l10n.hlSpread,
             '${spreadPct.toStringAsFixed(spreadPct >= 0.1 ? 2 : 3)}%'),
     ];
-    return AppBottomSheetContainer(
-      maxHeight: 0.85,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppBottomSheetHeader(
-            title: title,
-            trailing: const AppBottomSheetCloseButton(),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              // The last trades scroll clear of the floating bar.
-              padding:
-                  EdgeInsets.fromLTRB(20.w, 4.h, 20.w, kuteBarScrollClearance.h),
-              child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+    final info = <Widget>[
                       // What it is: the description, then the venue and
                       // the kind (Perp / Spot) on one quiet line.
                       Column(
@@ -922,11 +1043,77 @@ class _HlAboutSheet extends ConsumerWidget {
                           ),
                         ),
                       ],
-                      SizedBox(height: 16.h),
-                      HlOrderBookSection(market: m),
-                      SizedBox(height: 16.h),
-                      HlRecentTradesSection(market: m),
-                    ],
+    ];
+    final book = <Widget>[
+      HlOrderBookSection(market: m),
+      SizedBox(height: 16.h),
+      HlRecentTradesSection(market: m),
+    ];
+    final leading = this.leading;
+    if (leading == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [...info, SizedBox(height: 16.h), ...book],
+      );
+    }
+    return Row(
+      key: const ValueKey('hl-about-in-place'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [leading, SizedBox(height: 20.h), ...info],
+          ),
+        ),
+        SizedBox(width: KuteLayout.paneGap),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: book,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The sheet behind the "About (name)" card: [_HlAboutContent] in one
+/// column under its title. It scrolls clear of the floating bar.
+class _HlAboutSheet extends StatelessWidget {
+  final String title;
+  final HlMarket market;
+  final bool isStock;
+  final HlPerpPosition? position;
+
+  const _HlAboutSheet({
+    required this.title,
+    required this.market,
+    required this.isStock,
+    required this.position,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBottomSheetContainer(
+      maxHeight: 0.85,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(
+            title: title,
+            trailing: const AppBottomSheetCloseButton(),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              // The last trades scroll clear of the floating bar.
+              padding:
+                  EdgeInsets.fromLTRB(20.w, 4.h, 20.w, kuteBarScrollClearance.h),
+              child: _HlAboutContent(
+                market: market,
+                isStock: isStock,
+                position: position,
               ),
             ),
           ),

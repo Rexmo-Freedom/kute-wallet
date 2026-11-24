@@ -85,6 +85,10 @@ import 'package:flutter/material.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteBarPrimaryButton;
+import 'package:kute/screens/home/components/kute_bar_trade_row.dart'
+    show KuteBarShareSlot;
 import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/share/slip_share.dart';
 import 'package:flutter/services.dart';
@@ -370,6 +374,22 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// the left ticket was not kept. Null: the ordinary ticket.
   final Set<String>? standingEndedBefore;
 
+  /// THE TICKET IN PLACE (wide layouts, kute_layout.dart: on EXPANDED the
+  /// market page's right pane holds the ticket, open, instead of a sheet).
+  /// The same ticket, its money rules untouched; only where it sits
+  /// changes: no sheet around it and no close button, its corners all
+  /// round; its primary button drawn under it in the pane (the bar's own
+  /// [KuteBarPrimaryButton], with [embeddedShare] beside it) instead of
+  /// in the floating bar; a spot ticket on a token held offers Buy | Sell
+  /// (the two doors the trade row had); a hardware keyboard types the
+  /// amount. Where the sheet would close (a placed order, the "OK" of an
+  /// order on its way) it closes only what stands over the page and calls
+  /// [onEmbeddedDone], and the page starts a fresh ticket. Hot account
+  /// only, never in send mode.
+  final bool embedded;
+  final VoidCallback? onEmbeddedDone;
+  final KuteBarShare? embeddedShare;
+
   const HlOrderSlipSheet({
     super.key,
     required this.market,
@@ -380,7 +400,31 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     this.initialUsd,
     this.sendPick,
     this.standingEndedBefore,
-  });
+    this.embedded = false,
+    this.onEmbeddedDone,
+    this.embeddedShare,
+  }) : assert(!embedded || (ledgerWalletId == null && sendPick == null));
+
+  /// The ticket in place on a wide market page ([embedded]). Hot account
+  /// only and never in send mode, so [show]'s one extra door (a Ledger's
+  /// Investing gate) has nothing to stop; the open gate runs in the
+  /// ticket itself, as it does in the sheet, and again on confirm.
+  static HlOrderSlipSheet inPlace({
+    Key? key,
+    required HlMarket market,
+    required String entrySource,
+    required VoidCallback onDone,
+    KuteBarShare? share,
+  }) =>
+      HlOrderSlipSheet(
+        key: key,
+        market: market,
+        source: 'market_detail',
+        entrySource: entrySource,
+        embedded: true,
+        onEmbeddedDone: onDone,
+        embeddedShare: share,
+      );
 
   /// Route name used to pop back down to the host after a fill — see
   /// [popAllSheetsDownToHost] (mirrors BetSlipSheet.routeName).
@@ -1229,6 +1273,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _livePrices = ref.read(hyperliquidLivePricesProvider.notifier);
     _livePrices!.acquire();
 
+    if (widget.embedded) HardwareKeyboard.instance.addHandler(_onHardwareKey);
     if (!_isLedger) {
       unawaited(_resolveOpenGate());
       // A refusal worked out at open belongs to the network it was asked
@@ -1247,6 +1292,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   @override
   void dispose() {
+    if (widget.embedded) {
+      HardwareKeyboard.instance.removeHandler(_onHardwareKey);
+    }
     if (!_isLedger) RegionFreshness.answers.removeListener(_onRegionAnswers);
     if (!_submitted) {
       try {
@@ -2128,12 +2176,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // Accepted but not (yet) filled — the WS listener / placing
         // tile takes over; close the slip so the user isn't trapped.
         if (mounted && !_completed) {
-          final navigator = Navigator.of(context, rootNavigator: true);
-          final ticketRoute = ModalRoute.of(context);
-          navigator.popUntil((route) => route == ticketRoute || route.isFirst);
-          if (ticketRoute?.isCurrent == true && navigator.canPop()) {
-            navigator.pop();
-          }
+          _closeTicket();
         }
       }
     } catch (e) {
@@ -2225,12 +2268,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _onFilled(
             sizeFilled: result.filledSz, avgPx: result.avgPx, fills: fills);
       } else if (!_completed) {
-        final navigator = Navigator.of(context, rootNavigator: true);
-        final ticketRoute = ModalRoute.of(context);
-        navigator.popUntil((route) => route == ticketRoute || route.isFirst);
-        if (ticketRoute?.isCurrent == true && navigator.canPop()) {
-          navigator.pop();
-        }
+        _closeTicket();
       }
     } catch (e) {
       _fillSub?.cancel();
@@ -3772,12 +3810,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Accepted but not (yet) filled — the WS listener / placing tile
     // takes over; close the ticket so the person is not trapped.
     if (!_completed) {
-      final navigator = Navigator.of(context, rootNavigator: true);
-      final ticketRoute = ModalRoute.of(context);
-      navigator.popUntil((route) => route == ticketRoute || route.isFirst);
-      if (ticketRoute?.isCurrent == true && navigator.canPop()) {
-        navigator.pop();
-      }
+      _closeTicket();
     }
   }
 
@@ -4614,6 +4647,33 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
   }
 
+  /// Accepted but not (yet) filled: the WS listener / placing tile takes
+  /// over and the ticket closes so the person is not trapped. In place
+  /// ([HlOrderSlipSheet.embedded]) the page stays: only what stands over
+  /// it goes, and the page starts a fresh ticket.
+  void _closeTicket() {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final ticketRoute = ModalRoute.of(context);
+    navigator.popUntil((route) => route == ticketRoute || route.isFirst);
+    if (widget.embedded) {
+      widget.onEmbeddedDone?.call();
+      return;
+    }
+    if (ticketRoute?.isCurrent == true && navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
+  /// Before a receipt: the sheets down to the host, or, in place, what
+  /// stands over the page holding the ticket ([ticketRoute]).
+  void _popDownToHost(NavigatorState nav, Route<dynamic>? ticketRoute) {
+    if (widget.embedded) {
+      nav.popUntil((route) => route == ticketRoute || route.isFirst);
+    } else {
+      HlOrderSlipSheet.popAllSheetsDownToHost(nav);
+    }
+  }
+
   /// Accepted is distinct from filled; show a receipt without inventing a fill.
   Future<void> _onRestingAccepted() async {
     if (_completed || !mounted || _left) return;
@@ -4621,13 +4681,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub?.cancel();
     final amount = formatDollars(_marginUsd);
     final nav = Navigator.of(context, rootNavigator: true);
+    final ticketRoute = ModalRoute.of(context);
     // The rebuild flips the band to its success snap; the sheet closes
     // once the snap has been seen (RubberBand.settle returns at once under
     // Reduce Motion, covered or in the background).
     setState(() {});
     await RubberBand.settle(context);
     if (!nav.mounted || _left) return;
-    HlOrderSlipSheet.popAllSheetsDownToHost(nav);
+    _popDownToHost(nav, ticketRoute);
     pushKuteSuccessOverlay(
       navigator: nav,
       overlay: HlOrderAcceptedOverlay(
@@ -4636,6 +4697,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           amount: amount,
           viewOrders: !_isLedger),
     );
+    if (widget.embedded) widget.onEmbeddedDone?.call();
   }
 
   /// The fills of [result]'s order, waiting a moment for the stream when
@@ -4670,6 +4732,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         : hlFilledPlan(_sentPlan,
             sizeFilled: sizeFilled, szDecimals: market.szDecimals);
     final nav = Navigator.of(context, rootNavigator: true);
+    final ticketRoute = ModalRoute.of(context);
     // The fee the fills paid, as the exchange reported it with each fill
     // (exact, Kute's builder fee inside it), the receipt's "Fee" row: the
     // one figure the slip's estimates can be read against. UX analytics
@@ -4694,7 +4757,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     setState(() {});
     await RubberBand.settle(context);
     if (!nav.mounted || _left) return;
-    HlOrderSlipSheet.popAllSheetsDownToHost(nav);
+    _popDownToHost(nav, ticketRoute);
     pushHlOrderPlacedOverlay(
       navigator: nav,
       coin: market.coin,
@@ -4712,6 +4775,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // The fee the fills paid, as the exchange reported it (exact).
       feeUsd: paidFeeUsd,
     );
+    // In place: a fresh ticket under the receipt.
+    if (widget.embedded) widget.onEmbeddedDone?.call();
   }
 
   // ── Build ──────────────────────────────────────────────────────────
@@ -5378,7 +5443,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // (user decision). The +$ quick-amount row is gone.
           // While the money moves the side is settled: it folds away with
           // the rest, the order's line says it.
-          if (!isSpot)
+          // In place, a spot token held offers Buy | Sell: the two doors
+          // the trade row had (the sheet opens on one of them).
+          if (!isSpot ||
+              (widget.embedded && !advanced && (heldSize > 0 || !_isLong)))
             FoldAway(
               folded: lockedShown,
               child: Column(
@@ -5821,7 +5889,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               // shadow would read as a rendering fault.
               decoration: BoxDecoration(
                 borderRadius: AppRadius.buttonBorder,
-                boxShadow: tinted && primaryAction != null
+                // In place the bar's own button carries its own lift.
+                boxShadow: tinted &&
+                        primaryAction != null &&
+                        !(widget.embedded && !advanced)
                     ? [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.18),
@@ -5840,7 +5911,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 // declares its primary action and draws no button of its
                 // own. In send mode the send is the one primary, never
                 // an order (screens/share/slip_share.dart).
-                child: KuteBarContextScope(
+                child: _barOrInPlace(
+                  advanced: advanced,
+                  theme: appTheme,
                   barContext: widget.sendPick != null
                       ? _sendBarContext(widget.sendPick!,
                           minUsd: minAmountUsd)
@@ -5854,7 +5927,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                       // 11 November 2026).
                       ? KuteBarContext.primary(
                           label: context.l10n.ok,
-                          onPrimary: () => Navigator.of(context).maybePop(),
+                          // In place the page stays: leaving the ticket
+                          // is a fresh one in its place.
+                          onPrimary: widget.embedded && !advanced
+                              ? _leaveInPlace
+                              : () => Navigator.of(context).maybePop(),
                           busy: true,
                           tapWhileBusy: true,
                           busyLabel: context.l10n.ok,
@@ -5908,7 +5985,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     source: 'order_slip',
                     disabledLabel: primaryKind == 'trade' && _marginUsd <= 0 && !placesMinimum ? context.l10n.barNeedAmount : null,
                   ),
-                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
               ),
             ),
@@ -5932,6 +6008,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _isPlacing ||
         _preparing ||
         _followingStanding();
+    if (!advanced) _keypadTakesKeys = !ledgerLocked && !lockedShown;
     final ticket = advanced
         ? Column(
             children: [
@@ -6025,18 +6102,25 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // them the tinted palette keeps them legible without forking them.
         data: tintedTheme,
         child: Container(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+          padding: widget.embedded
+              ? EdgeInsets.zero
+              : EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
           // Flipping side re-paints the sheet rather than snapping.
           child: AnimatedContainer(
             duration: MediaQuery.of(context).disableAnimations
                 ? Duration.zero
                 : const Duration(milliseconds: 200),
             curve: Curves.easeOut,
+            // In place the ticket is a card in the pane: every corner
+            // round, the hairline all around.
             decoration: BoxDecoration(
               color: sideColor,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-              border: Border(top: BorderSide(color: c.border)),
+              borderRadius: widget.embedded
+                  ? BorderRadius.circular(24.r)
+                  : BorderRadius.vertical(top: Radius.circular(24.r)),
+              border: widget.embedded
+                  ? Border.all(color: c.border, width: 0.5)
+                  : Border(top: BorderSide(color: c.border)),
             ),
             // Top inset only, so the action block below is the single
             // place that decides the gap under the button. SafeArea
@@ -6045,22 +6129,117 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // block reading zero on Android and the real inset on iOS,
             // and the one expression down there could not mean the same
             // thing on both.
-            child: SafeArea(
-              bottom: false,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: (MediaQuery.sizeOf(context).height * 0.92 -
-                          MediaQuery.viewInsetsOf(context).bottom)
-                      .clamp(0.0, double.infinity),
-                ),
-                child: SlipFit(child: ticket),
-              ),
-            ),
+            // In place the pane bounds it.
+            child: widget.embedded
+                ? SlipFit(child: ticket)
+                : SafeArea(
+                    bottom: false,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: (MediaQuery.sizeOf(context).height * 0.92 -
+                                MediaQuery.viewInsetsOf(context).bottom)
+                            .clamp(0.0, double.infinity),
+                      ),
+                      child: SlipFit(child: ticket),
+                    ),
+                  ),
           ),
         ),
       ),
       ),
     );
+  }
+
+  /// The ticket's primary button: the floating bar's (declared through
+  /// its context, the room for it left under the ticket), or, in place
+  /// ([HlOrderSlipSheet.embedded], the simple ticket), the bar's own
+  /// button drawn here at the ticket's foot, in the app's palette (never
+  /// the tinted one), with the round Sal button beside it as the bar has
+  /// it.
+  Widget _barOrInPlace({
+    required bool advanced,
+    required ThemeData theme,
+    required KuteBarContext barContext,
+  }) {
+    if (!widget.embedded || advanced) {
+      return KuteBarContextScope(
+        barContext: barContext,
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
+    }
+    final share = widget.embeddedShare;
+    return Theme(
+      data: theme,
+      child: Padding(
+        padding: EdgeInsets.only(top: 4.h),
+        child: Row(
+          key: const ValueKey('order-slip-in-place-primary'),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: KuteBarPrimaryButton(
+                barContext: barContext,
+                // No Sal sheet from the ticket itself.
+                onAsk: () {},
+              ),
+            ),
+            KuteBarShareSlot(
+              share: share,
+              onTap: (_) {
+                final direct = share?.brag ??
+                    share?.send ??
+                    share?.open ??
+                    share?.barContext?.directAction;
+                if (direct == null) return;
+                HapticFeedback.lightImpact();
+                direct();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// In place, the "OK" of an order on its way: the ticket is left as the
+  /// sheet's is (Sal's placing toast takes over) and a fresh one opens.
+  void _leaveInPlace() {
+    _onLeave();
+    widget.onEmbeddedDone?.call();
+  }
+
+  /// The simple ticket's keypad takes keys now (not locked, not folded):
+  /// what the last build drew, for [_onHardwareKey].
+  bool _keypadTakesKeys = false;
+
+  /// In place, a hardware keyboard types the amount as the keypad does:
+  /// digits, the dot (or a comma), backspace. Only while this page is on
+  /// top, the simple ticket open for typing, and no text field has focus.
+  bool _onHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (!mounted || _advancedRouteOpen) return false;
+    if (ModalRoute.of(context)?.isCurrent != true) return false;
+    final focused = FocusManager.instance.primaryFocus?.context?.widget;
+    if (focused is EditableText) return false;
+    // The keypad's own lock, as the last build drew it.
+    if (!_keypadTakesKeys) return false;
+    final key = event.logicalKey;
+    final value = _amountController.text;
+    if (key == LogicalKeyboardKey.backspace) {
+      _onKeypadAmount(amountBackspace(value));
+      return true;
+    }
+    final ch = event.character;
+    if (ch == null || ch.length != 1) return false;
+    if (RegExp(r'[0-9]').hasMatch(ch)) {
+      _onKeypadAmount(amountAppendKey(value, ch, maxDecimals: 2));
+      return true;
+    }
+    if (ch == '.' || ch == ',') {
+      _onKeypadAmount(amountAppendKey(value, '.', maxDecimals: 2));
+      return true;
+    }
+    return false;
   }
 
   // ── Section builders ────────────────────────────────────────────────
@@ -7702,9 +7881,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ],
             ),
           ),
-          // No Sal here: the slip is the moment of decision.
-          SizedBox(width: 8.w),
-          const KuteCloseButton(),
+          // No Sal here: the slip is the moment of decision. In place
+          // (embedded) there is no sheet to close.
+          if (!widget.embedded) ...[
+            SizedBox(width: 8.w),
+            const KuteCloseButton(),
+          ],
         ],
       ),
     );
