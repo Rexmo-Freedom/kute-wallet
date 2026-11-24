@@ -44,6 +44,20 @@
       throw e;
     });
   </script>
+  <!-- BDK (wasm build, vendored from npm @bitcoindevkit/bdk-wallet-web in
+       bdk_wallet_web/): the on-chain Bitcoin wallet on the web. Starts
+       loading before the app; lib/services/onchain/web/ awaits
+       globalThis.kuteBdkReady, then calls globalThis.kuteBdk. -->
+  <script type="module">
+    import loadBdk from './bdk_wallet_web/loader.js';
+    globalThis.kuteBdkReady = loadBdk().then((bdk) => {
+      globalThis.kuteBdk = bdk;
+      return bdk;
+    }, (e) => {
+      delete globalThis.kuteBdkReady;
+      throw e;
+    });
+  </script>
   <!-- This script adds the flutter initialization JS code -->
   <script src="flutter.js" defer=""></script>
   
