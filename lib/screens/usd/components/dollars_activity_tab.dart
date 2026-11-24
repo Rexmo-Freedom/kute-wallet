@@ -174,6 +174,7 @@ import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
+        kPortfolioSquareGap,
         PortfolioPositionSquares,
         PortfolioRowStatusScope,
         PortfolioSquaresSkeleton;
@@ -314,7 +315,9 @@ List<DollarsOverviewSlot> dollarsOverviewSlots(
   final slots = <DollarsOverviewSlot>[];
   final taken = <String>{};
   for (final o in all.reversed) {
-    if (!(o.venue == StandingOrderVenue.predictions ? predictions : investing)) {
+    if (!(o.venue == StandingOrderVenue.predictions
+        ? predictions
+        : investing)) {
       continue;
     }
     final id = dollarsStandingSlotId(o, listed);
@@ -387,8 +390,7 @@ Map<String, DateTime> dollarsHlCloses(List<HlFill> fills) {
 /// [now], of a filled order's card hold ([kDollarsFilledCardHold]) or slot
 /// hold ([kDollarsFilledHold]); null when none is running. Pure for the
 /// tests.
-DateTime? dollarsNextHoldEnd(List<StandingOrder> all,
-    {required DateTime now}) {
+DateTime? dollarsNextHoldEnd(List<StandingOrder> all, {required DateTime now}) {
   DateTime? next;
   for (final o in all) {
     if (o.state != StandingOrderState.filled) continue;
@@ -419,25 +421,39 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
       }
     }
   }
-  return [...pinned, for (final id in ranked) if (!pinned.contains(id)) id];
+  return [
+    ...pinned,
+    for (final id in ranked)
+      if (!pinned.contains(id)) id
+  ];
 }
 
 /// The Overview pill's page (see the file header). One scroll, the nested
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
 ///
-/// [inPane]: the Dollars page's right pane on EXPANDED
-/// (usd_account_screen.dart): the same blocks as a plain column, no
-/// scroll of its own and no room for the dock under it (the pane holds
-/// both).
+/// [inPane]: the Dollars page's right pane on EXPANDED, under Investing
+/// and Predictions (usd_account_screen.dart): the same blocks as a plain
+/// column, no scroll of its own and no room for the dock under it (the
+/// pane holds both).
+///
+/// [wide]: the Overview pill itself on EXPANDED, the left pane (founder,
+/// 24 November 2026: "Overview is open positions"): the same cards given
+/// the room, the squares in one row of up to four (two of the phone's
+/// pairs side by side, the no-orphan rule kept within each), the Open
+/// profits card across the pane with a taller line; nothing open, the
+/// phone's Sal centred in the pane.
 class DollarsActivityTab extends ConsumerStatefulWidget {
-  const DollarsActivityTab({super.key, this.inPane = false});
+  const DollarsActivityTab({super.key, this.inPane = false, this.wide = false});
 
   final bool inPane;
+  final bool wide;
+
+  /// The Open profits line's height on the [wide] pane, design units.
+  static const double widePlotHeight = 180;
 
   @override
-  ConsumerState<DollarsActivityTab> createState() =>
-      _DollarsActivityTabState();
+  ConsumerState<DollarsActivityTab> createState() => _DollarsActivityTabState();
 }
 
 class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
@@ -461,6 +477,74 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
   void dispose() {
     _holdTimer?.cancel();
     super.dispose();
+  }
+
+  /// The Overview on EXPANDED (see [DollarsActivityTab.wide]).
+  Widget _wideOverview(BuildContext context,
+      {required List<Widget> squares,
+      required bool loading,
+      required Widget? empty}) {
+    final clearance = SizedBox(height: 24.h + kuteDockScrollClearance(context));
+    if (empty != null) {
+      // Nothing open: Sal in the middle of the pane, still pulling to
+      // refresh.
+      return LayoutBuilder(
+        key: const ValueKey('dollars-activity-list'),
+        builder: (context, box) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: box.maxHeight),
+            child: Center(child: empty),
+          ),
+        ),
+      );
+    }
+    // Two of the phone's pairs side by side: four squares in a row, three
+    // as a pair beside the full-width card, two (or one) as full-width
+    // cards side by side (the no-orphan rule within each half).
+    Widget positions() {
+      final n = squares.length;
+      final split = n == 2 ? 1 : 2;
+      final left = squares.sublist(0, split.clamp(0, n));
+      final right = n > split ? squares.sublist(split) : const <Widget>[];
+      Widget half(List<Widget> rows) => rows.isEmpty
+          ? const SizedBox.shrink()
+          : PortfolioPositionSquares(holdings: true, rows: rows);
+      return Row(
+        key: const ValueKey('dollars-activity-squares'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: half(left)),
+          SizedBox(width: kPortfolioSquareGap.w),
+          Expanded(child: half(right)),
+        ],
+      );
+    }
+
+    return CustomScrollView(
+      key: const ValueKey('dollars-activity-list'),
+      physics:
+          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _Heading(context.l10n.accountOpenPositions,
+                  key: const ValueKey('dollars-activity-positions-heading')),
+              if (squares.isNotEmpty)
+                positions()
+              else if (loading)
+                const PortfolioSquaresSkeleton(
+                    key: ValueKey('dollars-activity-loading')),
+              const DollarsPnlStrip(
+                  plotHeight: DollarsActivityTab.widePlotHeight),
+            ]),
+          ),
+        ),
+        SliverToBoxAdapter(child: clearance),
+      ],
+    );
   }
 
   @override
@@ -510,9 +594,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                   s.valueOrNull?.pendingCloseCoins,
                   s.valueOrNull?.recentFills,
                 )));
-        sellingIds.addAll({
-          for (final coin in closing ?? const <String>{}) 'hl-$coin'
-        });
+        sellingIds.addAll(
+            {for (final coin in closing ?? const <String>{}) 'hl-$coin'});
         dollarsHlCloses(fills ?? const []).forEach((id, at) {
           final was = soldAt[id];
           if (was == null || at.isAfter(was)) soldAt[id] = at;
@@ -520,8 +603,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
       }
       handedOver.addAll(dollarsHandingOver(all,
           listed: listed, selling: sellingIds, soldAt: soldAt));
-      ended = dollarsEndedOrders(all, selling: sellingIds, soldAt: soldAt)
-          .toSet();
+      ended =
+          dollarsEndedOrders(all, selling: sellingIds, soldAt: soldAt).toSet();
     }
     // An Investing order the account already shows placed (a fill of its
     // own after its accept, standingHlPlacedBy) is placed here at once,
@@ -541,7 +624,9 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         for (final o in all)
           if (standing.placedInAccount(o, fills)) o.id,
       };
-      if (placedNow.isNotEmpty) {
+      // Settled once: by the Overview pill's own page, which is always
+      // mounted, never again by the right pane's copy on EXPANDED.
+      if (placedNow.isNotEmpty && !widget.inPane) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) standing.settleInvestingFromFills(fills);
         });
@@ -582,56 +667,58 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
           ? status == null
               ? row
               : PortfolioRowStatusScope(
-                  status: status,
-                  onTap: reopen,
-                  child: row)
+                  status: status, onTap: reopen, child: row)
           : StandingOrderRow(
               key: ValueKey(slot.id),
               order: order,
               status: status,
               onTap: reopen));
     }
-    final loading =
-        squares.isEmpty && lists.values.any((list) => list.loading);
+    final loading = squares.isEmpty && lists.values.any((list) => list.loading);
     final held = squares.isNotEmpty || loading;
 
     final blocks = <Widget>[
-              if (held)
-                DollarsOverviewHeading(l10n.accountOpenPositions,
-                    key: const ValueKey('dollars-activity-positions-heading')),
-              if (squares.isNotEmpty)
-                // Two by two, an odd last one (one alone included) the
-                // full-width compact card: never a lone half square (the
-                // no-orphan rule).
-                // The Portfolio's own cards (holdings): the side first on
-                // the line, the chance bar under it, masked with balances
-                // hidden (see the file header).
-                PortfolioPositionSquares(
-                    key: const ValueKey('dollars-activity-squares'),
-                    holdings: true,
-                    rows: squares)
-              else if (loading)
-                const PortfolioSquaresSkeleton(
-                    key: ValueKey('dollars-activity-loading')),
-              const DollarsPnlStrip(),
+      if (held)
+        _Heading(l10n.accountOpenPositions,
+            key: const ValueKey('dollars-activity-positions-heading')),
+      if (squares.isNotEmpty)
+        // Two by two, an odd last one (one alone included) the
+        // full-width compact card: never a lone half square (the
+        // no-orphan rule).
+        // The Portfolio's own cards (holdings): the side first on
+        // the line, the chance bar under it, masked with balances
+        // hidden (see the file header).
+        PortfolioPositionSquares(
+            key: const ValueKey('dollars-activity-squares'),
+            holdings: true,
+            rows: squares)
+      else if (loading)
+        const PortfolioSquaresSkeleton(
+            key: ValueKey('dollars-activity-loading')),
+      const DollarsPnlStrip(),
     ];
     // Nothing open: Sal (see the file header).
     final empty = held
         ? null
         : Padding(
-              key: const ValueKey('dollars-activity-empty'),
-              padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
-              child: NoActivityState(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                title: l10n.portfolioNoOpenPositions,
-                cycles: 3,
-                salSize: 140,
-                titleSize: 22,
-                titleWeight: FontWeight.w600,
-                subtitleSize: 15,
-                subtitleColor: context.colors.textSecondary,
-              ),
-            );
+            key: const ValueKey('dollars-activity-empty'),
+            padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
+            child: NoActivityState(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              title: l10n.portfolioNoOpenPositions,
+              cycles: 3,
+              salSize: 140,
+              titleSize: 22,
+              titleWeight: FontWeight.w600,
+              subtitleSize: 15,
+              subtitleColor: context.colors.textSecondary,
+            ),
+          );
+
+    if (widget.wide) {
+      return _wideOverview(context,
+          squares: squares, loading: loading, empty: empty);
+    }
 
     if (widget.inPane) {
       return Column(
@@ -672,8 +759,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
 /// A section's title over its block, in the home Activity's heading style
 /// ("Latest", all_activity.dart), on the page's 16 gutter plus the cards'
 /// 12 inset: every heading on one line, 12 inside the blocks' one edge.
-class DollarsOverviewHeading extends StatelessWidget {
-  const DollarsOverviewHeading(this.label, {super.key});
+class _Heading extends StatelessWidget {
+  const _Heading(this.label, {super.key});
 
   final String label;
 
@@ -708,7 +795,11 @@ class DollarsOverviewHeading extends StatelessWidget {
 /// The history on its way: the card's skeleton; nothing it can chart: the
 /// figure alone.
 class DollarsPnlStrip extends ConsumerWidget {
-  const DollarsPnlStrip({super.key});
+  const DollarsPnlStrip({super.key, this.plotHeight = kDollarsPnlPlotHeight});
+
+  /// The line's height, design units: the phone's [kDollarsPnlPlotHeight];
+  /// taller in the Overview's own pane on EXPANDED, which has the room.
+  final double plotHeight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -718,7 +809,8 @@ class DollarsPnlStrip extends ConsumerWidget {
     final venues = ref.watch(portfolioVenuesProvider);
     final status = ref.watch(openPnlChartStatusProvider);
     if (status == OpenPnlChartStatus.loading) {
-      return const _PnlStripSkeleton(key: ValueKey('dollars-pnl-loading'));
+      return _PnlStripSkeleton(
+          key: const ValueKey('dollars-pnl-loading'), plotHeight: plotHeight);
     }
 
     final c = context.colors;
@@ -736,8 +828,8 @@ class DollarsPnlStrip extends ConsumerWidget {
     List<double>? values;
     List<DateTime>? times;
     if (status == OpenPnlChartStatus.chart) {
-      final window =
-          ref.watch(openPnlWindowProvider(ref.watch(openPnlShownRangeProvider)));
+      final window = ref
+          .watch(openPnlWindowProvider(ref.watch(openPnlShownRangeProvider)));
       if (window != null && window.values.isNotEmpty) {
         final leftOut = ref.watch(openPnlHistoryProvider
                 .select((read) => read.valueOrNull?.leftOut)) ??
@@ -823,7 +915,7 @@ class DollarsPnlStrip extends ConsumerWidget {
                           zeroSplit: true,
                           baseline: 0,
                           live: false,
-                          height: kDollarsPnlPlotHeight.h,
+                          height: plotHeight.h,
                         ),
                       ),
                     ],
@@ -840,14 +932,16 @@ class DollarsPnlStrip extends ConsumerWidget {
 
 /// The P&L card's shape while its read is on its way.
 class _PnlStripSkeleton extends StatelessWidget {
-  const _PnlStripSkeleton({super.key});
+  const _PnlStripSkeleton({super.key, required this.plotHeight});
+
+  final double plotHeight;
 
   @override
   Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.only(top: 12.h),
         child: KuteSkeleton(
-          child: SkeletonBar(double.infinity,
-              (14 + 18 + 4 + 28 + 10 + kDollarsPnlPlotHeight + 12).h,
+          child: SkeletonBar(
+              double.infinity, (14 + 18 + 4 + 28 + 10 + plotHeight + 12).h,
               radius: PremiumGroupContainer.radius),
         ),
       );
