@@ -22,6 +22,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 // full-screen over it, exactly as before.
 
 import 'package:kute/theme/kute_motion.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_lines_host.dart';
 import 'package:kute/screens/hyperliquid/components/hl_trade_alerts_host.dart';
@@ -325,6 +326,7 @@ class _AppShellState extends ConsumerState<AppShell>
   void _maybePlaySwipeHint(ActiveNavTab tab) {
     if (tab != ActiveNavTab.home) return;
     if (_tabs.length < 2) return;
+    if (!_swipes) return;
     // Platform dispatcher, not MediaQuery.of: this runs from a post-frame
     // callback, and a whole-MediaQuery lookup here would subscribe the
     // SHELL to every metrics change for the rest of the session.
@@ -557,9 +559,14 @@ class _AppShellState extends ConsumerState<AppShell>
   /// Read in [build], for [_branchPage].
   bool _reduceMotion = false;
 
+  /// Whether the pages swipe (a phone), read in [build]; the once-ever
+  /// swipe hint plays only where they do.
+  bool _swipes = true;
+
   @override
   Widget build(BuildContext context) {
     _reduceMotion = KuteMotion.reduce(context);
+    final swipes = _swipes = KuteLayout.isCompact(context);
     final int currentIndex = widget.navigationShell.currentIndex;
     // An Investments pill change while that tab is on screen swaps the
     // venue sockets over, the way a tab change does.
@@ -629,15 +636,20 @@ class _AppShellState extends ConsumerState<AppShell>
           // the neighbor. An inner horizontal scrollable (e.g. a
           // category pill strip) still wins the gesture arena when the
           // drag starts on it, same as with the PageView.
+          // From MEDIUM up (kute_layout.dart) the pages do not swipe: a
+          // mouse cannot, and a two-pane page's charts and lists own their
+          // drags. The top nav's switch is clicked instead.
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onHorizontalDragUpdate: _onDragUpdate,
-            onHorizontalDragEnd: _onDragEnd,
-            onHorizontalDragCancel: () {
-              final target =
-                  _pageIndexForBranch(widget.navigationShell.currentIndex);
-              if (target >= 0) _animatePage(target);
-            },
+            onHorizontalDragUpdate: swipes ? _onDragUpdate : null,
+            onHorizontalDragEnd: swipes ? _onDragEnd : null,
+            onHorizontalDragCancel: swipes
+                ? () {
+                    final target = _pageIndexForBranch(
+                        widget.navigationShell.currentIndex);
+                    if (target >= 0) _animatePage(target);
+                  }
+                : null,
             child: AnimatedBuilder(
               animation: _page,
               builder: (context, _) {

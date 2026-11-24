@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
@@ -19,6 +20,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 /// its own chrome (a slip, a picker, a menu) calls this directly so its
 /// look is untouched and only its motion is shared. Nothing in lib/ calls
 /// [showModalBottomSheet] itself.
+///
+/// From MEDIUM up (kute_layout.dart) every sheet is a centred form of at
+/// most `KuteLayout.sheetMaxWidth`, still anchored at the bottom with its
+/// own handle, radius and colours, so the keyboard lift and the drag down
+/// work as on a phone; its content sees the sheet's width as the screen's
+/// ([KuteSheetMedia]). A phone: unchanged.
 Future<T?> showKuteModalSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -34,7 +41,10 @@ Future<T?> showKuteModalSheet<T>({
 }) {
   return showModalBottomSheet<T>(
     context: context,
-    builder: builder,
+    builder: kuteWindowIsWide(context)
+        ? (ctx) => KuteSheetMedia(child: builder(ctx))
+        : builder,
+    constraints: kuteSheetConstraints(context),
     backgroundColor: backgroundColor,
     barrierColor: barrierColor,
     shape: shape,

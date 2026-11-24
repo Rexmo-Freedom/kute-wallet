@@ -13,6 +13,7 @@
 // full-screen receive (`/receive` the QR itself).
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -119,6 +120,8 @@ class ReceiveSheetPage extends Page<void> {
         barrierLabel: MaterialLocalizations.of(context).scrimLabel,
         // The app's sheet motion (lib/theme/kute_motion.dart).
         sheetAnimationStyle: KuteMotion.sheetStyle(context),
+        // A centred form from MEDIUM up (kute_wide_frames.dart).
+        constraints: kuteSheetConstraints(context),
         // The bar explains the screen (founder, 31 October 2026): "What
         // is this?", tapping sends the receive question to Sal.
         builder: (ctx) => KuteBarContextScope(
@@ -129,10 +132,12 @@ class ReceiveSheetPage extends Page<void> {
             question: ctx.l10n.barReceiveQuestion,
             source: 'receive',
           ),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-            child: usd ? _usdBody(ctx) : _bitcoinBody(ctx),
+          child: KuteSheetMedia(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: usd ? _usdBody(ctx) : _bitcoinBody(ctx),
+            ),
           ),
         ),
       );

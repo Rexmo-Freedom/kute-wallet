@@ -25,6 +25,7 @@
 
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -358,7 +359,10 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     // The same scaffold, title, dots and keypad as the cold-start PIN
     // screen, so a relock after backgrounding looks like Welcome back
     // and nothing else.
+    // The whole window covered; from MEDIUM up the PIN pad is the
+    // centred form column on the background (kute_wide_frames.dart).
     return Positioned.fill(
+      child: KuteFormColumn(
       child: KutePinScaffold(
         title: context.l10n.welcomeBack,
         salMood: salMoodFor(_pin.length),
@@ -409,6 +413,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
             ),
           ),
         ),
+      ),
       ),
     );
   }

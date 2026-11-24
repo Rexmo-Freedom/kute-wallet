@@ -22,6 +22,7 @@
 // their preview renders, uncapped.
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/all_activity.dart'
     show ActivityScope, AllActivitySliver;
@@ -191,7 +192,9 @@ Future<void> showActivityHistory(
   return Navigator.of(context, rootNavigator: true).push<void>(
     KutePageRoute<void>(
       settings: const RouteSettings(name: ActivityHistoryScreen.routeName),
-      builder: (_) => screen,
+      // A readable column from MEDIUM up, never a list stretched across
+      // the window (kute_wide_frames.dart).
+      builder: (_) => KuteFormColumn(child: screen),
     ),
   );
 }

@@ -93,6 +93,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
@@ -438,9 +439,17 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
             key: const ValueKey('kute-bar-morphed'),
             child: Opacity(opacity: 0, child: switcher))
         : switcher;
+    // A phone's width from MEDIUM up, centred in the window
+    // (kute_layout.dart): never stretched across a tablet or a desktop.
+    // A page with an action pane of its own hides the bar (its
+    // KuteBarContext); a phone keeps the screen's full width.
+    final window = MediaQuery.sizeOf(context).width;
+    final side = KuteLayout.forWidth(window) == KuteFormFactor.compact
+        ? 0.0
+        : math.max(0.0, (window - KuteLayout.paneWidth) / 2);
     return Positioned(
-      left: 0,
-      right: 0,
+      left: side,
+      right: side,
       bottom: 0,
       // Above the navigator, outside every page's Material: the theme's
       // text, never the error style (kute_overlay_surface.dart).

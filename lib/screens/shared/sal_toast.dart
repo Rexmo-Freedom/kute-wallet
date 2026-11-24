@@ -67,6 +67,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/helpers/root_navigator.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart'
@@ -817,7 +818,12 @@ class _SalToastFlightState extends State<_SalToastFlight>
       child: KuteOverlaySurface(
         child: Align(
           alignment: Alignment.topCenter,
-          child: AnimatedBuilder(
+          // A phone's width from MEDIUM up, centred (kute_layout.dart).
+          child: ConstrainedBox(
+            constraints: KuteLayout.isCompact(context)
+                ? const BoxConstraints()
+                : const BoxConstraints(maxWidth: KuteLayout.paneWidth),
+            child: AnimatedBuilder(
             animation: Listenable.merge([_arrival, _drag]),
             builder: (context, child) => Transform.translate(
               offset: Offset(
@@ -849,6 +855,7 @@ class _SalToastFlightState extends State<_SalToastFlight>
                 ),
               ),
             ),
+          ),
           ),
         ),
       ),

@@ -28,6 +28,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/shell_wallet_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
@@ -83,6 +84,9 @@ class KuteTopNavBar extends ConsumerWidget {
 
     final bar = SafeArea(
       bottom: false,
+      // A phone's width from MEDIUM up, centred, never stretched
+      // (kute_wide_frames.dart); the switch is clicked there, not swiped.
+      child: KutePhoneColumn(
       child: Padding(
         padding: EdgeInsets.fromLTRB(centred ? 16.w : 12.w, top, edge, 6.h),
         // No enclosing band: the switch and the hub button float. The
@@ -110,6 +114,7 @@ class KuteTopNavBar extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
 
