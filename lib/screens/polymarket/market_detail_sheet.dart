@@ -3757,12 +3757,18 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
   /// page's length); null follows the shared choice.
   final int? minutes;
 
+  /// EXPANDED: the side the panel's slip opens on, as a tap on the round
+  /// card's Up (0) or Down (1) opens it (the Crypto pages' card's buttons
+  /// open the page with it); null: the panel's own quiet Up.
+  final int? initialSide;
+
   const FiveMinMarketDetailSheet({
     super.key,
     required this.event,
     this.onDeposit,
     this.ledgerWalletId,
     this.minutes,
+    this.initialSide,
   });
 
   static const routeName = 'polymarket-5min-market-detail-sheet';
@@ -3777,6 +3783,7 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
     VoidCallback? onDeposit,
     String? ledgerWalletId,
     int? minutes,
+    int? initialSide,
   }) {
     // Skip the slide-up transition entirely when the OS asks to reduce
     // motion (the route still appears, just without the animated slide).
@@ -3795,6 +3802,7 @@ class FiveMinMarketDetailSheet extends StatefulWidget {
             onDeposit: onDeposit,
             ledgerWalletId: ledgerWalletId,
             minutes: minutes,
+            initialSide: initialSide,
           ),
         ),
       ),
@@ -3810,6 +3818,19 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
   int? get minutes => widget.minutes;
 
   final GlobalKey _cardArea = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // The side the person clicked opens in the panel, counted as their
+    // tap, ahead of the panel's own quiet open (which then finds it full).
+    final side = widget.initialSide;
+    if (side != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && KuteLayout.isExpanded(context)) _openDefaultSlip(side);
+      });
+    }
+  }
 
   /// The pane's slip (EXPANDED): the round card's own Up or Down, exactly
   /// as a tap on it opens it (the round it bets on now, rolling to the
