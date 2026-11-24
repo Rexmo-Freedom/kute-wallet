@@ -126,7 +126,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-          find.text(swapped ? 'Swapped to Dollars' : 'Moved to Dollars'),
+          find.text('Moved to Dollars'),
           findsOneWidget);
       expect(kuteBarPrimaryWithText('Done'), findsOneWidget);
       expect(find.text(_tabLabel), findsNothing);

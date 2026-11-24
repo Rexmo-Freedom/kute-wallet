@@ -241,8 +241,8 @@ void main() {
   });
 
   testWidgets(
-      "Swap's confirmation says Swapped (founder, 7 November 2026: the "
-      'screen is Swap)', (tester) async {
+      "Move's confirmation says Moved (founder, 25 November 2026: the "
+      'Dollars button and its screen are Move)', (tester) async {
     await pumpHost(tester);
     pushMoveSentOverlay(
       navigator: nav(),
@@ -253,8 +253,8 @@ void main() {
       swapped: true,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Swapped to Dollars'), findsOneWidget);
-    expect(find.text('Moved to Dollars'), findsNothing);
+    expect(find.text('Moved to Dollars'), findsOneWidget);
+    expect(find.text('Swapped to Dollars'), findsNothing);
     expect(find.text(r'$25.00'), findsOneWidget);
     await tapDoneAndExpectHost(tester);
   });
