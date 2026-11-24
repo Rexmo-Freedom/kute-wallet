@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,15 +70,17 @@ class HlTrailingStopSheet extends ConsumerStatefulWidget {
         MaterialPageRoute<HlOrderResult>(
             fullscreenDialog: true,
             settings: const RouteSettings(name: 'hyperliquid-trailing-stop'),
-            builder: (_) => HlTrailingStopSheet(
-                market: market,
-                size: normalizedSize,
-                isBuy: isBuy,
-                reduceOnly: reduceOnly,
-                leverage: leverage,
-                isCross: isCross,
-                walletId: walletId,
-                ledger: ledger)));
+            // A centred column from MEDIUM up (kute_wide_frames.dart).
+            builder: (_) => KuteFormColumn(
+                child: HlTrailingStopSheet(
+                    market: market,
+                    size: normalizedSize,
+                    isBuy: isBuy,
+                    reduceOnly: reduceOnly,
+                    leverage: leverage,
+                    isCross: isCross,
+                    walletId: walletId,
+                    ledger: ledger))));
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
@@ -1641,14 +1642,17 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         MaterialPageRoute(
           fullscreenDialog: true,
           settings: const RouteSettings(name: SellSheet.routeName),
-          builder: (_) => _SellAdvancedScreen(
-            position: pos,
-            currentPrice: currentPrice,
-            isLimitMode: _isLimitMode,
-            limitPrice: _limitPrice,
-            slippagePct: _slippagePct,
-            amountText: _amountController.text,
-            marketDefaultSlippagePct: _marketDefaultSlippage,
+          // A centred column from MEDIUM up (kute_wide_frames.dart).
+          builder: (_) => KuteFormColumn(
+            child: _SellAdvancedScreen(
+              position: pos,
+              currentPrice: currentPrice,
+              isLimitMode: _isLimitMode,
+              limitPrice: _limitPrice,
+              slippagePct: _slippagePct,
+              amountText: _amountController.text,
+              marketDefaultSlippagePct: _marketDefaultSlippage,
+            ),
           ),
         ),
       );

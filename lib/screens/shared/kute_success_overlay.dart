@@ -37,7 +37,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogCard;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/success_feedback.dart';
@@ -404,6 +406,7 @@ class _KuteConfirmationState extends State<KuteConfirmation>
   Widget build(BuildContext context) {
     final c = context.colors;
     final slide = _slide ?? kAlwaysCompleteAnimation;
+    final route = ModalRoute.of(context);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -424,22 +427,87 @@ class _KuteConfirmationState extends State<KuteConfirmation>
                 ),
               ),
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: AnimatedBuilder(
-                animation: Listenable.merge([slide, _drag]),
-                builder: (context, child) => FractionalTranslation(
-                  translation: Offset(0, 1 - slide.value),
-                  child: Transform.translate(
-                    offset: Offset(0, _drag.value),
-                    child: child,
+            // EXPANDED (a laptop): the search panel's shape, as every
+            // sheet there (kute_dialog.dart), Done drawn in its foot; it
+            // fades and rises in on the route's slide. Never a sheet as
+            // wide as the window.
+            if (kuteWindowIsExpanded(context) && route != null)
+              Positioned.fill(
+                child: kutePanelTransition(
+                  slide,
+                  KuteDialogCard(
+                    route: route,
+                    // Escape is one more way out, as the scrim is; the
+                    // sheet still draws no X (the content's close mark).
+                    onDismiss: () => _finish(widget.onDone),
+                    child: _buildPanel(context, c),
                   ),
                 ),
-                child: _buildSheet(context, c),
+              )
+            else
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([slide, _drag]),
+                  builder: (context, child) => FractionalTranslation(
+                    translation: Offset(0, 1 - slide.value),
+                    child: Transform.translate(
+                      offset: Offset(0, _drag.value),
+                      child: child,
+                    ),
+                  ),
+                  // MEDIUM: a centred sheet of the sheets' width
+                  // (kute_wide_frames.dart); a phone: as it was.
+                  child: KuteSheetWidth(child: _buildSheet(context, c)),
+                ),
               ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// The sheet's content inside the EXPANDED panel: the same parts, no
+  /// drag, the surface and Done the panel's (KuteDialogCard draws Done
+  /// in its foot from the bar context below).
+  Widget _buildPanel(BuildContext context, AppColorsExtension c) {
+    final parts = _SheetParts.of(widget);
+    final secondary = widget.secondaryButtonText;
+    return Padding(
+      key: _sheetKey,
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The sheet's own close is the scrim and Done: no X.
+          const KuteDialogCloseMark(child: SizedBox.shrink()),
+          SizedBox(height: 28.h),
+          Flexible(
+            child: SingleChildScrollView(
+              child: _buildContent(context, c, parts),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          if (secondary != null && widget.onSecondary != null)
+            AppTextButton(
+              key: const ValueKey('kute-confirmation-secondary'),
+              text: secondary,
+              textColor: c.textPrimary,
+              onPressed: () => _finish(widget.onSecondary),
+            ),
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: widget.buttonText ?? context.l10n.done,
+              onPrimary: () => _finish(widget.onDone),
+              clip: 'happy',
+              disabledLabel: null,
+              source: 'confirmation',
+            ),
+            child: const SizedBox(
+                key: ValueKey('kute-confirmation-bar-room'), height: 0),
+          ),
+        ],
       ),
     );
   }

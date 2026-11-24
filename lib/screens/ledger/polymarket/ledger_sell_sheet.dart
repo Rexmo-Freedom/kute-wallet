@@ -23,6 +23,7 @@
 // * Cancel, rejection or disconnect keep the typed amount.
 // * A legacy Safe account is read-only (O4).
 
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'dart:math';
 
 import 'dart:async';
@@ -225,10 +226,13 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
       await Navigator.of(context, rootNavigator: true).push<void>(
         MaterialPageRoute(
           fullscreenDialog: true,
-          builder: (_) => _LedgerSellAdvancedScreen(
-            marketQuestion: _position.title,
-            outcome: _position.outcome,
-            slippage: _slippage,
+          // A centred column from MEDIUM up (kute_wide_frames.dart).
+          builder: (_) => KuteFormColumn(
+            child: _LedgerSellAdvancedScreen(
+              marketQuestion: _position.title,
+              outcome: _position.outcome,
+              slippage: _slippage,
+            ),
           ),
         ),
       );

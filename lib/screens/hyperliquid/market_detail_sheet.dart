@@ -174,6 +174,8 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
       KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
         barrierColor: Colors.black.withValues(alpha: 0.4),
+        // Two panes of its own on a wide window.
+        form: false,
         // Still while the order slip (or any sheet) covers it, so its tick
         // animations never share the frames of the slip being scrolled.
         builder: (_) => KuteStillWhenCovered(

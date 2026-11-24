@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'trailing_stop_sheet.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
@@ -208,11 +209,14 @@ class HlClosePositionSheet extends ConsumerStatefulWidget {
         () => navigator.push<_CloseDraft>(MaterialPageRoute(
               settings: const RouteSettings(name: routeName),
               fullscreenDialog: true,
-              builder: (_) => HlClosePositionSheet._advanced(
-                position: position,
-                market: market,
-                ledgerWalletId: ledgerWalletId,
-                draft: draft,
+              // A centred column from MEDIUM up (kute_wide_frames.dart).
+              builder: (_) => KuteFormColumn(
+                child: HlClosePositionSheet._advanced(
+                  position: position,
+                  market: market,
+                  ledgerWalletId: ledgerWalletId,
+                  draft: draft,
+                ),
               ),
             ))));
   }
@@ -630,11 +634,14 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
           .push<_CloseDraft>(MaterialPageRoute(
         settings: const RouteSettings(name: HlClosePositionSheet.routeName),
         fullscreenDialog: true,
-        builder: (_) => HlClosePositionSheet._advanced(
-          position: pos,
-          market: _market,
-          ledgerWalletId: widget.ledgerWalletId,
-          draft: _draft,
+        // A centred column from MEDIUM up (kute_wide_frames.dart).
+        builder: (_) => KuteFormColumn(
+          child: HlClosePositionSheet._advanced(
+            position: pos,
+            market: _market,
+            ledgerWalletId: widget.ledgerWalletId,
+            draft: _draft,
+          ),
         ),
       ));
       if (mounted && draft != null) setState(() => _applyDraft(draft));

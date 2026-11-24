@@ -20,11 +20,18 @@
 //     down on the close easing. A sheet is no horizontal page, so no back
 //     swipe; the page's own close and the system back work as before.
 //
+// WIDE WINDOWS (kute_layout.dart): from MEDIUM up a pushed page is a
+// centred `KuteLayout.columnMaxWidth` column ([KuteFormColumn]), never a
+// phone page stretched across a laptop; a detail sheet's column stands
+// over the dimmed page. A page with a wide layout of its own (a market's
+// two panes) passes `form: false`. A phone: no difference.
+//
 // Reduce Motion: a 150 ms fade, no scale, no slide ([KuteMotion.reduce]).
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/platform/web_image.dart' show WebCovers;
 import 'package:kute/theme/kute_motion.dart';
 
@@ -69,9 +76,13 @@ class KutePageRoute<T> extends PageRoute<T> {
     super.settings,
     this.maintainState = true,
     super.fullscreenDialog,
+    this.form = true,
   });
 
   final WidgetBuilder builder;
+
+  /// A centred column from MEDIUM up (see the file header).
+  final bool form;
 
   @override
   final bool maintainState;
@@ -97,7 +108,11 @@ class KutePageRoute<T> extends PageRoute<T> {
   Widget buildPage(BuildContext context, Animation<double> animation,
           Animation<double> secondaryAnimation) =>
       Semantics(
-          scopesRoute: true, explicitChildNodes: true, child: builder(context));
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: form
+              ? KuteFormColumn(child: builder(context))
+              : builder(context));
 
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
@@ -115,9 +130,14 @@ class KuteSheetPageRoute<T> extends PageRoute<T> {
     super.settings,
     this.barrierColor = const Color(0x66000000),
     this.maintainState = true,
+    this.form = true,
   }) : super(fullscreenDialog: true);
 
   final WidgetBuilder builder;
+
+  /// A centred column over the dimmed page from MEDIUM up (see the file
+  /// header); false for a page with two panes of its own (a market).
+  final bool form;
 
   @override
   final Color? barrierColor;
@@ -160,7 +180,11 @@ class KuteSheetPageRoute<T> extends PageRoute<T> {
   Widget buildPage(BuildContext context, Animation<double> animation,
           Animation<double> secondaryAnimation) =>
       Semantics(
-          scopesRoute: true, explicitChildNodes: true, child: builder(context));
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: form
+              ? KuteFormColumn(background: false, child: builder(context))
+              : builder(context));
 
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,

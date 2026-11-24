@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/standing_order_slips.dart'
@@ -1708,11 +1709,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         MaterialPageRoute<void>(
           fullscreenDialog: true,
           settings: const RouteSettings(name: 'hyperliquid-advanced-order'),
-          builder: (routeContext) => Consumer(
-            builder: (context, routeRef, _) => AnimatedBuilder(
-              animation: _draftChanges,
-              builder: (context, _) =>
-                  _buildTicket(context, routeRef, advanced: true),
+          // A centred column from MEDIUM up (kute_wide_frames.dart).
+          builder: (routeContext) => KuteFormColumn(
+            child: Consumer(
+              builder: (context, routeRef, _) => AnimatedBuilder(
+                animation: _draftChanges,
+                builder: (context, _) =>
+                    _buildTicket(context, routeRef, advanced: true),
+              ),
             ),
           ),
         ),

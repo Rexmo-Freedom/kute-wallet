@@ -609,7 +609,7 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
     // App-standard alert chrome (blurred barrier + stacked full-width
     // AppButtons) — replaced the one-off Material AlertDialog with its
     // 10.r ElevatedButton that the CTA sweep flagged.
-    return await showDialog<bool>(
+    return await showKuteAlert<bool>(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: 0.5),
