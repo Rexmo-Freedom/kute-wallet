@@ -57,6 +57,7 @@ class _SlipFormBodyState extends State<SlipFormBody> {
     final expand = widget.expandForMessage;
     return _SlipFormLayout(
       controller: _scroll,
+      fill: fit != null && fit.widget.fill && !expand,
       onNeed: fit == null ? null : (need) => fit._report(need, pinned: !expand),
       children: [
         SingleChildScrollView(
@@ -114,7 +115,16 @@ abstract final class SlipDensity {
   /// height it is given rather than its fixed one.
   static bool adaptive(BuildContext context) =>
       _SlipFitScope.of(context) != null;
+
+  /// The ticket is a full-height card ([SlipFit.fill]): its pinned keypad
+  /// takes the height the form leaves, keys growing to
+  /// [kSlipFillMaxKeyHeight] and the rest as even spacing.
+  static bool fills(BuildContext context) =>
+      _SlipFitScope.of(context)?.fill ?? false;
 }
+
+/// The tallest a key grows on a full-height ticket ([SlipFit.fill]).
+const double kSlipFillMaxKeyHeight = 72;
 
 /// [gap] as designed, or half of it on a tight ticket.
 double slipGap(BuildContext context, double gap) =>
@@ -269,9 +279,17 @@ const _kFoldNotices = 5;
 /// this steps the ticket compact when it does not fit with the keypad at
 /// its smallest, and back as designed once it would fit again.
 class SlipFit extends StatefulWidget {
-  const SlipFit({super.key, required this.child});
+  const SlipFit({super.key, this.fill = false, required this.child});
 
   final Widget child;
+
+  /// A full-height card (a ticket in place on a wide market page; founder,
+  /// 25 November 2026: "the Long Nvidia [ticket] is only half, why?"): the
+  /// ticket takes all the height it is given, its pinned keypad growing
+  /// into what the form leaves (keys to [kSlipFillMaxKeyHeight], then even
+  /// spacing), so its button sits at the card's foot. Short of room it
+  /// fits exactly as a sheet's ticket does (compact, then scrolling).
+  final bool fill;
 
   static _SlipFitState? _stateOf(BuildContext context) =>
       _SlipFitScope.of(context)?.state;
@@ -422,6 +440,7 @@ class _SlipFitState extends State<SlipFit> {
         state: this,
         level: _level,
         pinned: _pinned,
+        fill: widget.fill,
         give: _pinned
             ? 0
             : _level >= _kTight
@@ -438,6 +457,7 @@ class _SlipFitScope extends InheritedWidget {
     required this.state,
     required this.level,
     required this.pinned,
+    required this.fill,
     required this.give,
     required super.child,
   });
@@ -445,6 +465,7 @@ class _SlipFitScope extends InheritedWidget {
   final _SlipFitState state;
   final int level;
   final bool pinned;
+  final bool fill;
   final double give;
 
   static _SlipFitScope? of(BuildContext context) =>
@@ -452,7 +473,10 @@ class _SlipFitScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_SlipFitScope old) =>
-      level != old.level || pinned != old.pinned || give != old.give;
+      level != old.level ||
+      pinned != old.pinned ||
+      give != old.give ||
+      fill != old.fill;
 }
 
 /// The form's scroll view over the pinned input. Lays the input out at
@@ -463,22 +487,25 @@ class _SlipFormLayout extends MultiChildRenderObjectWidget {
   const _SlipFormLayout({
     required this.controller,
     required this.onNeed,
+    this.fill = false,
     required super.children,
   });
 
   final ScrollController controller;
   final ValueChanged<double>? onNeed;
+  final bool fill;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderSlipFormLayout(controller: controller, onNeed: onNeed);
+      _RenderSlipFormLayout(controller: controller, onNeed: onNeed, fill: fill);
 
   @override
   void updateRenderObject(
       BuildContext context, _RenderSlipFormLayout renderObject) {
     renderObject
       ..controller = controller
-      ..onNeed = onNeed;
+      ..onNeed = onNeed
+      ..fill = fill;
   }
 }
 
@@ -494,9 +521,19 @@ class _RenderSlipFormLayout extends RenderBox
   _RenderSlipFormLayout({
     required ScrollController controller,
     this.onNeed,
-  }) : _controller = controller;
+    bool fill = false,
+  })  : _controller = controller,
+        _fill = fill;
 
   ValueChanged<double>? onNeed;
+
+  /// [SlipFit.fill]: the input takes all the height the form leaves.
+  bool _fill;
+  set fill(bool value) {
+    if (value == _fill) return;
+    _fill = value;
+    markNeedsLayout();
+  }
 
   ScrollController _controller;
   set controller(ScrollController value) {
@@ -593,6 +630,10 @@ class _RenderSlipFormLayout extends RenderBox
       final target = (maxHeight - form).clamp(inputMin, inputHeight);
       if (target < inputHeight - 0.01) {
         input.layout(wide.copyWith(maxHeight: target), parentUsesSize: true);
+      } else if (_fill && maxHeight - form > inputHeight + 0.5) {
+        // A full-height card: the input grows into the rest.
+        input.layout(wide.copyWith(maxHeight: maxHeight - form),
+            parentUsesSize: true);
       }
     }
     (_scroll.parentData! as _SlipFormParentData).offset = Offset.zero;

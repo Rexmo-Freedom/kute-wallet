@@ -71,7 +71,15 @@ class HlStatsSection extends StatelessWidget {
   final String title;
   final List<HlStat> stats;
 
-  const HlStatsSection({super.key, required this.title, required this.stats});
+  const HlStatsSection(
+      {super.key, required this.title, required this.stats, this.tiles = false});
+
+  /// The wide market page (EXPANDED; founder, 25 November 2026: "data
+  /// here seems too compressed"): one band of tiles across the pane's
+  /// whole width, the label over the value in the same text styles, 4 a
+  /// row on a wide pane, 3 or 2 narrower, wrapping as needed. A label is
+  /// never cut: it takes a second line before it would ellipsize.
+  final bool tiles;
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +90,58 @@ class HlStatsSection extends StatelessWidget {
       duration: kuteMotion(context, kArrivalDuration),
       curve: Curves.easeInOut,
       alignment: Alignment.topCenter,
-      child: stats.isEmpty ? const SizedBox.shrink() : _block(context),
+      child: stats.isEmpty
+          ? const SizedBox.shrink()
+          : tiles
+              ? _tiles(context)
+              : _block(context),
+    );
+  }
+
+  Widget _tiles(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 17.sp,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+          ),
+        ),
+        SizedBox(height: 4.h),
+        LayoutBuilder(builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final perRow = w >= 720
+              ? 4
+              : w >= 480
+                  ? 3
+                  : 2;
+          final gap = 20.w;
+          final tileW = (w - gap * (perRow - 1)) / perRow;
+          final rows = (stats.length + perRow - 1) ~/ perRow;
+          return Wrap(
+            key: const ValueKey('hl-stats-tiles'),
+            spacing: gap,
+            children: [
+              for (var i = 0; i < stats.length; i++)
+                SizedBox(
+                  width: tileW,
+                  child: ArrivalSwitcher(
+                    state: stats[i].label,
+                    animateSize: false,
+                    child: _StatTile(
+                        stat: stats[i], divider: i ~/ perRow < rows - 1),
+                  ),
+                ),
+            ],
+          );
+        }),
+      ],
     );
   }
 
@@ -175,6 +234,60 @@ class _StatCell extends StatelessWidget {
               fontSize: 14.sp,
               fontWeight: FontWeight.w600,
               fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A stat as a tile (the wide page's band, [HlStatsSection.tiles]): the
+/// label over the value, in the cell's own text styles; the label wraps
+/// to a second line rather than being cut.
+class _StatTile extends StatelessWidget {
+  final HlStat stat;
+  final bool divider;
+  const _StatTile({required this.stat, required this.divider});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(vertical: 12.h),
+      decoration: BoxDecoration(
+        border: divider
+            ? Border(bottom: BorderSide(color: c.borderSubtle, width: 0.5))
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            stat.label,
+            maxLines: 2,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              stat.value,
+              maxLines: 1,
+              softWrap: false,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ],

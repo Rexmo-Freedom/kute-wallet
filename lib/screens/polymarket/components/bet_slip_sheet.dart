@@ -5896,7 +5896,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   borderRadius: BorderRadius.circular(24.r),
                   border: Border.all(color: tintColors.border),
                 ),
-                child: SlipFit(child: ticket(fullscreen: false)),
+                // A full-height card: the keypad takes the pane's spare
+                // height, the button at its foot.
+                child: SlipFit(fill: true, child: ticket(fullscreen: false)),
               ),
             ),
           ),

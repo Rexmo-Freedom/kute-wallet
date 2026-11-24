@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart'
@@ -28,6 +29,10 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/polymarket/components/market_chart.dart'
+    show MarketChart;
+import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart'
+    show KuteScrubCard;
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
@@ -227,6 +232,8 @@ ThemeData _theme(bool dark) {
 const _sizes = [
   ('1440x900', Size(1440, 900)),
   ('1180x820', Size(1180, 820)),
+  ('1920x1080', Size(1920, 1080)),
+  ('1000x700', Size(1000, 700)),
   ('820x1180', Size(820, 1180)),
   ('430x932', Size(430, 932)),
 ];
@@ -416,6 +423,48 @@ void main() {
             settings: const RouteSettings(name: MarketDetailSheet.routeName),
             builder: (_) => MarketDetailSheet(event: e)));
   }
+
+  // THE POINTER KIND DECIDES on the Predictions chart too: hovering a
+  // mouse shows the crosshair, a finger's touch does not; the wheel over
+  // the chart zooms rather than scrolling the page.
+  testWidgets('wide: a mouse hover shows the chart crosshair, the wheel '
+      'does not scroll the page', (tester) async {
+    await pumpMarket(tester, const Size(1440, 900), _aliens);
+    final chart = find.byType(MarketChart).first;
+    final at = tester.getCenter(chart);
+    expect(find.byType(KuteScrubCard), findsNothing);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: at - const Offset(40, 0));
+    await mouse.moveTo(at);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(KuteScrubCard), findsOneWidget);
+    await mouse.moveTo(const Offset(5, 895));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(KuteScrubCard), findsNothing);
+    await mouse.removePointer();
+    final scrollable = tester.state<ScrollableState>(find
+        .ancestor(of: chart, matching: find.byType(Scrollable))
+        .first);
+    final before = scrollable.position.pixels;
+    final wheel = TestPointer(9, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(wheel.hover(at));
+    await tester.sendEventToBinding(wheel.scroll(const Offset(0, 120)));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(scrollable.position.pixels, before);
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
+
+  testWidgets('wide: the slip is a full-height card down to the gutter',
+      (tester) async {
+    await pumpMarket(tester, const Size(1440, 900), _aliens);
+    final slip = tester.getRect(find.byKey(const ValueKey('bet-slip-in-place')));
+    expect(slip.bottom, closeTo(900 - KuteLayout.paneGap, 1));
+    expect(slip.top, lessThan(20));
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
 
   testWidgets(
       'wide: EXPANDED opens the slip in place on Yes, its button in '

@@ -5,7 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogScope;
-import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
+import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity, kSlipFillMaxKeyHeight;
 import 'package:kute/theme/app_theme.dart';
 
 class CustomKeypad extends StatelessWidget {
@@ -86,6 +86,9 @@ class CustomKeypad extends StatelessWidget {
                 rowGap: _rowGap,
                 minRowGap: math.min(_minRowGap, _rowGap),
                 give: SlipDensity.keypadGive(context),
+                maxKeyHeight: SlipDensity.fills(context)
+                    ? math.max(_keyHeight, kSlipFillMaxKeyHeight)
+                    : null,
                 onRange: (range) =>
                     SlipDensity.reportKeypadRange(context, range),
                 children: rows,
@@ -416,11 +419,18 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
     required this.rowGap,
     required this.minRowGap,
     required this.give,
+    this.maxKeyHeight,
     required this.onRange,
     required super.children,
   });
 
   final double keyHeight, minKeyHeight, rowGap, minRowGap, give;
+
+  /// Non-null on a full-height ticket ([SlipDensity.fills]): given more
+  /// than its designed height, the keys grow up to this, the gaps between
+  /// the rows to [_kFillMaxRowGap], and what is left is split evenly above
+  /// and below the pad.
+  final double? maxKeyHeight;
   final ValueChanged<double> onRange;
 
   @override
@@ -430,6 +440,7 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
         rowGap: rowGap,
         minRowGap: minRowGap,
         give: give,
+        maxKeyHeight: maxKeyHeight,
         onRange: onRange,
       );
 
@@ -441,9 +452,14 @@ class _KeypadRows extends MultiChildRenderObjectWidget {
       ..rowGap = rowGap
       ..minRowGap = minRowGap
       ..give = give
+      ..maxKeyHeight = maxKeyHeight
       ..onRange = onRange;
   }
 }
+
+/// The widest gap between a full-height pad's rows (see
+/// [_KeypadRows.maxKeyHeight]).
+const double _kFillMaxRowGap = 20;
 
 class _KeypadRowParentData extends ContainerBoxParentData<RenderBox> {}
 
@@ -457,15 +473,24 @@ class _RenderKeypadRows extends RenderBox
     required double rowGap,
     required double minRowGap,
     required double give,
+    double? maxKeyHeight,
     required this.onRange,
-  })  : _keyHeight = keyHeight,
+  })  : _maxKeyHeight = maxKeyHeight,
+        _keyHeight = keyHeight,
         _minKeyHeight = minKeyHeight,
         _rowGap = rowGap,
         _minRowGap = minRowGap,
         _give = give;
 
   double _keyHeight, _minKeyHeight, _rowGap, _minRowGap, _give;
+  double? _maxKeyHeight;
   ValueChanged<double> onRange;
+
+  set maxKeyHeight(double? v) {
+    if (v == _maxKeyHeight) return;
+    _maxKeyHeight = v;
+    markNeedsLayout();
+  }
 
   set keyHeight(double v) => _set(_keyHeight, v, () => _keyHeight = v);
   set minKeyHeight(double v) => _set(_minKeyHeight, v, () => _minKeyHeight = v);
@@ -520,6 +545,9 @@ class _RenderKeypadRows extends RenderBox
 
   double _heightFor(BoxConstraints constraints) {
     if (!constraints.hasBoundedHeight) return _unbounded;
+    if (_maxKeyHeight != null && constraints.maxHeight > _natural) {
+      return constraints.maxHeight;
+    }
     return constraints.maxHeight.clamp(_smallest, _natural).toDouble();
   }
 
@@ -533,10 +561,22 @@ class _RenderKeypadRows extends RenderBox
     final height = _heightFor(constraints);
     final span = _natural - _smallest;
     final t = span <= 0 ? 1.0 : ((height - _smallest) / span).clamp(0.0, 1.0);
-    final key = _minKeyHeight + (_keyHeight - _minKeyHeight) * t;
-    final gap = _minRowGap + (_rowGap - _minRowGap) * t;
-    final width = constraints.maxWidth;
+    var key = _minKeyHeight + (_keyHeight - _minKeyHeight) * t;
+    var gap = _minRowGap + (_rowGap - _minRowGap) * t;
     var y = 0.0;
+    final grow = _maxKeyHeight;
+    if (grow != null && height > _natural && childCount > 0) {
+      // A full-height ticket: the keys grow first (to [grow]), then the
+      // gaps between the rows, and the rest is even room above and below.
+      final rows = childCount;
+      key = math.min(grow, (height - _gaps * _rowGap) / rows);
+      final rest = height - rows * key;
+      gap = _gaps == 0
+          ? 0
+          : math.min(math.max(_rowGap, _kFillMaxRowGap), rest / _gaps);
+      y = math.max(0.0, (rest - _gaps * gap) / 2);
+    }
+    final width = constraints.maxWidth;
     for (var c = firstChild; c != null; c = childAfter(c)) {
       c.layout(BoxConstraints.tightFor(width: width, height: key));
       (c.parentData! as _KeypadRowParentData).offset = Offset(0, y);

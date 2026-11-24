@@ -14,6 +14,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +28,8 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
+import 'package:kute/models/chart_drawing.dart';
+import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_candles_provider.dart';
@@ -41,7 +44,13 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlCandlestickChart;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart'
+    show KuteScrubCard;
+import 'package:kute/screens/shared/charts/kute_chart_drawings.dart'
+    show KuteChartDrawingsPainter;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
@@ -314,6 +323,10 @@ void main() {
   setUpAll(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
     Hive.init(Directory.systemTemp.createTempSync('hl-wide').path);
+    // Open before any test's fake clock: the chart editor's drawings and
+    // preferences read them.
+    await Hive.openBox<String>('hl_chart_drawings');
+    await Hive.openBox<String>('hl_chart_preferences');
     await _fonts();
   });
   setUp(() {
@@ -356,9 +369,243 @@ void main() {
     await _unmount(tester);
   });
 
+  // THE POINTER KIND DECIDES (founder, 25 November 2026: a plain mouse
+  // drag drew a grey measuring box): a plain drag pans with any pointer,
+  // the measuring box comes only from a Shift-drag with a mouse, hovering
+  // a mouse shows the crosshair, and the wheel zooms the chart instead of
+  // scrolling the page.
+  Finder measureBox() => find.byWidgetPredicate((w) =>
+      w is CustomPaint && w.painter is KuteChartDrawingsPainter);
+
+  Future<Offset> chartCentre(WidgetTester tester) async {
+    await _pump(tester,
+        size: const Size(1440, 900), dark: false, market: _btc);
+    return tester.getCenter(find.byType(HlCandlestickChart).first) -
+        const Offset(60, 40);
+  }
+
+  for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+    testWidgets('a plain ${kind.name} drag pans, never measures',
+        (tester) async {
+      final at = await chartCentre(tester);
+      final g = await tester.startGesture(at, kind: kind);
+      for (var i = 0; i < 8; i++) {
+        await g.moveBy(const Offset(-20, 6));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(measureBox(), findsNothing);
+      await g.up();
+      await tester.pump();
+      expect(measureBox(), findsNothing);
+      expect(tester.takeException(), isNull);
+      await _unmount(tester);
+    });
+  }
+
+  testWidgets('a Shift-drag with a mouse measures, gone on release',
+      (tester) async {
+    final at = await chartCentre(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    final g = await tester.startGesture(at, kind: PointerDeviceKind.mouse);
+    for (var i = 0; i < 8; i++) {
+      await g.moveBy(const Offset(-20, 6));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(measureBox(), findsOneWidget);
+    await g.up();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(measureBox(), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets('a Shift-drag with a finger is a plain drag', (tester) async {
+    final at = await chartCentre(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    final g = await tester.startGesture(at, kind: PointerDeviceKind.touch);
+    for (var i = 0; i < 8; i++) {
+      await g.moveBy(const Offset(-20, 6));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(measureBox(), findsNothing);
+    await g.up();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    await _unmount(tester);
+  });
+
+  testWidgets('hovering a mouse shows the crosshair; leaving hides it',
+      (tester) async {
+    final at = await chartCentre(tester);
+    expect(find.byType(KuteScrubCard), findsNothing);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: at);
+    await mouse.moveTo(at + const Offset(10, 0));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(KuteScrubCard), findsOneWidget);
+    await mouse.moveTo(const Offset(1430, 890));
+    // The crosshair fades out (120ms) and leaves the tree.
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(KuteScrubCard), findsNothing);
+    await mouse.removePointer();
+    await _unmount(tester);
+  });
+
+  testWidgets('the wheel over the chart zooms; the page does not scroll',
+      (tester) async {
+    final at = await chartCentre(tester);
+    final scrollable = tester.state<ScrollableState>(find
+        .ancestor(
+            of: find.byType(HlCandlestickChart).first,
+            matching: find.byType(Scrollable))
+        .first);
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.hover(at));
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 120)));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(scrollable.position.pixels, 0);
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  // "Data here seems too compressed" (founder, 25 November 2026): no stat
+  // label is ever cut on the wide page.
+  for (final size in const [Size(1440, 900), Size(1180, 820), Size(1000, 700)]) {
+    testWidgets('no stat label cut at ${size.width.toInt()}x${size.height.toInt()}',
+        (tester) async {
+      await _pump(tester, size: size, dark: false, market: _btc, held: true);
+      final tiles = find.byKey(const ValueKey('hl-stats-tiles'));
+      expect(tiles, findsOneWidget);
+      final texts = find.descendant(of: tiles, matching: find.byType(RichText));
+      expect(texts, findsWidgets);
+      for (final e in texts.evaluate()) {
+        final p = e.renderObject! as RenderParagraph;
+        expect(p.didExceedMaxLines, isFalse,
+            reason: (p.text as TextSpan).toPlainText());
+      }
+      await _unmount(tester);
+    });
+  }
+
+  // THE ADVANCED CHART EDITOR on a laptop (founder, 25 November 2026:
+  // "even now it looks bad"): the whole window, the interval pills in the
+  // header, a roomy rail with tooltips, no tap hint for a mouse, a real
+  // price scale; keys: Escape, Delete, Cmd/Ctrl+Z.
+  Future<void> openEditor(WidgetTester tester, Size size, bool dark) async {
+    await _pump(tester, size: size, dark: dark, market: _btc, held: true);
+    await tester.tap(find.byKey(const ValueKey('hl-advanced-chart')));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final tape = hlEditCandles(count: 160);
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HlMarketDetailSheet)));
+    // The drawings load from Hive first (real IO): let it finish.
+    container.read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)));
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
+    {
+      container
+        .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)).notifier)
+        .add(ChartDrawing(
+          id: 'trend-1',
+          tool: ChartDrawingTool.trendline,
+          points: [
+            ChartDrawingPoint(
+                timeMs: tape[95].openTime.millisecondsSinceEpoch,
+                price: tape[95].low),
+            ChartDrawingPoint(
+                timeMs: tape[150].openTime.millisecondsSinceEpoch,
+                price: tape[150].high),
+          ],
+        ));
+    }
+    // Until the drawing is in (the add waits on that load too).
+    for (var i = 0;
+        i < 60 &&
+            container
+                .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)))
+                .isEmpty;
+        i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  testWidgets('the editor on EXPANDED: whole window, pills, keys',
+      (tester) async {
+    await openEditor(tester, const Size(1440, 900), false);
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('hl-chart-edit-top-bar-wide')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-chart-edit-interval-row')),
+        findsOneWidget);
+    final rail = tester.getRect(find.byKey(const ValueKey('hl-chart-tool-rail')));
+    expect(rail.width, 52);
+    expect(rail.left, lessThan(40));
+    // The hint never shows below the window's bottom edge.
+    final hint = find.byKey(const ValueKey('hl-chart-edit-hint'));
+    if (hint.evaluate().isNotEmpty) {
+      expect(tester.getRect(hint).bottom, lessThanOrEqualTo(900));
+    }
+    // Arm a tool, Escape puts it down.
+    await tester.tap(find.byKey(const ValueKey('hl-chart-rail-trendline')));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    // Cmd+Z undoes the drawing added, Shift+Cmd+Z brings it back.
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HlMarketDetailSheet)));
+    List<ChartDrawing> drawings() => container
+        .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(_btc)));
+    expect(drawings(), hasLength(1));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(drawings(), isEmpty);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(drawings(), hasLength(1));
+    // Delete removes the selected drawing (the toolbar's Delete).
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  for (final (label, size) in [
+    ('1440x900', const Size(1440, 900)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('1100x700', const Size(1100, 700)),
+  ]) {
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('render: editor $label $mode', skip: _dir == null,
+          (tester) async {
+        await openEditor(tester, size, dark);
+        expect(tester.takeException(), isNull);
+        await _shoot(tester, 'hl_editor_${label}_$mode');
+        await _unmount(tester);
+      });
+    }
+  }
+
   for (final (label, size) in [
     ('1440x900', const Size(1440, 900)),
     ('1180x820', const Size(1180, 820)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('1000x700', const Size(1000, 700)),
     ('820x1180', const Size(820, 1180)),
     ('430x932', const Size(430, 932)),
   ]) {
@@ -369,8 +616,6 @@ void main() {
         ('spot', _hype, false),
         ('spot_held', _hype, true),
       ]) {
-        // Every size and theme on the perp; the spot and held variants on
-        // the two EXPANDED sizes and the phone, light and dark.
         final mode = dark ? 'dark' : 'light';
         testWidgets('render: $label $mode $kind', skip: _dir == null,
             (tester) async {
@@ -378,6 +623,19 @@ void main() {
               size: size, dark: dark, market: market, held: held);
           expect(tester.takeException(), isNull);
           await _shoot(tester, 'hl_market_${label}_${mode}_$kind');
+          // EXPANDED: the area under the chart (stats, book, trades),
+          // scrolled down.
+          final about = find.byKey(const ValueKey('hl-about-in-place'));
+          if (about.evaluate().isNotEmpty) {
+            final scrollable = tester.state<ScrollableState>(find
+                .ancestor(of: about, matching: find.byType(Scrollable))
+                .first);
+            scrollable.position
+                .jumpTo(scrollable.position.maxScrollExtent);
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(tester.takeException(), isNull);
+            await _shoot(tester, 'hl_market_${label}_${mode}_${kind}_below');
+          }
           await _unmount(tester);
         });
       }

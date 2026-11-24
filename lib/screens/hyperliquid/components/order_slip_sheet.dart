@@ -6130,8 +6130,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // and the one expression down there could not mean the same
             // thing on both.
             // In place the pane bounds it.
+            // In place it is a full-height card: the keypad takes the
+            // pane's spare height, the button at its foot.
             child: widget.embedded
-                ? SlipFit(child: ticket)
+                ? SlipFit(fill: true, child: ticket)
                 : SafeArea(
                     bottom: false,
                     child: ConstrainedBox(

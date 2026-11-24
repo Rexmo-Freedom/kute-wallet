@@ -50,7 +50,17 @@ import 'dart:ui' show PointMode;
 import 'package:flutter/foundation.dart' show listEquals, setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
-    show DragStartBehavior, kDoubleTapSlop, kDoubleTapTimeout;
+    show
+        DragStartBehavior,
+        GestureBinding,
+        PointerDeviceKind,
+        PointerPanZoomStartEvent,
+        PointerPanZoomUpdateEvent,
+        PointerScaleEvent,
+        PointerScrollEvent,
+        PointerSignalEvent,
+        kDoubleTapSlop,
+        kDoubleTapTimeout;
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 // intl also exports a `TextDirection` (LTR/RTL) that shadows dart:ui's —
@@ -874,7 +884,13 @@ class _HlPriceScalePainter extends CustomPainter {
   /// price line), so no label is written over that tag.
   final double? lastValue;
 
+  /// One label for about every [labelSpacing] of the price area's height
+  /// (at least three): the Advanced chart on a tall desktop window gets a
+  /// real scale. Null keeps the reading view's three.
+  final double? labelSpacing;
+
   _HlPriceScalePainter({
+    this.labelSpacing,
     required this.candles,
     required this.renderAsLine,
     required this.showVolume,
@@ -931,10 +947,14 @@ class _HlPriceScalePainter extends CustomPainter {
     final loPrice = geom.log ? math.exp(geom.loP) : geom.loP;
     final hiPrice =
         geom.log ? math.exp(geom.loP + geom.rangeP) : geom.loP + geom.rangeP;
+    final spacing = labelSpacing;
     final labels = hlPriceAxisLabels(
       loPrice,
       hiPrice,
       decimals: hlPriceDecimals(hiPrice, decimalCap: decimalCap),
+      maxLabels: spacing == null
+          ? 3
+          : (priceH / spacing).floor().clamp(3, 12).toInt(),
     );
     if (labels.isEmpty) return;
 
@@ -988,6 +1008,7 @@ class _HlPriceScalePainter extends CustomPainter {
       old.labelColor != labelColor ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||
+      old.labelSpacing != labelSpacing ||
       old.lastValue != lastValue;
 }
 
@@ -1586,6 +1607,206 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   DateTime _lastHistoryRequest = DateTime(0);
 
   static const int _minViewBars = 12;
+
+  // ── mouse (web and desktop; founder, 25 November 2026: a plain drag
+  // with a mouse drew a grey measuring box) ─────────────────────────
+  // The pointer's kind decides: a plain mouse drag pans, the wheel or a
+  // trackpad pinch zooms, hovering shows the crosshair and the price, and
+  // the measuring box comes only from a Shift-drag with a mouse (a quick
+  // measure that goes on release) or, in Advanced, the Measure tool
+  // dragged with Shift (or placed click by click). Touch is as it was.
+
+  /// The kind of the pointer that last went down on the plot, and
+  /// whether Shift was held then.
+  PointerDeviceKind? _downKind;
+  bool _downShift = false;
+
+  bool get _mouseDown => _downKind == PointerDeviceKind.mouse;
+
+  /// A quick measure (Shift-drag with a mouse) is being dragged out: the
+  /// box is [_draft], dropped on release, never saved.
+  bool _quickMeasuring = false;
+
+  /// The mouse is over the plot, showing the crosshair.
+  bool _hovering = false;
+
+  /// The trackpad pinch's last scale (desktop: pan-zoom events).
+  double _panZoomScale = 1;
+
+  static bool _isMeasureTool(ChartDrawingTool tool) =>
+      tool == ChartDrawingTool.priceRange ||
+      tool == ChartDrawingTool.dateRange ||
+      tool == ChartDrawingTool.dateAndPriceRange;
+
+  /// The armed tool as this pointer uses it: a measuring tool dragged by
+  /// a plain mouse (no Shift) is the cursor, so the drag pans.
+  ChartDrawingTool? get _toolForPointer {
+    final tool = widget.armedTool;
+    if (tool != null && _isMeasureTool(tool) && _mouseDown && !_downShift) {
+      return null;
+    }
+    return tool;
+  }
+
+  /// A Shift-drag with a mouse that is not placing a tool: the quick
+  /// measure.
+  bool get _quickMeasureGesture =>
+      _mouseDown &&
+      _downShift &&
+      (!widget.drawingMode || widget.armedTool == null);
+
+  void _onPlotPointerDown(PointerDownEvent e) {
+    _downKind = e.kind;
+    _downShift = e.kind == PointerDeviceKind.mouse &&
+        HardwareKeyboard.instance.isShiftPressed;
+    // A press ends the hover's crosshair: the drag that follows pans.
+    if (_hovering && e.kind == PointerDeviceKind.mouse) {
+      _hovering = false;
+      if (_touchIndex != null) {
+        setState(() {
+          _touchIndex = null;
+          _touchY = null;
+        });
+      }
+    }
+  }
+
+  void _onHover(PointerHoverEvent e, double plotW, int dataLen) {
+    if (_pinching || e.kind != PointerDeviceKind.mouse) return;
+    if (widget.drawingMode && widget.armedTool != null) return;
+    _hovering = true;
+    final y = e.localPosition.dy;
+    if (widget.drawingMode && y != _touchY) setState(() => _touchY = y);
+    _scrubAt(e.localPosition.dx, plotW, dataLen);
+  }
+
+  void _onHoverExit() {
+    if (!_hovering) return;
+    _hovering = false;
+    if (_touchIndex != null || _touchY != null) {
+      setState(() {
+        _touchIndex = null;
+        _touchY = null;
+      });
+    }
+  }
+
+  /// The wheel zooms (down: out, up: in) around the pointer; a sideways
+  /// scroll (a trackpad's two fingers on the web) pans. A browser's
+  /// trackpad pinch arrives as a scale signal and zooms. The page under
+  /// the chart does not scroll meanwhile.
+  void _onPointerSignal(PointerSignalEvent e, double plotW) {
+    if (_pinching) return;
+    if (e is PointerScrollEvent) {
+      final d = e.scrollDelta;
+      GestureBinding.instance.pointerSignalResolver.register(e, (event) {
+        if (d.dx.abs() > d.dy.abs()) {
+          _panByPixels(-d.dx, plotW);
+        } else if (d.dy != 0) {
+          _zoomBy(math.exp(-d.dy / 300), e.localPosition.dx, plotW);
+        }
+      });
+    } else if (e is PointerScaleEvent) {
+      GestureBinding.instance.pointerSignalResolver.register(e, (event) {
+        _zoomBy(e.scale, e.localPosition.dx, plotW);
+      });
+    }
+  }
+
+  /// A desktop trackpad's pinch (its two-finger pan pans through the
+  /// gesture detector, as a drag does).
+  void _onPanZoomStart(PointerPanZoomStartEvent e) => _panZoomScale = 1;
+
+  void _onPanZoomUpdate(PointerPanZoomUpdateEvent e, double plotW) {
+    if (e.scale <= 0) return;
+    final step = e.scale / _panZoomScale;
+    _panZoomScale = e.scale;
+    if ((step - 1).abs() > 0.001) _zoomBy(step, e.localPosition.dx, plotW);
+  }
+
+  /// Zooms the view by [factor] (over 1: fewer bars, in) around [focalX],
+  /// as a pinch does: at the live edge the newest bar stays on the right;
+  /// panned back, the bar under the pointer stays under it.
+  void _zoomBy(double factor, double focalX, double plotW) {
+    final total = widget.candles.length;
+    if (total == 0 || plotW <= 0 || !factor.isFinite || factor <= 0) return;
+    final startBars = math.min(_effectiveViewBars ?? total, total);
+    final minBars = math.min(_minViewBars, total);
+    final bars = (startBars / factor).round().clamp(minBars, total).toInt();
+    if (bars >= total && factor < 0.999) _requestMoreHistory();
+    final right = _viewEndOffset > 0
+        ? (1 - (focalX / plotW).clamp(0.0, 1.0))
+        : 0.0;
+    final maxOffset = (total - bars).clamp(0, total);
+    var offset =
+        (_viewEndOffset + right * (startBars - bars)).round().clamp(0, maxOffset);
+    if (bars >= total) offset = 0;
+    if (bars != (_viewBars ?? total) || offset != _viewEndOffset) {
+      setState(() {
+        _viewBars = bars;
+        _viewEndOffset = offset;
+      });
+    }
+  }
+
+  /// Pans the view by [dx] pixels (right: back in time), as a drag does.
+  void _panByPixels(double dx, double plotW) {
+    final total = widget.candles.length;
+    if (total == 0 || plotW <= 0) return;
+    final bars = math.min(_effectiveViewBars ?? total, total);
+    final slot = plotW / bars;
+    final step = (dx / slot).round();
+    if (step == 0) return;
+    final maxOffset = (total - bars).clamp(0, total);
+    final wanted = _viewEndOffset + step;
+    if (wanted > maxOffset) _requestMoreHistory();
+    final offset = wanted.clamp(0, maxOffset).toInt();
+    if (offset != _viewEndOffset) {
+      setState(() {
+        _viewBars = bars;
+        _viewEndOffset = offset;
+      });
+    }
+  }
+
+  /// The quick measure: a Shift-drag with a mouse drags out the measuring
+  /// box (the Measure tool's), gone on release.
+  void _onQuickMeasureDown(Offset pos, Size size) {
+    final geom = _drawingGeometry(size);
+    if (geom == null) return;
+    final point = _pointAt(geom, pos);
+    _dismissFillTip();
+    setState(() {
+      _quickMeasuring = true;
+      _dragGeometry = geom;
+      _drawingCandles = _tape;
+      _dragStartPosition = pos;
+      _touchIndex = null;
+      _draft = ChartDrawing(
+        id: 'quick-measure',
+        tool: ChartDrawingTool.dateAndPriceRange,
+        points: [point, point],
+      );
+    });
+  }
+
+  void _onQuickMeasureUpdate(Offset pos) {
+    final geom = _dragGeometry;
+    final draft = _draft;
+    if (geom == null || draft == null) return;
+    setState(() => _draft = draft.withPoint(1, _pointAt(geom, pos)));
+  }
+
+  void _endQuickMeasure() {
+    if (!_quickMeasuring) return;
+    setState(() {
+      _quickMeasuring = false;
+      _draft = null;
+      _dragGeometry = null;
+      _drawingCandles = null;
+      _dragStartPosition = null;
+    });
+  }
 
   // ── price scale (TradingView-style autoscale) ─────────────────────
   /// Autoscale on: the scale fits the bars on screen. Off after the user
@@ -2647,7 +2868,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (geom == null || d.localPosition.dy > geom.priceH) return;
     // Freeze the tape and its exact price/time mapping for this pointer.
     // Live ticks must not autoscale the chart underneath a dragged handle.
-    final tool = widget.armedTool;
+    final tool = _toolForPointer;
     setState(() {
       _dragGeometry = geom;
       _drawingCandles = _tape;
@@ -2740,7 +2961,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     // onPanStart normally arrives only after touch slop. Use the original
     // down point so short lines and small handles do not jump or miss.
     final pos = _dragStartPosition ?? d.localPosition;
-    final tool = widget.armedTool;
+    // A measuring tool under a plain mouse drag is the cursor: it pans.
+    final tool = _toolForPointer;
     if (tool == ChartDrawingTool.text) return;
     if (tool != null) {
       final point = _pointAt(geom, pos);
@@ -3318,39 +3540,71 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                 onPointerDown: _onPointerDown,
                 onPointerMove: (e) => _onPointerMove(e, plotW),
                 onPointerUp: (e) => _onPointerUp(e.pointer),
-                child: GestureDetector(
+                // Mouse and trackpad (web, desktop): the wheel and a
+                // pinch zoom; touch never sends these.
+                onPointerSignal: (e) => _onPointerSignal(e, plotW),
+                onPointerPanZoomStart: _onPanZoomStart,
+                onPointerPanZoomUpdate: (e) => _onPanZoomUpdate(e, plotW),
+                child: MouseRegion(
+                  // Hovering a mouse shows the crosshair and the price.
+                  onHover: !scrubAllowed
+                      ? null
+                      : (e) => _onHover(e, plotW, candles.length),
+                  onExit: (_) => _onHoverExit(),
+                  child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   dragStartBehavior: DragStartBehavior.down,
                   onPanDown: (d) {
                     if (_pinching) return;
+                    // Shift-drag with a mouse: the quick measure.
+                    if (_quickMeasureGesture) {
+                      _onQuickMeasureDown(d.localPosition, plotSize);
+                      return;
+                    }
                     drawing
                         ? _onDrawPanDown(d, plotSize)
                         : _onTradePanDown(d, plotSize);
                   },
                   onTapUp: (d) {
                     if (_pinching) return;
+                    if (_quickMeasuring) {
+                      _endQuickMeasure();
+                      return;
+                    }
                     drawing
                         ? _onDrawTapUp(d, plotSize)
                         : _onTradeTapUp(d, plotSize);
                   },
                   onPanStart: (d) {
-                    if (_pinching) return;
+                    if (_pinching || _quickMeasuring) return;
                     drawing
                         ? _onDrawPanStart(d, plotSize)
                         : _onNormalPanStart(d, plotSize);
                   },
                   onPanUpdate: (d) {
                     if (_pinching) return;
+                    if (_quickMeasuring) {
+                      _onQuickMeasureUpdate(d.localPosition);
+                      return;
+                    }
                     drawing
                         ? _onDrawPanUpdate(d, plotSize)
                         : _onNormalPanUpdate(d, plotSize);
                   },
                   onPanEnd: (_) {
                     if (_pinching) return;
+                    if (_quickMeasuring) {
+                      _endQuickMeasure();
+                      return;
+                    }
                     drawing ? _onDrawPanEnd(plotSize) : _onNormalPanEnd();
                   },
                   onPanCancel: () {
                     if (_pinching) return;
+                    if (_quickMeasuring) {
+                      _endQuickMeasure();
+                      return;
+                    }
                     drawing ? _cancelDrawingGesture() : _onNormalPanEnd();
                   },
                   // Outside editing mode the crosshair is a long press
@@ -3393,6 +3647,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             });
                           }
                         },
+                  // The pointer's kind and Shift, read before the gesture
+                  // detector above hears the press (a child sees a pointer
+                  // event first).
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _onPlotPointerDown,
                   // The price domain glides to each new autoscale target
                   // (see scaleTarget above). Inside it, live-tick endpoint
                   // smoothing (line mode): the tween is keyed on the
@@ -3528,6 +3788,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                       child: CustomPaint(
                                         size: Size.infinite,
                                         painter: _HlPriceScalePainter(
+                                          // Advanced: a label every ~70 px.
+                                          labelSpacing: widget.drawingMode
+                                              ? 70
+                                              : null,
                                           candles: candles,
                                           renderAsLine: _asLine,
                                           showVolume: widget.showVolume,
@@ -4060,6 +4324,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                     ),
                   ),
                   ),
+                  ),
+                ),
                 ),
               );
             },
