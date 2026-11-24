@@ -31,6 +31,10 @@ class AppTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
 
+  /// Set (even to a no-op) to keep focus in the field after the action
+  /// key, as a field checked in place wants after a wrong entry.
+  final VoidCallback? onEditingComplete;
+
   /// The room kept around the field when it scrolls into view (a sheet
   /// whose floating bar rides above the keyboard keeps it clear of that).
   final EdgeInsets scrollPadding;
@@ -62,6 +66,7 @@ class AppTextField extends StatelessWidget {
     this.errorText,
     this.textInputAction,
     this.onSubmitted,
+    this.onEditingComplete,
     this.scrollPadding = const EdgeInsets.all(20),
     this.autofillHints,
     this.autocorrect = true,
@@ -85,6 +90,7 @@ class AppTextField extends StatelessWidget {
       onTap: onTap,
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
+      onEditingComplete: onEditingComplete,
       scrollPadding: scrollPadding,
       autofillHints: autofillHints,
       autocorrect: autocorrect,

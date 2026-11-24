@@ -107,6 +107,9 @@ class _KutePasswordFieldState extends State<KutePasswordField> {
       ],
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
+      // Enter keeps the focus: a wrong or mismatched entry is typed again
+      // without reaching for the mouse.
+      onEditingComplete: () {},
       suffixIcon: Padding(
         padding: EdgeInsets.only(right: 4.w),
         child: IconButton(
