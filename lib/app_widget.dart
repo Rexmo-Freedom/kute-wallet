@@ -13,6 +13,7 @@ import 'package:kute/providers/venue_sweeper_provider.dart'
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceCheckProvider;
 import 'package:kute/models/settings_model.dart' show Settings;
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart'
     show needsWalletBackup;
@@ -537,6 +538,15 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     super.dispose();
   }
 
+  /// The window in logical pixels, followed as it is resized (the View's
+  /// own MediaQuery; the view's metrics before one exists).
+  static Size _windowSize(BuildContext context) {
+    final size = MediaQuery.maybeSizeOf(context);
+    if (size != null) return size;
+    final view = View.of(context);
+    return view.physicalSize / view.devicePixelRatio;
+  }
+
   @override
   Widget build(BuildContext context) {
     final language = ref.watch(settingsProvider).language;
@@ -597,7 +607,10 @@ class _AppWidgetState extends ConsumerState<AppWidget>
       // a future replay-on toggle never records seed/signer state.
       child: PostHogWidget(
         child: ScreenUtilInit(
-          designSize: const Size(430, 932),
+          // A phone scales the 430 x 932 design to its screen; a tablet or
+          // a desktop window draws it at its own size (kute_layout.dart,
+          // SCALING).
+          designSize: KuteLayout.designSizeFor(_windowSize(context)),
           minTextAdapt: true,
           splitScreenMode: true,
           builder: (context, child) {
