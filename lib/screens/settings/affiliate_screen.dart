@@ -128,10 +128,12 @@ import 'package:kute/screens/shared/charts/kute_line_chart.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/kute_wide_page_parts.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart'
@@ -592,15 +594,22 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     final participationAllowed =
         ref.watch(runtimeCapabilitiesProvider).allows('affiliate.program');
     final bar = _barContext(participationAllowed);
+    // EXPANDED: the back button and the title on the page's left gutter.
+    final wide = kuteIsExpanded(context);
+    final gutter = _side(context).left;
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        centerTitle: true,
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? gutter + 40 : null,
         elevation: 0,
-        leading: const KuteBackButton(),
+        leading: wide
+            ? kuteWideLeading(gutter, const KuteBackButton())
+            : const KuteBackButton(),
         title: Text(context.l10n.settingsReferralProgram,
             style: TextStyle(
               color: c.textPrimary,
@@ -646,8 +655,20 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
 
   /// The page's end padding: clear of the floating bar and the home
   /// indicator (the body is not SafeArea-wrapped).
-  EdgeInsets get _pagePadding => EdgeInsets.fromLTRB(16.w, 8.h, 16.w,
-      24.h + kuteBarScrollClearance.h + MediaQuery.paddingOf(context).bottom);
+  EdgeInsets get _pagePadding {
+    final side = _side(context);
+    return EdgeInsets.fromLTRB(side.left, 8.h, side.right,
+        24.h + kuteBarScrollClearance.h + MediaQuery.paddingOf(context).bottom);
+  }
+
+  /// The page's sides. EXPANDED (round three; founder, 25 November 2026:
+  /// "it must be all occupying full screen when we can"): two readable
+  /// columns, the code on the left, how it works and the numbers on the
+  /// right, inside the page gutters. As the detail beside Settings this
+  /// reads the detail's own width (a narrow one is the phone's column).
+  EdgeInsets _side(BuildContext context) => kuteIsExpanded(context)
+      ? kuteWidePadding(context, maxWidth: kuteWideTwoColumns)
+      : EdgeInsets.symmetric(horizontal: 16.w);
 
   /// The loading state: the page's own shapes (the hero's lines and Sal,
   /// the code card, the progress card, the two squares).
@@ -665,66 +686,75 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
           ),
         );
     final gap = SizedBox(height: kKuteActionCardGap.w);
+    final hero = Padding(
+      padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 20.h),
+      child: Row(children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonBar(200.w, 26.h, radius: 8.r),
+              SizedBox(height: 8.h),
+              SkeletonBar(140.w, 26.h, radius: 8.r),
+              SizedBox(height: 12.h),
+              SkeletonBar(170.w, 14.h),
+            ],
+          ),
+        ),
+        SkeletonCircle(_kHeroSal.w),
+      ]),
+    );
+    final code = card([
+      SkeletonBar(70.w, 12.h),
+      SizedBox(height: 10.h),
+      SkeletonBar(120.w, 20.h, radius: 8.r),
+    ]);
+    final progress = card([
+      SkeletonBar(90.w, 12.h),
+      SizedBox(height: 10.h),
+      SkeletonBar(50.w, 28.h, radius: 8.r),
+      SizedBox(height: 14.h),
+      SkeletonBar(180.w, 12.h),
+      SizedBox(height: 18.h),
+      SkeletonBar(double.infinity, 6.h),
+      SizedBox(height: 10.h),
+      SkeletonBar(double.infinity, 24.h),
+    ]);
+    final squares = Row(children: [
+      for (var i = 0; i < 2; i++) ...[
+        if (i > 0) SizedBox(width: kKuteActionCardGap.w),
+        Expanded(
+          child: card([
+            SkeletonCircle(kKuteActionCardVisualSize),
+            const SizedBox(height: 12),
+            SkeletonBar(80.w, 12.h),
+            SizedBox(height: 6.h),
+            SkeletonBar(60.w, 16.h),
+          ]),
+        ),
+      ],
+    ]);
     return SingleChildScrollView(
       key: const ValueKey('referral-loading'),
       physics: const NeverScrollableScrollPhysics(),
       padding: _pagePadding,
       child: KuteSkeleton(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 20.h),
-              child: Row(children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SkeletonBar(200.w, 26.h, radius: 8.r),
-                      SizedBox(height: 8.h),
-                      SkeletonBar(140.w, 26.h, radius: 8.r),
-                      SizedBox(height: 12.h),
-                      SkeletonBar(170.w, 14.h),
-                    ],
-                  ),
+        // EXPANDED: the dashboard's two columns (see [_side]).
+        child: kuteIsExpanded(context)
+            ? KuteColumns.fixed(columns: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [hero, code],
                 ),
-                SkeletonCircle(_kHeroSal.w),
-              ]),
-            ),
-            card([
-              SkeletonBar(70.w, 12.h),
-              SizedBox(height: 10.h),
-              SkeletonBar(120.w, 20.h, radius: 8.r),
-            ]),
-            gap,
-            card([
-              SkeletonBar(90.w, 12.h),
-              SizedBox(height: 10.h),
-              SkeletonBar(50.w, 28.h, radius: 8.r),
-              SizedBox(height: 14.h),
-              SkeletonBar(180.w, 12.h),
-              SizedBox(height: 18.h),
-              SkeletonBar(double.infinity, 6.h),
-              SizedBox(height: 10.h),
-              SkeletonBar(double.infinity, 24.h),
-            ]),
-            gap,
-            Row(children: [
-              for (var i = 0; i < 2; i++) ...[
-                if (i > 0) SizedBox(width: kKuteActionCardGap.w),
-                Expanded(
-                  child: card([
-                    SkeletonCircle(kKuteActionCardVisualSize),
-                    const SizedBox(height: 12),
-                    SkeletonBar(80.w, 12.h),
-                    SizedBox(height: 6.h),
-                    SkeletonBar(60.w, 16.h),
-                  ]),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [progress, gap, squares],
                 ),
-              ],
-            ]),
-          ],
-        ),
+              ])
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [hero, code, gap, progress, gap, squares],
+              ),
       ),
     );
   }
@@ -737,9 +767,14 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     String? line,
     required String clip,
   }) {
+    final padding = _pagePadding;
     return ListView(
       key: key,
-      padding: _pagePadding,
+      // EXPANDED: the hero alone, at a readable width.
+      padding: kuteIsExpanded(context)
+          ? kuteWidePadding(context, maxWidth: kuteWideColumnMax)
+              .copyWith(top: padding.top, bottom: padding.bottom)
+          : padding,
       children: [_ReferralHero(title: title, line: line, clip: clip)],
     );
   }
@@ -782,6 +817,77 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
           line: _ladderLine(progress),
         ),
     ];
+
+    if (kuteIsExpanded(context)) {
+      final money = KuteActionCardGrid(
+        key: const ValueKey('referral-money'),
+        cards: [
+          _moneyCard(
+            key: const ValueKey('referral-pending'),
+            icon: Icons.hourglass_bottom_rounded,
+            label: l10n.accountPendingPayout,
+            amount: accrued,
+          ),
+          _moneyCard(
+            key: const ValueKey('referral-paid'),
+            icon: Icons.payments_rounded,
+            label: l10n.accountPaidToDate,
+            amount: paid,
+          ),
+        ],
+      );
+      // The code (the hero, the code card, the late entry) on the left;
+      // the numbers and how it works on the right. Without the code (the
+      // program withheld) the right column alone, at a readable width.
+      final code = <Widget>[
+        if (participationAllowed) ...[
+          _ReferralHero(
+            title: rate == null
+                ? l10n.shareCodeTitle
+                : l10n.referralHeroTitle(commissionRateText(rate)),
+            line: discount == null ? null : l10n.referralHeroLine(discount),
+            clip: _kHeroClip,
+          ),
+          _CodeCard(
+            code: _code,
+            onCopy: _code.isEmpty ? null : _copyCode,
+            onQr: _code.isEmpty || _link == null ? null : _openQrSheet,
+          ),
+          if (lateEntryOpen) ...[gap, _lateEntryCard(c)],
+        ],
+      ];
+      final numbers = <Widget>[
+        _ProgressCard(progress: progress),
+        gap,
+        money,
+        if (_history.isNotEmpty) ...[gap, _graphCard(c)],
+        if (payments.isNotEmpty) ...[gap, _paymentsCard(c, payments)],
+        // No "Your friends" list, ever (founder, 11 November 2026).
+        if (participationAllowed || discount != null || baseRate != null) ...[
+          gap,
+          _HowItWorks(steps: steps)
+        ],
+      ];
+      Widget stack(List<Widget> children) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          );
+      final padding = _pagePadding;
+      return ListView(
+        key: const ValueKey('referral-dashboard'),
+        padding: code.isEmpty
+            ? kuteWidePadding(context, maxWidth: kuteWideColumnMax)
+                .copyWith(top: padding.top, bottom: padding.bottom)
+            : padding,
+        children: [
+          if (code.isEmpty)
+            stack(numbers)
+          else
+            KuteColumns.fixed(columns: [stack(code), stack(numbers)]),
+        ],
+      );
+    }
 
     return ListView(
       key: const ValueKey('referral-dashboard'),
@@ -830,10 +936,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
           gap,
           _HowItWorks(steps: steps)
         ],
-        if (participationAllowed && lateEntryOpen) ...[
-          gap,
-          _lateEntryCard(c)
-        ],
+        if (participationAllowed && lateEntryOpen) ...[gap, _lateEntryCard(c)],
       ],
     );
   }

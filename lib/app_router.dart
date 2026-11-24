@@ -641,8 +641,10 @@ class AppRouter {
                       path: '/ledger/:walletId/investing-setup',
                       name: 'ledgerInvestingSetup',
                       parentNavigatorKey: _rootNavigatorKey,
+                      // A short device prompt with nothing to set beside it
+                      // until pairing starts: the centred column.
                       builder: (context, state) => KutePageFrame(
-                        mode: KuteWideMode.full,
+                        mode: KuteWideMode.column,
                         child: LedgerInvestingSetupScreen(
                           walletId: state.pathParameters['walletId']!,
                           fromImport:

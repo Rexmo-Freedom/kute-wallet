@@ -4,7 +4,9 @@ import 'package:kute/models/onchain_types.dart' show Network;
 import 'dart:async';
 import 'dart:convert' show base64Decode;
 import 'package:kute/models/add_wallet_model.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_wide_page_parts.dart';
 import 'package:kute/screens/pay/components/animated_qr_view.dart';
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
@@ -27,8 +29,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kute/helpers/psbt_helper.dart';
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/user_error_copy.dart';
-import 'package:kute/services/success_feedback.dart'
-    show moneyFailureFeedback;
+import 'package:kute/services/success_feedback.dart' show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/providers/add_wallet_provider.dart';
@@ -53,6 +54,7 @@ class WatchOnlySigningScreen extends ConsumerStatefulWidget {
   final String psbtBase64;
   final String walletType;
   final String? scriptType;
+
   /// When true the widget renders only its inner body (transaction
   /// summary + signing-method cards + broadcast bar) — no Scaffold,
   /// no AppBar, no PopScope, no background gradient. Used by the
@@ -60,16 +62,19 @@ class WatchOnlySigningScreen extends ConsumerStatefulWidget {
   /// `false` (default) keeps the original full-screen behaviour for
   /// any external pusher (legacy routes, deep links).
   final bool embedded;
+
   /// Recipient amount (sats) the destination address actually
   /// receives — i.e. the principal net of the on-chain fee in drain
   /// sends. When provided, the Transaction Details card shows this
   /// instead of the gross input total so the Amount row mirrors what
   /// the hardware device displays for verification.
   final int? recipientSatsOverride;
+
   /// On-chain fee (sats) parsed from the PSBT. When provided the
   /// Transaction Details card surfaces a "Fees" row alongside the
   /// recipient amount, matching the device's Amount + Fees breakdown.
   final int? feeSatsOverride;
+
   /// Destination address to display in the Transaction Details card.
   /// Mirrors the `*SatsOverride` pattern: when set, the embedded
   /// signing screen reads this instead of `sendTxProvider.address`.
@@ -79,6 +84,7 @@ class WatchOnlySigningScreen extends ConsumerStatefulWidget {
   /// notifier — that was the source of the empty-"To" bug on Move's
   /// hardware-source flows.
   final String? recipientAddressOverride;
+
   /// Source wallet id whose descriptor was used to build the PSBT.
   /// When provided the screen sources `masterFingerprint`,
   /// `walletType`, and the `FeeHistoryService.log` `walletId` field
@@ -90,6 +96,7 @@ class WatchOnlySigningScreen extends ConsumerStatefulWidget {
   /// for backwards compatibility — legacy callers that don't pass
   /// it fall back to the active wallet's value.
   final String? walletId;
+
   /// Horizontal padding the inner scroll view applies to its
   /// children. Defaults to the legacy 20.w so any caller that
   /// doesn't set it (including the Move sheet) keeps the same edge
@@ -98,15 +105,18 @@ class WatchOnlySigningScreen extends ConsumerStatefulWidget {
   /// default 20.w would double-pad and squash the device-picker
   /// row into a narrow column.
   final double? horizontalPadding;
+
   /// Notifies the parent when the PSBT signing state flips
   /// (`true` once signed; `false` when the user goes back and the
   /// signature is dropped). Lets the parent stepper hide controls
   /// that mutate the fee rate / UTXO set — those would invalidate
   /// the already-signed PSBT if the user could still tap them.
   final ValueChanged<bool>? onSignedChange;
+
   /// Locks parent fee/coin controls from device selection through signing,
   /// import, or broadcast, including retries and cancellation cleanup.
   final ValueChanged<bool>? onBusyChanged;
+
   /// Reports this PSBT's broadcast outcome to the host: `error` is null
   /// once broadcast; otherwise the failure and its `stage` (sign,
   /// validate, broadcast). The host's funnel only, never shown.
@@ -129,10 +139,12 @@ class WatchOnlySigningScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<WatchOnlySigningScreen> createState() => _WatchOnlySigningScreenState();
+  ConsumerState<WatchOnlySigningScreen> createState() =>
+      _WatchOnlySigningScreenState();
 }
 
-class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen> {
+class _WatchOnlySigningScreenState
+    extends ConsumerState<WatchOnlySigningScreen> {
   SigningMethod? _expandedMethod;
 
   /// The methods other than the device's own sit behind "Other ways to
@@ -172,7 +184,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
 
   void _captureReview() {
     final send = ref.read(sendTxProvider);
-    _reviewedWalletId = widget.walletId ?? ref.read(settingsProvider).activeWalletId;
+    _reviewedWalletId =
+        widget.walletId ?? ref.read(settingsProvider).activeWalletId;
     _reviewedRecipient = widget.recipientAddressOverride ?? send.address;
     _reviewedAmount = widget.recipientSatsOverride ?? send.amount;
   }
@@ -610,29 +623,30 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
     // AppButtons) — replaced the one-off Material AlertDialog with its
     // 10.r ElevatedButton that the CTA sweep flagged.
     return await showKuteAlert<bool>(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (ctx) {
-        return CustomAlertDialog(
-          title: ctx.l10n.openBitcoinApp,
-          content: ctx.l10n.ledgerBitcoinAppNotOpenMessage,
-          actions: [
-            AppButton(
-              text: ctx.l10n.retry,
-              compact: true,
-              onPressed: () => ctx.pop(true),
-            ),
-            AppButton(
-              text: ctx.l10n.cancel,
-              variant: AppButtonVariant.secondary,
-              compact: true,
-              onPressed: () => ctx.pop(false),
-            ),
-          ],
-        );
-      },
-    ) ?? false;
+          context: context,
+          barrierDismissible: false,
+          barrierColor: Colors.black.withValues(alpha: 0.5),
+          builder: (ctx) {
+            return CustomAlertDialog(
+              title: ctx.l10n.openBitcoinApp,
+              content: ctx.l10n.ledgerBitcoinAppNotOpenMessage,
+              actions: [
+                AppButton(
+                  text: ctx.l10n.retry,
+                  compact: true,
+                  onPressed: () => ctx.pop(true),
+                ),
+                AppButton(
+                  text: ctx.l10n.cancel,
+                  variant: AppButtonVariant.secondary,
+                  compact: true,
+                  onPressed: () => ctx.pop(false),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   Future<void> _handleJadeSigningImpl() async {
@@ -754,7 +768,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
         // The send failed: the soft release every money action ends with.
         unawaited(moneyFailureFeedback());
         showMessageSnackBar(
-          message: context.l10n.signedTransactionDoesNotMatchOriginalBroadcastAborted,
+          message: context
+              .l10n.signedTransactionDoesNotMatchOriginalBroadcastAborted,
           error: true,
           context: context,
         );
@@ -767,13 +782,17 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
     var broadcastDone = false;
     try {
       final source = _sourceWallet;
-      if (source == null) throw StateError('The reviewed wallet is unavailable.');
+      if (source == null) {
+        throw StateError('The reviewed wallet is unavailable.');
+      }
       final reviewedPsbt = widget.psbtBase64;
       final signedData = _signedTxData!;
       final model =
           await ref.read(bitcoinModelForWalletProvider(source.id).future);
-      if (!mounted || widget.psbtBase64 != reviewedPsbt ||
-          _signedTxData != signedData || _sourceWallet?.id != source.id) {
+      if (!mounted ||
+          widget.psbtBase64 != reviewedPsbt ||
+          _signedTxData != signedData ||
+          _sourceWallet?.id != source.id) {
         throw StateError('The reviewed payment changed. Review it again.');
       }
       if (!reviewedBitcoinSummaryMatches(
@@ -782,7 +801,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
         amountSats: _reviewedAmount,
         mainnet: model.config.network == Network.bitcoin,
       )) {
-        throw StateError('The transaction does not match the reviewed recipient and amount.');
+        throw StateError(
+            'The transaction does not match the reviewed recipient and amount.');
       }
       final txId = await model.broadcastSignedTransaction(signedData);
       broadcastDone = true;
@@ -824,8 +844,7 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
                 nativeAmount: feeSats.toString(),
                 nativeUnit: 'sats',
                 source: 'Savings',
-                walletId:
-                    sourceWallet?.id ?? settings.activeWalletId,
+                walletId: sourceWallet?.id ?? settings.activeWalletId,
               );
             }
           } catch (_) {}
@@ -932,6 +951,20 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
       );
     }
 
+    // EXPANDED: the back button and the title on the page's left gutter
+    // (see [_buildSigningBody]).
+    final wide = kuteIsExpanded(context);
+    final gutter = kuteWidePadding(context, maxWidth: kuteWideTwoColumns).left;
+    final back = KuteBackButton(
+      onPressed: () {
+        if (!_isBroadcasting &&
+            !_isLedgerSigning &&
+            !_operationBusy &&
+            context.mounted) {
+          context.pop();
+        }
+      },
+    );
     return PopScope(
       canPop: !_isBroadcasting && !_isLedgerSigning && !_operationBusy,
       onPopInvokedWithResult: (didPop, _) {
@@ -940,40 +973,41 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
-        extendBodyBehindAppBar: true,
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
+          extendBodyBehindAppBar: true,
           backgroundColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          leading: KuteBackButton(
-            onPressed: () {
-              if (!_isBroadcasting && !_isLedgerSigning && !_operationBusy && context.mounted) {
-                context.pop();
-              }
-            },
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            leadingWidth: wide ? gutter + 40 : null,
+            titleSpacing: wide ? 8 : null,
+            leading: wide ? kuteWideLeading(gutter, back) : back,
+            centerTitle: !wide,
+            title: Text(_screenTitle(context),
+                style: TextStyle(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18.sp)),
           ),
-          centerTitle: true,
-          title: Text(_screenTitle(context), style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.bold, fontSize: 18.sp)),
+          body: Stack(
+            children: [
+              Container(decoration: AppDecorations.screenGradient(context)),
+              Positioned(
+                top: -100.h,
+                left: 0,
+                right: 0,
+                height: 400.h,
+                child:
+                    Container(decoration: AppDecorations.ambientGlow(context)),
+              ),
+              SafeArea(
+                bottom: false,
+                child: _buildSigningBody(c, config, methods, embedded: false),
+              ),
+            ],
+          ),
         ),
-        body: Stack(
-          children: [
-            Container(decoration: AppDecorations.screenGradient(context)),
-            Positioned(
-              top: -100.h,
-              left: 0,
-              right: 0,
-              height: 400.h,
-              child: Container(decoration: AppDecorations.ambientGlow(context)),
-            ),
-            SafeArea(
-              bottom: false,
-              child: _buildSigningBody(c, config, methods, embedded: false),
-            ),
-          ],
-        ),
-      ),
       ),
     );
   }
@@ -981,9 +1015,7 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
   /// The signing page: what is being approved on top, the one active way
   /// of signing it underneath, and everything else folded away. Only one
   /// method is ever open, so there is a single thing to do at a time.
-  Widget _buildSigningBody(
-      AppColorsExtension c,
-      WalletDeviceConfig? config,
+  Widget _buildSigningBody(AppColorsExtension c, WalletDeviceConfig? config,
       List<_SigningMethodOption> methods,
       {required bool embedded}) {
     // Once the signed PSBT/hex comes back, the signing UI becomes
@@ -999,27 +1031,55 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
         ? 16.h
         : (embedded ? 32.h : 100.h);
     final active = _expandedMethod ?? _primaryMethod;
+    // EXPANDED, standalone (round three; founder, 25 November 2026: "it
+    // must be all occupying full screen when we can"): what is being
+    // approved on the left, the way of signing it on the right, each at a
+    // readable width. Embedded in a stepper it is the parent's column.
+    final wide = !embedded && kuteIsExpanded(context);
+    final side = kuteWidePadding(context, maxWidth: kuteWideTwoColumns);
     return Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
             controller: _scrollController,
             physics: const BouncingScrollPhysics(),
-            keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.symmetric(
-                horizontal: widget.horizontalPadding ?? 20.w),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: wide
+                ? EdgeInsets.only(left: side.left, right: side.right)
+                : EdgeInsets.symmetric(
+                    horizontal: widget.horizontalPadding ?? 20.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: topGap),
-                _buildTransactionSummary(c),
-                SizedBox(height: 12.h),
-                _buildActivePanel(active, config, c),
-                ..._buildOtherWays(methods, active, c),
-                _buildNerdData(c),
-                SizedBox(height: tailPad),
-              ],
+              children: wide
+                  ? [
+                      SizedBox(height: topGap),
+                      KuteColumns.fixed(columns: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildTransactionSummary(c),
+                            _buildNerdData(c),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildActivePanel(active, config, c),
+                            ..._buildOtherWays(methods, active, c),
+                          ],
+                        ),
+                      ]),
+                      SizedBox(height: tailPad),
+                    ]
+                  : [
+                      SizedBox(height: topGap),
+                      _buildTransactionSummary(c),
+                      SizedBox(height: 12.h),
+                      _buildActivePanel(active, config, c),
+                      ..._buildOtherWays(methods, active, c),
+                      _buildNerdData(c),
+                      SizedBox(height: tailPad),
+                    ],
             ),
           ),
         ),
@@ -1082,10 +1142,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
 
   /// Everything the active method is not, folded away behind one line.
   /// Tapping a row swaps the panel above; nothing else moves.
-  List<Widget> _buildOtherWays(
-      List<_SigningMethodOption> methods,
-      SigningMethod active,
-      AppColorsExtension c) {
+  List<Widget> _buildOtherWays(List<_SigningMethodOption> methods,
+      SigningMethod active, AppColorsExtension c) {
     final rest = methods.where((m) => m.method != active).toList();
     if (rest.isEmpty) return const <Widget>[];
     return [
@@ -1232,8 +1290,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
           // inside a SafeArea / stepper that already handles it.
           SizedBox(
               height: (widget.embedded
-                      ? 16.h
-                      : MediaQuery.of(context).padding.bottom + 16.h)),
+                  ? 16.h
+                  : MediaQuery.of(context).padding.bottom + 16.h)),
         ],
       ),
     );
@@ -1256,8 +1314,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SigningHint(
-            context.l10n.showThisQrCodeToYourSigningDeviceAndLetItScanAllFrames),
+        SigningHint(context
+            .l10n.showThisQrCodeToYourSigningDeviceAndLetItScanAllFrames),
         if (widget.walletType == 'jade')
           Padding(
             padding: EdgeInsets.only(bottom: 10.h),
@@ -1268,8 +1326,7 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
               ),
               borderRadius: BorderRadius.circular(8.r),
               child: Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                 decoration: BoxDecoration(
                   color: c.surface,
                   borderRadius: BorderRadius.circular(8.r),
@@ -1277,7 +1334,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.open_in_new, size: 14.sp, color: c.textSecondary),
+                    Icon(Icons.open_in_new,
+                        size: 14.sp, color: c.textSecondary),
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
@@ -1304,8 +1362,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
               : QrPsbtFormat.ur,
         ),
         SizedBox(height: 18.h),
-        SigningHint(context
-            .l10n.afterYourDeviceSignsTheTransactionScanTheSignedQrCodeItDisplays),
+        SigningHint(context.l10n
+            .afterYourDeviceSignsTheTransactionScanTheSignedQrCodeItDisplays),
         AppButton(
           text: context.l10n.scanSignedQr,
           onPressed: _onScanSignedTx,
@@ -1327,7 +1385,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
               ? context.l10n.exported
               : context.l10n.hwSaveUnsignedTransaction,
           onPressed: _exportFile,
-          icon: _sdStep1Done ? Icons.check_circle : Icons.file_download_outlined,
+          icon:
+              _sdStep1Done ? Icons.check_circle : Icons.file_download_outlined,
           // Demotes to the quiet tier once done — the primary
           // emphasis moves down to the import step.
           variant: _sdStep1Done
@@ -1336,8 +1395,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
           compact: true,
         ),
         SizedBox(height: 18.h),
-        SigningHint(
-            context.l10n.loadTheFileOnYourSigningDeviceAndApproveTheTransaction),
+        SigningHint(context
+            .l10n.loadTheFileOnYourSigningDeviceAndApproveTheTransaction),
         SizedBox(height: 8.h),
         // Step three only lights up once the file has actually left.
         AnimatedOpacity(
@@ -1452,7 +1511,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
           onPressed: _copyPsbt,
         ),
         SizedBox(height: 18.h),
-        SigningHint(context.l10n.signTheTransactionWithYourExternalToolOrDevice),
+        SigningHint(
+            context.l10n.signTheTransactionWithYourExternalToolOrDevice),
         SigningHint(context.l10n.pasteTheSignedTransactionBelowAndSubmit),
         Container(
           decoration: BoxDecoration(
@@ -1507,7 +1567,6 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
       ],
     );
   }
-
 }
 
 /// The moment a Bluetooth signing device is in. Names the sentence on
