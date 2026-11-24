@@ -74,6 +74,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidUserFillsProvider;
 import 'package:kute/screens/home/components/kute_dock_host.dart'
@@ -218,7 +219,10 @@ class _WidePortfolioPage extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // The floating Sal bar sits under this pane
+              // (kute_wide_frames.dart, KuteBarPane).
               Expanded(
+                child: KuteBarPane(
                 child: CustomScrollView(
                   key: const ValueKey('portfolio-wide-left'),
                   slivers: [
@@ -249,7 +253,15 @@ class _WidePortfolioPage extends ConsumerWidget {
                         ),
                       ),
                     ),
+                    // The last rows scroll clear of the bar under them.
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                          height: 24 +
+                              kuteBarScrollClearance +
+                              MediaQuery.viewPaddingOf(context).bottom),
+                    ),
                   ],
+                ),
                 ),
               ),
               const SizedBox(width: KuteLayout.paneGap - 16),

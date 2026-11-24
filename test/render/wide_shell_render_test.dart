@@ -41,6 +41,7 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
 import 'package:kute/screens/shared/sal_toast.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -149,9 +150,9 @@ Future<GoRouter> _pump(WidgetTester tester, Size size, bool dark) async {
       builder: (context, state, shell) => shell,
       branches: [
         for (final (path, page) in [
-          ('/home', const BitcoinHomePanes(home: Home())),
+          ('/home', const BitcoinHomePanes()),
           ('/bank', const _Blank('bank')),
-          ('/usd', const _Blank('dollars')),
+          ('/usd', const UsdAccountScreen()),
           ('/hyperliquid', const _Blank('investing')),
           ('/polymarket', const _Blank('predictions')),
         ])
@@ -223,12 +224,36 @@ Future<void> _settle(WidgetTester tester, [int frames = 20]) async {
   }
 }
 
+void _language(BuildContext ctx) {
+  // ignore: discarded_futures
+  showAppBottomSheet<void>(
+    context: ctx,
+    useRootNavigator: false,
+    builder: (c) => AppBottomSheetContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AppBottomSheetHeader(
+              title: 'Language', subtitle: 'The app speaks it'),
+          for (final (i, l) in ['English', 'Deutsch', 'Português'].indexed)
+            AppBottomSheetListTile(title: l, isSelected: i == 0, onTap: () {}),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: AppBottomSheetButton(text: 'Done', onPressed: () {}),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   for (final (label, size) in [
     ('1440x900', const Size(1440, 900)),
     ('1180x820', const Size(1180, 820)),
+    ('1000x800', const Size(1000, 800)),
     ('820x1180', const Size(820, 1180)),
     ('430x932', const Size(430, 932)),
   ]) {
@@ -247,28 +272,7 @@ void main() {
 
         // A sheet over the home.
         final ctx = tester.element(find.byType(Home));
-        // ignore: discarded_futures
-        showAppBottomSheet<void>(
-          context: ctx,
-          useRootNavigator: false,
-          builder: (c) => AppBottomSheetContainer(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const AppBottomSheetHeader(
-                    title: 'Language', subtitle: 'The app speaks it'),
-                for (final (i, l) in ['English', 'Deutsch', 'Português']
-                    .indexed)
-                  AppBottomSheetListTile(
-                      title: l, isSelected: i == 0, onTap: () {}),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: AppBottomSheetButton(text: 'Done', onPressed: () {}),
-                ),
-              ],
-            ),
-          ),
-        );
+        _language(ctx);
         await _settle(tester, 10);
         expect(tester.takeException(), isNull);
         await _shoot(tester, 'sheet_${label}_$mode');
@@ -282,6 +286,13 @@ void main() {
         expect(tester.takeException(), isNull);
         await _shoot(tester, 'toast_${label}_$mode');
         await _settle(tester, 40);
+
+        // The Dollars home: the bar under the browse, never on the money
+        // row on the right.
+        router.go('/usd');
+        await _settle(tester, 30);
+        expect(tester.takeException(), isNull);
+        await _shoot(tester, 'dollars_${label}_$mode');
 
         // A pushed form: the PIN pad.
         // ignore: discarded_futures

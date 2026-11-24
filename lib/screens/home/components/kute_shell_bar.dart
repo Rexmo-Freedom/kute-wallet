@@ -94,6 +94,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show kuteBarPane;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
@@ -171,6 +172,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   void initState() {
     super.initState();
     KuteBarRouteObserver.over.addListener(_onRoutes);
+    kuteBarPane.addListener(_onRoutes);
     kuteShellMounted.addListener(_onRoutes);
     kuteBarScroll.addListener(_onScroll);
   }
@@ -178,6 +180,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   @override
   void dispose() {
     KuteBarRouteObserver.over.removeListener(_onRoutes);
+    kuteBarPane.removeListener(_onRoutes);
     kuteShellMounted.removeListener(_onRoutes);
     kuteBarScroll.removeListener(_onScroll);
     _idle?.cancel();
@@ -441,15 +444,30 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
         : switcher;
     // A phone's width from MEDIUM up, centred in the window
     // (kute_layout.dart): never stretched across a tablet or a desktop.
-    // A page with an action pane of its own hides the bar (its
-    // KuteBarContext); a phone keeps the screen's full width.
+    // On EXPANDED a two-pane page names the pane the bar belongs under
+    // (KuteBarPane, kute_wide_frames.dart) and the bar centres within it
+    // while that page is on top, with nothing over it. A phone keeps the
+    // screen's full width.
     final window = MediaQuery.sizeOf(context).width;
-    final side = KuteLayout.forWidth(window) == KuteFormFactor.compact
-        ? 0.0
-        : math.max(0.0, (window - KuteLayout.paneWidth) / 2);
+    final form = KuteLayout.forWidth(window);
+    final pane = kuteBarPane.value;
+    final route = pane?.route;
+    final underPane = form == KuteFormFactor.expanded &&
+        pane != null &&
+        (route == null || KuteBarRouteObserver.onTop(route));
+    double left, right;
+    if (form == KuteFormFactor.compact) {
+      left = right = 0;
+    } else if (underPane) {
+      final span = pane.barSpan();
+      left = span.left;
+      right = math.max(0.0, window - span.left - span.width);
+    } else {
+      left = right = math.max(0.0, (window - KuteLayout.paneWidth) / 2);
+    }
     return Positioned(
-      left: side,
-      right: side,
+      left: left,
+      right: right,
       bottom: 0,
       // Above the navigator, outside every page's Material: the theme's
       // text, never the error style (kute_overlay_surface.dart).

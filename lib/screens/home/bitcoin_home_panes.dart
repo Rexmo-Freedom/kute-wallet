@@ -7,7 +7,9 @@
 //   * COMPACT: the home, untouched.
 //   * MEDIUM: the home in a centred [KuteLayout.columnMaxWidth] column.
 //   * EXPANDED: the home as a [KuteLayout.paneWidth] phone column on the
-//     left and, beside it, what sits behind a tap from it on a phone: the
+//     left, ending after its action row (its Activity | Goals strip and
+//     list left out: [Home.showActivity]) and, beside it, what sits
+//     behind those pills and a tap on a phone, stacked: the
 //     balance history (the Balance pill's chart, [HomeAnalyticsWidget]
 //     with no Activity tab) and the full Bitcoin activity (the list "See
 //     all" opens, [AllActivitySliver] in the Bitcoin scope), both their
@@ -24,7 +26,11 @@ import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
+import 'package:kute/screens/home/home.dart';
 import 'package:kute/screens/share/pending_share_links.dart';
+import 'package:kute/screens/shared/no_activity_state.dart';
+import 'package:kute/screens/shared/transactions_builder.dart'
+    show DepositWaitingLine;
 import 'package:kute/screens/shared/all_activity.dart'
     show ActivityScope, AllActivitySliver;
 import 'package:kute/screens/shared/investment_market_browser.dart'
@@ -40,20 +46,18 @@ const double _kSidePaneMaxWidth = 760;
 /// sliver, home.dart).
 double _navClearance() => 64.h;
 
-/// [home] as the form factor wants it (see the file header).
+/// The Bitcoin home as the form factor wants it (see the file header).
 class BitcoinHomePanes extends StatelessWidget {
-  const BitcoinHomePanes({super.key, required this.home});
-
-  final Widget home;
+  const BitcoinHomePanes({super.key});
 
   @override
   Widget build(BuildContext context) {
     final window = MediaQuery.sizeOf(context).width;
     switch (KuteLayout.forWidth(window)) {
       case KuteFormFactor.compact:
-        return home;
+        return const Home();
       case KuteFormFactor.medium:
-        return KuteFormColumn(child: home);
+        return const KuteFormColumn(child: Home());
       case KuteFormFactor.expanded:
         const gap = KuteLayout.paneGap;
         final room = math.min(window, KuteLayout.pageMaxWidth) - 2 * gap;
@@ -66,10 +70,15 @@ class BitcoinHomePanes extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // The floating Sal bar sits under the home, as on a
+                // phone (KuteBarPane).
                 SizedBox(
                   width: KuteLayout.paneWidth,
-                  child: kuteNarrowMedia(context,
-                      width: KuteLayout.paneWidth, child: home),
+                  child: KuteBarPane(
+                    child: kuteNarrowMedia(context,
+                      width: KuteLayout.paneWidth,
+                        child: const Home(showActivity: false)),
+                  ),
                 ),
                 const SizedBox(width: gap),
                 SizedBox(
@@ -134,9 +143,16 @@ class _BitcoinSidePaneState extends ConsumerState<_BitcoinSidePane> {
           SliverToBoxAdapter(
             child: InvestmentSectionHeader(label: context.l10n.activity),
           ),
-          // What the home's See all opens: its bitcoin, in full.
+          // A deposit waiting for a lower fee: the home's one quiet line.
+          if (!isSavings)
+            const SliverToBoxAdapter(child: DepositWaitingLine()),
+          // What the home's See all opens: its bitcoin, in full; empty,
+          // the home's own Sal and "No activity yet".
           const SliverToBoxAdapter(child: PendingShareLinksCard()),
-          AllActivitySliver(controller: _scroll, scope: ActivityScope.bitcoin),
+          AllActivitySliver(
+              controller: _scroll,
+              scope: ActivityScope.bitcoin,
+              emptyState: const NoActivityState()),
           SliverPadding(
               padding: EdgeInsets.only(
                   bottom: 24.h +

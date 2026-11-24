@@ -13,6 +13,7 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/shared/charts/kute_chart_signals.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/legacy_test_window.dart';
 
 const _t0 = 1700000000000;
 
@@ -75,6 +76,8 @@ Finder get _bandBox => find.byWidgetPredicate(
     (w) => w is CustomPaint && w.painter is KuteChartSignalBandPainter);
 
 void main() {
+  // Its figures were written for flutter_test's old 800 x 600 window.
+  useLegacyTestWindow();
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets('no signals, no layer: the chart is as it was', (tester) async {

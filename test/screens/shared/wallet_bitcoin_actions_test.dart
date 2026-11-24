@@ -16,6 +16,7 @@ import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/wallet_bitcoin_body.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/legacy_test_window.dart';
 
 class _Balances extends WalletBalanceCacheNotifier {
   _Balances(Map<String, WalletBalance> values) {
@@ -90,6 +91,8 @@ Future<ProviderContainer> _pump(WidgetTester tester, WalletConfig wallet,
 }
 
 void main() {
+  // Its figures were written for flutter_test's old 800 x 600 window.
+  useLegacyTestWindow();
   testWidgets('hardware receive pins exact wallet and Bitcoin network',
       (tester) async {
     ReceiveSheets.debugBitcoinBody = (_) => const Text('Receive sheet');
