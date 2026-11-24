@@ -244,11 +244,9 @@ packages:
   breez_sdk_spark_flutter:
     dependency: "direct main"
     description:
-      path: "."
-      ref: "v0.26.1"
-      resolved-ref: f5755c42bb3df15f9d26b557ccfdb957f34e9896
-      url: "https://github.com/breez/breez-sdk-spark-flutter"
-    source: git
+      path: "../../../../breez-sdk-spark-flutter-web"
+      relative: true
+    source: path
     version: "0.26.1"
   bs58check:
     dependency: "direct main"

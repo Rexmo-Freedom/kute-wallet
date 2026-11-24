@@ -34,6 +34,16 @@
     // The value below is injected by flutter build, do not touch.
     const serviceWorkerVersion = null;
   </script>
+  <!-- Breez SDK (wasm build, vendored from npm @breeztech/breez-sdk-spark in
+       breez_sdk_spark/): starts downloading before the app; the Dart
+       bindings await globalThis.breezSdkSpark in BreezSdkSparkLib.init(). -->
+  <script type="module">
+    import init, * as breez from './breez_sdk_spark/index.js';
+    globalThis.breezSdkSpark = init().then(() => breez, (e) => {
+      delete globalThis.breezSdkSpark;
+      throw e;
+    });
+  </script>
   <!-- This script adds the flutter initialization JS code -->
   <script src="flutter.js" defer=""></script>
   
