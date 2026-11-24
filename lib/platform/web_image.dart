@@ -104,6 +104,59 @@ abstract final class WebImageLoader {
   }
 }
 
+/// The routes that cover the whole page under them once they are up (the
+/// detail sheets, KuteSheetPageRoute), web only.
+///
+/// Why: an `<img>` is a platform view, a DOM element over Flutter's canvas.
+/// A route that is not opaque (the sheets are not: the page dims under them
+/// as they rise) leaves the page under it painted, with all of its `<img>`
+/// elements, and CanvasKit keeps at most eight canvases to draw what lies
+/// over them; past that it folds the sheet's pictures into a canvas under
+/// the later images. On a laptop the Investing list's logos (two dozen)
+/// then showed through a market page (the Brent oil and silver marks over
+/// its chart). So an image whose page is under a sheet that is fully up
+/// draws its Flutter placeholder instead of its `<img>` (nobody sees the
+/// page under a full sheet), and gets its `<img>` back the moment the
+/// sheet starts to close.
+abstract final class WebCovers {
+  static final Set<Route<dynamic>> _up = <Route<dynamic>>{};
+
+  /// Changes whenever a cover comes or goes.
+  static final ValueNotifier<int> changes = ValueNotifier<int>(0);
+
+  /// [route] is fully up (true) or closing or gone (false).
+  static void set(Route<dynamic> route, bool up) {
+    final changed = up ? _up.add(route) : _up.remove(route);
+    if (changed) changes.value++;
+  }
+
+  /// Whether something [context] draws sits under a cover: a route that
+  /// encloses it (at any level of nested navigators) is not the current
+  /// one of its navigator, and a cover other than that route is up in
+  /// that navigator.
+  static bool covers(BuildContext context) {
+    if (_up.isEmpty) return false;
+    BuildContext? at = context;
+    for (var depth = 0; at != null && depth < 8; depth++) {
+      final route = ModalRoute.of(at);
+      if (route == null) return false;
+      final navigator = route.navigator;
+      if (!route.isCurrent &&
+          _up.any((c) => !identical(c, route) && c.navigator == navigator)) {
+        return true;
+      }
+      at = navigator?.context;
+    }
+    return false;
+  }
+
+  @visibleForTesting
+  static void debugReset() {
+    _up.clear();
+    changes.value = 0;
+  }
+}
+
 /// Below this widget, [WebNetworkImage] draws its error widget instead of an
 /// `<img>`: a subtree that is captured to pixels (a share card's
 /// RepaintBoundary.toImage) cannot hold a platform view, and its stand-in is
@@ -153,7 +206,18 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) WebCovers.changes.addListener(_coversChanged);
     _start();
+  }
+
+  @override
+  void dispose() {
+    WebCovers.changes.removeListener(_coversChanged);
+    super.dispose();
+  }
+
+  void _coversChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -188,6 +252,7 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
     final ok = _ok;
     if (ok == null) return placeholder;
     if (!ok) return error;
+    if (WebCovers.covers(context)) return placeholder;
     Widget image = SizedBox(
       width: widget.width,
       height: widget.height,

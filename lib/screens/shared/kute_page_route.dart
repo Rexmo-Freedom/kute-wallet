@@ -22,8 +22,10 @@
 //
 // Reduce Motion: a 150 ms fade, no scale, no slide ([KuteMotion.reduce]).
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/platform/web_image.dart' show WebCovers;
 import 'package:kute/theme/kute_motion.dart';
 
 /// The transition every pushed page wears: fade and 0.97 → 1 scale in on
@@ -136,6 +138,23 @@ class KuteSheetPageRoute<T> extends PageRoute<T> {
   @override
   Duration get reverseTransitionDuration =>
       kutePageDuration(navigator?.context);
+
+  // The web: once up, the sheet covers the page under it, whose `<img>`
+  // logos step aside (WebCovers, platform/web_image.dart).
+  @override
+  void install() {
+    super.install();
+    if (kIsWeb) animation?.addStatusListener(_webCover);
+  }
+
+  void _webCover(AnimationStatus status) =>
+      WebCovers.set(this, status == AnimationStatus.completed);
+
+  @override
+  void dispose() {
+    if (kIsWeb) WebCovers.set(this, false);
+    super.dispose();
+  }
 
   @override
   Widget buildPage(BuildContext context, Animation<double> animation,
