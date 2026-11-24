@@ -269,6 +269,7 @@ abstract final class SalSpriteCache {
     _clips.clear();
     _ready.clear();
     _failed.clear();
+    _kept.clear();
     _debugStaged.clear();
     _bytes = 0;
     SalCoinAnchors.debugSet(null);
@@ -323,6 +324,7 @@ abstract final class SalSpriteCache {
     _clips.clear();
     _ready.clear();
     _failed.clear();
+    _kept.clear();
     _debugStaged.clear();
     _bytes = 0;
     maxBytes = kSalSpriteCacheMaxBytes;
@@ -417,18 +419,33 @@ abstract final class SalSpriteCache {
 
   /// [clip] is held under [key], the most recently used; the least
   /// recently used go until the cache is within [maxBytes] (never the
-  /// one just admitted).
+  /// one just admitted, never one [keep] names).
   static void _admit(String key, SalClip clip) {
     final old = _ready.remove(key);
     if (old != null) _bytes -= bytesOf(old);
     _ready[key] = clip;
     _bytes += bytesOf(clip);
-    while (_bytes > maxBytes && _ready.length > 1) {
-      final victim = _ready.keys.first;
-      if (victim == key) break;
+    while (_bytes > maxBytes) {
+      String? victim;
+      for (final k in _ready.keys) {
+        if (k == key) break;
+        if (!_kept.contains(k.substring(0, k.lastIndexOf('@')))) {
+          victim = k;
+          break;
+        }
+      }
+      if (victim == null) break;
       _drop(victim);
     }
   }
+
+  /// The clips the cap never gives up ([keep]).
+  static final Set<String> _kept = <String>{};
+
+  /// [name] stays decoded once read, whatever the cap (a small face
+  /// sheet a mark shows wherever it is: the web's [BrandMark], where a
+  /// clip given up means a second's blank while it is read again).
+  static void keep(String name) => _kept.add(name);
 
   static void _drop(String key) {
     final c = _ready.remove(key);
