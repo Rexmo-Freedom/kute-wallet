@@ -533,12 +533,16 @@ class AllActivitySliver extends ConsumerStatefulWidget {
     required this.controller,
     this.pageSize = 60,
     this.scope = ActivityScope.all,
+    this.emptyState,
   });
 
   /// The screen's scroll controller, read to load the next page.
   final ScrollController controller;
   final int pageSize;
   final ActivityScope scope;
+
+  /// What an empty list shows; null is the plain "No transactions yet".
+  final Widget? emptyState;
 
   @override
   ConsumerState<AllActivitySliver> createState() => _AllActivitySliverState();
@@ -597,7 +601,8 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
           ),
         );
       }
-      return SliverToBoxAdapter(child: buildNoTransactionsFound(context));
+      return SliverToBoxAdapter(
+          child: widget.emptyState ?? buildNoTransactionsFound(context));
     }
     final shown =
         entries.length > _limit ? entries.sublist(0, _limit) : entries;

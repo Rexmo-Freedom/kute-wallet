@@ -68,7 +68,12 @@ import 'package:intl/intl.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 
 class Home extends ConsumerStatefulWidget {
-  const Home({super.key});
+  const Home({super.key, this.showActivity = true});
+
+  /// The Activity | Goals strip and its list under the action row. Only
+  /// the wide Bitcoin home leaves it out (bitcoin_home_panes.dart), where
+  /// the pane beside the home carries them; a phone always shows it.
+  final bool showActivity;
 
   @override
   ConsumerState<Home> createState() => _HomeState();
@@ -553,7 +558,7 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
                           ),
                         ),
 
-                        const _ActivitySection(),
+                        if (widget.showActivity) const _ActivitySection(),
 
                         // Clears the floating dock: KuteDockHost reports
                         // dock + 12.h as the bottom padding, plus 12.h.

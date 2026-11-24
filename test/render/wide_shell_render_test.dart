@@ -149,7 +149,7 @@ Future<GoRouter> _pump(WidgetTester tester, Size size, bool dark) async {
       builder: (context, state, shell) => shell,
       branches: [
         for (final (path, page) in [
-          ('/home', const BitcoinHomePanes(home: Home())),
+          ('/home', const BitcoinHomePanes()),
           ('/bank', const _Blank('bank')),
           ('/usd', const _Blank('dollars')),
           ('/hyperliquid', const _Blank('investing')),
@@ -223,6 +223,29 @@ Future<void> _settle(WidgetTester tester, [int frames = 20]) async {
   }
 }
 
+void _language(BuildContext ctx) {
+  // ignore: discarded_futures
+  showAppBottomSheet<void>(
+    context: ctx,
+    useRootNavigator: false,
+    builder: (c) => AppBottomSheetContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AppBottomSheetHeader(
+              title: 'Language', subtitle: 'The app speaks it'),
+          for (final (i, l) in ['English', 'Deutsch', 'Português'].indexed)
+            AppBottomSheetListTile(title: l, isSelected: i == 0, onTap: () {}),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: AppBottomSheetButton(text: 'Done', onPressed: () {}),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -247,28 +270,7 @@ void main() {
 
         // A sheet over the home.
         final ctx = tester.element(find.byType(Home));
-        // ignore: discarded_futures
-        showAppBottomSheet<void>(
-          context: ctx,
-          useRootNavigator: false,
-          builder: (c) => AppBottomSheetContainer(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const AppBottomSheetHeader(
-                    title: 'Language', subtitle: 'The app speaks it'),
-                for (final (i, l) in ['English', 'Deutsch', 'Português']
-                    .indexed)
-                  AppBottomSheetListTile(
-                      title: l, isSelected: i == 0, onTap: () {}),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: AppBottomSheetButton(text: 'Done', onPressed: () {}),
-                ),
-              ],
-            ),
-          ),
-        );
+        _language(ctx);
         await _settle(tester, 10);
         expect(tester.takeException(), isNull);
         await _shoot(tester, 'sheet_${label}_$mode');

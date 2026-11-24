@@ -12,7 +12,6 @@ import 'package:kute/screens/analytics/components/home_analytics_widget.dart'
     show prewarmLiveBtcFeed;
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/home/bitcoin_home_panes.dart';
-import 'package:kute/screens/home/home.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -126,7 +125,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           // (bitcoin_home_panes.dart); another wallet's tab is a centred
           // column. A phone: as it was.
           child: wallet == null
-              ? const BitcoinHomePanes(home: Home())
+              ? const BitcoinHomePanes()
               : KuteFormColumn(
                   child: ShellWalletScreen(
                       key: ValueKey(wallet.id), wallet: wallet)),
