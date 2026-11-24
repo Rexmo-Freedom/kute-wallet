@@ -16,12 +16,17 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/helpers/formatters/currency_formatter.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
-import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/home/bitcoin_home_panes.dart'
+    show
+        BitcoinListWidthSliver,
+        BitcoinPanesFrame,
+        bitcoinPaneEnd,
+        bitcoinPaneScrollWatch,
+        kBitcoinActionPaneKey;
+import 'package:kute/screens/search/unified_search_screen.dart'
+    show showKuteSearch;
 import 'package:kute/providers/transactions_provider.dart';
-import 'package:kute/screens/shared/investment_market_browser.dart'
-    show InvestmentSectionHeader;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/background_sync_provider.dart';
@@ -41,13 +46,18 @@ import 'package:kute/theme/app_theme.dart';
 class WalletBitcoinBody extends ConsumerWidget {
   final WalletConfig wallet;
 
-  /// The EXPANDED wallet tab (shell_wallet_screen.dart), centred like the
-  /// Bitcoin home (bitcoin_home_panes.dart): the balance and its actions
-  /// at phone width, then one empty state or the charts and the activity
-  /// side by side. False: the body exactly as it is.
+  /// The EXPANDED wallet tab (shell_wallet_screen.dart), separated like
+  /// the Bitcoin and Dollars homes (bitcoin_home_panes.dart): the hero,
+  /// its actions and its Receive / Send dock in the right pane, still;
+  /// the charts and the activity behind the phone's own strip in the left
+  /// pane, the one scroll. False: the body exactly as it is.
   final bool wide;
 
-  const WalletBitcoinBody({super.key, required this.wallet, this.wide = false});
+  /// [wide] only: the backup banner over the hero, when the tab shows one.
+  final Widget? banner;
+
+  const WalletBitcoinBody(
+      {super.key, required this.wallet, this.wide = false, this.banner});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -85,179 +95,181 @@ class WalletBitcoinBody extends ConsumerWidget {
     final isAwaitingFirstBalance = balance == null &&
         ref.watch(bdkScanningWalletsProvider).contains(wallet.id);
 
+    Future<void> refresh() async {
+      HapticFeedback.lightImpact();
+      ref
+          .read(walletBalanceCacheProvider.notifier)
+          .invalidateStreamFreshness(wallet.id);
+      // Single-shot BDK scan targeting the scoped
+      // wallet only. The continuous loop is
+      // deliberately NOT used here — BDK Electrum
+      // scans crash under repeated polling, so the
+      // detail screen only scans on key user actions
+      // (open, pull-to-refresh, Send/Move). An explicit
+      // refresh scans every address up to the stop gap,
+      // not only the ones this app revealed.
+      await BackgroundSyncService()
+          .scanBdkScope(source: 'pull_refresh', fullScan: true);
+    }
+
+    final balanceCard = isAwaitingFirstBalance
+        ? const _BalanceSkeleton()
+        : _BalanceCard(
+            sats: sats,
+            fiatValue: fiatValue,
+            fiatCurrency: selectedCurrency,
+            btcFormat: btcFormat,
+          );
+
+    if (wide) {
+      return BitcoinPanesFrame(
+        left: _WideWalletLeft(wallet: wallet, onRefresh: refresh),
+        // The hero as on a phone, its dock (Receive · Send · search)
+        // right under it rather than floating at the window's foot.
+        right: CustomScrollView(
+          key: kBitcoinActionPaneKey,
+          physics: const ClampingScrollPhysics(),
+          slivers: [
+            if (banner != null) SliverToBoxAdapter(child: banner),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+                child: balanceCard,
+              ),
+            ),
+            SliverToBoxAdapter(child: SizedBox(height: 16.h)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+                child: BitcoinWalletPrimaryActions(
+                    wallet: wallet, source: 'wallet_detail'),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(top: 6.h),
+                child: WalletBitcoinActionBar(
+                  wallet: wallet,
+                  onSearch: () => showKuteSearch(context,
+                      walletId: wallet.id, source: 'wallet_detail'),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                  height: MediaQuery.viewPaddingOf(context).bottom + 16.h),
+            ),
+          ],
+        ),
+      );
+    }
+
     return RefreshIndicator(
       // Accent spinner so the pull-to-refresh matches the
       // app palette (same treatment as the affiliate
       // screen) while still signalling the BDK scan is
       // mid-flight.
       color: c.accent,
-      onRefresh: () async {
-        HapticFeedback.lightImpact();
-        ref
-            .read(walletBalanceCacheProvider.notifier)
-            .invalidateStreamFreshness(wallet.id);
-        // Single-shot BDK scan targeting the scoped
-        // wallet only. The continuous loop is
-        // deliberately NOT used here — BDK Electrum
-        // scans crash under repeated polling, so the
-        // detail screen only scans on key user actions
-        // (open, pull-to-refresh, Send/Move). An explicit
-        // refresh scans every address up to the stop gap,
-        // not only the ones this app revealed.
-        await BackgroundSyncService()
-            .scanBdkScope(source: 'pull_refresh', fullScan: true);
-      },
+      onRefresh: refresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(
           top: 8.h,
           bottom: 40.h + MediaQuery.paddingOf(context).bottom,
         ),
-        child: wide
-            ? _WideWalletBody(
-                wallet: wallet,
-                hero: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      child: isAwaitingFirstBalance
-                          ? const _BalanceSkeleton()
-                          : _BalanceCard(
-                              sats: sats,
-                              fiatValue: fiatValue,
-                              fiatCurrency: selectedCurrency,
-                              btcFormat: btcFormat,
-                            ),
-                    ),
-                    SizedBox(height: 16.h),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                      child: BitcoinWalletPrimaryActions(
-                          wallet: wallet, source: 'wallet_detail'),
-                    ),
-                  ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: balanceCard,
+            ),
+            SizedBox(height: 16.h),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+              child: BitcoinWalletPrimaryActions(
+                  wallet: wallet, source: 'wallet_detail'),
+            ),
+            // Per-wallet analytics rendered edge-to-edge
+            // so its self-applied 16.w / 24.h padding
+            // matches the rest of the screen instead of
+            // stacking on top of the parent's 16.w. The
+            // widget reads `viewedWalletId` (set on init)
+            // so it surfaces the cold wallet's UTXOs /
+            // price / valuation tabs automatically.
+            RepaintBoundary(
+              child: HomeAnalyticsWidget(
+                // Same merged pill strip as Home:
+                // Activity leads, then the per-wallet
+                // charts (Balance/Price/UTXOs). The
+                // Balance chart carries no headline
+                // here: the hero card above is the
+                // balance now (owner decision).
+                onSeeAllActivity: () => showActivityHistory(
+                  context,
+                  walletIdOverride: wallet.id,
+                  title: wallet.name,
                 ),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    child: isAwaitingFirstBalance
-                        ? const _BalanceSkeleton()
-                        : _BalanceCard(
-                            sats: sats,
-                            fiatValue: fiatValue,
-                            fiatCurrency: selectedCurrency,
-                            btcFormat: btcFormat,
-                          ),
-                  ),
-                  SizedBox(height: 16.h),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                    child: BitcoinWalletPrimaryActions(
-                        wallet: wallet, source: 'wallet_detail'),
-                  ),
-                  // Per-wallet analytics rendered edge-to-edge
-                  // so its self-applied 16.w / 24.h padding
-                  // matches the rest of the screen instead of
-                  // stacking on top of the parent's 16.w. The
-                  // widget reads `viewedWalletId` (set on init)
-                  // so it surfaces the cold wallet's UTXOs /
-                  // price / valuation tabs automatically.
-                  RepaintBoundary(
-                    child: HomeAnalyticsWidget(
-                      // Same merged pill strip as Home:
-                      // Activity leads, then the per-wallet
-                      // charts (Balance/Price/UTXOs). The
-                      // Balance chart carries no headline
-                      // here: the hero card above is the
-                      // balance now (owner decision).
-                      onSeeAllActivity: () => showActivityHistory(
-                        context,
-                        walletIdOverride: wallet.id,
-                        title: wallet.name,
-                      ),
-                      activityChild: TransactionList(
-                        walletIdOverride: wallet.id,
-                        showAll: true,
-                      ),
-                    ),
-                  ),
-                ],
+                activityChild: TransactionList(
+                  walletIdOverride: wallet.id,
+                  showAll: true,
+                ),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// The wide body ([WalletBitcoinBody.wide]): [hero] at phone width,
-/// centred; under it this wallet's one empty state, or its charts (the
-/// strip's Balance / Price / UTXOs, no Activity tab) and its full activity
-/// as two equal columns, at most 960 together, centred.
-class _WideWalletBody extends ConsumerWidget {
-  const _WideWalletBody({required this.wallet, required this.hero});
+/// The wide tab's left pane ([WalletBitcoinBody.wide]): the phone's own
+/// strip (Activity, then this wallet's Balance / Price / UTXOs) at the
+/// pane's top left, where the Dollars pills stand, and the pill's content
+/// under it in a readable column, the one scroll. The Activity pill is the
+/// wallet's full history here, so it never turns into "See all". A wallet
+/// with no history: one empty state, centred under the strip.
+class _WideWalletLeft extends ConsumerWidget {
+  const _WideWalletLeft({required this.wallet, required this.onRefresh});
 
   final WalletConfig wallet;
-  final Widget hero;
+  final RefreshCallback onRefresh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final empty = ref.watch(walletTransactionCacheProvider.select(
         (cache) => cache[wallet.id]?.allTransactionsSorted.isEmpty ?? true));
-    Widget phone(Widget child) => KutePhoneColumn(
-        child: kuteNarrowMedia(context,
-            width: KuteLayout.paneWidth, child: child));
-    const gap = KuteLayout.paneGap;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        phone(hero),
-        if (empty)
-          // About 64 under the action row, as on the Bitcoin home.
-          phone(const NoActivityState(
-              padding: EdgeInsets.fromLTRB(24, 34, 24, 8)))
-        else
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 960 + 2 * gap),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: gap),
-                child: LayoutBuilder(builder: (context, constraints) {
-                  final column = (constraints.maxWidth - gap) / 2;
-                  Widget narrow(Widget child) => SizedBox(
-                      width: column,
-                      child: kuteNarrowMedia(context,
-                          width: column, child: child));
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      narrow(Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          InvestmentSectionHeader(label: context.l10n.balance),
-                          const RepaintBoundary(child: HomeAnalyticsWidget()),
-                        ],
-                      )),
-                      const SizedBox(width: gap),
-                      narrow(Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          InvestmentSectionHeader(label: context.l10n.activity),
-                          TransactionList(
-                            walletIdOverride: wallet.id,
-                            showAll: true,
-                          ),
-                        ],
-                      )),
-                    ],
-                  );
-                }),
-              ),
-            ),
-          ),
-      ],
+    final analytics = SliverToBoxAdapter(
+      child: RepaintBoundary(
+        child: HomeAnalyticsWidget(
+          // The strip where the Dollars pills stand (bitcoin_home_panes
+          // .dart, BitcoinPaneTop), at a phone's width.
+          padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+          stripMaxWidth: KuteLayout.paneWidth - 32,
+          activityChild: empty
+              ? const NoActivityState(
+                  padding: EdgeInsets.fromLTRB(24, 34, 24, 8))
+              : TransactionList(walletIdOverride: wallet.id, showAll: true),
+        ),
+      ),
+    );
+    return bitcoinPaneScrollWatch(
+      ref,
+      RefreshIndicator(
+        color: c.accent,
+        onRefresh: onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // A readable column of rows; with nothing to list, the pane's
+            // width, so the one empty state centres in it (the strip is
+            // held to a phone's width either way).
+            if (empty) analytics else BitcoinListWidthSliver(sliver: analytics),
+            bitcoinPaneEnd(context),
+          ],
+        ),
+      ),
     );
   }
 }

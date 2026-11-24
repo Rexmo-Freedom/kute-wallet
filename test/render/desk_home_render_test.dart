@@ -1,9 +1,12 @@
-// A look by eye at the Bitcoin home centred on a desktop (round two,
-// bitcoin_home_panes.dart): a new wallet (one centred empty state) and a
-// wallet with a balance history and a dozen transactions (the chart and
-// the activity side by side under the hero), at 1440x900, 1180x820,
-// 1920x1080 and 430x932 (the phone, as before), light and dark; and
-// another wallet's tab (WalletBitcoinBody.wide). Written only when asked:
+// A look by eye at the Bitcoin home on a desktop, separated like the
+// Dollars home (bitcoin_home_panes.dart): a new wallet (one empty state
+// under the pills) and a wallet with a balance history and a dozen
+// transactions (the pills, then the activity or the goals, on the left;
+// the hero on the right), at 1440x900, 1180x820, 1920x1080, 1000x700 and
+// 430x932 (the phone, as before), light and dark; another wallet's tab
+// (WalletBitcoinBody.wide); and the Dollars home beside them, whose panes
+// the Bitcoin home's must match exactly (checked, not only rendered).
+// Written only when asked:
 //   DESK_HOME_RENDER=<dir> flutter test test/render/desk_home_render_test.dart
 
 import 'dart:convert';
@@ -47,6 +50,9 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/home/bitcoin_home_panes.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePillTabs;
+import 'package:kute/screens/usd/usd_account_screen.dart' show UsdAccountScreen;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -205,7 +211,9 @@ ThemeData _theme(bool dark) {
 final _cold = WalletConfig(id: 'cold', name: 'Savings', isWatchOnly: true);
 
 Future<void> _pump(WidgetTester tester, Size size, bool dark,
-    {required bool withHistory, bool otherWallet = false}) async {
+    {required bool withHistory,
+    bool otherWallet = false,
+    bool dollars = false}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -220,7 +228,13 @@ Future<void> _pump(WidgetTester tester, Size size, bool dark,
   ];
   final history = withHistory ? txs : null;
   final wallets = [
-    WalletConfig(id: 'spending', name: 'Spending'),
+    // A wide wallet with history is backed up (the hero without its
+    // banner, to line the balance up with the Dollars one); the phone
+    // keeps the inputs of its before / after renders.
+    WalletConfig(
+        id: 'spending',
+        name: 'Spending',
+        backedUp: withHistory && size.width >= 900),
     if (otherWallet) _cold,
   ];
   await tester.pumpWidget(ProviderScope(
@@ -276,13 +290,19 @@ Future<void> _pump(WidgetTester tester, Size size, bool dark,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         builder: shellBarBuilder,
-        home: otherWallet
+        home: dollars
             ? Builder(
                 builder: (context) => Scaffold(
                       backgroundColor: context.colors.background,
-                      body: ShellWalletScreen(wallet: _cold),
+                      body: const UsdAccountScreen(),
                     ))
-            : const BitcoinHomePanes(),
+            : otherWallet
+                ? Builder(
+                    builder: (context) => Scaffold(
+                          backgroundColor: context.colors.background,
+                          body: ShellWalletScreen(wallet: _cold),
+                        ))
+                : const BitcoinHomePanes(),
       ),
     ),
   ));
@@ -302,6 +322,25 @@ Future<void> _settle(WidgetTester tester, [int frames = 20]) async {
   }
 }
 
+/// The left pane, its pill row and the right pane on screen, for the
+/// frame comparison between the two homes.
+({Rect left, Rect pills, Rect right})? _frame(WidgetTester tester) {
+  final pane = find.byType(KuteBarPane);
+  if (pane.evaluate().isEmpty) return null;
+  final left = tester.getRect(pane.first);
+  final pills = tester.getRect(find
+      .descendant(of: pane.first, matching: find.byType(KutePillTabs))
+      .first);
+  final right = tester.getRect(find
+      .byWidgetPredicate((w) =>
+          w.key == const ValueKey('investments-action-pane') ||
+          w.key == const ValueKey('bitcoin-home-action-pane'))
+      .first);
+  return (left: left, pills: pills, right: right);
+}
+
+final _frames = <String, ({Rect left, Rect pills, Rect right})>{};
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -309,6 +348,7 @@ void main() {
     ('1440x900', const Size(1440, 900)),
     ('1180x820', const Size(1180, 820)),
     ('1920x1080', const Size(1920, 1080)),
+    ('1000x700', const Size(1000, 700)),
     ('430x932', const Size(430, 932)),
   ]) {
     for (final dark in [false, true]) {
@@ -325,10 +365,34 @@ void main() {
           await _settle(tester, 30);
           expect(tester.takeException(), isNull);
           await _shoot(tester, 'home_${state}_${label}_$mode');
+          if (size.width >= 900) {
+            final frame = _frame(tester)!;
+            _frames['btc $label'] = frame;
+            // The Goals pill.
+            await tester.tap(find
+                .descendant(
+                    of: find.byType(KutePillTabs).first,
+                    matching: find.byIcon(Icons.flag_rounded))
+                .first);
+            await _settle(tester, 10);
+            expect(tester.takeException(), isNull);
+            await _shoot(tester, 'home_${state}_${label}_${mode}_goals');
+          }
           if (withHistory && size.width >= 900) {
-            // The page scrolls as one.
+            // Back on the activity, scrolled: the left pane is the scroll.
+            await tester.tap(find
+                .descendant(
+                    of: find.byType(KutePillTabs).first,
+                    matching: find.byIcon(Icons.receipt_long_rounded))
+                .first);
+            await _settle(tester, 10);
             await tester.drag(
-                find.byType(CustomScrollView).first, const Offset(0, -500));
+                find
+                    .descendant(
+                        of: find.byType(KuteBarPane),
+                        matching: find.byType(Scrollable))
+                    .first,
+                const Offset(0, -500));
             await _settle(tester, 10);
             expect(tester.takeException(), isNull);
             await _shoot(tester, 'home_${state}_${label}_${mode}_scrolled');
@@ -338,23 +402,48 @@ void main() {
         });
       }
       if (size.width >= 900) {
-        for (final withHistory in [false, true]) {
-          final state = withHistory ? 'history' : 'new';
-          testWidgets('desk wallet tab $state $label $mode', skip: _dir == null,
-              (tester) async {
-            debugDisableShadows = true;
-            addTearDown(() => debugDisableShadows = true);
-            installShellBar();
-            await _assets(tester);
-            await _pump(tester, size, dark,
-                withHistory: withHistory, otherWallet: true);
-            await _settle(tester, 30);
-            expect(tester.takeException(), isNull);
-            await _shoot(tester, 'wallet_${state}_${label}_$mode');
-            await tester.pumpWidget(const SizedBox());
-            await tester.pump(const Duration(seconds: 7));
-          });
-        }
+        testWidgets('desk dollars $label $mode', skip: _dir == null,
+            (tester) async {
+          debugDisableShadows = true;
+          addTearDown(() => debugDisableShadows = true);
+          installShellBar();
+          await _assets(tester);
+          await _pump(tester, size, dark, withHistory: false, dollars: true);
+          await _settle(tester, 30);
+          expect(tester.takeException(), isNull);
+          await _shoot(tester, 'dollars_${label}_$mode');
+          final usd = _frame(tester)!;
+          final btc = _frames['btc $label'];
+          // ignore: avoid_print
+          print('frame $label dollars $usd bitcoin $btc');
+          if (btc != null) {
+            // The two tabs' panes stand exactly in the same place.
+            expect(btc.left.left, usd.left.left);
+            expect(btc.left.width, usd.left.width);
+            expect(btc.right, usd.right);
+            expect(btc.pills.topLeft, usd.pills.topLeft);
+            expect(btc.pills.height, usd.pills.height);
+          }
+          await tester.pumpWidget(const SizedBox());
+          await tester.pump(const Duration(seconds: 7));
+        });
+      }
+      for (final withHistory in [false, true]) {
+        final state = withHistory ? 'history' : 'new';
+        testWidgets('desk wallet tab $state $label $mode', skip: _dir == null,
+            (tester) async {
+          debugDisableShadows = true;
+          addTearDown(() => debugDisableShadows = true);
+          installShellBar();
+          await _assets(tester);
+          await _pump(tester, size, dark,
+              withHistory: withHistory, otherWallet: true);
+          await _settle(tester, 30);
+          expect(tester.takeException(), isNull);
+          await _shoot(tester, 'wallet_${state}_${label}_$mode');
+          await tester.pumpWidget(const SizedBox());
+          await tester.pump(const Duration(seconds: 7));
+        });
       }
     }
   }

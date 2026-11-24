@@ -121,11 +121,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       backgroundColor: context.colors.background,
       body: Column(children: [
         Expanded(
-          // On MEDIUM the home is a centred phone column; on EXPANDED a
-          // centred page, its hero at phone width over its activity and
-          // balance history (bitcoin_home_panes.dart), and another
-          // wallet's tab the same (WalletBitcoinBody.wide). A phone: as
-          // it was.
+          // On MEDIUM the home is a centred phone column; on EXPANDED two
+          // panes like the Dollars home, the hero on the right, the
+          // activity and the goals on the left (bitcoin_home_panes.dart),
+          // and another wallet's tab the same (WalletBitcoinBody.wide). A
+          // phone: as it was.
           child: wallet == null
               ? const BitcoinHomePanes()
               : KuteLayout.isExpanded(context)

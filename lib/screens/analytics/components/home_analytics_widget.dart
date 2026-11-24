@@ -148,6 +148,16 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// ladder sheet). Only the Bitcoin home's spending wallet passes true.
   final bool balanceGoals;
 
+  /// The widget's outer padding; null is the phone's 24 above and below.
+  /// The wide Bitcoin home's Goals pill (bitcoin_home_panes.dart) passes
+  /// less above, its pill row being right over it.
+  final EdgeInsetsGeometry? padding;
+
+  /// The strip at most this wide, at the left; null is the full width (a
+  /// phone). A wide wallet tab's pane passes a phone's width, so the pills
+  /// are never stretched across it.
+  final double? stripMaxWidth;
+
   const HomeAnalyticsWidget({
     super.key,
     this.surface,
@@ -162,6 +172,8 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
     this.activityAndBalanceOnly = false,
     this.onSeeAllActivity,
     this.selectActivityRequest,
+    this.padding,
+    this.stripMaxWidth,
   });
 
   @override
@@ -339,7 +351,7 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
       // Horizontal padding moves onto the strip/charts individually:
       // the Activity list carries its own row insets (it used to sit
       // directly in the Home column) and double-padding squeezed it.
-      padding: EdgeInsets.symmetric(vertical: 24.h),
+      padding: widget.padding ?? EdgeInsets.symmetric(vertical: 24.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -351,7 +363,16 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
           if (!widget.onlySplit && tabs.length > 1)
             Padding(
               padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-              child: _buildTypeSelector(tabs),
+              child: widget.stripMaxWidth == null
+                  ? _buildTypeSelector(tabs)
+                  : Align(
+                      alignment: Alignment.centerLeft,
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(maxWidth: widget.stripMaxWidth!),
+                        child: _buildTypeSelector(tabs),
+                      ),
+                    ),
             ),
           if (showingActivity)
             widget.activityChild!

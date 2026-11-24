@@ -41,7 +41,11 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
 import 'package:kute/screens/settings/wallets_screen.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:kute/providers/shell_wallet_provider.dart'
+    show shellVenueOwnerProvider;
 import 'package:kute/platform/kute_layout.dart' show KuteLayout;
 import 'package:kute/platform/kute_wide_frames.dart';
 
@@ -237,6 +241,49 @@ class AppRouter {
     return null;
   }
 
+  /// The shell's five branch roots (the tab strip's pages).
+  static const Set<String> _shellRoots = {
+    '/home',
+    '/bank',
+    '/usd',
+    '/hyperliquid',
+    '/polymarket',
+  };
+
+  static bool _inShell(String path) =>
+      _shellRoots.any((root) => path == root || path.startsWith('$root/'));
+
+  /// Whether the Dollars tab is in the strip now (shell_venue_tabs.dart:
+  /// not while a Ledger owns the strip). Read, not watched.
+  static bool _dollarsShown(BuildContext context) =>
+      shellShowsUsdTab(ProviderScope.containerOf(context, listen: false)
+          .read(shellVenueOwnerProvider));
+
+  /// THE WEB OPENS ON DOLLARS (founder, 26 November 2026: "make dollars
+  /// the main one, on web regardless … as in it opens up in dollars,
+  /// that's it"). On [web] only, the first time an unlocked session
+  /// reaches the tab shell after the app starts (the unlock's and the
+  /// wallet creation's plain `go('/home')`), it lands on Dollars
+  /// (`/usd`) instead, whatever tab was last open. Anything that names
+  /// its place (a deep link to `/usd?tab=…`, `/home?tab=activity`, a
+  /// pay route) goes where it points, and ends the rule for this start
+  /// the same way. When the strip has no Dollars tab ([dollarsShown]
+  /// false: a Ledger owns it) it stays on Bitcoin. iOS and Android: never
+  /// (null). [landed] is the start's one-shot flag, set here.
+  @visibleForTesting
+  static String? webLandingRedirect({
+    required bool web,
+    required bool locked,
+    required Uri uri,
+    required bool Function() dollarsShown,
+    required ValueNotifier<bool> landed,
+  }) {
+    if (!web || locked || landed.value || !_inShell(uri.path)) return null;
+    landed.value = true;
+    if (uri.toString() != '/home') return null;
+    return dollarsShown() ? '/usd' : null;
+  }
+
   /// The top-level redirect. [sessionLocked] reads the session (null
   /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
   ///
@@ -255,10 +302,14 @@ class AppRouter {
   static GoRouterRedirect redirectFor({
     required bool Function() sessionLocked,
     required String initialRoute,
+    bool web = kIsWeb,
+    bool Function(BuildContext context) dollarsShown = _dollarsShown,
   }) {
     // Last in-app location we sat on, so an incoming deep link can register its
     // referral code without yanking the user off their current screen.
     var lastGood = initialRoute;
+    // The web's first landing in the shell this start ([webLandingRedirect]).
+    final landed = ValueNotifier<bool>(false);
     return (context, state) {
       final uri = state.uri;
       if (uri.hasScheme) {
@@ -270,6 +321,14 @@ class AppRouter {
       final guard = lockRedirect(
           locked: sessionLocked(), location: state.matchedLocation);
       if (guard != null) return guard;
+      final landing = webLandingRedirect(
+        web: web,
+        locked: sessionLocked(),
+        uri: uri,
+        dollarsShown: () => dollarsShown(context),
+        landed: landed,
+      );
+      if (landing != null) return landing;
       lastGood = state.matchedLocation;
       return null;
     };
@@ -441,6 +500,10 @@ class AppRouter {
           branches: [
             // ── Branch 0: Home (+ its full sub-route tree) ──
             StatefulShellBranch(
+              // On web the app opens on Dollars (webLandingRedirect), so
+              // the Bitcoin branch is built with the shell rather than on
+              // its first visit: its MainScreen starts the background sync.
+              preload: kIsWeb,
               observers: [KuteBarRouteObserver()],
               navigatorKey: _homeBranchKey,
               routes: [

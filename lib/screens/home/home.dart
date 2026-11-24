@@ -44,7 +44,7 @@ import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/home/components/seed_unavailable_banner.dart';
 import 'package:kute/screens/home/bitcoin_home_panes.dart'
-    show KutePhoneWidthSliver;
+    show BitcoinHomeLeftPane, BitcoinPanesFrame, kBitcoinActionPaneKey;
 import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
@@ -71,19 +71,14 @@ import 'package:intl/intl.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 
 class Home extends ConsumerStatefulWidget {
-  const Home({super.key, this.showActivity = true, this.wideBelow});
+  const Home({super.key, this.panes = false});
 
-  /// The Activity | Goals strip and its list under the action row. Only
-  /// the wide Bitcoin home leaves it out (bitcoin_home_panes.dart), where
-  /// the section under the hero carries them; a phone always shows it.
-  final bool showActivity;
-
-  /// The EXPANDED Bitcoin home only (bitcoin_home_panes.dart): the hero
-  /// (banners, balance, action row) is drawn at phone width, centred
-  /// ([KutePhoneWidthSliver]), and these slivers follow it in the home's
-  /// one scroll, given that scroll's controller. Null (a phone, MEDIUM):
-  /// the home exactly as it is.
-  final List<Widget> Function(ScrollController controller)? wideBelow;
+  /// The EXPANDED Bitcoin home only (bitcoin_home_panes.dart): separated
+  /// like the Dollars home, the hero (banners, balance, action row) still
+  /// in the right pane, the Activity | Goals pills and their content in
+  /// the left one ([BitcoinHomeLeftPane]). False (a phone, MEDIUM): the
+  /// home exactly as it is.
+  final bool panes;
 
   @override
   ConsumerState<Home> createState() => _HomeState();
@@ -427,10 +422,29 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
   /// provider's ref, so leaving Home mid-pull is safe.
   Future<void> _handleRefresh() => ref.read(refreshEverythingProvider).home();
 
-  /// A hero sliver as the form factor wants it: as it is, or at phone
-  /// width and centred on the wide Bitcoin home ([Home.wideBelow]).
-  Widget _hero(Widget sliver) =>
-      widget.wideBelow == null ? sliver : KutePhoneWidthSliver(sliver: sliver);
+  /// EXPANDED ([Home.panes], bitcoin_home_panes.dart): the Dollars home's
+  /// frame, the Activity | Goals pills and their content on the left (the
+  /// one scroll, its pull the home's), [hero] still on the right. It
+  /// scrolls only when the window is too short for it.
+  Widget _panes(List<Widget> hero) => BitcoinPanesFrame(
+        left: BitcoinHomeLeftPane(onRefresh: _handleRefresh),
+        right: CustomScrollView(
+          key: kBitcoinActionPaneKey,
+          physics: const ClampingScrollPhysics(),
+          slivers: [
+            // Its balance on the Dollars balance's line.
+            const SliverToBoxAdapter(child: SizedBox(height: 4)),
+            ...hero,
+            // The bar sits under the left pane, so no room is kept for it
+            // here: the bottom safe area and a margin.
+            SliverToBoxAdapter(
+              child: Builder(
+                  builder: (context) => SizedBox(
+                      height: MediaQuery.viewPaddingOf(context).bottom + 16.h)),
+            ),
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -488,6 +502,44 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     final bool isWatchOnly = activeWallet.isWatchOnly;
     final bool isHardware = activeWallet.isHardware;
 
+    // The hero: the banners, the balance and its action row. On a phone
+    // the top of the home's one scroll; on EXPANDED the right pane.
+    final hero = <Widget>[
+      const SliverToBoxAdapter(child: SeedUnavailableBanner()),
+
+      if (needsBackup)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+            child: const SecurityActionCard(),
+          ),
+        ),
+
+      SliverToBoxAdapter(
+        child: _EntranceTransition(
+          animation: _staggered(0),
+          child: _WalletDeckWrapper(
+            isHardware: isHardware,
+            isWatchOnly: isWatchOnly,
+            isEuropean: isEuropeanUser,
+          ),
+        ),
+      ),
+
+      // Shared action row — Deposit / Receive / Send /
+      // Move / Pay Link, scoped to whichever card is
+      // currently selected (BTC, USDC, or a cold wallet).
+      // Lives outside the cards so the cards stay pure
+      // identity surfaces and the action row is the
+      // single shared affordance across all of them.
+      const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
+          child: _HomeActions(),
+        ),
+      ),
+    ];
+
     return Scaffold(
       extendBody: true,
       body: Container(
@@ -514,82 +566,47 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
                   HomeDock(onHeightChanged: onHeightChanged),
               body: SafeArea(
                 bottom: false,
-                child: NotificationListener<ScrollMetricsNotification>(
-                  onNotification: _onScrollMetrics,
-                  child: RefreshIndicator(
-                    onRefresh: _handleRefresh,
-                    color: c.accent,
-                    backgroundColor: c.surface,
-                    edgeOffset: 68.h,
-                    child: CustomScrollView(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(
-                          parent: BouncingScrollPhysics()),
-                      slivers: [
-                        // Clears the integrated top nav bar. Sized to the nav's
-                        // ~54.h content band + ~10.h breathing room (the scroll
-                        // view already sits below the safe-area inset).
-                        SliverToBoxAdapter(child: SizedBox(height: 64.h)),
+                child: widget.panes
+                    ? _panes(hero)
+                    : NotificationListener<ScrollMetricsNotification>(
+                        onNotification: _onScrollMetrics,
+                        child: RefreshIndicator(
+                          onRefresh: _handleRefresh,
+                          color: c.accent,
+                          backgroundColor: c.surface,
+                          edgeOffset: 68.h,
+                          child: CustomScrollView(
+                            controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics()),
+                            slivers: [
+                              // Clears the integrated top nav bar. Sized to the nav's
+                              // ~54.h content band + ~10.h breathing room (the scroll
+                              // view already sits below the safe-area inset).
+                              SliverToBoxAdapter(child: SizedBox(height: 64.h)),
 
-                        // Predictions are NOT surfaced on the home screen
-                        // — they live entirely in the dedicated Predictions
-                        // tab so the home stays focused on the wallet
-                        // (the primary surface for the vast majority of
-                        // sessions).
+                              // Predictions are NOT surfaced on the home screen
+                              // — they live entirely in the dedicated Predictions
+                              // tab so the home stays focused on the wallet
+                              // (the primary surface for the vast majority of
+                              // sessions).
 
-                        ...[
-                          const SliverToBoxAdapter(
-                              child: SeedUnavailableBanner()),
+                              ...hero,
 
-                          if (needsBackup)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding:
-                                    EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-                                child: const SecurityActionCard(),
-                              ),
-                            ),
+                              const _ActivitySection(),
 
-                          SliverToBoxAdapter(
-                            child: _EntranceTransition(
-                              animation: _staggered(0),
-                              child: _WalletDeckWrapper(
-                                isHardware: isHardware,
-                                isWatchOnly: isWatchOnly,
-                                isEuropean: isEuropeanUser,
-                              ),
-                            ),
+                              // Clears the floating dock: KuteDockHost reports
+                              // dock + 12.h as the bottom padding, plus 12.h.
+                              SliverToBoxAdapter(
+                                  child: Builder(
+                                      builder: (context) => SizedBox(
+                                          height: MediaQuery.paddingOf(context)
+                                                  .bottom +
+                                              12.h))),
+                            ],
                           ),
-
-                          // Shared action row — Deposit / Receive / Send /
-                          // Move / Pay Link, scoped to whichever card is
-                          // currently selected (BTC, USDC, or a cold wallet).
-                          // Lives outside the cards so the cards stay pure
-                          // identity surfaces and the action row is the
-                          // single shared affordance across all of them.
-                          const SliverToBoxAdapter(
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
-                              child: _HomeActions(),
-                            ),
-                          ),
-                        ].map(_hero),
-
-                        if (widget.showActivity) const _ActivitySection(),
-                        ...?widget.wideBelow?.call(_scrollController),
-
-                        // Clears the floating dock: KuteDockHost reports
-                        // dock + 12.h as the bottom padding, plus 12.h.
-                        SliverToBoxAdapter(
-                            child: Builder(
-                                builder: (context) => SizedBox(
-                                    height:
-                                        MediaQuery.paddingOf(context).bottom +
-                                            12.h))),
-                      ],
-                    ),
-                  ),
-                ),
+                        ),
+                      ),
               ),
             ),
 
