@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -32,14 +34,20 @@ Future<void> initializeSDKWithSeed(Seed seed, String walletId,
       reconnectRequest: reconnectRequest);
 }
 
+/// The wallet's Breez storage: a folder in the app's documents on a
+/// device; on the web the Breez wasm SDK keeps its data in the browser's
+/// own database and the value is only that database's name.
+Future<String> _walletStorageDir(String walletId) async {
+  if (kIsWeb) return 'breez_$walletId';
+  final appDir = await getApplicationDocumentsDirectory();
+  final dir = Directory('${appDir.path}/breez_$walletId');
+  if (!await dir.exists()) await dir.create(recursive: true);
+  return dir.path;
+}
+
 Future<ConnectRequest> createConnectRequest(
     String mnemonic, String walletId) async {
-  final appDir = await getApplicationDocumentsDirectory();
-
-  final walletStorageDir = Directory('${appDir.path}/breez_$walletId');
-  if (!await walletStorageDir.exists()) {
-    await walletStorageDir.create(recursive: true);
-  }
+  final storageDir = await _walletStorageDir(walletId);
 
   final apiKey = dotenv.env['BREEZ_API_KEY'];
   if (apiKey == null) {
@@ -58,18 +66,13 @@ Future<ConnectRequest> createConnectRequest(
   return ConnectRequest(
     config: config,
     seed: seed,
-    storageDir: walletStorageDir.path,
+    storageDir: storageDir,
   );
 }
 
 Future<ConnectRequest> createConnectRequestWithSeed(
     Seed seed, String walletId) async {
-  final appDir = await getApplicationDocumentsDirectory();
-
-  final walletStorageDir = Directory('${appDir.path}/breez_$walletId');
-  if (!await walletStorageDir.exists()) {
-    await walletStorageDir.create(recursive: true);
-  }
+  final storageDir = await _walletStorageDir(walletId);
 
   final apiKey = dotenv.env['BREEZ_API_KEY'];
   if (apiKey == null) {
@@ -86,6 +89,6 @@ Future<ConnectRequest> createConnectRequestWithSeed(
   return ConnectRequest(
     config: config,
     seed: seed,
-    storageDir: walletStorageDir.path,
+    storageDir: storageDir,
   );
 }
