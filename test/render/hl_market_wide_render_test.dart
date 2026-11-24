@@ -469,6 +469,25 @@ void main() {
     await _unmount(tester);
   });
 
+  // "Data here seems too compressed" (founder, 25 November 2026): no stat
+  // label is ever cut on the wide page.
+  for (final size in const [Size(1440, 900), Size(1180, 820), Size(1000, 700)]) {
+    testWidgets('no stat label cut at ${size.width.toInt()}x${size.height.toInt()}',
+        (tester) async {
+      await _pump(tester, size: size, dark: false, market: _btc, held: true);
+      final tiles = find.byKey(const ValueKey('hl-stats-tiles'));
+      expect(tiles, findsOneWidget);
+      final texts = find.descendant(of: tiles, matching: find.byType(RichText));
+      expect(texts, findsWidgets);
+      for (final e in texts.evaluate()) {
+        final p = e.renderObject! as RenderParagraph;
+        expect(p.didExceedMaxLines, isFalse,
+            reason: (p.text as TextSpan).toPlainText());
+      }
+      await _unmount(tester);
+    });
+  }
+
   // THE ADVANCED CHART EDITOR on a laptop (founder, 25 November 2026:
   // "even now it looks bad"): the whole window, the interval pills in the
   // header, a roomy rail with tooltips, no tap hint for a mouse, a real
