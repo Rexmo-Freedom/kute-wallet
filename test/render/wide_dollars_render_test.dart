@@ -248,6 +248,8 @@ Future<void> _render(WidgetTester tester, String name,
   // ignore: avoid_print
   print('RENDER wrote $_out/$name.png');
   await unmountInvestments(tester);
+  // The BTC round card's price feed lets go 30 s after it is left.
+  await tester.pump(const Duration(seconds: 31));
 }
 
 void main() {
