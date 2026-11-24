@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogScope;
 import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 import 'package:kute/theme/app_theme.dart';
 
@@ -72,88 +73,54 @@ class CustomKeypad extends StatelessWidget {
       _buildRow(context, ['7', '8', '9'], keyHeight),
       _buildBottomRow(context, c, keyHeight),
     ];
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w),
-      child: adaptive
-          ? _KeypadRows(
-              keyHeight: _keyHeight,
-              minKeyHeight: math.min(_minKeyHeight, _keyHeight),
-              rowGap: _rowGap,
-              minRowGap: math.min(_minRowGap, _rowGap),
-              give: SlipDensity.keypadGive(context),
-              onRange: (range) =>
-                  SlipDensity.reportKeypadRange(context, range),
-              children: rows,
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < rows.length; i++) ...[
-                  if (i > 0) SizedBox(height: _rowGap),
-                  rows[i],
+    return KuteKeypadHardwareKeys(
+      onDigit: onDigitPressed,
+      onBackspace: onBackspacePressed,
+      onDecimal: showDecimal ? onDecimalPressed : null,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w),
+        child: adaptive
+            ? _KeypadRows(
+                keyHeight: _keyHeight,
+                minKeyHeight: math.min(_minKeyHeight, _keyHeight),
+                rowGap: _rowGap,
+                minRowGap: math.min(_minRowGap, _rowGap),
+                give: SlipDensity.keypadGive(context),
+                onRange: (range) =>
+                    SlipDensity.reportKeypadRange(context, range),
+                children: rows,
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    if (i > 0) SizedBox(height: _rowGap),
+                    rows[i],
+                  ],
                 ],
-              ],
-            ),
+              ),
+      ),
     );
   }
 
   Widget _buildBottomRow(
       BuildContext context, AppColorsExtension c, double? keyHeight) {
     return Row(
-            crossAxisAlignment: keyHeight == null
-                ? CrossAxisAlignment.stretch
-                : CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: showDecimal
-                    ? _BouncingKey(
-                        height: keyHeight,
-                        onPressed: onDecimalPressed ?? () {},
-                        surfaceColor: c.surface,
-                        activeColor: c.surfaceLight,
-                        isSecondary: true,
-                        chromed: chromed,
-                        child: Text(
-                          '.',
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: _digitSize,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                            height: 1.0,
-                          ),
-                        ),
-                      )
-                    : onBiometricPressed != null
-                        ? _BouncingKey(
-                            height: keyHeight,
-                            onPressed: onBiometricPressed!,
-                            surfaceColor: c.surface,
-                            activeColor: c.surfaceLight,
-                            isSecondary: true,
-                            chromed: chromed,
-                            // Was the accent, the only warm colour on an
-                            // otherwise neutral grid, which read as a
-                            // warning rather than a way in.
-                            child: Icon(
-                                Theme.of(context).platform == TargetPlatform.iOS
-                                    ? Icons.face_rounded
-                                    : Icons.fingerprint_rounded,
-                                color: c.textSecondary,
-                                size: 28.sp),
-                          )
-                        : const SizedBox(),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: _BouncingKey(
+      crossAxisAlignment: keyHeight == null
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: showDecimal
+              ? _BouncingKey(
                   height: keyHeight,
-                  onPressed: () => onDigitPressed('0'),
+                  onPressed: onDecimalPressed ?? () {},
                   surfaceColor: c.surface,
                   activeColor: c.surfaceLight,
+                  isSecondary: true,
                   chromed: chromed,
                   child: Text(
-                    '0',
+                    '.',
                     style: TextStyle(
                       color: c.textPrimary,
                       fontSize: _digitSize,
@@ -162,23 +129,62 @@ class CustomKeypad extends StatelessWidget {
                       height: 1.0,
                     ),
                   ),
-                ),
+                )
+              : onBiometricPressed != null
+                  ? _BouncingKey(
+                      height: keyHeight,
+                      onPressed: onBiometricPressed!,
+                      surfaceColor: c.surface,
+                      activeColor: c.surfaceLight,
+                      isSecondary: true,
+                      chromed: chromed,
+                      // Was the accent, the only warm colour on an
+                      // otherwise neutral grid, which read as a
+                      // warning rather than a way in.
+                      child: Icon(
+                          Theme.of(context).platform == TargetPlatform.iOS
+                              ? Icons.face_rounded
+                              : Icons.fingerprint_rounded,
+                          color: c.textSecondary,
+                          size: 28.sp),
+                    )
+                  : const SizedBox(),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: _BouncingKey(
+            height: keyHeight,
+            onPressed: () => onDigitPressed('0'),
+            surfaceColor: c.surface,
+            activeColor: c.surfaceLight,
+            chromed: chromed,
+            child: Text(
+              '0',
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: _digitSize,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+                height: 1.0,
               ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: _BouncingKey(
-                  height: keyHeight,
-                  onPressed: onBackspacePressed,
-                  surfaceColor: c.surface,
-                  activeColor: c.surfaceLight,
-                  isSecondary: true,
-                  chromed: chromed,
-                  child: Icon(Icons.backspace_rounded,
-                      color: c.textSecondary, size: 24.sp),
-                ),
-              ),
-            ],
-          );
+            ),
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: _BouncingKey(
+            height: keyHeight,
+            onPressed: onBackspacePressed,
+            surfaceColor: c.surface,
+            activeColor: c.surfaceLight,
+            isSecondary: true,
+            chromed: chromed,
+            child: Icon(Icons.backspace_rounded,
+                color: c.textSecondary, size: 24.sp),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildRow(
@@ -462,8 +468,7 @@ class _RenderKeypadRows extends RenderBox
   ValueChanged<double> onRange;
 
   set keyHeight(double v) => _set(_keyHeight, v, () => _keyHeight = v);
-  set minKeyHeight(double v) =>
-      _set(_minKeyHeight, v, () => _minKeyHeight = v);
+  set minKeyHeight(double v) => _set(_minKeyHeight, v, () => _minKeyHeight = v);
   set rowGap(double v) => _set(_rowGap, v, () => _rowGap = v);
   set minRowGap(double v) => _set(_minRowGap, v, () => _minRowGap = v);
   set give(double v) => _set(_give, v, () => _give = v);
@@ -486,8 +491,7 @@ class _RenderKeypadRows extends RenderBox
   }
 
   @override
-  double computeMinIntrinsicHeight(double width) =>
-      _smallest;
+  double computeMinIntrinsicHeight(double width) => _smallest;
 
   @override
   double computeMaxIntrinsicHeight(double width) => _unbounded;
@@ -520,8 +524,8 @@ class _RenderKeypadRows extends RenderBox
   }
 
   @override
-  Size computeDryLayout(BoxConstraints constraints) => constraints.constrain(
-      Size(constraints.maxWidth, _heightFor(constraints)));
+  Size computeDryLayout(BoxConstraints constraints) => constraints
+      .constrain(Size(constraints.maxWidth, _heightFor(constraints)));
 
   @override
   void performLayout() {
@@ -548,4 +552,94 @@ class _RenderKeypadRows extends RenderBox
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
       defaultHitTestChildren(result, position: position);
+}
+
+/// A HARDWARE KEYBOARD TYPES ON THE KEYPAD in a panel on a laptop
+/// (wide_design_2.md, C: the money flows' dialogs, "a hardware keyboard
+/// types the amount"; kute_dialog.dart): the digits, the point (or a
+/// comma) and backspace press the keypad's own keys, so every rule the
+/// keys apply holds. Only inside a panel ([KuteDialogScope]), only while
+/// its route is on top, and never while a text field has the focus or a
+/// shortcut modifier is held. A phone, and a keypad outside a panel (the
+/// slips in place have their own), are untouched.
+class KuteKeypadHardwareKeys extends StatefulWidget {
+  const KuteKeypadHardwareKeys({
+    super.key,
+    required this.onDigit,
+    required this.onBackspace,
+    this.onDecimal,
+    required this.child,
+  });
+
+  final ValueSetter<String> onDigit;
+  final VoidCallback onBackspace;
+  final VoidCallback? onDecimal;
+  final Widget child;
+
+  @override
+  State<KuteKeypadHardwareKeys> createState() => _KuteKeypadHardwareKeysState();
+}
+
+class _KuteKeypadHardwareKeysState extends State<KuteKeypadHardwareKeys> {
+  bool _listening = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final inDialog = KuteDialogScope.inDialog(context);
+    if (inDialog && !_listening) {
+      HardwareKeyboard.instance.addHandler(_onKey);
+      _listening = true;
+    } else if (!inDialog && _listening) {
+      HardwareKeyboard.instance.removeHandler(_onKey);
+      _listening = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_listening) HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (!mounted) return false;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+    // A disabled pad (AmountKeypad's AbsorbPointer) takes no keys either.
+    final absorb = context.findAncestorWidgetOfExactType<AbsorbPointer>();
+    if (absorb != null && absorb.absorbing) return false;
+    if (event.logicalKey == LogicalKeyboardKey.backspace) {
+      widget.onBackspace();
+      return true;
+    }
+    final ch = event.character;
+    if (ch == null || ch.length != 1) return false;
+    if (RegExp(r'[0-9]').hasMatch(ch)) {
+      widget.onDigit(ch);
+      return true;
+    }
+    final decimal = widget.onDecimal;
+    if (decimal != null && (ch == '.' || ch == ',')) {
+      decimal();
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

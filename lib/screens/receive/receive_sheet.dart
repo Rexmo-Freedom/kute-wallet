@@ -14,6 +14,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogRoute;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -112,7 +113,16 @@ class ReceiveSheetPage extends Page<void> {
   final bool usd;
 
   @override
-  Route<void> createRoute(BuildContext context) => ModalBottomSheetRoute<void>(
+  Route<void> createRoute(BuildContext context) {
+    // EXPANDED: the same receive as a centred dialog card over the page it
+    // came from (kute_dialog.dart; wide_design_2.md, C).
+    if (kuteWindowIsExpanded(context)) {
+      return KuteDialogRoute<void>(
+        settings: this,
+        builder: _content,
+      );
+    }
+    return ModalBottomSheetRoute<void>(
         settings: this,
         isScrollControlled: true,
         useSafeArea: true,
@@ -124,20 +134,23 @@ class ReceiveSheetPage extends Page<void> {
         constraints: kuteSheetConstraints(context),
         // The bar explains the screen (founder, 31 October 2026): "What
         // is this?", tapping sends the receive question to Sal.
-        builder: (ctx) => KuteBarContextScope(
-          barContext: KuteBarContext(
-            label: ctx.l10n.barWhatIsThis,
-            sublabel: ctx.l10n.barReceiveExplainSub,
-            clip: 'curious',
-            question: ctx.l10n.barReceiveQuestion,
-            source: 'receive',
-          ),
-          child: KuteSheetMedia(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: usd ? _usdBody(ctx) : _bitcoinBody(ctx),
-            ),
+        builder: _content,
+      );
+  }
+
+  Widget _content(BuildContext ctx) => KuteBarContextScope(
+        barContext: KuteBarContext(
+          label: ctx.l10n.barWhatIsThis,
+          sublabel: ctx.l10n.barReceiveExplainSub,
+          clip: 'curious',
+          question: ctx.l10n.barReceiveQuestion,
+          source: 'receive',
+        ),
+        child: KuteSheetMedia(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: usd ? _usdBody(ctx) : _bitcoinBody(ctx),
           ),
         ),
       );

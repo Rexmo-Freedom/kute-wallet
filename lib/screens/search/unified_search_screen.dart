@@ -109,6 +109,13 @@ import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show
+        kutePanelBarrier,
+        kutePanelDecoration,
+        kutePanelTallest,
+        kutePanelTop,
+        kutePanelTransition;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -436,9 +443,6 @@ const double _kPanelStateHeight = 240;
 /// The panel's shortest (see WIDE in the file header).
 const double kSearchPanelMinHeight = 360;
 
-/// The panel's least room above (its top stands at a tenth of the
-/// window's height, never nearer the edge than this) and its room below.
-const double _kSearchPanelMargin = 48;
 
 /// The search as a centred panel from MEDIUM up (see WIDE in the file
 /// header): over the root navigator like the sheet, the sheet's barrier,
@@ -454,7 +458,9 @@ Future<T?> _showSearchPanel<T>({
     useRootNavigator: true,
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: Colors.black54,
+    // THE PANEL's dim, place and motion (kute_wide_frames.dart), shared
+    // with every sheet's panel on EXPANDED (kute_dialog.dart).
+    barrierColor: kutePanelBarrier,
     transitionDuration: kuteMotion(context, KuteMotion.settleDuration),
     pageBuilder: (dialogContext, _, __) {
       final window = MediaQuery.sizeOf(dialogContext);
@@ -463,9 +469,8 @@ Future<T?> _showSearchPanel<T>({
           ? kSearchPanelMaxWidth
           : KuteLayout.columnMaxWidth;
       // The top stands still; the panel hugs its content under it.
-      final top = math.max(window.height * 0.1, _kSearchPanelMargin);
-      final tallest = math.max(
-          0.0, window.height - keyboard - top - _kSearchPanelMargin);
+      final top = kutePanelTop(window);
+      final tallest = kutePanelTallest(window, keyboard: keyboard, top: top);
       return SafeArea(
         child: Padding(
           padding: EdgeInsets.only(top: top),
@@ -490,15 +495,7 @@ Future<T?> _showSearchPanel<T>({
     transitionBuilder: (context, animation, _, child) {
       final curved =
           CurvedAnimation(parent: animation, curve: KuteMotion.settle);
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position:
-              Tween<Offset>(begin: const Offset(0, 0.02), end: Offset.zero)
-                  .animate(curved),
-          child: child,
-        ),
-      );
+      return kutePanelTransition(curved, child);
     },
   );
 }
@@ -1429,8 +1426,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
           child: Container(
             key: const ValueKey('search-panel'),
             clipBehavior: Clip.antiAlias,
-            decoration: AppDecorations.bottomSheet(context).copyWith(
-                borderRadius: BorderRadius.circular(AppRadius.xxl)),
+            decoration: kutePanelDecoration(context),
             padding: EdgeInsets.only(bottom: 16.h),
             child: content,
           ),

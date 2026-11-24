@@ -44,6 +44,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogCloseMark;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -490,12 +491,16 @@ class KuteCloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _KuteNavChassis(
-      glyph: KuteNavGlyph.close,
-      size: size,
-      enabled: enabled,
-      semanticsLabel: _navLabel(context, KuteNavGlyph.close),
-      onPressed: onPressed,
+    // Inside a dialog on EXPANDED (kute_dialog.dart) this X is the
+    // dialog's close: it draws no second one.
+    return KuteDialogCloseMark(
+      child: _KuteNavChassis(
+        glyph: KuteNavGlyph.close,
+        size: size,
+        enabled: enabled,
+        semanticsLabel: _navLabel(context, KuteNavGlyph.close),
+        onPressed: onPressed,
+      ),
     );
   }
 }

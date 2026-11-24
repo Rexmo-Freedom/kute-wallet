@@ -568,8 +568,14 @@ class KuteSalPill extends StatelessWidget {
     this.salSize = kSalPillGlyphSize,
     this.badge,
     this.onSalFrame,
+    this.width,
     required this.onTap,
   });
+
+  /// The pill exactly this wide, its words at the left (the search field
+  /// in the desktop top bar, kute_top_nav_bar.dart); null: as wide as its
+  /// words.
+  final double? width;
 
   final String label;
   final String? sublabel;
@@ -664,6 +670,7 @@ class KuteSalPill extends StatelessWidget {
             duration: duration,
             curve: reduce ? Curves.linear : KuteMotion.chip,
             height: height,
+            width: collapsed ? null : width,
             decoration: BoxDecoration(
               color: fill,
               borderRadius: BorderRadius.circular(_kDockPillTallHeight / 2),

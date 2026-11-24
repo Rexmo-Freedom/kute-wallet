@@ -257,3 +257,180 @@ class _KuteBarPaneState extends State<KuteBarPane> {
     });
   }
 }
+
+// ── Round two: the desktop chrome (wide_design_2.md, A to C) ──────────────
+
+/// The desktop top bar's height on EXPANDED (kute_top_nav_bar.dart): the
+/// Kute lockup and the Bitcoin | Dollars switch on the left, the search
+/// field and the hub button on the right. The tab pages already clear a
+/// 64 band at their top for the nav, so nothing under it moves.
+const double kuteTopBarHeight = 64;
+
+/// The search field's width in the EXPANDED top bar.
+const double kuteTopBarSearchWidth = 360;
+
+// THE PANEL (founder, 25 November 2026, the hub beside the search panel:
+// "this on desktop instead of a card, maybe show like this search, much
+// better"). On EXPANDED the search panel is the model for every sheet:
+// top-anchored at [kutePanelTop], centred, rounded all round on the
+// sheet's surface ([kutePanelDecoration]), the page dimmed behind it, its
+// height hugging its content down to [kutePanelTallest], in and out on
+// [kutePanelTransition]. The search panel (unified_search_screen.dart)
+// and every sheet's dialog (kute_dialog.dart) read these, so the two
+// never drift apart.
+
+/// The room under a panel's foot, and the least above its top.
+const double kutePanelMargin = 48;
+
+/// A panel's top in a window of [window]: a tenth of its height, never
+/// nearer the edge than [kutePanelMargin].
+double kutePanelTop(Size window) =>
+    math.max(window.height * 0.1, kutePanelMargin);
+
+/// A panel's tallest under [top] with the keyboard [keyboard] up.
+double kutePanelTallest(Size window, {double keyboard = 0, double? top}) =>
+    math.max(
+        0.0,
+        window.height -
+            keyboard -
+            (top ?? kutePanelTop(window)) -
+            kutePanelMargin);
+
+/// A panel's surface: the sheet's own, rounded all round.
+BoxDecoration kutePanelDecoration(BuildContext context) =>
+    AppDecorations.bottomSheet(context)
+        .copyWith(borderRadius: BorderRadius.circular(AppRadius.xxl));
+
+/// A panel's dim.
+const Color kutePanelBarrier = Color(0x8A000000);
+
+/// A panel's way in and out: a fade and a small rise on the settle
+/// easing ([curved] is the route's animation on that curve).
+Widget kutePanelTransition(Animation<double> curved, Widget child) =>
+    FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.02), end: Offset.zero)
+            .animate(curved),
+        child: child,
+      ),
+    );
+
+/// Whether the WINDOW (the view, never a pane's narrowed MediaQuery) is
+/// EXPANDED.
+bool kuteWindowIsExpanded(BuildContext context) =>
+    KuteLayout.forWidth(kuteWindowWidth(context)) == KuteFormFactor.expanded;
+
+/// Whether the search lives in the top bar (EXPANDED): the floating bar
+/// then never shows the default "Search or Manage with AI" pill, only a
+/// page's contextual action (a primary button, a trade row, a market's
+/// send). For a page that wants to know (the Bitcoin home).
+bool kuteSearchInTopBar(BuildContext context) => kuteWindowIsExpanded(context);
+
+/// The floating bar's air under it from the window's bottom edge (founder,
+/// round two: "the button in the end give it more space"): 32 on
+/// EXPANDED, 24 on MEDIUM, the phone's 2 on a phone. [width] is the
+/// window's.
+double kuteBarBottomRoomFor(double width) =>
+    switch (KuteLayout.forWidth(width)) {
+      KuteFormFactor.compact => 2,
+      KuteFormFactor.medium => 24,
+      KuteFormFactor.expanded => 32,
+    };
+
+/// The window's width from the platform's first view, for a place with no
+/// context (the bar's scroll clearance).
+double kutePlatformWindowWidth() {
+  final views = WidgetsBinding.instance.platformDispatcher.views;
+  if (views.isEmpty) return KuteLayout.phoneDesign.width;
+  final view = views.first;
+  if (view.devicePixelRatio <= 0) return KuteLayout.phoneDesign.width;
+  return view.physicalSize.width / view.devicePixelRatio;
+}
+
+/// How many sheet panels (kute_dialog.dart) are up: the floating
+/// bar stays away while any is, their primary is drawn inside them.
+final ValueNotifier<int> kuteDialogsOpen = ValueNotifier<int>(0);
+
+/// Marks a subtree as the content of a sheet drawn as a panel on
+/// EXPANDED (kute_dialog.dart). Inside it a sheet draws no drag handle,
+/// its bar context's primary is drawn in the dialog's foot, and a close
+/// button that the content draws itself ([KuteDialogCloseMark]) tells the
+/// dialog it needs no X of its own.
+class KuteDialogScope extends InheritedWidget {
+  const KuteDialogScope({
+    super.key,
+    required this.route,
+    required this.closeMarks,
+    required super.child,
+  });
+
+  /// The dialog's route.
+  final Route<dynamic>? route;
+
+  /// How many close buttons the content shows now.
+  final ValueNotifier<int> closeMarks;
+
+  static KuteDialogScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<KuteDialogScope>();
+
+  /// Without making [context] depend on the scope.
+  static KuteDialogScope? peek(BuildContext context) =>
+      context.getElementForInheritedWidgetOfExactType<KuteDialogScope>()?.widget
+          as KuteDialogScope?;
+
+  /// Whether [context] is inside a sheet panel.
+  static bool inDialog(BuildContext context) => peek(context) != null;
+
+  @override
+  bool updateShouldNotify(KuteDialogScope old) =>
+      old.route != route || old.closeMarks != closeMarks;
+}
+
+/// Counts [child] (a close button) in the enclosing [KuteDialogScope]
+/// while it is mounted, so the dialog draws no second X. Outside a
+/// dialog it is only its child.
+class KuteDialogCloseMark extends StatefulWidget {
+  const KuteDialogCloseMark({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<KuteDialogCloseMark> createState() => _KuteDialogCloseMarkState();
+}
+
+class _KuteDialogCloseMarkState extends State<KuteDialogCloseMark> {
+  ValueNotifier<int>? _marks;
+
+  void _set(ValueNotifier<int>? next) {
+    if (identical(next, _marks)) return;
+    final old = _marks;
+    _marks = next;
+    // After the frame: the dialog's X listens and rebuilds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (old != null) old.value = old.value - 1;
+      if (next != null) next.value = next.value + 1;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _set(KuteDialogScope.maybeOf(context)?.closeMarks);
+  }
+
+  @override
+  void dispose() {
+    final old = _marks;
+    _marks = null;
+    if (old != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        old.value = old.value - 1;
+      });
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

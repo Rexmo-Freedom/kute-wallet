@@ -1,3 +1,4 @@
+import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogScope;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -497,6 +498,12 @@ class AppDecorations {
 
   static Widget dragHandle(BuildContext context) {
     final c = context.colors;
+    // A sheet drawn as a centred dialog or a popover on EXPANDED
+    // (kute_dialog.dart) has no drag: the handle's room stays, unpainted,
+    // so the heading keeps its place.
+    if (KuteDialogScope.inDialog(context)) {
+      return SizedBox(height: 4.h);
+    }
     return Center(
       child: Container(
         width: 36.w,

@@ -31,7 +31,16 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/shell_wallet_provider.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteSalPill;
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show openKuteBarSheet;
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_wordmark.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/home/components/home_tab_switch.dart'
     show homeTabSwitchTrackHeight;
 import 'package:kute/screens/shared/kute_back_button.dart' show kKuteNavHitSize;
@@ -63,6 +72,16 @@ class KuteTopNavBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // EXPANDED (a laptop): the desktop top bar, which stays put.
+    if (kuteWindowIsExpanded(context)) {
+      return _KuteDesktopTopBar(
+        activeTab: activeTab,
+        onSelectTab: onSelectTab,
+        pagePosition: pagePosition,
+        switchStrip: shellStripIsSwitch(
+            ref.watch(shellWalletProvider), ref.watch(shellVenueOwnerProvider)),
+      );
+    }
     // Shared hide state, written by whichever tab page is on screen from its
     // own scroll listener (reverse = hide, forward / near-top = show).
     final hidden = ref.watch(navBarHiddenProvider);
@@ -87,34 +106,34 @@ class KuteTopNavBar extends ConsumerWidget {
       // A phone's width from MEDIUM up, centred, never stretched
       // (kute_wide_frames.dart); the switch is clicked there, not swiped.
       child: KutePhoneColumn(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(centred ? 16.w : 12.w, top, edge, 6.h),
-        // No enclosing band: the switch and the hub button float. The
-        // strip's region is bounded by Expanded, so it can never grow under
-        // or collide with the button.
-        child: Row(
-          children: [
-            Expanded(
-              child: Padding(
-                // The switch's gap to the button's slot.
-                padding: EdgeInsetsDirectional.only(end: centred ? 8.w : 0),
-                child: FloatingActionPill(
-                  activeTab: activeTab,
-                  onSelectTab: onSelectTab,
-                  pagePosition: pagePosition,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(centred ? 16.w : 12.w, top, edge, 6.h),
+          // No enclosing band: the switch and the hub button float. The
+          // strip's region is bounded by Expanded, so it can never grow under
+          // or collide with the button.
+          child: Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  // The switch's gap to the button's slot.
+                  padding: EdgeInsetsDirectional.only(end: centred ? 8.w : 0),
+                  child: FloatingActionPill(
+                    activeTab: activeTab,
+                    onSelectTab: onSelectTab,
+                    pagePosition: pagePosition,
+                  ),
                 ),
               ),
-            ),
-            if (!centred) SizedBox(width: 12.w),
-            // The ONE trailing button: the +-and-gear into the Financial
-            // hub.
-            SizedBox(
-              width: slot,
-              child: Center(child: _FinancialHubButton(activeTab: activeTab)),
-            ),
-          ],
+              if (!centred) SizedBox(width: 12.w),
+              // The ONE trailing button: the +-and-gear into the Financial
+              // hub.
+              SizedBox(
+                width: slot,
+                child: Center(child: _FinancialHubButton(activeTab: activeTab)),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
 
@@ -124,6 +143,152 @@ class KuteTopNavBar extends ConsumerWidget {
       duration: reduceMotion ? Duration.zero : kNavBarSlideDuration,
       curve: Curves.easeOut,
       child: IgnorePointer(ignoring: hidden, child: bar),
+    );
+  }
+}
+
+/// THE DESKTOP TOP BAR (founder, 25 November 2026: "Tabs on top look bad
+/// in desktop"; wide_design_2.md, A). On EXPANDED one bar across the page
+/// ([KuteLayout.pageMaxWidth], the page's gutters), [kuteTopBarHeight]
+/// tall, in place of the phone strip centred in an empty band:
+///   * LEFT: Sal and the wordmark, the lockup the PIN screen shows
+///     (kute_pin_scaffold.dart), then the Bitcoin | Dollars switch beside
+///     it at its phone size (another wallet's tab strip likewise).
+///   * RIGHT: the search, a field-shaped Sal pill ([kuteTopBarSearchWidth]
+///     wide, the floating bar's own pill and words), which opens the
+///     search panel; then the hub button. With the search here the floating
+///     bar never shows the search pill on EXPANDED (kute_shell_bar.dart).
+/// It does not hide on scroll: a laptop has the room. MEDIUM and phones
+/// keep the strip above.
+class _KuteDesktopTopBar extends StatelessWidget {
+  const _KuteDesktopTopBar({
+    required this.activeTab,
+    required this.onSelectTab,
+    required this.pagePosition,
+    required this.switchStrip,
+  });
+
+  final ActiveNavTab activeTab;
+  final void Function(ActiveNavTab)? onSelectTab;
+  final Animation<double>? pagePosition;
+
+  /// The Bitcoin | Dollars switch (else another wallet's tab strip).
+  final bool switchStrip;
+
+  /// The switch at its phone size: a phone's column less its gutters and
+  /// the hub button's slot.
+  static const double _switchWidth = 340;
+
+  /// Another wallet's tab strip, a little wider (its chips scroll).
+  static const double _stripWidth = 440;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
+          child: SizedBox(
+            key: const ValueKey('kute-desktop-top-bar'),
+            height: kuteTopBarHeight,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
+              child: Row(
+                children: [
+                  const _KuteLockup(),
+                  const SizedBox(width: 28),
+                  SizedBox(
+                    width: switchStrip ? _switchWidth : _stripWidth,
+                    child: FloatingActionPill(
+                      activeTab: activeTab,
+                      onSelectTab: onSelectTab,
+                      pagePosition: pagePosition,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // At most its width, narrower on a narrow laptop.
+                  const Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _KuteTopBarSearch(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _FinancialHubButton(activeTab: activeTab),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sal and the wordmark as one lockup, as the PIN screen shows them.
+class _KuteLockup extends StatelessWidget {
+  const _KuteLockup();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      key: ValueKey('kute-top-bar-lockup'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SalSprite(
+          clip: 'blink',
+          size: 36,
+          fallback: SizedBox(width: 36, height: 36),
+        ),
+        SizedBox(width: 8),
+        KuteWordmark(size: 24),
+      ],
+    );
+  }
+}
+
+/// The search in the top bar: the floating bar's Sal pill, field-shaped
+/// ([kuteTopBarSearchWidth] wide), saying what the bar would say on this
+/// screen ("Search investments or Manage with AI" on Investing), and
+/// opening the same search panel with that context (no pill travel: the
+/// panel stands just under the bar).
+class _KuteTopBarSearch extends ConsumerWidget {
+  const _KuteTopBarSearch();
+
+  /// The search context of the screen under the bar, else the default.
+  static KuteBarContext _context(BuildContext context, WidgetRef ref) {
+    final top = kuteBarTop(ref.watch(kuteBarContextProvider));
+    if (top != null &&
+        top.current &&
+        !top.hidden &&
+        top.kind == KuteBarKind.search &&
+        !top.market) {
+      return top;
+    }
+    return KuteBarContext(
+        label: context.l10n.searchOrManageAi, source: 'top_bar');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ctx = _context(context, ref);
+    final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
+    return LayoutBuilder(
+      builder: (context, box) => SizedBox(
+        key: const ValueKey('kute-top-bar-search'),
+        width: math.min(kuteTopBarSearchWidth, box.maxWidth),
+        height: 48,
+        child: KuteSalPill(
+          width: math.min(kuteTopBarSearchWidth, box.maxWidth),
+          label: ctx.label,
+          clip: ctx.clip,
+          aiEnabled: aiEnabled,
+          onTap: () => unawaited(openKuteBarSheet(ctx)),
+        ),
+      ),
     );
   }
 }

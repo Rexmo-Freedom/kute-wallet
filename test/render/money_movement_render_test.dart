@@ -43,6 +43,7 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/orchestra_model.dart'
     show OrchestraEstimate, OrchestraEstimateAsset;
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
@@ -310,7 +311,10 @@ Future<ProviderContainer> _pump(WidgetTester tester, Widget home,
     () => tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: ScreenUtilInit(
-        designSize: const Size(430, 932),
+        // The app's own design size (kute_layout.dart): a wide window draws
+        // at scale 1.
+        designSize: KuteLayout.designSizeFor(
+            Size(width, height ?? (width >= 430 ? 932 : 812))),
         builder: (_, __) => MaterialApp(
           debugShowCheckedModeBanner: false,
           builder: withKuteShellBar,
@@ -422,6 +426,26 @@ void main() {
       await _frames(tester, 16);
       expect(find.text('Cash App'), findsOneWidget);
       expect(find.text('Dollars'), findsNothing);
+      await _capture(tester, name);
+      await _close(tester, c);
+    });
+  }
+
+  // A laptop (wide_design_2.md, C): Swap as the search panel's shape
+  // over the page, its keypad at its phone size and its primary inside.
+  for (final dark in [false, true]) {
+    final name = 'swap_desktop_1440x900_${dark ? 'dark' : 'light'}';
+    testWidgets(name, (tester) async {
+      final c = await _pump(tester, const Scaffold(body: SizedBox()),
+          width: 1440, height: 900, dark: dark);
+      unawaited(showOwnMoneyMove(_nav.currentContext!,
+          from: MoneyMovementAccount.bitcoin, entrySource: 'usd_home_swap'));
+      await _frames(tester, 16);
+      for (final key in ['2', '5']) {
+        await tester.tap(find.text(key).last);
+        await tester.pump();
+      }
+      await _frames(tester, 12);
       await _capture(tester, name);
       await _close(tester, c);
     });

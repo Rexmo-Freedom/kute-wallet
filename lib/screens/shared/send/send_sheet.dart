@@ -28,6 +28,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteDialogCard;
 
 import 'package:kute/screens/shared/receive_surface.dart'
     show kReceiveSheetMaxHeight;
@@ -311,6 +312,33 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
     if (keyboard > 0 && !controller.expanded) {
       // The keyboard would cover a half-height sheet: it stays full.
       WidgetsBinding.instance.addPostFrameCallback((_) => controller.expand());
+    }
+    // EXPANDED (a laptop): the send is a centred dialog card at a page's
+    // height over the dimmed screen it came from, its primary inside it
+    // (kute_dialog.dart; wide_design_2.md, C). The flow decides as on a
+    // phone whether a click outside or Escape may close it.
+    if (kuteWindowIsExpanded(context)) {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey('send-sheet-scrim'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _onScrimTap,
+            ),
+          ),
+          Positioned.fill(
+            child: KuteDialogCard(
+              key: const ValueKey('send-sheet'),
+              route: widget.route,
+              fill: true,
+              color: context.colors.background,
+              onDismiss: controller.dismissible ? _dismiss : null,
+              child: widget.child,
+            ),
+          ),
+        ],
+      );
     }
     final screen = mq.size.height;
     final full = (screen - mq.viewPadding.top - 8).clamp(0.0, screen);

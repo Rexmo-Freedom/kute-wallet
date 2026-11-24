@@ -60,7 +60,6 @@ import 'package:kute/screens/home/components/deposit/deposit_quick_amounts.dart'
 import 'package:kute/screens/home/components/deposit/deposit_summary_card.dart';
 
 import 'package:flutter/material.dart';
-import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/region_freshness.dart';
@@ -211,6 +210,7 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show kuteMoneyFlowRoute;
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/success_feedback.dart'
@@ -501,13 +501,13 @@ Future<void> showDepositSheet(
   // bottom-sheet version had.
   // ignore: discarded_futures
   Navigator.of(context, rootNavigator: true).push(
-    MaterialPageRoute(
-      fullscreenDialog: true,
+    // A dialog card on EXPANDED, a centred column on MEDIUM, the page on
+    // a phone (kute_dialog.dart, kuteMoneyFlowRoute).
+    kuteMoneyFlowRoute<void>(
+      context,
       // The bar reads "Move money" over "ask Sal where it should go"
       // while this is up (kute_bar_context.dart).
-      // A centred column from MEDIUM up (kute_wide_frames.dart).
-      builder: (sheetContext) => KuteFormColumn(
-        child: KuteBarContextScope(
+      builder: (sheetContext) => KuteBarContextScope(
         barContext: KuteBarContext(
           label: sheetContext.l10n.barMoveMoney,
           sublabel: sheetContext.l10n.barMoveMoneySub,
@@ -523,7 +523,6 @@ Future<void> showDepositSheet(
         cashAppSource: cashAppSource,
         onCompleted: onCompleted,
         ),
-      ),
       ),
     ),
   );
@@ -6097,11 +6096,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? MoveLockedSide.buyToHyperliquid
             : MoveLockedSide.depositFromFiat;
     Navigator.of(context, rootNavigator: true).pushReplacement(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) =>
-            KuteFormColumn(child: DepositSheet(lockedSide: lockedSide)),
-      ),
+      kuteMoneyFlowRoute<void>(context,
+          builder: (_) => DepositSheet(lockedSide: lockedSide)),
     );
   }
 
