@@ -97,8 +97,16 @@
     body {
       margin: 0;
       min-height: 100%;
-      background-color: #000000;
-          background-size: 100% 100%;
+      /* Kute's splash, as on iOS and Android: Sal on white, on black in
+         dark mode (pubspec flutter_native_splash colours). */
+      background-color: #FFFFFF;
+      background-size: 100% 100%;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #000000;
+      }
     }
 
     .center {
