@@ -141,6 +141,7 @@ void main() {
       expect(await pending, isNull);
       expect(db.meta, isNull);
       expect(db.deviceKey, isNull);
+      expect(db.deviceSecret, isNull);
       expect(db.entries, isEmpty);
       expect(db.plain, isEmpty);
       expect(legacy.localStorage, isEmpty);

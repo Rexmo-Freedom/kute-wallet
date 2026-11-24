@@ -43,6 +43,22 @@ class FakeVaultCrypto implements VaultCrypto {
   }
 
   @override
+  Future<Object> newDeviceSecret() async =>
+      FakeKey._(randomBytes(32), 'pbkdf2-base');
+
+  @override
+  Future<Object> devicePinKey(Object deviceSecret, String pin,
+      Uint8List vaultSalt, int iterations) async {
+    pinDerivations++;
+    iterationsSeen.add(iterations);
+    final salt = pc.SHA256Digest()
+        .process(Uint8List.fromList([...vaultSalt, ...utf8.encode(pin)]));
+    final d = pc.PBKDF2KeyDerivator(pc.HMac(pc.SHA256Digest(), 64))
+      ..init(pc.Pbkdf2Parameters(salt, iterations, 32));
+    return FakeKey._(d.process((deviceSecret as FakeKey)._bytes), 'pin2');
+  }
+
+  @override
   Future<Object> hkdfKey(Uint8List ikm, Uint8List salt, Uint8List info) async {
     final d = pc.HKDFKeyDerivator(pc.SHA256Digest())
       ..init(pc.HkdfParameters(ikm, 32, salt, info));
@@ -81,6 +97,7 @@ class FakeVaultCrypto implements VaultCrypto {
 class MemoryVaultDb implements VaultDb {
   Map<String, Object?>? meta;
   Object? deviceKey;
+  Object? deviceSecret;
   final Map<String, Map<String, Object?>> entries = {};
   final Map<String, String> plain = {};
 
@@ -99,6 +116,10 @@ class MemoryVaultDb implements VaultDb {
   Future<Object?> readDeviceKey() async => deviceKey;
   @override
   Future<void> writeDeviceKey(Object key) async => deviceKey = key;
+  @override
+  Future<Object?> readDeviceSecret() async => deviceSecret;
+  @override
+  Future<void> writeDeviceSecret(Object secret) async => deviceSecret = secret;
   @override
   Future<Map<String, Map<String, Object?>>> readEntries() async =>
       {for (final e in entries.entries) e.key: Map.of(e.value)};
@@ -122,6 +143,7 @@ class MemoryVaultDb implements VaultDb {
   Future<void> clear() async {
     meta = null;
     deviceKey = null;
+    deviceSecret = null;
     entries.clear();
     plain.clear();
   }
@@ -190,7 +212,7 @@ class FakeLegacyWeb extends FlutterSecureStoragePlatform {
 }
 
 /// A vault with test-speed PBKDF2 (the format stores the count; the
-/// default of 600,000 is asserted separately).
+/// default N is asserted separately).
 Future<SeedVault> newVault(MemoryVaultDb db,
     {FakeVaultCrypto? crypto, int iterations = 1000}) async {
   final vault = SeedVault(

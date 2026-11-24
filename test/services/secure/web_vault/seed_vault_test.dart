@@ -36,8 +36,10 @@ void main() {
     final dump = jsonEncode({'meta': db.meta, 'entries': db.entries});
     expect(dump.contains('abandon'), isFalse);
     expect(dump.contains('123456'), isFalse);
-    // The device key is an opaque handle, never bytes in a record.
-    expect(db.deviceKey, isA<FakeKey>());
+    // The device secret is an opaque handle, never bytes in a record.
+    expect(db.deviceSecret, isA<FakeKey>());
+    expect(db.meta!['v'], 2);
+    expect(db.meta!.containsKey('devIv'), isFalse);
     expect(base64Decode(db.meta!['salt'] as String), hasLength(16));
     expect(db.meta!['iter'], 1000);
   });
@@ -80,24 +82,67 @@ void main() {
     expect(await vault.unlock('123456'), VaultUnlock.ok);
   });
 
-  test('without the device key the PIN cannot open it (unavailable)',
+  test('without the device secret the PIN cannot open it (unavailable)',
       () async {
     await vault.create('123456');
     vault.lock();
-    db.deviceKey = null;
+    db.deviceSecret = null;
     final reloaded = await newVault(db);
     expect(await reloaded.unlock('123456'), VaultUnlock.unavailable);
   });
 
-  test('a different device key fails as unavailable, not as a wrong PIN',
-      () async {
+  test('the right PIN with another device secret fails: guessing needs '
+      'this browser', () async {
     await vault.create('123456');
     final other = MemoryVaultDb();
     final otherVault = await newVault(other, crypto: FakeVaultCrypto(seed: 99));
     await otherVault.create('000000');
-    db.deviceKey = other.deviceKey;
+    // An attacker who copied the record but not the device secret.
+    db.deviceSecret = other.deviceSecret;
     final reloaded = await newVault(db);
-    expect(await reloaded.unlock('123456'), VaultUnlock.unavailable);
+    expect(await reloaded.unlock('123456'), VaultUnlock.wrongPin);
+    expect(reloaded.isOpen, isFalse);
+  });
+
+  test('v1 record: migrates to v2 on its first PIN unlock, same vault key',
+      () async {
+    await vault.debugCreateV1('123456');
+    await vault.write(key, phrase);
+    expect(db.meta!['v'], 1);
+    expect(db.deviceSecret, isNull);
+
+    var reloaded = await newVault(db);
+    expect(await reloaded.unlock('000000'), VaultUnlock.wrongPin);
+    expect(db.meta!['v'], 1, reason: 'a wrong PIN changes nothing');
+    expect(await reloaded.unlock('123456'), VaultUnlock.ok);
+    expect(db.meta!['v'], 2);
+    expect(db.meta!.containsKey('devIv'), isFalse);
+    expect(db.deviceSecret, isA<FakeKey>());
+    expect(await reloaded.read(key), phrase);
+
+    reloaded = await newVault(db);
+    expect(reloaded.formatVersionOnDisk, 2);
+    expect(await reloaded.unlock('000000'), VaultUnlock.wrongPin);
+    expect(await reloaded.unlock('123456'), VaultUnlock.ok);
+    expect(await reloaded.read(key), phrase);
+  });
+
+  test('v1 record: a failed rewrap keeps v1 open and retries next unlock',
+      () async {
+    final flaky = _FlakyMetaDb();
+    final v = await newVault(flaky);
+    await v.debugCreateV1('123456');
+    await v.write(key, phrase);
+    flaky.failMetaWrites = true;
+    var reloaded = await newVault(flaky);
+    expect(await reloaded.unlock('123456'), VaultUnlock.ok);
+    expect(flaky.meta!['v'], 1);
+    expect(await reloaded.read(key), phrase);
+    flaky.failMetaWrites = false;
+    reloaded = await newVault(flaky);
+    expect(await reloaded.unlock('123456'), VaultUnlock.ok);
+    expect(flaky.meta!['v'], 2);
+    expect(await reloaded.read(key), phrase);
   });
 
   test('records are bound to their name: a swapped ciphertext fails',
@@ -172,6 +217,7 @@ void main() {
     await vault.wipe();
     expect(db.meta, isNull);
     expect(db.deviceKey, isNull);
+    expect(db.deviceSecret, isNull);
     expect(db.entries, isEmpty);
     expect(vault.exists, isFalse);
     expect(vault.isOpen, isFalse);
@@ -199,4 +245,13 @@ void main() {
     expect(db.entries.containsKey(key), isTrue);
     expect(await vault.read(key), isNull);
   });
+}
+
+class _FlakyMetaDb extends MemoryVaultDb {
+  bool failMetaWrites = false;
+  @override
+  Future<void> writeMeta(Map<String, Object?> m) async {
+    if (failMetaWrites) throw StateError('quota');
+    return super.writeMeta(m);
+  }
 }

@@ -217,6 +217,14 @@ class IdbVaultDb implements VaultDb {
   @override
   Future<Object?> readDeviceKey() async => await _get('device', 'key');
 
+  @override
+  Future<Object?> readDeviceSecret() async => await _get('device', 'secret');
+
+  /// The PBKDF2 base CryptoKey object itself (structured clone).
+  @override
+  Future<void> writeDeviceSecret(Object secret) =>
+      _put('device', 'secret', secret as JSAny);
+
   /// Stored as the CryptoKey object itself (structured clone); its bytes
   /// never pass through script.
   @override
@@ -302,6 +310,46 @@ class WebVaultCrypto implements VaultCrypto {
         'hash': 'SHA-256'.toJS,
       }),
       base,
+      _aes,
+      false.toJS,
+      _usages(['encrypt', 'decrypt']),
+    ]))!;
+  }
+
+  @override
+  Future<Object> newDeviceSecret() async {
+    final bytes = randomBytes(32);
+    try {
+      // PBKDF2 keys can never be extractable.
+      return (await _call('importKey', [
+        'raw'.toJS,
+        bytes.toJS,
+        'PBKDF2'.toJS,
+        false.toJS,
+        _usages(['deriveKey']),
+      ]))!;
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
+  }
+
+  @override
+  Future<Object> devicePinKey(Object deviceSecret, String pin,
+      Uint8List vaultSalt, int iterations) async {
+    final pinBytes = utf8.encode(pin);
+    final input = Uint8List(vaultSalt.length + pinBytes.length)
+      ..setAll(0, vaultSalt)
+      ..setAll(vaultSalt.length, pinBytes);
+    final digest = await _call('digest', ['SHA-256'.toJS, input.toJS]);
+    input.fillRange(0, input.length, 0);
+    return (await _call('deriveKey', [
+      _obj({
+        'name': 'PBKDF2'.toJS,
+        'salt': digest,
+        'iterations': iterations.toJS,
+        'hash': 'SHA-256'.toJS,
+      }),
+      deviceSecret as JSAny,
       _aes,
       false.toJS,
       _usages(['encrypt', 'decrypt']),

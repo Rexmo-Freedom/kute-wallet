@@ -8,14 +8,15 @@
 //     extension that can read storage but not run code in this page, a
 //     backup or sync of site data, or a dump of localStorage gets nothing
 //     usable.
-//   * A copied browser profile. The vault key is wrapped under a key
-//     stretched from the PIN (PBKDF2-SHA-256, 600,000 iterations) and then
-//     under a device key. The device key is a non-extractable WebCrypto key
-//     kept as a CryptoKey object in IndexedDB: no script can export it.
-//     Note the browser still writes its bytes into the profile folder, so
-//     forensic tooling on a copied profile can recover it; after that only
-//     the 6-digit PIN is left, and 10^6 guesses at 600k iterations take
-//     minutes on a GPU. Treat this as "raises the bar", not "safe".
+//   * Guessing the PIN anywhere but in this browser. The key that wraps the
+//     vault key is derived (PBKDF2-SHA-256, N iterations, N stored in the
+//     record, about a second per derivation in a laptop browser) FROM a
+//     non-extractable device secret, with the PIN only in the salt. No
+//     script can export that secret, so every PIN guess must run as a full
+//     derivation inside this browser's WebCrypto: a script that reaches the
+//     locked page can still try, but only at that speed, in the victim's
+//     tab, where 10^6 guesses take days. Nothing it can copy out of the
+//     page lets it guess elsewhere.
 //   * Another script reading localStorage while the app is locked. The old
 //     layout kept the AES key right beside the ciphertext; now nothing in
 //     storage decrypts anything without the PIN (or a WebAuthn PRF key).
@@ -25,26 +26,39 @@
 //     fast PIN hash on disk either.
 //
 // What it CANNOT protect against (do not over-trust it):
+//   * A COPIED BROWSER PROFILE. Non-extractable is an API rule, not
+//     encryption at rest: the browser writes the device secret's bytes into
+//     the profile folder. With the profile (forensic tooling, malware with
+//     file access, a backup), an attacker can run the derivation offline
+//     and a 6-digit PIN falls on a GPU (10^6 guesses). Only a longer PIN or
+//     password, or a PRF passkey, fixes that.
 //   * A malicious script or extension running inside this page WHILE the
 //     wallet is unlocked: it can call the same code the app calls and read
 //     the phrase, or sign with keys already in memory.
-//   * A script running inside this page while LOCKED can still USE the
-//     non-extractable device key (non-extractable stops export, not use),
-//     peel that layer and then guess the 6-digit PIN offline. The wrong-PIN
-//     counter and wipe are enforced by the app, not by cryptography.
+//   * A script running inside this page while LOCKED can still guess the
+//     PIN in place, one slow derivation per guess. The wrong-PIN counter
+//     and wipe are enforced by the app, not by cryptography.
 //   * A compromised device, OS or browser, a keylogger, or someone who
 //     watches the PIN being typed.
 //   * Secrets held by other components after unlock (the Lightning SDK,
 //     signers) stay in their memory until the tab closes.
 //
-// Layout (IndexedDB, database `kute_vault`):
+// Layout (IndexedDB, database `kute_vault`), format v2:
 //   meta     one record: salt, iterations, vault id, the vault key K wrapped
-//            as Enc_device(Enc_pin(K)), a check value Enc_K(known text),
-//            and optionally Enc_device(Enc_prf(K)) for biometric unlock.
+//            as Enc_pin(K), where the pin key is
+//            PBKDF2(deviceSecret, salt = SHA-256(vaultSalt || PIN), N);
+//            a check value Enc_K(known text); and optionally
+//            Enc_device(Enc_prf(K)) for biometric unlock.
+//            (v1 records wrapped K as Enc_device(Enc_PBKDF2(PIN)(K)); they
+//            are rewrapped as v2 on their first successful PIN unlock.)
 //   entries  one record per secret key: Enc_K(value), AAD binds the vault
 //            id and the key name so records cannot be swapped.
-//   device   the device CryptoKey object.
+//   device   two CryptoKey objects: the PBKDF2 device secret (`secret`)
+//            and an AES-GCM device key (`key`, the PRF path and v1).
 //   plain    ordinary (non-secret) values, unencrypted.
+// The v1 outer device-key layer is dropped for the PIN path: the device
+// secret is now inside the derivation itself, and both keys live in the
+// same IndexedDB, so a second layer would add no cost to any attacker.
 // Every encryption uses AES-GCM-256 with a fresh random 12-byte IV.
 
 import 'dart:async';
@@ -83,8 +97,18 @@ abstract class VaultCrypto {
   /// A new AES-GCM-256 key, `extractable: false`.
   Future<Object> newDeviceKey();
 
-  /// PBKDF2-SHA-256 of [pin] into a non-extractable AES-GCM-256 key.
+  /// v1: PBKDF2-SHA-256 of [pin] into a non-extractable AES-GCM-256 key.
   Future<Object> pinKey(String pin, Uint8List salt, int iterations);
+
+  /// 32 random bytes imported as a non-extractable PBKDF2 base key; the
+  /// bytes are wiped right after the import.
+  Future<Object> newDeviceSecret();
+
+  /// v2: PBKDF2-SHA-256 with [deviceSecret] as the password and
+  /// SHA-256([vaultSalt] || [pin]) as the salt, into a non-extractable
+  /// AES-GCM-256 key. The PIN never becomes key material on its own.
+  Future<Object> devicePinKey(
+      Object deviceSecret, String pin, Uint8List vaultSalt, int iterations);
 
   /// HKDF-SHA-256 of [ikm] into a non-extractable AES-GCM-256 key.
   Future<Object> hkdfKey(Uint8List ikm, Uint8List salt, Uint8List info);
@@ -107,6 +131,8 @@ abstract class VaultDb {
   Future<void> deleteMeta();
   Future<Object?> readDeviceKey();
   Future<void> writeDeviceKey(Object key);
+  Future<Object?> readDeviceSecret();
+  Future<void> writeDeviceSecret(Object secret);
   Future<Map<String, Map<String, Object?>>> readEntries();
   Future<void> writeEntry(String name, Map<String, Object?> entry);
   Future<void> deleteEntry(String name);
@@ -137,9 +163,14 @@ class SeedVault {
     this.iterations = defaultIterations,
   });
 
-  /// OWASP 2023 guidance for PBKDF2-HMAC-SHA256.
-  static const int defaultIterations = 600000;
-  static const int formatVersion = 1;
+  /// PBKDF2 iterations for the v2 device-bound derivation. Measured in
+  /// Chrome on an Apple M3 Pro: about 0.55 s per derivation (3,000,000 took
+  /// 0.22 s); a slower laptop or a phone browser takes longer. Each PIN
+  /// guess costs one such derivation inside this browser. Stored in each
+  /// record, so it can be raised later (test/web/web_vault_browser_test.dart
+  /// prints the timing).
+  static const int defaultIterations = 8000000;
+  static const int formatVersion = 2;
   static const String _checkText = 'kute-vault-check-v1';
   static final Uint8List _prfInfo =
       Uint8List.fromList(utf8.encode('kute web vault prf wrap v1'));
@@ -202,7 +233,7 @@ class SeedVault {
   /// deleted here); its meta is replaced.
   Future<void> create(String pin) async {
     _requireLoaded();
-    final device = await _deviceKey(create: true);
+    final secret = await _deviceSecret(create: true);
     final k = crypto.randomBytes(32);
     final vid = _hex(crypto.randomBytes(16));
     final salt = crypto.randomBytes(16);
@@ -212,7 +243,7 @@ class SeedVault {
       'salt': _s(salt),
       'iter': iterations,
     };
-    await _wrapUnderPin(meta, device, k, pin, salt, iterations);
+    await _wrapUnderPinV2(meta, secret, k, pin, salt, iterations);
     final kKey = await crypto.rawKey(k);
     final checkIv = crypto.randomBytes(12);
     meta['checkIv'] = _s(checkIv);
@@ -223,11 +254,68 @@ class SeedVault {
     _setOpen(k, kKey);
   }
 
+  /// Tests only: a v1 record (format of the first web vault build) for
+  /// [pin], opened, so the v1 to v2 migration can be exercised.
+  @visibleForTesting
+  Future<void> debugCreateV1(String pin, {int iterations = 1000}) async {
+    _requireLoaded();
+    final device = await _deviceKey(create: true);
+    final k = crypto.randomBytes(32);
+    final vid = _hex(crypto.randomBytes(16));
+    final salt = crypto.randomBytes(16);
+    final pinKey = await crypto.pinKey(pin, salt, iterations);
+    final pinIv = crypto.randomBytes(12);
+    final inner = await crypto.seal(pinKey, pinIv, k, _aad('pin', vid));
+    final devIv = crypto.randomBytes(12);
+    final kKey = await crypto.rawKey(k);
+    final checkIv = crypto.randomBytes(12);
+    final meta = <String, Object?>{
+      'v': 1,
+      'vid': vid,
+      'salt': _s(salt),
+      'iter': iterations,
+      'pinIv': _s(pinIv),
+      'devIv': _s(devIv),
+      'wrapped': _s(await crypto.seal(device, devIv, inner, _aad('dev', vid))),
+      'checkIv': _s(checkIv),
+      'check': _s(await crypto.seal(kKey, checkIv,
+          Uint8List.fromList(utf8.encode(_checkText)), _aad('check', vid))),
+    };
+    await db.writeMeta(meta);
+    _meta = meta;
+    _setOpen(k, kKey);
+  }
+
   /// Verifies [pin] by opening the vault key; the AES-GCM tag is the check.
+  /// A v1 record that opens is rewrapped as v2 (verified, then replaced in
+  /// one write); a failed rewrap keeps v1 and is retried next unlock.
   Future<VaultUnlock> unlock(String pin) async {
     _requireLoaded();
     final meta = _meta;
     if (meta == null) return VaultUnlock.unavailable;
+    if ((meta['v'] as num?)?.toInt() == 1) return _unlockV1(meta, pin);
+    final Object secret;
+    try {
+      secret = await _deviceSecret(create: false);
+    } catch (_) {
+      // No device secret: nothing a PIN can fix.
+      return VaultUnlock.unavailable;
+    }
+    final Uint8List k;
+    try {
+      final pinKey = await crypto.devicePinKey(secret, pin, _b(meta['salt']),
+          (meta['iter'] as num).toInt());
+      k = await crypto.open(pinKey, _b(meta['pinIv']), _b(meta['wrapped']),
+          _aad('pin2', meta['vid'] as String));
+    } on VaultTagError {
+      return VaultUnlock.wrongPin;
+    } catch (_) {
+      return VaultUnlock.unavailable;
+    }
+    return await _openWith(k) ? VaultUnlock.ok : VaultUnlock.unavailable;
+  }
+
+  Future<VaultUnlock> _unlockV1(Map<String, Object?> meta, String pin) async {
     final Object device;
     final Uint8List inner;
     try {
@@ -235,7 +323,6 @@ class SeedVault {
       inner = await crypto.open(device, _b(meta['devIv']), _b(meta['wrapped']),
           _aad('dev', meta['vid'] as String));
     } catch (_) {
-      // No device key, or not this vault's: nothing a PIN can fix.
       return VaultUnlock.unavailable;
     }
     final Uint8List k;
@@ -249,8 +336,41 @@ class SeedVault {
     } catch (_) {
       return VaultUnlock.unavailable;
     }
-    return await _openWith(k) ? VaultUnlock.ok : VaultUnlock.unavailable;
+    if (!await _openWith(k)) return VaultUnlock.unavailable;
+    try {
+      await _rewrapV2(pin);
+    } catch (_) {
+      // Still v1 and still open; the next unlock tries again.
+    }
+    return VaultUnlock.ok;
   }
+
+  /// Rewraps the open vault's key as v2 under [pin], verifies the new
+  /// record opens to the same key, then replaces the record in one write.
+  Future<void> _rewrapV2(String pin) async {
+    final k = _kRaw;
+    final meta = _meta;
+    if (k == null || meta == null) throw const VaultLockedException();
+    final secret = await _deviceSecret(create: true);
+    final next = Map<String, Object?>.of(meta)
+      ..remove('devIv')
+      ..['v'] = formatVersion;
+    final salt = crypto.randomBytes(16);
+    next['salt'] = _s(salt);
+    next['iter'] = iterations;
+    await _wrapUnderPinV2(next, secret, k, pin, salt, iterations);
+    final check = await crypto.open(
+        await crypto.devicePinKey(secret, pin, salt, iterations),
+        _b(next['pinIv']),
+        _b(next['wrapped']),
+        _aad('pin2', next['vid'] as String));
+    if (!listEquals(check, k)) throw StateError('v2 rewrap did not verify');
+    await db.writeMeta(next);
+    _meta = next;
+  }
+
+  /// The record's format version (1 or 2), or null without a vault.
+  int? get formatVersionOnDisk => (_meta?['v'] as num?)?.toInt();
 
   /// Opens the vault with a WebAuthn PRF output for [credentialId]. False
   /// when there is no enrolment for it or the key does not verify.
@@ -315,12 +435,14 @@ class SeedVault {
     final k = _kRaw;
     final meta = _meta;
     if (k == null || meta == null) throw const VaultLockedException();
-    final device = await _deviceKey(create: false);
-    final next = Map<String, Object?>.of(meta);
+    final secret = await _deviceSecret(create: true);
+    final next = Map<String, Object?>.of(meta)
+      ..remove('devIv')
+      ..['v'] = formatVersion;
     final salt = crypto.randomBytes(16);
     next['salt'] = _s(salt);
     next['iter'] = iterations;
-    await _wrapUnderPin(next, device, k, newPin, salt, iterations);
+    await _wrapUnderPinV2(next, secret, k, newPin, salt, iterations);
     await db.writeMeta(next);
     _meta = next;
   }
@@ -333,7 +455,7 @@ class SeedVault {
     final meta = _meta;
     if (k == null || meta == null) throw const VaultLockedException();
     final vid = meta['vid'] as String;
-    final device = await _deviceKey(create: false);
+    final device = await _deviceKey(create: true);
     final hkdfSalt = crypto.randomBytes(32);
     final prfKey = await crypto.hkdfKey(prfOutput, hkdfSalt, _prfInfo);
     final iv = crypto.randomBytes(12);
@@ -414,17 +536,22 @@ class SeedVault {
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
-  Future<void> _wrapUnderPin(Map<String, Object?> meta, Object device,
+  Future<void> _wrapUnderPinV2(Map<String, Object?> meta, Object secret,
       Uint8List k, String pin, Uint8List salt, int iter) async {
     final vid = meta['vid'] as String;
-    final pinKey = await crypto.pinKey(pin, salt, iter);
+    final pinKey = await crypto.devicePinKey(secret, pin, salt, iter);
     final pinIv = crypto.randomBytes(12);
-    final inner = await crypto.seal(pinKey, pinIv, k, _aad('pin', vid));
-    final devIv = crypto.randomBytes(12);
     meta['pinIv'] = _s(pinIv);
-    meta['devIv'] = _s(devIv);
-    meta['wrapped'] =
-        _s(await crypto.seal(device, devIv, inner, _aad('dev', vid)));
+    meta['wrapped'] = _s(await crypto.seal(pinKey, pinIv, k, _aad('pin2', vid)));
+  }
+
+  Future<Object> _deviceSecret({required bool create}) async {
+    final existing = await db.readDeviceSecret();
+    if (existing != null) return existing;
+    if (!create) throw const VaultUnavailableException('device secret missing');
+    final secret = await crypto.newDeviceSecret();
+    await db.writeDeviceSecret(secret);
+    return secret;
   }
 
   Future<Object> _deviceKey({required bool create}) async {
