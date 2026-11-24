@@ -226,9 +226,17 @@ import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
     show DollarsActivityTab;
 import 'package:kute/screens/usd/investments_category_sheet.dart'
     show
+        InvestmentsCategoryChips,
         investmentsCategoryLabel,
         investmentsCategoryShortLabel,
         showInvestmentsCategorySheet;
+import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
+    show formatDollars;
+import 'package:kute/providers/one_balance_provider.dart'
+    show oneBalanceProvider;
+import 'package:kute/providers/settings_provider.dart' show settingsProvider;
+import 'package:kute/screens/shared/pending_deposit_line.dart'
+    show PendingDepositLine;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show showCapabilityUnavailableSheet;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
@@ -622,7 +630,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     // the categories of that section (one pill row, nothing under it).
     // Overview has no categories: its bar opens the rest.
     if (next == current) {
-      if (next != InvestmentsTab.activity) {
+      // On EXPANDED the categories are the chips under the pills.
+      if (next != InvestmentsTab.activity &&
+          KuteLayout.of(context) != KuteFormFactor.expanded) {
         unawaited(showInvestmentsCategorySheet(context, ref, next));
       }
       return;
@@ -750,8 +760,12 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
         InvestmentsTab.predictions => l10n.predictions,
         InvestmentsTab.positions => l10n.walletPortfolioAction,
       };
-      // Overview holds no category: its name alone, picked or not.
-      if (tab != selected || tab == InvestmentsTab.activity) {
+      // Overview holds no category: its name alone, picked or not. On
+      // EXPANDED every pill is its name alone: the categories are the
+      // chips under the pills (InvestmentsCategoryChips).
+      if (tab != selected ||
+          tab == InvestmentsTab.activity ||
+          form == KuteFormFactor.expanded) {
         return KutePillItem(label: base);
       }
       return KutePillItem(
@@ -823,9 +837,13 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                 onTap: (i) => _pick(tabs[i]),
                 size: kutePillSwitchSize,
               ),
+              chips: selected == InvestmentsTab.investing ||
+                      selected == InvestmentsTab.predictions
+                  ? InvestmentsCategoryChips(tab: selected)
+                  : null,
               onRefresh: _refresh,
               // The positions are the Overview's own, on the left: the
-              // right pane does not repeat them there.
+              // right column does not repeat them there.
               positionsAtRight: selected != InvestmentsTab.activity,
               notificationPredicate: (n) =>
                   n.depth == 0 && _fromVisiblePill(n),
@@ -917,38 +935,33 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 
 /// THE DOLLARS PAGE ON EXPANDED (kute_layout.dart; founder, 24 November
 /// 2026: "on larger screens show the graphs on the left with the
-/// interfaces on the right, it must be a different experience ... with
-/// what we already have, we just have to move stuff around"): two panes,
-/// the page centred at [KuteLayout.pageMaxWidth] with [KuteLayout.paneGap]
-/// at its sides and between them.
+/// interfaces on the right ... with what we already have, we just have to
+/// move stuff around"; 26 November 2026: "the balance always on the top
+/// ... check main fintech apps, and do what they do, like Polymarket").
+/// The balance and Buy dollars · Move · Receive · Send are the desktop top
+/// bar's (desktop_top_bar_money.dart), so the page is what you look at,
+/// centred at [KuteLayout.pageMaxWidth] with [KuteLayout.paneGap] at its
+/// sides:
 ///
-///   * LEFT, what you look at, and the one scroll: the pill row at its
-///     top (the phone's large pills, at a phone's width, their taps and
-///     the category sheet as on a phone), then the pill on screen. Overview
-///     is the open positions and their P&L, nothing else (founder, 24
-///     November 2026: "Overview is open positions"), its cards given the
-///     room ([DollarsActivityTab.wide]); Investing and Predictions are
-///     their browse, the lists in columns of the same cards
-///     (market_groups.dart). Pull-to-refresh is the phone's, over the pill
-///     on screen.
-///   * RIGHT, what you have and what you can do, at [KuteLayout.paneWidth]
-///     (a phone column, so everything in it is the phone's own widget):
-///     the balance as the phone's hero draws it (the total, the open P&L
-///     line, the in-flight lines; a tap opens the Portfolio), under
-///     Investing and Predictions the open positions as the Overview draws
-///     them (its cards, up to four, and its P&L; Sal with nothing open),
-///     never under Overview, which shows them on the left; the money row
-///     (Buy dollars · Swap · Receive · Send) right under the balance, as
-///     on a phone, in the same place on every pill. It stays put; it
-///     scrolls only when the window is too short for it.
-///
-/// Nothing collapses: the right pane holds the hero, so nothing needs to
-/// shrink. The floating nav bar's room is at the top of both panes and
-/// stays; a scroll that finds the bar hidden (by another page) brings it
-/// back, so the room is never empty.
-class _InvestmentsPanes extends ConsumerWidget {
+///   * LEFT, the one scroll: the pill row at its top (Overview · Investing
+///     · Predictions, their names alone), under Investing and Predictions
+///     the pill's categories as a row of chips ([InvestmentsCategoryChips],
+///     as Polymarket and Kalshi list theirs; no sheet), the in-flight lines
+///     the hero wrote under the total ("Incoming $20.00", "unavailable
+///     until balancing completes"), then the pill on screen. Overview is
+///     the open positions and their P&L, its cards given the room
+///     ([DollarsActivityTab.wide]); Investing and Predictions are their
+///     browse, the lists in columns of the same cards (market_groups.dart,
+///     four when four hold). Pull-to-refresh is the phone's.
+///   * RIGHT, under Investing and Predictions and only while something is
+///     open: a [KuteLayout.paneWidth] column with the open positions as
+///     the Overview draws them (its cards, up to four, and Open profits),
+///     still. Under Overview, or with nothing open, no column: the left
+///     takes the page and its grids reflow.
+class _InvestmentsPanes extends ConsumerStatefulWidget {
   const _InvestmentsPanes({
     required this.pills,
+    required this.chips,
     required this.onRefresh,
     required this.positionsAtRight,
     required this.notificationPredicate,
@@ -957,7 +970,10 @@ class _InvestmentsPanes extends ConsumerWidget {
 
   final Widget pills;
 
-  /// The open positions in the right pane: under Investing and
+  /// The picked venue pill's categories, or null (Overview).
+  final Widget? chips;
+
+  /// The open positions in a right column: under Investing and
   /// Predictions; never under Overview, which is them, on the left.
   final bool positionsAtRight;
   final RefreshCallback onRefresh;
@@ -965,8 +981,18 @@ class _InvestmentsPanes extends ConsumerWidget {
   final Widget body;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_InvestmentsPanes> createState() => _InvestmentsPanesState();
+}
+
+class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
+  /// Whether the positions column holds anything (it says so,
+  /// [DollarsActivityTab.onHeld]).
+  bool _held = false;
+
+  @override
+  Widget build(BuildContext context) {
     final c = context.colors;
+    final column = widget.positionsAtRight && _held;
     final left = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -979,10 +1005,16 @@ class _InvestmentsPanes extends ConsumerWidget {
             child: ConstrainedBox(
               constraints:
                   const BoxConstraints(maxWidth: KuteLayout.paneWidth - 24),
-              child: pills,
+              child: widget.pills,
             ),
           ),
         ),
+        if (widget.chips != null)
+          Padding(
+            padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 8.h),
+            child: widget.chips,
+          ),
+        const _InFlightLines(),
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (n) {
@@ -993,10 +1025,10 @@ class _InvestmentsPanes extends ConsumerWidget {
               return false;
             },
             child: RefreshIndicator(
-              onRefresh: onRefresh,
+              onRefresh: widget.onRefresh,
               color: c.textPrimary,
               backgroundColor: c.surface,
-              notificationPredicate: notificationPredicate,
+              notificationPredicate: widget.notificationPredicate,
               // Every list makes its own controller: the pills' lists
               // stand side by side in the stack, none of them the page's.
               // Their last rows clear the floating bar under this pane
@@ -1010,7 +1042,7 @@ class _InvestmentsPanes extends ConsumerWidget {
                         padding: mq.padding.copyWith(
                             bottom: math.max(
                                 mq.padding.bottom, kuteBarScrollClearance))),
-                    child: body,
+                    child: widget.body,
                   );
                 }),
               ),
@@ -1034,13 +1066,23 @@ class _InvestmentsPanes extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // The floating Sal bar sits under the browse
-                // (kute_wide_frames.dart, KuteBarPane), never over the
-                // money row on the right.
+                // (kute_wide_frames.dart, KuteBarPane).
                 Expanded(child: KuteBarPane(child: left)),
-                const SizedBox(width: KuteLayout.paneGap),
-                SizedBox(
-                  width: KuteLayout.paneWidth,
-                  child: _InvestmentsActionPane(positions: positionsAtRight),
+                if (column) const SizedBox(width: KuteLayout.paneGap),
+                // Always mounted (its order timers run on, and it says
+                // whether it holds anything); drawn only as the column.
+                Offstage(
+                  offstage: !column,
+                  child: SizedBox(
+                    width: KuteLayout.paneWidth,
+                    child: _InvestmentsPositionsColumn(
+                      onHeld: (held) {
+                        if (mounted && held != _held) {
+                          setState(() => _held = held);
+                        }
+                      },
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1051,58 +1093,56 @@ class _InvestmentsPanes extends ConsumerWidget {
   }
 }
 
-/// The right pane on EXPANDED (see [_InvestmentsPanes]): the hero, the
-/// Overview's open positions, the money row at the foot.
-class _InvestmentsActionPane extends StatelessWidget {
-  const _InvestmentsActionPane({required this.positions});
-
-  /// The Overview's positions under the balance (see
-  /// [_InvestmentsPanes.positionsAtRight]).
-  final bool positions;
+/// The in-flight lines the hero wrote under the total
+/// ([InvestmentBalanceHeader.inFlightLines]: "Incoming $20.00", "$X
+/// unavailable until balancing completes"), at the top of the left pane
+/// on EXPANDED, where the balance is the top bar's. Nothing in flight:
+/// nothing.
+class _InFlightLines extends ConsumerWidget {
+  const _InFlightLines();
 
   @override
-  Widget build(BuildContext context) => CustomScrollView(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(oneBalanceProvider);
+    if (!InvestmentBalanceHeader.showsInFlight(state)) {
+      return const SizedBox.shrink();
+    }
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final lines = InvestmentBalanceHeader.inFlightLines(
+        context, state, (v) => visible ? formatDollars(v) : '••••••');
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final line in lines)
+              PendingDepositLine(investedText: '', noteText: line),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The right column on EXPANDED (see [_InvestmentsPanes]): the Overview's
+/// open positions and Open profits, still; its own scroll only in a
+/// window too short for it.
+class _InvestmentsPositionsColumn extends StatelessWidget {
+  const _InvestmentsPositionsColumn({required this.onHeld});
+
+  final ValueChanged<bool> onHeld;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
         key: const ValueKey('investments-action-pane'),
-        // Still while it fits; it scrolls only in a window too short.
         physics: const ClampingScrollPhysics(),
-        slivers: [
-          // The balance and the lines under it open the Portfolio, as on
-          // a phone (see the file header, 13 November 2026).
-          SliverToBoxAdapter(
-            child: InvestmentBalanceHeader(
-              product: InvestmentsProduct.trading,
-              oneBalance: true,
-              showOpenPnl: true,
-              onTap: () =>
-                  UsdAccountActionBar.openPortfolioFromBalance(context),
-            ),
-          ),
-          // The phone's row under the balance, where it stands on a phone
-          // and on every pill: Overview leaves nothing between the two.
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 8.h, 16, 0),
-              child: const UsdAccountActionRow(),
-            ),
-          ),
-          // Kept mounted under Overview too (its order timers run on), only
-          // not drawn: the Overview on the left is them.
-          SliverOffstage(
-            offstage: !positions,
-            sliver: SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.only(top: 10.h),
-                child: const DollarsActivityTab(inPane: true),
-              ),
-            ),
-          ),
-          // The bar sits under the left pane (KuteBarPane), so no room is
-          // kept for it here: the bottom safe area and a margin.
-          SliverToBoxAdapter(
-            child: SizedBox(
-                height: MediaQuery.viewPaddingOf(context).bottom + 16.h),
-          ),
-        ],
+        padding: EdgeInsets.only(
+            top: 8.h,
+            bottom: MediaQuery.viewPaddingOf(context).bottom + 16.h),
+        child: DollarsActivityTab(inPane: true, onHeld: onHeld),
       );
 }
 

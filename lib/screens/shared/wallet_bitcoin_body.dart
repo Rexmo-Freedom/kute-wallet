@@ -16,18 +16,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/helpers/formatters/currency_formatter.dart';
-import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/screens/home/bitcoin_home_panes.dart'
-    show
-        BitcoinListWidthSliver,
-        BitcoinPanesFrame,
-        bitcoinPaneEnd,
-        bitcoinPaneScrollWatch,
-        kBitcoinActionPaneKey;
-import 'package:kute/screens/search/unified_search_screen.dart'
-    show showKuteSearch;
+    show BitcoinActivityPane, BitcoinPanesFrame, BitcoinSideColumn;
 import 'package:kute/providers/transactions_provider.dart';
-import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/background_sync_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -46,14 +37,14 @@ import 'package:kute/theme/app_theme.dart';
 class WalletBitcoinBody extends ConsumerWidget {
   final WalletConfig wallet;
 
-  /// The EXPANDED wallet tab (shell_wallet_screen.dart), separated like
-  /// the Bitcoin and Dollars homes (bitcoin_home_panes.dart): the hero,
-  /// its actions and its Receive / Send dock in the right pane, still;
-  /// the charts and the activity behind the phone's own strip in the left
-  /// pane, the one scroll. False: the body exactly as it is.
+  /// The EXPANDED wallet tab (shell_wallet_screen.dart), as the Bitcoin
+  /// home (bitcoin_home_panes.dart): its balance and actions in the
+  /// desktop top bar, its activity on the left, its charts on the right.
+  /// False: the body exactly as it is.
   final bool wide;
 
-  /// [wide] only: the backup banner over the hero, when the tab shows one.
+  /// [wide] only: the backup banner at the top of the activity, when the
+  /// tab shows one.
   final Widget? banner;
 
   const WalletBitcoinBody(
@@ -121,48 +112,8 @@ class WalletBitcoinBody extends ConsumerWidget {
             btcFormat: btcFormat,
           );
 
-    if (wide) {
-      return BitcoinPanesFrame(
-        left: _WideWalletLeft(wallet: wallet, onRefresh: refresh),
-        // The hero as on a phone, its dock (Receive · Send · search)
-        // right under it rather than floating at the window's foot.
-        right: CustomScrollView(
-          key: kBitcoinActionPaneKey,
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            if (banner != null) SliverToBoxAdapter(child: banner),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
-                child: balanceCard,
-              ),
-            ),
-            SliverToBoxAdapter(child: SizedBox(height: 16.h)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                child: BitcoinWalletPrimaryActions(
-                    wallet: wallet, source: 'wallet_detail'),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.only(top: 6.h),
-                child: WalletBitcoinActionBar(
-                  wallet: wallet,
-                  onSearch: () => showKuteSearch(context,
-                      walletId: wallet.id, source: 'wallet_detail'),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                  height: MediaQuery.viewPaddingOf(context).bottom + 16.h),
-            ),
-          ],
-        ),
-      );
-    }
+    if (wide)
+      return _WideWallet(wallet: wallet, banner: banner, onRefresh: refresh);
 
     return RefreshIndicator(
       // Accent spinner so the pull-to-refresh matches the
@@ -223,53 +174,39 @@ class WalletBitcoinBody extends ConsumerWidget {
   }
 }
 
-/// The wide tab's left pane ([WalletBitcoinBody.wide]): the phone's own
-/// strip (Activity, then this wallet's Balance / Price / UTXOs) at the
-/// pane's top left, where the Dollars pills stand, and the pill's content
-/// under it in a readable column, the one scroll. The Activity pill is the
-/// wallet's full history here, so it never turns into "See all". A wallet
-/// with no history: one empty state, centred under the strip.
-class _WideWalletLeft extends ConsumerWidget {
-  const _WideWalletLeft({required this.wallet, required this.onRefresh});
+/// The wide tab ([WalletBitcoinBody.wide]; bitcoin_home_panes.dart): the
+/// wallet's balance and actions are the desktop top bar's, so the page is
+/// its activity on the left (the backup banner at the top of its list)
+/// and, once it has a history, its charts on the right (the phone strip's
+/// Balance / Price / UTXOs). No history: one empty state, centred.
+class _WideWallet extends ConsumerWidget {
+  const _WideWallet(
+      {required this.wallet, required this.banner, required this.onRefresh});
 
   final WalletConfig wallet;
+  final Widget? banner;
   final RefreshCallback onRefresh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final empty = ref.watch(walletTransactionCacheProvider.select(
         (cache) => cache[wallet.id]?.allTransactionsSorted.isEmpty ?? true));
-    final analytics = SliverToBoxAdapter(
-      child: RepaintBoundary(
-        child: HomeAnalyticsWidget(
-          // The strip where the Dollars pills stand (bitcoin_home_panes
-          // .dart, BitcoinPaneTop), at a phone's width.
-          padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
-          stripMaxWidth: KuteLayout.paneWidth - 32,
-          activityChild: empty
-              ? const NoActivityState(
-                  padding: EdgeInsets.fromLTRB(24, 34, 24, 8))
-              : TransactionList(walletIdOverride: wallet.id, showAll: true),
-        ),
-      ),
-    );
-    return bitcoinPaneScrollWatch(
-      ref,
-      RefreshIndicator(
-        color: c.accent,
+    return BitcoinPanesFrame(
+      left: BitcoinActivityPane(
         onRefresh: onRefresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            // A readable column of rows; with nothing to list, the pane's
-            // width, so the one empty state centres in it (the strip is
-            // held to a phone's width either way).
-            if (empty) analytics else BitcoinListWidthSliver(sliver: analytics),
-            bitcoinPaneEnd(context),
-          ],
+        banners: [if (banner != null) banner!],
+        empty: empty,
+        list: (_) => SliverToBoxAdapter(
+          child: TransactionList(walletIdOverride: wallet.id, showAll: true),
         ),
       ),
+      right: empty
+          ? null
+          : BitcoinSideColumn(
+              child: HomeAnalyticsWidget(
+                padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+              ),
+            ),
     );
   }
 }

@@ -6,26 +6,29 @@
 //
 //   * COMPACT: the home, untouched.
 //   * MEDIUM: the home in a centred [KuteLayout.columnMaxWidth] column.
-//   * EXPANDED: SEPARATED, exactly like the Dollars home (founder, 26
+//   * EXPANDED: SEPARATED, in the Dollars home's frame (founder, 26
 //     November 2026, of a centred single-page Dollars home: "a very
-//     iPad-like UI … I like the separated", then of the Bitcoin home: "On
-//     bitcoin same thing pls"). The same frame as the Dollars page
-//     ([BitcoinPanesFrame]; usd_account_screen.dart, _InvestmentsPanes):
-//     centred at [KuteLayout.pageMaxWidth], the page gutters, the desktop
-//     top bar's room, [KuteLayout.paneGap] between the panes, so switching
-//     between the two tabs leaves both panes exactly in place.
-//       - RIGHT, at [KuteLayout.paneWidth], still: the wallet's hero as on
-//         a phone (the backup banner when shown, the balance, Purchase /
-//         Scan / Receive / Send), drawn by [Home] ([Home.panes]).
+//     iPad-like UI … I like the separated", then "On bitcoin same thing
+//     pls"), with the money in the top bar as the fintech desktops have
+//     it ("the balance always on the top"): the balance and Purchase /
+//     Scan / Receive / Send are the desktop top bar's
+//     (desktop_top_bar_money.dart), so the page under it is what you look
+//     at ([BitcoinPanesFrame]: centred at [KuteLayout.pageMaxWidth], the
+//     page gutters, the top bar's room, [KuteLayout.paneGap] between):
 //       - LEFT, the one scroll, the floating bar centred under it
-//         ([KuteBarPane]): the home's own pill row (Activity | Goals) at
-//         its top left, where the Dollars pills stand, then the pill on
-//         screen: the full Bitcoin activity (what "See all" opens on a
-//         phone, loading more as it scrolls) or the Goals card (the
-//         balance chart and the goals). A list stays a readable column
-//         ([kBitcoinListMaxWidth]), left-aligned. A new wallet: one empty
-//         state (Sal, "No activity yet") under the pills, centred.
-//     Another wallet's tab (WalletBitcoinBody.wide) takes the same frame.
+//         ([KuteBarPane]): the home's pill (Activity) at its top left,
+//         where the Dollars pills stand; the backup banner, slim, at the
+//         top of its list; then the full Bitcoin activity (what "See all"
+//         opens on a phone, loading more as it scrolls) in a readable
+//         column ([kBitcoinListMaxWidth]), left-aligned.
+//       - RIGHT, at [KuteLayout.paneWidth], still, once the wallet has a
+//         history: the Goals card (the balance chart and the goals; a
+//         Ledger or watch-only wallet's Balance charts). The floating bar
+//         stays the search there ([BalanceGoalsNoBar]).
+//       - A new wallet: no right column; one empty state (Sal, "No
+//         activity yet") close under the pill, centred in the page.
+//     Another wallet's tab (WalletBitcoinBody.wide) takes the same frame:
+//     its activity on the left, its charts on the right.
 
 import 'dart:math' as math;
 
@@ -41,14 +44,15 @@ import 'package:kute/providers/breez_config_provider.dart'
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
+import 'package:kute/screens/analytics/components/balance_goals.dart'
+    show BalanceGoalsNoBar;
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
-import 'package:kute/screens/home/home.dart';
+import 'package:kute/screens/home/home.dart' show Home;
 import 'package:kute/screens/share/pending_share_links.dart';
 import 'package:kute/screens/shared/all_activity.dart'
     show ActivityScope, AllActivitySliver, watchAllActivity;
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
-import 'package:kute/screens/shared/kute_motion.dart' show SelectionFade;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -85,13 +89,16 @@ class BitcoinHomePanes extends StatelessWidget {
 /// _InvestmentsPanes), for a Bitcoin surface: the desktop top bar's room,
 /// the page centred at [KuteLayout.pageMaxWidth] with [KuteLayout.paneGap]
 /// at its sides and between the panes; [left] flexible, the floating bar
-/// centred under it ([KuteBarPane]); [right] at [KuteLayout.paneWidth], a
-/// phone column (its MediaQuery's width the pane's).
+/// centred under it ([KuteBarPane]); [right], when there is one, at
+/// [KuteLayout.paneWidth], a phone column (its MediaQuery's width the
+/// pane's).
 class BitcoinPanesFrame extends StatelessWidget {
-  const BitcoinPanesFrame({super.key, required this.left, required this.right});
+  const BitcoinPanesFrame({super.key, required this.left, this.right});
 
   final Widget left;
-  final Widget right;
+
+  /// The side column; null: [left] takes the page's width.
+  final Widget? right;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -109,12 +116,14 @@ class BitcoinPanesFrame extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(child: KuteBarPane(child: left)),
-                  const SizedBox(width: KuteLayout.paneGap),
-                  SizedBox(
-                    width: KuteLayout.paneWidth,
-                    child: kuteNarrowMedia(context,
-                        width: KuteLayout.paneWidth, child: right),
-                  ),
+                  if (right != null) ...[
+                    const SizedBox(width: KuteLayout.paneGap),
+                    SizedBox(
+                      width: KuteLayout.paneWidth,
+                      child: kuteNarrowMedia(context,
+                          width: KuteLayout.paneWidth, child: right!),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -186,124 +195,162 @@ Widget bitcoinPaneScrollWatch(WidgetRef ref, Widget child) =>
       child: child,
     );
 
-/// The Bitcoin home's left pane on EXPANDED (see the file header): the
-/// home's Activity | Goals pills, then the pill on screen.
-class BitcoinHomeLeftPane extends ConsumerStatefulWidget {
-  const BitcoinHomeLeftPane({super.key, required this.onRefresh});
+/// Whether the Bitcoin home has nothing to list yet, and whether that is
+/// the wallet waking up rather than empty: the same sources the activity
+/// lists (the spending wallet's bitcoin, or a Ledger or watch-only
+/// wallet's own history, as the phone home's Activity tab).
+({bool empty, bool waking}) bitcoinHomeHistory(WidgetRef ref,
+    {required bool isSavings}) {
+  if (isSavings) {
+    final empty = !ref.watch(transactionNotifierProvider.select((t) =>
+        t.homeTransactionsSorted.any((tx) =>
+            tx is! PolymarketTransaction &&
+            tx is! PolymarketUsdcReceive &&
+            tx is! UsdbTokenTransaction)));
+    return (empty: empty, waking: false);
+  }
+  final activity = watchAllActivity(ref, scope: ActivityScope.bitcoin);
+  final empty = activity.curated.entries.isEmpty;
+  return (
+    empty: empty,
+    waking:
+        empty && (activity.loading || ref.watch(breezSDKProvider).isLoading),
+  );
+}
+
+/// The Bitcoin home on EXPANDED (see the file header): the activity on
+/// the left, the goals on the right once there is a history.
+class BitcoinHomeDesktop extends ConsumerWidget {
+  const BitcoinHomeDesktop(
+      {super.key, required this.onRefresh, this.banners = const []});
 
   /// The home's pull-to-refresh ("update everything").
   final RefreshCallback onRefresh;
 
+  /// The home's banners (the backup reminder, the seed notice), at the
+  /// top of the left pane's list.
+  final List<Widget> banners;
+
   @override
-  ConsumerState<BitcoinHomeLeftPane> createState() =>
-      _BitcoinHomeLeftPaneState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final wallet = ref.watch(settingsProvider.select((s) => s.activeWallet));
+    final isSavings = (wallet?.isHardware ?? false) ||
+        (wallet?.isWatchOnly ?? false) ||
+        (wallet?.isExternalAddress ?? false);
+    final history = bitcoinHomeHistory(ref, isSavings: isSavings);
+    final emptyState = history.empty && !history.waking;
+    return BitcoinPanesFrame(
+      left: BitcoinActivityPane(
+        onRefresh: onRefresh,
+        banners: [
+          ...banners,
+          // A deposit waiting for a lower fee: the home's one quiet line.
+          if (!isSavings) const DepositWaitingLine(),
+          if (!isSavings) const PendingShareLinksCard(),
+        ],
+        empty: emptyState,
+        list: (controller) => history.waking
+            ? const SliverToBoxAdapter(child: SkeletonRowList(count: 3))
+            : isSavings
+                ? const SliverToBoxAdapter(
+                    child: TransactionList(
+                        showAll: true, emptyState: NoActivityState()),
+                  )
+                // What the phone's See all opens, in full.
+                : AllActivitySliver(
+                    controller: controller,
+                    scope: ActivityScope.bitcoin,
+                    emptyState: const NoActivityState()),
+      ),
+      right: history.empty
+          ? null
+          : BitcoinSideColumn(
+              child: HomeAnalyticsWidget(
+                surface: 'home',
+                showPrice: false,
+                balanceGoals: !isSavings,
+                padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+              ),
+            ),
+    );
+  }
 }
 
-class _BitcoinHomeLeftPaneState extends ConsumerState<BitcoinHomeLeftPane> {
-  /// 0 the activity, 1 the goals (the phone strip's order).
-  int _selected = 0;
+/// The right column of a Bitcoin surface on EXPANDED: [child] (the Goals
+/// card, a wallet's charts), still while it fits, its own scroll when the
+/// window is too short; it never takes the floating bar
+/// ([BalanceGoalsNoBar]).
+class BitcoinSideColumn extends StatelessWidget {
+  const BitcoinSideColumn({super.key, required this.child});
 
-  /// The `?tab=activity` request last honoured ([homeActivityRequest]).
-  String? _request;
+  final Widget child;
 
-  // One scroll per pill, each keeping its place, as the Dollars pills.
-  final _activity = ScrollController();
-  final _goals = ScrollController();
+  @override
+  Widget build(BuildContext context) => BalanceGoalsNoBar(
+        child: SingleChildScrollView(
+          key: kBitcoinActionPaneKey,
+          physics: const ClampingScrollPhysics(),
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.viewPaddingOf(context).bottom + 16.h),
+          child: RepaintBoundary(child: child),
+        ),
+      );
+}
+
+/// The left pane of a Bitcoin surface on EXPANDED: the Activity pill at
+/// its top left (where the Dollars pills stand), then one scroll: the
+/// [banners], slim, and the [list] in a readable column, or, [empty], the
+/// one empty state centred under the pill. Pull-to-refresh is [onRefresh].
+class BitcoinActivityPane extends ConsumerStatefulWidget {
+  const BitcoinActivityPane({
+    super.key,
+    required this.onRefresh,
+    required this.list,
+    required this.empty,
+    this.banners = const [],
+  });
+
+  final RefreshCallback onRefresh;
+
+  /// The rows, as a sliver, given the pane's scroll (to load more).
+  final Widget Function(ScrollController controller) list;
+  final bool empty;
+  final List<Widget> banners;
+
+  @override
+  ConsumerState<BitcoinActivityPane> createState() =>
+      _BitcoinActivityPaneState();
+}
+
+class _BitcoinActivityPaneState extends ConsumerState<BitcoinActivityPane> {
+  final _controller = ScrollController();
 
   @override
   void dispose() {
-    _activity.dispose();
-    _goals.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
     final c = context.colors;
-    final wallet = ref.watch(settingsProvider.select((s) => s.activeWallet));
-    final isSavings = (wallet?.isHardware ?? false) ||
-        (wallet?.isWatchOnly ?? false) ||
-        (wallet?.isExternalAddress ?? false);
-
-    // `/home?tab=activity` (kHomeActivityLocation) lands on the activity,
-    // as it does on a phone.
-    final request = homeActivityRequest(context);
-    if (request != null && request != _request) {
-      _request = request;
-      _selected = 0;
-    }
-
-    // The phone strip's pills, named as it names them; on EXPANDED the
-    // first one simply shows the activity here (no "See all").
-    final pills = KutePillTabs(
+    // The phone strip's first pill, named as it names it; on EXPANDED it
+    // is the activity itself (no "See all"), the goals standing beside it.
+    final pill = KutePillTabs(
       items: [
-        KutePillItem(label: l10n.activity, icon: Icons.receipt_long_rounded),
-        // Goals on the spending wallet, Balance on a Ledger or
-        // watch-only wallet.
-        isSavings
-            ? KutePillItem(label: l10n.balance, icon: Icons.savings_rounded)
-            : KutePillItem(
-                label: l10n.balanceGoalsTab, icon: Icons.flag_rounded),
+        KutePillItem(
+            label: context.l10n.activity, icon: Icons.receipt_long_rounded),
       ],
-      selectedIndex: _selected,
-      onTap: (i) {
-        if (i != _selected) setState(() => _selected = i);
-      },
+      selectedIndex: 0,
+      onTap: (_) {},
       size: kutePillSwitchSize,
+      // Its own width, as the Dollars pills hug theirs.
+      scroll: true,
     );
-
-    final body = SelectionFade(
-      selection: _selected,
-      order: _selected,
-      child: IndexedStack(
-        index: _selected,
-        children: [
-          TickerMode(
-            enabled: _selected == 0,
-            child: CustomScrollView(
-              controller: _activity,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                _BitcoinActivity(controller: _activity, isSavings: isSavings),
-                bitcoinPaneEnd(context),
-              ],
-            ),
-          ),
-          TickerMode(
-            enabled: _selected == 1,
-            child: CustomScrollView(
-              controller: _goals,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // The Goals card as the home draws it, without its
-                // Activity tab (so no strip of its own on the spending
-                // wallet). Its bar action ("Share my level") centres
-                // under this pane.
-                BitcoinListWidthSliver(
-                  sliver: SliverToBoxAdapter(
-                    child: RepaintBoundary(
-                      child: HomeAnalyticsWidget(
-                        surface: 'home',
-                        showPrice: false,
-                        balanceGoals: !isSavings,
-                        padding: EdgeInsets.only(top: 6.h, bottom: 24.h),
-                      ),
-                    ),
-                  ),
-                ),
-                bitcoinPaneEnd(context),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        BitcoinPaneTop(child: pills),
+        BitcoinPaneTop(child: pill),
         Expanded(
           child: bitcoinPaneScrollWatch(
             ref,
@@ -311,92 +358,40 @@ class _BitcoinHomeLeftPaneState extends ConsumerState<BitcoinHomeLeftPane> {
               onRefresh: widget.onRefresh,
               color: c.accent,
               backgroundColor: c.surface,
-              // The pill on screen's own scroll (the stack keeps the
-              // other one mounted, offstage).
-              notificationPredicate: (n) => n.depth == 0,
-              child: body,
+              child: CustomScrollView(
+                controller: _controller,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  if (widget.banners.isNotEmpty)
+                    BitcoinListWidthSliver(
+                      sliver: SliverToBoxAdapter(
+                        // On the rows' 16 gutter.
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: widget.banners,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (widget.empty)
+                    // ONE empty state, centred in the page, close under
+                    // the pill like the empty Dollars Overview (Sal's
+                    // sprite carries ~20 of air above him).
+                    const SliverToBoxAdapter(
+                      child: NoActivityState(
+                          padding: EdgeInsets.fromLTRB(24, 44, 24, 8)),
+                    )
+                  else
+                    BitcoinListWidthSliver(sliver: widget.list(_controller)),
+                  bitcoinPaneEnd(context),
+                ],
+              ),
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-/// The Activity pill on EXPANDED: the full Bitcoin activity in a readable
-/// column, or the home's one empty state, centred under the pills.
-class _BitcoinActivity extends ConsumerWidget {
-  const _BitcoinActivity({required this.controller, required this.isSavings});
-
-  /// The pill's scroll, read to load the next page.
-  final ScrollController controller;
-  final bool isSavings;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Whether there is any history: the same sources the list shows (the
-    // spending wallet's bitcoin, or a Ledger or watch-only wallet's own
-    // history, as the phone home's Activity tab).
-    final bool empty;
-    final bool waking;
-    if (isSavings) {
-      empty = !ref.watch(transactionNotifierProvider.select((t) =>
-          t.homeTransactionsSorted.any((tx) =>
-              tx is! PolymarketTransaction &&
-              tx is! PolymarketUsdcReceive &&
-              tx is! UsdbTokenTransaction)));
-      waking = false;
-    } else {
-      final activity = watchAllActivity(ref, scope: ActivityScope.bitcoin);
-      empty = activity.curated.entries.isEmpty;
-      // The wallet waking up, not empty: the home's shimmer rows.
-      waking =
-          empty && (activity.loading || ref.watch(breezSDKProvider).isLoading);
-    }
-
-    if (empty) {
-      return SliverMainAxisGroup(slivers: [
-        if (!isSavings)
-          const BitcoinListWidthSliver(
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [DepositWaitingLine(), PendingShareLinksCard()],
-              ),
-            ),
-          ),
-        if (waking)
-          const BitcoinListWidthSliver(
-            sliver: SliverToBoxAdapter(child: SkeletonRowList(count: 3)),
-          )
-        else
-          // ONE empty state, centred in the pane, close under the pills
-          // like the empty Dollars Overview (Sal's sprite carries ~20 of
-          // air above him).
-          const SliverToBoxAdapter(
-            child: NoActivityState(padding: EdgeInsets.fromLTRB(24, 44, 24, 8)),
-          ),
-      ]);
-    }
-
-    return BitcoinListWidthSliver(
-      sliver: SliverMainAxisGroup(slivers: [
-        if (isSavings)
-          const SliverToBoxAdapter(
-            child:
-                TransactionList(showAll: true, emptyState: NoActivityState()),
-          )
-        else ...[
-          // A deposit waiting for a lower fee: the home's one quiet line.
-          const SliverToBoxAdapter(child: DepositWaitingLine()),
-          const SliverToBoxAdapter(child: PendingShareLinksCard()),
-          // What the phone's See all opens, in full.
-          AllActivitySliver(
-              controller: controller,
-              scope: ActivityScope.bitcoin,
-              emptyState: const NoActivityState()),
-        ],
-      ]),
     );
   }
 }

@@ -50,6 +50,11 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/home/bitcoin_home_panes.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart';
+import 'package:kute/providers/active_shell_tab_provider.dart'
+    show ActiveNavTab;
+import 'package:kute/providers/shell_wallet_provider.dart'
+    show shellWalletIdProvider;
+import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
 import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
 import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePillTabs;
 import 'package:kute/screens/usd/usd_account_screen.dart' show UsdAccountScreen;
@@ -278,6 +283,7 @@ Future<void> _pump(WidgetTester tester, Size size, bool dark,
       hlWatchlistProvider.overrideWith(_NoStars.new),
       polyWatchlistProvider.overrideWith(_NoPolyStars.new),
       refreshEverythingProvider.overrideWith(RecordingRefresh.new),
+      if (otherWallet) shellWalletIdProvider.overrideWith((_) => 'cold'),
     ],
     // The app's own ScreenUtil setup (app_widget.dart).
     child: ScreenUtilInit(
@@ -290,19 +296,28 @@ Future<void> _pump(WidgetTester tester, Size size, bool dark,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         builder: shellBarBuilder,
-        home: dollars
-            ? Builder(
-                builder: (context) => Scaffold(
-                      backgroundColor: context.colors.background,
-                      body: const UsdAccountScreen(),
-                    ))
-            : otherWallet
-                ? Builder(
-                    builder: (context) => Scaffold(
-                          backgroundColor: context.colors.background,
-                          body: ShellWalletScreen(wallet: _cold),
-                        ))
-                : const BitcoinHomePanes(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: context.colors.background,
+            // The shell's layering: the page, the top bar over it.
+            body: Stack(children: [
+              Positioned.fill(
+                child: dollars
+                    ? const UsdAccountScreen()
+                    : otherWallet
+                        ? ShellWalletScreen(wallet: _cold)
+                        : const BitcoinHomePanes(),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: KuteTopNavBar(
+                    activeTab: dollars ? ActiveNavTab.usd : ActiveNavTab.home),
+              ),
+            ]),
+          ),
+        ),
       ),
     ),
   ));
@@ -322,24 +337,29 @@ Future<void> _settle(WidgetTester tester, [int frames = 20]) async {
   }
 }
 
-/// The left pane, its pill row and the right pane on screen, for the
-/// frame comparison between the two homes.
-({Rect left, Rect pills, Rect right})? _frame(WidgetTester tester) {
+/// The left pane, its pill row and the right column (if any) on screen,
+/// for the frame comparison between the two homes.
+({Rect left, Rect pills, Rect? right})? _frame(WidgetTester tester) {
   final pane = find.byType(KuteBarPane);
   if (pane.evaluate().isEmpty) return null;
   final left = tester.getRect(pane.first);
   final pills = tester.getRect(find
       .descendant(of: pane.first, matching: find.byType(KutePillTabs))
       .first);
-  final right = tester.getRect(find
-      .byWidgetPredicate((w) =>
-          w.key == const ValueKey('investments-action-pane') ||
-          w.key == const ValueKey('bitcoin-home-action-pane'))
-      .first);
-  return (left: left, pills: pills, right: right);
+  final right = find.byWidgetPredicate((w) =>
+      w.key == const ValueKey('investments-action-pane') ||
+      w.key == const ValueKey('bitcoin-home-action-pane'));
+  Rect? rightRect;
+  for (final e in right.evaluate()) {
+    final box = e.renderObject as RenderBox?;
+    if (box != null && box.hasSize && box.size.width > 0) {
+      rightRect = tester.getRect(find.byWidget(e.widget));
+    }
+  }
+  return (left: left, pills: pills, right: rightRect);
 }
 
-final _frames = <String, ({Rect left, Rect pills, Rect right})>{};
+final _frames = <String, ({Rect left, Rect pills, Rect? right})>{};
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -349,6 +369,8 @@ void main() {
     ('1180x820', const Size(1180, 820)),
     ('1920x1080', const Size(1920, 1080)),
     ('1000x700', const Size(1000, 700)),
+    ('1280x800', const Size(1280, 800)),
+    ('820x1180', const Size(820, 1180)),
     ('430x932', const Size(430, 932)),
   ]) {
     for (final dark in [false, true]) {
@@ -368,24 +390,9 @@ void main() {
           if (size.width >= 900) {
             final frame = _frame(tester)!;
             _frames['btc $label'] = frame;
-            // The Goals pill.
-            await tester.tap(find
-                .descendant(
-                    of: find.byType(KutePillTabs).first,
-                    matching: find.byIcon(Icons.flag_rounded))
-                .first);
-            await _settle(tester, 10);
-            expect(tester.takeException(), isNull);
-            await _shoot(tester, 'home_${state}_${label}_${mode}_goals');
           }
           if (withHistory && size.width >= 900) {
-            // Back on the activity, scrolled: the left pane is the scroll.
-            await tester.tap(find
-                .descendant(
-                    of: find.byType(KutePillTabs).first,
-                    matching: find.byIcon(Icons.receipt_long_rounded))
-                .first);
-            await _settle(tester, 10);
+            // The left pane is the scroll.
             await tester.drag(
                 find
                     .descendant(
@@ -401,7 +408,7 @@ void main() {
           await tester.pump(const Duration(seconds: 7));
         });
       }
-      if (size.width >= 900) {
+      {
         testWidgets('desk dollars $label $mode', skip: _dir == null,
             (tester) async {
           debugDisableShadows = true;
@@ -412,15 +419,14 @@ void main() {
           await _settle(tester, 30);
           expect(tester.takeException(), isNull);
           await _shoot(tester, 'dollars_${label}_$mode');
-          final usd = _frame(tester)!;
+          final usd = _frame(tester);
           final btc = _frames['btc $label'];
           // ignore: avoid_print
           print('frame $label dollars $usd bitcoin $btc');
-          if (btc != null) {
+          if (btc != null && usd != null) {
             // The two tabs' panes stand exactly in the same place.
             expect(btc.left.left, usd.left.left);
-            expect(btc.left.width, usd.left.width);
-            expect(btc.right, usd.right);
+            expect(btc.left.top, usd.left.top);
             expect(btc.pills.topLeft, usd.pills.topLeft);
             expect(btc.pills.height, usd.pills.height);
           }

@@ -545,11 +545,16 @@ class OneBalancePnlAvailableLine extends ConsumerWidget {
     required this.available,
     required this.availableLabel,
     this.stale = false,
+    this.fontSize,
   });
 
   final String available;
   final String availableLabel;
   final bool stale;
+
+  /// The line's size; null is the hero's 15. The desktop top bar's
+  /// balance passes a smaller one.
+  final double? fontSize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -558,14 +563,14 @@ class OneBalancePnlAvailableLine extends ConsumerWidget {
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     final labelStyle = TextStyle(
       color: c.textTertiary,
-      fontSize: 15.sp,
+      fontSize: fontSize ?? 15.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
       height: 1.2,
     );
     final valueStyle = TextStyle(
       color: stale ? c.textTertiary : c.textSecondary,
-      fontSize: 15.sp,
+      fontSize: fontSize ?? 15.sp,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.1,
       height: 1.2,

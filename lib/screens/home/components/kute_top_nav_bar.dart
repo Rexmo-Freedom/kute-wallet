@@ -33,6 +33,7 @@ import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/shell_wallet_provider.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
+import 'package:kute/screens/home/components/desktop_top_bar_money.dart';
 import 'package:kute/screens/shared/kute_wordmark.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/home/components/home_tab_switch.dart'
@@ -148,9 +149,13 @@ class KuteTopNavBar extends ConsumerWidget {
 ///   * LEFT: Sal and the wordmark, the lockup the PIN screen shows
 ///     (kute_pin_scaffold.dart), then the Bitcoin | Dollars switch beside
 ///     it at its phone size (another wallet's tab strip likewise).
-///   * RIGHT: the hub button alone. The search stays the floating bar's
-///     pill at the foot, as on a phone (founder, 25 November 2026: "put
-///     the search on the bottom always").
+///   * RIGHT: the active tab's balance and its actions
+///     ([KuteDesktopMoney]; founder, 26 November 2026: "the balance always
+///     on the top"), then the hub button. The search stays the floating
+///     bar's pill at the foot, as on a phone (founder, 25 November 2026:
+///     "put the search on the bottom always"). The actions lose their
+///     words under [_labelsMinWidth] and the switch narrows under
+///     [_narrowBelow]; the bar is always one row.
 /// It does not hide on scroll: a laptop has the room. MEDIUM and phones
 /// keep the strip above.
 class _KuteDesktopTopBar extends StatelessWidget {
@@ -175,8 +180,20 @@ class _KuteDesktopTopBar extends StatelessWidget {
   /// Another wallet's tab strip, a little wider (its chips scroll).
   static const double _stripWidth = 440;
 
+  /// Narrower than this the switch steps down to [_switchWidthNarrow].
+  static const double _narrowBelow = 1200;
+
+  /// The switch on a narrower window, leaving the money its room.
+  static const double _switchWidthNarrow = 280;
+
+  /// The actions carry their words from here up; under it, icons with
+  /// tooltips (never a second row).
+  static const double _labelsMinWidth = 1280;
+
   @override
   Widget build(BuildContext context) {
+    final window = kuteWindowWidth(context);
+    final narrow = window < _narrowBelow;
     // It stays put while the page scrolls under it, so it is drawn on the
     // page's own background across the window: a scrolled card never
     // shows through the switch.
@@ -198,9 +215,11 @@ class _KuteDesktopTopBar extends StatelessWidget {
                 child: Row(
                   children: [
                     const _KuteLockup(),
-                    const SizedBox(width: 28),
+                    SizedBox(width: narrow ? 20 : 28),
                     SizedBox(
-                      width: switchStrip ? _switchWidth : _stripWidth,
+                      width: switchStrip
+                          ? (narrow ? _switchWidthNarrow : _switchWidth)
+                          : _stripWidth,
                       child: FloatingActionPill(
                         activeTab: activeTab,
                         onSelectTab: onSelectTab,
@@ -208,6 +227,13 @@ class _KuteDesktopTopBar extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
+                    // The active tab's balance and its actions, as the
+                    // fintech desktops put the money (founder, 26
+                    // November 2026; desktop_top_bar_money.dart).
+                    KuteDesktopMoney(
+                        activeTab: activeTab,
+                        labels: window >= _labelsMinWidth),
+                    const SizedBox(width: 16),
                     _FinancialHubButton(activeTab: activeTab),
                   ],
                 ),

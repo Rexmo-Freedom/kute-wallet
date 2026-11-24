@@ -44,7 +44,7 @@ import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/home/components/seed_unavailable_banner.dart';
 import 'package:kute/screens/home/bitcoin_home_panes.dart'
-    show BitcoinHomeLeftPane, BitcoinPanesFrame, kBitcoinActionPaneKey;
+    show BitcoinHomeDesktop;
 import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
@@ -73,11 +73,10 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 class Home extends ConsumerStatefulWidget {
   const Home({super.key, this.panes = false});
 
-  /// The EXPANDED Bitcoin home only (bitcoin_home_panes.dart): separated
-  /// like the Dollars home, the hero (banners, balance, action row) still
-  /// in the right pane, the Activity | Goals pills and their content in
-  /// the left one ([BitcoinHomeLeftPane]). False (a phone, MEDIUM): the
-  /// home exactly as it is.
+  /// The EXPANDED Bitcoin home only (bitcoin_home_panes.dart): no hero
+  /// (its balance and actions are the desktop top bar's), the activity on
+  /// the left and the goals beside it ([BitcoinHomeDesktop]). False (a
+  /// phone, MEDIUM): the home exactly as it is.
   final bool panes;
 
   @override
@@ -422,28 +421,20 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
   /// provider's ref, so leaving Home mid-pull is safe.
   Future<void> _handleRefresh() => ref.read(refreshEverythingProvider).home();
 
-  /// EXPANDED ([Home.panes], bitcoin_home_panes.dart): the Dollars home's
-  /// frame, the Activity | Goals pills and their content on the left (the
-  /// one scroll, its pull the home's), [hero] still on the right. It
-  /// scrolls only when the window is too short for it.
-  Widget _panes(List<Widget> hero) => BitcoinPanesFrame(
-        left: BitcoinHomeLeftPane(onRefresh: _handleRefresh),
-        right: CustomScrollView(
-          key: kBitcoinActionPaneKey,
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            // Its balance on the Dollars balance's line.
-            const SliverToBoxAdapter(child: SizedBox(height: 4)),
-            ...hero,
-            // The bar sits under the left pane, so no room is kept for it
-            // here: the bottom safe area and a margin.
-            SliverToBoxAdapter(
-              child: Builder(
-                  builder: (context) => SizedBox(
-                      height: MediaQuery.viewPaddingOf(context).bottom + 16.h)),
+  /// EXPANDED ([Home.panes], bitcoin_home_panes.dart): the balance and
+  /// its actions are the desktop top bar's, so the page is the activity
+  /// (its pull the home's) with the home's banners at its top, and the
+  /// goals beside it.
+  Widget _panes({required bool needsBackup}) => BitcoinHomeDesktop(
+        onRefresh: _handleRefresh,
+        banners: [
+          const SeedUnavailableBanner(),
+          if (needsBackup)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: SecurityActionCard(),
             ),
-          ],
-        ),
+        ],
       );
 
   @override
@@ -502,8 +493,9 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     final bool isWatchOnly = activeWallet.isWatchOnly;
     final bool isHardware = activeWallet.isHardware;
 
-    // The hero: the banners, the balance and its action row. On a phone
-    // the top of the home's one scroll; on EXPANDED the right pane.
+    // The hero: the banners, the balance and its action row, the top of
+    // the home's one scroll (on EXPANDED the top bar and the page carry
+    // them, [_panes]).
     final hero = <Widget>[
       const SliverToBoxAdapter(child: SeedUnavailableBanner()),
 
@@ -567,7 +559,7 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
               body: SafeArea(
                 bottom: false,
                 child: widget.panes
-                    ? _panes(hero)
+                    ? _panes(needsBackup: needsBackup)
                     : NotificationListener<ScrollMetricsNotification>(
                         onNotification: _onScrollMetrics,
                         child: RefreshIndicator(
