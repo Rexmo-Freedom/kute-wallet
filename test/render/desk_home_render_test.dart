@@ -166,11 +166,13 @@ Future<void> _assets(WidgetTester tester) => tester.runAsync(() async {
                 await rootBundle.loadString('$kSalSpriteDir/manifest.json'))
             as Map<String, dynamic>;
         SalSpriteCache.debugSetManifest(manifest);
-        for (final clip in ['body_sit_down', 'body_sit', 'idle']) {
-          await SalSpriteCache.clip(clip, 1);
+        for (final clip in [kSalHeroLoop, 'body_sit_down', 'body_sit']) {
           await SalSpriteCache.clip(clip, 2);
         }
-      } catch (_) {/* Sal is decoration in a render */}
+      } catch (e) {
+        // Sal is decoration in a render; say why he is missing.
+        debugPrint('desk home render: Sal not loaded: $e');
+      }
     });
 
 Future<void> _shoot(WidgetTester tester, String name) async {

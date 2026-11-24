@@ -215,7 +215,9 @@ class _WideWalletBody extends ConsumerWidget {
       children: [
         phone(hero),
         if (empty)
-          phone(const NoActivityState())
+          // About 64 under the action row, as on the Bitcoin home.
+          phone(const NoActivityState(
+              padding: EdgeInsets.fromLTRB(24, 34, 24, 8)))
         else
           Center(
             child: ConstrainedBox(

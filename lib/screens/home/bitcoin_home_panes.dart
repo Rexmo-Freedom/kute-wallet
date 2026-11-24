@@ -161,10 +161,17 @@ class _BitcoinHomeBelow extends ConsumerWidget {
             children: [
               if (!isSavings) const DepositWaitingLine(),
               if (!isSavings) const PendingShareLinksCard(),
+              // Part of the page, not floating in its middle: Sal (his
+              // sprite's frame carries ~20 of air above him) or the
+              // waking shimmer about 64 under the action row.
               if (waking)
-                const SkeletonRowList(count: 3)
+                const Padding(
+                  padding: EdgeInsets.only(top: 60),
+                  child: SkeletonRowList(count: 3),
+                )
               else
-                const NoActivityState(),
+                const NoActivityState(
+                    padding: EdgeInsets.fromLTRB(24, 40, 24, 8)),
               bottom,
             ],
           ),
