@@ -12,6 +12,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:kute/theme/app_theme.dart';
@@ -86,6 +87,15 @@ Widget _clipped(Widget row, {required bool first, required bool last}) {
 /// ([marketSegmentGap] by default) between them. [build] draws a market
 /// as a group row (`inGroup`) or as its own card; [divider] what sits
 /// between two rows of a group.
+///
+/// WIDE (kute_layout.dart: MEDIUM and EXPANDED), the list lays out by its
+/// own width: a list as wide as a phone column is the phone's list; a
+/// wider one (the Dollars page's left pane on a laptop) is the same list
+/// in [marketGridColumns] columns side by side, each column the phone's
+/// list of its share of the markets (dealt in order to the shortest
+/// column, so the first markets stay along the top), its groups and its
+/// own cards as on a phone. No row is stretched across the pane. A phone
+/// is untouched: the slivers below, as they always were.
 List<Widget> marketGroupSlivers<T>(
   BuildContext context, {
   required List<T> items,
@@ -94,6 +104,113 @@ List<Widget> marketGroupSlivers<T>(
   required double dividerIndent,
   MarketGroupDivider divider = marketGroupDivider,
   double? gap,
+  double minColumnWidth = kMarketGridMinColumn,
+}) {
+  List<Widget> column(List<T> items, EdgeInsets inset, {bool stagger = true}) =>
+      _marketGroupColumnSlivers<T>(context,
+          items: items,
+          groups: groups,
+          build: build,
+          dividerIndent: dividerIndent,
+          divider: divider,
+          gap: gap,
+          inset: inset,
+          stagger: stagger);
+  if (!KuteLayout.isWide(context)) {
+    return column(items, EdgeInsets.symmetric(horizontal: 16.w));
+  }
+  return [
+    SliverLayoutBuilder(builder: (context, constraints) {
+      final count = marketGridColumns(constraints.crossAxisExtent,
+          minColumn: minColumnWidth);
+      if (count <= 1 || items.length < 2) {
+        return SliverMainAxisGroup(
+            slivers: column(items, EdgeInsets.symmetric(horizontal: 16.w)));
+      }
+      final dealt =
+          marketGridDeal(items, count, weight: (item) => groups(item) ? 1 : 3);
+      // Equal columns: the list's 16 at its sides, the gutter between.
+      return SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        sliver: SliverCrossAxisGroup(slivers: [
+          for (var c = 0; c < count; c++) ...[
+            if (c > 0)
+              const SliverConstrainedCrossAxis(
+                maxExtent: kMarketGridGutter,
+                sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+              ),
+            SliverCrossAxisExpanded(
+              flex: 1,
+              sliver: SliverMainAxisGroup(slivers: [
+                ...column(dealt[c], EdgeInsets.zero, stagger: c == 0),
+                // A column left with nothing still holds its share.
+                if (dealt[c].isEmpty)
+                  const SliverToBoxAdapter(child: SizedBox.shrink()),
+              ]),
+            ),
+          ],
+        ]),
+      );
+    }),
+  ];
+}
+
+/// The gap between two columns of a wide list ([marketGroupSlivers]).
+const double kMarketGridGutter = 16;
+
+/// The narrowest a column of a wide list may be by default: an Investing
+/// row reads whole at it. A list of bigger cards passes its own (the
+/// Predictions cards: the narrowest phone's card, 288).
+const double kMarketGridMinColumn = 240;
+
+/// How many columns a market list [width] wide is drawn in: one up to a
+/// phone column and a little more (MEDIUM's 560 column among them), two
+/// from 640, three from 840 (the Dollars page's left pane on a 1440
+/// laptop), and never so many that a column is under [minColumn] (the
+/// list's 16 at its sides and the gutters out).
+int marketGridColumns(double width, {double minColumn = kMarketGridMinColumn}) {
+  final byWidth = width >= 840
+      ? 3
+      : width >= 640
+          ? 2
+          : 1;
+  final fit =
+      ((width - 32 + kMarketGridGutter) / (minColumn + kMarketGridGutter))
+          .floor();
+  return fit < 1 ? 1 : (fit < byWidth ? fit : byWidth);
+}
+
+/// [items] dealt into [count] columns, in order, each to the column
+/// standing shortest so far ([weight]: a grouped row 1, a card of its own
+/// about three), the first column on a tie: the first markets fill the
+/// top row, left to right, and the columns end near each other.
+List<List<T>> marketGridDeal<T>(List<T> items, int count,
+    {required int Function(T item) weight}) {
+  final out = [for (var c = 0; c < count; c++) <T>[]];
+  final height = List<int>.filled(count, 0);
+  for (final item in items) {
+    var best = 0;
+    for (var c = 1; c < count; c++) {
+      if (height[c] < height[best]) best = c;
+    }
+    out[best].add(item);
+    height[best] += weight(item);
+  }
+  return out;
+}
+
+/// One column of [marketGroupSlivers]: the phone's slivers, [inset] at its
+/// sides.
+List<Widget> _marketGroupColumnSlivers<T>(
+  BuildContext context, {
+  required List<T> items,
+  required bool Function(T item) groups,
+  required Widget Function(T item, bool inGroup) build,
+  required double dividerIndent,
+  required MarketGroupDivider divider,
+  required double? gap,
+  required EdgeInsets inset,
+  required bool stagger,
 }) {
   final space = gap ?? marketSegmentGap();
   final slivers = <Widget>[];
@@ -113,7 +230,7 @@ List<Widget> marketGroupSlivers<T>(
           separatorBuilder: (context, _) => divider(context, dividerIndent),
           // The first card's first rows arrive staggered on first paint.
           itemBuilder: (_, i) => _clipped(
-              s == 0
+              s == 0 && stagger
                   ? KuteStaggerIn(index: i, child: build(rows[i], true))
                   : build(rows[i], true),
               first: i == 0,
@@ -123,10 +240,7 @@ List<Widget> marketGroupSlivers<T>(
     } else {
       body = SliverToBoxAdapter(child: build(seg.items.single, false));
     }
-    slivers.add(SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      sliver: body,
-    ));
+    slivers.add(SliverPadding(padding: inset, sliver: body));
   }
   return slivers;
 }
