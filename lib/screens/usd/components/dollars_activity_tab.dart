@@ -195,7 +195,8 @@ import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
-import 'package:kute/screens/shared/market_groups.dart' show kMarketGridGutter;
+import 'package:kute/screens/shared/market_groups.dart'
+    show kMarketGridGutter, marketSquaresPerRow;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart'
@@ -434,21 +435,27 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
 ///
-/// [wide]: the Overview pill on EXPANDED (round two, 25 November 2026: one
-/// centred page, the hero over the pills, the pill's content across the
-/// page; usd_account_screen.dart): the same cards on the page's four-column
-/// grid, the squares (up to four) in one centred row, the Open profits card
-/// two columns wide and centred under them; nothing open, the phone's Sal
-/// on the page's axis close under the pills.
+/// [inPane]: the Dollars page's right pane on EXPANDED, under Investing
+/// and Predictions (usd_account_screen.dart): the same blocks as a plain
+/// column, no scroll of its own and no room for the dock under it (the
+/// pane holds both).
+///
+/// [wide]: the Overview pill on EXPANDED, the left pane (founder, 24 and
+/// 25 November 2026: "Overview is open positions"; round two's grid): the
+/// same cards on the pane's grid (market_groups.dart, marketSquaresPerRow),
+/// up to four in one row when four fit at a phone square's width, else two
+/// by two as on a phone, the Open profits card across the grid under them;
+/// nothing open, the phone's Sal centred in the pane close under the pills.
 class DollarsActivityTab extends ConsumerStatefulWidget {
-  const DollarsActivityTab({super.key, this.wide = false});
+  const DollarsActivityTab({super.key, this.inPane = false, this.wide = false});
 
+  final bool inPane;
   final bool wide;
 
-  /// The Open profits line's height on the [wide] page, design units.
+  /// The Open profits line's height on the [wide] pane, design units.
   static const double widePlotHeight = 180;
 
-  /// Nothing open on the [wide] page: the room between the pills and
+  /// Nothing open on the [wide] pane: the room between the pills and
   /// Sal, design units.
   static const double wideEmptyTop = 40;
 
@@ -488,8 +495,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     const physics =
         AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics());
     if (empty != null) {
-      // Nothing open: the phone's Sal on the page's axis, close under the
-      // pills (never floating in the middle of an empty page), still
+      // Nothing open: the phone's Sal centred in the pane, close under the
+      // pills (never floating in the middle of an empty pane), still
       // pulling to refresh.
       return CustomScrollView(
         key: const ValueKey('dollars-activity-list'),
@@ -511,11 +518,10 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         ],
       );
     }
-    // The page's grid: four columns across the content, the market lists'
-    // own gutter between them (market_groups.dart), so the Overview's
-    // edges are the Investing pill's. The squares (up to four) one row of
-    // columns, centred; the Open profits card two columns wide under
-    // them, centred on the same axis.
+    // The left pane's grid (market_groups.dart, marketSquaresPerRow): the
+    // squares four in a row when four fit at a phone square's width, the
+    // Investing pill's squares' own columns, else two by two as on a
+    // phone; the Open profits card across the grid under them.
     return CustomScrollView(
       key: const ValueKey('dollars-activity-list'),
       physics: physics,
@@ -525,53 +531,41 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
           sliver: SliverToBoxAdapter(
             child: LayoutBuilder(builder: (context, box) {
               const gap = kMarketGridGutter;
+              final four = marketSquaresPerRow(box.maxWidth) == 4;
               final column = (box.maxWidth - gap * 3) / 4;
-              final pair = column * 2 + gap;
-              final n = squares.length;
-              final blockWidth =
-                  n <= 2 ? pair : column * n + gap * (n - 1);
-              final Widget positions = squares.isNotEmpty
-                  ? PortfolioPositionSquareRow(
-                      key: const ValueKey('dollars-activity-squares'),
-                      rows: squares,
-                      columnWidth: column,
-                      gap: gap)
-                  : SizedBox(
-                      width: pair,
-                      child: const PortfolioSquaresSkeleton(
-                          key: ValueKey('dollars-activity-loading')),
-                    );
+              final Widget positions = squares.isEmpty
+                  ? const PortfolioSquaresSkeleton(
+                      key: ValueKey('dollars-activity-loading'))
+                  : four
+                      ? Align(
+                          alignment: Alignment.centerLeft,
+                          child: PortfolioPositionSquareRow(
+                              key: const ValueKey('dollars-activity-squares'),
+                              rows: squares,
+                              columnWidth: column,
+                              gap: gap),
+                        )
+                      : PortfolioPositionSquares(
+                          key: const ValueKey('dollars-activity-squares'),
+                          holdings: true,
+                          rows: squares);
               return Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // The heading on the squares' own left edge.
-                  if (squares.isNotEmpty || loading)
-                    Center(
-                      child: SizedBox(
-                        width: blockWidth,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // On the squares' edge, as the page's other
-                            // headings (round two).
-                            _Heading(context.l10n.accountOpenPositions,
-                                inset: 0,
-                                key: const ValueKey(
-                                    'dollars-activity-positions-heading')),
-                            positions,
-                          ],
-                        ),
-                      ),
-                    ),
-                  SizedBox(height: 8.h),
-                  Center(
-                    child: SizedBox(
-                      width: pair,
-                      child: const DollarsPnlStrip(
-                          plotHeight: DollarsActivityTab.widePlotHeight),
-                    ),
-                  ),
+                  // On the grid's left edge, as the venues' headings.
+                  _Heading(context.l10n.accountOpenPositions,
+                      inset: 0,
+                      key: const ValueKey(
+                          'dollars-activity-positions-heading')),
+                  positions,
+                  SizedBox(height: 6.h),
+                  // The taller line where the grid is four across; a
+                  // narrow pane keeps the phone's.
+                  four
+                      ? const DollarsPnlStrip(
+                          plotHeight: DollarsActivityTab.widePlotHeight)
+                      : const DollarsPnlStrip(),
                 ],
               );
             }),
@@ -659,8 +653,9 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         for (final o in all)
           if (standing.placedInAccount(o, fills)) o.id,
       };
-      // Settled by the Overview pill's own page, which is always mounted.
-      if (placedNow.isNotEmpty) {
+      // Settled once: by the Overview pill's own page, which is always
+      // mounted, never again by the right pane's copy on EXPANDED.
+      if (placedNow.isNotEmpty && !widget.inPane) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) standing.settleInvestingFromFills(fills);
         });
@@ -752,6 +747,25 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     if (widget.wide) {
       return _wideOverview(context,
           squares: squares, loading: loading, empty: empty);
+    }
+
+    if (widget.inPane) {
+      return Column(
+        key: const ValueKey('dollars-activity-pane'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: blocks,
+            ),
+          ),
+          if (empty != null) empty,
+        ],
+      );
     }
 
     return CustomScrollView(

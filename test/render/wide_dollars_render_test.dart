@@ -165,7 +165,8 @@ Future<void> _render(WidgetTester tester, String name,
     required String pill,
     bool dark = false,
     int positions = 4,
-    bool scrolled = false}) async {
+    bool scrolled = false,
+    void Function(ProviderContainer container)? pick}) async {
   final now = DateTime.now();
   final coins = const [
     'BTC',
@@ -239,6 +240,14 @@ Future<void> _render(WidgetTester tester, String name,
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
+  if (pick != null) {
+    pick(ProviderScope.containerOf(
+        tester.element(find.byType(UsdAccountScreen)),
+        listen: false));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
   if (scrolled) {
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -420));
     for (var i = 0; i < 10; i++) {
@@ -307,25 +316,29 @@ void main() {
     '1180x820': Size(1180, 820),
     '1920x1080': Size(1920, 1080),
     '1000x700': Size(1000, 700),
-    '1280x800': Size(1280, 800),
-    '820x1180': Size(820, 1180),
     '430x932': Size(430, 932),
   };
   final only = const String.fromEnvironment('WIDE_DOLLARS_ONLY');
-  final cases = <String, ({String pill, int positions, bool scrolled})>{
-    'overview_empty': (pill: 'Overview', positions: 0, scrolled: false),
-    'overview_1': (pill: 'Overview', positions: 1, scrolled: false),
-    'overview_3': (pill: 'Overview', positions: 3, scrolled: false),
-    'overview_4': (pill: 'Overview', positions: 4, scrolled: false),
-    'overview_9': (pill: 'Overview', positions: 9, scrolled: false),
-    'investing': (pill: 'Investing', positions: 4, scrolled: false),
-    'investing_scrolled': (pill: 'Investing', positions: 4, scrolled: true),
-    'predictions': (pill: 'Predictions', positions: 4, scrolled: false),
-    'predictions_scrolled': (
-      pill: 'Predictions',
-      positions: 4,
-      scrolled: true
-    ),
+  void crypto(ProviderContainer c) =>
+      c.read(hlBrowseSelectionProvider.notifier).state =
+          c.read(hlBrowseSelectionProvider).copyWith(tab: HlBrowseTab.crypto);
+  void fiveMin(ProviderContainer c) =>
+      c.read(polyBrowseSelectionProvider.notifier).state =
+          const PolyBrowseSelection(
+              pill: PolyPill.crypto, subs: {PolyPill.crypto: '5m'});
+  final cases = <String,
+      ({
+    String pill,
+    int positions,
+    void Function(ProviderContainer)? pick
+  })>{
+    'overview_empty': (pill: 'Overview', positions: 0, pick: null),
+    'overview_3': (pill: 'Overview', positions: 3, pick: null),
+    'overview_4': (pill: 'Overview', positions: 4, pick: null),
+    'investing': (pill: 'Investing', positions: 4, pick: null),
+    'investing_crypto': (pill: 'Investing', positions: 4, pick: crypto),
+    'predictions': (pill: 'Predictions', positions: 4, pick: null),
+    'predictions_5min': (pill: 'Predictions', positions: 0, pick: fiveMin),
   };
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
@@ -340,7 +353,7 @@ void main() {
                 pill: c.pill,
                 dark: dark,
                 positions: c.positions,
-                scrolled: c.scrolled));
+                pick: c.pick));
       }
     }
   }

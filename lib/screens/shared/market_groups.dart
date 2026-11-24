@@ -183,19 +183,28 @@ int marketGridColumns(double width, {double minColumn = kMarketGridMinColumn}) {
   return fit < 1 ? 1 : (fit < byWidth ? fit : byWidth);
 }
 
-/// The narrowest column of the Dollars page's grid on EXPANDED (round two,
-/// [marketGridAlignedColumns]): an Investing row and a Predictions card
+/// The narrowest list column of the Dollars page's grid on EXPANDED
+/// ([marketGridAlignedColumns]): an Investing row and a Predictions card
 /// (the narrowest phone's, 288) both read whole at it.
 const double kMarketGridAlignedMinColumn = 288;
 
+/// The narrowest square of the grid ([marketSquaresPerRow]): a phone's
+/// square (half the 430 design less its gutters, about 194), less a little.
+const double kMarketSquareMinWide = 190;
+
 /// THE DOLLARS PAGE'S ONE GRID (round two, 25 November 2026: "two grids
-/// that don't line up"). On EXPANDED every block of a pill stands on the
-/// same columns: the four squares (Investing's movers, Predictions' top
-/// markets, the Overview's positions) are four columns [kMarketGridGutter]
-/// apart inside the list's 16, and a list [width] wide is drawn in four of
-/// those columns when each holds [kMarketGridAlignedMinColumn], else in
-/// two (every other square's edge, half aligned), never three; one where
-/// two do not fit.
+/// that don't line up"). On EXPANDED every block of a pill in the left
+/// pane stands on the same outer edges, the list's 16 inside the pane,
+/// [kMarketGridGutter] between columns:
+///
+///   * the squares (Investing's movers, Predictions' top markets, the
+///     Overview's positions) four in a row when four fit at
+///     [kMarketSquareMinWide], else two by two ([marketSquaresPerRow]);
+///   * the lists in four columns when four hold
+///     [kMarketGridAlignedMinColumn], else two, else one
+///     ([marketGridAlignedColumns]): never three, so a list column always
+///     starts on a square's edge (four squares over two columns, two over
+///     two, two over one).
 int marketGridAlignedColumns(double width) {
   final fit = ((width - 32 + kMarketGridGutter) /
           (kMarketGridAlignedMinColumn + kMarketGridGutter))
@@ -206,6 +215,12 @@ int marketGridAlignedColumns(double width) {
           ? 2
           : 1;
 }
+
+/// How many squares stand in a row of the grid ([marketGridAlignedColumns])
+/// in a content [width] (the list's 16 already out): four when each is at
+/// least [kMarketSquareMinWide], else two.
+int marketSquaresPerRow(double width) =>
+    (width - kMarketGridGutter * 3) / 4 >= kMarketSquareMinWide ? 4 : 2;
 
 /// [items] dealt into [count] columns, in order, each to the column
 /// standing shortest so far ([weight]: a grouped row 1, a card of its own

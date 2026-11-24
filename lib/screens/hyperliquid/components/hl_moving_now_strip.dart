@@ -63,7 +63,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
-import 'package:kute/screens/shared/market_groups.dart' show kMarketGridGutter;
+import 'package:kute/screens/shared/market_groups.dart'
+    show kMarketGridGutter, marketSquaresPerRow;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -443,13 +444,42 @@ class HlSquaresRow extends StatelessWidget {
     if (!KuteLayout.isWide(context) || children.length != kHlMoverCardMax) {
       return ActivitySquareGrid(children: children);
     }
+    // EXPANDED: the Dollars page's grid (market_groups.dart): four in a
+    // row when four fit at a phone square's width, else two by two, the
+    // grid's gutter between them either way, so their edges are the list
+    // columns'.
+    if (KuteLayout.isExpanded(context)) {
+      return LayoutBuilder(builder: (context, box) {
+        const gap = kMarketGridGutter;
+        if (marketSquaresPerRow(box.maxWidth) == 4) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) const SizedBox(width: gap),
+                Expanded(child: children[i]),
+              ],
+            ],
+          );
+        }
+        Widget pair(int i) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: children[i]),
+                const SizedBox(width: gap),
+                Expanded(child: children[i + 1]),
+              ],
+            );
+        return Column(
+          children: [pair(0), const SizedBox(height: gap), pair(2)],
+        );
+      });
+    }
     return LayoutBuilder(builder: (context, box) {
       if (box.maxWidth < kOneRowMinWidth) {
         return ActivitySquareGrid(children: children);
       }
-      // EXPANDED: the page grid's gutter, so the squares' edges are the
-      // list's columns' (market_groups.dart, marketGridAlignedColumns).
-      final gap = KuteLayout.isExpanded(context) ? kMarketGridGutter : 10.w;
+      final gap = 10.w;
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
