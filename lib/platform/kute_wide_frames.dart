@@ -397,6 +397,7 @@ class KuteDialogScope extends InheritedWidget {
     super.key,
     required this.route,
     required this.closeMarks,
+    this.surface,
     required super.child,
   });
 
@@ -405,6 +406,10 @@ class KuteDialogScope extends InheritedWidget {
 
   /// How many close buttons the content shows now.
   final ValueNotifier<int> closeMarks;
+
+  /// The surface colour the content paints itself ([KuteDialogSurfaceMark]),
+  /// for a side panel to wear from its top to its foot. Null: not asked.
+  final ValueNotifier<Color?>? surface;
 
   static KuteDialogScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<KuteDialogScope>();
@@ -419,7 +424,40 @@ class KuteDialogScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(KuteDialogScope old) =>
-      old.route != route || old.closeMarks != closeMarks;
+      old.route != route ||
+      old.closeMarks != closeMarks ||
+      old.surface != surface;
+}
+
+/// Tells the enclosing side panel's [KuteDialogScope.surface] that the
+/// content paints itself [color] (a receive sheet's pure white), so the
+/// panel's foot under it wears the same colour rather than a band of
+/// another. Outside a side panel it is only its child.
+class KuteDialogSurfaceMark extends StatefulWidget {
+  const KuteDialogSurfaceMark(
+      {super.key, required this.color, required this.child});
+
+  final Color? color;
+  final Widget child;
+
+  @override
+  State<KuteDialogSurfaceMark> createState() => _KuteDialogSurfaceMarkState();
+}
+
+class _KuteDialogSurfaceMarkState extends State<KuteDialogSurfaceMark> {
+  void _report() {
+    final surface = KuteDialogScope.peek(context)?.surface;
+    final color = widget.color;
+    if (surface == null || color == null || surface.value == color) return;
+    // After the frame: the panel listens and repaints.
+    WidgetsBinding.instance.addPostFrameCallback((_) => surface.value = color);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _report();
+    return widget.child;
+  }
 }
 
 /// Counts [child] (a close button) in the enclosing [KuteDialogScope]
@@ -479,6 +517,91 @@ class _KuteDialogCloseMarkState extends State<KuteDialogCloseMark> {
 /// right edge from its top to its bottom, its side colour the panel's
 /// surface. The left side takes the rest of the window, uncapped.
 const double kuteSidePanelWidth = 448;
+
+// THE MONEY FLOWS AT THE SIDE (founder, 24 November 2026, of Receive and
+// the Bitcoin receive opened from the top bar as centred panels: "these
+// ones should open to the side like on fullscreen mode"). On EXPANDED a
+// flow opened from the top bar's money actions (Purchase, Scan, Receive,
+// Send; Buy dollars, Move) and every step it leads to is a SIDE PANEL:
+// the shared panel (kute_dialog.dart, KuteDialogCard) attached to the
+// window's right edge from its top to its bottom, [kuteSidePanelWidth]
+// wide, sliding in from the right over a light dim, its primary pinned
+// in its foot. Everything else keeps the centred panel.
+//
+// [KuteSideFlow] is the one switch. A top bar action arms it as it fires
+// ([KuteSideFlow.arm]); a panel route created while it is on is a side
+// panel ([KuteSideFlow.decide], once per route); side panels count
+// themselves while they are up. It stays on while any side panel is up,
+// so a step opened from a step (a sheet, a pushed named route such as
+// Send) is at the side too; for a moment after the last one closes, so a
+// hand-off (the scanner closing, then Send opening) stays there; and,
+// armed with nothing open yet, for a short wait (Purchase asks the policy
+// first). Nothing else arms it, so a phone and MEDIUM never see it.
+
+/// The light dim behind a side panel: the page stays readable.
+const Color kuteSidePanelBarrier = Color(0x33000000);
+
+abstract final class KuteSideFlow {
+  static DateTime? _armedAt;
+  static DateTime? _closedAt;
+  static int _open = 0;
+  static final Expando<bool> _side = Expando<bool>('kuteSide');
+
+  /// How long an armed flow waits for its first panel.
+  static const Duration armedFor = Duration(seconds: 10);
+
+  /// How long after the last side panel closes a new one still opens at
+  /// the side (a hand-off).
+  static const Duration handOff = Duration(milliseconds: 1500);
+
+  /// A top bar money action fired.
+  static void arm() {
+    _armedAt = DateTime.now();
+    _closedAt = null;
+  }
+
+  /// Whether a panel opened now opens at the side.
+  static bool get active {
+    if (_open > 0) return true;
+    final armed = _armedAt;
+    if (armed == null) return false;
+    final now = DateTime.now();
+    final closed = _closedAt;
+    if (closed == null) return now.difference(armed) < armedFor;
+    return now.difference(closed) < handOff;
+  }
+
+  /// Whether [route] is a side panel: decided the first time it is asked
+  /// (as the route is created), the same for the rest of its life.
+  static bool decide(Route<dynamic> route) => _side[route] ??= active;
+
+  /// Whether [route] was decided a side panel (false if never asked).
+  static bool isSide(Route<dynamic>? route) =>
+      route != null && (_side[route] ?? false);
+
+  /// Whether a side panel is up now.
+  static bool get anyOpen => _open > 0;
+
+  /// A side panel came up.
+  static void opened() {
+    _open++;
+    _closedAt = null;
+  }
+
+  /// A side panel went away.
+  static void closed() {
+    _open = math.max(0, _open - 1);
+    if (_open == 0) _closedAt = DateTime.now();
+  }
+
+  /// Off, for tests.
+  @visibleForTesting
+  static void reset() {
+    _armedAt = null;
+    _closedAt = null;
+    _open = 0;
+  }
+}
 
 /// The gutter between the window's left edge and a market page's
 /// content on EXPANDED.

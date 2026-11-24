@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteSideFlow;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart'
     show kuteSearchLoading, kuteSearchSheetOpen;
@@ -1169,6 +1170,9 @@ class _TopBarAction extends StatelessWidget {
                         HapticFeedback.lightImpact();
                         TrackingService.quickAction(action.trackingId,
                             source: source);
+                        // Its flow opens at the window's right edge
+                        // (kute_wide_frames.dart, KuteSideFlow).
+                        KuteSideFlow.arm();
                         action.onTap!();
                       },
                 child: pill,

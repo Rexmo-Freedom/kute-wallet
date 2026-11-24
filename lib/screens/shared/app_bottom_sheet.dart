@@ -321,7 +321,11 @@ class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
               child: content,
             ),
     );
-    return KuteSheetBarFit(child: sheet);
+    // A side panel on EXPANDED wears the sheet's own colour to its foot.
+    return KuteSheetBarFit(
+        child: color == null
+            ? sheet
+            : KuteDialogSurfaceMark(color: color, child: sheet));
   }
 }
 

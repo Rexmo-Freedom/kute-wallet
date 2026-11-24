@@ -1165,6 +1165,8 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
       ref.listen<QrScannerState>(qrScannerProvider, _onMultiPart);
     }
     final l10n = context.l10n;
+    // A panel on EXPANDED (kute_dialog.dart): no drag handle.
+    final inPanel = KuteDialogScope.inDialog(context);
 
     // The whole sheet is the camera (founder decision, October 2026): no
     // header, the preview runs from under the sheet's rounded top corners
@@ -1197,30 +1199,37 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
               fit: StackFit.expand,
               children: [
                 _preview(context, multi),
-                // The drag handle, over the video.
-                Positioned(
-                  top: 12.h,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      width: 36.w,
-                      height: 4.h,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(2),
+                // The drag handle, over the video. None in a panel on
+                // EXPANDED: nothing there is dragged.
+                if (!inPanel)
+                  Positioned(
+                    top: 12.h,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        width: 36.w,
+                        height: 4.h,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
-                ),
                 Positioned(
                   top: MediaQuery.paddingOf(context).top + 16.w,
                   left: 16.w,
-                  child: _ScannerControl(
-                    key: const ValueKey('scanner-close'),
-                    icon: Icons.close_rounded,
-                    label: l10n.close,
-                    onPressed: _close,
+                  // In a panel the one close: the panel draws no X of its
+                  // own beside it (kute_wide_frames.dart,
+                  // KuteDialogCloseMark).
+                  child: KuteDialogCloseMark(
+                    child: _ScannerControl(
+                      key: const ValueKey('scanner-close'),
+                      icon: Icons.close_rounded,
+                      label: l10n.close,
+                      onPressed: _close,
+                    ),
                   ),
                 ),
               ],

@@ -141,7 +141,19 @@ class SendSheetPage<T> extends Page<T> {
 /// the breadcrumb ring only record page routes, and `pay_send` is
 /// named), while the screen it opened from stays visible behind it.
 class SendSheetRoute<T> extends PageRoute<T> {
-  SendSheetRoute({required this.builder, super.settings});
+  SendSheetRoute({required this.builder, super.settings}) {
+    // Opened from the top bar's Send (or from a step of a flow it
+    // started): a side panel on EXPANDED (kute_wide_frames.dart,
+    // KuteSideFlow).
+    side = KuteSideFlow.decide(this);
+    stacked = side && KuteSideFlow.anyOpen;
+  }
+
+  /// A side panel on EXPANDED ([KuteDialogCard]).
+  late final bool side;
+
+  /// A side panel over a side panel: no second dim.
+  late final bool stacked;
 
   final WidgetBuilder builder;
   final SendSheetController sheetController = SendSheetController();
@@ -156,7 +168,9 @@ class SendSheetRoute<T> extends PageRoute<T> {
   bool get maintainState => true;
 
   @override
-  Color? get barrierColor => Colors.black54;
+  Color? get barrierColor => side
+      ? (stacked ? Colors.transparent : kuteSidePanelBarrier)
+      : Colors.black54;
 
   /// Scrim taps are the sheet's own decision ([SendSheetController
   /// .dismissible]), never the barrier's.
@@ -188,6 +202,8 @@ class SendSheetRoute<T> extends PageRoute<T> {
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation,
       Animation<double> secondaryAnimation, Widget child) {
+    // A side panel slides in from the right by itself (KuteDialogCard).
+    if (side && kuteWindowIsExpanded(context)) return child;
     return SlideTransition(
       position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
           .animate(CurvedAnimation(
