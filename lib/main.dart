@@ -29,6 +29,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/platform/platform_caps.dart';
 import 'package:kute/platform/web_biometrics.dart';
+import 'package:kute/services/analytics/web_posthog/web_posthog.dart';
 import 'package:kute/services/secure/web_vault/web_vault.dart';
 
 /// Wall-clock stamp taken at the very first line of `main()`. Read once
@@ -231,6 +232,10 @@ Future<void> _initializeApp() async {
   // over flutter_secure_storage (lib/services/secure/web_vault/). No-op on
   // iOS and Android.
   if (kIsWeb) await _timedBootStep('vault', WebVault.install());
+  // Web only: PostHog through Kute's own pure-Dart client (no posthog-js,
+  // no third-party script in the page), installed before anything calls
+  // `Posthog()`. lib/services/analytics/web_posthog/. No-op on the phones.
+  if (kIsWeb) WebPosthog.install();
   // Boot fan-out. Each leg is wrapped in its own try-catch so a single
   // failure (no internet, missing `.env`, Hive corruption, Firebase
   // outage) can't sink the whole boot. Without this, `Future.wait`
