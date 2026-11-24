@@ -15,6 +15,7 @@ import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/screens/shared/kute_glass.dart';
 
 /// Grouped view of a single match's sub-markets (moneyline + Both Teams to
@@ -62,6 +63,13 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // WIDE (MEDIUM and EXPANDED; platform/kute_layout.dart): the list and
+    // its search bar stay a column of readable width, centred; the page
+    // scrolls from anywhere across the window. A phone is as it was.
+    final side = KuteLayout.isWide(context)
+        ? ((MediaQuery.sizeOf(context).width - KuteLayout.columnMaxWidth) / 2)
+            .clamp(0.0, double.infinity)
+        : 0.0;
 
     // Live CLOB prices are watched PER ROW inside [_GroupFeedCard] with
     // narrow selects (each row also registers its outcome tokens via
@@ -139,14 +147,19 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                       parent: BouncingScrollPhysics()),
                   slivers: [
                     SliverToBoxAdapter(child: SizedBox(height: 12.h)),
-                    ...marketGroupSlivers<PolymarketEvent>(
-                      context,
-                      items: events,
-                      groups: (e) => polyCardGroups(e.title, e.outcomes),
-                      dividerIndent: polyGroupRowIndent(),
-                      divider: polyGroupRowDivider,
-                      build: (market, inGroup) =>
-                          _GroupFeedCard(market: market, inGroup: inGroup),
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: side),
+                      sliver: SliverMainAxisGroup(slivers: [
+                        ...marketGroupSlivers<PolymarketEvent>(
+                          context,
+                          items: events,
+                          groups: (e) => polyCardGroups(e.title, e.outcomes),
+                          dividerIndent: polyGroupRowIndent(),
+                          divider: polyGroupRowDivider,
+                          build: (market, inGroup) =>
+                              _GroupFeedCard(market: market, inGroup: inGroup),
+                        ),
+                      ]),
                     ),
                     SliverToBoxAdapter(child: SizedBox(height: 96.h)),
                   ],
@@ -157,8 +170,8 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
           // Category-scoped search, pinned at the bottom (same glass
           // language as the app-wide bar; searches ONLY this page).
           Positioned(
-            left: 12.w,
-            right: 12.w,
+            left: 12.w + side,
+            right: 12.w + side,
             bottom: 0,
             child: SafeArea(
               top: false,

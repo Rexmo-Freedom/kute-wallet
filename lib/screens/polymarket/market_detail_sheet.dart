@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -22,6 +23,12 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
 import 'package:kute/providers/polymarket_provider.dart'
     show kCryptoPredictAssets, CryptoAssetConfig;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
+import 'package:kute/screens/polymarket/components/bet_slip_in_place.dart';
+import 'package:kute/screens/polymarket/components/crypto_round_card.dart'
+    show CryptoRoundHeroCard;
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PolyPositionRow, PortfolioCardList;
 import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart';
@@ -385,7 +392,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// The chart's height: the Investing market chart's plot over the time
   /// axis ([polyMarketChartHeight]), the same for every market, event and
   /// game, and never grown to fill the screen (founder, 4 November 2026).
-  double get _chartHeight => polyMarketChartHeight();
+  ///
+  /// WIDE (EXPANDED): the chart has the left pane and about half the
+  /// window's height, at least 380 (founder, 24 November 2026: "showing
+  /// the graphs on the left with the interfaces on the right").
+  double get _chartHeight => KuteLayout.isExpanded(context)
+      ? kuteWideChartHeight(context)
+      : polyMarketChartHeight();
 
   /// The event as this sheet lists it: [MarketDetailSheet.event], with any
   /// placeholder outcome the user holds listed again
@@ -611,15 +624,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // A sheet being closed is no longer active: its stream stops with it.
     syncStreamHandoff(context);
     final bar = _barContext();
-    return Scaffold(
-      backgroundColor: context.isDark
-          ? context.colors.gradientBottom
-          : context.colors.background,
-      resizeToAvoidBottomInset: false,
-      body: Container(
-        decoration: AppDecorations.screenGradient(context),
-        child: PlatformSafeArea(
-          child: Column(
+    // WIDE LAYOUTS (platform/kute_layout.dart): a phone as it was; MEDIUM
+    // the same column centred; EXPANDED the page on the left and the bet
+    // slip open in place on the right ([kuteWidePanes]).
+    final form = KuteLayout.of(context);
+    final expanded = form == KuteFormFactor.expanded;
+    final page = Column(
             mainAxisSize: MainAxisSize.max,
             children: [
               _buildHeader(c, bar),
@@ -758,13 +768,119 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                   ],
                 ),
               ),
-              _buildTradeBar(bar),
+              _buildTradeBar(bar, inPlace: expanded),
             ],
+          );
+    return Scaffold(
+      backgroundColor: context.isDark
+          ? context.colors.gradientBottom
+          : context.colors.background,
+      resizeToAvoidBottomInset: false,
+      body: Container(
+        decoration: AppDecorations.screenGradient(context),
+        child: PlatformSafeArea(
+          child: BetSlipInPlaceHost(
+            active: expanded,
+            defaultOpener: _openDefaultSlip,
+            child: KeyedSubtree(
+              key: _slipContextKey,
+              child: switch (form) {
+                KuteFormFactor.compact => page,
+                KuteFormFactor.medium => kuteWideColumn(page),
+                KuteFormFactor.expanded => kuteWidePanes(
+                    left: page,
+                    right: KuteWideSlipPane(holds: _holdsHere),
+                  ),
+              },
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// The slip's host (bet_slip_in_place.dart) and a context under it, the
+  /// one every slip door on this page opens from: on EXPANDED the slip
+  /// goes to the right pane.
+  final GlobalKey _slipContextKey = GlobalKey();
+  BuildContext get _slipContext => _slipContextKey.currentContext ?? context;
+
+  /// The slip in the right pane takes the page's taps (EXPANDED).
+  bool get _slipInPlace =>
+      _slipContextKey.currentContext != null &&
+      BetSlipInPlaceHost.maybeOf(_slipContextKey.currentContext!) != null;
+
+  /// A position held in this market: one of its outcomes' tokens, or of
+  /// its event (never a candidate's page's siblings).
+  bool _holdsHere(PolymarketPosition p) {
+    final token = p.tokenId;
+    if (token != null && token.isNotEmpty) {
+      for (final o in event.outcomes) {
+        if (o.tokenId == token || o.noTokenId == token) return true;
+      }
+    }
+    return !event.isSyntheticBinary &&
+        event.slug.isNotEmpty &&
+        p.eventSlug == event.slug;
+  }
+
+  /// The pane's slip as the page opens (bet_slip_in_place.dart): the
+  /// market on screen as its first button opens it, quietly. [side] 1 is
+  /// the second side (No, the other team). A Yes / No market on Yes; a
+  /// three-way match on its first team; any other event on its leading
+  /// outcome's Yes.
+  void _openDefaultSlip(int side) {
+    if (!mounted) return;
+    if (event.isBinary) {
+      _openBetSlip(side == 1 ? 'no' : 'yes', quiet: true);
+      return;
+    }
+    final wdl = _detectWDLOutcomes();
+    if (wdl != null) {
+      final colors = _wdlLineColors(wdl);
+      _openThreeWaySlip(wdl, side == 1 ? 2 : 0, quiet: true, lineColors: {
+        if (wdl.teamA.tokenId case final t?) t: colors.teamA,
+        if (wdl.draw.tokenId case final t?) t: colors.draw,
+        if (wdl.teamB.tokenId case final t?) t: colors.teamB,
+      });
+      return;
+    }
+    final prices = ref.read(livePriceProvider).prices;
+    // A game opens on its winner market (never a prop that happens to be
+    // priced higher); any other event on its leading outcome.
+    final winner = [
+      for (final o in event.outcomes)
+        if (_kNameVersusRegex.hasMatch(o.name) &&
+            !_kNameStructuredRegex.hasMatch(o.name))
+          o,
+    ];
+    PolymarketOutcome? lead;
+    var leadPrice = -1.0;
+    for (final o in winner.isNotEmpty ? winner : event.outcomes) {
+      final token = o.tokenId;
+      if (token == null || token.isEmpty) continue;
+      final price = prices[token] ?? o.price;
+      if (price > leadPrice) {
+        lead = o;
+        leadPrice = price;
+      }
+    }
+    if (lead == null) return;
+    if (!lead.hasYesNo) {
+      _openBetSlip(lead.name.toLowerCase(), quiet: true);
+      return;
+    }
+    final labels = _sideLabelsFor(lead.name);
+    _openLineBetSlip(lead,
+        second: side == 1,
+        pos: labels.pos,
+        neg: labels.neg,
+        colors: [_listLineColors[lead.tokenId], null]);
+  }
+
+  /// The outcome list's chart colours by token, as it last built: the
+  /// pane's first slip wears its outcome's line as a tap on its row does.
+  Map<String, Color> _listLineColors = const {};
 
   /// The page's Sal context (Send to a friend), held by the scope around
   /// the close button while the page is up (founder, 4 November 2026: no
@@ -1821,7 +1937,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     openingBetSlip = true;
     final yes = market.price.clamp(0.0, 1.0);
     BetSlipSheet.show(
-      context,
+      _slipContext,
       negRisk: event.negRisk,
       marketSlug: event.slug,
       event: event,
@@ -1869,20 +1985,23 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// ([lineColors], by token). Titled by the match, as a two-way game's
   /// slip is: the sides say which outcome.
   void _openThreeWaySlip(PolyWdlOutcomes wdl, int index,
-      {Map<String, Color> lineColors = const {}}) {
-    HapticFeedback.mediumImpact();
+      {Map<String, Color> lineColors = const {}, bool quiet = false}) {
+    if (!quiet) HapticFeedback.mediumImpact();
     openingBetSlip = true;
     final teams = event.teams.isNotEmpty ? event.teams : _fetchedTeams;
     final names =
         gameShortSideNames(wdl.teamAName, wdl.teamBName, teams: teams);
     final sides = [wdl.teamA, wdl.draw, wdl.teamB];
-    TrackingService.track('prediction_outcome_tapped', params: {
-      'outcome_type': 'multi',
-      if (event.category.isNotEmpty) 'category': event.category.toLowerCase(),
-    });
+    if (!quiet) {
+      TrackingService.track('prediction_outcome_tapped', params: {
+        'outcome_type': 'multi',
+        if (event.category.isNotEmpty)
+          'category': event.category.toLowerCase(),
+      });
+    }
     final colors = [for (final o in sides) lineColors[o.tokenId]];
     BetSlipSheet.show(
-      context,
+      _slipContext,
       event: event,
       negRisk: event.negRisk,
       marketQuestion: event.displayTitle,
@@ -2475,6 +2594,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             for (final line in _chartedOutcomes(ref, _bettableWatched(ref)))
               line.outcome.tokenId!: line.color,
           };
+    _listLineColors = lineColors;
     // A football match's Exact Score: a score list, by result.
     final exact = _buildExactScoreList(sorted, lineColors);
     if (exact != null) return exact;
@@ -2917,7 +3037,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// the sheet. An event (a multi-outcome list, a game's board) has no
   /// pair: a candidate opens its own Yes / No page, and the bar is the
   /// page's Sal pill.
-  Widget _buildTradeBar(KuteBarContext bar) {
+  Widget _buildTradeBar(KuteBarContext bar, {bool inPlace = false}) {
     // A crypto Up-or-Down round in play past its cutoff (crypto_round.dart's
     // polyRoundBetCutoff: two minutes into a 5m round, the last 3, 5 and
     // 10 minutes of a 15m, 1h and 4h one) is read-only: from then on only
@@ -2956,6 +3076,14 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           searchHint: context.l10n.searchPredictionsHint,
           source: 'predictions',
         ),
+        child: const SizedBox.shrink(),
+      );
+    }
+    // EXPANDED: the slip is open in the right pane and its button is
+    // there; the floating bar stays away (founder, 24 November 2026).
+    if (inPlace) {
+      return KuteBarContextScope(
+        barContext: const KuteBarContext.hidden(),
         child: const SizedBox.shrink(),
       );
     }
@@ -3066,6 +3194,17 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       return;
     }
     HapticFeedback.lightImpact();
+    // EXPANDED: the outcome's own chart is a line on this one; a tap
+    // picks it in the slip on the right, on its Yes in its line's colour.
+    if (_slipInPlace) {
+      final named = _sideLabelsFor(cand.name);
+      _openLineBetSlip(cand,
+          second: false,
+          pos: named.pos,
+          neg: named.neg,
+          colors: [lineColors[cand.tokenId], null]);
+      return;
+    }
     final yes = cand.price.clamp(0.0, 1.0);
     // Resolve the candidate's real crest ("Portugal" → flag) — Gamma ships
     // the generic league ball as every sub-market's icon, so cand.imageUrl
@@ -3131,8 +3270,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// [lineColors] (by token) tint the slip in the picked outcome's chart
   /// line colour; Yes / No and Up / Down keep the slip's green and red.
   void _openBetSlip(String? outcome,
-      {Map<String, Color> lineColors = const {}}) {
-    HapticFeedback.mediumImpact();
+      {Map<String, Color> lineColors = const {}, bool quiet = false}) {
+    if (!quiet) HapticFeedback.mediumImpact();
     openingBetSlip = true;
     int idx = 0;
     if (outcome != null) {
@@ -3161,10 +3300,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     } else {
       outcomeType = 'multi';
     }
-    TrackingService.track('prediction_outcome_tapped', params: {
-      'outcome_type': outcomeType,
-      if (event.category.isNotEmpty) 'category': event.category.toLowerCase(),
-    });
+    if (!quiet) {
+      TrackingService.track('prediction_outcome_tapped', params: {
+        'outcome_type': outcomeType,
+        if (event.category.isNotEmpty)
+          'category': event.category.toLowerCase(),
+      });
+    }
     // Carry the resolved side labels (moneyline team names, OVER/UNDER …)
     // so the slip's toggle + CTA match the detail buttons exactly.
     final labels = _sideLabelsFor(event.title);
@@ -3181,7 +3323,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     ];
     final outcomeColors = colors.any((c) => c != null) ? colors : null;
     BetSlipSheet.show(
-      context,
+      _slipContext,
       event: event,
       negRisk: event.negRisk,
       marketQuestion: event.displayTitle,
@@ -3590,7 +3732,7 @@ PolymarketEvent polyRoundAsEvent(Btc5MinEvent ev, {String? fallbackTitle}) =>
 /// pill, Up/Down split, dedicated Up/Down CTAs, live chart with
 /// target dashed line, trade ticker) all stays in one place — the
 /// same widget rendered on the Predictions list.
-class FiveMinMarketDetailSheet extends StatelessWidget {
+class FiveMinMarketDetailSheet extends StatefulWidget {
   final PolymarketEvent event;
   final VoidCallback? onDeposit;
   final String? ledgerWalletId;
@@ -3609,6 +3751,10 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
   });
 
   static const routeName = 'polymarket-5min-market-detail-sheet';
+
+  @override
+  State<FiveMinMarketDetailSheet> createState() =>
+      _FiveMinMarketDetailSheetState();
 
   static void show(
     BuildContext context, {
@@ -3638,20 +3784,45 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
     );
   }
 
+}
+
+class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
+  PolymarketEvent get event => widget.event;
+  VoidCallback? get onDeposit => widget.onDeposit;
+  String? get ledgerWalletId => widget.ledgerWalletId;
+  int? get minutes => widget.minutes;
+
+  final GlobalKey _cardArea = GlobalKey();
+
+  /// The pane's slip (EXPANDED): the round card's own Up or Down, exactly
+  /// as a tap on it opens it (the round it bets on now, rolling to the
+  /// next at its cutoff; bet_slip_in_place.dart).
+  void _openDefaultSlip(int side) {
+    CryptoRoundHeroCard? card;
+    void find(Element e) {
+      if (card != null) return;
+      if (e.widget case final CryptoRoundHeroCard found) {
+        card = found;
+        return;
+      }
+      e.visitChildElements(find);
+    }
+
+    final area = _cardArea.currentContext;
+    if (area is Element) area.visitChildElements(find);
+    final found = card;
+    if (found == null) return;
+    side == 1 ? found.onDown() : found.onUp();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final config = _resolveCryptoConfig(event);
+    final form = KuteLayout.of(context);
+    final expanded = form == KuteFormFactor.expanded;
 
-    return Scaffold(
-      backgroundColor: context.isDark
-          ? context.colors.gradientBottom
-          : context.colors.background,
-      resizeToAvoidBottomInset: false,
-      body: Container(
-        decoration: AppDecorations.screenGradient(context),
-        child: PlatformSafeArea(
-          child: Column(
+    final page = Column(
             mainAxisSize: MainAxisSize.max,
             children: [
               Padding(
@@ -3683,6 +3854,7 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
               ),
               Expanded(
                 child: SingleChildScrollView(
+                  key: _cardArea,
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
                   child: Column(
@@ -3697,6 +3869,10 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
                             config: config,
                             onDeposit: onDeposit,
                             roundMinutes: minutes,
+                            // EXPANDED: the live chart has the left pane.
+                            chartHeight: expanded
+                                ? kuteWideChartHeight(context)
+                                : 200,
                           ),
                         )
                       else
@@ -3705,13 +3881,129 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
                           onDeposit: onDeposit,
                           ledgerWalletId: ledgerWalletId,
                           roundMinutes: minutes,
+                          chartHeight:
+                              expanded ? kuteWideChartHeight(context) : 200,
                         ),
                     ],
                   ),
                 ),
               ),
             ],
+          );
+
+    return Scaffold(
+      backgroundColor: context.isDark
+          ? context.colors.gradientBottom
+          : context.colors.background,
+      resizeToAvoidBottomInset: false,
+      body: Container(
+        decoration: AppDecorations.screenGradient(context),
+        child: PlatformSafeArea(
+          child: BetSlipInPlaceHost(
+            active: expanded,
+            defaultOpener: _openDefaultSlip,
+            child: switch (form) {
+              KuteFormFactor.compact => page,
+              KuteFormFactor.medium => kuteWideColumn(page),
+              KuteFormFactor.expanded => kuteWidePanes(
+                  left: page,
+                  right: KuteWideSlipPane(
+                    // The rounds of this coin the person holds.
+                    holds: (p) {
+                      final slug = p.eventSlug;
+                      final round =
+                          slug == null ? null : polyCryptoRoundOf(slug);
+                      return ledgerWalletId == null &&
+                          round != null &&
+                          polyRoundTicker(round.asset) == config.asset;
+                    },
+                  ),
+                ),
+            },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Wide layouts (platform/kute_layout.dart) ─────────────────────────────
+
+/// The chart's height on EXPANDED: about half the window, at least 380.
+double kuteWideChartHeight(BuildContext context) =>
+    math.max(380.0, MediaQuery.sizeOf(context).height * 0.5);
+
+/// MEDIUM: the phone's column, centred at [KuteLayout.columnMaxWidth].
+Widget kuteWideColumn(Widget page) => Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: KuteLayout.columnMaxWidth),
+        child: page,
+      ),
+    );
+
+/// EXPANDED: [left] (the page: its title, chart, outcomes and rules,
+/// scrolling) and [right] (the slip in place and the position), a
+/// [KuteLayout.paneWidth] column that stays put; the two centred at
+/// [KuteLayout.pageMaxWidth] with [KuteLayout.paneGap] between and at
+/// the sides.
+Widget kuteWidePanes({required Widget left, required Widget right}) => Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: left),
+              const SizedBox(width: KuteLayout.paneGap),
+              SizedBox(width: KuteLayout.paneWidth, child: right),
+            ],
+          ),
+        ),
+      ),
+    );
+
+/// The right pane on EXPANDED: the bet slip open in place
+/// ([BetSlipInPlacePane]) and, under it, the person's positions in this
+/// market ([holds]) as the Portfolio lists them (a tap opens the position,
+/// with Sell). The slip gives up height first; the positions scroll on
+/// their own past a third of the pane.
+class KuteWideSlipPane extends ConsumerWidget {
+  const KuteWideSlipPane({super.key, required this.holds});
+
+  final bool Function(PolymarketPosition p) holds;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final held = [
+      for (final p in ref.watch(polymarketActivePositionsProvider))
+        if (holds(p)) p,
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(
+          top: KuteLayout.paneGap / 2, bottom: KuteLayout.paneGap),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Flexible(child: BetSlipInPlacePane()),
+            if (held.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints:
+                    BoxConstraints(maxHeight: constraints.maxHeight / 3),
+                child: SingleChildScrollView(
+                  child: PortfolioCardList(rows: [
+                    for (final p in held)
+                      PolyPositionRow(
+                          key: ValueKey('wide-position-${p.tokenId}'),
+                          position: p),
+                  ]),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

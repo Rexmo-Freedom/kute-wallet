@@ -36,6 +36,7 @@ import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
+import 'package:kute/screens/polymarket/components/bet_slip_in_place.dart';
 // lib/screens/polymarket/components/bet_slip_sheet.dart
 //
 // Bet slip bottom sheet for placing bets on Polymarket outcomes.
@@ -557,14 +558,22 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     PolymarketEvent? event,
     SendPickSession? sendPick,
   }) async {
+    // A wide market page with the slip in its pane (bet_slip_in_place.dart)
+    // takes the slip there instead of a sheet, after the same guards. Its
+    // own quiet open (the pane opening on the market on screen, no tap)
+    // shows no notice and counts nothing.
+    final inPlace = BetSlipInPlaceHost.maybeOf(context);
+    final quiet = inPlace?.quietOpen ?? false;
     // A Ledger bet answers to Ledger Predictions (`ledger.polymarket`)
     // first, wherever the slip was opened from (the Ledger Predictions
     // tab, search, a market page). Sells, claims and withdrawals keep
     // their own capabilities and never come through here.
     if (ledgerWalletId != null &&
         !ledgerInvestmentAllowed(ledgerPredictionsCapability)) {
-      unawaited(showLedgerInvestmentUnavailable(
-          context, ledgerPredictionsCapability));
+      if (!quiet) {
+        unawaited(showLedgerInvestmentUnavailable(
+            context, ledgerPredictionsCapability));
+      }
       return;
     }
     // A market already over (closed, ended, or a short round past its
@@ -576,10 +585,12 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         question: marketQuestion,
         endAt: marketEndAt,
         now: debugClock())) {
-      showMessageSnackBar(
-          context: context,
-          message: context.l10n.builderMarketGone,
-          error: true);
+      if (!quiet) {
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.builderMarketGone,
+            error: true);
+      }
       return;
     }
     // A crypto Up-or-Down round past its cutoff (two minutes into a
@@ -594,7 +605,8 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // through here.
     if (polyRoundBuyClosed(marketSlug,
         endDate: marketEndAt, now: debugClock())) {
-      if (event != null &&
+      if (!quiet &&
+          event != null &&
           MarketDetailSheet.openRouteFor(event.slug) == null &&
           context.mounted) {
         MarketDetailSheet.show(context,
@@ -629,6 +641,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         step: 'amount',
         venue: 'polymarket',
         walletKind: walletKind);
+    if (!quiet) {
     TrackingService.screenView('bet_slip');
     TrackingService.polymarketBetSlipOpened(
       // Same id the placement events use for this market's outcome.
@@ -668,6 +681,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         ...polyRoundWindowParams(marketSlug, at: debugClock()),
       },
     );
+    }
     // NOTHING is awaited before the sheet is shown. The regional gate
     // used to run here, which meant a tap on an outcome sat on the old
     // screen for up to two network round-trips (provider availability
@@ -683,9 +697,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // (a long-standing Flutter gap) — that let a user swipe the sheet
     // away mid-placement. Dismissal is via tap-outside (isDismissible),
     // which DOES go through PopScope, so the placing-state lock holds.
-    _present(
-      context,
-      BetSlipSheet(
+    final slip = BetSlipSheet(
         marketQuestion: marketQuestion,
         marketSlug: marketSlug,
         marketImage: marketImage,
@@ -705,8 +717,9 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         source: source,
         event: event,
         sendPick: ledgerWalletId == null ? sendPick : null,
-      ),
-    );
+      );
+    if (inPlace != null && inPlace.present(slip)) return;
+    _present(context, slip);
   }
 
   /// The slip's sheet over everything (the root navigator), as [show]
@@ -796,6 +809,74 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// expanded. Purely presentational, so it stays on the page rather
   /// than on the shared draft.
   bool _expertOpen = false;
+
+  /// The slip open in place on a wide market page (bet_slip_in_place
+  /// .dart): no sheet around it, no close, its button drawn in it, and a
+  /// placed bet or an OK resets it instead of closing it. Null in a sheet
+  /// (and on the Advanced page, a route of its own).
+  BetSlipInPlaceLink? _inPlace;
+  bool _inPlaceRead = false;
+  bool get _isInPlace => _inPlace != null;
+
+  /// The keypad took no keys at the last build (a placement, a Ledger
+  /// lock): a hardware keyboard types nothing either.
+  bool _keypadLocked = false;
+
+  /// Reads the pane's link once (didChangeDependencies).
+  void _readInPlace() {
+    if (_inPlaceRead) return;
+    _inPlaceRead = true;
+    if (widget._advanced) return;
+    _inPlace = BetSlipInPlaceHost.linkOf(context);
+    if (_inPlace != null) HardwareKeyboard.instance.addHandler(_onHardwareKey);
+  }
+
+  /// A hardware keyboard types the amount on a slip in place (digits, the
+  /// point, backspace), through the keypad's own rules; never while a
+  /// text field has the focus, the keypad is locked or another route
+  /// covers the page.
+  bool _onHardwareKey(KeyEvent event) {
+    if (!mounted || !_isInPlace || _keypadLocked) return false;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+    final text = _amountController.text;
+    String? next;
+    if (event.logicalKey == LogicalKeyboardKey.backspace) {
+      next = amountBackspace(text);
+    } else {
+      final ch = event.character;
+      if (ch == null || ch.length != 1) return false;
+      if (RegExp(r'[0-9]').hasMatch(ch)) {
+        next = amountAppendKey(text, ch, maxDecimals: 2);
+      } else if (ch == '.' || ch == ',') {
+        next = amountAppendKey(text, '.', maxDecimals: 2);
+      }
+    }
+    if (next == null) return false;
+    if (next != text) _amountController.text = next;
+    return true;
+  }
+
+  /// In place, the slip's end (an OK, a placed bet on a page that stays)
+  /// gives the pane a fresh slip on the same market; in a sheet, the
+  /// sheet closes.
+  void _leaveInPlace() {
+    _onLeave();
+    _inPlace?.reset();
+  }
+
   bool get _ownsDraft => widget._sharedDraft == null;
   bool get _showAdvanced => widget._advanced;
   bool get _isLedger => widget.ledgerWalletId != null;
@@ -1106,6 +1187,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _readInPlace();
     _windowL10n = context.l10n;
     _window24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
     _draft.roundWindow ??=
@@ -1469,7 +1551,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       tapWhileBusy: true,
       busyLabel: context.l10n.ok,
       enabled: true,
-      onTap: () => Navigator.of(context).maybePop(),
+      onTap: _isInPlace
+          ? _leaveInPlace
+          : () => Navigator.of(context).maybePop(),
       label: context.l10n.ok,
       band: false,
     );
@@ -1875,6 +1959,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (!widget._advanced) {
       RegionFreshness.answers.removeListener(_onRegionAnswers);
     }
+    if (_isInPlace) HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     // Abandonment funnel signal — fires only when the user dismissed
     // the slip without proceeding to place an order. We pass the
     // market question as `market_id` (truncated to 80 chars by the
@@ -1883,7 +1968,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // analytics-safe. `had_amount` / `had_outcome_selected` give the
     // dashboard a 4-way breakdown of abandonment shape (no amount,
     // no outcome, partial, full-intent).
-    if (_ownsDraft && !_orderPlaced) {
+    // The pane's own quiet slip (bet_slip_in_place.dart) was never opened
+    // by a tap: left without an amount, it is not an abandoned slip.
+    final quietUntouched =
+        (_inPlace?.quiet ?? false) && !(_amount > 0);
+    if (_ownsDraft && !_orderPlaced && !quietUntouched) {
       try {
         TrackingService.betSlipAbandoned(
           marketId: widget.marketQuestion,
@@ -4633,10 +4722,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final side = stopped.outcomeName.trim().toLowerCase();
     final index = side == 'down' || side == 'no' ? 1 : 0;
     final navigator = Navigator.of(context, rootNavigator: true);
-    final host = navigator.context;
+    // In place, the page's pane takes the new round's slip.
+    final host = _isInPlace ? context : navigator.context;
     final onDeposit = widget.onDeposit;
     _clearFundedStop();
     _dismissPlacing();
+    // Nothing is placing any more: the pane may take the new slip now,
+    // before this one builds again.
+    _inPlace?.canLeave = true;
     // This slip (and its Advanced page, when open) gives way to the new
     // round's; the round sheet under it stays.
     navigator.popUntil(
@@ -4841,8 +4934,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   outcomes: widget.outcomes,
                   eventSlug: widget.marketSlug,
                 ),
-                keepMarketSheet: polyIsFastBetRound(widget.marketSlug),
+                keepMarketSheet:
+                    polyIsFastBetRound(widget.marketSlug) || _isInPlace,
               );
+              _inPlace?.reset();
             });
             return;
           }
@@ -4882,14 +4977,19 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     outcomes: widget.outcomes,
                     eventSlug: widget.marketSlug,
                   ),
+                  keepMarketSheet: _isInPlace,
                 );
+                _inPlace?.reset();
                 return;
               }
+              final inPlace = _inPlace;
               nav.popUntil((route) {
                 final name = route.settings.name;
                 return name != 'polymarket-bet-slip' &&
-                    name != 'polymarket-market-detail-sheet';
+                    (inPlace != null ||
+                        name != 'polymarket-market-detail-sheet');
               });
+              inPlace?.reset();
               final cost = limitIntent!.filledCost;
               final costLabel =
                   cost == null ? null : '\$${cost.toStringAsFixed(2)}';
@@ -4937,11 +5037,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             if (!mounted || _left) return;
             ref.read(pendingPolymarketBetProvider.notifier).clear();
             final nav = Navigator.of(context, rootNavigator: true);
+            final inPlace = _inPlace;
             nav.popUntil((route) {
               final name = route.settings.name;
               return name != 'polymarket-bet-slip' &&
-                  name != 'polymarket-market-detail-sheet';
+                  (inPlace != null ||
+                      name != 'polymarket-market-detail-sheet');
             });
+            inPlace?.reset();
             if (restingIntent == null) return;
             final price = restingIntent.limitPrice;
             final shares = restingIntent.orderedShares ??
@@ -5390,7 +5493,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             20.w,
             8.h,
             20.w,
-            fullscreen
+            fullscreen || _isInPlace
                 ? 16.h
                 : max(16.h, MediaQuery.of(context).padding.bottom)),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -5763,6 +5866,41 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         ),
       );
     }
+    // In place (bet_slip_in_place.dart): the same ticket in the side's
+    // colour, a card in the page's pane rather than a sheet: no top-only
+    // corners, no keyboard inset, no screen-height cap (the pane bounds
+    // it), its button drawn in it ([PolySlipInPlace]). The page cannot be
+    // left while the slip places (the same PopScope, on the page's route).
+    final inPlace = _inPlace;
+    if (inPlace != null) {
+      inPlace.canLeave = canLeave;
+      inPlace.leave = _onLeave;
+      return PopScope(
+        canPop: canLeave,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) _onLeave();
+        },
+        child: PolySlipInPlace(
+          theme: baseTheme,
+          child: KeyboardDismissOnTap(
+            child: tinted(
+              AnimatedContainer(
+                key: const ValueKey('bet-slip-in-place'),
+                duration: tintDuration,
+                curve: Curves.easeOut,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: selectedColor,
+                  borderRadius: BorderRadius.circular(24.r),
+                  border: Border.all(color: tintColors.border),
+                ),
+                child: SlipFit(child: ticket(fullscreen: false)),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     // Flipping side inside the sheet (Yes↔No, candidate Yes↔No) slides the
     // whole sheet to the other colour rather than cutting to it.
     return PopScope(
@@ -5962,6 +6100,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// the same draft, with the same two-decimal rule the formatter
   /// enforced. [locked] is the Ledger lock the form already carries.
   Widget _buildAmountKeypad(bool locked) {
+    _keypadLocked = locked;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8.w),
       child: AmountKeypad(
@@ -6988,9 +7127,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 4.h),
                 child: Row(
                   children: [
-                    KuteCloseButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                    if (!_isInPlace)
+                      KuteCloseButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
                   ],
                 ),
               ),
@@ -7058,12 +7198,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       await ref
                           .read(settingsProvider.notifier)
                           .setActiveWallet(spendingId);
-                      if (context.mounted) Navigator.of(context).pop();
+                      if (context.mounted && !_isInPlace) {
+                        Navigator.of(context).pop();
+                      }
                     } else {
                       if (context.mounted) {
                         TrackingService.track('add_wallet_cta_tapped',
                             params: {'source': 'prediction_slip'});
-                        Navigator.of(context).pop();
+                        if (!_isInPlace) Navigator.of(context).pop();
                         context.pushNamed('addWallet');
                       }
                     }
@@ -7090,6 +7232,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     return PolySlipHeader(
       marketQuestion: _shownQuestion,
       marketImage: widget.marketImage,
+      closable: !_isInPlace,
       // Send mode says it at the top (send_pick_session.dart).
       chip: send == null ? null : SendPickChip(session: send),
     );
