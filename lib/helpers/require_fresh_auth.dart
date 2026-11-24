@@ -58,6 +58,7 @@ import 'package:kute/screens/shared/step_up_review_again_sheet.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/web_biometrics.dart';
 
 /// Inputs for the small-action allowance (`SmallActionAllowance`): the
 /// order's USD amount. Pass it on every order the allowance may cover; the
@@ -423,9 +424,14 @@ Future<AuthGrantMethod?> _runPromptPolicy(
   // (`canCheckBiometrics` lies on iOS when Face ID is disabled).
   var biometricUsable = false;
   String? skippedReasonClass;
-  // No local_auth on web: the step-up goes straight to the Kute PIN.
+  // Web without a platform authenticator: straight to the Kute PIN.
   if (biometricsOn && !PlatformCaps.hasBiometrics) {
     skippedReasonClass = 'no_hardware';
+  } else if (biometricsOn && PlatformCaps.isWeb) {
+    // Web: "enrolled" is this browser's WebAuthn credential (a local
+    // gate, see web_biometrics.dart).
+    biometricUsable = WebBiometrics.enrolled;
+    if (!biometricUsable) skippedReasonClass = 'not_enrolled';
   } else if (biometricsOn) {
     try {
       final supported = await localAuth.isDeviceSupported();
@@ -512,6 +518,20 @@ Future<_BioResult> _authenticateBiometric(
   LocalAuthentication localAuth,
   String reason,
 ) async {
+  if (PlatformCaps.isWeb) {
+    // The browser's platform authenticator; a cancel or failure falls
+    // back to the Kute PIN, as a failed Face ID does.
+    try {
+      final result = await runBiometricPrompt(WebBiometrics.verify);
+      return switch (result) {
+        WebBiometricResult.approved => _BioResult.approved,
+        WebBiometricResult.cancelled => _BioResult.cancelled,
+        WebBiometricResult.failed => _BioResult.failed,
+      };
+    } catch (_) {
+      return _BioResult.error;
+    }
+  }
   try {
     // Step-up prompts fire over a live confirmation sheet. Scoping the
     // call keeps the app-switcher privacy cover down for the scan, so
