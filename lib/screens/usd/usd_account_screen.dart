@@ -198,6 +198,7 @@ import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
@@ -1008,7 +1009,10 @@ class _InvestmentsPanes extends ConsumerWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: left),
+                // The floating Sal bar sits under the browse
+                // (kute_wide_frames.dart, KuteBarPane), never over the
+                // money row on the right.
+                Expanded(child: KuteBarPane(child: left)),
                 const SizedBox(width: KuteLayout.paneGap),
                 const SizedBox(
                   width: KuteLayout.paneWidth,
@@ -1046,9 +1050,9 @@ class _InvestmentsActionPane extends StatelessWidget {
             ),
           ),
           const SliverToBoxAdapter(child: DollarsActivityTab(inPane: true)),
-          // The money row at the pane's foot, clear of the dock's room
-          // and the bar over it; under the positions when they need the
-          // height.
+          // The money row at the pane's foot (the bar sits under the left
+          // pane, so no room is kept for it here); under the positions
+          // when they need the height.
           SliverFillRemaining(
             hasScrollBody: false,
             child: Column(
@@ -1059,7 +1063,8 @@ class _InvestmentsActionPane extends StatelessWidget {
                   padding: EdgeInsets.fromLTRB(16, 16.h, 16, 0),
                   child: const UsdAccountActionRow(),
                 ),
-                SizedBox(height: kuteDockScrollClearance(context)),
+                SizedBox(
+                    height: MediaQuery.viewPaddingOf(context).bottom + 16.h),
               ],
             ),
           ),

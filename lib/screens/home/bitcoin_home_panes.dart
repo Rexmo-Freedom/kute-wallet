@@ -70,11 +70,15 @@ class BitcoinHomePanes extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // The floating Sal bar sits under the home, as on a
+                // phone (KuteBarPane).
                 SizedBox(
                   width: KuteLayout.paneWidth,
-                  child: kuteNarrowMedia(context,
+                  child: KuteBarPane(
+                    child: kuteNarrowMedia(context,
                       width: KuteLayout.paneWidth,
-                      child: const Home(showActivity: false)),
+                        child: const Home(showActivity: false)),
+                  ),
                 ),
                 const SizedBox(width: gap),
                 SizedBox(
