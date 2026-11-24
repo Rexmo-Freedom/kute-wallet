@@ -22,6 +22,7 @@ import 'package:kute/models/breez/lnurl_model.dart';
 import 'package:kute/models/breez/sdk_instance.dart' show BreezSdkSpark;
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/accounts_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart'
@@ -134,6 +135,7 @@ Future<void> openBitcoinReceive(
   Locale? locale,
   double textScale = 1,
   Future<void> Function(BuildContext context) open = showBitcoinQrReceiveSheet,
+  List<Override> overrides = const [],
 }) async {
   installShellBar();
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -170,10 +172,13 @@ Future<void> openBitcoinReceive(
           (ref, code) => Money.fromIntWithCurrency(6000000, AppCurrencies.usd)),
       walletBalanceCacheProvider.overrideWith((_) => _Balances()),
       breezSDKProvider.overrideWith((_) => Completer<BreezSdkSpark>().future),
+      ...overrides,
     ],
     // The app's own scale (app_widget.dart), which a small phone depends on.
     child: ScreenUtilInit(
-      designSize: const Size(430, 932),
+      // The app's (app_widget.dart): the phone design on a phone, the
+      // window itself from MEDIUM up.
+      designSize: KuteLayout.designSizeFor(size),
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (_, __) => MaterialApp(

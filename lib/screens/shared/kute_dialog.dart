@@ -52,6 +52,8 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteBarPrimaryButton, openKuteBarSheet;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_side_panel.dart'
+    show kuteSidePanelDecoration;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/theme/kute_overlay_surface.dart';
@@ -92,7 +94,12 @@ class KuteDialogRoute<T> extends PopupRoute<T> implements KuteBarSheetRoute {
     this.dismissible = true,
     this.fill = false,
     super.settings,
-  });
+  }) {
+    // A money flow opened from the top bar, or a step of one: a side
+    // panel (kute_wide_frames.dart, KuteSideFlow), decided as it opens.
+    side = KuteSideFlow.decide(this);
+    stacked = side && KuteSideFlow.anyOpen;
+  }
 
   final WidgetBuilder builder;
 
@@ -107,6 +114,12 @@ class KuteDialogRoute<T> extends PopupRoute<T> implements KuteBarSheetRoute {
   /// than hugging its content.
   final bool fill;
 
+  /// At the window's right edge, full height ([KuteDialogCard]).
+  late final bool side;
+
+  /// A side panel over a side panel: no second dim.
+  late final bool stacked;
+
   static bool get _reduceMotion => WidgetsBinding
       .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
 
@@ -114,7 +127,9 @@ class KuteDialogRoute<T> extends PopupRoute<T> implements KuteBarSheetRoute {
   bool get barrierDismissible => dismissible;
 
   @override
-  Color? get barrierColor => kutePanelBarrier;
+  Color? get barrierColor => side
+      ? (stacked ? Colors.transparent : kuteSidePanelBarrier)
+      : kutePanelBarrier;
 
   @override
   String? get barrierLabel => 'Dismiss';
@@ -149,6 +164,8 @@ class KuteDialogRoute<T> extends PopupRoute<T> implements KuteBarSheetRoute {
     );
     // The search panel's own way in and out.
     if (reduce) return FadeTransition(opacity: curved, child: child);
+    // A side panel slides in from the right by itself (KuteDialogCard).
+    if (side) return child;
     return kutePanelTransition(curved, child);
   }
 }
@@ -193,11 +210,18 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
   /// The content has had a frame to show its own X.
   bool _settled = false;
 
+  /// At the window's right edge, full height (kute_wide_frames.dart,
+  /// KuteSideFlow): a money flow opened from the top bar, or a step of
+  /// one.
+  late final bool _side = KuteSideFlow.decide(widget.route);
+
   @override
   void initState() {
     super.initState();
     // Read before this panel counts itself.
     _depth;
+    // Counted at once: a step opened in this very frame is at the side.
+    if (_side) KuteSideFlow.opened();
     // After the frame: the floating bar listens and rebuilds.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       kuteDialogsOpen.value = kuteDialogsOpen.value + 1;
@@ -207,6 +231,10 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
 
   @override
   void dispose() {
+    if (_side) KuteSideFlow.closed();
+    _slide?.dispose();
+    // [_surface] is not disposed either, as [_closeMarks] (a mark may
+    // report after this frame).
     // After the frame: the floating bar listens and rebuilds.
     WidgetsBinding.instance.addPostFrameCallback(
         (_) => kuteDialogsOpen.value = math.max(0, kuteDialogsOpen.value - 1));
@@ -230,6 +258,7 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (_side) return _buildSide(context);
     final mq = MediaQuery.of(context);
     final window = mq.size;
     final keyboard = mq.viewInsets.bottom;
@@ -318,6 +347,101 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
           padding: EdgeInsets.only(top: top),
           child: Align(alignment: Alignment.topCenter, child: panel),
         ),
+      ),
+    );
+  }
+
+  /// The side panel's slide in from the right, on the route's animation.
+  CurvedAnimation? _slide;
+
+  /// The colour the content paints itself, for the side panel to wear
+  /// (KuteDialogSurfaceMark).
+  final ValueNotifier<Color?> _surface = ValueNotifier<Color?>(null);
+
+  /// The side panel's build (see [_side]).
+  Widget _buildSide(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final window = mq.size;
+    final keyboard = mq.viewInsets.bottom;
+    final width = math.min(window.width, kuteSidePanelWidth);
+    final height = math.max(0.0, window.height - keyboard);
+
+    final content = MediaQuery(
+      // The panel is the content's screen: its width, the window's
+      // height, no system insets.
+      data: mq.copyWith(
+        size: Size(width, height),
+        padding: EdgeInsets.zero,
+        viewPadding: EdgeInsets.zero,
+        viewInsets: EdgeInsets.zero,
+      ),
+      child: KuteDialogScope(
+        route: widget.route,
+        closeMarks: _closeMarks,
+        surface: _surface,
+        child: Column(
+          children: [
+            // Content at the top, the primary pinned at the foot.
+            Expanded(child: widget.child),
+            KuteDialogFoot(route: widget.route),
+          ],
+        ),
+      ),
+    );
+
+    // The market side panel's surface (kute_side_panel.dart): the panel's
+    // colour, rounded only where it meets the page.
+    final base = widget.color ?? kutePanelDecoration(context).color!;
+    final panel = ValueListenableBuilder<Color?>(
+      valueListenable: _surface,
+      builder: (context, painted, child) => Container(
+        key: const ValueKey('kute-dialog-card'),
+        width: width,
+        height: height,
+        clipBehavior: Clip.antiAlias,
+        decoration: kuteSidePanelDecoration(painted ?? base),
+        child: child,
+      ),
+      child: Stack(
+        children: [
+          content,
+          if (widget.onDismiss != null)
+            Positioned(
+              top: 14,
+              right: 14,
+              child: ValueListenableBuilder<int>(
+                valueListenable: _closeMarks,
+                builder: (context, marks, _) => _settled && marks <= 0
+                    ? KuteCloseButton(
+                        key: const ValueKey('kute-dialog-close'),
+                        onPressed: widget.onDismiss)
+                    : const SizedBox.shrink(),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    // In from the right on the route's own animation.
+    final route = widget.route;
+    final animation = route is TransitionRoute ? route.animation : null;
+    final Widget moving = animation == null || KuteMotion.reduce(context)
+        ? panel
+        : SlideTransition(
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .animate(_slide ??= CurvedAnimation(
+              parent: animation,
+              curve: KuteMotion.settle,
+              reverseCurve: KuteMotion.sheetOut,
+            )),
+            child: panel,
+          );
+
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: KuteOverlaySurface(
+        child: Align(alignment: Alignment.topRight, child: moving),
       ),
     );
   }
