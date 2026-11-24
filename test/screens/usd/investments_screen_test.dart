@@ -75,6 +75,7 @@ import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
     show PolyOrderRow;
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/screens/portfolio/components/portfolio_hero.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_screen.dart';
@@ -319,8 +320,9 @@ const _btcPosition = HlPerpPosition(
     leverageValue: 10,
     maxLeverage: 40);
 
-/// The figure of the hero's "Invested · Available" line, [half] being
-/// `invested` or `available`.
+/// The figure of a half of the hero's line under the total, [half] being
+/// `available` (or `invested`, where the "Invested · Available" line is
+/// drawn).
 String _splitFigure(WidgetTester tester, String half) => tester
     .widget<RollingNumberText>(find.descendant(
         of: find.byKey(ValueKey('investments-balance-$half')),
@@ -433,8 +435,10 @@ void main() {
 
     // The one-balance hero, once, above the pills: no title, the total
     // with the portfolio glyph after it (it opens the Portfolio; founder,
-    // 13 November 2026), and "Invested · Available" under it, adding up to
-    // it (founder, 4 November 2026). Nothing open: no open P&L line.
+    // 13 November 2026), and under it the open positions' up or down in
+    // Invested's place, then Available (founder, 24 November 2026).
+    // Nothing open: "Available $25.00" alone, the whole total; no P&L
+    // figure, no Invested, no separate open P&L line.
     final header =
         tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
     expect(header.totalLabel, isNull);
@@ -442,9 +446,14 @@ void main() {
     expect(header.amountText, r'$25.00');
     expect(header.availableText, isNull);
     expect(header.investedText, isNull);
-    expect(_splitFigure(tester, 'invested'), r'$0.00');
+    expect(find.byKey(const ValueKey('investments-balance-split')),
+        findsOneWidget);
     expect(_splitFigure(tester, 'available'), r'$25.00');
-    expect(find.text('${l10n.betInvested} '), findsOneWidget);
+    expect(find.byKey(const ValueKey('investments-balance-invested')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('investments-balance-open-pnl-figure')),
+        findsNothing);
+    expect(find.text('${l10n.betInvested} '), findsNothing);
     expect(find.text('${l10n.available} '), findsOneWidget);
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
         findsOneWidget);
@@ -1540,36 +1549,65 @@ void main() {
       '"under the main balance what is happening. Do not have this")',
       (tester) async {
     final events = recordEvents();
-    await pumpInvestments(tester,
-        balance: const OneBalanceState(
-            dollarsUsd: 25,
-            investedUsd: 0,
-            investingKnown: true,
-            predictionsKnown: true,
-            inFlight: [
-              InFlightMove(
-                  kind: InFlightKind.toVenue,
+    const state = OneBalanceState(
+        dollarsUsd: 25,
+        investedUsd: 0,
+        investingKnown: true,
+        predictionsKnown: true,
+        inFlight: [
+          InFlightMove(
+              kind: InFlightKind.toVenue,
+              venue: OneBalanceVenue.predictions,
+              usd: 5,
+              order: InFlightOrder(
+                  id: 'fo_bet',
                   venue: OneBalanceVenue.predictions,
-                  usd: 5,
-                  order: InFlightOrder(
-                      id: 'fo_bet',
-                      venue: OneBalanceVenue.predictions,
-                      orderUsd: 5,
-                      side: 'Yes',
-                      market: 'Lakers vs Celtics')),
-            ]));
+                  orderUsd: 5,
+                  side: 'Yes',
+                  market: 'Lakers vs Celtics')),
+        ]);
+    await pumpInvestments(tester, balance: state);
     final l10n = _l10n(tester);
-    // $30.00 in all: $5.00 on its way to the bet, Invested already;
-    // $25.00 Available; no line under the split.
+    // $30.00 in all: $5.00 on its way to the bet, Invested already (so
+    // not Available); $25.00 Available; nothing else under the total: no
+    // up or down (the order is no open position yet), no line.
     expect(tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader))
         .amountText, r'$30.00');
-    expect(_splitFigure(tester, 'invested'), r'$5.00');
     expect(_splitFigure(tester, 'available'), r'$25.00');
+    expect(find.byKey(const ValueKey('investments-balance-open-pnl-figure')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('investments-balance-invested')),
+        findsNothing);
     expect(find.textContaining('Placing'), findsNothing);
     expect(find.byType(PendingDepositLine), findsNothing);
     expect(find.text('${l10n.available} '), findsOneWidget);
+    expect(find.text('${l10n.betInvested} '), findsNothing);
     expect(events.where((e) => e.$1 == 'investments_balance_tapped'), isEmpty);
     expect(events.where((e) => e.$1 == 'activity_history_opened'), isEmpty);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+
+    // The Portfolio hero, which still writes Invested, has the $5.00 in
+    // it at once.
+    await pumpInvestments(tester,
+        balance: state,
+        child: const Scaffold(
+            body: SingleChildScrollView(child: PortfolioHero())));
+    expect(
+        tester
+            .widget<BalancesLiveFigure>(
+                find.byKey(const ValueKey('portfolio-hero-invested')))
+            .figure
+            .text,
+        r'$5.00');
+    expect(
+        tester
+            .widget<BalancesLiveFigure>(
+                find.byKey(const ValueKey('portfolio-hero-available')))
+            .figure
+            .text,
+        r'$25.00');
+    expect(find.textContaining('Placing'), findsNothing);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

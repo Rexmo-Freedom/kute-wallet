@@ -1,6 +1,7 @@
 // "Portfolio also do not translate to euros or whatever, keep it in dollars"
 // (founder, 8 November 2026). With euros in Settings and a rate far from 1:
-// the Dollars header, the Portfolio's hero and positions, the Dollars
+// the Dollars header (its total, the open positions' up or down, Available),
+// the Portfolio's hero and positions, the Dollars
 // Overview (the squares, the Open P&L) read the USD figures, each
 // equal to the USD input, with no euro on screen. Bitcoin's own conversion
 // still follows Settings.
@@ -97,14 +98,31 @@ void main() {
   });
 
   testWidgets('the Dollars header: the USD figures, no euro', (tester) async {
+    // A perp down 2 cents on its $1 margin: the line under the total
+    // writes what the open positions are up or down, in dollars, where
+    // Invested was (founder, 24 November 2026), then Available.
     await pumpInvestments(tester,
-        balance: _state, currency: 'EUR', overrides: [euroRateOverride()]);
+        balance: _state,
+        currency: 'EUR',
+        overrides: [
+          euroRateOverride(),
+          hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+              HyperliquidTradingState(
+                  isInitialized: true, positions: [_perp('BTC', -0.02)]))),
+        ]);
     expect(
         tester
             .widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader))
             .amountText,
         r'$35.68');
-    expect(_rolling(tester, 'investments-balance-invested'), r'$12.35');
+    expect(
+        tester
+            .widget<RollingNumberText>(find
+                .byKey(const ValueKey('investments-balance-open-pnl-figure')))
+            .text,
+        r'▼ $0.02 (−2.0%)');
+    expect(find.byKey(const ValueKey('investments-balance-invested')),
+        findsNothing);
     expect(_rolling(tester, 'investments-balance-available'), r'$23.33');
     expectNoEuroOnScreen(tester);
     await unmountInvestments(tester);
