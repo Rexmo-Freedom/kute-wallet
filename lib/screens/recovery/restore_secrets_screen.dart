@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/seed_word_tile.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -544,65 +545,118 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final wallets = ref.watch(settingsProvider.select((s) => s.wallets));
+    if (kuteIsExpanded(context)) return _buildWide(wallets);
     return Scaffold(
       backgroundColor: c.background,
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.fromLTRB(20.w, 32.h, 20.w, 24.h),
           children: [
-            Text(
-              context.l10n.restoreSecretsTitle,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 26.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                height: 1.1,
-              ),
-            ),
+            _title(),
             SizedBox(height: 10.h),
-            Text(
-              context.l10n.restoreSecretsBody,
-              style: TextStyle(
-                color: c.textSecondary,
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w500,
-                height: 1.35,
-              ),
-            ),
+            _body(),
             SizedBox(height: 24.h),
             for (final wallet in wallets) ...[
-              _RestoreWalletRow(
-                wallet: wallet,
-                state: _rows[wallet.id] ?? _RowState(),
-                onEnterPhrase: () => _enterPhrase(wallet),
-                onUseLegacyCopy: () => _useLegacyCopy(wallet),
-                onUsePasskey: () => _usePasskey(wallet),
-                onUsePhraseInstead: _addAsNewWallet,
-              ),
+              _walletRow(wallet),
               SizedBox(height: 12.h),
             ],
             if (widget.reason != RestoreSecretsReason.storageUnavailable) ...[
               SizedBox(height: 4.h),
-              AppTextButton(
-                key: const ValueKey('restore-start-fresh'),
-                text: context.l10n.restoreStartFresh,
-                textColor: c.error,
-                onPressed: _startFresh,
-              ),
+              _startFreshButton(),
             ],
             // THE BAR IS THE BUTTON (kute_bar_context.dart): Done is the
             // floating Sal bar's primary action; Start fresh sits above it.
-            KuteBarContextScope(
-              barContext: KuteBarContext.primary(
-                label: context.l10n.done,
-                onPrimary: _done,
-                source: 'restore_secrets',
-                disabledLabel: null,
-              ),
-              child: SizedBox(height: kuteBarScrollClearance.h),
-            ),
+            _donePrimary(SizedBox(height: kuteBarScrollClearance.h)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _title() {
+    final c = context.colors;
+    return Text(
+      context.l10n.restoreSecretsTitle,
+      style: TextStyle(
+        color: c.textPrimary,
+        fontSize: 26.sp,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
+        height: 1.1,
+      ),
+    );
+  }
+
+  Widget _body() {
+    final c = context.colors;
+    return Text(
+      context.l10n.restoreSecretsBody,
+      style: TextStyle(
+        color: c.textSecondary,
+        fontSize: 15.sp,
+        fontWeight: FontWeight.w500,
+        height: 1.35,
+      ),
+    );
+  }
+
+  Widget _walletRow(WalletConfig wallet) => _RestoreWalletRow(
+        wallet: wallet,
+        state: _rows[wallet.id] ?? _RowState(),
+        onEnterPhrase: () => _enterPhrase(wallet),
+        onUseLegacyCopy: () => _useLegacyCopy(wallet),
+        onUsePasskey: () => _usePasskey(wallet),
+        onUsePhraseInstead: _addAsNewWallet,
+      );
+
+  Widget _startFreshButton() => AppTextButton(
+        key: const ValueKey('restore-start-fresh'),
+        text: context.l10n.restoreStartFresh,
+        textColor: context.colors.error,
+        onPressed: _startFresh,
+      );
+
+  Widget _donePrimary(Widget child) => KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: context.l10n.done,
+          onPrimary: _done,
+          source: 'restore_secrets',
+          disabledLabel: null,
+        ),
+        child: child,
+      );
+
+  /// EXPANDED (round three): the title, the explanation and Start fresh in
+  /// a column on the left gutter, the wallets as a grid of their cards
+  /// across the rest of the window (seed_word_tile.dart, KuteSeedWidePage).
+  Widget _buildWide(List<WalletConfig> wallets) {
+    return Scaffold(
+      backgroundColor: context.colors.background,
+      body: SafeArea(
+        child: KuteSeedWidePage(
+          top: 32,
+          side: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _title(),
+              SizedBox(height: 10.h),
+              _body(),
+              if (widget.reason != RestoreSecretsReason.storageUnavailable) ...[
+                SizedBox(height: 16.h),
+                _startFreshButton(),
+              ],
+              _donePrimary(const SizedBox.shrink()),
+            ],
+          ),
+          main: KuteGrid(
+            minItemWidth: 300,
+            maxColumns: 3,
+            gap: 12,
+            rowGap: 12,
+            // The cards of a row as tall as the tallest.
+            equalHeight: true,
+            children: [for (final wallet in wallets) _walletRow(wallet)],
+          ),
         ),
       ),
     );

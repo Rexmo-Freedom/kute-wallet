@@ -33,9 +33,11 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/seed_word_tile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -610,6 +612,20 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isKeyboardVisible = bottomInset > 0;
 
+    if (wordsState.loading && kuteIsExpanded(context)) {
+      return Scaffold(
+        backgroundColor: c.background,
+        body: SafeArea(
+          child: KuteSeedWidePage(
+            top: 80,
+            physics: const NeverScrollableScrollPhysics(),
+            side: KuteSkeleton(
+                child: SkeletonBar(double.infinity, 48, radius: 12)),
+            main: const SkeletonWordGrid(crossAxisCount: 4, aspectRatio: 4),
+          ),
+        ),
+      );
+    }
     if (wordsState.loading) {
       // Skeleton grid mimicking the 12 word-input chips about to render.
       return Scaffold(
@@ -623,6 +639,86 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         ),
       );
     }
+
+
+    final intro = Text(
+      context.l10n.recoverWithRecoveryPhrase,
+      style: TextStyle(
+        color: c.textSecondary,
+        fontSize: 15.sp,
+        height: 1.35,
+      ),
+        );
+    final nameField = Container(
+      decoration: BoxDecoration(
+        color: c.surfaceLight,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
+      child: TextField(
+        controller: _nameController,
+        style: TextStyle(color: c.textPrimary, fontSize: 15.sp, fontWeight: FontWeight.w600),
+        cursorColor: context.colors.accent,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.all(14.w),
+          hintText: context.l10n.accountName,
+          hintStyle: TextStyle(color: c.textTertiary, fontSize: 15.sp),
+          prefixIcon: Icon(Icons.label_outline_rounded, color: c.textTertiary, size: 18.sp),
+        ),
+      ),
+        );
+    final phraseHeader = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(child: Text(
+          context.l10n.recoveryPhraseSectionLabel,
+          style: TextStyle(color: c.textTertiary, fontSize: 14.sp, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+        )),
+        SizedBox(width: 8.w),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: () {
+                TrackingService.recoveryQrScannerOpened();
+                _scanRecoveryQR();
+              },
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: c.surfaceLight,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: c.borderSubtle, width: 0.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.qr_code_scanner_rounded, size: 14.sp, color: c.textPrimary),
+                    SizedBox(width: 4.w),
+                    Text(context.l10n.scan, style: TextStyle(color: c.textPrimary, fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(width: 8.w),
+            if (widget.bitcoinOnly) Text('12 words', style: TextStyle(color: c.textSecondary, fontSize: 13.sp)) else _buildWordCountToggle(),
+          ],
+        ),
+      ],
+        );
+    final paste = AppButton(
+      key: const ValueKey('recover-paste'),
+      text: context.l10n.paste,
+      icon: Icons.content_paste_rounded,
+      variant: AppButtonVariant.secondary,
+      onPressed: _isProcessing ? null : _pastePhrase,
+        );
+    // EXPANDED (round three): the explanation, the name and Paste in a
+    // column on the left gutter, the word fields four across the rest of
+    // the window (seed_word_tile.dart, KuteSeedWidePage).
+    final wide = kuteIsExpanded(context);
 
     return SecureScreen(
       surface: 'recover_wallet',
@@ -641,8 +737,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         systemOverlayStyle: Theme.of(context).brightness == Brightness.light
             ? SystemUiOverlayStyle.dark
             : SystemUiOverlayStyle.light,
-        centerTitle: true,
-        leading: KuteBackButton(
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? kuteSeedLeadingWidth(context) : null,
+        leading: _leading(wide, KuteBackButton(
           onPressed: () {
             if (_isProcessing) return;
             if (widget.bitcoinOnly) {
@@ -655,7 +753,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
             ref.read(pinProvider.notifier).state = '';
             context.go('/start');
           },
-        ),
+        )),
         title: Text(
           context.l10n.recoverAccount,
           style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.bold, fontSize: 18.sp),
@@ -667,6 +765,50 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         child: Stack(
           alignment: Alignment.topCenter,
           children: [
+            if (wide)
+              SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: KuteSeedWidePage(
+                        physics: const BouncingScrollPhysics(),
+                        top: 16,
+                        side: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            intro,
+                            SizedBox(height: 16.h),
+                            nameField,
+                            SizedBox(height: 12.h),
+                            if (widget.bitcoinOnly) ...[
+                              _bitcoinAddressTypeField(),
+                              SizedBox(height: 12.h),
+                            ],
+                            paste,
+                          ],
+                        ),
+                        main: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            phraseHeader,
+                            SizedBox(height: 12.h),
+                            SecureContent(
+                                child: _buildMnemonicGrid(wide: true)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isKeyboardVisible && _filteredWords.isNotEmpty)
+                      SecureContent(
+                        hidden: const SizedBox.shrink(),
+                        child: _buildSuggestionBar(0),
+                      ),
+                    // The page's scroll keeps the bar's clearance.
+                    _buildSubmitButton(child: const SizedBox.shrink()),
+                  ],
+                ),
+              )
+            else
             SafeArea(
               child: Column(
                 children: [
@@ -679,35 +821,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
                         children: [
                           SizedBox(height: 8.h),
 
-                          Text(
-                            context.l10n.recoverWithRecoveryPhrase,
-                            style: TextStyle(
-                              color: c.textSecondary,
-                              fontSize: 15.sp,
-                              height: 1.35,
-                            ),
-                          ),
+                          intro,
                           SizedBox(height: 16.h),
 
-                          Container(
-                            decoration: BoxDecoration(
-                              color: c.surfaceLight,
-                              borderRadius: BorderRadius.circular(12.r),
-                              border: Border.all(color: c.borderSubtle, width: 0.5),
-                            ),
-                            child: TextField(
-                              controller: _nameController,
-                              style: TextStyle(color: c.textPrimary, fontSize: 15.sp, fontWeight: FontWeight.w600),
-                              cursorColor: context.colors.accent,
-                              decoration: InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.all(14.w),
-                                hintText: context.l10n.accountName,
-                                hintStyle: TextStyle(color: c.textTertiary, fontSize: 15.sp),
-                                prefixIcon: Icon(Icons.label_outline_rounded, color: c.textTertiary, size: 18.sp),
-                              ),
-                            ),
-                          ),
+                          nameField,
 
                           SizedBox(height: 12.h),
 
@@ -715,56 +832,11 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
                             _bitcoinAddressTypeField(),
                             SizedBox(height: 12.h),
                           ],
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(child: Text(
-                                context.l10n.recoveryPhraseSectionLabel,
-                                style: TextStyle(color: c.textTertiary, fontSize: 14.sp, fontWeight: FontWeight.w700, letterSpacing: 0.5),
-                              )),
-                              SizedBox(width: 8.w),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  InkWell(
-                                    onTap: () {
-                                      TrackingService.recoveryQrScannerOpened();
-                                      _scanRecoveryQR();
-                                    },
-                                    borderRadius: BorderRadius.circular(AppRadius.md),
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                                      decoration: BoxDecoration(
-                                        color: c.surfaceLight,
-                                        borderRadius: BorderRadius.circular(AppRadius.md),
-                                        border: Border.all(color: c.borderSubtle, width: 0.5),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.qr_code_scanner_rounded, size: 14.sp, color: c.textPrimary),
-                                          SizedBox(width: 4.w),
-                                          Text(context.l10n.scan, style: TextStyle(color: c.textPrimary, fontSize: 14.sp, fontWeight: FontWeight.w600)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(width: 8.w),
-                                  if (widget.bitcoinOnly) Text('12 words', style: TextStyle(color: c.textSecondary, fontSize: 13.sp)) else _buildWordCountToggle(),
-                                ],
-                              ),
-                            ],
-                          ),
+                          phraseHeader,
                           SizedBox(height: 12.h),
                           SecureContent(child: _buildMnemonicGrid()),
                           SizedBox(height: 12.h),
-                          AppButton(
-                            key: const ValueKey('recover-paste'),
-                            text: context.l10n.paste,
-                            icon: Icons.content_paste_rounded,
-                            variant: AppButtonVariant.secondary,
-                            onPressed: _isProcessing ? null : _pastePhrase,
-                          ),
+                          paste,
 
                           SizedBox(height: 16.h),
                         ],
@@ -838,7 +910,18 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     );
   }
 
-  Widget _buildMnemonicGrid() {
+  Widget _leading(bool wide, Widget back) =>
+      wide ? kuteSeedLeading(context, back) : back;
+
+  Widget _buildMnemonicGrid({bool wide = false}) {
+    // EXPANDED: four across the width (12 words 4 x 3, 24 words 4 x 6).
+    if (wide) {
+      return KuteSeedWordGrid(
+        count: _totalWords,
+        height: 52,
+        itemBuilder: (context, index) => _wordField(context, index),
+      );
+    }
     // Two well-spaced columns instead of the old cramped 3-up grid so
     // words are comfortably readable and tappable.
     return GridView.builder(
@@ -851,7 +934,11 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         mainAxisExtent: 52.h,
       ),
       itemCount: _totalWords,
-      itemBuilder: (context, index) {
+      itemBuilder: _wordField,
+    );
+  }
+
+  Widget _wordField(BuildContext context, int index) {
         // Extracted widget (not an inline builder closure) so a live
         // theme change re-resolves Theme.of correctly per repo rule.
         return _WordInputField(
@@ -868,8 +955,6 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
             }
           },
         );
-      },
-    );
   }
 
   Widget _buildSuggestionBar(double bottomInset) {
@@ -918,7 +1003,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     );
   }
 
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton({Widget? child}) {
     // THE BAR IS THE BUTTON (kute_bar_context.dart): Recover account is
     // the floating Sal bar's primary action, disabled until the grid is
     // full, busy while the account is restored.
@@ -931,7 +1016,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         source: 'recover_wallet',
         disabledLabel: context.l10n.barNeedPhrase,
       ),
-      child: SizedBox(height: kuteBarScrollClearance.h),
+      child: child ?? SizedBox(height: kuteBarScrollClearance.h),
     );
   }
 }
