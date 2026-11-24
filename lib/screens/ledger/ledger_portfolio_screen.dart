@@ -174,6 +174,8 @@ class LedgerPortfolioScreen extends StatelessWidget {
     required InvestmentsProduct product,
   }) =>
       Navigator.of(context, rootNavigator: true).push<void>(KutePageRoute(
+          // EXPANDED: across the window, each tab's cards in columns.
+          wide: KuteWideMode.full,
           builder: (_) =>
               LedgerPortfolioScreen(walletId: walletId, product: product)));
 }
