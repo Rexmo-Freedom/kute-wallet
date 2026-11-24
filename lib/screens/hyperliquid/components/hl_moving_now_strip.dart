@@ -63,6 +63,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/shared/market_groups.dart' show kMarketGridGutter;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -446,7 +447,9 @@ class HlSquaresRow extends StatelessWidget {
       if (box.maxWidth < kOneRowMinWidth) {
         return ActivitySquareGrid(children: children);
       }
-      final gap = 10.w;
+      // EXPANDED: the page grid's gutter, so the squares' edges are the
+      // list's columns' (market_groups.dart, marketGridAlignedColumns).
+      final gap = KuteLayout.isExpanded(context) ? kMarketGridGutter : 10.w;
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

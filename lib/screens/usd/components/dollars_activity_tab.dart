@@ -154,6 +154,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
     show hyperliquidDisplayTradingProvider;
 import 'package:kute/providers/open_pnl_history_provider.dart'
@@ -174,7 +175,7 @@ import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlResultColor;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
-        kPortfolioSquareGap,
+        PortfolioPositionSquareRow,
         PortfolioPositionSquares,
         PortfolioRowStatusScope,
         PortfolioSquaresSkeleton;
@@ -194,6 +195,7 @@ import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
 import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
+import 'package:kute/screens/shared/market_groups.dart' show kMarketGridGutter;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart'
@@ -432,25 +434,23 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
 ///
-/// [inPane]: the Dollars page's right pane on EXPANDED, under Investing
-/// and Predictions (usd_account_screen.dart): the same blocks as a plain
-/// column, no scroll of its own and no room for the dock under it (the
-/// pane holds both).
-///
-/// [wide]: the Overview pill itself on EXPANDED, the left pane (founder,
-/// 24 November 2026: "Overview is open positions"): the same cards given
-/// the room, the squares in one row of up to four (two of the phone's
-/// pairs side by side, the no-orphan rule kept within each), the Open
-/// profits card across the pane with a taller line; nothing open, the
-/// phone's Sal centred in the pane.
+/// [wide]: the Overview pill on EXPANDED (round two, 25 November 2026: one
+/// centred page, the hero over the pills, the pill's content across the
+/// page; usd_account_screen.dart): the same cards on the page's four-column
+/// grid, the squares (up to four) in one centred row, the Open profits card
+/// two columns wide and centred under them; nothing open, the phone's Sal
+/// on the page's axis close under the pills.
 class DollarsActivityTab extends ConsumerStatefulWidget {
-  const DollarsActivityTab({super.key, this.inPane = false, this.wide = false});
+  const DollarsActivityTab({super.key, this.wide = false});
 
-  final bool inPane;
   final bool wide;
 
-  /// The Open profits line's height on the [wide] pane, design units.
+  /// The Open profits line's height on the [wide] page, design units.
   static const double widePlotHeight = 180;
+
+  /// Nothing open on the [wide] page: the room between the pills and
+  /// Sal, design units.
+  static const double wideEmptyTop = 40;
 
   @override
   ConsumerState<DollarsActivityTab> createState() => _DollarsActivityTabState();
@@ -485,61 +485,96 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
       required bool loading,
       required Widget? empty}) {
     final clearance = SizedBox(height: 24.h + kuteDockScrollClearance(context));
+    const physics =
+        AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics());
     if (empty != null) {
-      // Nothing open: Sal in the middle of the pane, still pulling to
-      // refresh.
-      return LayoutBuilder(
+      // Nothing open: the phone's Sal on the page's axis, close under the
+      // pills (never floating in the middle of an empty page), still
+      // pulling to refresh.
+      return CustomScrollView(
         key: const ValueKey('dollars-activity-list'),
-        builder: (context, box) => SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: box.maxHeight),
-            child: Center(child: empty),
+        physics: physics,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: DollarsActivityTab.wideEmptyTop),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(maxWidth: KuteLayout.paneWidth),
+                  child: empty,
+                ),
+              ),
+            ),
           ),
-        ),
-      );
-    }
-    // Two of the phone's pairs side by side: four squares in a row, three
-    // as a pair beside the full-width card, two (or one) as full-width
-    // cards side by side (the no-orphan rule within each half).
-    Widget positions() {
-      final n = squares.length;
-      final split = n == 2 ? 1 : 2;
-      final left = squares.sublist(0, split.clamp(0, n));
-      final right = n > split ? squares.sublist(split) : const <Widget>[];
-      Widget half(List<Widget> rows) => rows.isEmpty
-          ? const SizedBox.shrink()
-          : PortfolioPositionSquares(holdings: true, rows: rows);
-      return Row(
-        key: const ValueKey('dollars-activity-squares'),
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: half(left)),
-          SizedBox(width: kPortfolioSquareGap.w),
-          Expanded(child: half(right)),
+          SliverToBoxAdapter(child: clearance),
         ],
       );
     }
-
+    // The page's grid: four columns across the content, the market lists'
+    // own gutter between them (market_groups.dart), so the Overview's
+    // edges are the Investing pill's. The squares (up to four) one row of
+    // columns, centred; the Open profits card two columns wide under
+    // them, centred on the same axis.
     return CustomScrollView(
       key: const ValueKey('dollars-activity-list'),
-      physics:
-          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics: physics,
       slivers: [
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              _Heading(context.l10n.accountOpenPositions,
-                  key: const ValueKey('dollars-activity-positions-heading')),
-              if (squares.isNotEmpty)
-                positions()
-              else if (loading)
-                const PortfolioSquaresSkeleton(
-                    key: ValueKey('dollars-activity-loading')),
-              const DollarsPnlStrip(
-                  plotHeight: DollarsActivityTab.widePlotHeight),
-            ]),
+          sliver: SliverToBoxAdapter(
+            child: LayoutBuilder(builder: (context, box) {
+              const gap = kMarketGridGutter;
+              final column = (box.maxWidth - gap * 3) / 4;
+              final pair = column * 2 + gap;
+              final n = squares.length;
+              final blockWidth =
+                  n <= 2 ? pair : column * n + gap * (n - 1);
+              final Widget positions = squares.isNotEmpty
+                  ? PortfolioPositionSquareRow(
+                      key: const ValueKey('dollars-activity-squares'),
+                      rows: squares,
+                      columnWidth: column,
+                      gap: gap)
+                  : SizedBox(
+                      width: pair,
+                      child: const PortfolioSquaresSkeleton(
+                          key: ValueKey('dollars-activity-loading')),
+                    );
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // The heading on the squares' own left edge.
+                  if (squares.isNotEmpty || loading)
+                    Center(
+                      child: SizedBox(
+                        width: blockWidth,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // On the squares' edge, as the page's other
+                            // headings (round two).
+                            _Heading(context.l10n.accountOpenPositions,
+                                inset: 0,
+                                key: const ValueKey(
+                                    'dollars-activity-positions-heading')),
+                            positions,
+                          ],
+                        ),
+                      ),
+                    ),
+                  SizedBox(height: 8.h),
+                  Center(
+                    child: SizedBox(
+                      width: pair,
+                      child: const DollarsPnlStrip(
+                          plotHeight: DollarsActivityTab.widePlotHeight),
+                    ),
+                  ),
+                ],
+              );
+            }),
           ),
         ),
         SliverToBoxAdapter(child: clearance),
@@ -624,9 +659,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         for (final o in all)
           if (standing.placedInAccount(o, fills)) o.id,
       };
-      // Settled once: by the Overview pill's own page, which is always
-      // mounted, never again by the right pane's copy on EXPANDED.
-      if (placedNow.isNotEmpty && !widget.inPane) {
+      // Settled by the Overview pill's own page, which is always mounted.
+      if (placedNow.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) standing.settleInvestingFromFills(fills);
         });
@@ -720,25 +754,6 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
           squares: squares, loading: loading, empty: empty);
     }
 
-    if (widget.inPane) {
-      return Column(
-        key: const ValueKey('dollars-activity-pane'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: blocks,
-            ),
-          ),
-          if (empty != null) empty,
-        ],
-      );
-    }
-
     return CustomScrollView(
       key: const ValueKey('dollars-activity-list'),
       slivers: [
@@ -760,13 +775,16 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
 /// ("Latest", all_activity.dart), on the page's 16 gutter plus the cards'
 /// 12 inset: every heading on one line, 12 inside the blocks' one edge.
 class _Heading extends StatelessWidget {
-  const _Heading(this.label, {super.key});
+  const _Heading(this.label, {super.key, this.inset = 12});
 
   final String label;
 
+  /// Inside the blocks' edge: the cards' own 12 on a phone.
+  final double inset;
+
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(12.w, 14.h, 12.w, 8.h),
+        padding: EdgeInsets.fromLTRB(inset.w, 14.h, inset.w, 8.h),
         // Wraps rather than cut (founder: no cut text on the Overview).
         child: Text(
           label,

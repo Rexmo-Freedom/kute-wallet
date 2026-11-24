@@ -472,6 +472,55 @@ class PortfolioPositionSquares extends StatelessWidget {
   }
 }
 
+/// The Dollars Overview's squares on EXPANDED (usd_account_screen.dart,
+/// round two): [rows] as holdings squares side by side in ONE row, each
+/// [columnWidth] wide (a column of the page's grid), [gap] apart, all as
+/// tall as the tallest; the row as wide as it needs, for its caller to
+/// centre. One alone is the wide card, two columns wide (the no-orphan
+/// rule kept).
+class PortfolioPositionSquareRow extends StatelessWidget {
+  const PortfolioPositionSquareRow(
+      {super.key,
+      required this.rows,
+      required this.columnWidth,
+      required this.gap});
+
+  final List<Widget> rows;
+  final double columnWidth;
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.length == 1) {
+      return SizedBox(
+        width: columnWidth * 2 + gap,
+        child: PortfolioRowLayoutScope(
+          layout: PortfolioRowLayout.wide,
+          holdings: true,
+          child: rows.single,
+        ),
+      );
+    }
+    return PortfolioRowLayoutScope(
+      layout: PortfolioRowLayout.square,
+      holdings: true,
+      squareInnerWidth: columnWidth - _kSquarePad.w * 2,
+      child: IntrinsicHeight(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) SizedBox(width: gap),
+              SizedBox(width: columnWidth, child: rows[i]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Two squares' shimmer while a venue is first read with nothing listed:
 /// the squares' own size, so nothing moves when they land.
 class PortfolioSquaresSkeleton extends StatelessWidget {

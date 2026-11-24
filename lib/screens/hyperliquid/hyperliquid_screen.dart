@@ -256,8 +256,18 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   List<HlMarket> _listedFor(HlBrowseTab tab, HlBrowseSub sub,
       List<HlMarket> markets, List<HlMarket> universe) {
     _moversFor(tab, sub, markets, universe);
-    return hlBrowseRowsShown(hlBrowseIsDefaultView(tab, sub), _rest);
+    final defaultView = hlBrowseIsDefaultView(tab, sub);
+    // The Dollars page on EXPANDED: two full rows of its four columns
+    // (round two), the same count as each category of the board under it.
+    if (defaultView && _wideBoard) {
+      return _rest.take(_kBoardRows).toList(growable: false);
+    }
+    return hlBrowseRowsShown(defaultView, _rest);
   }
+
+  /// Embedded in the Dollars page on EXPANDED: the wide board
+  /// ([_boardSlivers]) and the page's one grid.
+  bool get _wideBoard => widget.embedded && KuteLayout.isExpanded(context);
 
   /// The category whose subcategories the one browse row shows, in place
   /// of the categories ([PolyDrillRow]); null shows the categories.
@@ -515,9 +525,10 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   }
 
   /// How many categories follow Trending on the wide board, and how many
-  /// of each one's rows (two full rows of three columns, three of two).
+  /// of each one's rows (two full rows of the page's four columns, four
+  /// of two; market_groups.dart, marketGridAlignedColumns).
   static const int _kBoardSections = 2;
-  static const int _kBoardRows = 6;
+  static const int _kBoardRows = 8;
 
   /// THE WIDE BOARD (24 November 2026). Embedded in the Dollars page on
   /// EXPANDED, the default view (Trending: its squares and its curated
@@ -549,9 +560,28 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       }
       final label = next.localizedLabel(context.l10n);
       out.addAll([
+        // The name and its "See all ›" on one row, on the grid's two
+        // outer edges (round two).
         SliverToBoxAdapter(
-          child: _HlBoardHeading(label,
-              key: ValueKey('hl-board-heading-${next.key}')),
+          child: Builder(
+            builder: (rowContext) => _HlBoardHeading(
+              label,
+              key: ValueKey('hl-board-heading-${next.key}'),
+              seeAll: _HlFoldRow(
+                key: ValueKey('hl-board-see-all-${next.key}'),
+                label: context.l10n.seeAll,
+                inline: true,
+                onTap: () {
+                  // The category's own list from its top.
+                  final position = Scrollable.maybeOf(rowContext)?.position;
+                  if (position != null && position.hasPixels) {
+                    position.jumpTo(position.minScrollExtent);
+                  }
+                  _onTab(next);
+                },
+              ),
+            ),
+          ),
         ),
         ...marketGroupSlivers<HlMarket>(
           context,
@@ -559,28 +589,13 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
           groups: (_) => true,
           dividerIndent: hlGroupRowIndent(),
           divider: hlGroupRowDivider,
+          alignedGrid: true,
           build: (market, inGroup) => RepaintBoundary(
             child: HlMarketCard(
               key: ValueKey(
                   'hl-board-${next.key}-${market.kind.name}-${market.wireCoin}'),
               market: market,
               inGroup: inGroup,
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Builder(
-            builder: (rowContext) => _HlFoldRow(
-              key: ValueKey('hl-board-see-all-${next.key}'),
-              label: context.l10n.seeAll,
-              onTap: () {
-                // The category's own list from its top.
-                final position = Scrollable.maybeOf(rowContext)?.position;
-                if (position != null && position.hasPixels) {
-                  position.jumpTo(position.minScrollExtent);
-                }
-                _onTab(next);
-              },
             ),
           ),
         ),
@@ -787,7 +802,10 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                               tab, sub, markets, universe)),
                                 ),
                               ),
-                            SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+                            // The page grid's gutter under the squares on
+                            // the wide board (4 under the strip, then 12).
+                            SliverToBoxAdapter(
+                                child: SizedBox(height: _wideBoard ? 12 : 8.h)),
                             // The whole list is in memory, in ONE grouped
                             // card like Home's Activity (founder, October
                             // 2026); the same self-subscribing
@@ -799,6 +817,8 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
                               divider: hlGroupRowDivider,
+                              // The Dollars page's one grid (round two).
+                              alignedGrid: _wideBoard,
                               build: (market, inGroup) => RepaintBoundary(
                                 child: HlMarketCard(
                                   key: ValueKey(
@@ -819,9 +839,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               ),
                             // Wide, the board under Trending (see
                             // [_boardSlivers]).
-                            if (embedded &&
-                                KuteLayout.isExpanded(context) &&
-                                hlBrowseIsDefaultView(tab, sub))
+                            if (_wideBoard && hlBrowseIsDefaultView(tab, sub))
                               ..._boardSlivers(availableTabs, universe, [
                                 ..._moversFor(tab, sub, markets, universe),
                                 ..._listedFor(tab, sub, markets, universe),
@@ -938,16 +956,25 @@ class _WatchlistEditRow extends StatelessWidget {
 /// The quiet fold row ("Edit ›", "See all ›"): 13 sp, w600, the secondary
 /// ink, the chevron in the tertiary, at the list's 16 gutter.
 class _HlFoldRow extends StatelessWidget {
-  const _HlFoldRow({super.key, required this.label, required this.onTap});
+  const _HlFoldRow(
+      {super.key,
+      required this.label,
+      required this.onTap,
+      this.inline = false});
 
   final String label;
   final VoidCallback onTap;
+
+  /// On a heading's row ([_HlBoardHeading]): no gutter of its own, the
+  /// chevron on the row's right edge.
+  final bool inline;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+      padding:
+          inline ? EdgeInsets.zero : EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
       child: Semantics(
         button: true,
         label: label,
@@ -956,8 +983,11 @@ class _HlFoldRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            padding: inline
+                ? const EdgeInsets.fromLTRB(8, 4, 0, 4)
+                : EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             child: Row(
+              mainAxisSize: inline ? MainAxisSize.min : MainAxisSize.max,
               children: [
                 Text(
                   label,
@@ -981,28 +1011,42 @@ class _HlFoldRow extends StatelessWidget {
 }
 
 /// A category's name over its first rows on the wide board (see
-/// [_HyperliquidScreenState._boardSlivers]): the Dollars Overview's
-/// heading style (14 sp, w600, the secondary ink, 12 inside the list's
-/// 16 gutter).
+/// [_HyperliquidScreenState._boardSlivers]), its "See all ›" ([seeAll]) on
+/// the same row: the Dollars Overview's heading style (14 sp, w600, the
+/// secondary ink), the name on the grid's left edge and "See all" on its
+/// right (the list's 16 gutter), the space over it the space between two
+/// blocks of the page.
 class _HlBoardHeading extends StatelessWidget {
-  const _HlBoardHeading(this.label, {super.key});
+  const _HlBoardHeading(this.label, {super.key, required this.seeAll});
 
   final String label;
+  final Widget seeAll;
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(28.w, 18.h, 28.w, 8.h),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: context.colors.textSecondary,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
-          ),
+        padding: EdgeInsets.fromLTRB(16.w, kHlBoardBlockGap, 16.w, 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: context.colors.textSecondary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ),
+            seeAll,
+          ],
         ),
       );
 }
+
+/// The space between two blocks of the wide board (the squares and the
+/// list under them, then each category under its heading).
+const double kHlBoardBlockGap = 28;
 
 // ───────────────────────── empty state ─────────────────────────
 

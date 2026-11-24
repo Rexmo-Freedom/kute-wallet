@@ -372,7 +372,7 @@ void main() {
     final actions = UsdAccountActionBar.moneyActions(
         tester.element(find.byType(UsdAccountActionRow)));
     expect(actions.map((a) => a.label),
-        ['Buy dollars', 'Swap', 'Receive', 'Send']);
+        ['Buy dollars', 'Move', 'Receive', 'Send']);
     expect(actions.map((a) => a.trackingId),
         ['buy_dollars', 'swap', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
@@ -449,7 +449,7 @@ void main() {
     debugMoneyMovementSheetOpener = (_, request) => opened.add(request);
     addTearDown(() => debugMoneyMovementSheetOpener = null);
     await _pump(tester, const UsdAccountActionRow());
-    await tester.tap(find.text('Swap'));
+    await tester.tap(find.text('Move'));
     await tester.pump();
     final request = opened.single;
     expect(request.route,

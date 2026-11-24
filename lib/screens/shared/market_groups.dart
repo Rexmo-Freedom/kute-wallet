@@ -105,6 +105,7 @@ List<Widget> marketGroupSlivers<T>(
   MarketGroupDivider divider = marketGroupDivider,
   double? gap,
   double minColumnWidth = kMarketGridMinColumn,
+  bool alignedGrid = false,
 }) {
   List<Widget> column(List<T> items, EdgeInsets inset, {bool stagger = true}) =>
       _marketGroupColumnSlivers<T>(context,
@@ -121,8 +122,10 @@ List<Widget> marketGroupSlivers<T>(
   }
   return [
     SliverLayoutBuilder(builder: (context, constraints) {
-      final count = marketGridColumns(constraints.crossAxisExtent,
-          minColumn: minColumnWidth);
+      final count = alignedGrid
+          ? marketGridAlignedColumns(constraints.crossAxisExtent)
+          : marketGridColumns(constraints.crossAxisExtent,
+              minColumn: minColumnWidth);
       if (count <= 1 || items.length < 2) {
         return SliverMainAxisGroup(
             slivers: column(items, EdgeInsets.symmetric(horizontal: 16.w)));
@@ -178,6 +181,30 @@ int marketGridColumns(double width, {double minColumn = kMarketGridMinColumn}) {
       ((width - 32 + kMarketGridGutter) / (minColumn + kMarketGridGutter))
           .floor();
   return fit < 1 ? 1 : (fit < byWidth ? fit : byWidth);
+}
+
+/// The narrowest column of the Dollars page's grid on EXPANDED (round two,
+/// [marketGridAlignedColumns]): an Investing row and a Predictions card
+/// (the narrowest phone's, 288) both read whole at it.
+const double kMarketGridAlignedMinColumn = 288;
+
+/// THE DOLLARS PAGE'S ONE GRID (round two, 25 November 2026: "two grids
+/// that don't line up"). On EXPANDED every block of a pill stands on the
+/// same columns: the four squares (Investing's movers, Predictions' top
+/// markets, the Overview's positions) are four columns [kMarketGridGutter]
+/// apart inside the list's 16, and a list [width] wide is drawn in four of
+/// those columns when each holds [kMarketGridAlignedMinColumn], else in
+/// two (every other square's edge, half aligned), never three; one where
+/// two do not fit.
+int marketGridAlignedColumns(double width) {
+  final fit = ((width - 32 + kMarketGridGutter) /
+          (kMarketGridAlignedMinColumn + kMarketGridGutter))
+      .floor();
+  return fit >= 4
+      ? 4
+      : fit >= 2
+          ? 2
+          : 1;
 }
 
 /// [items] dealt into [count] columns, in order, each to the column

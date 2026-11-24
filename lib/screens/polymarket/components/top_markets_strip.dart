@@ -23,6 +23,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/shared/market_groups.dart' show kMarketGridGutter;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
@@ -133,8 +134,12 @@ class PolyTopMarketsStrip extends StatelessWidget {
         key: const ValueKey('poly-top-markets-strip'),
         builder: (context, box) {
           final n = markets.length;
-          final width =
-              (box.maxWidth - 32 - kPolyTopMarketCardGap * (n - 1)) / n;
+          // EXPANDED: the page grid's gutter, so the cards' edges are the
+          // list's columns' (market_groups.dart).
+          final gap = KuteLayout.isExpanded(context)
+              ? kMarketGridGutter
+              : kPolyTopMarketCardGap;
+          final width = (box.maxWidth - 32 - gap * (n - 1)) / n;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: IntrinsicHeight(
@@ -142,7 +147,7 @@ class PolyTopMarketsStrip extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (var i = 0; i < n; i++) ...[
-                    if (i > 0) const SizedBox(width: kPolyTopMarketCardGap),
+                    if (i > 0) SizedBox(width: gap),
                     PolyTopMarketCard(
                       market: markets[i],
                       width: width,

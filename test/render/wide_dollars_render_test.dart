@@ -164,9 +164,20 @@ Future<void> _render(WidgetTester tester, String name,
     {required Size size,
     required String pill,
     bool dark = false,
-    bool positions = true}) async {
+    int positions = 4,
+    bool scrolled = false}) async {
   final now = DateTime.now();
-  const coins = ['BTC', 'ETH', 'SOL', 'HYPE'];
+  final coins = const [
+    'BTC',
+    'ETH',
+    'SOL',
+    'HYPE',
+    'XRP',
+    'DOGE',
+    'AVAX',
+    'LINK',
+    'SUI',
+  ].take(positions).toList();
   final theme = dark ? buildDarkTheme() : buildLightTheme();
   await pumpInvestments(tester,
       browseInvesting: true,
@@ -210,7 +221,7 @@ Future<void> _render(WidgetTester tester, String name,
             HlSparklineStore(fetch: (_) async => const [100, 101, 99, 102])),
         polyBrowseFeedProvider.overrideWith(_Feed.new),
         sportsLiveProvider.overrideWith(_Sports.new),
-        if (positions)
+        if (positions > 0)
           hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
                   HyperliquidTradingState(isInitialized: true, positions: [
                 for (final (i, c) in coins.indexed)
@@ -224,6 +235,12 @@ Future<void> _render(WidgetTester tester, String name,
   }
   if (pill != 'Overview') {
     await tapPill(tester, pill);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+  if (scrolled) {
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -420));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -288,27 +305,42 @@ void main() {
   const sizes = {
     '1440x900': Size(1440, 900),
     '1180x820': Size(1180, 820),
+    '1920x1080': Size(1920, 1080),
+    '1000x700': Size(1000, 700),
+    '1280x800': Size(1280, 800),
     '820x1180': Size(820, 1180),
     '430x932': Size(430, 932),
   };
   final only = const String.fromEnvironment('WIDE_DOLLARS_ONLY');
+  final cases = <String, ({String pill, int positions, bool scrolled})>{
+    'overview_empty': (pill: 'Overview', positions: 0, scrolled: false),
+    'overview_1': (pill: 'Overview', positions: 1, scrolled: false),
+    'overview_3': (pill: 'Overview', positions: 3, scrolled: false),
+    'overview_4': (pill: 'Overview', positions: 4, scrolled: false),
+    'overview_9': (pill: 'Overview', positions: 9, scrolled: false),
+    'investing': (pill: 'Investing', positions: 4, scrolled: false),
+    'investing_scrolled': (pill: 'Investing', positions: 4, scrolled: true),
+    'predictions': (pill: 'Predictions', positions: 4, scrolled: false),
+    'predictions_scrolled': (
+      pill: 'Predictions',
+      positions: 4,
+      scrolled: true
+    ),
+  };
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
     for (final MapEntry(key: tag, value: size) in sizes.entries) {
-      for (final pill in ['Overview', 'Investing', 'Predictions']) {
-        final name = '${tag}_${pill.toLowerCase()}_$mode';
-        if (only.isNotEmpty && !name.contains(only)) continue;
+      for (final MapEntry(key: what, value: c) in cases.entries) {
+        final name = '${tag}_${what}_$mode';
+        if (only.isNotEmpty && !RegExp(only).hasMatch(name)) continue;
         testWidgets(
             name,
-            (tester) =>
-                _render(tester, name, size: size, pill: pill, dark: dark));
-      }
-      final empty = '${tag}_overview_empty_$mode';
-      if (only.isEmpty || empty.contains(only)) {
-        testWidgets(
-            empty,
-            (tester) => _render(tester, empty,
-                size: size, pill: 'Overview', dark: dark, positions: false));
+            (tester) => _render(tester, name,
+                size: size,
+                pill: c.pill,
+                dark: dark,
+                positions: c.positions,
+                scrolled: c.scrolled));
       }
     }
   }
