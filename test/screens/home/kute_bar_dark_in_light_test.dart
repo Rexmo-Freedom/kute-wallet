@@ -30,12 +30,13 @@ final _buttonBox = find.byKey(const ValueKey('kute-bar-primary-button'));
 
 /// The app's layering in miniature (as kute_shell_bar_test.dart), in
 /// [dark] or light mode, inside one repaint boundary the flash check reads.
-Future<void> _pump(WidgetTester tester, {bool dark = false}) async {
+Future<void> _pump(WidgetTester tester,
+    {bool dark = false, bool ai = true}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
-    overrides: [aiEnabledProvider.overrideWith((_) async => true)],
+    overrides: [aiEnabledProvider.overrideWith((_) async => ai)],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
@@ -334,5 +335,19 @@ void main() {
       await _settle(tester);
     }
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the plain magnifier (no AI policy) is dark ink on the dark '
+      'mode white pill, never white on white', (tester) async {
+    await _pump(tester, dark: true, ai: false);
+    await _push(tester);
+    final glyph = tester.widget<Icon>(find.descendant(
+        of: _pillBox, matching: find.byIcon(Icons.search_rounded)));
+    expect(glyph.color, KuteBarSurface.inkOnWhite);
+    await _pump(tester, ai: false);
+    await _push(tester);
+    final light = tester.widget<Icon>(find.descendant(
+        of: _pillBox, matching: find.byIcon(Icons.search_rounded)));
+    expect(light.color, KuteBarSurface.ink);
   });
 }
