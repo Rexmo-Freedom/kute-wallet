@@ -10,6 +10,7 @@ import 'package:kute/helpers/seed_clipboard.dart';
 import 'package:kute/helpers/stored_seed_reveal.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/models/advisor_context.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -387,6 +388,10 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // EXPANDED (round three): the words a grid across the window beside
+    // the explanation and the actions (seed_word_tile.dart,
+    // KuteSeedWidePage); the back button and the title on the left gutter.
+    final wide = kuteIsExpanded(context);
 
     // The bar explains the screen (founder, 31 October 2026): "Why back
     // up?", tapping sends the backup question to Sal. The reveal step's
@@ -414,8 +419,10 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
         systemOverlayStyle: Theme.of(context).brightness == Brightness.light
             ? SystemUiOverlayStyle.dark
             : SystemUiOverlayStyle.light,
-        centerTitle: true,
-        leading: KuteBackButton(
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? kuteSeedLeadingWidth(context) : null,
+        leading: _leading(wide, KuteBackButton(
           onPressed: () {
             if (_step == _BackupStep.verify && !_isLoading) {
               TrackingService.setFlowStep('reveal');
@@ -427,7 +434,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
               context.pop();
             }
           },
-        ),
+        )),
         title: Text(
           _step == _BackupStep.reveal
               ? context.l10n.recoveryPhraseTitle
@@ -451,7 +458,16 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
 
             SafeArea(
               bottom: false,
-              child: _isLoading
+              child: _isLoading && wide
+                  ? KuteSeedWidePage(
+                      physics: const NeverScrollableScrollPhysics(),
+                      side: KuteSkeleton(
+                        child: SkeletonBar(double.infinity, 68, radius: 16),
+                      ),
+                      main: const SkeletonWordGrid(
+                          crossAxisCount: 4, aspectRatio: 4),
+                    )
+                  : _isLoading
                   // Skeleton mimicking the reveal step: intro card +
                   // seed-word grid.
                   ? SingleChildScrollView(
@@ -469,8 +485,8 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
                       ]),
                     )
                   : _step == _BackupStep.reveal
-                      ? _buildRevealStep()
-                      : _buildVerifyStep(),
+                      ? (wide ? _buildWideReveal() : _buildRevealStep())
+                      : (wide ? _buildWideVerify() : _buildVerifyStep()),
             ),
           ],
         ),
@@ -488,8 +504,159 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
         child: const SeedHiddenNotice(),
       );
 
-  Widget _buildRevealStep() {
+  Widget _leading(bool wide, Widget back) =>
+      wide ? kuteSeedLeading(context, back) : back;
+
+  /// "I have written down my recovery phrase": the tick that turns
+  /// Continue on.
+  Widget _acknowledgeRow() {
     final c = context.colors;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _revealAcknowledged = !_revealAcknowledged);
+      },
+      child: Row(
+        children: [
+          Icon(
+            _revealAcknowledged
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
+            color: _revealAcknowledged ? context.ctaFill : c.textTertiary,
+            size: 22.sp,
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              context.l10n.iHaveWrittenDownMyRecoveryPhrase,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The reveal step's primary: the bar's Continue.
+  Widget _revealPrimary(Widget child) => KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: context.l10n.continueLabel,
+          enabled: _revealAcknowledged,
+          onPrimary: () {
+            TrackingService.backupRevealAcknowledged();
+            TrackingService.backupVerifyViewed();
+            TrackingService.setFlowStep('verify');
+            setState(() => _step = _BackupStep.verify);
+          },
+          source: 'backup_reveal',
+          disabledLabel: context.l10n.barNeedTick,
+        ),
+        child: child,
+      );
+
+  /// The verify step's primary: the bar's Verify backup.
+  Widget _verifyPrimary(Widget child) => KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: context.l10n.verifyBackup,
+          onPrimary: _verifyBackup,
+          enabled: !_isSaving,
+          busy: _isSaving,
+          source: 'backup_verify',
+          disabledLabel: null,
+        ),
+        child: child,
+      );
+
+  Widget _copyButton() => AppButton(
+        key: const ValueKey('backup-copy-phrase'),
+        text: context.l10n.copy,
+        icon: Icons.copy_rounded,
+        variant: AppButtonVariant.secondary,
+        onPressed: _copyPhrase,
+      );
+
+  /// EXPANDED reveal: the instruction, Copy and the tick on the left, the
+  /// words four across on the right. Copy stays capture-hidden with the
+  /// words (it is hidden, not replaced, while the screen is captured).
+  Widget _buildWideReveal() {
+    final words = mnemonicWords ?? const <String>[];
+    return KuteSeedWidePage(
+      side: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _IntroCard(
+            title: context.l10n.writeTheseDown,
+            subtitle: context.l10n.wordsInOrderWarning(words.length),
+          ),
+          SecureContent(
+            hidden: const SizedBox.shrink(),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: _copyButton(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _acknowledgeRow(),
+          _revealPrimary(const SizedBox.shrink()),
+        ],
+      ),
+      main: SecureContent(
+        hidden: const SeedHiddenNotice(),
+        child: KuteSeedWordGrid(
+          count: words.length,
+          itemBuilder: (context, index) =>
+              SeedWordTile(index: index + 1, word: words[index]),
+        ),
+      ),
+    );
+  }
+
+  /// EXPANDED verify: the instruction on the left, the questions as a
+  /// grid of their cards on the right.
+  Widget _buildWideVerify() {
+    return KuteSeedWidePage(
+      side: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _IntroCard(
+            title: context.l10n.verifyYourBackup,
+            subtitle: context.l10n.selectTheCorrectWordForEachPosition2,
+          ),
+          _verifyPrimary(const SizedBox.shrink()),
+        ],
+      ),
+      main: SecureContent(
+        hidden: const SeedHiddenNotice(),
+        // Two across: each question's answers stay on one line.
+        child: KuteGrid(
+          minItemWidth: 300,
+          maxColumns: 2,
+          gap: 12,
+          rowGap: 2,
+          children: [
+            for (final wordIndex in selectedIndices)
+              _QuizItem(
+                wordIndex: wordIndex,
+                options: quizOptions[wordIndex]!,
+                selected: userSelections[wordIndex],
+                onSelect: (option) {
+                  setState(() {
+                    userSelections[wordIndex] = option;
+                  });
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRevealStep() {
     final words = mnemonicWords ?? const <String>[];
     return Column(
       children: [
@@ -522,13 +689,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
                       SeedWordTile(index: index + 1, word: words[index]),
                 ),
                 SizedBox(height: 16.h),
-                AppButton(
-                  key: const ValueKey('backup-copy-phrase'),
-                  text: context.l10n.copy,
-                  icon: Icons.copy_rounded,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: _copyPhrase,
-                ),
+                _copyButton(),
                 SizedBox(height: 16.h),
               ]),
             ),
@@ -538,55 +699,10 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
           padding: _footerPadding,
           child: Column(
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(
-                      () => _revealAcknowledged = !_revealAcknowledged);
-                },
-                child: Row(
-                  children: [
-                    Icon(
-                      _revealAcknowledged
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                      color: _revealAcknowledged
-                          ? context.ctaFill
-                          : c.textTertiary,
-                      size: 22.sp,
-                    ),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Text(
-                        context.l10n.iHaveWrittenDownMyRecoveryPhrase,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _acknowledgeRow(),
               // The bar is Continue (kute_shell_bar.dart), on once the
               // phrase is acknowledged; Sal is curious until then.
-              KuteBarContextScope(
-                barContext: KuteBarContext.primary(
-                  label: context.l10n.continueLabel,
-                  enabled: _revealAcknowledged,
-                  onPrimary: () {
-                    TrackingService.backupRevealAcknowledged();
-                    TrackingService.backupVerifyViewed();
-                    TrackingService.setFlowStep('verify');
-                    setState(() => _step = _BackupStep.verify);
-                  },
-                  source: 'backup_reveal',
-                  disabledLabel: context.l10n.barNeedTick,
-                ),
-                child: SizedBox(height: kuteBarScrollClearance.h),
-              ),
+              _revealPrimary(SizedBox(height: kuteBarScrollClearance.h)),
             ],
           ),
         ),
@@ -632,17 +748,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
         // backup is recorded; the same footer the reveal step keeps.
         Padding(
           padding: _footerPadding,
-          child: KuteBarContextScope(
-            barContext: KuteBarContext.primary(
-              label: context.l10n.verifyBackup,
-              onPrimary: _verifyBackup,
-              enabled: !_isSaving,
-              busy: _isSaving,
-              source: 'backup_verify',
-              disabledLabel: null,
-            ),
-            child: SizedBox(height: kuteBarScrollClearance.h),
-          ),
+          child: _verifyPrimary(SizedBox(height: kuteBarScrollClearance.h)),
         ),
       ],
     );
