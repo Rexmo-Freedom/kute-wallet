@@ -1,4 +1,4 @@
-import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
@@ -1639,20 +1639,18 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     try {
       final result = await Navigator.of(context, rootNavigator: true)
           .push<_SellAdvancedResult>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
+        // The page; the shared panel on EXPANDED (kute_form_panel_route).
+        kuteFormPanelRoute(
+          context,
           settings: const RouteSettings(name: SellSheet.routeName),
-          // A centred column from MEDIUM up (kute_wide_frames.dart).
-          builder: (_) => KuteFormColumn(
-            child: _SellAdvancedScreen(
-              position: pos,
-              currentPrice: currentPrice,
-              isLimitMode: _isLimitMode,
-              limitPrice: _limitPrice,
-              slippagePct: _slippagePct,
-              amountText: _amountController.text,
-              marketDefaultSlippagePct: _marketDefaultSlippage,
-            ),
+          builder: (_) => _SellAdvancedScreen(
+            position: pos,
+            currentPrice: currentPrice,
+            isLimitMode: _isLimitMode,
+            limitPrice: _limitPrice,
+            slippagePct: _slippagePct,
+            amountText: _amountController.text,
+            marketDefaultSlippagePct: _marketDefaultSlippage,
           ),
         ),
       );
