@@ -16,6 +16,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:kute/screens/shared/kute_paste_chip.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 
 class ExternalAddressImportScreen extends ConsumerStatefulWidget {
   const ExternalAddressImportScreen({super.key});
@@ -393,7 +394,7 @@ class _ExternalAddressImportScreenState
                 left: 0,
                 right: 0,
                 height: 400.h,
-                child: Container(
+                child: KuteFullBleed(child: Container(
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       center: Alignment.topCenter,
@@ -405,7 +406,7 @@ class _ExternalAddressImportScreenState
                       stops: const [0.0, 1.0],
                     ),
                   ),
-                ),
+                )),
               ),
               SafeArea(
                 bottom: false,

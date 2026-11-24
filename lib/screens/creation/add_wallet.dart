@@ -327,14 +327,14 @@ class _AddWalletState extends ConsumerState<AddWallet> {
             if (context.isDark)
               Positioned(
                 top: -100.h, left: 0, right: 0, height: 400.h,
-                child: Container(
+                child: KuteFullBleed(child: Container(
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       center: Alignment.topCenter, radius: 1.0,
                       colors: [context.colors.surfaceLight.withValues(alpha:0.4), Colors.transparent],
                     ),
                   ),
-                ),
+                )),
               ),
             Positioned.fill(
               child: SafeArea(

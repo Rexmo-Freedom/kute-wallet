@@ -35,6 +35,7 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:kute/screens/shared/kute_paste_chip.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 
 class XPubImportScreen extends ConsumerStatefulWidget {
   const XPubImportScreen({super.key});
@@ -1502,7 +1503,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
               left: 0,
               right: 0,
               height: 400.h,
-              child: Container(
+              child: KuteFullBleed(child: Container(
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     center: Alignment.topCenter,
@@ -1514,7 +1515,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                     stops: const [0.0, 1.0],
                   ),
                 ),
-              ),
+              )),
             ),
 
             SafeArea(

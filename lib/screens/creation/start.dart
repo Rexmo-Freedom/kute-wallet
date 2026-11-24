@@ -15,6 +15,7 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart'
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 
 class Start extends ConsumerStatefulWidget {
   const Start({super.key});
@@ -178,7 +179,11 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
       backgroundColor: c.background,
       body: Stack(
         children: [
-          _buildBackground(c, accentColor, isLight),
+          // Across the whole window, never cut at the form column's sides.
+          Positioned.fill(
+            child:
+                KuteFullBleed(child: _buildBackground(c, accentColor, isLight)),
+          ),
           PlatformSafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 28.w),

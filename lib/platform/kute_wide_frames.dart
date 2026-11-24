@@ -64,6 +64,36 @@ class KuteFormColumn extends StatelessWidget {
   }
 }
 
+/// A decorative background (a glow, a gradient) drawn across the WHOLE
+/// window from inside a centred column or pane, so it is never cut at the
+/// column's edges (founder, 25 November 2026, on the Start screen at
+/// laptop size: "on desktop the gradient is bad": its two glows stopped
+/// in hard vertical lines at the form column's sides). The child is laid
+/// out at the window's width, centred on the column, unclipped; it takes
+/// no taps outside the column. On a phone it is the child as it was.
+class KuteFullBleed extends StatelessWidget {
+  const KuteFullBleed({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final window = kuteWindowWidth(context);
+    return LayoutBuilder(builder: (context, constraints) {
+      if (!constraints.hasBoundedWidth ||
+          window <= constraints.maxWidth + 0.5) {
+        return child;
+      }
+      return OverflowBox(
+        minWidth: window,
+        maxWidth: window,
+        alignment: Alignment.center,
+        child: child,
+      );
+    });
+  }
+}
+
 /// The window's width in logical pixels: the view's, never a pane's or a
 /// column's narrowed MediaQuery (a sheet opened from inside a phone-width
 /// pane is still a sheet over the whole window).
@@ -334,8 +364,10 @@ bool kuteSearchInTopBar(BuildContext context) => kuteWindowIsExpanded(context);
 double kuteBarBottomRoomFor(double width) =>
     switch (KuteLayout.forWidth(width)) {
       KuteFormFactor.compact => 2,
-      KuteFormFactor.medium => 24,
-      KuteFormFactor.expanded => 32,
+      // Raised again (founder, 25 November 2026: "button still too
+      // low").
+      KuteFormFactor.medium => 36,
+      KuteFormFactor.expanded => 44,
     };
 
 /// The window's width from the platform's first view, for a place with no
