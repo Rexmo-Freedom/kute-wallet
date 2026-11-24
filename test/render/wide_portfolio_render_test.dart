@@ -416,6 +416,7 @@ Future<void> _frames(WidgetTester tester, [int n = 14]) async {
 void main() {
   for (final c in const [_Case.gain, _Case.empty]) {
     for (final size in const [
+      Size(1920, 1080),
       Size(1440, 900),
       Size(1180, 820),
       Size(820, 1180),

@@ -21,6 +21,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/advisor_context.dart';
+import 'package:kute/models/advisor_model.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/advisor_provider.dart';
@@ -36,6 +38,30 @@ import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/search_recent_store.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+
+/// Sal, answering at once: one plain answer block.
+class _Advisor extends AdvisorSessionNotifier {
+  @override
+  AdvisorSessionState build() => const AdvisorSessionState();
+  @override
+  Future<void> ask(String query,
+      {AdvisorContext? context,
+      String input = 'typed',
+      String? template,
+      int? chipIndex,
+      String? locale}) async {
+    state = AdvisorSessionState(turns: [
+      AdvisorTurn(query: query, blocks: const [
+        AdvisorBlock(
+            id: 'a1',
+            kind: AdvisorBlockKind.answer,
+            markdown: 'Tesla trades as a perpetual on Investing, up 2.1% '
+                'today at \$438.21. On Predictions, the market on 2 million '
+                'deliveries in 2026 gives it 44%.'),
+      ]),
+    ]);
+  }
+}
 
 const _out = String.fromEnvironment('WIDE_SEARCH_RENDER_OUT');
 final _shotKey = GlobalKey();
@@ -143,6 +169,8 @@ Future<void> _render(
   required String name,
   required bool dark,
   required bool results,
+  String query = 'tesla',
+  bool ask = false,
   required bool context,
   required Size size,
 }) async {
@@ -161,20 +189,25 @@ Future<void> _render(
     key: UniqueKey(),
     overrides: [
       aiEnabledProvider.overrideWith((_) async => true),
+      advisorSessionProvider.overrideWith(_Advisor.new),
       sportsLiveProvider.overrideWith(_Sports.new),
       unifiedSearchResultsProvider
           .overrideWith((_) async => UnifiedSearchResults.empty),
       globalMarketResultsProvider
           .overrideWith((ref) => ref.watch(searchQueryProvider).isEmpty
               ? const AsyncValue.data([])
-              : AsyncValue.data([
+              : ref.watch(searchQueryProvider) != 'tesla'
+                  ? const AsyncValue.data([])
+                  : AsyncValue.data([
                   GlobalMarketSearchResult(_predictions[2]),
                   GlobalMarketSearchResult(_predictions[0]),
                 ])),
       globalHyperliquidResultsProvider.overrideWith((ref) =>
           ref.watch(searchQueryProvider).isEmpty
               ? const AsyncValue.data([])
-              : const AsyncValue.data(_investing)),
+              : ref.watch(searchQueryProvider) != 'tesla'
+                  ? const AsyncValue.data([])
+                  : const AsyncValue.data(_investing)),
       hyperliquidAllMarketsProvider.overrideWith((_) => _universe),
       hyperliquidBrowseUniverseProvider
           .overrideWith((_) => AsyncValue.data(_universe)),
@@ -241,11 +274,15 @@ Future<void> _render(
     expect(field.focusNode.hasFocus, isTrue);
   }
   if (results) {
-    await tester.enterText(find.byType(TextField), 'tesla');
+    await tester.enterText(find.byType(TextField), query);
     await tester.pump(const Duration(milliseconds: 200));
     await tester
         .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     await tester.pumpAndSettle();
+    if (ask) {
+      await tester.testTextInput.receiveAction(TextInputAction.send);
+      await tester.pumpAndSettle();
+    }
   }
   for (Object? e = tester.takeException();
       e != null;
@@ -294,6 +331,7 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   for (final size in const [
+    Size(1920, 1080),
     Size(1440, 900),
     Size(1180, 820),
     Size(820, 1180),
@@ -307,6 +345,24 @@ void main() {
             name: 'search_home_${tag}_$mode',
             dark: dark,
             results: false,
+            context: false,
+            size: size);
+      });
+      testWidgets('nothing found $tag $mode', (tester) async {
+        await _render(tester,
+            name: 'search_empty_${tag}_$mode',
+            dark: dark,
+            results: true,
+            query: 'zzqx',
+            context: false,
+            size: size);
+      });
+      testWidgets('Sal answer $tag $mode', (tester) async {
+        await _render(tester,
+            name: 'search_sal_${tag}_$mode',
+            dark: dark,
+            results: true,
+            ask: true,
             context: false,
             size: size);
       });

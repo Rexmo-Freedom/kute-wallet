@@ -77,6 +77,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
     show hyperliquidTradingProvider;
@@ -641,6 +642,9 @@ class _PortfolioHeroChartState extends ConsumerState<PortfolioHeroChart> {
             selectedRange: ranges.indexOf(range),
             onRangeSelected: (i) =>
                 ref.read(pnlChartRangeProvider.notifier).state = ranges[i],
+            // The wide plot: the pills at their phone size, on the left.
+            rangeMaxWidth:
+                widget.plotHeight == null ? null : KuteLayout.paneWidth,
           ),
           if (period.leftOut.isNotEmpty)
             _NotCharted(count: period.leftOut.length),
@@ -750,7 +754,14 @@ class _HeroPlotSkeleton extends StatelessWidget {
                 double.infinity, plotHeight ?? kKuteTrendPlotHeightCompact.h,
                 radius: 12.r),
             SizedBox(height: kKuteTrendRangeGap.h),
-            SkeletonBar(double.infinity, 28.h, radius: 14.h),
+            // The wide plot's range row: at most a pane wide, on the left.
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: plotHeight == null
+                      ? double.infinity
+                      : KuteLayout.paneWidth),
+              child: SkeletonBar(double.infinity, 28.h, radius: 14.h),
+            ),
           ],
         ),
       );
