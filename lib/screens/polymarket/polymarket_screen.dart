@@ -974,6 +974,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         config: kCryptoPredictAssets.first,
         roundMinutes: minutes,
         chartHeight: CryptoPredictBanner.kPageChartHeight,
+        opensRoundPageWide: true,
         onDeposit: () {
           openPredictionsDeposit(context, ref);
         },
@@ -1663,6 +1664,14 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// first coin's row still shows under it on a 393 pt phone.
   static const double kPageChartHeight = 104;
 
+  /// The Crypto length pages' card on EXPANDED (founder, 24 November 2026:
+  /// "clicking here should make it full screen also"): a click on the card
+  /// opens the round's own page ([FiveMinMarketDetailSheet], the market
+  /// desk with the slip in the side panel), and Up / Down open it with the
+  /// slip on that side. The round pills keep their pick. Elsewhere, and on
+  /// a phone or MEDIUM, the card is as it was.
+  final bool opensRoundPageWide;
+
   const CryptoPredictBanner({
     super.key,
     required this.config,
@@ -1674,6 +1683,7 @@ class CryptoPredictBanner extends ConsumerWidget {
     this.slipSource = 'crypto_banner',
     this.roundMinutes,
     this.chartHeight = 200,
+    this.opensRoundPageWide = false,
   });
 
   /// A round length written short, as the titles write it: "5m", "15m",
@@ -2014,13 +2024,41 @@ class CryptoPredictBanner extends ConsumerWidget {
       ));
     }
 
+    // EXPANDED, the Crypto length pages ([opensRoundPageWide]): the card
+    // opens the round's own page, Up / Down with the slip already on that
+    // side in its panel, where the same guards run on Confirm's way.
+    final opensPage = opensRoundPageWide &&
+        ledgerWalletId == null &&
+        hasStrip &&
+        KuteLayout.isExpanded(context);
+    void openPage({int? side}) {
+      if (side != null && !canBet) return;
+      FiveMinMarketDetailSheet.show(context,
+          event: polyCryptoRoundShell(context, config, showing, minutes),
+          onDeposit: onDeposit,
+          minutes: minutes,
+          initialSide: side);
+    }
+
+    Widget clickable(Widget card) => !opensPage
+        ? card
+        : MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              key: const ValueKey('crypto-round-open-page'),
+              behavior: HitTestBehavior.opaque,
+              onTap: openPage,
+              child: card,
+            ),
+          );
+
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
     // Predictions tab.
     return CryptoCardOnScreen(
         child: LiveTokenScope(
       tokens: liveTokens,
-      child: oddsScopes(
+      child: oddsScopes(clickable(
         CryptoRoundHeroCard(
           config: config,
           title: context.l10n
@@ -2050,14 +2088,15 @@ class CryptoPredictBanner extends ConsumerWidget {
           upFrac: buttonsUpFrac,
           roundName: roundName,
           buttonsEnabled: canBet,
-          onUp: () => openSide('up'),
-          onDown: () => openSide('down'),
+          onUp: opensPage ? () => openPage(side: 0) : () => openSide('up'),
+          onDown:
+              opensPage ? () => openPage(side: 1) : () => openSide('down'),
           // No quick amounts (founder, 12 November 2026: "the buttons on
           // the bottom, $5 win $x, do not have it").
           quick: const [],
           quickUp: true,
                         ),
-                      ),
+                      )),
     ));
   }
 }
@@ -2197,6 +2236,41 @@ class _MoreCryptoMarketsCard extends StatelessWidget {
   }
 }
 
+/// The round's page needs a [PolymarketEvent]: a thin shell of the round
+/// [ev] of [config] at [minutes] (a coin's row, the Crypto pages' card on
+/// EXPANDED).
+PolymarketEvent polyCryptoRoundShell(BuildContext context,
+    CryptoAssetConfig config, Btc5MinEvent? ev, int minutes) {
+  // Thin PolymarketEvent shell for the detail sheet (it resolves the
+  // asset config from slug/title). conditionId uses the event's OWN
+  // market id when present — never the slug stand-in the home-rail
+  // provider uses (scout gap #8).
+  return PolymarketEvent(
+    id: ev?.slug ?? '${config.asset.toLowerCase()}-updown-${minutes}m',
+    slug: ev?.slug ?? '',
+    title: ev?.title ?? context.l10n.predictUpOrDown(config.asset, minutes),
+    imageUrl: ev?.image,
+    volume: 0,
+    volume24hr: 0,
+    liquidity: 100000,
+    category: 'crypto',
+    endDate: ev?.endDate,
+    conditionId: ev?.conditionId ?? '',
+    outcomes: [
+      PolymarketOutcome(
+        name: 'Up',
+        price: ev?.upPrice ?? 0.50,
+        tokenId: ev?.upTokenId,
+      ),
+      PolymarketOutcome(
+        name: 'Down',
+        price: ev?.downPrice ?? 0.50,
+        tokenId: ev?.downTokenId,
+      ),
+    ],
+  );
+}
+
 /// One 5-minute Up/Down asset tile: logo, asset name, "5m" badge, live
 /// MM:SS countdown and LIVE Up/Down odds (CLOB WS via the wrapping
 /// [LiveTokenScope], gamma snapshot as fallback), plus a tiny live spot
@@ -2239,34 +2313,7 @@ class _FiveMinTile extends ConsumerWidget {
       'asset': config.asset,
       'minutes': minutes,
     });
-    // Thin PolymarketEvent shell for the detail sheet (it resolves the
-    // asset config from slug/title). conditionId uses the event's OWN
-    // market id when present — never the slug stand-in the home-rail
-    // provider uses (scout gap #8).
-    final event = PolymarketEvent(
-      id: ev?.slug ?? '${config.asset.toLowerCase()}-updown-${minutes}m',
-      slug: ev?.slug ?? '',
-      title: ev?.title ?? context.l10n.predictUpOrDown(config.asset, minutes),
-      imageUrl: ev?.image,
-      volume: 0,
-      volume24hr: 0,
-      liquidity: 100000,
-      category: 'crypto',
-      endDate: ev?.endDate,
-      conditionId: ev?.conditionId ?? '',
-      outcomes: [
-        PolymarketOutcome(
-          name: 'Up',
-          price: ev?.upPrice ?? 0.50,
-          tokenId: ev?.upTokenId,
-        ),
-        PolymarketOutcome(
-          name: 'Down',
-          price: ev?.downPrice ?? 0.50,
-          tokenId: ev?.downTokenId,
-        ),
-      ],
-    );
+    final event = polyCryptoRoundShell(context, config, ev, minutes);
     FiveMinMarketDetailSheet.show(context,
         event: event, onDeposit: onDeposit, minutes: minutes);
   }
