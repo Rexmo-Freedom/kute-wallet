@@ -18,6 +18,11 @@
 //
 // MEDIUM keeps the centred column ([KuteFormColumn]); a phone the page as
 // it was.
+//
+// The lock overlay (lock_overlay.dart) is one too, on no route: its form's
+// in-place foot draws the contexts bound to no route, and it sits over
+// the floating bar (app_widget.dart's Stack), so the bar never shows
+// over it. Both halves paint, so no tap reaches the page under the lock.
 
 import 'dart:math' as math;
 
@@ -54,12 +59,19 @@ class KuteSplitScreen extends StatelessWidget {
         math.min(window.height - 2 * kuteWideGutter, kuteSplitFormHeight);
     const width = KuteLayout.paneWidth;
     final mq = MediaQuery.of(context);
+    // A keyboard (an iPad in landscape is EXPANDED) covers the window's
+    // foot: the form, its primary under it included, rises above it by as
+    // much as it overlaps the centred form, and the page inside sees no
+    // inset of its own (it would make room for the keyboard twice).
+    final margin = (window.height - height) / 2;
+    final overlap = math.max(0.0, mq.viewInsets.bottom - margin);
     final form = MediaQuery(
       // The form's own screen: a phone column, its room, no insets.
       data: mq.copyWith(
-        size: Size(width, height),
+        size: Size(width, height - overlap),
         padding: EdgeInsets.zero,
         viewPadding: EdgeInsets.zero,
+        viewInsets: EdgeInsets.zero,
       ),
       child: KuteInPlaceBar(child: child),
     );
@@ -73,7 +85,14 @@ class KuteSplitScreen extends StatelessWidget {
             child: DecoratedBox(
               decoration: AppDecorations.screenGradient(context),
               child: Center(
-                child: SizedBox(width: width, height: height, child: form),
+                child: SizedBox(
+                  width: width,
+                  height: height,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: overlap),
+                    child: form,
+                  ),
+                ),
               ),
             ),
           ),
