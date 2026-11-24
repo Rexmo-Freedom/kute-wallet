@@ -94,7 +94,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
-import 'package:kute/platform/kute_wide_frames.dart' show kuteBarPane;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show kuteBarBottomRoomFor, kuteBarPane, kuteDialogsOpen;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
@@ -173,6 +174,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     super.initState();
     KuteBarRouteObserver.over.addListener(_onRoutes);
     kuteBarPane.addListener(_onRoutes);
+    kuteDialogsOpen.addListener(_onRoutes);
     kuteShellMounted.addListener(_onRoutes);
     kuteBarScroll.addListener(_onScroll);
   }
@@ -181,6 +183,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   void dispose() {
     KuteBarRouteObserver.over.removeListener(_onRoutes);
     kuteBarPane.removeListener(_onRoutes);
+    kuteDialogsOpen.removeListener(_onRoutes);
     kuteShellMounted.removeListener(_onRoutes);
     kuteBarScroll.removeListener(_onScroll);
     _idle?.cancel();
@@ -339,7 +342,20 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // the bar at the keyboard's top plus 12 px, centred at its own width, on the sheet
     // spring. A search or hidden context still slides under it.
     final rides = keyboard && top != null && top.isPrimary && !top.hidden;
+    // EXPANDED (round two, wide_design_2.md A and B): the search lives in
+    // the top bar (kute_top_nav_bar.dart), so the bar is ONLY a page's
+    // contextual action: a primary button, a trade row, a market's send
+    // pill; never the search pill. And a sheet is a panel there that draws
+    // its own primary inside it (kute_dialog.dart): no bar while one is up.
+    final expanded = KuteLayout.forWidth(MediaQuery.sizeOf(context).width) ==
+        KuteFormFactor.expanded;
+    final desktopQuiet = expanded &&
+        (kuteDialogsOpen.value > 0 ||
+            (top != null &&
+                top.kind == KuteBarKind.search &&
+                !top.market));
     final show = top != null &&
+        !desktopQuiet &&
         (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));
     // The lift follows what is shown: a bar sliding away, or one back on
     // a page without an action row, sits at the foot again (a kept lift
@@ -506,11 +522,16 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                     curve: KuteMotion.sheetIn,
                     // The pill's air; the primary button and the trade
                     // row take the screen's 16 px gutters.
+                    // From MEDIUM up it stands clearly off the window's
+                    // foot (founder, round two: "the button in the end
+                    // give it more space"; kuteBarBottomRoomFor).
                     padding: EdgeInsets.fromLTRB(
                         ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
                         0,
                         ctx.isPrimary || ctx.isTrade ? 16.w : 12.w,
-                        2.h),
+                        form == KuteFormFactor.compact
+                            ? 2.h
+                            : kuteBarBottomRoomFor(window)),
                     // Centred; docked right while folded. Pill to button
                     // and between the button's states the width springs
                     // on the chip spring (KuteMorphSize; the strip's own

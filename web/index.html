@@ -45,13 +45,19 @@
   <script src="flutter_bootstrap.js" async></script>
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
   <style id="splash-screen-style">
+    /* The page is exactly the visible window and never scrolls itself:
+       the Flutter view fills it, so the floating bar at its foot is
+       always inside the viewport (a body taller than the window, by
+       min-height or a leftover splash, pushed it under the edge). */
     html {
-      height: 100%
+      height: 100%;
+      overflow: hidden;
     }
 
     body {
       margin: 0;
-      min-height: 100%;
+      height: 100%;
+      overflow: hidden;
       /* Kute's splash, as on iOS and Android: Sal on white, on black in
          dark mode (pubspec flutter_native_splash colours). */
       background-color: #FFFFFF;

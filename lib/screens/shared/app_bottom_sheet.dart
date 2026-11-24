@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_dialog.dart' show showKuteDialog;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton, kKuteNavButtonSize, kuteNavTitleLift;
@@ -26,6 +27,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 /// own handle, radius and colours, so the keyboard lift and the drag down
 /// work as on a phone; its content sees the sheet's width as the screen's
 /// ([KuteSheetMedia]). A phone: unchanged.
+///
+/// EXPANDED (round two, kute_dialog.dart): the search panel's shape,
+/// top-anchored and centred, with the sheet's primary drawn inside it.
 Future<T?> showKuteModalSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -39,6 +43,18 @@ Future<T?> showKuteModalSheet<T>({
   bool useRootNavigator = false,
   RouteSettings? routeSettings,
 }) {
+  // EXPANDED (a laptop): a panel shaped as the search panel, with the
+  // sheet's primary drawn inside it (kute_dialog.dart). Always over the
+  // root navigator there, so it covers the top bar too.
+  if (kuteWindowIsExpanded(context)) {
+    return showKuteDialog<T>(
+      context: context,
+      builder: builder,
+      color: backgroundColor == Colors.transparent ? null : backgroundColor,
+      dismissible: isDismissible,
+      settings: routeSettings,
+    );
+  }
   return showModalBottomSheet<T>(
     context: context,
     builder: kuteWindowIsWide(context)
@@ -160,7 +176,9 @@ const double kuteBarShortSheetFraction = 0.6;
 /// the one that builds the sheet); [KuteSheetBarSpace] is that room as
 /// the scroll content's last child.
 double kuteSheetBarClearance(BuildContext context) =>
-    _KuteSheetBarRoom.barOver(context) ? kuteBarScrollClearance.h : 0;
+    _KuteSheetBarRoom.barOver(context) && !KuteDialogScope.inDialog(context)
+        ? kuteBarScrollClearance.h
+        : 0;
 
 /// [kuteSheetBarClearance] as a box: the last child of a sheet's scroll
 /// content, so its last rows scroll clear of the floating bar while the
