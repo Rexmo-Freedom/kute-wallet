@@ -9,6 +9,7 @@ import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:kute/services/secure_storage.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Cold-start state of secure storage relative to the Hive settings.
 enum StorageBootState {
@@ -72,7 +73,7 @@ class StorageBootstrap {
         _settingsBox = settingsBox ?? (() => Hive.openBox('settings')),
         _random = random ?? Random.secure(),
         _isCupertino =
-            isCupertino ?? defaultTargetPlatform == TargetPlatform.iOS,
+            isCupertino ?? PlatformOs.nativeTarget == TargetPlatform.iOS,
         _isProtectedDataAvailable = isProtectedDataAvailable ??
             secureStorage.isCupertinoProtectedDataAvailable,
         _protectedDataChanges = protectedDataChanges ??

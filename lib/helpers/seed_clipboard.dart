@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:kute/services/secure/keychain_local.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// Clipboard access used by [SeedClipboard], replaceable in tests.
 abstract class ClipboardAccess {
@@ -42,7 +42,7 @@ class SystemClipboardAccess implements ClipboardAccess {
   /// the plain way so the person can still paste their phrase.
   @override
   Future<void> writeSensitive(String text) async {
-    final p = platform ?? defaultTargetPlatform;
+    final p = platform ?? PlatformOs.nativeTarget;
     if (p == TargetPlatform.iOS || p == TargetPlatform.android) {
       try {
         await KeychainLocal.channel.invokeMethod<void>('copySensitive', {
@@ -65,7 +65,7 @@ class SystemClipboardAccess implements ClipboardAccess {
   /// after another app copied would show the iOS paste permission prompt.
   @override
   Future<int?> changeCount() async {
-    if ((platform ?? defaultTargetPlatform) != TargetPlatform.iOS) return null;
+    if ((platform ?? PlatformOs.nativeTarget) != TargetPlatform.iOS) return null;
     try {
       return await KeychainLocal.channel.invokeMethod<int>(
         'pasteboardChangeCount',

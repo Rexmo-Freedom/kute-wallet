@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// What a secure storage failure means for the data behind it.
 ///
@@ -32,7 +32,7 @@ enum SecretErrorClass {
 /// message in `message` and its stack trace in `details`.
 SecretErrorClass classifySecretError(Object error, {TargetPlatform? platform}) {
   if (error is! PlatformException) return SecretErrorClass.unknown;
-  switch (platform ?? defaultTargetPlatform) {
+  switch (platform ?? PlatformOs.nativeTarget) {
     case TargetPlatform.iOS:
     case TargetPlatform.macOS:
       return _classifyDarwin(error);

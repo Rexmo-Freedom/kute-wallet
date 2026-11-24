@@ -110,6 +110,16 @@ abstract final class PlatformCaps {
 /// exactly `Platform.isIOS` and friends; on web they are false and never
 /// touch `dart:io`.
 abstract final class PlatformOs {
+  /// The NATIVE platform, for code that talks to a native channel or
+  /// the Keychain / Keystore: null in a browser, whatever the phone. On
+  /// the web `defaultTargetPlatform` follows the browser (iOS in Safari
+  /// on an iPhone, Android in Chrome on an Android phone), and a check
+  /// against it there would call native code that does not exist (a PIN
+  /// that could not be saved in a phone's browser, 24 November 2026).
+  /// Styling by platform may keep reading `defaultTargetPlatform`.
+  static TargetPlatform? get nativeTarget =>
+      kIsWeb ? null : defaultTargetPlatform;
+
   static bool get isIOS => !kIsWeb && io.Platform.isIOS;
   static bool get isAndroid => !kIsWeb && io.Platform.isAndroid;
   static bool get isMacOS => !kIsWeb && io.Platform.isMacOS;

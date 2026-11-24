@@ -5,7 +5,6 @@ import 'package:kute/services/evm_derivation_policy.dart';
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -142,7 +141,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   Future<void>? _legacyLookup;
 
   LegacyKeychainRescue? get _rescue => widget.rescue ??
-      (defaultTargetPlatform == TargetPlatform.iOS
+      (PlatformOs.nativeTarget == TargetPlatform.iOS
           ? LegacyKeychainRescue()
           : null);
 

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,6 +8,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/secure/keychain_local.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// A mounted surface that shows or collects recovery phrase words.
 abstract class SecureScreenHolder {
@@ -52,7 +52,7 @@ class SecureScreenController {
   final List<SecureScreenHolder> _holders = [];
   bool _handlerSet = false;
 
-  TargetPlatform get _platform => platform ?? defaultTargetPlatform;
+  TargetPlatform? get _platform => platform ?? PlatformOs.nativeTarget;
 
   bool get _isIOS => _platform == TargetPlatform.iOS;
 

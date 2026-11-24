@@ -37,6 +37,7 @@ import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/platform/platform_caps.dart';
 
 /// How the Restore wallets screen was reached.
 enum RestoreSecretsReason {
@@ -115,7 +116,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
       RecoveryCheck.derive(phrase, version: wallet.evmDerivationVersion);
 
   bool get _offerLegacyCopies =>
-      widget.offerLegacyCopies ?? defaultTargetPlatform == TargetPlatform.iOS;
+      widget.offerLegacyCopies ?? PlatformOs.nativeTarget == TargetPlatform.iOS;
 
   static String _v2Key(String walletId) => 'v2:wallet:$walletId.mnemonic';
 
@@ -473,7 +474,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   /// it was.
   Future<bool> _offerLegacyRescue() async {
     final rescue = widget.rescue ??
-        (defaultTargetPlatform == TargetPlatform.iOS
+        (PlatformOs.nativeTarget == TargetPlatform.iOS
             ? LegacyKeychainRescue()
             : null);
     if (rescue == null) return false;
