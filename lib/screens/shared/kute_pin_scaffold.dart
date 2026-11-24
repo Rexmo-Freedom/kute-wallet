@@ -29,6 +29,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/platform/kute_wide_frames.dart'
+    show kuteBarBottomRoomFor, kuteWindowWidth;
 import 'package:kute/screens/shared/kute_wordmark.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -227,10 +229,18 @@ class KutePinScaffold extends StatelessWidget {
                   // to the screen on iOS, so the footer clears the bar here.
                   // Read below PlatformSafeArea, where Android's inset is
                   // already consumed, so Android doesn't get it twice.
+                  // From MEDIUM up the bar stands higher off the window's
+                  // foot (kuteBarBottomRoomFor): the pad and the footer
+                  // rise by as much, so the bar's Next never sits on the
+                  // pad's last row.
                   Builder(
                     builder: (context) => SizedBox(
                         height: math.max(
-                            12.h, MediaQuery.of(context).padding.bottom)),
+                                12.h, MediaQuery.of(context).padding.bottom) +
+                            math.max(
+                                0.0,
+                                kuteBarBottomRoomFor(kuteWindowWidth(context)) -
+                                    2)),
                   ),
                 ],
               ),

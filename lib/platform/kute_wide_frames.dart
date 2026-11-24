@@ -296,9 +296,6 @@ class _KuteBarPaneState extends State<KuteBarPane> {
 /// 64 band at their top for the nav, so nothing under it moves.
 const double kuteTopBarHeight = 64;
 
-/// The search field's width in the EXPANDED top bar.
-const double kuteTopBarSearchWidth = 360;
-
 // THE PANEL (founder, 25 November 2026, the hub beside the search panel:
 // "this on desktop instead of a card, maybe show like this search, much
 // better"). On EXPANDED the search panel is the model for every sheet:
@@ -351,11 +348,6 @@ Widget kutePanelTransition(Animation<double> curved, Widget child) =>
 bool kuteWindowIsExpanded(BuildContext context) =>
     KuteLayout.forWidth(kuteWindowWidth(context)) == KuteFormFactor.expanded;
 
-/// Whether the search lives in the top bar (EXPANDED): the floating bar
-/// then never shows the default "Search or Manage with AI" pill, only a
-/// page's contextual action (a primary button, a trade row, a market's
-/// send). For a page that wants to know (the Bitcoin home).
-bool kuteSearchInTopBar(BuildContext context) => kuteWindowIsExpanded(context);
 
 /// The floating bar's air under it from the window's bottom edge (founder,
 /// round two: "the button in the end give it more space"): 32 on

@@ -177,6 +177,41 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     kuteDialogsOpen.addListener(_onRoutes);
     kuteShellMounted.addListener(_onRoutes);
     kuteBarScroll.addListener(_onScroll);
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  /// A HARDWARE KEYBOARD OPENS THE SEARCH (round two, a laptop): "/" or
+  /// Cmd/Ctrl+K opens the search panel while the bar shows the search
+  /// pill, as a tap on it does; never while a text field has the focus or
+  /// a panel is up. Escape closes the panel (its route's dismiss).
+  bool _onKey(KeyEvent event) {
+    if (!mounted || event is! KeyDownEvent) return false;
+    final ctx = _last;
+    if (!_shown || _morphed || ctx == null || ctx.kind != KuteBarKind.search) {
+      return false;
+    }
+    if (ctx.hidden || ctx.inHeader || kuteDialogsOpen.value > 0) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    final command = keyboard.isMetaPressed || keyboard.isControlPressed;
+    final slash = !command &&
+        !keyboard.isAltPressed &&
+        event.character == '/';
+    final k = command && event.logicalKey == LogicalKeyboardKey.keyK;
+    if (!slash && !k) return false;
+    final direct = ctx.directAction;
+    if (direct != null) {
+      direct();
+    } else {
+      // No pill travel from a key: the sheet or the panel simply opens.
+      _open(ctx);
+    }
+    return true;
   }
 
   @override
@@ -186,6 +221,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     kuteDialogsOpen.removeListener(_onRoutes);
     kuteShellMounted.removeListener(_onRoutes);
     kuteBarScroll.removeListener(_onScroll);
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _idle?.cancel();
     _entry.dispose();
     // The load this bar reported ends with it.
@@ -342,18 +378,13 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // the bar at the keyboard's top plus 12 px, centred at its own width, on the sheet
     // spring. A search or hidden context still slides under it.
     final rides = keyboard && top != null && top.isPrimary && !top.hidden;
-    // EXPANDED (round two, wide_design_2.md A and B): the search lives in
-    // the top bar (kute_top_nav_bar.dart), so the bar is ONLY a page's
-    // contextual action: a primary button, a trade row, a market's send
-    // pill; never the search pill. And a sheet is a panel there that draws
-    // its own primary inside it (kute_dialog.dart): no bar while one is up.
+    // EXPANDED (round two, wide_design_2.md B): a sheet is a panel there
+    // that draws its own primary inside it (kute_dialog.dart): no bar
+    // while one is up. The search pill shows as on a phone (founder, 25
+    // November 2026: "put the search on the bottom always").
     final expanded = KuteLayout.forWidth(MediaQuery.sizeOf(context).width) ==
         KuteFormFactor.expanded;
-    final desktopQuiet = expanded &&
-        (kuteDialogsOpen.value > 0 ||
-            (top != null &&
-                top.kind == KuteBarKind.search &&
-                !top.market));
+    final desktopQuiet = expanded && kuteDialogsOpen.value > 0;
     final show = top != null &&
         !desktopQuiet &&
         (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));
