@@ -125,6 +125,20 @@ Widget _phonePage(BuildContext context) => Scaffold(
       ),
     );
 
+/// A page laid out for the window as round three's pages are: two
+/// columns inside the page gutters, its button in one of them.
+Widget _widePage(BuildContext context) => Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: kuteWidePadding(context),
+          child: KuteColumns.fixed(columns: [
+            Text('Details', style: AppTextStyles.heading2(context)),
+            AppButton(text: context.l10n.done, onPressed: () {}),
+          ]),
+        ),
+      ),
+    );
+
 typedef _Opener = Future<void> Function(WidgetTester tester);
 
 BuildContext _ctx() => _host.currentContext!;
@@ -268,6 +282,22 @@ final Map<String, (bool, _Opener)> _openers = {
           .push<void>(KutePageRoute(builder: _phonePage)));
     }
   ),
+  // Round three: a page across the window (KuteWideMode.full) is allowed
+  // to span it; its buttons and cards still may not stretch.
+  'full_page': (
+    false,
+    (tester) async {
+      _go((c) => Navigator.of(c, rootNavigator: true).push<void>(
+          KutePageRoute(wide: KuteWideMode.full, builder: _widePage)));
+    }
+  ),
+  'panel_sheet': (
+    false,
+    (tester) async {
+      _go((c) => Navigator.of(c, rootNavigator: true).push<void>(
+          KuteSheetPageRoute(wide: KuteWideMode.panel, builder: _phonePage)));
+    }
+  ),
   'detail_sheet': (
     false,
     (tester) async {
@@ -306,6 +336,9 @@ bool _painted(Decoration d) {
 void _expectNothingStretched(
     WidgetTester tester, String label, Set<RenderObject> before) {
   const limit = KuteLayout.columnMaxWidth + 0.5;
+  // A full page's own surface (its Scaffold) spans the window by design.
+  final window = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+  final pageAllowed = label.startsWith('full_page');
   for (final finder in [
     find.byType(AppButton),
     find.byType(AppTextButton),
@@ -338,6 +371,7 @@ void _expectNothingStretched(
       _ => false,
     };
     if (!painted || o.size.height < 24) continue;
+    if (pageAllowed && o.size.width >= window - 0.5) continue;
     expect(o.size.width, lessThanOrEqualTo(limit),
         reason: '$label: a surface ${o.size} (${o.runtimeType}) '
             'stretches across the window; created by ${o.debugCreator}');

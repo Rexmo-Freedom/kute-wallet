@@ -16,6 +16,8 @@
 // first time they are shown and then stay mounted.
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -176,10 +178,22 @@ class _LedgerAccountBodyState extends ConsumerState<LedgerAccountBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
-          child: ServiceTabStrip(tabs: tabs),
-        ),
+        // EXPANDED: the strip at phone width, centred over the tab's
+        // wide body (round three), never stretched across the window.
+        if (kuteIsExpanded(context))
+          KutePhoneColumn(
+            child: kuteNarrowMedia(context,
+                width: KuteLayout.paneWidth,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
+                  child: ServiceTabStrip(tabs: tabs),
+                )),
+          )
+        else
+          Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
+            child: ServiceTabStrip(tabs: tabs),
+          ),
         Expanded(
           child: IndexedStack(
             index: _tab.index,

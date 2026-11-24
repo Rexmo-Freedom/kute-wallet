@@ -1,4 +1,4 @@
-import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/kute_side_panel.dart';
@@ -1718,12 +1718,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _trackStep('advanced');
     try {
       await Navigator.of(context, rootNavigator: true).push<void>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
+        // The page; the shared panel on EXPANDED (kute_form_panel_route).
+        kuteFormPanelRoute(
+          context,
           settings: const RouteSettings(name: BetSlipSheet.routeName),
-          // A centred column from MEDIUM up (kute_wide_frames.dart).
-          builder: (_) =>
-              KuteFormColumn(child: BetSlipSheet._advanced(widget, _draft)),
+          builder: (_) => BetSlipSheet._advanced(widget, _draft),
         ),
       );
     } finally {

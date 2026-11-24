@@ -58,6 +58,7 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/platform/web_biometrics.dart';
 import 'package:kute/platform/open_external.dart';
 
@@ -219,17 +220,150 @@ class _SettingsState extends ConsumerState<Settings> {
       orElse: () => false,
     );
 
+    // EXPANDED (round three; founder, 25 November 2026, of Settings as a
+    // 560 column in a wide empty window: "lots of screens are vertical
+    // only. It must be all occupying full screen when we can"): the four
+    // cards in one row across the page, the sections side by side under
+    // them as columns of their grouped cards (Security | Preferences |
+    // Advanced, three from about 1200 wide, two under it), Advanced open
+    // (nothing in it is destructive). In the master column beside a
+    // sub-page (KuteMasterDetail) and everywhere narrower: as on a phone.
+    final wide = kuteIsExpanded(context);
+
+    final security = _section(context, context.l10n.security, [
+      if (showBiometrics)
+        KeyedSubtree(
+          key: _biometricsKey,
+          child: _buildBiometricsSection(context, ref),
+        ),
+      _buildAutoLockSection(context, ref),
+      const _NotificationsRow(),
+      // Hidden until it ships (feature_flags.dart).
+      if (showAnalyticsOptOut) _buildAnalyticsSection(context),
+    ]);
+    final preferences = _section(context, context.l10n.preferences, [
+      KeyedSubtree(
+        key: _themeKey,
+        child: _buildThemeModeSection(context, ref),
+      ),
+      _buildLanguageSection(ref, context),
+      _buildCurrencyDenominationSection(ref, context),
+      _buildBitcoinUnitSection(ref, context),
+    ]);
+    final export = showExport
+        ? _section(context, context.l10n.export,
+            [_buildTransactionExportSection(context, ref)])
+        : null;
+    // Rate the app, when it is not one of the cards.
+    final support = showReferral
+        ? _section(context, context.l10n.settingsSupportAndFeedback,
+            [_buildRateAppSection(context, ref)])
+        : null;
+    final advancedRows = [
+      _buildSupportInfoCaption(context),
+      _buildAppVersionRow(context, ref),
+      _buildAffiliateIdRow(context),
+      if (showElectrum) _buildElectrumNodeSection(context, ref),
+    ];
+
+    final List<Widget> body;
+    if (wide) {
+      body = [
+        SizedBox(height: 24.h),
+        _buildTopCards(context, ref, showReferral: showReferral, across: 4),
+        SizedBox(height: 32.h),
+        KuteColumns(
+          // In reading order across the columns: Security, Preferences,
+          // Advanced on the first line, Export and Support under the
+          // first two.
+          children: [
+            security,
+            preferences,
+            _section(context, context.l10n.advanced, advancedRows),
+            if (export != null) export,
+            if (support != null) support,
+          ],
+        ),
+      ];
+    } else {
+      body = [
+        SizedBox(height: 24.h),
+        // FOUR BIG CARDS ON TOP (founder, 4 November 2026: "the
+        // passwords/backup, referrals, and support should be 4 big
+        // cards on the top and the rest of the items below"): the
+        // shared big squares (kute_action_cards.dart), 2 x 2.
+        // Backup, the app PIN, the referral program and support;
+        // with the referral program withheld, Rate the app takes
+        // its place so the grid stays whole.
+        _buildTopCards(context, ref, showReferral: showReferral),
+        SizedBox(height: 24.h),
+        // Each section below is one grouped card (AppDecorations.card)
+        // with hairline dividers between its rows, the same
+        // chrome as the add-wallet device list.
+        security,
+        SizedBox(height: 24.h),
+        preferences,
+        if (export != null) ...[
+          SizedBox(height: 24.h),
+          export,
+        ],
+        if (support != null) ...[
+          SizedBox(height: 24.h),
+          support,
+        ],
+        SizedBox(height: 24.h),
+        // Technical settings sit behind one collapsed Advanced row
+        // at the bottom. The section always shows, whatever the
+        // policy says, so support can always ask for the app
+        // version and affiliate id at its top; `settings.advanced`
+        // gates only the custom Bitcoin server row inside it.
+        _GroupedCard(children: [
+          _SettingsRow(
+            title: context.l10n.advanced,
+            icon: Icons.tune_rounded,
+            subtitle: context.l10n.settingsAdvancedSubtitle,
+            trailing: Icon(
+              _showAdvanced
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
+              color: context.colors.textTertiary,
+              size: 22.sp,
+            ),
+            onTap: () {
+              final expanded = !_showAdvanced;
+              TrackingService.track('settings_advanced_toggled',
+                  params: {'expanded': expanded});
+              setState(() => _showAdvanced = expanded);
+            },
+          ),
+          if (_showAdvanced) ...advancedRows,
+        ]),
+      ];
+    }
+
+    final side = wide ? kuteWidePadding(context) : EdgeInsets.symmetric(horizontal: 16.w);
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        centerTitle: true,
+        // On EXPANDED the back button and the title sit on the page's
+        // left gutter.
+        centerTitle: !wide,
+        titleSpacing: wide ? 8 : null,
+        leadingWidth: wide ? side.left + 40 : null,
         elevation: 0,
         // The bar reads "Ask Sal about Kute" over Settings.
         leading: KuteBarContextScope(
           barContext: KuteBarContext(
               label: context.l10n.barAskAboutKute, source: 'settings'),
-          child: const KuteBackButton(),
+          child: wide
+              ? Padding(
+                  padding: EdgeInsets.only(left: side.left - 2),
+                  child: const Align(
+                      alignment: Alignment.centerLeft,
+                      child: KuteBackButton()),
+                )
+              : const KuteBackButton(),
         ),
         title: Text(
           context.l10n.settings,
@@ -248,104 +382,28 @@ class _SettingsState extends ConsumerState<Settings> {
           bottom: false,
           child: SingleChildScrollView(
             // The last rows scroll clear of the floating bar.
-            padding: EdgeInsets.fromLTRB(
-                16.w, 16.h, 16.w, 40.h + kuteBarScrollClearance.h),
+            padding: EdgeInsets.fromLTRB(side.left, 16.h, side.right,
+                40.h + kuteBarScrollClearance.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: 24.h),
-                // FOUR BIG CARDS ON TOP (founder, 4 November 2026: "the
-                // passwords/backup, referrals, and support should be 4 big
-                // cards on the top and the rest of the items below"): the
-                // shared big squares (kute_action_cards.dart), 2 x 2.
-                // Backup, the app PIN, the referral program and support;
-                // with the referral program withheld, Rate the app takes
-                // its place so the grid stays whole.
-                _buildTopCards(context, ref, showReferral: showReferral),
-                SizedBox(height: 24.h),
-                // Each section below is one grouped card (AppDecorations.card)
-                // with hairline dividers between its rows, the same
-                // chrome as the add-wallet device list.
-                _buildSectionHeader(context, context.l10n.security),
-                _GroupedCard(children: [
-                  if (showBiometrics)
-                    KeyedSubtree(
-                      key: _biometricsKey,
-                      child: _buildBiometricsSection(context, ref),
-                    ),
-                  _buildAutoLockSection(context, ref),
-                  const _NotificationsRow(),
-                  // Hidden until it ships (feature_flags.dart).
-                  if (showAnalyticsOptOut) _buildAnalyticsSection(context),
-                ]),
-
-                SizedBox(height: 24.h),
-                _buildSectionHeader(context, context.l10n.preferences),
-                _GroupedCard(children: [
-                  KeyedSubtree(
-                    key: _themeKey,
-                    child: _buildThemeModeSection(context, ref),
-                  ),
-                  _buildLanguageSection(ref, context),
-                  _buildCurrencyDenominationSection(ref, context),
-                  _buildBitcoinUnitSection(ref, context),
-                ]),
-
-                if (showExport) ...[
-                  SizedBox(height: 24.h),
-                  _buildSectionHeader(context, context.l10n.export),
-                  _GroupedCard(children: [
-                    _buildTransactionExportSection(context, ref)
-                  ]),
-                ],
-
-                // Rate the app, when it is not one of the cards.
-                if (showReferral) ...[
-                  SizedBox(height: 24.h),
-                  _buildSectionHeader(
-                      context, context.l10n.settingsSupportAndFeedback),
-                  _GroupedCard(children: [_buildRateAppSection(context, ref)]),
-                ],
-
-                SizedBox(height: 24.h),
-                // Technical settings sit behind one collapsed Advanced row
-                // at the bottom. The section always shows, whatever the
-                // policy says, so support can always ask for the app
-                // version and affiliate id at its top; `settings.advanced`
-                // gates only the custom Bitcoin server row inside it.
-                _GroupedCard(children: [
-                  _SettingsRow(
-                    title: context.l10n.advanced,
-                    icon: Icons.tune_rounded,
-                    subtitle: context.l10n.settingsAdvancedSubtitle,
-                    trailing: Icon(
-                      _showAdvanced
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      color: context.colors.textTertiary,
-                      size: 22.sp,
-                    ),
-                    onTap: () {
-                      final expanded = !_showAdvanced;
-                      TrackingService.track('settings_advanced_toggled',
-                          params: {'expanded': expanded});
-                      setState(() => _showAdvanced = expanded);
-                    },
-                  ),
-                  if (_showAdvanced) ...[
-                    _buildSupportInfoCaption(context),
-                    _buildAppVersionRow(context, ref),
-                    _buildAffiliateIdRow(context),
-                    if (showElectrum) _buildElectrumNodeSection(context, ref),
-                  ],
-                ]),
-              ],
+              children: body,
             ),
           ),
         ),
       ),
     );
   }
+
+  /// A section: its header over its grouped card.
+  Widget _section(BuildContext context, String title, List<Widget> rows) =>
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildSectionHeader(context, title),
+          _GroupedCard(children: rows),
+        ],
+      );
 
   /// The small "Support info" caption at the top of the expanded
   /// Advanced section, over the app version and affiliate id rows.
@@ -521,10 +579,11 @@ class _SettingsState extends ConsumerState<Settings> {
   /// app PIN, the referral program (Rate the app when it is withheld) and
   /// support, each doing what its row did.
   Widget _buildTopCards(BuildContext context, WidgetRef ref,
-      {required bool showReferral}) {
+      {required bool showReferral, int? across}) {
     final l10n = context.l10n;
     return KuteActionCardGrid(
       key: const ValueKey('settings-top-cards'),
+      across: across,
       cards: [
         _SettingsCard.of(
           context,
@@ -538,7 +597,7 @@ class _SettingsState extends ConsumerState<Settings> {
             // Auth happens INSIDE the wallets screen on mount — matches the
             // existing seed-words flow (biometric attempt first, falls back
             // to the PIN bottom sheet).
-            context.pushNamed('wallets');
+            _openDetail(context, name: 'wallets');
           },
         ),
         _SettingsCard.of(
@@ -562,7 +621,7 @@ class _SettingsState extends ConsumerState<Settings> {
             onTap: () {
               HapticFeedback.lightImpact();
               TrackingService.settingsActionTapped('referral_program');
-              context.push('/affiliate');
+              _openDetail(context, location: '/affiliate');
             },
           )
         else
@@ -594,6 +653,31 @@ class _SettingsState extends ConsumerState<Settings> {
         ),
       ],
     );
+  }
+
+  /// A sub-page that is a full page (Wallets, the referral program): on
+  /// EXPANDED the detail beside Settings (KuteMasterDetail, pushed with
+  /// [kuteSettingsDetailExtra]); from the master column beside one, in
+  /// place of the detail shown. As before everywhere else.
+  void _openDetail(BuildContext context, {String? name, String? location}) {
+    final router = GoRouter.of(context);
+    if (KuteMasterScope.inMaster(context)) {
+      if (name != null) {
+        // ignore: discarded_futures
+        router.pushReplacementNamed(name, extra: kuteSettingsDetailExtra);
+      } else {
+        // ignore: discarded_futures
+        router.pushReplacement(location!, extra: kuteSettingsDetailExtra);
+      }
+      return;
+    }
+    if (name != null) {
+      // ignore: discarded_futures
+      router.pushNamed(name, extra: kuteSettingsDetailExtra);
+    } else {
+      // ignore: discarded_futures
+      router.push(location!, extra: kuteSettingsDetailExtra);
+    }
   }
 
   void _openChangePin(BuildContext context, WidgetRef ref,

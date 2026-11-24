@@ -30,6 +30,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -73,7 +74,14 @@ class NetworkChangeSignal with WidgetsBindingObserver {
 
   static final NetworkChangeSignal instance = NetworkChangeSignal();
 
-  static Stream<Object?> _platformEvents() => channel.receiveBroadcastStream();
+  // The web has no path listener: listening there reported a
+  // MissingPluginException for `kute/network_path` through
+  // FlutterError.onError (an `unhandled_exception_caught` at every boot,
+  // seen live on 25 November 2026); resume and the tap-time re-check
+  // cover it.
+  static Stream<Object?> _platformEvents() => kIsWeb
+      ? const Stream<Object?>.empty()
+      : channel.receiveBroadcastStream();
 
   final Stream<Object?> Function() _nativeEvents;
   final Duration debounce;

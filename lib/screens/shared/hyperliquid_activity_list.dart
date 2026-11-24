@@ -1,3 +1,5 @@
+import 'package:kute/screens/shared/desk_lists.dart'
+    show ActivityDayColumns, deskListPadding;
 import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +24,13 @@ class HyperliquidActivityList extends ConsumerWidget {
       this.loadFailed = false,
       required this.onRetry,
       this.compareWithSpendingWallet = false,
-      this.maxRows = 200});
+      this.maxRows = 200,
+      this.columns = false});
+
+  /// A page across the window on EXPANDED: the day cards in masonry
+  /// columns (ActivityDayColumns, desk_lists.dart), the retry over the
+  /// first column.
+  final bool columns;
   final List<HlFill> fills;
   final String? walletId;
   final bool loading, loadFailed, compareWithSpendingWallet;
@@ -75,14 +83,17 @@ class HyperliquidActivityList extends ConsumerWidget {
           label: Text(context.l10n.hlActivityRefreshFailedRetry)));
     }
     // Same day cards as Home and the wallets.
-    children.addAll(activityDaySections<({int time, Widget row})>(
+    final sections = activityDaySections<({int time, Widget row})>(
       entries.take(maxRows).toList(),
       timeOf: (e) => DateTime.fromMillisecondsSinceEpoch(e.time),
       rowOf: (e) => e.row,
-    ));
+    );
+    final side = columns ? deskListPadding().left : 0.0;
     return ListView(
         padding: EdgeInsets.fromLTRB(
-            0, 8.h, 0, 40.h + kuteDockScrollClearance(context)),
-        children: children);
+            side, 8.h, side, 40.h + kuteDockScrollClearance(context)),
+        children: columns
+            ? [ActivityDayColumns(sections: sections, leading: children)]
+            : [...children, ...sections]);
   }
 }

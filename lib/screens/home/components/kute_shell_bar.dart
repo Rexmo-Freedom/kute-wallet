@@ -95,7 +95,12 @@ import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart'
-    show kuteBarBottomRoomFor, kuteBarPane, kuteDialogsOpen, kuteWindowWidth;
+    show
+        kuteBarBottomRoomFor,
+        kuteBarPane,
+        kuteDialogsOpen,
+        kuteInPlaceRoutes,
+        kuteWindowWidth;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
@@ -175,6 +180,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     KuteBarRouteObserver.over.addListener(_onRoutes);
     kuteBarPane.addListener(_onRoutes);
     kuteDialogsOpen.addListener(_onRoutes);
+    kuteInPlaceRoutes.addListener(_onRoutes);
     kuteShellMounted.addListener(_onRoutes);
     kuteBarScroll.addListener(_onScroll);
     HardwareKeyboard.instance.addHandler(_onKey);
@@ -219,6 +225,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     KuteBarRouteObserver.over.removeListener(_onRoutes);
     kuteBarPane.removeListener(_onRoutes);
     kuteDialogsOpen.removeListener(_onRoutes);
+    kuteInPlaceRoutes.removeListener(_onRoutes);
     kuteShellMounted.removeListener(_onRoutes);
     kuteBarScroll.removeListener(_onScroll);
     HardwareKeyboard.instance.removeHandler(_onKey);
@@ -384,7 +391,11 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // November 2026: "put the search on the bottom always").
     final expanded = KuteLayout.forWidth(MediaQuery.sizeOf(context).width) ==
         KuteFormFactor.expanded;
-    final desktopQuiet = expanded && kuteDialogsOpen.value > 0;
+    // A split screen's form draws its page's primary in place
+    // (KuteInPlaceBar, kute_dialog.dart): no bar while it is on top.
+    final desktopQuiet = expanded &&
+        (kuteDialogsOpen.value > 0 ||
+            kuteInPlaceRoutes.value.any(KuteBarRouteObserver.onTop));
     final show = top != null &&
         !desktopQuiet &&
         (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));

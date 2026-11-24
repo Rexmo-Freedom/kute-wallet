@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:kute/screens/shared/kute_paste_chip.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_wide_page_parts.dart';
 
 class ExternalAddressImportScreen extends ConsumerStatefulWidget {
   const ExternalAddressImportScreen({super.key});
@@ -35,6 +36,7 @@ class _ExternalAddressImportScreenState
   // ── wallet_add funnel (categorical only: never the address or name) ──
   final Stopwatch _flowClock = Stopwatch()..start();
   String _flowStep = '';
+
   /// How the address got in: qr | paste | typed.
   String? _captureMethod;
   String? _lastErrorCategory;
@@ -132,13 +134,16 @@ class _ExternalAddressImportScreenState
       'has_name': _nameController.text.trim().isNotEmpty,
     });
     FocusScope.of(context).unfocus();
-    await ref.read(importWalletControllerProvider.notifier).importExternalAddress(
-      address: _addressController.text.trim(),
-      walletName: _nameController.text.trim(),
-    );
+    await ref
+        .read(importWalletControllerProvider.notifier)
+        .importExternalAddress(
+          address: _addressController.text.trim(),
+          walletName: _nameController.text.trim(),
+        );
   }
 
-  Widget _buildStepRow(int stepNumber, String text, AppColorsExtension c, {bool isActive = false}) {
+  Widget _buildStepRow(int stepNumber, String text, AppColorsExtension c,
+      {bool isActive = false}) {
     return Padding(
       padding: EdgeInsets.only(bottom: 10.h),
       child: Row(
@@ -150,7 +155,8 @@ class _ExternalAddressImportScreenState
             decoration: BoxDecoration(
               color: c.surfaceLight,
               borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(color: isActive ? c.textPrimary : c.borderSubtle),
+              border:
+                  Border.all(color: isActive ? c.textPrimary : c.borderSubtle),
             ),
             child: Center(
               child: Text(
@@ -169,7 +175,8 @@ class _ExternalAddressImportScreenState
               padding: EdgeInsets.only(top: 2.h),
               child: Text(
                 text,
-                style: TextStyle(color: c.textSecondary, fontSize: 14.sp, height: 1.4),
+                style: TextStyle(
+                    color: c.textSecondary, fontSize: 14.sp, height: 1.4),
               ),
             ),
           ),
@@ -192,7 +199,8 @@ class _ExternalAddressImportScreenState
     // Same chrome as the xpub import screen's method cards so every
     // "pick a way to get a key in" surface reads identically.
     return AnimatedContainer(
-      duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
         color: c.surface,
@@ -254,19 +262,22 @@ class _ExternalAddressImportScreenState
                   SizedBox(width: 8.w),
                   AnimatedRotation(
                     turns: isExpanded ? 0.25 : 0,
-                    duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
-                    child: Icon(Icons.chevron_right, color: c.textTertiary, size: 22.sp),
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    child: Icon(Icons.chevron_right,
+                        color: c.textTertiary, size: 22.sp),
                   ),
                 ],
               ),
             ),
           ),
           AnimatedSize(
-            duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            child: isExpanded
-                ? contentBuilder(c)
-                : const SizedBox.shrink(),
+            child: isExpanded ? contentBuilder(c) : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -282,9 +293,9 @@ class _ExternalAddressImportScreenState
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
       decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha:0.08),
+        color: AppColors.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(color: AppColors.success.withValues(alpha:0.3)),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -293,7 +304,10 @@ class _ExternalAddressImportScreenState
           Expanded(
             child: Text(
               shortAddr,
-              style: TextStyle(color: c.textSecondary, fontFamily: 'Courier', fontSize: 13.sp),
+              style: TextStyle(
+                  color: c.textSecondary,
+                  fontFamily: 'Courier',
+                  fontSize: 13.sp),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -362,6 +376,233 @@ class _ExternalAddressImportScreenState
       }
     });
 
+    final hero = Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: c.surfaceLight.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: c.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44.sp,
+            height: 44.sp,
+            decoration: BoxDecoration(
+              color: c.textPrimary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Icon(Icons.visibility_rounded,
+                color: c.textPrimary, size: 22.sp),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.trackAddressHeroTitle,
+                    style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w700)),
+                Text(context.l10n.trackAddressHeroSubtitle,
+                    style: TextStyle(color: c.textSecondary, fontSize: 14.sp)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    final nameField = Container(
+      decoration: BoxDecoration(
+        color: c.surfaceLight,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
+      child: TextField(
+        controller: _nameController,
+        style: TextStyle(color: c.textPrimary, fontSize: 15.sp),
+        cursorColor: context.colors.accent,
+        decoration: InputDecoration(
+          hintText: context.l10n.labelOptional,
+          hintStyle: TextStyle(color: c.textTertiary, fontSize: 15.sp),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.all(14.w),
+          prefixIcon: Icon(Icons.label_outline_rounded,
+              color: c.textTertiary, size: 18.sp),
+        ),
+      ),
+    );
+    final scan = _buildExpandableMethodCard(
+      c: c,
+      reduceMotion: reduceMotion,
+      methodKey: 'qr',
+      icon: Icons.qr_code_scanner_rounded,
+      label: context.l10n.scanQrCode,
+      description: context.l10n.scanBitcoinAddressQr,
+      contentBuilder: (c) => Padding(
+        padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Divider(color: c.border, height: 1),
+            SizedBox(height: 12.h),
+            _buildStepRow(1, context.l10n.findBitcoinAddressToTrack, c),
+            _buildStepRow(2, context.l10n.tapToScanQrCode, c, isActive: true),
+            SizedBox(height: 4.h),
+            AppButton(
+              text: context.l10n.scanQrCode,
+              onPressed: _onScanPressed,
+              icon: Icons.camera_alt,
+              textColor: context.ctaOnColor,
+              compact: true,
+            ),
+            if (_addressController.text.isNotEmpty) ...[
+              SizedBox(height: 12.h),
+              _buildAddressPreview(c),
+            ],
+          ],
+        ),
+      ),
+    );
+    final paste = _buildExpandableMethodCard(
+      c: c,
+      reduceMotion: reduceMotion,
+      methodKey: 'paste',
+      icon: Icons.paste_rounded,
+      label: context.l10n.paste,
+      description: context.l10n.pasteBitcoinAddressFromClipboard,
+      contentBuilder: (c) => Padding(
+        padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Divider(color: c.border, height: 1),
+            SizedBox(height: 14.h),
+            Container(
+              decoration: BoxDecoration(
+                color: c.surfaceLight,
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: _addressController.text.trim().isEmpty
+                      ? c.borderSubtle
+                      : (_isPlausibleAddress(_addressController.text)
+                          ? AppColors.success.withValues(alpha: 0.45)
+                          : c.border),
+                  width: _addressController.text.trim().isEmpty ? 0.5 : 1,
+                ),
+              ),
+              child: TextField(
+                controller: _addressController,
+                minLines: 2,
+                maxLines: 3,
+                autocorrect: false,
+                enableSuggestions: false,
+                style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 15.sp,
+                    fontFamily: 'Courier',
+                    height: 1.4),
+                cursorColor: context.colors.accent,
+                onChanged: (value) {
+                  if (_captureMethod == null && value.trim().isNotEmpty) {
+                    _captureMethod = 'typed';
+                  }
+                  setState(() {});
+                },
+                decoration: InputDecoration(
+                  hintText: context.l10n.trackAddressPasteHint,
+                  hintStyle: TextStyle(color: c.textTertiary, fontSize: 14.sp),
+                  contentPadding: EdgeInsets.all(12.w),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+            SizedBox(height: 10.h),
+            // Validation hint on the left, paste
+            // chip on the right — same row as the
+            // xpub paste card.
+            Row(
+              children: [
+                Expanded(
+                  child: (_addressController.text.trim().isNotEmpty &&
+                          !_isPlausibleAddress(_addressController.text))
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline_rounded,
+                                color: c.textTertiary, size: 16.sp),
+                            SizedBox(width: 6.w),
+                            Expanded(
+                              child: Text(
+                                context.l10n.walletsInvalidAddressHint,
+                                style: TextStyle(
+                                  color: c.textTertiary,
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                SizedBox(width: 10.w),
+                KutePasteChip(
+                  onPressed: () async {
+                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                    if (data?.text != null && mounted) {
+                      setState(() =>
+                          _addressController.text = _cleanAddress(data!.text!));
+                      TrackingService.track(
+                          'external_address_paste_clipboard_tapped',
+                          params: {
+                            'valid':
+                                _isPlausibleAddress(_addressController.text),
+                          });
+                      _captureMethod = 'paste';
+                      _step('address_captured', method: 'paste');
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    final note = Container(
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: c.surfaceLight,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: c.textTertiary, size: 18.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              context.l10n.trackAddressWatchOnlyNote,
+              style: TextStyle(
+                  color: c.textSecondary, fontSize: 14.sp, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+    // EXPANDED (round three; founder, 25 November 2026: "it must be all
+    // occupying full screen when we can"): the form (the label, scan and
+    // paste) at a readable width on the left, what tracking means on the
+    // right; the back button and the title on the page's left gutter.
+    final wide = kuteIsExpanded(context);
+    final side = wide
+        ? kuteWidePadding(context, maxWidth: kuteWideTwoColumns)
+        : EdgeInsets.symmetric(horizontal: 20.w);
     return KeyboardDismissOnTap(
       child: Scaffold(
         extendBodyBehindAppBar: true,
@@ -374,8 +615,12 @@ class _ExternalAddressImportScreenState
           systemOverlayStyle: Theme.of(context).brightness == Brightness.light
               ? SystemUiOverlayStyle.dark
               : SystemUiOverlayStyle.light,
-          centerTitle: true,
-          leading: const KuteBackButton(),
+          centerTitle: !wide,
+          titleSpacing: wide ? 8 : null,
+          leadingWidth: wide ? side.left + 40 : null,
+          leading: wide
+              ? kuteWideLeading(side.left, const KuteBackButton())
+              : const KuteBackButton(),
           title: Text(context.l10n.trackAddress,
               style: TextStyle(
                   color: c.textPrimary,
@@ -394,13 +639,14 @@ class _ExternalAddressImportScreenState
                 left: 0,
                 right: 0,
                 height: 400.h,
-                child: KuteFullBleed(child: Container(
+                child: KuteFullBleed(
+                    child: Container(
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       center: Alignment.topCenter,
                       radius: 1.0,
                       colors: [
-                        c.textPrimary.withValues(alpha:0.04),
+                        c.textPrimary.withValues(alpha: 0.04),
                         Colors.transparent,
                       ],
                       stops: const [0.0, 1.0],
@@ -414,242 +660,61 @@ class _ExternalAddressImportScreenState
                   children: [
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(horizontal: 20.w),
+                        padding:
+                            EdgeInsets.only(left: side.left, right: side.right),
                         physics: const BouncingScrollPhysics(),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: wide
+                              ? CrossAxisAlignment.stretch
+                              : CrossAxisAlignment.start,
                           children: [
                             SizedBox(height: 8.h),
-
-                            Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.all(14.w),
-                              decoration: BoxDecoration(
-                                color: c.surfaceLight.withValues(alpha:0.5),
-                                borderRadius: BorderRadius.circular(16.r),
-                                border: Border.all(color: c.borderSubtle),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 44.sp,
-                                    height: 44.sp,
-                                    decoration: BoxDecoration(
-                                      color: c.textPrimary.withValues(alpha:0.06),
-                                      borderRadius: BorderRadius.circular(12.r),
-                                    ),
-                                    child: Icon(Icons.visibility_rounded, color: c.textPrimary, size: 22.sp),
-                                  ),
-                                  SizedBox(width: 14.w),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(context.l10n.trackAddressHeroTitle, style: TextStyle(color: c.textPrimary, fontSize: 16.sp, fontWeight: FontWeight.w700)),
-                                        Text(context.l10n.trackAddressHeroSubtitle, style: TextStyle(color: c.textSecondary, fontSize: 14.sp)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: 12.h),
-
-                            Container(
-                              decoration: BoxDecoration(
-                                color: c.surfaceLight,
-                                borderRadius: BorderRadius.circular(12.r),
-                                border: Border.all(color: c.borderSubtle, width: 0.5),
-                              ),
-                              child: TextField(
-                                controller: _nameController,
-                                style: TextStyle(color: c.textPrimary, fontSize: 15.sp),
-                                cursorColor: context.colors.accent,
-                                decoration: InputDecoration(
-                                  hintText: context.l10n.labelOptional,
-                                  hintStyle: TextStyle(color: c.textTertiary, fontSize: 15.sp),
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.all(14.w),
-                                  prefixIcon: Icon(Icons.label_outline_rounded, color: c.textTertiary, size: 18.sp),
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: 12.h),
-
-                            _buildExpandableMethodCard(
-                              c: c,
-                              reduceMotion: reduceMotion,
-                              methodKey: 'qr',
-                              icon: Icons.qr_code_scanner_rounded,
-                              label: context.l10n.scanQrCode,
-                              description: context.l10n.scanBitcoinAddressQr,
-                              contentBuilder: (c) => Padding(
-                                padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
-                                child: Column(
+                            if (wide)
+                              KuteColumns.fixed(columns: [
+                                Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Divider(color: c.border, height: 1),
+                                    nameField,
                                     SizedBox(height: 12.h),
-                                    _buildStepRow(1, context.l10n.findBitcoinAddressToTrack, c),
-                                    _buildStepRow(2, context.l10n.tapToScanQrCode, c, isActive: true),
-                                    SizedBox(height: 4.h),
-                                    AppButton(
-                                      text: context.l10n.scanQrCode,
-                                      onPressed: _onScanPressed,
-                                      icon: Icons.camera_alt,
-                                      textColor: context.ctaOnColor,
-                                      compact: true,
-                                    ),
-                                    if (_addressController.text.isNotEmpty) ...[
-                                      SizedBox(height: 12.h),
-                                      _buildAddressPreview(c),
-                                    ],
+                                    scan,
+                                    SizedBox(height: 8.h),
+                                    paste,
                                   ],
                                 ),
-                              ),
-                            ),
-                            SizedBox(height: 8.h),
-
-                            _buildExpandableMethodCard(
-                              c: c,
-                              reduceMotion: reduceMotion,
-                              methodKey: 'paste',
-                              icon: Icons.paste_rounded,
-                              label: context.l10n.paste,
-                              description: context.l10n.pasteBitcoinAddressFromClipboard,
-                              contentBuilder: (c) => Padding(
-                                padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
-                                child: Column(
+                                Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Divider(color: c.border, height: 1),
-                                    SizedBox(height: 14.h),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: c.surfaceLight,
-                                        borderRadius: BorderRadius.circular(12.r),
-                                        border: Border.all(
-                                          color: _addressController.text.trim().isEmpty
-                                              ? c.borderSubtle
-                                              : (_isPlausibleAddress(_addressController.text)
-                                                  ? AppColors.success.withValues(alpha: 0.45)
-                                                  : c.border),
-                                          width: _addressController.text.trim().isEmpty ? 0.5 : 1,
-                                        ),
-                                      ),
-                                      child: TextField(
-                                        controller: _addressController,
-                                        minLines: 2,
-                                        maxLines: 3,
-                                        autocorrect: false,
-                                        enableSuggestions: false,
-                                        style: TextStyle(color: c.textPrimary, fontSize: 15.sp, fontFamily: 'Courier', height: 1.4),
-                                        cursorColor: context.colors.accent,
-                                        onChanged: (value) {
-                                          if (_captureMethod == null &&
-                                              value.trim().isNotEmpty) {
-                                            _captureMethod = 'typed';
-                                          }
-                                          setState(() {});
-                                        },
-                                        decoration: InputDecoration(
-                                          hintText: context.l10n.trackAddressPasteHint,
-                                          hintStyle: TextStyle(color: c.textTertiary, fontSize: 14.sp),
-                                          contentPadding: EdgeInsets.all(12.w),
-                                          border: InputBorder.none,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(height: 10.h),
-                                    // Validation hint on the left, paste
-                                    // chip on the right — same row as the
-                                    // xpub paste card.
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: (_addressController.text.trim().isNotEmpty &&
-                                                  !_isPlausibleAddress(_addressController.text))
-                                              ? Row(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Icon(Icons.info_outline_rounded, color: c.textTertiary, size: 16.sp),
-                                                    SizedBox(width: 6.w),
-                                                    Expanded(
-                                                      child: Text(
-                                                        context.l10n.walletsInvalidAddressHint,
-                                                        style: TextStyle(
-                                                          color: c.textTertiary,
-                                                          fontSize: 13.sp,
-                                                          fontWeight: FontWeight.w600,
-                                                          height: 1.3,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                )
-                                              : const SizedBox.shrink(),
-                                        ),
-                                        SizedBox(width: 10.w),
-                                        KutePasteChip(
-                                          onPressed: () async {
-                                            final data = await Clipboard.getData(Clipboard.kTextPlain);
-                                            if (data?.text != null && mounted) {
-                                              setState(() => _addressController.text = _cleanAddress(data!.text!));
-                                              TrackingService.track(
-                                                  'external_address_paste_clipboard_tapped',
-                                                  params: {
-                                                    'valid': _isPlausibleAddress(_addressController.text),
-                                                  });
-                                              _captureMethod = 'paste';
-                                              _step('address_captured',
-                                                  method: 'paste');
-                                            }
-                                          },
-                                        ),
-                                      ],
-                                    ),
+                                    hero,
+                                    SizedBox(height: 16.h),
+                                    note,
                                   ],
                                 ),
-                              ),
-                            ),
-
-                            SizedBox(height: 16.h),
-
-                            Container(
-                              padding: EdgeInsets.all(14.w),
-                              decoration: BoxDecoration(
-                                color: c.surfaceLight,
-                                borderRadius: BorderRadius.circular(12.r),
-                                border: Border.all(color: c.borderSubtle, width: 0.5),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.info_outline_rounded, color: c.textTertiary, size: 18.sp),
-                                  SizedBox(width: 10.w),
-                                  Expanded(
-                                    child: Text(
-                                      context.l10n.trackAddressWatchOnlyNote,
-                                      style: TextStyle(color: c.textSecondary, fontSize: 14.sp, height: 1.4),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
+                              ])
+                            else ...[
+                              hero,
+                              SizedBox(height: 12.h),
+                              nameField,
+                              SizedBox(height: 12.h),
+                              scan,
+                              SizedBox(height: 8.h),
+                              paste,
+                              SizedBox(height: 16.h),
+                              note,
+                            ],
                             SizedBox(height: 100.h),
                           ],
                         ),
                       ),
                     ),
-
                     if (_addressController.text.isNotEmpty)
                       Container(
                         width: double.infinity,
-                        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, MediaQuery.of(context).padding.bottom + 16.h),
+                        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w,
+                            MediaQuery.of(context).padding.bottom + 16.h),
                         decoration: BoxDecoration(
                           color: c.surface,
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(24.r)),
                           border: Border(top: BorderSide(color: c.border)),
                         ),
                         // THE BAR IS THE BUTTON (kute_bar_context.dart):
@@ -665,7 +730,10 @@ class _ExternalAddressImportScreenState
                                 _isPlausibleAddress(_addressController.text),
                             busy: importState.isLoading,
                             source: 'external_address_import',
-                            disabledLabel: _addressController.text.trim().isEmpty ? context.l10n.barNeedAddress : context.l10n.barNeedValidAddress,
+                            disabledLabel:
+                                _addressController.text.trim().isEmpty
+                                    ? context.l10n.barNeedAddress
+                                    : context.l10n.barNeedValidAddress,
                           ),
                           child: SizedBox(height: kuteBarScrollClearance.h),
                         ),

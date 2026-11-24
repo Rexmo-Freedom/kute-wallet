@@ -64,6 +64,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteWideMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -1561,6 +1562,8 @@ class _PolyFeedCard extends ConsumerWidget {
                       });
                   Navigator.of(context, rootNavigator: true).push(
                     KutePageRoute(
+                      // EXPANDED: across the window, markets in columns.
+                      wide: KuteWideMode.full,
                       builder: (_) => GroupLandingScreen.events(
                         title: market.displayTitle,
                         events: matchSiblings,

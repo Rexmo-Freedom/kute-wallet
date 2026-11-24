@@ -23,7 +23,7 @@
 //   * ITS PRIMARY BUTTON IS INSIDE IT. On a phone a sheet's Continue /
 //     Send / Done is the floating bar (kute_bar_context.dart,
 //     KuteBarContext.primary); round one had that bar hanging detached
-//     under the card. Here the panel's foot ([_KuteDialogFoot]) reads the
+//     under the card. Here the panel's foot ([KuteDialogFoot]) reads the
 //     bar contexts bound to ITS route and draws the same
 //     [KuteBarPrimaryButton] (and the round Sal button beside it, or a
 //     trade row) pinned at its bottom, the way the in-place slips do
@@ -260,7 +260,7 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
               fit: widget.fill ? FlexFit.tight : FlexFit.loose,
               child: widget.child,
             ),
-            _KuteDialogFoot(route: widget.route),
+            KuteDialogFoot(route: widget.route),
           ],
         ),
       ),
@@ -327,10 +327,12 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
 /// beside it) or a trade row, from the bar contexts bound to [route], as
 /// the floating bar would draw them (kute_shell_bar.dart). Nothing when
 /// the content declares none.
-class _KuteDialogFoot extends ConsumerWidget {
-  const _KuteDialogFoot({required this.route});
+class KuteDialogFoot extends ConsumerWidget {
+  const KuteDialogFoot({super.key, required this.route});
 
-  final Route<dynamic> route;
+  /// The route whose bar contexts it draws (null: the contexts bound to
+  /// no route, an overlay's).
+  final Route<dynamic>? route;
 
   List<KuteBarContext> _mine(List<KuteBarContext> stack) => [
         for (final c in stack)
@@ -434,4 +436,68 @@ Route<T> kuteMoneyFlowRoute<T>(BuildContext context,
     fullscreenDialog: true,
     builder: (ctx) => KuteFormColumn(child: builder(ctx)),
   );
+}
+
+/// A page's bar drawn IN PLACE on EXPANDED (round three: a split screen's
+/// form half, kute_split_screen.dart): [child] over the panel's foot
+/// ([KuteDialogFoot]), which draws the primary button (or the trade row)
+/// of the bar contexts bound to [child]'s route, under the form, the way
+/// a panel draws its own. Inside it a sheet draws no handle and the room
+/// a surface kept for the floating bar is dropped ([KuteDialogScope]);
+/// while its route is on top the floating bar leaves its contexts alone
+/// ([kuteInPlaceRoutes], kute_shell_bar.dart), so the button is never
+/// detached at the bottom middle of the window. Off EXPANDED it is
+/// [child] as it was.
+class KuteInPlaceBar extends StatefulWidget {
+  const KuteInPlaceBar({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<KuteInPlaceBar> createState() => _KuteInPlaceBarState();
+}
+
+class _KuteInPlaceBarState extends State<KuteInPlaceBar> {
+  final ValueNotifier<int> _closeMarks = ValueNotifier<int>(0);
+  Route<dynamic>? _route;
+  bool _registered = false;
+
+  void _register(Route<dynamic>? route, bool on) {
+    final next = on ? route : null;
+    if (identical(next, _registered ? _route : null)) return;
+    final old = _registered ? _route : null;
+    _route = route;
+    _registered = next != null;
+    // After the frame: the floating bar listens and rebuilds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final set = {...kuteInPlaceRoutes.value};
+      if (old != null) set.remove(old);
+      if (next != null) set.add(next);
+      kuteInPlaceRoutes.value = set;
+    });
+  }
+
+  @override
+  void dispose() {
+    _register(_route, false);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final route = ModalRoute.of(context);
+    final expanded = kuteWindowIsExpanded(context);
+    _register(route, expanded);
+    if (!expanded) return widget.child;
+    return KuteDialogScope(
+      route: route,
+      closeMarks: _closeMarks,
+      child: Column(
+        children: [
+          Expanded(child: widget.child),
+          KuteDialogFoot(route: route),
+        ],
+      ),
+    );
+  }
 }

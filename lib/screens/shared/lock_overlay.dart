@@ -23,15 +23,14 @@
 //     resets the small-action allowance budget, and a biometric unlock
 //     stores the iOS biometry domain state (D-14).
 
-
 import 'package:flutter/material.dart';
-import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
+import 'package:kute/screens/shared/kute_split_screen.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/pin_attempt_guard.dart';
 import 'package:kute/helpers/privacy_cover_bridge.dart';
@@ -99,9 +98,8 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       'biometrics_enabled': ref.read(settingsProvider).biometricsEnabled,
       // The background grace expiring, or a confirmation sheet that hit
       // its wrong-PIN threshold.
-      'reason': ref.read(pinSheetLockedProvider)
-          ? 'pin_sheet_lockout'
-          : 'auto_lock',
+      'reason':
+          ref.read(pinSheetLockedProvider) ? 'pin_sheet_lockout' : 'auto_lock',
     });
     resetStepUpSession();
     final guard = PinAttemptGuard(AuthModel());
@@ -359,61 +357,63 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     // The same scaffold, title, dots and keypad as the cold-start PIN
     // screen, so a relock after backgrounding looks like Welcome back
     // and nothing else.
-    // The whole window covered; from MEDIUM up the PIN pad is the
-    // centred form column on the background (kute_wide_frames.dart).
+    // The whole window covered; on MEDIUM the PIN pad is the centred
+    // form column on the background (kute_wide_frames.dart), on EXPANDED
+    // the split screen of the PIN steps (kute_split_screen.dart).
     return Positioned.fill(
-      child: KuteFormColumn(
-      child: KutePinScaffold(
-        title: context.l10n.welcomeBack,
-        salMood: salMoodFor(_pin.length),
-        subtitle: _lockedOut
-            ? (ref.watch(pinSheetLockedProvider)
-                ? '${context.l10n.pinSheetLocked}\n'
-                    '${context.l10n.lockedForTime(_formatLockout(_lockoutRemaining))}'
-                : context.l10n.lockedForTime(_formatLockout(_lockoutRemaining)))
-            : null,
-        subtitleIsError: true,
-        dots: AnimatedBuilder(
-          animation: _shakeAnim,
-          builder: (context, child) => Transform.translate(
-            offset: Offset(_shakeAnim.value, 0),
-            child: child,
+      child: KuteSplitScreen(
+        child: KutePinScaffold(
+          title: context.l10n.welcomeBack,
+          salMood: salMoodFor(_pin.length),
+          subtitle: _lockedOut
+              ? (ref.watch(pinSheetLockedProvider)
+                  ? '${context.l10n.pinSheetLocked}\n'
+                      '${context.l10n.lockedForTime(_formatLockout(_lockoutRemaining))}'
+                  : context.l10n
+                      .lockedForTime(_formatLockout(_lockoutRemaining)))
+              : null,
+          subtitleIsError: true,
+          dots: AnimatedBuilder(
+            animation: _shakeAnim,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(_shakeAnim.value, 0),
+              child: child,
+            ),
+            child: PinProgressIndicator(currentLength: _pin.length),
           ),
-          child: PinProgressIndicator(currentLength: _pin.length),
-        ),
-        keypad: IgnorePointer(
-          ignoring: padInert,
-          child: Opacity(
-            opacity: padInert ? 0.4 : 1.0,
-            child: CustomKeypad(
-              chromed: true,
-              onDigitPressed: (d) {
-                if (_lockedOut || _verifying) return;
-                if (_pin.length < 6) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _pin += d);
-                  if (_pin.length == 6) {
-                    Future.delayed(
-                        const Duration(milliseconds: 100), _verifyPin);
+          keypad: IgnorePointer(
+            ignoring: padInert,
+            child: Opacity(
+              opacity: padInert ? 0.4 : 1.0,
+              child: CustomKeypad(
+                chromed: true,
+                onDigitPressed: (d) {
+                  if (_lockedOut || _verifying) return;
+                  if (_pin.length < 6) {
+                    HapticFeedback.lightImpact();
+                    setState(() => _pin += d);
+                    if (_pin.length == 6) {
+                      Future.delayed(
+                          const Duration(milliseconds: 100), _verifyPin);
+                    }
                   }
-                }
-              },
-              onBackspacePressed: () {
-                if (_pin.isNotEmpty) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _pin = _pin.substring(0, _pin.length - 1));
-                }
-              },
-              onBiometricPressed: biometricsEnabled &&
-                      !padInert &&
-                      !_biometricInFlight &&
-                      (!PlatformCaps.isWeb || WebBiometrics.enrolled)
-                  ? _tryBiometrics
-                      : null,
+                },
+                onBackspacePressed: () {
+                  if (_pin.isNotEmpty) {
+                    HapticFeedback.lightImpact();
+                    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+                  }
+                },
+                onBiometricPressed: biometricsEnabled &&
+                        !padInert &&
+                        !_biometricInFlight &&
+                        (!PlatformCaps.isWeb || WebBiometrics.enrolled)
+                    ? _tryBiometrics
+                    : null,
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -450,8 +450,7 @@ class PrivacyCover extends ConsumerWidget {
             height: 88.w,
             // The file is 1024 px; decode at display size so going to the
             // background does not add a 4 MB bitmap.
-            cacheWidth:
-                (88.w * MediaQuery.devicePixelRatioOf(context)).round(),
+            cacheWidth: (88.w * MediaQuery.devicePixelRatioOf(context)).round(),
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
         ),

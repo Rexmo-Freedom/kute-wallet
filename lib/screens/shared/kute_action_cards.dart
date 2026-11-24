@@ -706,9 +706,15 @@ class KuteActionCardGrid extends StatelessWidget {
     this.lead,
     this.gap = kKuteActionCardGap,
     this.oneLineTitles = false,
+    this.across,
   });
 
   final List<KuteActionCard> cards;
+
+  /// On a wide page (round three, Settings on EXPANDED): up to this many
+  /// cards in ONE row where every label fits its share of the width, the
+  /// usual rules otherwise. Null: the usual rules.
+  final int? across;
 
   /// The main action, drawn first, full width and with more presence; the
   /// [cards] follow under it by the usual rules, a lone one compact (see
@@ -831,6 +837,18 @@ class KuteActionCardGrid extends StatelessWidget {
       );
     }
     if (cards.isEmpty) return const SizedBox.shrink();
+    final most = across;
+    if (most != null && cards.length > 1 && cards.length <= most) {
+      return LayoutBuilder(builder: (context, constraints) {
+        final share =
+            (constraints.maxWidth - (cards.length - 1) * g) / cards.length;
+        if (constraints.hasBoundedWidth && labelsFit(context, cards, share)) {
+          return row(cards);
+        }
+        return KuteActionCardGrid(
+            cards: cards, gap: gap, oneLineTitles: oneLineTitles);
+      });
+    }
     if (oneLineTitles &&
         cards.length == 2 &&
         !cards.every((card) => card.compact)) {

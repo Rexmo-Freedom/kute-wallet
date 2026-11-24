@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteWideMode;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
@@ -206,6 +207,7 @@ void openTradeNotificationReceipt({
         if (wallet == null) return;
         if (wallet.isLedger) {
           navigator.push(KutePageRoute(
+              wide: KuteWideMode.full,
               builder: (_) => LedgerPortfolioScreen(
                   walletId: wallet.id, product: product, initialTab: tab)));
         } else if (spending) {

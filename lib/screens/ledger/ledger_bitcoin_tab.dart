@@ -5,6 +5,7 @@
 
 import 'package:flutter/widgets.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/wallet_bitcoin_body.dart';
 
 class LedgerBitcoinTab extends StatelessWidget {
@@ -13,5 +14,7 @@ class LedgerBitcoinTab extends StatelessWidget {
   const LedgerBitcoinTab({super.key, required this.wallet});
 
   @override
-  Widget build(BuildContext context) => WalletBitcoinBody(wallet: wallet);
+  // EXPANDED: the wallet detail's wide body (round three).
+  Widget build(BuildContext context) =>
+      WalletBitcoinBody(wallet: wallet, wide: kuteIsExpanded(context));
 }
