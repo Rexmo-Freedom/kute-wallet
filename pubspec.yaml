@@ -155,6 +155,9 @@ dependencies:
   decimal: ^3.2.4
   bs58check: ^1.0.2
   hex: ^0.2.0
+  # NFKC for the web vault's password (seed_vault.dart); already in the
+  # lock through bip39_mnemonic.
+  unorm_dart: 0.3.2
   # Hardware Wallet - Ledger (unmodified published release, including Gen 5)
   ledger_flutter_plus: 1.6.0+1
   universal_ble: 2.2.0

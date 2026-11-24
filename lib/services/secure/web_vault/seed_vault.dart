@@ -31,7 +31,10 @@
 //     the profile folder. With the profile (forensic tooling, malware with
 //     file access, a backup), an attacker can run the derivation offline
 //     and a 6-digit PIN falls on a GPU (10^6 guesses). Only a longer PIN or
-//     password, or a PRF passkey, fixes that.
+//     password, or a PRF passkey, fixes that. A laptop or desktop browser
+//     therefore locks with a typed password of at least 10 characters
+//     instead of the PIN ([VaultSecretKind.password]); a touch-first
+//     browser (iPad, phone) keeps the PIN.
 //   * A malicious script or extension running inside this page WHILE the
 //     wallet is unlocked: it can call the same code the app calls and read
 //     the phrase, or sign with keys already in memory.
@@ -48,7 +51,13 @@
 //            as Enc_pin(K), where the pin key is
 //            PBKDF2(deviceSecret, salt = SHA-256(vaultSalt || PIN), N);
 //            a check value Enc_K(known text); and optionally
-//            Enc_device(Enc_prf(K)) for biometric unlock.
+//            Enc_device(Enc_prf(K)) for biometric unlock. `kind` names
+//            the secret the record was made with, `pin` or `password`
+//            (absent: `pin`, every record before passwords), so a vault
+//            always asks for the kind it was made with. The password
+//            takes the PIN's place in the derivation unchanged, after
+//            Unicode NFKC ([normalizeVaultSecret]); a PIN is ASCII digits,
+//            which NFKC leaves as they are, so old records still open.
 //            (v1 records wrapped K as Enc_device(Enc_PBKDF2(PIN)(K)); they
 //            are rewrapped as v2 on their first successful PIN unlock.)
 //   entries  one record per secret key: Enc_K(value), AAD binds the vault
@@ -65,6 +74,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 /// Wrong key or tampered data (AES-GCM tag mismatch).
 class VaultTagError implements Exception {
@@ -146,6 +156,29 @@ abstract class VaultDb {
 
 enum VaultUnlock { ok, wrongPin, unavailable }
 
+/// The secret a vault is locked with: the 6-digit PIN, or a typed
+/// password of at least [VaultSecretKind.minPasswordLength] characters.
+enum VaultSecretKind {
+  pin,
+  password;
+
+  static const int minPasswordLength = 10;
+
+  /// The kind a typed [secret] is: six ASCII digits are a PIN (the pad
+  /// types nothing else), anything else a password.
+  static VaultSecretKind of(String secret) =>
+      RegExp(r'^[0-9]{6}$').hasMatch(secret) ? pin : password;
+
+  static VaultSecretKind parse(Object? value) =>
+      value == 'password' ? password : pin;
+}
+
+/// The form a secret takes before it is hashed into the salt: Unicode
+/// NFKC, so the same typed password (composed or decomposed accents,
+/// full-width forms, ligatures) always derives the same key. Six ASCII
+/// digits come out unchanged. Never logged.
+String normalizeVaultSecret(String secret) => unorm.nfkc(secret);
+
 /// The biometric (WebAuthn PRF) enrolment of this vault.
 @immutable
 class VaultPrf {
@@ -207,6 +240,11 @@ class SeedVault {
 
   bool get isOpen => _kKey != null;
 
+  /// The kind of secret this vault was made with (or last changed to).
+  /// Null without a vault.
+  VaultSecretKind? get secretKind =>
+      _meta == null ? null : VaultSecretKind.parse(_meta!['kind']);
+
   String? get _vid => _meta?['vid'] as String?;
 
   /// Names of the secrets stored in the current vault. Key names are not
@@ -228,10 +266,11 @@ class SeedVault {
 
   // ── Create, unlock, lock ──────────────────────────────────────────────
 
-  /// Starts a new vault for [pin] and opens it. An older vault's entries
-  /// stay on disk under their old vault id (unreadable without it, never
-  /// deleted here); its meta is replaced.
-  Future<void> create(String pin) async {
+  /// Starts a new vault for [pin] (a PIN or a password, see [kind]) and
+  /// opens it. An older vault's entries stay on disk under their old vault
+  /// id (unreadable without it, never deleted here); its meta is replaced.
+  Future<void> create(String pin,
+      {VaultSecretKind kind = VaultSecretKind.pin}) async {
     _requireLoaded();
     final secret = await _deviceSecret(create: true);
     final k = crypto.randomBytes(32);
@@ -242,6 +281,7 @@ class SeedVault {
       'vid': vid,
       'salt': _s(salt),
       'iter': iterations,
+      'kind': kind.name,
     };
     await _wrapUnderPinV2(meta, secret, k, pin, salt, iterations);
     final kKey = await crypto.rawKey(k);
@@ -303,7 +343,8 @@ class SeedVault {
     }
     final Uint8List k;
     try {
-      final pinKey = await crypto.devicePinKey(secret, pin, _b(meta['salt']),
+      final pinKey = await crypto.devicePinKey(secret,
+          normalizeVaultSecret(pin), _b(meta['salt']),
           (meta['iter'] as num).toInt());
       k = await crypto.open(pinKey, _b(meta['pinIv']), _b(meta['wrapped']),
           _aad('pin2', meta['vid'] as String));
@@ -360,7 +401,8 @@ class SeedVault {
     next['iter'] = iterations;
     await _wrapUnderPinV2(next, secret, k, pin, salt, iterations);
     final check = await crypto.open(
-        await crypto.devicePinKey(secret, pin, salt, iterations),
+        await crypto.devicePinKey(
+            secret, normalizeVaultSecret(pin), salt, iterations),
         _b(next['pinIv']),
         _b(next['wrapped']),
         _aad('pin2', next['vid'] as String));
@@ -430,8 +472,9 @@ class SeedVault {
 
   /// Re-wraps the open vault's key under [newPin] with a fresh salt. One
   /// record write: the vault matches either the old PIN or the new one,
-  /// never neither.
-  Future<void> changePin(String newPin) async {
+  /// never neither. [kind] marks what [newPin] is (a PIN changed to a
+  /// password upgrades the vault); null keeps the record's kind.
+  Future<void> changePin(String newPin, {VaultSecretKind? kind}) async {
     final k = _kRaw;
     final meta = _meta;
     if (k == null || meta == null) throw const VaultLockedException();
@@ -442,6 +485,7 @@ class SeedVault {
     final salt = crypto.randomBytes(16);
     next['salt'] = _s(salt);
     next['iter'] = iterations;
+    next['kind'] = (kind ?? VaultSecretKind.parse(meta['kind'])).name;
     await _wrapUnderPinV2(next, secret, k, newPin, salt, iterations);
     await db.writeMeta(next);
     _meta = next;
@@ -539,7 +583,8 @@ class SeedVault {
   Future<void> _wrapUnderPinV2(Map<String, Object?> meta, Object secret,
       Uint8List k, String pin, Uint8List salt, int iter) async {
     final vid = meta['vid'] as String;
-    final pinKey = await crypto.devicePinKey(secret, pin, salt, iter);
+    final pinKey =
+        await crypto.devicePinKey(secret, normalizeVaultSecret(pin), salt, iter);
     final pinIv = crypto.randomBytes(12);
     meta['pinIv'] = _s(pinIv);
     meta['wrapped'] = _s(await crypto.seal(pinKey, pinIv, k, _aad('pin2', vid)));

@@ -13,6 +13,8 @@ import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/seed_access.dart';
 import 'package:kute/services/secure/secret_store.dart';
+import 'package:kute/services/secure/web_vault/seed_vault.dart'
+    show VaultSecretKind;
 import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/hive_wipe.dart' show wipeHiveBoxes;
@@ -185,11 +187,13 @@ class AuthModel {
 
   /// Web: a new vault under [pin]. An existing vault (or the old layout's
   /// PIN) is replaced only with [replace], as `pin_hash` is natively; the
-  /// old layout's values then move into the new vault.
+  /// old layout's values then move into the new vault. [pin] is the PIN,
+  /// or in a laptop browser a password (unlock_secret.dart); the vault
+  /// records which.
   Future<void> _setPinWeb(
       VaultStoragePlatform web, String pin, bool replace) async {
     if (!replace && web.hasPinMaterial) throw const PinAlreadySetException();
-    await web.vault.create(pin);
+    await web.vault.create(pin, kind: VaultSecretKind.of(pin));
     await web.migrateLegacy();
   }
 
@@ -383,7 +387,8 @@ class AuthModel {
     final web = _web;
     if (web != null) {
       // Web: one re-wrap of the vault key; no V1 copies and no raw PIN.
-      await web.vault.changePin(newPin);
+      // A password replacing a PIN marks the vault password-kind.
+      await web.vault.changePin(newPin, kind: VaultSecretKind.of(newPin));
       return;
     }
 
@@ -438,6 +443,20 @@ class AuthModel {
       await _verifyEncrypted(entry.key, newPin, entry.value);
       await _store.deleteLocalOnly(key: pendingKey);
     }
+  }
+
+  /// Web, laptop browser: re-wraps the vault that a PIN just opened under
+  /// [password] and marks it password-kind (unlock_secret.dart), as a PIN
+  /// change does. Until this runs the PIN still opens it. Throws
+  /// [VaultLockedException] when the vault is not open.
+  Future<void> upgradeToPassword(String password) async {
+    final web = _web;
+    if (web == null) throw UnsupportedError('Web only');
+    if (VaultSecretKind.of(password) != VaultSecretKind.password ||
+        password.runes.length < VaultSecretKind.minPasswordLength) {
+      throw ArgumentError('Password too short');
+    }
+    await web.vault.changePin(password, kind: VaultSecretKind.password);
   }
 
   Future<void> _verifyEncrypted(String key, String pin, String expected) async {
