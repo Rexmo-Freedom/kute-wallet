@@ -55,6 +55,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,7 +135,9 @@ class ScannerSheetPage<T> extends Page<T> {
         barrierLabel: MaterialLocalizations.of(context).scrimLabel,
         // The app's sheet motion (lib/theme/kute_motion.dart).
         sheetAnimationStyle: KuteMotion.sheetStyle(context),
-        builder: (_) => ScannerSheet(mode: mode),
+        // A centred form from MEDIUM up (kute_wide_frames.dart).
+        constraints: kuteSheetConstraints(context),
+        builder: (_) => KuteSheetMedia(child: ScannerSheet(mode: mode)),
       );
 }
 

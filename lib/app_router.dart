@@ -42,6 +42,8 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
 import 'package:kute/screens/settings/wallets_screen.dart';
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart' show KuteLayout;
+import 'package:kute/platform/kute_wide_frames.dart';
 
 import 'package:posthog_flutter/posthog_flutter.dart';
 
@@ -100,11 +102,19 @@ class AppRouter {
   /// kept; a plain line under Reduce Motion. One transition for every
   /// pushed page in the app (kute_page_route.dart; the numbers in
   /// lib/theme/kute_motion.dart).
+  ///
+  /// [form]: a form or a flow (onboarding, PIN, seed words, settings, add
+  /// wallet, import, a coming-soon page), a centred
+  /// [KuteLayout.columnMaxWidth] column on the app's background from
+  /// MEDIUM up ([KuteFormColumn]); a phone sees no difference. A page
+  /// with a wide layout of its own (Portfolio, Search) passes false.
   static CustomTransitionPage<void> _buildFadeScalePage({
     required Widget child,
     required GoRouterState state,
     Duration duration = KuteMotion.settleDuration,
+    bool form = true,
   }) {
+    if (form) child = KuteFormColumn(child: child);
     return CustomTransitionPage<void>(
       key: state.pageKey,
       // Carry the GoRoute's name onto the page so NavigatorObservers
@@ -568,25 +578,29 @@ class AppRouter {
                       path: '/import-xpub',
                       name: 'importXpub',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => const XPubImportScreen(),
+                      builder: (context, state) =>
+                          const KuteFormColumn(child: XPubImportScreen()),
                     ),
                     GoRoute(
                       path: '/import-external-address',
                       name: 'importExternalAddress',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) =>
-                          const ExternalAddressImportScreen(),
+                      builder: (context, state) => const KuteFormColumn(
+                          child: ExternalAddressImportScreen()),
                     ),
                     GoRoute(
                       path: '/wallet/:walletId',
                       name: 'walletDetail',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => WalletDetailScreen(
-                        walletId: state.pathParameters['walletId']!,
-                        // Opened from a pending Ledger settlement in Activity
-                        // detail (Phase 5 plan B13).
-                        ledgerAccountView:
-                            state.uri.queryParameters['view'] == 'ledger',
+                      // A phone column from MEDIUM up, never stretched.
+                      builder: (context, state) => KuteFormColumn(
+                        child: WalletDetailScreen(
+                          walletId: state.pathParameters['walletId']!,
+                          // Opened from a pending Ledger settlement in
+                          // Activity detail (Phase 5 plan B13).
+                          ledgerAccountView:
+                              state.uri.queryParameters['view'] == 'ledger',
+                        ),
                       ),
                     ),
                     // Ledger investing setup (Wallet hardening Phase 4, P4.3). Reached
@@ -596,10 +610,12 @@ class AppRouter {
                       path: '/ledger/:walletId/investing-setup',
                       name: 'ledgerInvestingSetup',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => LedgerInvestingSetupScreen(
-                        walletId: state.pathParameters['walletId']!,
-                        fromImport:
-                            state.uri.queryParameters['from'] == 'import',
+                      builder: (context, state) => KuteFormColumn(
+                        child: LedgerInvestingSetupScreen(
+                          walletId: state.pathParameters['walletId']!,
+                          fromImport:
+                              state.uri.queryParameters['from'] == 'import',
+                        ),
                       ),
                     ),
                     // The scanner opens as a sheet (scanner_sheet.dart);
@@ -764,6 +780,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const PortfolioScreen(),
             state: state,
+            form: false,
           ),
         ),
         // The '/earn' route is gone: the Flashnet USDB Earn product was
@@ -871,6 +888,7 @@ class AppRouter {
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const SearchModal(),
             state: state,
+            form: false,
           ),
         ),
         GoRoute(

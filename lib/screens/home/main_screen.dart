@@ -10,6 +10,8 @@ import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart'
     show prewarmLiveBtcFeed;
+import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/home/bitcoin_home_panes.dart';
 import 'package:kute/screens/home/home.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart';
 import 'package:kute/services/background_sync_service.dart';
@@ -119,9 +121,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       backgroundColor: context.colors.background,
       body: Column(children: [
         Expanded(
+          // From MEDIUM up the home is a phone column, with its activity
+          // and balance history beside it on EXPANDED
+          // (bitcoin_home_panes.dart); another wallet's tab is a centred
+          // column. A phone: as it was.
           child: wallet == null
-              ? const Home()
-              : ShellWalletScreen(key: ValueKey(wallet.id), wallet: wallet),
+              ? const BitcoinHomePanes(home: Home())
+              : KuteFormColumn(
+                  child: ShellWalletScreen(
+                      key: ValueKey(wallet.id), wallet: wallet)),
         ),
       ]),
     );

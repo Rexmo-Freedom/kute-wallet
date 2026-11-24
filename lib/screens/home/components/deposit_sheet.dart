@@ -60,6 +60,7 @@ import 'package:kute/screens/home/components/deposit/deposit_quick_amounts.dart'
 import 'package:kute/screens/home/components/deposit/deposit_summary_card.dart';
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/region_freshness.dart';
@@ -504,7 +505,9 @@ Future<void> showDepositSheet(
       fullscreenDialog: true,
       // The bar reads "Move money" over "ask Sal where it should go"
       // while this is up (kute_bar_context.dart).
-      builder: (sheetContext) => KuteBarContextScope(
+      // A centred column from MEDIUM up (kute_wide_frames.dart).
+      builder: (sheetContext) => KuteFormColumn(
+        child: KuteBarContextScope(
         barContext: KuteBarContext(
           label: sheetContext.l10n.barMoveMoney,
           sublabel: sheetContext.l10n.barMoveMoneySub,
@@ -520,6 +523,7 @@ Future<void> showDepositSheet(
         cashAppSource: cashAppSource,
         onCompleted: onCompleted,
         ),
+      ),
       ),
     ),
   );
@@ -6095,7 +6099,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     Navigator.of(context, rootNavigator: true).pushReplacement(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => DepositSheet(lockedSide: lockedSide),
+        builder: (_) =>
+            KuteFormColumn(child: DepositSheet(lockedSide: lockedSide)),
       ),
     );
   }

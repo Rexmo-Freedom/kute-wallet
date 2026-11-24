@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -89,8 +90,9 @@ class _BitcoinWalletSetupState extends State<BitcoinWalletSetup> {
                   _optionPicked = true;
                   TrackingService.walletTypeSelected('bitcoin_create');
                   Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => const PostHogMaskWidget(
-                          child: BitcoinWalletCreate())));
+                      builder: (_) => const KuteFormColumn(
+                          child: PostHogMaskWidget(
+                              child: BitcoinWalletCreate()))));
                 },
               ),
               SizedBox(height: 12.h),
@@ -102,8 +104,9 @@ class _BitcoinWalletSetupState extends State<BitcoinWalletSetup> {
                   _optionPicked = true;
                   TrackingService.walletTypeSelected('bitcoin_recover');
                   Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => const PostHogMaskWidget(
-                          child: RecoverWallet(bitcoinOnly: true))));
+                      builder: (_) => const KuteFormColumn(
+                          child: PostHogMaskWidget(
+                              child: RecoverWallet(bitcoinOnly: true)))));
                 },
               ),
             ],

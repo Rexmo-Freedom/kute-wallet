@@ -27,6 +27,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 
 import 'package:kute/screens/shared/receive_surface.dart'
     show kReceiveSheetMaxHeight;
@@ -264,8 +265,7 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
       _controller.expand();
       return;
     }
-    if (_controller.dismissible &&
-        (_drag > sheetHeight * 0.25 || v > 700)) {
+    if (_controller.dismissible && (_drag > sheetHeight * 0.25 || v > 700)) {
       _dismiss();
       return;
     }
@@ -310,8 +310,7 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
     final controller = _controller;
     if (keyboard > 0 && !controller.expanded) {
       // The keyboard would cover a half-height sheet: it stays full.
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => controller.expand());
+      WidgetsBinding.instance.addPostFrameCallback((_) => controller.expand());
     }
     final screen = mq.size.height;
     final full = (screen - mq.viewPadding.top - 8).clamp(0.0, screen);
@@ -336,59 +335,62 @@ class _SendSheetFrameState extends State<_SendSheetFrame>
         ),
         Align(
           alignment: Alignment.bottomCenter,
-          child: Transform.translate(
-            offset: Offset(0, _drag),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(end: target),
-              duration: duration,
-              curve: Curves.easeOutCubic,
-              // The surface runs down behind the keyboard; the flow's
-              // frame pads its content by the inset, so its action sits
-              // above the keys. The sheet grows at least as fast as the
-              // keyboard rises (the platform animates the inset on the
-              // keyboard's own curve), so a half-height sheet is never
-              // squeezed by it and nothing jumps.
-              builder: (context, base, child) {
-                final height = base < medium + keyboard
-                    ? (medium + keyboard).clamp(0.0, full)
-                    : base;
-                return GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onVerticalDragUpdate: _onDragUpdate,
-                  onVerticalDragEnd: (d) => _onDragEnd(d, height),
-                  child: Container(
-                    key: const ValueKey('send-sheet'),
-                    height: height,
-                    width: double.infinity,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: AppDecorations.bottomSheet(context)
-                        .copyWith(color: c.background),
-                    child: child,
-                  ),
-                );
-              },
-              child: Column(
-                children: [
-                  // The handle where every sheet draws it, 12 under the
-                  // top edge (AppBottomSheetHeader), so a first step's
-                  // title header lines up with the other sheets'
-                  // (receive_surface.dart, SheetTitleHeader).
-                  Padding(
-                    padding: EdgeInsets.only(top: 12.h),
-                    child: AppDecorations.dragHandle(context),
-                  ),
-                  Expanded(
-                    // The sheet sits below the status bar: the flow's
-                    // app bar needs no top inset. Bottom insets (home
-                    // indicator, keyboard) pass through, so the flow's
-                    // frame keeps its action above the keyboard.
-                    child: MediaQuery.removePadding(
-                      context: context,
-                      removeTop: true,
-                      child: widget.child,
+          // A centred form from MEDIUM up (kute_wide_frames.dart).
+          child: KuteSheetWidth(
+            child: Transform.translate(
+              offset: Offset(0, _drag),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(end: target),
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                // The surface runs down behind the keyboard; the flow's
+                // frame pads its content by the inset, so its action sits
+                // above the keys. The sheet grows at least as fast as the
+                // keyboard rises (the platform animates the inset on the
+                // keyboard's own curve), so a half-height sheet is never
+                // squeezed by it and nothing jumps.
+                builder: (context, base, child) {
+                  final height = base < medium + keyboard
+                      ? (medium + keyboard).clamp(0.0, full)
+                      : base;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onVerticalDragUpdate: _onDragUpdate,
+                    onVerticalDragEnd: (d) => _onDragEnd(d, height),
+                    child: Container(
+                      key: const ValueKey('send-sheet'),
+                      height: height,
+                      width: double.infinity,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: AppDecorations.bottomSheet(context)
+                          .copyWith(color: c.background),
+                      child: child,
                     ),
-                  ),
-                ],
+                  );
+                },
+                child: Column(
+                  children: [
+                    // The handle where every sheet draws it, 12 under the
+                    // top edge (AppBottomSheetHeader), so a first step's
+                    // title header lines up with the other sheets'
+                    // (receive_surface.dart, SheetTitleHeader).
+                    Padding(
+                      padding: EdgeInsets.only(top: 12.h),
+                      child: AppDecorations.dragHandle(context),
+                    ),
+                    Expanded(
+                      // The sheet sits below the status bar: the flow's
+                      // app bar needs no top inset. Bottom insets (home
+                      // indicator, keyboard) pass through, so the flow's
+                      // frame keeps its action above the keyboard.
+                      child: MediaQuery.removePadding(
+                        context: context,
+                        removeTop: true,
+                        child: widget.child,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

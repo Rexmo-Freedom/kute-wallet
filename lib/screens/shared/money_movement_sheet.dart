@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/services/one_balance/money_movement_route.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -74,11 +75,13 @@ Future<void> showMoneyMovementSheet(
   await Navigator.of(context, rootNavigator: true).push<void>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => DepositSheet(
-        lockedSide: MoveLockedSide.depositToUsd,
-        movementRoute: route,
-        movementPinned: pinned,
-        initialTargetUsd: initialTargetUsd,
+      builder: (_) => KuteFormColumn(
+        child: DepositSheet(
+          lockedSide: MoveLockedSide.depositToUsd,
+          movementRoute: route,
+          movementPinned: pinned,
+          initialTargetUsd: initialTargetUsd,
+        ),
       ),
     ),
   );

@@ -19,6 +19,7 @@ import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -418,7 +419,8 @@ class _AddWalletState extends ConsumerState<AddWallet> {
                             if (!context.mounted) return;
                             _pick('bitcoin');
                             Navigator.of(context).push(MaterialPageRoute<void>(
-                                builder: (_) => const BitcoinWalletSetup()));
+                                builder: (_) => const KuteFormColumn(
+                                    child: BitcoinWalletSetup())));
                           },
                         ),
                         for (final wallet in trackingWallets)

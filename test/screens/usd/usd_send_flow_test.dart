@@ -855,6 +855,9 @@ void main() {
   testWidgets(
       'changing the coin keeps an address the new network takes and clears '
       'one it does not', (tester) async {
+    // A phone: the test's default 800-wide view is a tablet window, where
+    // the coin sheet is a centred form (kute_wide_frames.dart).
+    _phone(tester);
     await withClipboard(tester);
     await _pump(tester);
     await _pickCoin(tester, 'arbitrum', 'USDC');
@@ -876,6 +879,9 @@ void main() {
   testWidgets(
       'from Amount, a coin the address still fits stays on Amount; one it '
       'does not goes back to Send to with the field cleared', (tester) async {
+    // A phone: the test's default 800-wide view is a tablet window, where
+    // the coin sheet is a centred form (kute_wide_frames.dart).
+    _phone(tester);
     await withClipboard(tester);
     await _pump(tester);
     await _toAmount(tester);
