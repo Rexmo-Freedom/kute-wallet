@@ -179,7 +179,7 @@ void main() {
     ('a cold wallet', _savings),
   ]) {
     testWidgets(
-        '$kind on the Bitcoin home: Scan in its row (no Swap there), and it '
+        '$kind on the Bitcoin home: Scan in its row (no Move there), and it '
         'opens this scanner', (tester) async {
       final (cameras, _) = await _pump(tester,
           body: Consumer(
@@ -187,6 +187,7 @@ void main() {
                   source: 'home',
                   actions: bitcoinHomeDockActions(context, ref, wallet,
                       source: 'home'))));
+      expect(find.text(_l10n.moveVerb), findsNothing);
       expect(find.text(_l10n.swap), findsNothing);
       await tester.tap(find.text(_l10n.scan));
       await tester.pumpAndSettle();

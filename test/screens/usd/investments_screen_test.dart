@@ -469,7 +469,7 @@ void main() {
 
   testWidgets(
       'no venue Deposit or Withdraw anywhere; the actions are one row '
-      'under the hero, Buy dollars · Swap · Receive · Send, the dock is '
+      'under the hero, Buy dollars · Move · Receive · Send, the dock is '
       'search alone, and Receive opens the Dollars receive screen',
       (tester) async {
     final events = recordEvents();
@@ -492,10 +492,11 @@ void main() {
     expect(find.byType(AppButton, skipOffstage: false), findsNothing);
     expect(find.text(l10n.dollarDeposit, skipOffstage: false), findsNothing);
 
-    // The action row under the hero: Buy dollars, Swap, Receive and Send,
+    // The action row under the hero: Buy dollars, Move, Receive and Send,
     // four equal squared buttons in the Bitcoin row's columns (founder, 4
     // November 2026: the Portfolio is no longer needed on the top buttons,
-    // the Activity pill's bar opens it; 7 November 2026: Swap), each once
+    // the Activity pill's bar opens it; 7 November 2026: Swap, called Move
+    // since 25 November 2026), each once
     // on the page; then the pills. The action keys stay `receive` and
     // `send` so the events read as before.
     final row = find.byType(UsdAccountActionRow);
@@ -503,9 +504,9 @@ void main() {
     expect(tester.getTopLeft(row).dy,
         greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
-    // Buy dollars leads the row, then Swap, Receive and Send.
+    // Buy dollars leads the row, then Move, Receive and Send.
     expect(actions.map((a) => a.label),
-        [l10n.buyDollarsAction, l10n.swap, l10n.receive, l10n.send]);
+        [l10n.buyDollarsAction, l10n.moveVerb, l10n.receive, l10n.send]);
     expect(actions.map((a) => a.trackingId),
         ['buy_dollars', 'swap', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
@@ -518,7 +519,8 @@ void main() {
     expect(find.text(l10n.send), findsOneWidget);
     expect(find.text(l10n.walletPortfolioAction), findsNothing);
     expect(find.text(l10n.buyDollarsAction), findsOneWidget);
-    expect(find.text(l10n.swap), findsOneWidget);
+    expect(find.text(l10n.moveVerb), findsOneWidget);
+    expect(find.text(l10n.swap), findsNothing);
     // Four squares, balanced: equal quarters of the row, the squares
     // centred in them.
     final squares = find.descendant(

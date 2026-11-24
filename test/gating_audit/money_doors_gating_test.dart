@@ -481,7 +481,7 @@ void main() {
     ]) {
       testWidgets(
           '$label: Purchase · Scan · Receive · Send, every button live, no '
-          'Swap (the Dollars home\'s alone); Receive opens', (tester) async {
+          'Move (the Dollars home\'s alone); Receive opens', (tester) async {
         await install(tester, how, targets: targets);
         final moves = recordMoves();
         final actions = await pumpRow(tester);
@@ -491,6 +491,7 @@ void main() {
           expect(action.onTap, isNotNull, reason: action.trackingId);
           expect(action.soon, isFalse, reason: action.trackingId);
         }
+        expect(find.text(_l10n.moveVerb), findsNothing);
         expect(find.text(_l10n.swap), findsNothing);
         expect(find.text(_l10n.scan), findsOneWidget);
         expect(moves, isEmpty);

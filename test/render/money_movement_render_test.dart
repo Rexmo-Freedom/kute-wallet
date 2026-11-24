@@ -2,10 +2,12 @@
 // Bitcoin and Dollars (founder, 7 November 2026: "on dollars we add a
 // button that says move money and it basically allows for [both
 // directions] but with a button in a reversible way. Also this screen make
-// it with the squares"; renamed "Swap" the same day): the real sheet
+// it with the squares"; renamed "Swap" the same day, "Move" on 25
+// November 2026: "make sure swap button in dollars is called move"): the
+// real sheet
 // (showOwnMoneyMove) in both directions, From and To as two squares with
 // the swap circle on their shared edge, the hero centred, the chips as
-// wide as the keypad; and the Dollars home's action row with its Swap,
+// wide as the keypad; and the Dollars home's action row with its Move,
 // beside the Bitcoin home's, which has Scan in that column for the
 // spending wallet as for a cold wallet (founder, 10 November 2026).
 // And Buy bitcoin beside it, which is not Swap: From reads Cash App with no

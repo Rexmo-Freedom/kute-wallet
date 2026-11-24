@@ -727,15 +727,18 @@ void main() {
 
   testWidgets(
       'an own-account door pins the route: Dollars to Bitcoin, each end by '
-      'its account\'s name, "Swap" over "Swap \$5", no pickers, the swap '
+      'its account\'s name, "Move" over "Move \$5", no pickers, the swap '
       'circle, and the move still runs', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_d, _b),
         pinned: true);
     expect(find.text('Dollars'), findsOneWidget);
     expect(find.text('Investments'), findsNothing);
     expect(find.text('Bitcoin'), findsOneWidget);
-    // Swap (founder, 7 November 2026): the title, and the bar's verb.
-    expect(_title('Swap'), findsOneWidget);
+    // The Dollars home's Move (founder, 25 November 2026: "make sure
+    // swap button in dollars is called move"): the title, and the bar's
+    // verb.
+    expect(_title('Move'), findsOneWidget);
+    expect(_title('Swap'), findsNothing);
     expect(find.text('Move money'), findsNothing);
     expect(find.textContaining('Buy'), findsNothing);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
@@ -745,7 +748,7 @@ void main() {
     await _frames(tester);
     expect(find.text('Move from'), findsNothing);
     await _type(tester, '5');
-    expect(_button(tester).text, r'Swap $5');
+    expect(_button(tester).text, r'Move $5');
     await _confirm(tester);
     expect(_railCalls, 1);
     await _close(tester, c);
@@ -756,9 +759,9 @@ void main() {
       'asked for filled in once the price is up', (tester) async {
     final c = await _open(tester, const MoneyMovementRoute(_b, _d),
         pinned: true, initialTargetUsd: 5);
-    expect(_title('Swap'), findsOneWidget);
+    expect(_title('Move'), findsOneWidget);
     expect(find.byKey(const ValueKey('money-movement-swap')), findsOneWidget);
-    expect(_button(tester).text, r'Swap $5');
+    expect(_button(tester).text, r'Move $5');
     await _close(tester, c);
   });
 
@@ -1619,7 +1622,7 @@ void main() {
     });
 
     testWidgets(
-        'Swap under a swap country block: the circle still turns Dollars → '
+        'Move under a swap country block: the circle still turns Dollars → '
         'Bitcoin (open) into Bitcoin → Dollars, which says why and offers '
         'Check connection; turned back, it moves again. Never silently '
         'disabled', (tester) async {
@@ -1630,7 +1633,7 @@ void main() {
       await _type(tester, '5');
       await _frames(tester, 12);
       expect(restricted(), findsNothing);
-      expect(_button(tester).text, r'Swap $5');
+      expect(_button(tester).text, r'Move $5');
       expect(tester.widget<KuteCircleButton>(swap).enabled, isTrue);
 
       // Into the blocked direction: the swap goes through, the screen says
@@ -1657,7 +1660,7 @@ void main() {
       expect(restricted(), findsNothing);
       await _type(tester, '5');
       await _frames(tester, 12);
-      expect(_button(tester).text, r'Swap $5');
+      expect(_button(tester).text, r'Move $5');
       expect(_button(tester).onPressed, isNotNull);
       await _close(tester, c);
     });
@@ -1779,7 +1782,7 @@ void main() {
         final c = await _open(tester, const MoneyMovementRoute(_d, _b),
             overrides: venues(p: 60), ownMoveEntrySource: source);
         expect(_last('move_sheet_opened')['entry_source'], source);
-        expect(_title('Swap'), findsOneWidget);
+        expect(_title('Move'), findsOneWidget);
         // $10 of Dollars and $60 of Predictions cash: 10 + 60 x 0.98, the
         // figure the engine's plan covers, the card's figure too.
         final reach = investmentsSpendable(
@@ -1791,7 +1794,7 @@ void main() {
 
         await tester.tap(find.text('Max').last);
         await _frames(tester);
-        expect(_button(tester).text, r'Swap $68.80');
+        expect(_button(tester).text, r'Move $68.80');
         expect(find.text('Insufficient balance'), findsNothing);
         expect(_button(tester).onPressed, isNotNull);
         expect(_railCalls, 0);
@@ -1810,7 +1813,7 @@ void main() {
           ownMoveEntrySource: kUsdWithdrawSearchSource);
       await _type(tester, '40');
       expect(find.text('Insufficient balance'), findsNothing);
-      expect(_button(tester).text, r'Swap $40');
+      expect(_button(tester).text, r'Move $40');
       await _confirm(tester);
       await _frames(tester, 8);
 
@@ -1905,9 +1908,11 @@ void main() {
           overrides: venues(p: 60));
       expect(find.text(r'$10.00 available'), findsOneWidget);
       expect(find.textContaining(r'$68.80'), findsNothing);
-      // Bitcoin and Dollars here too, yet still Move money: its title and
-      // its verb (the Swap screen is the own-account doors').
+      // Bitcoin and Dollars here too, yet still Move money: its title
+      // (the plain "Move" screen is the own-account doors'; both say
+      // "Move $5" on the bar).
       expect(_title('Move money'), findsOneWidget);
+      expect(_title('Move'), findsNothing);
       await _type(tester, '5');
       expect(_button(tester).text, r'Move $5');
       await tester.tap(find.byIcon(Icons.backspace_rounded));
@@ -1920,19 +1925,20 @@ void main() {
       await done(tester, c);
     });
 
-    // Swap (founder, 7 November 2026: "a button in a reversible way"):
-    // the Dollars home's Swap opens Bitcoin → Dollars; the circle turns it
+    // Move (founder, 7 November 2026: "a button in a reversible way";
+    // called Move since 25 November 2026): the Dollars home's Move opens
+    // Bitcoin → Dollars; the circle turns it
     // into Dollars → Bitcoin and back, and the available figure, Max and
     // the checks follow the direction on screen.
     testWidgets(
-        "Swap: the circle reverses the move; From, its figure, Max and the "
+        "Move: the circle reverses the move; From, its figure, Max and the "
         'over-balance check follow; nothing is sent', (tester) async {
       _dollars = 10;
       final c = await _open(tester, const MoneyMovementRoute(_b, _d),
           overrides: venues(p: 60),
           ownMoveEntrySource: kUsdHomeSwapSource);
       expect(_last('move_sheet_opened')['entry_source'], kUsdHomeSwapSource);
-      expect(_title('Swap'), findsOneWidget);
+      expect(_title('Move'), findsOneWidget);
       final from = find.byKey(const ValueKey('money-movement-from'));
       final to = find.byKey(const ValueKey('money-movement-to'));
       final swap = find.byKey(const ValueKey('money-movement-swap'));
@@ -1948,7 +1954,7 @@ void main() {
           .map((e) => (e.widget as Text).data)
           .any((t) => t == r'$19.99 available' || t == r'$20.00 available');
       bool bitcoinMax() =>
-          {r'Swap $19.99', r'Swap $20'}.contains(_button(tester).text);
+          {r'Move $19.99', r'Move $20'}.contains(_button(tester).text);
       String typed() => tester
           .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
           .amountText;
@@ -1978,7 +1984,7 @@ void main() {
       expect(typed(), '');
       await tester.tap(find.text('Max').last);
       await _frames(tester);
-      expect(_button(tester).text, r'Swap $68.80');
+      expect(_button(tester).text, r'Move $68.80');
       // $50 is past Dollars ($10) but within reach: not insufficient.
       await tester.tap(find.text(r'$50').last);
       await _frames(tester);

@@ -1434,10 +1434,12 @@ class UsdAccountActionBar extends ConsumerWidget {
           solid: true,
           onTap: () => buyDollars(context),
         ),
-        // The two-way arrows the app's swap controls wear.
+        // The two-way arrows the app's swap controls wear; the word is
+        // "Move" (founder, 25 November 2026: "make sure swap button in
+        // dollars is called move"), in each language's own (moveVerb).
         KuteDockAction(
           icon: Icons.swap_horiz_rounded,
-          label: context.l10n.swap,
+          label: context.l10n.moveVerb,
           trackingId: 'swap',
           onTap: () => swap(context),
         ),
