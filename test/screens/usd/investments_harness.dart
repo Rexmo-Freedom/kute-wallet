@@ -195,6 +195,10 @@ Future<RecordingRewardsApi> pumpInvestments(
 
   /// The Investing watchlist in place of none (a test's own stars).
   HlWatchlistNotifier Function()? hlStars,
+
+  /// The screenutil design size; the phone design when null (the wide
+  /// renders pass the app's own, KuteLayout.designSizeFor).
+  Size? designSize,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -249,7 +253,7 @@ Future<RecordingRewardsApi> pumpInvestments(
       ...overrides,
     ],
     child: ScreenUtilInit(
-      designSize: const Size(430, 932),
+      designSize: designSize ?? const Size(430, 932),
       builder: (_, __) => MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: ThemeData(

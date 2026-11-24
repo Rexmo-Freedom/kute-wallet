@@ -425,8 +425,15 @@ List<String> dollarsPinnedRanked(List<String> ranked, List<StandingOrder> all,
 /// The Overview pill's page (see the file header). One scroll, the nested
 /// scroll's inner list, so the Dollars header collapses over it as over the
 /// venues' lists.
+///
+/// [inPane]: the Dollars page's right pane on EXPANDED
+/// (usd_account_screen.dart): the same blocks as a plain column, no
+/// scroll of its own and no room for the dock under it (the pane holds
+/// both).
 class DollarsActivityTab extends ConsumerStatefulWidget {
-  const DollarsActivityTab({super.key});
+  const DollarsActivityTab({super.key, this.inPane = false});
+
+  final bool inPane;
 
   @override
   ConsumerState<DollarsActivityTab> createState() =>
@@ -588,15 +595,9 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         squares.isEmpty && lists.values.any((list) => list.loading);
     final held = squares.isNotEmpty || loading;
 
-    return CustomScrollView(
-      key: const ValueKey('dollars-activity-list'),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
+    final blocks = <Widget>[
               if (held)
-                _Heading(l10n.accountOpenPositions,
+                DollarsOverviewHeading(l10n.accountOpenPositions,
                     key: const ValueKey('dollars-activity-positions-heading')),
               if (squares.isNotEmpty)
                 // Two by two, an odd last one (one alone included) the
@@ -613,13 +614,11 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                 const PortfolioSquaresSkeleton(
                     key: ValueKey('dollars-activity-loading')),
               const DollarsPnlStrip(),
-            ]),
-          ),
-        ),
-        // Nothing open: Sal (see the file header).
-        if (!held)
-          SliverToBoxAdapter(
-            child: Padding(
+    ];
+    // Nothing open: Sal (see the file header).
+    final empty = held
+        ? null
+        : Padding(
               key: const ValueKey('dollars-activity-empty'),
               padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
               child: NoActivityState(
@@ -632,8 +631,35 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                 subtitleSize: 15,
                 subtitleColor: context.colors.textSecondary,
               ),
+            );
+
+    if (widget.inPane) {
+      return Column(
+        key: const ValueKey('dollars-activity-pane'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: blocks,
             ),
           ),
+          if (empty != null) empty,
+        ],
+      );
+    }
+
+    return CustomScrollView(
+      key: const ValueKey('dollars-activity-list'),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          sliver: SliverList(delegate: SliverChildListDelegate(blocks)),
+        ),
+        if (empty != null) SliverToBoxAdapter(child: empty),
         // The last block clear of the dock and the bar over it.
         SliverToBoxAdapter(
           child: SizedBox(height: 24.h + kuteDockScrollClearance(context)),
@@ -646,8 +672,8 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
 /// A section's title over its block, in the home Activity's heading style
 /// ("Latest", all_activity.dart), on the page's 16 gutter plus the cards'
 /// 12 inset: every heading on one line, 12 inside the blocks' one edge.
-class _Heading extends StatelessWidget {
-  const _Heading(this.label, {super.key});
+class DollarsOverviewHeading extends StatelessWidget {
+  const DollarsOverviewHeading(this.label, {super.key});
 
   final String label;
 

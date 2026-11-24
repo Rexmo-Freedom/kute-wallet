@@ -62,6 +62,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -410,7 +411,7 @@ class HlMovingNowStrip extends StatelessWidget {
     final tap = onTap;
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
-      child: ActivitySquareGrid(children: [
+      child: HlSquaresRow(children: [
         for (final m in markets.take(kHlMoverCardMax))
           HlMovingNowCard(
             key: ValueKey('hl-mover-${m.kind.name}-${m.wireCoin}'),
@@ -421,6 +422,41 @@ class HlMovingNowStrip extends StatelessWidget {
           ),
       ]),
     );
+  }
+}
+
+/// The squares two by two (the home's "Latest" squares,
+/// [ActivitySquareGrid]); WIDE (MEDIUM and EXPANDED, kute_layout.dart) in a
+/// space that holds four at a phone square's width or more, the four in
+/// one row, 10 apart, each as tall as a phone's. A phone is untouched.
+class HlSquaresRow extends StatelessWidget {
+  const HlSquaresRow({super.key, required this.children});
+
+  final List<Widget> children;
+
+  /// The least width four squares in one row need.
+  static const double kOneRowMinWidth = 600;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!KuteLayout.isWide(context) || children.length != kHlMoverCardMax) {
+      return ActivitySquareGrid(children: children);
+    }
+    return LayoutBuilder(builder: (context, box) {
+      if (box.maxWidth < kOneRowMinWidth) {
+        return ActivitySquareGrid(children: children);
+      }
+      final gap = 10.w;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(width: gap),
+            Expanded(child: children[i]),
+          ],
+        ],
+      );
+    });
   }
 }
 
@@ -437,7 +473,7 @@ class HlMovingNowStripSkeleton extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
       child: KuteSkeleton(
-        child: ActivitySquareGrid(children: [
+        child: HlSquaresRow(children: [
           for (var i = 0; i < kHlMoverCardMax; i++)
             Container(
               height: height,

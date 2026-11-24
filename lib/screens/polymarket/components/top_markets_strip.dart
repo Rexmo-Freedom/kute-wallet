@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
@@ -49,6 +50,20 @@ const double kPolyTopMarketCardImage = 36;
 /// less [kPolyTopMarketCardPeek] so the third card peeks.
 double polyTopMarketCardWidth() =>
     (1.sw - 32.w - kPolyTopMarketCardGap.w) / 2 - kPolyTopMarketCardPeek.w;
+
+/// WIDE (MEDIUM and EXPANDED, kute_layout.dart): the strip is one row
+/// that never scrolls (a mouse has no sideways swipe), as many cards as
+/// stand at least this wide in its width, sharing it.
+const double kPolyTopMarketCardMinWide = 190;
+
+/// How many cards the wide strip shows in a row [width] wide (the strip's
+/// 16 margins and the gaps out): at least [kPolyTopMarketsMin], at most
+/// [kPolyTopMarketsMax].
+int polyTopMarketsFitting(double width) =>
+    ((width - 32 + kPolyTopMarketCardGap) /
+            (kPolyTopMarketCardMinWide + kPolyTopMarketCardGap))
+        .floor()
+        .clamp(kPolyTopMarketsMin, kPolyTopMarketsMax);
 
 /// The least the list keeps under the strip: with fewer left, no strip.
 const int kPolyTopMarketsListKeeps = 3;
@@ -110,6 +125,40 @@ class PolyTopMarketsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (markets.isEmpty) return const SizedBox.shrink();
+    // Wide: one still row, the cards sharing its width (the caller shows
+    // only as many as fit, [polyTopMarketsFitting]). A phone: the
+    // side-scrolling strip, as it always was.
+    if (KuteLayout.isWide(context)) {
+      return LayoutBuilder(
+        key: const ValueKey('poly-top-markets-strip'),
+        builder: (context, box) {
+          final n = markets.length;
+          final width =
+              (box.maxWidth - 32 - kPolyTopMarketCardGap * (n - 1)) / n;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < n; i++) ...[
+                    if (i > 0) const SizedBox(width: kPolyTopMarketCardGap),
+                    PolyTopMarketCard(
+                      market: markets[i],
+                      width: width,
+                      onTap: () => onOpen(markets[i]),
+                      onTapDown: onOpenDown == null
+                          ? null
+                          : () => onOpenDown!(markets[i]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
     return SingleChildScrollView(
       key: const ValueKey('poly-top-markets-strip'),
       scrollDirection: Axis.horizontal,
@@ -150,7 +199,11 @@ class PolyTopMarketCard extends ConsumerWidget {
     required this.market,
     required this.onTap,
     this.onTapDown,
+    this.width,
   });
+
+  /// The card's width; null: the phone strip's ([polyTopMarketCardWidth]).
+  final double? width;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -171,7 +224,7 @@ class PolyTopMarketCard extends ConsumerWidget {
     return LiveTokenScope(
       tokens: tokens,
       child: Container(
-        width: polyTopMarketCardWidth(),
+        width: width ?? polyTopMarketCardWidth(),
         constraints: BoxConstraints(minHeight: kPolyTopMarketCardHeight.w),
         decoration: AppDecorations.card(context).copyWith(borderRadius: radius),
         child: Material(
