@@ -1,4 +1,4 @@
-import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'trailing_stop_sheet.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
@@ -206,17 +206,15 @@ class HlClosePositionSheet extends ConsumerStatefulWidget {
     final navigator = Navigator.of(context, rootNavigator: true);
     unawaited(OpenOnce.run(
         routeName,
-        () => navigator.push<_CloseDraft>(MaterialPageRoute(
+        // The page; the shared panel on EXPANDED (kute_form_panel_route).
+        () => navigator.push<_CloseDraft>(kuteFormPanelRoute(
+              context,
               settings: const RouteSettings(name: routeName),
-              fullscreenDialog: true,
-              // A centred column from MEDIUM up (kute_wide_frames.dart).
-              builder: (_) => KuteFormColumn(
-                child: HlClosePositionSheet._advanced(
-                  position: position,
-                  market: market,
-                  ledgerWalletId: ledgerWalletId,
-                  draft: draft,
-                ),
+              builder: (_) => HlClosePositionSheet._advanced(
+                position: position,
+                market: market,
+                ledgerWalletId: ledgerWalletId,
+                draft: draft,
               ),
             ))));
   }
@@ -631,17 +629,15 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _trackStep('advanced');
     try {
       final draft = await Navigator.of(context, rootNavigator: true)
-          .push<_CloseDraft>(MaterialPageRoute(
+          // The page; the shared panel on EXPANDED (kute_form_panel_route).
+          .push<_CloseDraft>(kuteFormPanelRoute(
+        context,
         settings: const RouteSettings(name: HlClosePositionSheet.routeName),
-        fullscreenDialog: true,
-        // A centred column from MEDIUM up (kute_wide_frames.dart).
-        builder: (_) => KuteFormColumn(
-          child: HlClosePositionSheet._advanced(
-            position: pos,
-            market: _market,
-            ledgerWalletId: widget.ledgerWalletId,
-            draft: _draft,
-          ),
+        builder: (_) => HlClosePositionSheet._advanced(
+          position: pos,
+          market: _market,
+          ledgerWalletId: widget.ledgerWalletId,
+          draft: _draft,
         ),
       ));
       if (mounted && draft != null) setState(() => _applyDraft(draft));

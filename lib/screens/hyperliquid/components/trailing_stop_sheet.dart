@@ -1,4 +1,4 @@
-import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,20 +67,18 @@ class HlTrailingStopSheet extends ConsumerStatefulWidget {
     // A full page with the Advanced ticket's chrome, not a bottom sheet:
     // it is one of the Advanced order doors and reads like the rest.
     return Navigator.of(context, rootNavigator: true).push<HlOrderResult>(
-        MaterialPageRoute<HlOrderResult>(
-            fullscreenDialog: true,
+        // The page; the shared panel on EXPANDED (kute_form_panel_route).
+        kuteFormPanelRoute<HlOrderResult>(context,
             settings: const RouteSettings(name: 'hyperliquid-trailing-stop'),
-            // A centred column from MEDIUM up (kute_wide_frames.dart).
-            builder: (_) => KuteFormColumn(
-                child: HlTrailingStopSheet(
-                    market: market,
-                    size: normalizedSize,
-                    isBuy: isBuy,
-                    reduceOnly: reduceOnly,
-                    leverage: leverage,
-                    isCross: isCross,
-                    walletId: walletId,
-                    ledger: ledger))));
+            builder: (_) => HlTrailingStopSheet(
+                market: market,
+                size: normalizedSize,
+                isBuy: isBuy,
+                reduceOnly: reduceOnly,
+                leverage: leverage,
+                isCross: isCross,
+                walletId: walletId,
+                ledger: ledger)));
   }
 
   @override
