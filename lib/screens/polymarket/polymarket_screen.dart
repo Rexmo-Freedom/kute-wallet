@@ -1153,7 +1153,12 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
               SliverLayoutBuilder(
                 builder: (context, constraints) => SliverMainAxisGroup(
                     slivers: trending(
-                        polyTopMarketsFitting(constraints.crossAxisExtent))),
+                        // The Dollars page on EXPANDED: four, one per
+                        // column of its grid (round two).
+                        widget.embedded && KuteLayout.isExpanded(context)
+                            ? 4
+                            : polyTopMarketsFitting(
+                                constraints.crossAxisExtent))),
               ),
             ]
           : trending(kPolyTopMarketsMax);
@@ -1322,6 +1327,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         divider: polyGroupRowDivider,
         // Wide, no column narrower than the narrowest phone's card.
         minColumnWidth: kPolyGridMinColumn,
+        // The Dollars page's one grid on EXPANDED (round two).
+        alignedGrid: widget.embedded && KuteLayout.isExpanded(context),
         build: (market, inGroup) {
           final row = rowOf(market);
           return _PolyFeedCard(
