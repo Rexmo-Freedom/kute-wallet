@@ -24380,6 +24380,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Needs your approval'**
   String get standingStageApproval;
+
+  /// Activity row and receipt title for the daily reward paid on the Dollars balance (the person's dollar balance); the reward arrives as bitcoin in the Bitcoin activity. "Yield" is the interest or return paid on a balance, not a crop or giving way. Use this language's existing word for the Dollars balance. Short: one line on a 375 pt phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Dollars yield'**
+  String get activityDollarsYield;
 }
 
 class _AppLocalizationsDelegate

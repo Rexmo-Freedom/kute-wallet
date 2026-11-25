@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Geannuleerd. Het geld blijft in Beleggen, beschikbaar.",
   "standingPriceMoved": "De prijs ging naar {price}. Tik om tegen de nieuwe prijs te plaatsen.",
   "standingStagePlacing": "Wordt geplaatst",
-  "standingStageApproval": "Wacht op je goedkeuring"
+  "standingStageApproval": "Wacht op je goedkeuring",
+  "activityDollarsYield": "Rendement op Dollars"
 }

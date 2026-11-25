@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Otkazano. Novac ostaje u Ulaganju, dostupan.",
   "standingPriceMoved": "Cijena je prešla na {price}. Dodirni za postavljanje po novoj cijeni.",
   "standingStagePlacing": "Postavljamo",
-  "standingStageApproval": "Treba tvoje odobrenje"
+  "standingStageApproval": "Treba tvoje odobrenje",
+  "activityDollarsYield": "Prinos na Dolare"
 }

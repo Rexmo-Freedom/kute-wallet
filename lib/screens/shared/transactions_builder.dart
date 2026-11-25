@@ -31,6 +31,8 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
 import 'package:kute/screens/shared/activity_row_copy.dart';
 export 'package:kute/screens/shared/activity_row_copy.dart' show ActivityFlow;
 import 'package:kute/helpers/swap_activity.dart';
+import 'package:kute/providers/dollars_yield_provider.dart'
+    show watchIsDollarsYield;
 import 'package:kute/providers/bitcoin_labels_provider.dart';
 import 'package:kute/screens/shared/bitcoin_labels.dart';
 import 'package:kute/screens/shared/bitcoin_performance_comparison.dart';
@@ -2409,6 +2411,9 @@ Widget _buildSparkItem(
   // The payee Branta verified when this send was confirmed: its logo and
   // name, from the payment's stored record (never a lookup).
   final payee = isSend ? watchBrantaPayeeRecord(ref, [tx.id]) : null;
+  // The daily reward on the Dollars balance, paid as bitcoin: titled as
+  // such; everything else about the row is a receive's.
+  final isDollarsYield = !isSend && watchIsDollarsYield(ref, tx.id);
 
   Widget iconWidget = _AssetTxIcon(
       assetCode: assetCode, isSend: isSend, payee: payee);
@@ -2422,7 +2427,9 @@ Widget _buildSparkItem(
     payee: payee,
     title: _RowTitle(payee != null
         ? context.l10n.confirmationSentToWallet(payee.name)
-        : direction),
+        : isDollarsYield
+            ? context.l10n.activityDollarsYield
+            : direction),
     // The rail (Lightning / Spark / on-chain) is Nerd data on the sheet.
     subtitle: DateFormat('HH:mm').format(tx.timestamp),
     status: isPending

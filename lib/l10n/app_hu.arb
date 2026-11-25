@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Megszakítva. A pénz a Befektetésben marad, elérhető.",
   "standingPriceMoved": "Az ár {price} lett. Koppints, hogy az új áron add le.",
   "standingStagePlacing": "Leadás",
-  "standingStageApproval": "Jóváhagyásodra vár"
+  "standingStageApproval": "Jóváhagyásodra vár",
+  "activityDollarsYield": "Dollárhozam"
 }

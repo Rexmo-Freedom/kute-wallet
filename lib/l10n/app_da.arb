@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Annulleret. Pengene bliver i Investering, tilgængelige.",
   "standingPriceMoved": "Prisen gik til {price}. Tryk for at placere til den nye pris.",
   "standingStagePlacing": "Placerer",
-  "standingStageApproval": "Kræver din godkendelse"
+  "standingStageApproval": "Kræver din godkendelse",
+  "activityDollarsYield": "Afkast på Dollars"
 }

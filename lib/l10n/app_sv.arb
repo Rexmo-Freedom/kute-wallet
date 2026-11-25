@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Avbrutet. Pengarna stannar i Investera, tillgängliga.",
   "standingPriceMoved": "Priset gick till {price}. Tryck för att lägga till det nya priset.",
   "standingStagePlacing": "Lägger",
-  "standingStageApproval": "Behöver ditt godkännande"
+  "standingStageApproval": "Behöver ditt godkännande",
+  "activityDollarsYield": "Avkastning på Dollar"
 }

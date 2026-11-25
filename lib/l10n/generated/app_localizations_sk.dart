@@ -14487,4 +14487,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Čaká na vaše schválenie';
+
+  @override
+  String get activityDollarsYield => 'Výnos z Dolárov';
 }

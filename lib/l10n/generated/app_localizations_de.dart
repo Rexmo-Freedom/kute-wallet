@@ -14572,4 +14572,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Braucht deine Zustimmung';
+
+  @override
+  String get activityDollarsYield => 'Dollar-Rendite';
 }

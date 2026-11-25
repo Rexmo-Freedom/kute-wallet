@@ -14519,4 +14519,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Wacht op je goedkeuring';
+
+  @override
+  String get activityDollarsYield => 'Rendement op Dollars';
 }

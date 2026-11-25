@@ -14498,4 +14498,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Treba tvoje odobrenje';
+
+  @override
+  String get activityDollarsYield => 'Prinos na Dolare';
 }

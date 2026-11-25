@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Abgebrochen. Das Geld bleibt in Investieren, verfügbar.",
   "standingPriceMoved": "Der Preis ist auf {price} gegangen. Tippe, um zum neuen Preis zu platzieren.",
   "standingStagePlacing": "Wird platziert",
-  "standingStageApproval": "Braucht deine Zustimmung"
+  "standingStageApproval": "Braucht deine Zustimmung",
+  "activityDollarsYield": "Dollar-Rendite"
 }

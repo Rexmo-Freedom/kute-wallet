@@ -14515,4 +14515,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Wymaga Twojej zgody';
+
+  @override
+  String get activityDollarsYield => 'Zysk z Dolarów';
 }

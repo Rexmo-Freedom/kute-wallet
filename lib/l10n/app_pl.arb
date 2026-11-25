@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Anulowano. Pieniądze zostają w Inwestowaniu, dostępne.",
   "standingPriceMoved": "Cena zmieniła się na {price}. Dotknij, aby złożyć po nowej cenie.",
   "standingStagePlacing": "Składamy",
-  "standingStageApproval": "Wymaga Twojej zgody"
+  "standingStageApproval": "Wymaga Twojej zgody",
+  "activityDollarsYield": "Zysk z Dolarów"
 }

@@ -14578,4 +14578,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Votre accord est requis';
+
+  @override
+  String get activityDollarsYield => 'Rendement des Dollars';
 }

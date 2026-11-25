@@ -14439,4 +14439,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Vajag tavu apstiprinājumu';
+
+  @override
+  String get activityDollarsYield => 'Dolāru ienesīgums';
 }

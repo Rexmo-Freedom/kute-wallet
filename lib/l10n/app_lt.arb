@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Atšaukta. Pinigai lieka Investavime, prieinami.",
   "standingPriceMoved": "Kaina pasikeitė į {price}. Palieskite, kad pateiktumėte nauja kaina.",
   "standingStagePlacing": "Teikiame",
-  "standingStageApproval": "Reikia tavo patvirtinimo"
+  "standingStageApproval": "Reikia tavo patvirtinimo",
+  "activityDollarsYield": "Dolerių grąža"
 }

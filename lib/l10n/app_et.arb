@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Tühistatud. Raha jääb Investeerimisse, saadaval.",
   "standingPriceMoved": "Hind liikus {price} peale. Puuduta, et panna uue hinnaga.",
   "standingStagePlacing": "Esitame",
-  "standingStageApproval": "Vajab sinu kinnitust"
+  "standingStageApproval": "Vajab sinu kinnitust",
+  "activityDollarsYield": "Dollarite tootlus"
 }
