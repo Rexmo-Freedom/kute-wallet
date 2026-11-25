@@ -968,7 +968,9 @@ class CryptoRoundHeroCard extends StatelessWidget {
         w(currentText, figureStyle, perChar: true) +
             (feedName == null ? 0 : 6.w + w(feedName!, labelStyle)),
       ].reduce((a, b) => a > b ? a : b);
-      final clockW = countdown == null ? 0.0 : w(countdown!, clockStyle);
+      // With no time left known the clock is its skeleton bar, which takes
+      // the bar's width in the row, not none.
+      final clockW = countdown == null ? 56.w : w(countdown!, clockStyle);
 
       Widget block(String label, Widget labelSide, Widget figure, {Key? key}) =>
           Column(
@@ -1013,7 +1015,7 @@ class CryptoRoundHeroCard extends StatelessWidget {
       final clock = countdown == null
           ? KuteSkeleton(
               key: const ValueKey('crypto-round-countdown-skeleton'),
-              child: SkeletonBar(56.w, 20.h, radius: 6.r))
+              child: SkeletonBar(clockW, 20.h, radius: 6.r))
           : Text(countdown!,
               key: const ValueKey('crypto-round-countdown'), style: clockStyle);
       final max = box.maxWidth;
