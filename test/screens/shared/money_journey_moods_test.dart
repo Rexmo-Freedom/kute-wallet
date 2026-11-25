@@ -308,6 +308,11 @@ void main() {
   testWidgets(
       'Reduce Motion: one still pose per mood, switched at the same '
       'thresholds, no loops', (tester) async {
+    // No sheets, staged in this test's own zone as the first test does:
+    // run alone (or first in a shard) a sheet read still out left Sal's
+    // box to the rig a frame late, and the coin sat off his mouth.
+    SalSpriteCache.debugSetManifest(null);
+    addTearDown(() => SalSpriteCache.debugSetManifest(null));
     await _converting(tester, still: true);
     expect(tester.hasRunningAnimations, isFalse);
     expect(_motion(tester).mood, SalMood.fetch);

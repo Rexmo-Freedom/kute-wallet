@@ -574,6 +574,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       final position = _outer.position;
       if (!position.hasContentDimensions || !position.hasPixels) return;
       if (position.pixels > position.maxScrollExtent) {
+        // The one call that moves the outer scroll without ending the
+        // inner list's activity (jumpTo would stop a fling in hand).
+        // ignore: invalid_use_of_protected_member
         position.forcePixels(position.maxScrollExtent);
       }
     });

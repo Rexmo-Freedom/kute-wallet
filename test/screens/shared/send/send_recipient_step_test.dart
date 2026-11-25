@@ -475,8 +475,13 @@ void main() {
       expect(anotherCryptoNamedCoins(coins(['BTC'])), isEmpty);
     });
 
-    test('the card: "Another crypto", the line, the named coins\' marks',
-        () {
+    testWidgets('the card: "Another crypto", the line, the named coins\' '
+        'marks', (tester) async {
+      // The card sizes its mark slot with ScreenUtil (`.sp`): initialise it
+      // here, so the test does not lean on an earlier test in the same
+      // process having pumped a ScreenUtilInit (alone it threw
+      // LateInitializationError on `_minTextAdapt`).
+      await tester.pumpWidget(_host(const SizedBox.shrink()));
       final card = anotherCryptoCard(_l10n,
           key: const ValueKey('another'),
           groups: coins(['USDT', 'ETH', 'USDC', 'SOL']),
