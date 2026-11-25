@@ -738,16 +738,28 @@ double kuteSideColumnWidthFor(double window) =>
     (window * 0.25).clamp(440.0, 520.0) + 32;
 
 /// How many columns of at least [min] wide (with [gap] between) fit in
-/// [width], from 1 to [max].
+/// [width], from 1 to [max]. With [maxItem], [max] gives way on a wide
+/// window (the page runs gutter to gutter): as many more columns as keep
+/// each at most [maxItem], while they still fit at [min].
 int kuteColumnsFor(double width,
-    {double min = kuteWideColumnMin, double gap = kuteWideGap, int max = 4}) {
+    {double min = kuteWideColumnMin,
+    double gap = kuteWideGap,
+    int max = 4,
+    double? maxItem}) {
   if (!width.isFinite || width <= 0) return 1;
-  return ((width + gap) / (min + gap)).floor().clamp(1, math.max(1, max));
+  final fit = ((width + gap) / (min + gap)).floor();
+  var n = fit.clamp(1, math.max(1, max)).toInt();
+  if (maxItem != null) {
+    final need = ((width + gap) / (maxItem + gap)).ceil();
+    if (need > n) n = math.max(1, math.min(need, fit));
+  }
+  return n;
 }
 
 /// Sections side by side: [children] (each a section: its header and its
 /// grouped card, or any block) laid out in as many columns of at least
-/// [minColumnWidth] as the width takes, at most [maxColumns] and never
+/// [minColumnWidth] as the width takes, at most [maxColumns] (more on a
+/// window wide enough that they would pass [kuteWideColumnMax]) and never
 /// more than there are children, filled in reading order across the
 /// columns (the first child top left, the second top of the next column,
 /// …). Each column's children stack with [spacing] between. One column:
@@ -807,10 +819,15 @@ class KuteColumns extends StatelessWidget {
         if (c is! SizedBox || c.child != null) c
     ];
     return LayoutBuilder(builder: (context, constraints) {
-      final n = kuteColumnsFor(constraints.maxWidth,
-          min: minColumnWidth,
-          gap: gap,
-          max: math.min(maxColumns, math.max(1, items.length)));
+      // Never a column past a readable one while there are sections
+      // left to put beside it.
+      final n = math.min(
+          kuteColumnsFor(constraints.maxWidth,
+              min: minColumnWidth,
+              gap: gap,
+              max: maxColumns,
+              maxItem: kuteWideColumnMax),
+          math.max(1, items.length));
       Widget stack(List<Widget> list) => Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -861,7 +878,10 @@ class KuteGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final n = kuteColumnsFor(constraints.maxWidth,
-          min: minItemWidth, gap: gap, max: maxColumns);
+          min: minItemWidth,
+          gap: gap,
+          max: maxColumns,
+          maxItem: kuteWideColumnMax);
       final rows = <Widget>[];
       for (var i = 0; i < children.length; i += n) {
         if (i > 0) rows.add(SizedBox(height: rowGap));
@@ -924,7 +944,10 @@ class SliverKuteGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverLayoutBuilder(builder: (context, constraints) {
       final n = kuteColumnsFor(constraints.crossAxisExtent,
-          min: minItemWidth, gap: gap, max: maxColumns);
+          min: minItemWidth,
+          gap: gap,
+          max: maxColumns,
+          maxItem: kuteWideColumnMax);
       final rows = (itemCount + n - 1) ~/ n;
       return SliverList(
         delegate: SliverChildBuilderDelegate(

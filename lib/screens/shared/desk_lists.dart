@@ -41,9 +41,10 @@ EdgeInsets deskListPadding() =>
     EdgeInsets.symmetric(horizontal: kuteWideGutter - kDeskListInset);
 
 /// How many columns of cells a list page [width] wide (its padding out)
-/// lays out: two to four.
+/// lays out: two to five (five on a window of about 2000 and up, the page
+/// running gutter to gutter, so no card outgrows a readable column).
 int deskListColumns(double width) =>
-    kuteColumnsFor(width, min: kDeskListCellMin, gap: 0, max: 4);
+    kuteColumnsFor(width, min: kDeskListCellMin, gap: 0, max: 5);
 
 /// A list page's own column rule for the day cards under it
 /// ([ActivityDayColumns], [DeskFirstColumn]) in place of

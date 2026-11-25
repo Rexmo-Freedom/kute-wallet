@@ -1277,7 +1277,8 @@ class _PortfolioBuilderScreenState
     }
     final side = _side;
     return LayoutBuilder(builder: (context, constraints) {
-      final n = kuteColumnsFor(constraints.maxWidth - side.horizontal, max: 3);
+      final n = kuteColumnsFor(constraints.maxWidth - side.horizontal,
+          max: 3, maxItem: kuteWideColumnMax);
       final rows = (itemCount + n - 1) ~/ n;
       return ListView.builder(
         padding: EdgeInsets.fromLTRB(
