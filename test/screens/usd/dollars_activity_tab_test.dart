@@ -102,6 +102,10 @@ PolymarketTransaction _bet(String id) {
 ProviderContainer _container(WidgetTester tester) => ProviderScope.containerOf(
     tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
 
+/// Overview is the last pill and the page opens on Investing (founder, 25
+/// November 2026): these tests open Overview by the link that names it.
+const _onOverview = UsdAccountScreen(initialTab: InvestmentsTab.activity);
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -111,7 +115,7 @@ void main() {
   testWidgets(
       'no Latest: the Investments actions are not listed here, they are the '
       'Portfolio\'s', (tester) async {
-    await pumpInvestments(tester,
+    await pumpInvestments(tester, child: _onOverview,
         history: Transaction(
           bitcoinTransactions: const [],
           sparkTransactions: const [],
@@ -134,7 +138,7 @@ void main() {
       'Portfolio', (tester) async {
     final events = recordEvents();
     final now = DateTime.now();
-    await pumpInvestments(tester, overrides: [
+    await pumpInvestments(tester, child: _onOverview, overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
               HyperliquidTradingState(isInitialized: true, positions: [
             _perp('BTC', 100),
@@ -221,11 +225,14 @@ void main() {
     // Founder, 5 November 2026 ("different size here"): a group card stood
     // 16 inside the squares and the P&L card. Dark, as the screenshot.
     final now = DateTime.now();
-    await pumpInvestments(tester,
+    await pumpInvestments(tester, child: _onOverview,
         dark: true,
         size: const Size(390, 2000),
         browseInvesting: true,
         overrides: [
+          // On Overview from the first frame: this test measures its blocks
+          // only, never Investing's list.
+          investmentsTabProvider.overrideWith((_) => InvestmentsTab.activity),
           hyperliquidBrowseUniverseProvider
               .overrideWithValue(AsyncValue.data(hlMarketMapFixture)),
           hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
@@ -326,7 +333,7 @@ void main() {
           cloid: null,
           startPosition: 0,
         );
-    await pumpInvestments(tester,
+    await pumpInvestments(tester, child: _onOverview,
         size: const Size(390, 1400),
         // Every coin at 102 throughout: +$2 each once opened.
         openPnlSources: OpenPnlSources(
@@ -391,7 +398,7 @@ void main() {
 
   testWidgets('nothing open and no map: one Sal "No open positions", no P&L card',
       (tester) async {
-    await pumpInvestments(tester);
+    await pumpInvestments(tester, child: _onOverview);
     expect(find.byKey(const ValueKey('dollars-activity-empty')), findsOneWidget);
     expect(
         find.descendant(
@@ -408,7 +415,7 @@ void main() {
   group('the no-orphan rule (founder, 6 November 2026: "should the 3rd one '
       'be rectangular and not with this disposition?")', () {
     Future<void> mount(WidgetTester tester, int count) =>
-        pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+        pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
           hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
                   HyperliquidTradingState(isInitialized: true, positions: [
                 for (var i = 0; i < count; i++)
@@ -489,7 +496,7 @@ void main() {
       'an open-position square says what it is winning in money: "▲ \$0.61" '
       'over "5.4%" in the corner, the value the big number (founder, 6 '
       'November 2026)', (tester) async {
-    await pumpInvestments(tester, overrides: [
+    await pumpInvestments(tester, child: _onOverview, overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           const HyperliquidTradingState(isInitialized: true, positions: [
             HlPerpPosition(

@@ -1,8 +1,9 @@
-// The Dollars page opens on Overview, the first pill (founder, 8 November
-// 2026, reversing the 7 November opening on Investing), and the market map
-// lives on Overview, moved from Investing:
+// The Dollars page opens on Investing, the first pill, the pills reading
+// Investing · Predictions · Overview (founder, 25 November 2026: "make sure
+// investing is first please"; it opened on Overview, then the first pill,
+// from 8 November), and Overview holds the open positions and the P&L:
 //
-//   * the first open and every Bitcoin | Dollars switch land on Overview
+//   * the first open and every Bitcoin | Dollars switch land on Investing
 //     (kInvestmentsDefaultTab, openInvestmentsOnDefaultTab), whatever the
 //     policy withholds, the switch put back in place with no motion of its
 //     own; a pick still switches in; a link naming a pill keeps it
@@ -86,11 +87,13 @@ HlPerpPosition _perp(String coin, double margin) => HlPerpPosition(
 /// is on it; [link] is the pill a link names (`/usd?tab=…`).
 /// [_pump] with a position open.
 Future<ProviderContainer> _pumpHeld(WidgetTester tester,
-        {bool browseInvesting = true,
+        {InvestmentsTab? link,
+        bool browseInvesting = true,
         AsyncValue<List<HlMarket>>? universe,
         Size size = const Size(390, 2400),
         List<Override> overrides = const []}) =>
     _pump(tester,
+        link: link,
         browseInvesting: browseInvesting,
         universe: universe,
         size: size,
@@ -160,9 +163,17 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   group('the pill the page opens on', () {
-    test('Overview, the first pill', () {
-      expect(kInvestmentsDefaultTab, InvestmentsTab.activity);
-      expect(kInvestmentsPills.first, InvestmentsTab.activity);
+    // Pinned (founder, 25 November 2026): the order and the default
+    // cannot flip back without this failing.
+    test('Investing, the first pill; the order Investing, Predictions, '
+        'Overview', () {
+      expect(kInvestmentsDefaultTab, InvestmentsTab.investing);
+      expect(kInvestmentsPills, const [
+        InvestmentsTab.investing,
+        InvestmentsTab.predictions,
+        InvestmentsTab.activity,
+      ]);
+      expect(kInvestmentsPills.first, kInvestmentsDefaultTab);
     });
 
     test('links: activity and overview name the pill, its key stays', () {
@@ -179,15 +190,16 @@ void main() {
     });
 
     testWidgets(
-        'first open: Overview, the first pill, picked and on screen, with no '
+        'first open: Investing, the first pill, picked and on screen, with no '
         'pick reported', (tester) async {
       final events = recordEvents();
-      final container = await _pumpHeld(tester);
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      final container = await _pumpHeld(tester, size: const Size(390, 844));
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       expect(_strip(tester).selectedIndex, 0);
-      expect(_strip(tester).items[0].label, 'Overview');
-      expect(_overview, findsOneWidget);
-      expect(find.byType(HyperliquidScreen), findsNothing,
+      expect(_strip(tester).items.map((i) => i.label).toList(),
+          ['Investing', 'Predictions', 'Overview']);
+      expect(find.byType(HyperliquidScreen), findsOneWidget);
+      expect(_overview, findsNothing,
           reason: 'mounted behind the stack, not on screen');
       expect(events.where((e) => e.$1 == 'analytics_tab_selected'), isEmpty);
       expect(tester.takeException(), isNull);
@@ -195,33 +207,34 @@ void main() {
     });
 
     testWidgets(
-        'both venues\' browsing withheld: still Overview, first open and after '
+        'both venues\' browsing withheld: still Investing, first open and after '
         'the switch', (tester) async {
       final container = await _pump(tester, browseInvesting: false);
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       await tapPill(tester, 'Predictions');
       openInvestmentsOnDefaultTab(_ref(tester));
       await tester.pump();
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
 
-    for (final tab in [InvestmentsTab.investing, InvestmentsTab.predictions]) {
+    for (final tab in [InvestmentsTab.activity, InvestmentsTab.predictions]) {
       testWidgets('a link naming ${tab.key} still opens it', (tester) async {
         final container = await _pump(tester, link: tab);
         expect(container.read(investmentsTabProvider), tab);
         expect(_strip(tester).selectedIndex, kInvestmentsPills.indexOf(tab));
-        expect(_overview, findsNothing);
+        expect(_overview,
+            tab == InvestmentsTab.activity ? findsOneWidget : findsNothing);
         expect(tester.takeException(), isNull);
         await unmountInvestments(tester);
       });
     }
 
     testWidgets(
-        'every Bitcoin | Dollars switch lands on Overview again, in place; a '
+        'every Bitcoin | Dollars switch lands on Investing again, in place; a '
         'pick still switches in', (tester) async {
-      final container = await _pumpHeld(tester);
+      final container = await _pumpHeld(tester, size: const Size(390, 844));
       await tapPill(tester, 'Predictions');
       expect(
           container.read(investmentsTabProvider), InvestmentsTab.predictions);
@@ -229,7 +242,7 @@ void main() {
       // The shell's switch to Dollars (app_shell.dart, a tap or a swipe).
       openInvestmentsOnDefaultTab(_ref(tester));
       await tester.pump();
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
       expect(_strip(tester).selectedIndex, 0);
       // At rest on its first frame: the shell's slide is the motion.
       expect(tester.widget<SelectionFade>(find.byType(SelectionFade)).animate,
@@ -242,16 +255,16 @@ void main() {
       expect(_bodyOpacity(tester), 1);
 
       // A pick switches in as every switch does.
-      await tester.tap(investmentsPill('Investing'));
+      await tester.tap(investmentsPill('Overview'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
       expect(tester.widget<SelectionFade>(find.byType(SelectionFade)).animate,
           isTrue);
       expect(_bodyOpacity(tester), lessThan(1));
       await _frames(tester);
-      expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
-      // And back on Overview by a pick: switched in too.
-      await tester.tap(investmentsPill('Overview'));
+      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      // And back on Investing by a pick: switched in too.
+      await tester.tap(investmentsPill('Investing'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
       expect(_bodyOpacity(tester), lessThan(1));
@@ -261,7 +274,7 @@ void main() {
     });
 
     testWidgets(
-        'a pull on the page it opened on reports tab activity and re-reads '
+        'a pull on the page it opened on reports tab investing and re-reads '
         'the market lists', (tester) async {
       final events = recordEvents();
       var reads = 0;
@@ -282,11 +295,11 @@ void main() {
           events.where((e) =>
               e.$1 == 'pull_to_refresh_executed' &&
               e.$2?['screen'] == 'usd' &&
-              e.$2?['tab'] == 'activity'),
+              e.$2?['tab'] == 'investing'),
           hasLength(1));
       final refresh =
           container.read(refreshEverythingProvider) as RecordingRefresh;
-      expect(refresh.triggers.map((t) => t.tab), everyElement('activity'));
+      expect(refresh.triggers.map((t) => t.tab), everyElement('investing'));
       expect(reads, greaterThan(before));
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
@@ -296,7 +309,7 @@ void main() {
   group('Overview holds the open positions and the P&L, nothing else', () {
     testWidgets('positions held: the squares and the open P&L, no map',
         (tester) async {
-      await _pumpHeld(tester, overrides: [
+      await _pumpHeld(tester, link: InvestmentsTab.activity, overrides: [
         _holding([_perp('BTC', 100), _perp('ETH', 500)]),
       ]);
       expect(_squares, findsOneWidget);
@@ -309,7 +322,7 @@ void main() {
 
     testWidgets('at most four squares, however many are open',
         (tester) async {
-      await _pumpHeld(tester, overrides: [
+      await _pumpHeld(tester, link: InvestmentsTab.activity, overrides: [
         _holding([
           _perp('BTC', 100),
           _perp('ETH', 500),
@@ -328,7 +341,7 @@ void main() {
 
     testWidgets('nothing open: Sal over "No open positions", no heading',
         (tester) async {
-      await _pump(tester);
+      await _pump(tester, link: InvestmentsTab.activity);
       expect(find.byType(HlMarketMapCard), findsNothing);
       expect(_squares, findsNothing);
       expect(_pnl, findsNothing);

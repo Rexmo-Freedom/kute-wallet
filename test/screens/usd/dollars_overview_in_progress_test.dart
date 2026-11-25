@@ -35,7 +35,8 @@ import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart';
-import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsBody;
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsBody, InvestmentsTab, UsdAccountScreen;
 import 'package:kute/services/standing_orders/standing_order_store.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
 
@@ -163,6 +164,10 @@ void expectSameSlot(Rect actual, Rect slot) {
   expect(actual.topLeft, slot.topLeft);
   expect(actual.width, slot.width);
 }
+
+/// Overview is the last pill and the page opens on Investing (founder, 25
+/// November 2026): these tests open Overview by the link that names it.
+const _onOverview = UsdAccountScreen(initialTab: InvestmentsTab.activity);
 
 void main() {
   setUp(() {
@@ -505,7 +510,7 @@ void main() {
       'a prediction leads the squares from the accept as one card saying '
       'Placing; a tap opens its own slip again; it fails and goes',
       (tester) async {
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+    await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           HyperliquidTradingState(
               isInitialized: true, positions: [_perp('BTC', 500)]))),
@@ -568,7 +573,7 @@ void main() {
       'nothing else open: the in-progress card alone, the full-width '
       'compact card, under the heading; never the empty Sal',
       (tester) async {
-    await pumpInvestments(tester);
+    await pumpInvestments(tester, child: _onOverview);
     expect(find.byKey(const ValueKey('dollars-activity-empty')), findsOneWidget);
     _container(tester)
         .read(standingOrdersProvider.notifier)
@@ -585,7 +590,7 @@ void main() {
 
   testWidgets('in progress counts toward the four, in-progress first',
       (tester) async {
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+    await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           HyperliquidTradingState(isInitialized: true, positions: [
             _perp('BTC', 500),
@@ -610,7 +615,7 @@ void main() {
       'figures, then the listed position in the same slot saying placed, '
       'then its own line; sold, nothing comes back', (tester) async {
     var clock = DateTime.now();
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+    await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
       dollarsOverviewClockProvider.overrideWithValue(() => clock),
       polymarketActivePositionsProvider
           .overrideWith((ref) => ref.watch(_positions)),
@@ -684,7 +689,7 @@ void main() {
       (tester) async {
     var clock = DateTime.now();
     late _Trading trading;
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+    await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
       dollarsOverviewClockProvider.overrideWithValue(() => clock),
       hyperliquidTradingProvider.overrideWith(() => trading = _Trading(
           HyperliquidTradingState(
@@ -757,7 +762,7 @@ void main() {
       'placed with the fill\'s margin, then the position takes that same '
       'slot', (tester) async {
     late _Trading trading;
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+    await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
       hyperliquidTradingProvider.overrideWith(() => trading = _Trading(
           HyperliquidTradingState(
               isInitialized: true, positions: [_perp('BTC', 500)]))),
@@ -813,7 +818,7 @@ void main() {
           dir: side == 'B' ? 'Open Long' : 'Open Short',
           cloid: null,
         );
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+    await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
       standingOrderStoreProvider.overrideWithValue(_MemoryStore()),
       hyperliquidTradingProvider.overrideWith(() => _Trading(
           HyperliquidTradingState(
@@ -854,7 +859,7 @@ void main() {
         'in the same slot saying placed; never both (2.2.0 (101))',
         (tester) async {
       late _Trading trading;
-      await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+      await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
         hyperliquidTradingProvider.overrideWith(() => trading = _Trading(
             HyperliquidTradingState(
                 isInitialized: true, positions: [_perp('BTC', 500)]))),
@@ -893,7 +898,7 @@ void main() {
       'a filled card whose position never lists leaves when its hold ends, '
       'with nothing else rebuilding the tab', (tester) async {
     var clock = DateTime.now();
-    await pumpInvestments(tester, size: const Size(390, 1400), overrides: [
+    await pumpInvestments(tester, child: _onOverview, size: const Size(390, 1400), overrides: [
       dollarsOverviewClockProvider.overrideWithValue(() => clock),
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           HyperliquidTradingState(
