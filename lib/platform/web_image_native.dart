@@ -9,4 +9,5 @@ import 'web_image.dart' show WebImageLoad;
 Future<WebImageLoad?> loadImage(String url, Duration timeout) =>
     Future.value(null);
 
-Widget imgView(String url, BoxFit fit) => const SizedBox.shrink();
+Widget imgView(String url, BoxFit fit, BorderRadius? radius) =>
+    const SizedBox.shrink();

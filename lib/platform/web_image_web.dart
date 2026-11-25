@@ -74,6 +74,8 @@ void _register() {
     style['height'] = '100%'.toJS;
     style['display'] = 'block'.toJS;
     style['objectFit'] = ((map['fit'] as String?) ?? 'cover').toJS;
+    final radius = map['radius'] as String?;
+    if (radius != null) style['borderRadius'] = radius.toJS;
     style['pointerEvents'] = 'none'.toJS;
     style['userSelect'] = 'none'.toJS;
     img['src'] = ((map['src'] as String?) ?? '').toJS;
@@ -81,12 +83,26 @@ void _register() {
   });
 }
 
-Widget imgView(String url, BoxFit fit) {
+/// [radius] as CSS: each corner's horizontal / vertical radii.
+String? _cssRadius(BorderRadius? r) {
+  if (r == null || r == BorderRadius.zero) return null;
+  String px(double v) => '${v.toStringAsFixed(2)}px';
+  return '${px(r.topLeft.x)} ${px(r.topRight.x)} ${px(r.bottomRight.x)} '
+      '${px(r.bottomLeft.x)} / ${px(r.topLeft.y)} ${px(r.topRight.y)} '
+      '${px(r.bottomRight.y)} ${px(r.bottomLeft.y)}';
+}
+
+Widget imgView(String url, BoxFit fit, BorderRadius? radius) {
   _register();
+  final css = _cssRadius(radius);
   return HtmlElementView(
-    key: ValueKey('$url|${fit.name}'),
+    key: ValueKey('$url|${fit.name}|$css'),
     viewType: _viewType,
-    creationParams: {'src': url, 'fit': _objectFit(fit)},
+    creationParams: {
+      'src': url,
+      'fit': _objectFit(fit),
+      if (css != null) 'radius': css,
+    },
     hitTestBehavior: PlatformViewHitTestBehavior.transparent,
   );
 }

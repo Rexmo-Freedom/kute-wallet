@@ -63,6 +63,23 @@ class PolyCrestImage extends StatelessWidget {
     final normalized = polymarketArtworkUrl(url);
     final fb = fallback ??
         PolyArtworkFallback(size: size, label: label, category: category);
+    // Web: the browser's <img> rounds its own corners (CSS), with no
+    // Flutter clip around the view, which the engine would restyle on
+    // every frame for every image on the page; the stand-in is clipped.
+    if (normalized != null &&
+        kIsWeb &&
+        cacheManager == null &&
+        debugCacheManager == null) {
+      final corners = BorderRadius.circular(radius);
+      return WebNetworkImage(
+        url: normalized,
+        width: size,
+        height: size,
+        fit: fit,
+        borderRadius: corners,
+        error: ClipRRect(borderRadius: corners, child: fb),
+      );
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: normalized == null
