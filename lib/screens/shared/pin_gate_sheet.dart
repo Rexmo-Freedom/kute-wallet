@@ -11,7 +11,10 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
+import 'package:kute/screens/shared/kute_pin_scaffold.dart'
+    show KutePinScaffold;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_password_field.dart';
 import 'package:kute/platform/unlock_secret.dart';
@@ -305,11 +308,28 @@ class _PinGateSheetState extends ConsumerState<PinGateSheet>
                     child: KutePasswordField(
                       controller: _field,
                       enabled: !lockedOut && !_isVerifying,
+                      onChanged: (_) => setState(() {}),
                       onSubmitted: (_) => _submitPassword(),
                     ),
                   )
                 : PinProgressIndicator(currentLength: _pin.length),
           ),
+          // A password is checked by a button under its field too, not
+          // only by Enter; the bar stays Cancel.
+          if (_password) ...[
+            const SizedBox(height: KutePinScaffold.formButtonGap),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: AppButton(
+                key: const ValueKey('pin-gate-confirm'),
+                text: context.l10n.confirm,
+                isLoading: _isVerifying,
+                onPressed: !lockedOut && _field.text.isNotEmpty
+                    ? _submitPassword
+                    : null,
+              ),
+            ),
+          ],
           SizedBox(height: 24.h),
           if (!_password)
           Padding(

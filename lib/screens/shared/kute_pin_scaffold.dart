@@ -31,6 +31,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/platform/kute_wide_frames.dart'
     show KuteDialogScope, kuteBarBottomRoomFor, kuteWindowWidth;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
+import 'package:kute/screens/shared/kute_dialog.dart' show KuteInPlaceFoot;
 import 'package:kute/screens/shared/kute_wordmark.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -85,7 +88,34 @@ class KutePinScaffold extends StatelessWidget {
     this.leading,
     this.showWordmark = true,
     this.salMood = 'blink',
+    this.form = false,
   });
+
+  /// A password page (unlock_secret.dart): [dots] is the field and
+  /// [keypad] is empty. In a split screen's form (EXPANDED) the page is
+  /// laid out as ONE FORM, vertically centred: the lockup, the title, the
+  /// line under it, the field and its rule, the primary button right
+  /// under the field at its width ([KuteInPlaceFoot]), then [footer].
+  /// Anywhere else it is the PIN page's geometry, as before.
+  final bool form;
+
+  /// The gap between a form's field (its hint or error line included)
+  /// and its primary button.
+  static const double formButtonGap = 22;
+
+  /// Whether a page built in [context] with [form] is laid out as one
+  /// form (see [form]).
+  static bool formHere(BuildContext context, {required bool form}) =>
+      form && KuteDialogScope.inDialog(context);
+
+  /// The room a page's footer keeps for the floating bar
+  /// ([kuteBarScrollClearance]): none where the page is one form (the
+  /// primary sits under the field).
+  static Widget barRoom(BuildContext context, {required bool form}) =>
+      SizedBox(
+          height: formHere(context, form: form)
+              ? 0
+              : kuteBarScrollClearance.h);
 
   /// Sal's clip in the lockup (see the file header and [PinSalMoodMixin]).
   final String salMood;
@@ -144,6 +174,7 @@ class KutePinScaffold extends StatelessWidget {
         decoration: AppDecorations.screenGradient(context),
         child: PlatformSafeArea(
           child: LayoutBuilder(builder: (context, box) {
+            if (form && inPlace) return _formBody(context, box);
             final body = _body(context,
                 tight: inPlace && box.maxHeight < _inPlaceRoomy,
                 inPlace: inPlace);
@@ -156,6 +187,108 @@ class KutePinScaffold extends StatelessWidget {
           }),
         ),
       ),
+    );
+  }
+
+  /// The password page as one form, centred in the split screen's half
+  /// (see [form]). A short window scrolls it rather than clipping it.
+  Widget _formBody(BuildContext context, BoxConstraints box) {
+    final c = context.colors;
+    final width = box.maxWidth;
+    final group = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showWordmark) ...[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SalSprite(
+                key: const ValueKey('pin-sal'),
+                clip: salMood,
+                size: 44,
+                loop: salMood == 'sad' ? false : null,
+                fallback: const SizedBox.shrink(),
+              ),
+              const SizedBox(width: 10),
+              const KuteWordmark(size: 30),
+            ],
+          ),
+          SizedBox(height: 28.h),
+        ],
+        if (step != null) ...[
+          Text(
+            step!,
+            style: TextStyle(
+              color: c.textTertiary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+          SizedBox(height: 8.h),
+        ],
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 28.w),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 28.sp,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+              height: 1.05,
+            ),
+          ),
+        ),
+        if (subtitle != null) ...[
+          SizedBox(height: 10.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 28.w),
+            child: Text(
+              subtitle!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: subtitleIsError ? c.error : c.textTertiary,
+                fontSize: 15.sp,
+                fontWeight:
+                    subtitleIsError ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: -0.1,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+        if (notice != null) ...[
+          SizedBox(height: 18.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 28.w),
+            child: notice!,
+          ),
+        ],
+        SizedBox(height: 32.h),
+        SizedBox(width: width, child: dots),
+        const SizedBox(height: formButtonGap),
+        KuteInPlaceFoot(width: width),
+        if (footer != null) ...[
+          const SizedBox(height: 12),
+          footer!,
+        ],
+      ],
+    );
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight),
+              child: Center(child: group),
+            ),
+          ),
+        ),
+        if (leading != null) Positioned(top: 4.h, left: 4.w, child: leading!),
+      ],
     );
   }
 

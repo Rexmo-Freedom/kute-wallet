@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/recovery/restore_secrets_screen.dart'
@@ -124,6 +123,7 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
     // Just the title and the dots (user decision, September 2026): no step
     // counter, no subtitle, no reminder chip on the first PIN screen.
     return KutePinScaffold(
+      form: _password,
       leading: const KuteBackButton(fallbackRoute: '/start'),
       title: _password ? PasswordCopy.create : context.l10n.createAPin,
       // Happy once the six digits are in, before Next is tapped.
@@ -172,7 +172,7 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
             disabledLabel:
                 _password ? PasswordCopy.needPassword : context.l10n.barNeedPin,
             ),
-            child: SizedBox(height: kuteBarScrollClearance.h),
+            child: KutePinScaffold.barRoom(context, form: _password),
           ),
         ),
       ),

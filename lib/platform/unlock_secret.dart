@@ -22,8 +22,9 @@
 ///     vault (a vault always unlocks with the kind it was made with,
 ///     whatever the device reports later); before any vault, [deviceKind].
 ///   * [needsPasswordUpgrade]: a PIN vault in a laptop browser. After its
-///     PIN unlocks it, the app has the person create a password once
-///     before going on; until then the PIN still opens it.
+///     PIN or its biometric check unlocks it, the app has the person
+///     create a password once before going on; until then the PIN still
+///     opens it.
 library;
 
 import 'package:flutter/foundation.dart';
