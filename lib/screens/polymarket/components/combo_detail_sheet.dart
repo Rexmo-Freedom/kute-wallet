@@ -20,6 +20,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_detail_panes.dart';
+import 'package:kute/screens/shared/kute_desk_market.dart'
+    show KuteDeskUnderPanel, kuteDeskChartHeight;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
@@ -155,15 +157,21 @@ class ComboDetailSheet extends ConsumerWidget {
                             children: [
                               KuteDetailPanes(
                                 hero: _EstimateChart(position: p, tall: true),
-                                details: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _Summary(position: p, wide: true),
-                                    SizedBox(height: 20.h),
-                                    ...legsHeader,
-                                    for (final leg in p.legs) _LegRow(leg: leg),
-                                  ],
+                                // Under the Close combo side panel the
+                                // pane fades away.
+                                details: KuteDeskUnderPanel(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _Summary(position: p, wide: true),
+                                      SizedBox(height: 20.h),
+                                      ...legsHeader,
+                                      for (final leg in p.legs)
+                                        _LegRow(leg: leg),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -355,7 +363,12 @@ class _EstimateChart extends ConsumerWidget {
                 fontWeight: FontWeight.w700)),
         SizedBox(height: 8.h),
         SizedBox(
-          height: tall ? 400 : 170.h,
+          // EXPANDED: the market page's hero rule (kute_desk_market.dart),
+          // as tall as the window allows over the fold, at least 420.
+          height: tall
+              ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
+                  chrome: 200)
+              : 170.h,
           child: series.when(
             data: (points) => points.length < 2
                 ? Center(
@@ -493,11 +506,16 @@ class _CloseComboSheet extends ConsumerStatefulWidget {
   const _CloseComboSheet({required this.position});
   final ComboPosition position;
 
-  static Future<void> show(BuildContext context, ComboPosition p) =>
-      showAppBottomSheet<void>(
-        context: context,
-        builder: (_) => _CloseComboSheet(position: p),
-      );
+  static Future<void> show(BuildContext context, ComboPosition p) {
+    // On a laptop the side panel at the window's right edge, over the
+    // page's right pane (kute_wide_frames.dart, KuteSideFlow; founder, 25
+    // November 2026: "these ones also be side bars").
+    if (kuteIsExpanded(context)) KuteSideFlow.arm();
+    return showAppBottomSheet<void>(
+      context: context,
+      builder: (_) => _CloseComboSheet(position: p),
+    );
+  }
 
   @override
   ConsumerState<_CloseComboSheet> createState() => _CloseComboSheetState();

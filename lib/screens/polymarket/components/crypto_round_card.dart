@@ -28,7 +28,11 @@ import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/screens/home/components/btc_predict_chart.dart';
 import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
+import 'package:kute/screens/shared/kute_desk_market.dart'
+    show kuteDeskButtonHeight;
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show PositionStatTile, PositionStatTiles, positionTileValueStyle;
 import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/polymarket/crypto_window_results.dart';
@@ -579,10 +583,15 @@ class CompactSidePill extends StatelessWidget {
     required this.up,
     this.enabled = true,
     required this.onTap,
+    this.height,
   });
 
   final String label;
   final String odds;
+
+  /// The button's height; [CompactCryptoCard.pillHeight] when null (the
+  /// round page's right column on a laptop draws them taller).
+  final double? height;
 
   /// The name of the round the pill bets on: read out with it.
   final String? window;
@@ -620,10 +629,12 @@ class CompactSidePill extends StatelessWidget {
                 onTap();
               }
             : null,
-        child: Opacity(
+        child: MouseRegion(
+          cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+          child: Opacity(
           opacity: enabled ? 1 : 0.35,
           child: Container(
-          height: CompactCryptoCard.pillHeight,
+          height: height ?? CompactCryptoCard.pillHeight,
           decoration: marketPairDecoration(color,
               borderRadius: BorderRadius.circular(radius.r),
               glow: !context.isDark && enabled),
@@ -642,6 +653,7 @@ class CompactSidePill extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
         ),
       ),
@@ -793,6 +805,11 @@ class CryptoRoundHeroCard extends StatelessWidget {
     final c = context.colors;
     final pair = upFrac == null ? null : formatPolyChancePair(upFrac!);
     final seeded = (history?.length ?? 0) >= 2;
+    // The round page on a laptop (CryptoRoundDeskSlot): the buttons, the
+    // quick amounts and the two prices are the right column's; the card
+    // keeps the coin, the time left, the chart and the round row.
+    final desk = CryptoRoundDeskSlot._of(context);
+    desk?._report(this);
     return Container(
       key: const ValueKey('crypto-round-full'),
       // The rows' 14 inset, so the coins' logos stand in one column.
@@ -851,11 +868,14 @@ class CryptoRoundHeroCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (desk != null) _clock(context),
             ],
           ),
           SizedBox(height: 12.h),
-          _figures(context),
-          SizedBox(height: 10.h),
+          if (desk == null) ...[
+            _figures(context),
+            SizedBox(height: 10.h),
+          ],
           // The chart of the round on show, the dashed target with its tag.
           // The chart's own bottom margin (18 px, time labels off) is
           // clipped away beneath the plot, as on the list's card.
@@ -885,45 +905,72 @@ class CryptoRoundHeroCard extends StatelessWidget {
             SizedBox(height: 8.h),
             s,
           ],
-          SizedBox(height: 8.h),
-          CryptoNextWindowLine(label: line),
-          SizedBox(height: 8.h),
-          // Up and Down, full width, "Up 50.5%" on one line, the round
-          // they bet on read out with each.
-          Row(
-            children: [
-              Expanded(
-                child: CompactSidePill(
-                  key: const ValueKey('crypto-round-up'),
-                  label: context.l10n.upLabel,
-                  odds: buttonsEnabled ? pair?.first ?? '' : '',
-                  window: roundName,
-                  up: true,
-                  enabled: buttonsEnabled,
-                  onTap: onUp,
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: CompactSidePill(
-                  key: const ValueKey('crypto-round-down'),
-                  label: context.l10n.downLabel,
-                  odds: buttonsEnabled ? pair?.second ?? '' : '',
-                  window: roundName,
-                  up: false,
-                  enabled: buttonsEnabled,
-                  onTap: onDown,
-                ),
-              ),
-            ],
-          ),
-          if (quick.isNotEmpty) ...[
+          if (desk == null) ...[
             SizedBox(height: 8.h),
-            _quickRow(context),
+            CryptoNextWindowLine(label: line),
+            SizedBox(height: 8.h),
+            // Up and Down, full width, "Up 50.5%" on one line, the round
+            // they bet on read out with each.
+            _sides(context, pair),
+            if (quick.isNotEmpty) ...[
+              SizedBox(height: 8.h),
+              _quickRow(context),
+            ],
           ],
         ],
       ),
     );
+  }
+
+  /// Up and Down side by side, at [height] (the card's 44 when null).
+  Widget _sides(BuildContext context, ({String first, String second})? pair,
+          {double? height, double? gap}) =>
+      Row(
+        children: [
+          Expanded(
+            child: CompactSidePill(
+              key: const ValueKey('crypto-round-up'),
+              label: context.l10n.upLabel,
+              odds: buttonsEnabled ? pair?.first ?? '' : '',
+              window: roundName,
+              up: true,
+              enabled: buttonsEnabled,
+              onTap: onUp,
+              height: height,
+            ),
+          ),
+          SizedBox(width: gap ?? 8.w),
+          Expanded(
+            child: CompactSidePill(
+              key: const ValueKey('crypto-round-down'),
+              label: context.l10n.downLabel,
+              odds: buttonsEnabled ? pair?.second ?? '' : '',
+              window: roundName,
+              up: false,
+              enabled: buttonsEnabled,
+              onTap: onDown,
+              height: height,
+            ),
+          ),
+        ],
+      );
+
+  /// The time left, large in the live red, as [_figures] writes it.
+  Widget _clock(BuildContext context) {
+    final style = TextStyle(
+      color: const Color(0xFFFF4444),
+      fontSize: 22.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return countdown == null
+        ? KuteSkeleton(
+            key: const ValueKey('crypto-round-countdown-skeleton'),
+            child: SkeletonBar(56.w, 20.h, radius: 6.r))
+        : Text(countdown!,
+            key: const ValueKey('crypto-round-countdown'), style: style);
   }
 
   /// Price to beat, the current price and its move, the time left: one
@@ -1106,6 +1153,100 @@ class CryptoRoundHeroCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The round page's right column on a laptop (kute_desk_market.dart): the
+/// round card under it ([CryptoRoundHeroCard]) hands it its buttons, the
+/// line naming the round they bet on, the quick amounts and its two
+/// prices ([CryptoRoundDeskColumn]), and draws the rest itself.
+class CryptoRoundDeskSlot extends InheritedWidget {
+  const CryptoRoundDeskSlot(
+      {super.key, required this.card, required super.child});
+
+  /// The card on show, as it last built.
+  final ValueNotifier<CryptoRoundHeroCard?> card;
+
+  static CryptoRoundDeskSlot? _of(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<CryptoRoundDeskSlot>();
+
+  void _report(CryptoRoundHeroCard built) {
+    // After the frame: the column listens and rebuilds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!identical(card.value, built)) card.value = built;
+    });
+  }
+
+  @override
+  bool updateShouldNotify(CryptoRoundDeskSlot old) => old.card != card;
+}
+
+/// The round card's column on a laptop ([CryptoRoundDeskSlot]): Up and
+/// Down, tall, the line naming the round they bet on, the quick amounts,
+/// then "Price to beat" and "Current price" (its move under it) as the
+/// position page's stat squares.
+class CryptoRoundDeskColumn extends StatelessWidget {
+  const CryptoRoundDeskColumn({super.key, required this.card});
+
+  final CryptoRoundHeroCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final pair =
+        card.upFrac == null ? null : formatPolyChancePair(card.upFrac!);
+    Widget figure(String text, {Color? color}) => card.loading
+        ? KuteSkeleton(child: SkeletonBar(84.w, 20.h, radius: 6.r))
+        : RollingNumberText(
+            text: text, style: positionTileValueStyle(c, color: color));
+    final moveColor = card.diffUp ? AppColors.marketUp : AppColors.marketDown;
+    final caption = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Column(
+      key: const ValueKey('crypto-round-desk-column'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        card._sides(context, pair, height: kuteDeskButtonHeight, gap: 12.w),
+        SizedBox(height: 10.h),
+        CryptoNextWindowLine(label: card.line),
+        if (card.quick.isNotEmpty) ...[
+          SizedBox(height: 10.h),
+          card._quickRow(context),
+        ],
+        SizedBox(height: 12.h),
+        PositionStatTiles(
+          left: PositionStatTile(
+            key: const ValueKey('crypto-round-target'),
+            label: context.l10n.btcPredictPriceToBeat,
+            value: figure(card.beatText, color: c.textSecondary),
+          ),
+          right: PositionStatTile(
+            key: const ValueKey('crypto-round-current'),
+            label: context.l10n.investingCurrentPrice,
+            value: figure(card.currentText),
+            caption: Text.rich(
+              TextSpan(children: [
+                if (card.diffText case final d?)
+                  TextSpan(
+                      text: d,
+                      style: caption.copyWith(
+                          color: moveColor, fontWeight: FontWeight.w700)),
+                if (card.feedName case final f?)
+                  TextSpan(text: card.diffText == null ? f : '  $f'),
+              ]),
+              key: const ValueKey('crypto-round-move'),
+              maxLines: 1,
+              style: caption,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

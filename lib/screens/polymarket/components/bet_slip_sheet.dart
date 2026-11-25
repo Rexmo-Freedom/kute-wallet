@@ -2,6 +2,7 @@ import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
 import 'package:kute/screens/shared/kute_side_panel.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteSideFlow;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/standing_order_slips.dart'
     show StandingOrderSlips;
@@ -1735,6 +1736,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     FocusManager.instance.primaryFocus?.unfocus();
     HapticFeedback.selectionClick();
     _trackStep('advanced');
+    // From the market page's side panel (EXPANDED) Advanced opens as the
+    // same side panel, over it (kute_wide_frames.dart, KuteSideFlow).
+    if (_isInPlace) KuteSideFlow.arm();
     try {
       await Navigator.of(context, rootNavigator: true).push<void>(
         // The page; the shared panel on EXPANDED (kute_form_panel_route).
@@ -7263,7 +7267,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     return PolySlipHeader(
       marketQuestion: _shownQuestion,
       marketImage: widget.marketImage,
-      closable: !_isInPlace,
+      // In the side panel the X closes the panel, the page back at rest.
+      onClose: _inPlace?.close,
       // Send mode says it at the top (send_pick_session.dart).
       chip: send == null ? null : SendPickChip(session: send),
     );

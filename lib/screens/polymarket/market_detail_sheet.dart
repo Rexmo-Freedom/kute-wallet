@@ -1,8 +1,12 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_side_panel.dart';
+import 'package:kute/screens/shared/kute_desk_market.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show PositionStatTile, PositionStatTiles, positionTileValueStyle;
+import 'package:kute/screens/home/components/kute_bar_trade_row.dart'
+    show KuteBarTradePill;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
@@ -27,7 +31,7 @@ import 'package:kute/providers/polymarket_provider.dart'
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_in_place.dart';
 import 'package:kute/screens/polymarket/components/crypto_round_card.dart'
-    show CryptoRoundHeroCard;
+    show CryptoRoundHeroCard, CryptoRoundDeskSlot, CryptoRoundDeskColumn;
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PolyPositionRow, PortfolioCardList;
@@ -413,9 +417,24 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// WIDE (EXPANDED): the chart has the left pane and about half the
   /// window's height, at least 380 (founder, 24 November 2026: "showing
   /// the graphs on the left with the interfaces on the right").
+  ///
+  /// The market desk at rest (kute_desk_market.dart): the hero, as tall as
+  /// the window allows over the fold: the window less the header, the
+  /// figure over the chart, its interval row and the bottom gutter, at
+  /// least 420.
   double get _chartHeight => KuteLayout.isExpanded(context)
-      ? kuteWideChartHeight(context)
+      ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
+          chrome: _deskHeaderHeight + (_isGameSheet ? 300 : 236))
       : polyMarketChartHeight();
+
+  /// The page header's height on EXPANDED, measured: the right column's
+  /// first button stands on the line the figure under it starts on.
+  double _deskHeaderHeight = 56;
+
+  void _onDeskHeaderHeight(double h) {
+    if (!mounted || h == _deskHeaderHeight) return;
+    setState(() => _deskHeaderHeight = h);
+  }
 
   /// The event as this sheet lists it: [MarketDetailSheet.event], with any
   /// placeholder outcome the user holds listed again
@@ -651,8 +670,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     syncStreamHandoff(context);
     final bar = _barContext();
     // WIDE LAYOUTS (platform/kute_layout.dart): a phone as it was; MEDIUM
-    // the same column centred; EXPANDED the page on the left and the bet
-    // slip open in place on the right ([kuteWidePanes]).
+    // the same column centred; EXPANDED the page on the left with its
+    // right column, the bet slip's side panel in the column's place once
+    // an outcome is clicked (kute_desk_market.dart).
     final form = KuteLayout.of(context);
     final expanded = form == KuteFormFactor.expanded;
     // EXPANDED: the chart takes the whole left side; the outcomes, the
@@ -664,7 +684,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final page = Column(
             mainAxisSize: MainAxisSize.max,
             children: [
-              _buildHeader(c, bar),
+              if (expanded)
+                KuteDeskMeasure(
+                    onHeight: _onDeskHeaderHeight,
+                    child: _buildHeader(c, bar))
+              else
+                _buildHeader(c, bar),
               // Send mode says it at the top (send_pick_session.dart).
               if (widget.sendPick case final send?)
                 Padding(
@@ -777,16 +802,19 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                     ? _buildGameMarkets(priceRef, c)
                                     : _buildMultiOutcomeList(priceRef, c),
                           )),
-                        capped(SliverToBoxAdapter(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(height: event.isBinary ? 12.h : 24.h),
-                              _buildRulesRow(),
-                              SizedBox(height: 24.h),
-                            ],
-                          ),
-                        )),
+                        // EXPANDED: Rules is a card of the right column
+                        // ([_buildDeskColumn]).
+                        if (!expanded)
+                          capped(SliverToBoxAdapter(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(height: event.isBinary ? 12.h : 24.h),
+                                _buildRulesRow(),
+                                SizedBox(height: 24.h),
+                              ],
+                            ),
+                          )),
                       ]),
                     ),
                     // The last rows (the outcomes, Rules) scroll clear of
@@ -824,9 +852,21 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               child: switch (form) {
                 KuteFormFactor.compact => page,
                 KuteFormFactor.medium => kuteWideColumn(page),
-                KuteFormFactor.expanded => kuteWidePanes(
-                    left: page,
-                    right: KuteWideSlipPane(holds: _holdsHere),
+                // The market desk (kute_desk_market.dart): the page and its
+                // right column at rest, the slip's side panel in the
+                // column's place once an outcome is clicked.
+                KuteFormFactor.expanded => Builder(
+                    builder: (hostContext) => KuteDeskMarket(
+                      open: BetSlipInPlaceHost.isOpenOf(hostContext),
+                      gap: kuteDeskGutter - 20,
+                      left: Padding(
+                        padding:
+                            const EdgeInsets.only(left: kuteDeskGutter - 20),
+                        child: page,
+                      ),
+                      column: _buildDeskColumn(c),
+                      panel: KuteWideSlipPane(holds: _holdsHere),
+                    ),
                   ),
               },
             ),
@@ -2564,7 +2604,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// rather than sitting on this screen (owner decision); when the market
   /// closes is already one of the sheet's own rows, so the end date is not
   /// among them.
-  Widget _buildRulesRow() => Consumer(
+  /// [desk]: the right column's card (EXPANDED), whose sheet leaves out
+  /// the figures the column already shows as squares.
+  Widget _buildRulesRow({bool desk = false}) => Consumer(
         builder: (context, statsRef, _) {
           final over = _isOverFor(statsRef);
           return KuteActionCardGrid(
@@ -2581,7 +2623,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                 onTap: () => showPolyRulesSheet(
                   context,
                   event,
-                  stats: polyMarketStats(
+                  stats: desk
+                      ? const []
+                      : polyMarketStats(
                     context.l10n,
                     volume24hr: event.volume24hr,
                     volume: event.volume,
@@ -2596,6 +2640,215 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           );
         },
       );
+
+  // ── The market desk's right column (EXPANDED; kute_desk_market.dart) ──
+
+  /// The right column at rest: the page's outcome buttons (the trade
+  /// row's pills, taller), what the person holds here (the Portfolio's
+  /// row, opening the position), the market's figures as the position
+  /// page's stat squares two across (the Rules sheet's figures, moved
+  /// here) and the Rules card. Its top on the line the figure under the
+  /// header starts on. An event of many outcomes has no pair of buttons:
+  /// the column starts with its figures, each outcome row on the left
+  /// keeping its own Yes / No.
+  Widget _buildDeskColumn(AppColorsExtension c) => Consumer(
+        builder: (context, ref, _) {
+          final trades = _deskTrades(ref);
+          final sides = trades.isEmpty ? _deskGameSides(ref) : const [];
+          final held = [
+            for (final p in ref.watch(polymarketActivePositionsProvider))
+              if (_holdsHere(p)) p,
+          ];
+          final over = _isOverFor(ref);
+          final stats = polyMarketStats(
+            context.l10n,
+            volume24hr: event.volume24hr,
+            volume: event.volume,
+            liquidity: event.liquidity,
+            endDate: event.endDate,
+            ended: over,
+            money: (v) => _formatVolume(ref, v),
+            locale: Localizations.localeOf(context).toString(),
+          );
+          Widget tile(PolyStat s) => PositionStatTile(
+                label: s.label,
+                value: Text(s.value,
+                    maxLines: 1, style: positionTileValueStyle(c)),
+              );
+          final gap = SizedBox(height: kKuteActionCardGap.h);
+          return SingleChildScrollView(
+            key: const ValueKey('poly-desk-column'),
+            primary: false,
+            padding: EdgeInsets.only(
+                top: _deskHeaderHeight + 14.h, bottom: kuteDeskGutter),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (trades.isNotEmpty) ...[
+                  Row(
+                    key: const ValueKey('poly-desk-buttons'),
+                    children: [
+                      for (var i = 0; i < trades.length; i++) ...[
+                        if (i > 0) SizedBox(width: kKuteActionCardGap.w),
+                        Expanded(
+                          flex: trades[i].flex,
+                          child: KuteBarTradePill(
+                              trade: trades[i], height: kuteDeskButtonHeight),
+                        ),
+                      ],
+                    ],
+                  ),
+                  gap,
+                ],
+                if (sides.isNotEmpty) ...[
+                  Row(
+                    key: const ValueKey('poly-desk-buttons'),
+                    children: [
+                      for (var i = 0; i < sides.length; i++) ...[
+                        if (i > 0) SizedBox(width: kKuteActionCardGap.w),
+                        Expanded(child: sides[i]),
+                      ],
+                    ],
+                  ),
+                  gap,
+                ],
+                if (held.isNotEmpty) ...[
+                  PortfolioCardList(rows: [
+                    for (final p in held)
+                      PolyPositionRow(
+                          key: ValueKey('desk-position-${p.tokenId}'),
+                          position: p),
+                  ]),
+                  gap,
+                ],
+                for (var i = 0; i < stats.length; i += 2) ...[
+                  if (i + 1 < stats.length)
+                    PositionStatTiles(
+                        left: tile(stats[i]), right: tile(stats[i + 1]))
+                  else
+                    tile(stats[i]),
+                  gap,
+                ],
+                _buildRulesRow(desk: true),
+              ],
+            ),
+          );
+        },
+      );
+
+  /// The right column's pills: a round past its cutoff its one pill to
+  /// the next round; a Yes / No market its pair; anything else none (a
+  /// game's sides are [_deskGameSides]).
+  List<KuteBarTrade> _deskTrades(WidgetRef ref) {
+    if (_nextRoundTrade() case final next?) return [next];
+    if (event.isBinary) return _binaryTrades(ref);
+    return const [];
+  }
+
+  /// A game's winner sides for the right column (two teams, three with a
+  /// draw), as the board's Winner row draws them: the side's name and
+  /// crest over its chance, a slab of its chart line's colour, the same
+  /// slip and the same tap signal. Empty for anything else.
+  List<Widget> _deskGameSides(WidgetRef ref) {
+    if (event.isBinary || !_showsGameLines) return const [];
+    final l10n = context.l10n;
+    final teams = event.teams.isNotEmpty ? event.teams : _fetchedTeams;
+    final lineColors = {
+      for (final line in _gameWinnerLines(ref)) line.tokenId: line.color,
+    };
+    void tapped() => TrackingService.track('live_game_line_tapped', params: {
+          'line_kind': 'moneyline',
+          if (event.category.isNotEmpty)
+            'category': event.category.toLowerCase(),
+        });
+    double live(String? token, double fallback) =>
+        _livePriceFor(ref, token, fallback);
+    Widget button(String id, String label, double price, Color? line,
+            String? crest, VoidCallback onTap) =>
+        PolyGameSideButton(
+          key: ValueKey('poly-desk-side-$id'),
+          label: label,
+          crestUrl: crest,
+          pctText: _formatPctShort(price),
+          lineColor: line,
+          height: kuteDeskButtonHeight,
+          onTap: () {
+            tapped();
+            onTap();
+          },
+        );
+    final wdl = _detectWDLOutcomes();
+    if (wdl != null) {
+      final names =
+          gameShortSideNames(wdl.teamAName, wdl.teamBName, teams: teams);
+      final colors = gameSideColors(event.title, wdl.teamAName, wdl.teamBName);
+      return [
+        button(
+            'a',
+            names.$1,
+            live(wdl.teamA.tokenId, wdl.teamA.price),
+            lineColors[wdl.teamA.tokenId] ?? colors.$1,
+            PolymarketEvent.logoFromTeams(teams, wdl.teamAName),
+            () => _openThreeWaySlip(wdl, 0, lineColors: lineColors)),
+        button(
+            'draw',
+            l10n.betDraw,
+            live(wdl.draw.tokenId, wdl.draw.price),
+            lineColors[wdl.draw.tokenId],
+            null,
+            () => _openThreeWaySlip(wdl, 1, lineColors: lineColors)),
+        button(
+            'b',
+            names.$2,
+            live(wdl.teamB.tokenId, wdl.teamB.price),
+            lineColors[wdl.teamB.tokenId] ?? colors.$2,
+            PolymarketEvent.logoFromTeams(teams, wdl.teamBName),
+            () => _openThreeWaySlip(wdl, 2, lineColors: lineColors)),
+      ];
+    }
+    bool yesNo(String a, String b) =>
+        a.toLowerCase() == 'yes' && b.toLowerCase() == 'no';
+    final ml = polyGameLinesFor(ref, event).moneyline;
+    if (ml != null && !yesNo(ml.sideA, ml.sideB)) {
+      final colors = gameSideColors(event.title, ml.sideA, ml.sideB);
+      final lineA = lineColors[ml.tokenA] ?? colors.$1;
+      final lineB = lineColors[ml.tokenB] ?? colors.$2;
+      final priceA = live(ml.tokenA, ml.priceA);
+      final priceB = live(ml.tokenB, (1 - priceA).clamp(0.0, 1.0).toDouble());
+      void open(bool a) => _openLineBetSlip(ml.toOutcome(),
+          second: !a, pos: ml.sideA, neg: ml.sideB, colors: [lineA, lineB]);
+      return [
+        button('a', ml.sideA, priceA, lineA,
+            PolymarketEvent.logoFromTeams(teams, ml.sideA), () => open(true)),
+        button('b', ml.sideB, priceB, lineB,
+            PolymarketEvent.logoFromTeams(teams, ml.sideB), () => open(false)),
+      ];
+    }
+    final own = event.outcomes;
+    if (own.length == 2 &&
+        !yesNo(own[0].name, own[1].name) &&
+        !own.any((o) => o.hasYesNo)) {
+      final colors = gameSideColors(event.title, own[0].name, own[1].name);
+      final fills = [
+        lineColors[own[0].tokenId] ?? colors.$1,
+        lineColors[own[1].tokenId] ?? colors.$2,
+      ];
+      return [
+        for (final (i, o) in own.indexed)
+          button(
+              i == 0 ? 'a' : 'b',
+              o.name,
+              live(o.tokenId, o.price),
+              fills[i],
+              PolymarketEvent.logoFromTeams(teams, o.name) ?? o.imageUrl,
+              () => _openBetSlip(o.name.toLowerCase(), lineColors: {
+                    for (final (j, side) in own.indexed)
+                      if (side.tokenId != null) side.tokenId!: fills[j],
+                  })),
+      ];
+    }
+    return const [];
+  }
 
   /// The outcome list of an event with many outcomes, as slivers (its
   /// rows are built as they scroll into view).
@@ -3093,21 +3346,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         });
       }
     }
-    if (round != null &&
-        widget.sendPick == null &&
-        polyRoundBuyClosed(event.slug,
-            endDate: event.endDate, now: roundNow)) {
-      final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
+    // EXPANDED: the pill is the right column's ([_deskTrades]).
+    if (_nextRoundTrade() case final next? when !inPlace) {
       return KuteBarContextScope(
         barContext: KuteBarContext.trade(
-          trades: [
-            KuteBarTrade(
-              id: 'next-round',
-              label: context.l10n.predictNextWindow(polyRoundClock(round.end,
-                  locale: context.l10n.localeName, use24h: use24h)),
-              onTap: () => _openNextRound(round),
-            ),
-          ],
+          trades: [next],
           share: KuteBarShare(barContext: bar),
           category: SearchCategory.predictions,
           searchHint: context.l10n.searchPredictionsHint,
@@ -3128,6 +3371,44 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       return const SizedBox.shrink();
     }
     return Consumer(builder: (context, priceRef, _) {
+      final sending = widget.sendPick != null;
+      return KuteBarContextScope(
+        barContext: KuteBarContext.trade(
+          trades: _binaryTrades(priceRef),
+          share: sending ? null : KuteBarShare(barContext: bar),
+          category: SearchCategory.predictions,
+          searchHint: context.l10n.searchPredictionsHint,
+          source: 'predictions',
+        ),
+        child: const SizedBox.shrink(),
+      );
+    });
+  }
+
+  /// A round in play past its cutoff, read-only here: the one pill that
+  /// opens the next round ([_buildTradeBar]); null for any other market,
+  /// and in send mode.
+  KuteBarTrade? _nextRoundTrade() {
+    final round = polyCryptoRoundOf(event.slug, endDate: event.endDate);
+    if (round == null ||
+        widget.sendPick != null ||
+        !polyRoundBuyClosed(event.slug,
+            endDate: event.endDate, now: DateTime.now())) {
+      return null;
+    }
+    final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
+    return KuteBarTrade(
+      id: 'next-round',
+      label: context.l10n.predictNextWindow(polyRoundClock(round.end,
+          locale: context.l10n.localeName, use24h: use24h)),
+      onTap: () => _openNextRound(round),
+    );
+  }
+
+  /// A Yes / No market's two trade pills, as the trade row shows them
+  /// ([_buildTradeBar]; on EXPANDED the right column's buttons).
+  List<KuteBarTrade> _binaryTrades(WidgetRef priceRef) {
+    {
       // The two written off the one price, so they add up to 100.
       final sides = formatPolyChancePair(_liveYesPrice(priceRef));
       // Semantic side labels: Over/Under → OVER/UNDER, moneyline → the two
@@ -3163,32 +3444,23 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       String displayFor(String l) => sending
           ? sendPickTradeLabel(context.l10n, side(l))
           : side(l);
-      return KuteBarContextScope(
-        barContext: KuteBarContext.trade(
-          trades: [
-            KuteBarTrade(
-              id: 'yes',
-              label: displayFor(labels.pos),
-              value: sides.first,
-              fill: _kPolyGreen,
-              onTap: () => _openBetSlip('yes'),
-            ),
-            KuteBarTrade(
-              id: 'no',
-              label: displayFor(labels.neg),
-              value: sides.second,
-              fill: _kPolyRed,
-              onTap: () => _openBetSlip('no'),
-            ),
-          ],
-          share: sending ? null : KuteBarShare(barContext: bar),
-          category: SearchCategory.predictions,
-          searchHint: context.l10n.searchPredictionsHint,
-          source: 'predictions',
+      return [
+        KuteBarTrade(
+          id: 'yes',
+          label: displayFor(labels.pos),
+          value: sides.first,
+          fill: _kPolyGreen,
+          onTap: () => _openBetSlip('yes'),
         ),
-        child: const SizedBox.shrink(),
-      );
-    });
+        KuteBarTrade(
+          id: 'no',
+          label: displayFor(labels.neg),
+          value: sides.second,
+          fill: _kPolyRed,
+          onTap: () => _openBetSlip('no'),
+        ),
+      ];
+    }
   }
 
   /// The round after [round] (the one in play this sheet shows read-only):
@@ -3849,6 +4121,20 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
 
   final GlobalKey _cardArea = GlobalKey();
 
+  /// EXPANDED: the round card as it last built, for the right column
+  /// (crypto_round_card.dart, CryptoRoundDeskSlot).
+  final ValueNotifier<CryptoRoundHeroCard?> _deskCard =
+      ValueNotifier<CryptoRoundHeroCard?>(null);
+
+  /// The page header's height on EXPANDED, measured: the column's top.
+  double _deskHeaderHeight = 52;
+
+  @override
+  void dispose() {
+    _deskCard.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3897,11 +4183,22 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
     final config = _resolveCryptoConfig(event);
     final form = KuteLayout.of(context);
     final expanded = form == KuteFormFactor.expanded;
+    // The rounds of this coin the person holds.
+    bool holds(PolymarketPosition p) {
+      final slug = p.eventSlug;
+      final round = slug == null ? null : polyCryptoRoundOf(slug);
+      return ledgerWalletId == null &&
+          round != null &&
+          polyRoundTicker(round.asset) == config.asset;
+    }
 
-    final page = Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Padding(
+    // EXPANDED: the chart as tall as the window allows over the fold
+    // (the buttons and the prices are the right column's).
+    final chartHeight = expanded
+        ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
+            chrome: _deskHeaderHeight + 196)
+        : 200.0;
+    final header = Padding(
                 padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
                 child: Row(
                   children: [
@@ -3927,7 +4224,21 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
                     ),
                   ],
                 ),
-              ),
+              );
+    final page = Column(
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              if (expanded)
+                KuteDeskMeasure(
+                  onHeight: (h) {
+                    if (mounted && h != _deskHeaderHeight) {
+                      setState(() => _deskHeaderHeight = h);
+                    }
+                  },
+                  child: header,
+                )
+              else
+                header,
               Expanded(
                 child: SingleChildScrollView(
                   key: _cardArea,
@@ -3946,9 +4257,7 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
                             onDeposit: onDeposit,
                             roundMinutes: minutes,
                             // EXPANDED: the live chart has the left pane.
-                            chartHeight: expanded
-                                ? kuteWideChartHeight(context, chrome: 360)
-                                : 200,
+                            chartHeight: chartHeight,
                           ),
                         )
                       else
@@ -3957,8 +4266,7 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
                           onDeposit: onDeposit,
                           ledgerWalletId: ledgerWalletId,
                           roundMinutes: minutes,
-                          chartHeight:
-                              expanded ? kuteWideChartHeight(context, chrome: 360) : 200,
+                          chartHeight: chartHeight,
                         ),
                     ],
                   ),
@@ -3985,22 +4293,29 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
               // button, and the round's own Up / Down sit at the left
               // pane's foot: the floating bar stays away, as on the
               // other market pages (_buildTradeBar, inPlace).
+              // The market desk at rest (kute_desk_market.dart): the
+              // round card's chart on the left, its Up / Down, the round
+              // they bet on and its two prices in the right column; the
+              // slip's side panel in the column's place once a side is
+              // clicked.
               KuteFormFactor.expanded => KuteBarContextScope(
                   barContext: const KuteBarContext.hidden(),
-                  child: kuteWidePanes(
-                  left: page,
-                  right: KuteWideSlipPane(
-                    // The rounds of this coin the person holds.
-                    holds: (p) {
-                      final slug = p.eventSlug;
-                      final round =
-                          slug == null ? null : polyCryptoRoundOf(slug);
-                      return ledgerWalletId == null &&
-                          round != null &&
-                          polyRoundTicker(round.asset) == config.asset;
-                    },
+                  child: CryptoRoundDeskSlot(
+                    card: _deskCard,
+                    child: Builder(
+                      builder: (hostContext) => KuteDeskMarket(
+                        open: BetSlipInPlaceHost.isOpenOf(hostContext),
+                        gap: kuteDeskGutter - 16,
+                        left: Padding(
+                          padding:
+                              const EdgeInsets.only(left: kuteDeskGutter - 16),
+                          child: page,
+                        ),
+                        column: _deskColumn(holds),
+                        panel: KuteWideSlipPane(holds: holds),
+                      ),
+                    ),
                   ),
-                ),
                 ),
             },
           ),
@@ -4008,18 +4323,45 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
       ),
     );
   }
+
+  /// The right column at rest (EXPANDED): the round card's own buttons,
+  /// round line, quick amounts and prices (CryptoRoundDeskColumn), then
+  /// the rounds of this coin the person holds, as the Portfolio lists them.
+  Widget _deskColumn(bool Function(PolymarketPosition p) holds) =>
+      ValueListenableBuilder<CryptoRoundHeroCard?>(
+        valueListenable: _deskCard,
+        builder: (context, card, _) => SingleChildScrollView(
+          key: const ValueKey('poly-desk-column'),
+          primary: false,
+          padding: EdgeInsets.only(
+              top: _deskHeaderHeight + 8.h, bottom: kuteDeskGutter),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (card != null) CryptoRoundDeskColumn(card: card),
+              Consumer(builder: (context, ref, _) {
+                final held = [
+                  for (final p in ref.watch(polymarketActivePositionsProvider))
+                    if (holds(p)) p,
+                ];
+                if (held.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: EdgeInsets.only(top: kKuteActionCardGap.h),
+                  child: PortfolioCardList(rows: [
+                    for (final p in held)
+                      PolyPositionRow(
+                          key: ValueKey('desk-position-${p.tokenId}'),
+                          position: p),
+                  ]),
+                );
+              }),
+            ],
+          ),
+        ),
+      );
 }
 
 // ── Wide layouts (platform/kute_layout.dart) ─────────────────────────────
-
-/// The chart's height on EXPANDED: the window's height less the room
-/// the page's header and the card over the chart take, so the chart is
-/// the hero and grows with a tall window (founder, 25 November 2026:
-/// "this page make it use the full screen"); at least 380.
-/// [chrome] is the height the page keeps for what is above and under the
-/// chart (a timed round's card keeps less).
-double kuteWideChartHeight(BuildContext context, {double chrome = 440}) =>
-    math.max(380.0, MediaQuery.sizeOf(context).height - chrome);
 
 /// MEDIUM: the phone's column, centred at [KuteLayout.columnMaxWidth].
 Widget kuteWideColumn(Widget page) => Center(
@@ -4027,20 +4369,6 @@ Widget kuteWideColumn(Widget page) => Center(
         constraints: const BoxConstraints(maxWidth: KuteLayout.columnMaxWidth),
         child: page,
       ),
-    );
-
-/// EXPANDED: the market desk (kute_side_panel.dart). [left] (the page:
-/// its title, chart, outcomes and rules, scrolling) from the window's
-/// left edge, at the page's gutter ([kuteDeskGutter], the page's own 20
-/// included), and [right] (the slip in place), the side panel at the
-/// window's right edge, full height.
-Widget kuteWidePanes({required Widget left, required Widget right}) =>
-    kuteDeskPanes(
-      left: Padding(
-        padding: const EdgeInsets.only(left: kuteDeskGutter - 20, right: 4),
-        child: left,
-      ),
-      panel: right,
     );
 
 /// The side panel on EXPANDED: the bet slip open in place

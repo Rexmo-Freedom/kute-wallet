@@ -115,9 +115,13 @@ class KuteBarTradeRow extends StatelessWidget {
 /// One trade pill of the row (see the file header), keyed
 /// `kute-bar-trade-{id}`.
 class KuteBarTradePill extends StatelessWidget {
-  const KuteBarTradePill({super.key, required this.trade});
+  const KuteBarTradePill({super.key, required this.trade, this.height});
 
   final KuteBarTrade trade;
+
+  /// The pill's height; the bar's primary's when null (a market page's
+  /// right column on a laptop draws them taller, kute_desk_market.dart).
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
@@ -159,9 +163,12 @@ class KuteBarTradePill extends StatelessWidget {
             HapticFeedback.lightImpact();
             trade.onTap();
           },
+          // A mouse's pointer on a laptop.
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
           child: Container(
             key: ValueKey('kute-bar-trade-${trade.id}'),
-            height: KuteBarPrimaryButton.height,
+            height: height ?? KuteBarPrimaryButton.height,
             padding: EdgeInsets.symmetric(horizontal: 14.w),
             alignment: Alignment.center,
             decoration: decoration,
@@ -194,6 +201,7 @@ class KuteBarTradePill extends StatelessWidget {
                 ],
               ],
             ),
+          ),
           ),
         ),
       ),

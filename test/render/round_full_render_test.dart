@@ -270,14 +270,22 @@ void main() {
   // ── Behaviour (always run) ──────────────────────────────────────────
 
   testWidgets(
-      'EXPANDED: a click on the card opens the round\'s page, the slip as '
-      'the side panel on Up', (tester) async {
+      'EXPANDED: a click on the card opens the round\'s page at rest (no '
+      'slip, Up and Down in its right column); Up opens the slip as the '
+      'side panel', (tester) async {
     final world = await allow(tester);
     await _pump(tester, world, size: const Size(1440, 900), dark: false);
     expect(find.byType(FiveMinMarketDetailSheet), findsNothing);
     await tester.tap(title);
     await _settle(tester);
     expect(find.byType(FiveMinMarketDetailSheet), findsOneWidget);
+    expect(find.byType(BetSlipSheet), findsNothing);
+    final up = find.descendant(
+        of: find.byKey(const ValueKey('crypto-round-desk-column')),
+        matching: find.byKey(const ValueKey('crypto-round-up')));
+    expect(up, findsOneWidget);
+    await tester.tap(up);
+    await _settle(tester);
     final panel =
         tester.getRect(find.byKey(const ValueKey('bet-slip-in-place')));
     expect(panel.right, 1440);

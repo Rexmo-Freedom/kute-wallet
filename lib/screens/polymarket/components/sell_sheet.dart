@@ -1,5 +1,7 @@
 import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show KuteDialogScope, KuteDialogSurfaceMark;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
@@ -1898,15 +1900,23 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       ),
     );
 
+    // On a laptop the ticket is the side panel at the window's right edge
+    // (kute_dialog.dart, KuteSideFlow): the red from the panel's top to
+    // its foot, the button pinned at the foot, the keypad taking the
+    // height between (the market slip's side panel's own rule).
+    final sidePanel = KuteDialogScope.peek(context)?.surface != null;
     return PopScope(
       // An in-flight spot sell cannot be dismissed out from under itself.
       // A limit order pops its own sheet, and a failed sale is terminal,
       // so neither traps anything.
       canPop: !activelySelling,
       child: KeyboardDismissOnTap(
-        child: SideTintedSubtree(
+        child: KuteDialogSurfaceMark(
+          color: sidePanel ? sideColor : null,
+          child: SideTintedSubtree(
           side: sideColor,
           child: Container(
+          height: sidePanel ? double.infinity : null,
           // Bottom-modal chrome — the buy slip's, to the pixel: the side
           // colour as the fill, rounded-top corners, keyboard inset, max
           // 92% screen height. Sized to content (mainAxisSize.min on the
@@ -1914,18 +1924,25 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           padding: EdgeInsets.only(bottom: viewInsetBottom),
           decoration: BoxDecoration(
             color: sideColor,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-            border: Border(top: BorderSide(color: tc.border)),
+            // The side panel rounds its own corners.
+            borderRadius: sidePanel
+                ? null
+                : BorderRadius.vertical(top: Radius.circular(24.r)),
+            border: sidePanel
+                ? null
+                : Border(top: BorderSide(color: tc.border)),
           ),
           child: SafeArea(
             bottom: false,
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: (MediaQuery.of(context).size.height * 0.92 -
+                maxHeight: (MediaQuery.of(context).size.height *
+                            (sidePanel ? 1 : 0.92) -
                         viewInsetBottom)
                     .clamp(0.0, double.infinity),
               ),
               child: SlipFit(
+              fill: sidePanel,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -2023,6 +2040,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               ),
             ),
           ),
+        ),
         ),
         ),
       ),
