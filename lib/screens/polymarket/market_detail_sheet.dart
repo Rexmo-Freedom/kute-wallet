@@ -424,7 +424,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// least 420.
   double get _chartHeight => KuteLayout.isExpanded(context)
       ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
-          chrome: _deskHeaderHeight + (_isGameSheet ? 300 : 236))
+          around: _deskHeaderHeight + (_isGameSheet ? 300 : 236))
       : polyMarketChartHeight();
 
   /// The page header's height on EXPANDED, measured: the right column's
@@ -4196,7 +4196,7 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
     // (the buttons and the prices are the right column's).
     final chartHeight = expanded
         ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
-            chrome: _deskHeaderHeight + 196)
+            around: _deskHeaderHeight + 196)
         : 200.0;
     final header = Padding(
                 padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),

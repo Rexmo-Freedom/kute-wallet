@@ -21,7 +21,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_detail_panes.dart';
 import 'package:kute/screens/shared/kute_desk_market.dart'
-    show KuteDeskUnderPanel, kuteDeskChartHeight;
+    show KuteDeskUnderPanel;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
@@ -367,7 +367,7 @@ class _EstimateChart extends ConsumerWidget {
           // as tall as the window allows over the fold, at least 420.
           height: tall
               ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
-                  chrome: 200)
+                  around: 200)
               : 170.h,
           child: series.when(
             data: (points) => points.length < 2

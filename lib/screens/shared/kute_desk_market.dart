@@ -46,11 +46,8 @@ double kuteDeskColumnWidth(double width) =>
 /// taller: the page's primary actions).
 const double kuteDeskButtonHeight = 68;
 
-/// The hero chart's height on a market page at rest: the window's height
-/// less [chrome] (the header, the figure over the chart, its interval row
-/// and the bottom gutter), never under 420.
-double kuteDeskChartHeight(double windowHeight, {required double chrome}) =>
-    (windowHeight - chrome).clamp(420.0, double.infinity).toDouble();
+// The hero chart's height is [kuteDeskChartHeight]
+// (platform/kute_wide_frames.dart), shared with the Investing pages.
 
 /// The market page's two sides on EXPANDED (see the file header): [left]
 /// across the rest of the window, and at the right either [column] (at

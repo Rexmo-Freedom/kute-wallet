@@ -578,6 +578,13 @@ abstract final class KuteSideFlow {
   /// Tokens that opened a side panel, spent when the last one closes.
   static final List<_KuteSideToken> _used = [];
 
+  /// The next panel opened in this turn, or built by the frame after it,
+  /// opens at the side: for a caller that opens its panel right after,
+  /// outside a closure it could hand to [run] (a page's Close or Sell, a
+  /// slip's Advanced). The same one-frame link as an action that awaits
+  /// nothing; no timer.
+  static void arm() => run<void>(() {});
+
   /// Runs a top bar money action: what it opens, now or after its awaits,
   /// opens at the side (see the header above).
   static T run<T>(T Function() action) {
