@@ -55,16 +55,21 @@
 // right"). Compact is the page above, untouched.
 //
 //   * MEDIUM: the same one scroll, centred at KuteLayout.columnMaxWidth.
-//   * EXPANDED ([_WidePortfolioPage]): two panes centred at
-//     KuteLayout.pageMaxWidth. LEFT, its own scroll: the hero with the
-//     chart given the room (about 45% of the window's height), then the
-//     P&L section's breakdown under it ("You're up", By product, closed
-//     positions, resting orders; a By product row still draws its venue in
-//     the hero). RIGHT, a KuteLayout.paneWidth column: the pills,
+//   * EXPANDED ([_WidePortfolioPage]): two panes across the whole window
+//     on the top bar's gutters (founder, 25 November 2026: "this make it
+//     full screen also"). LEFT, its own scroll: the hero with the chart
+//     given the room (as tall as the window allows, never under 420),
+//     then the P&L section's breakdown under it, its blocks side by side
+//     ("You're up" and its split, By product, closed positions;
+//     PortfolioPnlColumns; a By product row still draws its venue in the
+//     hero). RIGHT, a 440-520 column on the right gutter
+//     (kuteSideColumnWidthFor): the pills,
 //     Positions | Activity (P&L lives on the left), pinned at its top, and
 //     the section under them, scrolling on its own. So the chart stays in
 //     view while the positions go by. A link that names P&L lands on
 //     Positions on the right, the P&L in view on the left.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show precisionErrorTolerance;
@@ -74,7 +79,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
-import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show KuteBarPane, kuteBrowsePagePadding, kuteSideColumnWidthFor;
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidUserFillsProvider;
 import 'package:kute/screens/home/components/kute_dock_host.dart'
@@ -93,6 +99,8 @@ import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
+import 'package:kute/screens/portfolio/portfolio_pnl_section.dart'
+    show PortfolioPnlColumns;
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
@@ -187,9 +195,10 @@ class InvestmentsPortfolio extends ConsumerWidget {
   }
 }
 
-/// The plot's share of the window's height on EXPANDED (see WIDE in the
-/// file header).
-const double _kWidePlotShare = 0.45;
+/// The plot's height on EXPANDED in a window [height] tall (see WIDE in
+/// the file header): the hero as tall as the window allows with the top
+/// of the P&L still above the fold, never under 420.
+double _widePlotHeight(double height) => math.max(420.0, height - 476);
 
 /// EXPANDED: the hero and the P&L on the left, the pills and the section
 /// on the right, each pane its own scroll (see WIDE in the file header).
@@ -208,14 +217,12 @@ class _WidePortfolioPage extends ConsumerWidget {
     // The By product row picked draws its venue in the hero: P&L is always
     // in view here, so the pick stands whatever the right pane shows.
     final picked = ref.watch(portfolioPnlVenueProvider);
-    final plot = MediaQuery.sizeOf(context).height * _kWidePlotShare;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
-        child: Padding(
-          // The panes' own 16 gutters plus this make the page's paneGap.
-          padding: const EdgeInsets.symmetric(
-              horizontal: KuteLayout.paneGap - 16),
+    final window = MediaQuery.sizeOf(context);
+    final plot = _widePlotHeight(window.height);
+    return Padding(
+          // The whole window: the panes' own 16 gutters plus this make the
+          // top bar's gutters (kuteBrowsePagePadding).
+          padding: const EdgeInsets.symmetric(horizontal: kuteBrowsePagePadding),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -238,17 +245,13 @@ class _WidePortfolioPage extends ConsumerWidget {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.only(top: _kStripTop.h),
-                        // Its rows at a readable width, never across the
-                        // pane (the chart above takes the room).
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                                maxWidth: KuteLayout.columnMaxWidth + 32),
-                            child: const KeyedSubtree(
-                              key: ValueKey('portfolio-section-charts'),
-                              child: _ChartsBox(),
-                            ),
+                        // Its blocks side by side in readable columns
+                        // ([PortfolioPnlColumns]), never one row across
+                        // the pane (the chart above takes the room).
+                        child: const PortfolioPnlColumns(
+                          child: KeyedSubtree(
+                            key: ValueKey('portfolio-section-charts'),
+                            child: _ChartsBox(),
                           ),
                         ),
                       ),
@@ -264,9 +267,8 @@ class _WidePortfolioPage extends ConsumerWidget {
                 ),
                 ),
               ),
-              const SizedBox(width: KuteLayout.paneGap - 16),
               SizedBox(
-                width: KuteLayout.paneWidth,
+                width: kuteSideColumnWidthFor(window.width),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -293,8 +295,6 @@ class _WidePortfolioPage extends ConsumerWidget {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }

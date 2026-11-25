@@ -29,7 +29,8 @@ import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_pnl_section.dart'
-    show PortfolioPnlBreakdown;
+    show PortfolioPnlBreakdown, PortfolioPnlColumns;
+import 'package:kute/platform/kute_layout.dart' show KuteLayout;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/shared/venue_deposit_button.dart'
@@ -305,12 +306,27 @@ class _PortfolioStatisticsOverviewState
     final all = [if (header != null) header, ...top];
     if (widget.boxed) {
       assert(widget.footer.isEmpty, 'a boxed section takes no footer');
+      // A laptop's Portfolio: the breakdown lays out its own columns; the
+      // rest (the resting orders, an empty state) keeps a readable column
+      // at the left, never a row across the pane.
+      final columns = PortfolioPnlColumns.inColumns(context);
       return Padding(
         padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ...all,
+            for (final w in all)
+              if (!columns || w is PortfolioPnlBreakdown)
+                w
+              else
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                        maxWidth: KuteLayout.columnMaxWidth),
+                    child: w,
+                  ),
+                ),
             SizedBox(
                 height: widget.endClearance ??
                     32.h + kuteDockScrollClearance(context)),

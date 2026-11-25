@@ -95,8 +95,7 @@ int bitcoinActivityColumns(double width) {
 
 /// The right column's width on EXPANDED in a window [window] wide, the
 /// cards' 16 insets in: cards a quarter of the window, 440 to 520.
-double bitcoinSideColumnWidth(double window) =>
-    (window * 0.25).clamp(440.0, 520.0) + 2 * kDeskListInset;
+double bitcoinSideColumnWidth(double window) => kuteSideColumnWidthFor(window);
 
 /// The balance chart's plot in the right column of a window [height]
 /// tall: taller on a tall window, the goals still under it above the

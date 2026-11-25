@@ -730,6 +730,13 @@ class KuteWidePage extends StatelessWidget {
   }
 }
 
+/// A side column's width on an EXPANDED page in a window [window] wide
+/// (the Bitcoin home's goals, the Portfolio's positions and activity), its
+/// cards' own 16 insets in: cards a quarter of the window, 440 to 520, on
+/// the window's right gutter.
+double kuteSideColumnWidthFor(double window) =>
+    (window * 0.25).clamp(440.0, 520.0) + 32;
+
 /// How many columns of at least [min] wide (with [gap] between) fit in
 /// [width], from 1 to [max].
 int kuteColumnsFor(double width,
