@@ -147,7 +147,7 @@ void main() {
       }
     }
 
-    expect(attempt({..._circleForm, 'destinationChainId': 1 << 32}),
+    expect(attempt({..._circleForm, 'destinationChainId': 4294967296}),
         isA<ArgumentError>());
     expect(attempt({..._circleForm, 'destinationChainId': -1}),
         isA<ArgumentError>());

@@ -19,6 +19,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/models/evm_derivation_version.dart';
+import 'package:kute/services/evm_wallet_derivation.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_msgpack.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_signing.dart';
@@ -123,6 +125,52 @@ void main() {
   final sdkSigner = (vectors['signer'] as String).toLowerCase();
   final sdkCredentials = EthPrivateKey.fromHex(_sdkKey);
   final testCredentials = EthPrivateKey.fromHex(_testKey);
+
+  // The Investing key: the web derives it on the page's thread instead of
+  // an isolate. Public BIP39 vectors (never fund them), same as
+  // evm_wallet_derivation_test.dart, which needs dart:io.
+  group('EVM key derivation', () {
+    const phrase = 'abandon abandon abandon abandon abandon abandon '
+        'abandon abandon abandon abandon abandon about';
+    const hardhat = 'test test test test test test test test test test '
+        'test junk';
+    setUp(EvmWalletDerivation.clearMemoForTest);
+
+    test('legacy format', () async {
+      final w = await EvmWalletDerivation.deriveWalletAsync(
+          mnemonic: phrase, version: EvmDerivationVersion.legacySha256);
+      expect(w.privateKey,
+          '0x501291248b5a9ab2c9fba2b1c8f6dfef52cbf8b9bb5b7635a2cd02ddd35fa939');
+      expect(w.address, '0xAac5482758cD28C38090Dcc2f0A08f09C0F814B2');
+    });
+
+    test('standard BIP39 format, account zero and one', () async {
+      final w = await EvmWalletDerivation.deriveWalletAsync(
+          mnemonic: phrase, version: EvmDerivationVersion.standardBip39);
+      expect(w.privateKey,
+          '0x1ab42cc412b618bdea3a599e3c9bae199ebf030895b039e9db1e30dafb12b727');
+      expect(w.address, '0x9858EfFD232B4033E47d90003D41EC34EcaEda94');
+      final second = EvmWalletDerivation.deriveWallet(
+          mnemonic: hardhat,
+          version: EvmDerivationVersion.standardBip39,
+          index: 1);
+      expect(second.address, '0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
+    });
+
+    test('the derived key signs as its own address', () async {
+      final w = EvmWalletDerivation.deriveWallet(
+          mnemonic: hardhat, version: EvmDerivationVersion.standardBip39);
+      final key = EthPrivateKey.fromHex(w.privateKey);
+      expect(key.address.hexEip55, w.address);
+      final action = buildCancelAction([(assetId: 1, oid: _bigOid)]);
+      final sig = await signL1Action(
+          credentials: key, action: action, nonce: _nonce, isMainnet: true);
+      final digest = l1ActionDigest(
+          connectionId: actionHash(action: action, nonce: _nonce),
+          isMainnet: true);
+      expect(_recover(digest, sig.toJson()), w.address.toLowerCase());
+    });
+  });
 
   group('Python SDK vectors', () {
     test('msgpack scalars', () {
