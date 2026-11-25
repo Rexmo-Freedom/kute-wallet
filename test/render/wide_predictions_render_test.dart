@@ -130,7 +130,7 @@ final _election = PolymarketEvent(
   ],
 );
 
-/// An event of [n] dated outcomes ("… by <date>?"), as the founder's
+/// An event of [n] dated outcomes (out by a date), as the founder's
 /// "out as CEO again?" page.
 PolymarketEvent _dated(int n) => PolymarketEvent(
       id: 'dated$n',
