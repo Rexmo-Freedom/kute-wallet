@@ -457,16 +457,44 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
 /// the floating bar would draw them (kute_shell_bar.dart). Nothing when
 /// the content declares none.
 class KuteDialogFoot extends ConsumerWidget {
-  const KuteDialogFoot({super.key, required this.route});
+  const KuteDialogFoot(
+      {super.key, required this.route, this.width, this.padding});
 
   /// The route whose bar contexts it draws (null: the contexts bound to
   /// no route, an overlay's).
   final Route<dynamic>? route;
 
+  /// The primary button's width, exactly (a form's field width,
+  /// [KuteInPlaceFoot]); null: the button's own.
+  final double? width;
+
+  /// Around the button; null: the panel's foot padding.
+  final EdgeInsets? padding;
+
   List<KuteBarContext> _mine(List<KuteBarContext> stack) => [
         for (final c in stack)
           if (c.route == route) c
       ];
+
+  /// [ctx] drawn exactly [width] wide.
+  static KuteBarContext _atWidth(KuteBarContext ctx, double width) =>
+      KuteBarContext.primary(
+        label: ctx.label,
+        onPrimary: ctx.onPrimary,
+        enabled: ctx.enabled,
+        busy: ctx.busy,
+        tapWhileBusy: ctx.tapWhileBusy,
+        busyLabel: ctx.busyLabel,
+        disabledLabel: ctx.disabledLabel,
+        style: ctx.style,
+        clip: ctx.clip,
+        pairedWidth: width,
+        category: ctx.category,
+        searchHint: ctx.searchHint,
+        source: ctx.source,
+        route: ctx.route,
+        share: ctx.share,
+      );
 
   void _share(KuteBarShare share, BuildContext shareContext) {
     final direct = share.brag ??
@@ -488,15 +516,17 @@ class KuteDialogFoot extends ConsumerWidget {
     final top = kuteBarTop(_mine(stack));
     Widget foot = const SizedBox(width: double.infinity);
     if (top != null && !top.hidden && top.isPrimary) {
+      final width = this.width;
       foot = Padding(
         key: const ValueKey('kute-dialog-primary'),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, kuteDialogFootBottom),
+        padding: padding ??
+            const EdgeInsets.fromLTRB(16, 8, 16, kuteDialogFootBottom),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Flexible(
               child: KuteBarPrimaryButton(
-                barContext: top,
+                barContext: width == null ? top : _atWidth(top, width),
                 onAsk: () => unawaited(openKuteBarSheet(
                     kuteBarAskContext(ref.read(kuteBarContextProvider), top))),
                 // The live context, as the floating bar taps it: a page
@@ -588,6 +618,7 @@ class KuteInPlaceBar extends StatefulWidget {
 
 class _KuteInPlaceBarState extends State<KuteInPlaceBar> {
   final ValueNotifier<int> _closeMarks = ValueNotifier<int>(0);
+  final _KuteInPlaceFootMarks _footMarks = _KuteInPlaceFootMarks();
   Route<dynamic>? _route;
   bool _registered = false;
 
@@ -609,6 +640,7 @@ class _KuteInPlaceBarState extends State<KuteInPlaceBar> {
   @override
   void dispose() {
     _register(_route, false);
+    _footMarks.dispose();
     super.dispose();
   }
 
@@ -621,12 +653,107 @@ class _KuteInPlaceBarState extends State<KuteInPlaceBar> {
     return KuteDialogScope(
       route: route,
       closeMarks: _closeMarks,
-      child: Column(
-        children: [
-          Expanded(child: widget.child),
-          KuteDialogFoot(route: route),
-        ],
+      child: _KuteInPlaceFootHost(
+        marks: _footMarks,
+        child: Column(
+          children: [
+            Expanded(child: widget.child),
+            // Built after the form: a form that draws the foot itself
+            // ([KuteInPlaceFoot]) has counted itself by now.
+            ListenableBuilder(
+              listenable: _footMarks,
+              builder: (context, _) => _footMarks.count > 0
+                  ? const SizedBox(width: double.infinity)
+                  : KuteDialogFoot(route: route),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// How many [KuteInPlaceFoot]s a [KuteInPlaceBar]'s form draws now.
+class _KuteInPlaceFootMarks extends ChangeNotifier {
+  int count = 0;
+
+  /// [count] moves at once (a sibling built later in this frame reads
+  /// it); listeners hear of it after the frame (no rebuild mid-build).
+  void bump(int by) {
+    count += by;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed) return;
+      notifyListeners();
+    });
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
+class _KuteInPlaceFootHost extends InheritedWidget {
+  const _KuteInPlaceFootHost({required this.marks, required super.child});
+
+  final _KuteInPlaceFootMarks marks;
+
+  @override
+  bool updateShouldNotify(_KuteInPlaceFootHost old) => old.marks != marks;
+}
+
+/// A FORM'S PRIMARY UNDER ITS FIELD (the laptop browser's password pages,
+/// kute_pin_scaffold.dart): inside a [KuteInPlaceBar] the in-place foot
+/// ([KuteDialogFoot]: the primary of the bar contexts bound to the form's
+/// route) is drawn HERE, [width] wide, instead of at the foot of the
+/// form's half; the [KuteInPlaceBar] draws none while this is mounted.
+/// Outside one (a phone, MEDIUM: the floating bar draws the primary) it
+/// draws nothing.
+class KuteInPlaceFoot extends StatefulWidget {
+  const KuteInPlaceFoot({super.key, required this.width});
+
+  final double width;
+
+  @override
+  State<KuteInPlaceFoot> createState() => _KuteInPlaceFootState();
+}
+
+class _KuteInPlaceFootState extends State<KuteInPlaceFoot> {
+  _KuteInPlaceFootMarks? _marks;
+
+  void _set(_KuteInPlaceFootMarks? next) {
+    if (identical(next, _marks)) return;
+    _marks?.bump(-1);
+    _marks = next;
+    next?.bump(1);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _set(context
+        .dependOnInheritedWidgetOfExactType<_KuteInPlaceFootHost>()
+        ?.marks);
+  }
+
+  @override
+  void dispose() {
+    final old = _marks;
+    _marks = null;
+    if (old != null && !old._disposed) old.bump(-1);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_marks == null) return const SizedBox.shrink();
+    return KuteDialogFoot(
+      route: KuteDialogScope.peek(context)?.route,
+      width: widget.width,
+      padding: EdgeInsets.zero,
     );
   }
 }

@@ -26,6 +26,7 @@ import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/login/open_pin.dart';
 import 'package:kute/screens/shared/lock_overlay.dart';
 import 'package:kute/screens/shared/password_upgrade_page.dart';
+import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -117,6 +118,30 @@ final Map<String, (Widget Function(), List<Override> Function(), String?)>
   ),
 };
 
+/// A page that opens the step-up gate over itself.
+class _GateHost extends StatefulWidget {
+  const _GateHost();
+
+  @override
+  State<_GateHost> createState() => _GateHostState();
+}
+
+class _GateHostState extends State<_GateHost> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PinGateSheet.show(context,
+          title: 'Confirm a \$5.00 prediction', onVerified: () {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: SizedBox.expand());
+}
+
 late Directory _hive;
 
 void main() {
@@ -181,6 +206,22 @@ void main() {
         await _pumpLock(tester, size: size, dark: dark);
         expect(tester.takeException(), isNull);
         await deskFullShoot(tester, 'lock_${label}_$mode');
+        await end(tester);
+      });
+      testWidgets('password gate sheet $label $mode', (tester) async {
+        UnlockSecret.debugDeviceKind = VaultSecretKind.password;
+        UnlockSecret.debugVaultKind = VaultSecretKind.password;
+        await deskFullAssets(tester);
+        await pumpDeskPage(tester,
+            size: size,
+            dark: dark,
+            page: const _GateHost(),
+            mode: KuteWideMode.full,
+            overrides: _signedIn());
+        await tester.enterText(find.byType(TextField), 'kute test pass 42');
+        await deskFullFrames(tester, 4);
+        expect(tester.takeException(), isNull);
+        await deskFullShoot(tester, 'gate_${label}_$mode');
         await end(tester);
       });
     }

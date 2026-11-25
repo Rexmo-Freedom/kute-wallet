@@ -7,7 +7,6 @@ import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/providers/words_provider.dart';
 import 'package:kute/screens/creation/set_pin.dart'; // Contains pinProvider & PinProgressIndicator
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
@@ -225,6 +224,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
     return Stack(
       children: [
         KutePinScaffold(
+          form: _password,
           leading: const KuteBackButton(fallbackRoute: '/set_pin'),
           // Just the title and the dots (user decision, September 2026).
           // A mismatch still says so here, in red, in place of nothing,
@@ -314,7 +314,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
                     ? PasswordCopy.typeAgain
                     : context.l10n.barNeedPinAgain,
                 ),
-                child: SizedBox(height: kuteBarScrollClearance.h),
+                child: KutePinScaffold.barRoom(context, form: _password),
               ),
             ),
           ),

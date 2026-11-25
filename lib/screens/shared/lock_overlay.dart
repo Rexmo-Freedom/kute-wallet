@@ -418,6 +418,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     // the split screen of the PIN steps (kute_split_screen.dart).
     final page = KuteSplitScreen(
         child: KutePinScaffold(
+          form: _password,
           title: context.l10n.welcomeBack,
           salMood: salMoodFor(_password ? _field.text.length : _pin.length),
           subtitle: _lockedOut

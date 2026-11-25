@@ -13,7 +13,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/auth_model.dart';
@@ -127,6 +126,7 @@ class _PasswordUpgradePageState extends State<PasswordUpgradePage>
     return PopScope(
       canPop: false,
       child: KutePinScaffold(
+        form: true,
         title: _confirming ? PasswordCopy.confirm : PasswordCopy.create,
         salMood: ready ? 'happy' : salMoodFor(_text.length),
         subtitle: _error ?? (_confirming ? null : PasswordCopy.upgradeNotice),
@@ -162,7 +162,7 @@ class _PasswordUpgradePageState extends State<PasswordUpgradePage>
             disabledLabel:
                 _confirming ? PasswordCopy.typeAgain : PasswordCopy.needPassword,
           ),
-          child: SizedBox(height: kuteBarScrollClearance.h),
+          child: KutePinScaffold.barRoom(context, form: true),
         ),
       ),
     );

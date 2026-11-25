@@ -608,6 +608,7 @@ class _OpenPinState extends ConsumerState<OpenPin>
     return PopScope(
       canPop: false,
       child: KutePinScaffold(
+        form: _password,
         title: context.l10n.welcomeBack,
         salMood: salMoodFor(_password ? _field.text.length : pin.length),
         // Nothing under the title unless something is wrong. Six dots
