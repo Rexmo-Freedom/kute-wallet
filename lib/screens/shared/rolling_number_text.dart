@@ -206,6 +206,28 @@ class _RollingDigitState extends State<_RollingDigit>
   /// figures read letter-spaced ("$4 2 .5 0").
   ({Size size, double baseline}) _measureChar(
       String char, TextStyle style, TextScaler scaler) {
+    // A glyph's box is the same every time for the same style and scale:
+    // measured once and remembered. A list of live prices rebuilds a
+    // hundred figures a second and more, and a text layout is not cheap
+    // (on the web least of all).
+    final key = (char, style, scaler);
+    final known = _measured[key];
+    if (known != null) return known;
+    // A font that lands later (a web font, a fallback) measures anew.
+    if (!_listening) {
+      _listening = true;
+      PaintingBinding.instance.systemFonts.addListener(_measured.clear);
+    }
+    if (_measured.length >= 512) _measured.clear();
+    return _measured[key] = _layoutChar(char, style, scaler);
+  }
+
+  static final Map<(String, TextStyle, TextScaler),
+      ({Size size, double baseline})> _measured = {};
+  static bool _listening = false;
+
+  static ({Size size, double baseline}) _layoutChar(
+      String char, TextStyle style, TextScaler scaler) {
     final tp = TextPainter(
       text: TextSpan(text: char, style: style),
       textDirection: TextDirection.ltr,
