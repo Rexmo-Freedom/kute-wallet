@@ -458,7 +458,7 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   /// The switch landing on Dollars, by a tap or a swipe, opens the page on
-  /// its default pill, Overview (founder, 8 November 2026; see
+  /// its default pill, Investing (founder, 25 November 2026; see
   /// [openInvestmentsOnDefaultTab]). Before the branch switch (and, for a
   /// swipe, as the page first comes on screen: [_openDollarsOnReveal]),
   /// so the page arrives on it. A link (`context.go('/usd?tab=…')`) never

@@ -20,6 +20,8 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioChanceBar, kPortfolioCornerAmountSize;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsTab, UsdAccountScreen;
 
 import 'investments_harness.dart';
 
@@ -103,6 +105,9 @@ void main() {
         'card, every name whole, nothing ellipsized or overflowing',
         (tester) async {
       await pumpInvestments(tester,
+          // Overview by its link: the page opens on Investing (founder, 25
+          // November 2026).
+          child: const UsdAccountScreen(initialTab: InvestmentsTab.activity),
           size: Size(width, 1400),
           locale: Locale(code),
           textScale: scale,

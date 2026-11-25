@@ -177,8 +177,10 @@ Finder _pillWords(String text) => find.descendant(
 Finder _tile(String key) => find.byKey(ValueKey('category-tile-$key'));
 Finder _row(String coin) => find.byKey(ValueKey('hl-watchlist-row-perp-$coin'));
 
+/// Investing on screen: the page opens on it (founder, 25 November 2026),
+/// so a pick only when another pill is up.
 Future<void> _enterInvesting(WidgetTester tester) async {
-  await tapAndPump(tester, investmentsPill(_l10n.trading));
+  await tapPill(tester, _l10n.trading);
   await _frames(tester);
 }
 
@@ -521,7 +523,9 @@ void main() {
       body: Consumer(
         builder: (context, ref, _) => Column(
           children: [
-            const Expanded(child: UsdAccountScreen()),
+            // Away from Investing (the page opens on it): Overview.
+            const Expanded(
+                child: UsdAccountScreen(initialTab: InvestmentsTab.activity)),
             HlWatchStar(market: _m('TSLA')),
             TextButton(
               onPressed: () =>

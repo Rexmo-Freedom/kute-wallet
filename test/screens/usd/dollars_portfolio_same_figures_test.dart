@@ -20,6 +20,8 @@ import 'package:kute/screens/portfolio/components/portfolio_hero.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsTab, UsdAccountScreen;
 
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import 'investments_harness.dart';
@@ -78,6 +80,9 @@ void main() {
     // Available (Dollars $20.00, Investing's cash $3.33, the sweep home
     // $1.11); the open perp up $1.23 on its $10.00.
     await pumpInvestments(tester,
+        // Overview by its link: the page opens on Investing (founder, 25
+        // November 2026).
+        child: const UsdAccountScreen(initialTab: InvestmentsTab.activity),
         balance: _state,
         size: const Size(390, 1400),
         overrides: [

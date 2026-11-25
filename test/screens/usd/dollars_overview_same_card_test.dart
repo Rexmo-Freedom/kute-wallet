@@ -47,7 +47,8 @@ import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsBody;
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsBody, InvestmentsTab, UsdAccountScreen;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/polymarket/pending_fills.dart';
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
@@ -238,7 +239,7 @@ Future<void> _pumpOverview(WidgetTester tester,
     Size size = const Size(390, 1400),
     double textScale = 1,
     OpenPnlSources? openPnlSources}) async {
-  await pumpInvestments(tester,
+  await pumpInvestments(tester, child: _onOverview,
       size: size,
       dark: dark,
       textScale: textScale,
@@ -282,6 +283,10 @@ Future<void> _pumpPortfolio(WidgetTester tester,
 ProviderContainer _overviewContainer(WidgetTester tester) =>
     ProviderScope.containerOf(
         tester.element(find.byType(InvestmentsBody, skipOffstage: false)));
+
+/// Overview is the last pill and the page opens on Investing (founder, 25
+/// November 2026): these tests open Overview by the link that names it.
+const _onOverview = UsdAccountScreen(initialTab: InvestmentsTab.activity);
 
 void main() {
   setUp(() {

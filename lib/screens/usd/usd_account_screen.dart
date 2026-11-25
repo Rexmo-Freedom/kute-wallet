@@ -124,6 +124,11 @@
 // the full activity being the Portfolio's, which the bar opens
 // (components/dollars_activity_tab.dart).
 //
+// 25 NOVEMBER 2026 (founder): "make sure investing is first please". THE
+// ORDER IS INVESTING · PREDICTIONS · OVERVIEW ([kInvestmentsPills]) AND THE
+// PAGE OPENS ON INVESTING ([kInvestmentsDefaultTab]), on the same ways in as
+// above; keys, links and analytics values are unchanged.
+//
 // 13 NOVEMBER 2026 (founder): "on the main balance, if we click on it, on
 // Dollars we should also take the user to the Portfolio. On the main
 // balance we should have a % of up and down of open positions also, to
@@ -244,12 +249,13 @@ const double kInvestmentsCompactBarHeight = 6 + 20 + 6 + 32 + 8;
 /// one (design units): the hero with its split line and the large pills.
 const double _kExpandedHeaderEstimate = 158;
 
-/// The Investments pills, in strip order. [key] is the analytics value
+/// The Investments pills; the strip's order is [kInvestmentsPills], not
+/// this enum's. [key] is the analytics value
 /// and the `?tab=` query value, fixed English so a pill reads the same in
 /// PostHog and in a link in every app language. [activity] is the pill
 /// that reads Overview (8 November 2026; the key stays, so links and
-/// dashboards keep working): it leads the strip and the page opens on it
-/// ([kInvestmentsDefaultTab]). [positions] is the
+/// dashboards keep working): last in the strip since 25 November 2026,
+/// when the page opens on Investing ([kInvestmentsDefaultTab]). [positions] is the
 /// Portfolio, its own screen since 31 October 2026 and no pill: it
 /// still sends `positions`, so the dashboards keep counting it. [icon] is
 /// the pill's glyph: the one icon family the top tabs used (receipt,
@@ -315,11 +321,14 @@ void openInvestmentsOrders(BuildContext context,
   openInvestmentsPortfolio(context, PortfolioSection.charts);
 }
 
-/// The pill the Dollars page opens on (founder, 8 November 2026): Overview.
-/// It is always there, so no policy changes it. A link that names a pill
+/// The pill the Dollars page opens on (founder, 25 November 2026:
+/// "make sure investing is first please"): Investing, on its Trending list
+/// (its Watchlist once that holds a market, [enterInvestingOnDefault]); it
+/// was Overview from 8 November. It is always there, so no policy changes
+/// it. The web sidebar reads it too. A link that names a pill
 /// (`/usd?tab=predictions`, the venue routes' redirects) opens that pill
 /// instead ([UsdAccountScreen.initialTab]).
-const InvestmentsTab kInvestmentsDefaultTab = InvestmentsTab.activity;
+const InvestmentsTab kInvestmentsDefaultTab = InvestmentsTab.investing;
 
 /// The pill on screen. Shared so a deep link, a placed bet or Sal can
 /// open a pill from outside the screen; the screen writes it on a tap.
@@ -386,13 +395,16 @@ void enterInvestingOnDefault(WidgetRef ref) {
 final _investmentsQuietPillProvider =
     StateProvider<InvestmentsTab?>((_) => null);
 
-/// The pills of the Dollars switch, in order: Overview first, the pill the
-/// page opens on ([kInvestmentsDefaultTab]), then the two venues. The
-/// Portfolio is its own screen.
+/// The sections of the Dollars page in display order (founder, 25 November
+/// 2026): Investing first, the pill the page opens on
+/// ([kInvestmentsDefaultTab]), then Predictions, then Overview. The one
+/// ordered list the pills, the swipe between sections and the web sidebar
+/// read; the enum's order and keys stay as they were. The Portfolio is its
+/// own screen.
 const List<InvestmentsTab> kInvestmentsPills = [
-  InvestmentsTab.activity,
   InvestmentsTab.investing,
   InvestmentsTab.predictions,
+  InvestmentsTab.activity,
 ];
 
 /// The `/usd` location that opens on [tab]: what the venue routes
@@ -497,8 +509,9 @@ class InvestmentsBody extends ConsumerStatefulWidget {
 }
 
 class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
-  /// The pills on the page: Overview, then the two venues (the Portfolio
-  /// is its own screen, see the file header).
+  /// The pills on the page, in [kInvestmentsPills] order: Investing,
+  /// Predictions, Overview (the Portfolio is its own screen, see the file
+  /// header).
   static const List<InvestmentsTab> _tabs = kInvestmentsPills;
 
   /// The outer (header) scroll: the collapse, the chevron's way back up

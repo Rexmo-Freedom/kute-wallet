@@ -34,6 +34,8 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsTab, UsdAccountScreen;
 
 import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import 'investments_harness.dart';
@@ -161,6 +163,9 @@ Future<void> _pump(WidgetTester tester, List<Override> overrides,
     double textScale = 1,
     int balancePrivacy = 0}) async {
   await pumpInvestments(tester,
+      // Overview by its link: the page opens on Investing (founder, 25
+      // November 2026).
+      child: const UsdAccountScreen(initialTab: InvestmentsTab.activity),
       size: size,
       dark: dark,
       textScale: textScale,

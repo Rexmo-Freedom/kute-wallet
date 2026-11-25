@@ -29,6 +29,8 @@ import 'package:kute/screens/share/brag/brag_data.dart'
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsTab, UsdAccountScreen;
 import 'package:money2/money2.dart';
 
 import '../../helpers/euro_settings.dart';
@@ -171,6 +173,9 @@ void main() {
       'and the Open profits read the real dollars', (tester) async {
     final now = DateTime.now();
     await pumpInvestments(tester,
+        // Overview by its link: the page opens on Investing (founder, 25
+        // November 2026).
+        child: const UsdAccountScreen(initialTab: InvestmentsTab.activity),
         size: const Size(390, 1400),
         currency: 'EUR',
         openPnlSources: OpenPnlSources(

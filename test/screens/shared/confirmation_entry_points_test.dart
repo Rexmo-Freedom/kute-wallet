@@ -18,7 +18,7 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/shared/transaction_modal.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show InvestmentsTab, investmentsTabProvider, openInvestmentsOrders;
+    show investmentsTabProvider, kInvestmentsDefaultTab, openInvestmentsOrders;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -191,8 +191,8 @@ void main() {
       final container = ProviderScope.containerOf(
           tester.element(find.text('host', skipOffstage: false)));
       // The Portfolio is its own screen (31 October 2026): the Dollars
-      // pill stays where it was, Overview to start (8 November 2026).
-      expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+      // pill stays where it was, Investing to start (25 November 2026).
+      expect(container.read(investmentsTabProvider), kInvestmentsDefaultTab);
       expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
       expect(
           events
@@ -232,8 +232,8 @@ void main() {
         product: 'predictions', orderKind: 'limit_sell');
     final container = ProviderScope.containerOf(context);
     // The Portfolio is its own screen (31 October 2026): the Dollars
-    // pill stays where it was, Overview to start (8 November 2026).
-    expect(container.read(investmentsTabProvider), InvestmentsTab.activity);
+    // pill stays where it was, Investing to start (25 November 2026).
+    expect(container.read(investmentsTabProvider), kInvestmentsDefaultTab);
     expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
     expect(events.single.$1, 'order_confirmation_view_orders_tapped');
     expect(events.single.$2,
