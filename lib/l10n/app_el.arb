@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Κανάλια",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Θέσεις και μέτρηση",
-  "chartToolGroupShowAll": "Όλα τα εργαλεία: {group}"
+  "chartToolGroupShowAll": "Όλα τα εργαλεία: {group}",
+  "chartLineWidth": "Πάχος γραμμής",
+  "chartFillOpacity": "Γέμισμα",
+  "chartDrawingLabels": "Ετικέτες",
+  "chartTextSize": "Μέγεθος κειμένου",
+  "chartFibLevels": "Επίπεδα"
 }

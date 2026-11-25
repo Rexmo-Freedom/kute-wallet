@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Канали",
   "chartToolGroupFibonacci": "Фибоначи",
   "chartToolGroupPositionsMeasure": "Позиции и измерване",
-  "chartToolGroupShowAll": "Всички инструменти: {group}"
+  "chartToolGroupShowAll": "Всички инструменти: {group}",
+  "chartLineWidth": "Дебелина на линията",
+  "chartFillOpacity": "Запълване",
+  "chartDrawingLabels": "Етикети",
+  "chartTextSize": "Размер на текста",
+  "chartFibLevels": "Нива"
 }

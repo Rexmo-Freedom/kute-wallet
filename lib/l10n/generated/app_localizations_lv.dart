@@ -14465,4 +14465,19 @@ class AppLocalizationsLv extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Visi rīki: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Līnijas biezums';
+
+  @override
+  String get chartFillOpacity => 'Aizpildījums';
+
+  @override
+  String get chartDrawingLabels => 'Etiķetes';
+
+  @override
+  String get chartTextSize => 'Teksta izmērs';
+
+  @override
+  String get chartFibLevels => 'Līmeņi';
 }

@@ -14595,4 +14595,19 @@ class AppLocalizationsEl extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Όλα τα εργαλεία: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Πάχος γραμμής';
+
+  @override
+  String get chartFillOpacity => 'Γέμισμα';
+
+  @override
+  String get chartDrawingLabels => 'Ετικέτες';
+
+  @override
+  String get chartTextSize => 'Μέγεθος κειμένου';
+
+  @override
+  String get chartFibLevels => 'Επίπεδα';
 }

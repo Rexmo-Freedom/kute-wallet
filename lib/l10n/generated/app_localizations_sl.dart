@@ -14542,4 +14542,19 @@ class AppLocalizationsSl extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Vsa orodja: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Debelina črte';
+
+  @override
+  String get chartFillOpacity => 'Polnilo';
+
+  @override
+  String get chartDrawingLabels => 'Oznake';
+
+  @override
+  String get chartTextSize => 'Velikost besedila';
+
+  @override
+  String get chartFibLevels => 'Ravni';
 }

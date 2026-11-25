@@ -14491,4 +14491,19 @@ class AppLocalizationsSv extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Alla verktyg: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Linjebredd';
+
+  @override
+  String get chartFillOpacity => 'Fyllning';
+
+  @override
+  String get chartDrawingLabels => 'Etiketter';
+
+  @override
+  String get chartTextSize => 'Textstorlek';
+
+  @override
+  String get chartFibLevels => 'Nivåer';
 }

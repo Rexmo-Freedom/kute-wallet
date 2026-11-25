@@ -12687,5 +12687,25 @@
         "type": "String"
       }
     }
+  },
+  "chartLineWidth": "Line width",
+  "@chartLineWidth": {
+    "description": "A drawing's settings sheet on the Advanced chart: the row that sets how thick its lines are (1 to 4). Short."
+  },
+  "chartFillOpacity": "Fill",
+  "@chartFillOpacity": {
+    "description": "A drawing's settings sheet on the Advanced chart: the row that sets how opaque a filled shape's inside is, shown as a percentage. Short, one word if possible."
+  },
+  "chartDrawingLabels": "Labels",
+  "@chartDrawingLabels": {
+    "description": "A drawing's settings sheet on the Advanced chart: the switch that shows or hides the figures the drawing writes on the chart (ranges, levels, a position's target and stop). Short."
+  },
+  "chartTextSize": "Text size",
+  "@chartTextSize": {
+    "description": "A note's settings sheet on the Advanced chart: the row that sets the size of the note's text. Short."
+  },
+  "chartFibLevels": "Levels",
+  "@chartFibLevels": {
+    "description": "A Fibonacci retracement's settings sheet on the Advanced chart: the title over its list of levels (23.6%, 38.2%, 61.8% …), each switched on or off. Short."
   }
 }

@@ -90,6 +90,7 @@ import 'package:kute/screens/home/components/action_pill.dart'
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_rail.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_settings_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_line_cards.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
@@ -1803,6 +1804,29 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     });
   }
 
+  /// The selected drawing's settings sheet (hl_drawing_settings_sheet.dart).
+  /// Each setting changed is reported once, when it closes, through the
+  /// toolbar's own event (its name as the action; never a value).
+  Future<void> _openDrawingSettings(ChartDrawing drawing) async {
+    HapticFeedback.selectionClick();
+    final coin = widget.market.coin;
+    await showHlDrawingSettings(
+      context,
+      marketKey: _marketKey,
+      drawingId: drawing.id,
+      title: _toolLook(drawing.tool),
+      onClosed: (changed) {
+        for (final action in changed) {
+          TrackingService.track('drawing_edited', params: {
+            'type': drawing.tool.name,
+            'action': action,
+            'coin': coin,
+          });
+        }
+      },
+    );
+  }
+
   /// One undoable edit of a drawing from its toolbar.
   void _editDrawing(ChartDrawing next, String action) {
     HapticFeedback.selectionClick();
@@ -2348,6 +2372,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         duplicate: l10n.chartDuplicate,
         delete: l10n.chartDelete,
         editNote: l10n.chartEditNote,
+        settings: l10n.settings,
       ),
       onColor: (value) => _pickColor(value, selected.id),
       onToggleDashed: () =>
@@ -2375,6 +2400,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           ? () => unawaited(
               _editNote(selected.points.first, existing: selected))
           : null,
+      onSettings: chartDrawingSpec(selected.tool).settings.isEmpty
+          ? null
+          : () => unawaited(_openDrawingSettings(selected)),
     );
   }
 

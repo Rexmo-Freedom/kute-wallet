@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanali",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Pozicije in merjenje",
-  "chartToolGroupShowAll": "Vsa orodja: {group}"
+  "chartToolGroupShowAll": "Vsa orodja: {group}",
+  "chartLineWidth": "Debelina črte",
+  "chartFillOpacity": "Polnilo",
+  "chartDrawingLabels": "Oznake",
+  "chartTextSize": "Velikost besedila",
+  "chartFibLevels": "Ravni"
 }

@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Csatornák",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Pozíciók és mérés",
-  "chartToolGroupShowAll": "Minden eszköz: {group}"
+  "chartToolGroupShowAll": "Minden eszköz: {group}",
+  "chartLineWidth": "Vonalvastagság",
+  "chartFillOpacity": "Kitöltés",
+  "chartDrawingLabels": "Címkék",
+  "chartTextSize": "Szövegméret",
+  "chartFibLevels": "Szintek"
 }

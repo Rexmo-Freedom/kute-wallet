@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanály",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Pozice a měření",
-  "chartToolGroupShowAll": "Všechny nástroje: {group}"
+  "chartToolGroupShowAll": "Všechny nástroje: {group}",
+  "chartLineWidth": "Tloušťka čáry",
+  "chartFillOpacity": "Výplň",
+  "chartDrawingLabels": "Popisky",
+  "chartTextSize": "Velikost textu",
+  "chartFibLevels": "Úrovně"
 }

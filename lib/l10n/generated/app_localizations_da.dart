@@ -14497,4 +14497,19 @@ class AppLocalizationsDa extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Alle værktøjer: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Linjebredde';
+
+  @override
+  String get chartFillOpacity => 'Fyld';
+
+  @override
+  String get chartDrawingLabels => 'Etiketter';
+
+  @override
+  String get chartTextSize => 'Tekststørrelse';
+
+  @override
+  String get chartFibLevels => 'Niveauer';
 }

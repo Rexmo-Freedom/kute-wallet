@@ -14531,4 +14531,19 @@ class AppLocalizationsHu extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Minden eszköz: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Vonalvastagság';
+
+  @override
+  String get chartFillOpacity => 'Kitöltés';
+
+  @override
+  String get chartDrawingLabels => 'Címkék';
+
+  @override
+  String get chartTextSize => 'Szövegméret';
+
+  @override
+  String get chartFibLevels => 'Szintek';
 }

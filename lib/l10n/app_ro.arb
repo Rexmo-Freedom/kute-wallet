@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Canale",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Poziții și măsurare",
-  "chartToolGroupShowAll": "Toate instrumentele: {group}"
+  "chartToolGroupShowAll": "Toate instrumentele: {group}",
+  "chartLineWidth": "Grosimea liniei",
+  "chartFillOpacity": "Umplere",
+  "chartDrawingLabels": "Etichete",
+  "chartTextSize": "Dimensiunea textului",
+  "chartFibLevels": "Niveluri"
 }

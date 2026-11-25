@@ -434,7 +434,8 @@ List<HlDrawingSwatch> hlDrawingSwatches(AppLocalizations l10n) => [
     ];
 
 /// The small toolbar floating over a selected drawing: its colour, solid
-/// or dashed, extend (trend lines), edit (notes), lock, duplicate and
+/// or dashed, extend (trend lines), edit (notes), its settings (the tools
+/// that have some: hl_drawing_settings_sheet.dart), lock, duplicate and
 /// delete. The colour button opens the five swatches in its place.
 class HlDrawingToolbar extends StatefulWidget {
   const HlDrawingToolbar({
@@ -449,6 +450,7 @@ class HlDrawingToolbar extends StatefulWidget {
     required this.onDelete,
     this.onToggleExtend,
     this.onEditNote,
+    this.onSettings,
   });
 
   final ChartDrawing drawing;
@@ -461,6 +463,9 @@ class HlDrawingToolbar extends StatefulWidget {
   final VoidCallback onDelete;
   final VoidCallback? onToggleExtend;
   final VoidCallback? onEditNote;
+
+  /// Opens the drawing's settings sheet; null for a tool without any.
+  final VoidCallback? onSettings;
 
   @override
   State<HlDrawingToolbar> createState() => _HlDrawingToolbarState();
@@ -478,6 +483,7 @@ class HlDrawingToolbarLabels {
     required this.duplicate,
     required this.delete,
     required this.editNote,
+    required this.settings,
   });
   final String color;
   final String solid;
@@ -488,6 +494,7 @@ class HlDrawingToolbarLabels {
   final String duplicate;
   final String delete;
   final String editNote;
+  final String settings;
 }
 
 class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
@@ -604,6 +611,13 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
                 onTap: widget.onEditNote!,
                 child: Icon(Icons.edit_outlined, size: 18, color: icon),
               ),
+            if (widget.onSettings != null)
+              _button(
+                key: const ValueKey('hl-drawing-toolbar-settings'),
+                tip: l.settings,
+                onTap: widget.onSettings!,
+                child: Icon(Icons.tune_rounded, size: 18, color: icon),
+              ),
             _button(
               key: const ValueKey('hl-drawing-toolbar-lock'),
               tip: d.locked ? l.unlock : l.lock,
@@ -628,11 +642,16 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
                   size: 19, color: AppColors.marketDown),
             ),
           ];
-    return Container(
-      key: const ValueKey('hl-drawing-toolbar'),
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-      decoration: hlSelectedPillDecoration(context, radius: 20),
-      child: Row(mainAxisSize: MainAxisSize.min, children: children),
+    // Never wider than the chart: on the narrowest phone it shrinks a hair
+    // rather than overflow.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Container(
+        key: const ValueKey('hl-drawing-toolbar'),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+        decoration: hlSelectedPillDecoration(context, radius: 20),
+        child: Row(mainAxisSize: MainAxisSize.min, children: children),
+      ),
     );
   }
 }

@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanali",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Pozicije i mjerenje",
-  "chartToolGroupShowAll": "Svi alati: {group}"
+  "chartToolGroupShowAll": "Svi alati: {group}",
+  "chartLineWidth": "Debljina linije",
+  "chartFillOpacity": "Ispuna",
+  "chartDrawingLabels": "Oznake",
+  "chartTextSize": "Veličina teksta",
+  "chartFibLevels": "Razine"
 }

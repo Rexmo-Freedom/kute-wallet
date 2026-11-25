@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanalid",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Positsioonid ja mõõtmine",
-  "chartToolGroupShowAll": "Kõik tööriistad: {group}"
+  "chartToolGroupShowAll": "Kõik tööriistad: {group}",
+  "chartLineWidth": "Joone paksus",
+  "chartFillOpacity": "Täide",
+  "chartDrawingLabels": "Sildid",
+  "chartTextSize": "Teksti suurus",
+  "chartFibLevels": "Tasemed"
 }

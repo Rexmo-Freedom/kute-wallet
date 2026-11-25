@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanavat",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Positiot ja mittaus",
-  "chartToolGroupShowAll": "Kaikki työkalut: {group}"
+  "chartToolGroupShowAll": "Kaikki työkalut: {group}",
+  "chartLineWidth": "Viivan paksuus",
+  "chartFillOpacity": "Täyttö",
+  "chartDrawingLabels": "Tunnisteet",
+  "chartTextSize": "Tekstin koko",
+  "chartFibLevels": "Tasot"
 }

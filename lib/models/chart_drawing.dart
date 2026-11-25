@@ -96,24 +96,59 @@ enum ChartDrawingTool {
   priceLine,
 }
 
-/// How a tool is placed and how many anchors it keeps.
+/// What a drawing's settings sheet offers for a tool (the rows shown).
+enum ChartDrawingSetting {
+  /// Line width ([ChartDrawing.width]).
+  width,
+
+  /// Fill opacity of a filled shape ([ChartDrawing.fill]).
+  fill,
+
+  /// The figures it writes on the chart on or off ([ChartDrawing.labels]).
+  labels,
+
+  /// A note's text size ([ChartDrawing.textSize]).
+  textSize,
+
+  /// Which Fibonacci levels are drawn ([ChartDrawing.levels]).
+  levels,
+}
+
+/// How a tool is placed, how many anchors it keeps and what its settings
+/// sheet offers.
 class ChartDrawingSpec {
   /// [points] anchors, the first [taps] (all of them by default) placed by
   /// the person, one tap (or the end of one drag) each; [derive] fills the
-  /// rest from them.
-  const ChartDrawingSpec({required this.points, int? taps, this.derive})
-      : taps = taps ?? points,
+  /// rest from them. [settings] are the rows of its settings sheet;
+  /// [fillPercent] its fill's opacity until the person sets one.
+  const ChartDrawingSpec({
+    required this.points,
+    int? taps,
+    this.derive,
+    this.settings = const {ChartDrawingSetting.width},
+    this.fillPercent = 0,
+  })  : taps = taps ?? points,
         openEnded = false,
         maxPoints = points;
 
   /// A free-form tool: point after point, at least [min] and at most
   /// [max]; tapping the last point again (a double tap) finishes it.
-  const ChartDrawingSpec.openEnded(int min, int max)
-      : points = min,
+  const ChartDrawingSpec.openEnded(
+    int min,
+    int max, {
+    this.settings = const {ChartDrawingSetting.width},
+    this.fillPercent = 0,
+  })  : points = min,
         taps = min,
         maxPoints = max,
         openEnded = true,
         derive = null;
+
+  /// The rows of the tool's settings sheet; empty: no sheet.
+  final Set<ChartDrawingSetting> settings;
+
+  /// The fill's opacity, in per cent, while [ChartDrawing.fill] is unset.
+  final int fillPercent;
 
   /// The anchors a stored drawing has (the least, for [openEnded]).
   final int points;
@@ -144,26 +179,67 @@ ChartDrawingSpec chartDrawingSpec(ChartDrawingTool tool) {
   if (override != null) return override;
   switch (tool) {
     case ChartDrawingTool.level:
-    case ChartDrawingTool.text:
     case ChartDrawingTool.horizontalRay:
     case ChartDrawingTool.verticalLine:
-    case ChartDrawingTool.priceLine:
       return const ChartDrawingSpec(points: 1);
+    case ChartDrawingTool.priceLine:
+      // Stored as a price line, never as a drawing: no settings.
+      return const ChartDrawingSpec(points: 1, settings: {});
+    case ChartDrawingTool.text:
+      return const ChartDrawingSpec(
+          points: 1, settings: {ChartDrawingSetting.textSize});
     case ChartDrawingTool.parallelChannel:
       // Base start, base end, then where the parallel rail runs.
-      return const ChartDrawingSpec(points: 3, derive: _channelRail);
+      return const ChartDrawingSpec(
+        points: 3,
+        derive: _channelRail,
+        settings: {ChartDrawingSetting.width, ChartDrawingSetting.fill},
+        fillPercent: 8,
+      );
     case ChartDrawingTool.longPosition:
     case ChartDrawingTool.shortPosition:
       // Entry and target; the stop starts at 1:1 and has its handle.
-      return const ChartDrawingSpec(points: 3, taps: 2, derive: _positionStop);
-    case ChartDrawingTool.trendline:
-    case ChartDrawingTool.ray:
+      return const ChartDrawingSpec(
+        points: 3,
+        taps: 2,
+        derive: _positionStop,
+        settings: {ChartDrawingSetting.fill, ChartDrawingSetting.labels},
+        fillPercent: 16,
+      );
     case ChartDrawingTool.rect:
+      return const ChartDrawingSpec(
+        points: 2,
+        settings: {
+          ChartDrawingSetting.width,
+          ChartDrawingSetting.fill,
+          ChartDrawingSetting.labels,
+        },
+        fillPercent: 8,
+      );
     case ChartDrawingTool.fibonacci:
-    case ChartDrawingTool.extendedLine:
+      return const ChartDrawingSpec(
+        points: 2,
+        settings: {
+          ChartDrawingSetting.width,
+          ChartDrawingSetting.labels,
+          ChartDrawingSetting.levels,
+        },
+      );
     case ChartDrawingTool.priceRange:
     case ChartDrawingTool.dateRange:
     case ChartDrawingTool.dateAndPriceRange:
+      return const ChartDrawingSpec(
+        points: 2,
+        settings: {
+          ChartDrawingSetting.width,
+          ChartDrawingSetting.fill,
+          ChartDrawingSetting.labels,
+        },
+        fillPercent: 10,
+      );
+    case ChartDrawingTool.trendline:
+    case ChartDrawingTool.ray:
+    case ChartDrawingTool.extendedLine:
       return const ChartDrawingSpec(points: 2);
   }
 }
@@ -194,6 +270,29 @@ ChartDrawing _positionStop(ChartDrawing draft, int placed) {
       ChartDrawingPoint(
           timeMs: a.timeMs, price: stop > 0 ? stop : a.price * 0.5));
 }
+
+/// The Fibonacci levels a retracement can draw, as fractions of its move;
+/// [kChartFibDefaultLevels] are on until the person picks others.
+const List<double> kChartFibLevelChoices = [
+  0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.272, 1.618, 2.618,
+];
+const List<double> kChartFibDefaultLevels = [
+  0, 0.236, 0.382, 0.5, 0.618, 0.786, 1,
+];
+
+/// The line widths the settings sheet steps through (1 to 4); 2 is the
+/// width every drawing had before there was a choice.
+const int kChartDrawingMinWidth = 1;
+const int kChartDrawingMaxWidth = 4;
+const int kChartDrawingDefaultWidth = 2;
+
+/// A note's text size range and default (points).
+const int kChartNoteMinTextSize = 10;
+const int kChartNoteMaxTextSize = 24;
+const int kChartNoteDefaultTextSize = 13;
+
+/// The fill opacity range (per cent).
+const int kChartDrawingMaxFill = 40;
 
 /// The tool stored under [name], or null when this build does not know
 /// it (a newer build's tool). Never a guess: a stored drawing whose tool
@@ -250,6 +349,26 @@ class ChartDrawing {
   /// A trend line carried on past its later point to the right edge.
   final bool extend;
 
+  /// Line width, 1 to 4 ([kChartDrawingMinWidth]…); null: the default
+  /// (2). Stored as 'w'.
+  final int? width;
+
+  /// Fill opacity in per cent; null: the tool's own
+  /// ([ChartDrawingSpec.fillPercent]). Stored as 'fill'.
+  final int? fill;
+
+  /// The figures the drawing writes on the chart (ranges, levels, a
+  /// position's pills). On unless switched off; stored as 'lbl': false.
+  final bool labels;
+
+  /// A note's text size in points; null: [kChartNoteDefaultTextSize].
+  /// Stored as 'ts'.
+  final int? textSize;
+
+  /// The Fibonacci levels drawn (fractions of the move, ascending); null:
+  /// [kChartFibDefaultLevels]. Stored as 'levels'.
+  final List<double>? levels;
+
   /// Stored keys this build does not read, written back unchanged.
   final Map<String, Object?> extra;
 
@@ -262,8 +381,24 @@ class ChartDrawing {
     this.dashed = false,
     this.locked = false,
     this.extend = false,
+    this.width,
+    this.fill,
+    this.labels = true,
+    this.textSize,
+    this.levels,
     this.extra = const {},
   });
+
+  /// [levels] or the default set.
+  List<double> get fibLevels => levels ?? kChartFibDefaultLevels;
+
+  /// The settings sheet's fields all back to their defaults.
+  bool get hasDefaultSettings =>
+      width == null &&
+      fill == null &&
+      labels &&
+      textSize == null &&
+      levels == null;
 
   /// The keys [toJson] writes itself; anything else read is [extra].
   static const Set<String> _ownKeys = {
@@ -275,7 +410,14 @@ class ChartDrawing {
     'dash',
     'lock',
     'ext',
+    'w',
+    'fill',
+    'lbl',
+    'ts',
+    'levels',
   };
+
+  static const Object _keep = Object();
 
   /// The picked color, or null for "use the theme neutral".
   Color? get color => colorValue == null ? null : Color(colorValue!);
@@ -289,6 +431,12 @@ class ChartDrawing {
     bool? dashed,
     bool? locked,
     bool? extend,
+    // The settings: pass null to go back to the default, leave out to keep.
+    Object? width = _keep,
+    Object? fill = _keep,
+    bool? labels,
+    Object? textSize = _keep,
+    Object? levels = _keep,
   }) =>
       ChartDrawing(
         id: id ?? this.id,
@@ -299,6 +447,14 @@ class ChartDrawing {
         dashed: dashed ?? this.dashed,
         locked: locked ?? this.locked,
         extend: extend ?? this.extend,
+        width: identical(width, _keep) ? this.width : width as int?,
+        fill: identical(fill, _keep) ? this.fill : fill as int?,
+        labels: labels ?? this.labels,
+        textSize:
+            identical(textSize, _keep) ? this.textSize : textSize as int?,
+        levels: identical(levels, _keep)
+            ? this.levels
+            : levels as List<double>?,
         extra: extra,
       );
 
@@ -319,6 +475,11 @@ class ChartDrawing {
         if (dashed) 'dash': true,
         if (locked) 'lock': true,
         if (extend) 'ext': true,
+        if (width != null) 'w': width,
+        if (fill != null) 'fill': fill,
+        if (!labels) 'lbl': false,
+        if (textSize != null) 'ts': textSize,
+        if (levels != null) 'levels': levels,
         for (final e in extra.entries)
           if (!_ownKeys.contains(e.key)) e.key: e.value,
       };
@@ -340,11 +501,35 @@ class ChartDrawing {
         dashed: json['dash'] == true,
         locked: json['lock'] == true,
         extend: json['ext'] == true,
+        width: _intIn(json['w'], kChartDrawingMinWidth, kChartDrawingMaxWidth),
+        fill: _intIn(json['fill'], 0, 100),
+        labels: json['lbl'] != false,
+        textSize:
+            _intIn(json['ts'], kChartNoteMinTextSize, kChartNoteMaxTextSize),
+        levels: _levels(json['levels']),
         extra: {
           for (final e in json.entries)
             if (!_ownKeys.contains(e.key)) e.key: e.value,
         },
       );
+
+  /// A whole number in [lo]…[hi], else null (the default).
+  static int? _intIn(Object? v, int lo, int hi) {
+    if (v is! num || !v.isFinite) return null;
+    final i = v.round();
+    return i < lo || i > hi ? null : i;
+  }
+
+  /// Stored levels: finite, ascending, no repeats; none readable: null.
+  static List<double>? _levels(Object? v) {
+    if (v is! List) return null;
+    final out = <double>{
+      for (final x in v)
+        if (x is num && x.isFinite && x >= -1 && x <= 5) x.toDouble()
+    }.toList()
+      ..sort();
+    return List.unmodifiable(out);
+  }
 
   /// Structurally usable — enough points for its tool and a real price on
   /// each. Corrupt persisted entries are dropped on load.

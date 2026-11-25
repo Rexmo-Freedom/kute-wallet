@@ -1597,7 +1597,7 @@ class _HlIndicatorSettingsSheetState
                           padding: const EdgeInsets.only(left: 16),
                           child: Container(height: 0.5, color: c.border),
                         ),
-                      _StepperRow(
+                      HlStepperRow(
                         key: ValueKey(
                             'hl-indicator-param-${spec.params[i].id}'),
                         label: _paramLabel(l10n, spec.params[i].id),
@@ -1645,32 +1645,38 @@ class _HlIndicatorSettingsSheetState
 }
 
 /// A setting's row: its name, then − value +. A hold on − or + repeats,
-/// five steps at a time after the first ten.
-class _StepperRow extends StatefulWidget {
-  const _StepperRow({
+/// five steps at a time after the first ten. Shared by the indicator and
+/// the drawing settings sheets; [format] writes the value (the plain
+/// number by default) and [keyPrefix] names its keys.
+class HlStepperRow extends StatefulWidget {
+  const HlStepperRow({
     super.key,
     required this.label,
     required this.param,
     required this.value,
     required this.onChanged,
+    this.format = hlParamText,
+    this.keyPrefix = 'hl-indicator',
   });
 
   final String label;
   final HlIndParam param;
   final num value;
   final ValueChanged<num> onChanged;
+  final String Function(num value) format;
+  final String keyPrefix;
 
   @override
-  State<_StepperRow> createState() => _StepperRowState();
+  State<HlStepperRow> createState() => _HlStepperRowState();
 }
 
-class _StepperRowState extends State<_StepperRow> {
+class _HlStepperRowState extends State<HlStepperRow> {
   Timer? _repeat;
   int _ticks = 0;
   late num _value = widget.value;
 
   @override
-  void didUpdateWidget(covariant _StepperRow old) {
+  void didUpdateWidget(covariant HlStepperRow old) {
     super.didUpdateWidget(old);
     if (_repeat == null) _value = widget.value;
   }
@@ -1708,7 +1714,7 @@ class _StepperRowState extends State<_StepperRow> {
         ? _value <= widget.param.min
         : _value >= widget.param.max;
     return GestureDetector(
-      key: ValueKey('hl-indicator-step-$id'),
+      key: ValueKey('${widget.keyPrefix}-step-$id'),
       behavior: HitTestBehavior.opaque,
       onTap: atEnd
           ? null
@@ -1762,8 +1768,8 @@ class _StepperRowState extends State<_StepperRow> {
             SizedBox(
               width: 48,
               child: Text(
-                hlParamText(_value),
-                key: ValueKey('hl-indicator-value-${widget.param.id}'),
+                widget.format(_value),
+                key: ValueKey('${widget.keyPrefix}-value-${widget.param.id}'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: c.textPrimary,

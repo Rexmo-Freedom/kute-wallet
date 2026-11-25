@@ -14513,4 +14513,19 @@ class AppLocalizationsSk extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Všetky nástroje: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Hrúbka čiary';
+
+  @override
+  String get chartFillOpacity => 'Výplň';
+
+  @override
+  String get chartDrawingLabels => 'Popisy';
+
+  @override
+  String get chartTextSize => 'Veľkosť textu';
+
+  @override
+  String get chartFibLevels => 'Úrovne';
 }

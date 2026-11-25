@@ -14569,4 +14569,19 @@ class AppLocalizationsRo extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Toate instrumentele: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Grosimea liniei';
+
+  @override
+  String get chartFillOpacity => 'Umplere';
+
+  @override
+  String get chartDrawingLabels => 'Etichete';
+
+  @override
+  String get chartTextSize => 'Dimensiunea textului';
+
+  @override
+  String get chartFibLevels => 'Niveluri';
 }

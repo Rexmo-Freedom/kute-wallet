@@ -14598,4 +14598,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Alle Werkzeuge: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Linienstärke';
+
+  @override
+  String get chartFillOpacity => 'Füllung';
+
+  @override
+  String get chartDrawingLabels => 'Beschriftungen';
+
+  @override
+  String get chartTextSize => 'Textgröße';
+
+  @override
+  String get chartFibLevels => 'Niveaus';
 }

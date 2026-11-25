@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanalai",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Pozicijos ir matavimas",
-  "chartToolGroupShowAll": "Visi įrankiai: {group}"
+  "chartToolGroupShowAll": "Visi įrankiai: {group}",
+  "chartLineWidth": "Linijos storis",
+  "chartFillOpacity": "Užpildas",
+  "chartDrawingLabels": "Žymės",
+  "chartTextSize": "Teksto dydis",
+  "chartFibLevels": "Lygiai"
 }

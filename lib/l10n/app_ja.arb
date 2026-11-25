@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "チャネル",
   "chartToolGroupFibonacci": "フィボナッチ",
   "chartToolGroupPositionsMeasure": "ポジションと計測",
-  "chartToolGroupShowAll": "すべてのツール：{group}"
+  "chartToolGroupShowAll": "すべてのツール：{group}",
+  "chartLineWidth": "線の太さ",
+  "chartFillOpacity": "塗りつぶし",
+  "chartDrawingLabels": "ラベル",
+  "chartTextSize": "文字サイズ",
+  "chartFibLevels": "レベル"
 }

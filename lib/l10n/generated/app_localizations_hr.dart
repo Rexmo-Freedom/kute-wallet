@@ -14524,4 +14524,19 @@ class AppLocalizationsHr extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Svi alati: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Debljina linije';
+
+  @override
+  String get chartFillOpacity => 'Ispuna';
+
+  @override
+  String get chartDrawingLabels => 'Oznake';
+
+  @override
+  String get chartTextSize => 'Veličina teksta';
+
+  @override
+  String get chartFibLevels => 'Razine';
 }

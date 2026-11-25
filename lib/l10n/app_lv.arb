@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanāli",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Pozīcijas un mērīšana",
-  "chartToolGroupShowAll": "Visi rīki: {group}"
+  "chartToolGroupShowAll": "Visi rīki: {group}",
+  "chartLineWidth": "Līnijas biezums",
+  "chartFillOpacity": "Aizpildījums",
+  "chartDrawingLabels": "Etiķetes",
+  "chartTextSize": "Teksta izmērs",
+  "chartFibLevels": "Līmeņi"
 }

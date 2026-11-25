@@ -14545,4 +14545,19 @@ class AppLocalizationsNl extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Alle tools: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Lijndikte';
+
+  @override
+  String get chartFillOpacity => 'Vulling';
+
+  @override
+  String get chartDrawingLabels => 'Labels';
+
+  @override
+  String get chartTextSize => 'Tekstgrootte';
+
+  @override
+  String get chartFibLevels => 'Niveaus';
 }

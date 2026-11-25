@@ -14035,4 +14035,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'すべてのツール：$group';
   }
+
+  @override
+  String get chartLineWidth => '線の太さ';
+
+  @override
+  String get chartFillOpacity => '塗りつぶし';
+
+  @override
+  String get chartDrawingLabels => 'ラベル';
+
+  @override
+  String get chartTextSize => '文字サイズ';
+
+  @override
+  String get chartFibLevels => 'レベル';
 }

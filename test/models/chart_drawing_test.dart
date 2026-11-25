@@ -77,6 +77,59 @@ void main() {
       expect(again['dash'], isTrue);
     });
 
+    test('the settings fields round-trip; older records read as defaults', () {
+      const d = ChartDrawing(
+        id: 'set',
+        tool: ChartDrawingTool.fibonacci,
+        points: [
+          ChartDrawingPoint(timeMs: 1, price: 100),
+          ChartDrawingPoint(timeMs: 2, price: 120),
+        ],
+        width: 3,
+        fill: 20,
+        labels: false,
+        textSize: 16,
+        levels: [0, 0.5, 1.618],
+      );
+      final json = d.toJson();
+      expect(json['w'], 3);
+      expect(json['fill'], 20);
+      expect(json['lbl'], isFalse);
+      expect(json['ts'], 16);
+      expect(json['levels'], [0, 0.5, 1.618]);
+      final back = ChartDrawing.fromJson(
+          jsonDecode(jsonEncode(json)) as Map<String, dynamic>);
+      expect(back.width, 3);
+      expect(back.fill, 20);
+      expect(back.labels, isFalse);
+      expect(back.textSize, 16);
+      expect(back.fibLevels, [0, 0.5, 1.618]);
+      expect(back.hasDefaultSettings, isFalse);
+      // Back to the defaults: none of the keys is written.
+      final reset = back.copyWith(
+          width: null, fill: null, labels: true, textSize: null, levels: null);
+      expect(reset.hasDefaultSettings, isTrue);
+      expect(reset.toJson().keys,
+          isNot(anyOf(contains('w'), contains('fill'), contains('lbl'),
+              contains('ts'), contains('levels'))));
+      expect(reset.fibLevels, kChartFibDefaultLevels);
+      // Leaving them out of copyWith keeps them.
+      expect(back.copyWith(dashed: true).width, 3);
+      // An older record: every default, and the same JSON written back.
+      final old = {
+        'id': 'old',
+        'tool': 'rect',
+        'points': [
+          {'t': 1, 'p': 2.0},
+          {'t': 3, 'p': 4.0},
+        ],
+      };
+      expect(jsonEncode(ChartDrawing.fromJson(old).toJson()), jsonEncode(old));
+      // Out-of-range values read as the default.
+      expect(
+          ChartDrawing.fromJson({...old, 'w': 9, 'ts': 'big'}).width, isNull);
+    });
+
     test('round-trips every tool with and without a color', () {
       for (final tool in ChartDrawingTool.values) {
         final d = ChartDrawing(

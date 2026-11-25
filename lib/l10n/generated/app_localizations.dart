@@ -24422,6 +24422,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All {group} tools'**
   String chartToolGroupShowAll(String group);
+
+  /// A drawing's settings sheet on the Advanced chart: the row that sets how thick its lines are (1 to 4). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Line width'**
+  String get chartLineWidth;
+
+  /// A drawing's settings sheet on the Advanced chart: the row that sets how opaque a filled shape's inside is, shown as a percentage. Short, one word if possible.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill'**
+  String get chartFillOpacity;
+
+  /// A drawing's settings sheet on the Advanced chart: the switch that shows or hides the figures the drawing writes on the chart (ranges, levels, a position's target and stop). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Labels'**
+  String get chartDrawingLabels;
+
+  /// A note's settings sheet on the Advanced chart: the row that sets the size of the note's text. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Text size'**
+  String get chartTextSize;
+
+  /// A Fibonacci retracement's settings sheet on the Advanced chart: the title over its list of levels (23.6%, 38.2%, 61.8% …), each switched on or off. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Levels'**
+  String get chartFibLevels;
 }
 
 class _AppLocalizationsDelegate

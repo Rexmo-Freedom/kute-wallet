@@ -14484,4 +14484,19 @@ class AppLocalizationsEt extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Kõik tööriistad: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Joone paksus';
+
+  @override
+  String get chartFillOpacity => 'Täide';
+
+  @override
+  String get chartDrawingLabels => 'Sildid';
+
+  @override
+  String get chartTextSize => 'Teksti suurus';
+
+  @override
+  String get chartFibLevels => 'Tasemed';
 }

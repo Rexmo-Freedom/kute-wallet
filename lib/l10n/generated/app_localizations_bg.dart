@@ -14515,4 +14515,19 @@ class AppLocalizationsBg extends AppLocalizations {
   String chartToolGroupShowAll(String group) {
     return 'Всички инструменти: $group';
   }
+
+  @override
+  String get chartLineWidth => 'Дебелина на линията';
+
+  @override
+  String get chartFillOpacity => 'Запълване';
+
+  @override
+  String get chartDrawingLabels => 'Етикети';
+
+  @override
+  String get chartTextSize => 'Размер на текста';
+
+  @override
+  String get chartFibLevels => 'Нива';
 }

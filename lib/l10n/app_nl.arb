@@ -4093,5 +4093,10 @@
   "chartToolGroupChannels": "Kanalen",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Posities en meten",
-  "chartToolGroupShowAll": "Alle tools: {group}"
+  "chartToolGroupShowAll": "Alle tools: {group}",
+  "chartLineWidth": "Lijndikte",
+  "chartFillOpacity": "Vulling",
+  "chartDrawingLabels": "Labels",
+  "chartTextSize": "Tekstgrootte",
+  "chartFibLevels": "Niveaus"
 }

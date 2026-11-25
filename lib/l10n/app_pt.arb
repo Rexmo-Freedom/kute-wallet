@@ -4359,5 +4359,10 @@
   "chartToolGroupChannels": "Canais",
   "chartToolGroupFibonacci": "Fibonacci",
   "chartToolGroupPositionsMeasure": "Posições e medir",
-  "chartToolGroupShowAll": "Todas as ferramentas: {group}"
+  "chartToolGroupShowAll": "Todas as ferramentas: {group}",
+  "chartLineWidth": "Espessura da linha",
+  "chartFillOpacity": "Preenchimento",
+  "chartDrawingLabels": "Etiquetas",
+  "chartTextSize": "Tamanho do texto",
+  "chartFibLevels": "Níveis"
 }

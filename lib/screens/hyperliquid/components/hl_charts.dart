@@ -2483,11 +2483,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       anchor.bottom.clamp(plot.top, plot.bottom),
     );
     return [
+      // Over the plot and its tag column: a toolbar of seven buttons
+      // needs more than a phone's plot alone.
       Positioned(
         left: 0,
         top: 0,
         bottom: 0,
-        width: plotW,
+        right: 0,
         child: CustomSingleChildLayout(
           delegate: HlDrawingToolbarLayout(
               anchor: anchor, plotHeight: geom.priceH),
