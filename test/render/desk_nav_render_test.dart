@@ -179,6 +179,7 @@ Future<void> _render(WidgetTester tester, String name,
     bool dark = false,
     int positions = 4,
     bool scrolled = false,
+    String? navTap,
     void Function(ProviderContainer container)? pick}) async {
   final now = DateTime.now();
   final coins = const [
@@ -278,6 +279,20 @@ Future<void> _render(WidgetTester tester, String name,
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
+  if (navTap != null) {
+    final item = find.descendant(
+        of: find.byKey(const ValueKey('dollars-desk-nav')),
+        matching: find.text(navTap));
+    final any = find.text(navTap);
+    if (item.evaluate().isNotEmpty) {
+      await tester.tap(item.first);
+    } else if (any.evaluate().isNotEmpty) {
+      await tester.tap(any.first, warnIfMissed: false);
+    }
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
   if (scrolled) {
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -420));
     for (var i = 0; i < 10; i++) {
@@ -343,6 +358,7 @@ void main() {
   const sizes = {
     '1000x700': Size(1000, 700),
     '1100x760': Size(1100, 760),
+    '1280x800': Size(1280, 800),
     '1440x900': Size(1440, 900),
     '1920x1080': Size(1920, 1080),
     '2400x1200': Size(2400, 1200),
@@ -356,6 +372,9 @@ void main() {
   void politics(ProviderContainer c) =>
       c.read(polyBrowseSelectionProvider.notifier).state =
           const PolyBrowseSelection(pill: PolyPill.politics);
+  void poly(ProviderContainer c, PolyPill pill, String sub) =>
+      c.read(polyBrowseSelectionProvider.notifier).state =
+          const PolyBrowseSelection().copyWith(pill: pill).copyWith(sub: sub);
   final cases = <String,
       ({
     String pill,
@@ -392,6 +411,22 @@ void main() {
     ),
     'predictions': (pill: 'predictions', positions: 0, pick: null),
     'politics': (pill: 'predictions', positions: 0, pick: politics),
+    'politics_trump': (pill: 'predictions', positions: 0, pick: politics),
+    'crypto_all': (
+      pill: 'predictions',
+      positions: 0,
+      pick: (c) => poly(c, PolyPill.crypto, 'all')
+    ),
+    'crypto_5m': (
+      pill: 'predictions',
+      positions: 0,
+      pick: (c) => poly(c, PolyPill.crypto, '5m')
+    ),
+    'crypto_15m_held': (
+      pill: 'predictions',
+      positions: 4,
+      pick: (c) => poly(c, PolyPill.crypto, '15m')
+    ),
   };
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
@@ -406,6 +441,7 @@ void main() {
                 pill: c.pill,
                 dark: dark,
                 positions: c.positions,
+                navTap: what == 'politics_trump' ? 'Trump' : null,
                 pick: c.pick));
       }
     }

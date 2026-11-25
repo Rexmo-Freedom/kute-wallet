@@ -1216,6 +1216,13 @@ const ValueKey<String> kuteSettingsDetailPageKey =
 /// The narrowest window that shows the Dollars page's left navigation.
 const double kuteDeskNavMinWidth = 1100;
 
+/// Whether the Dollars page shows its left navigation in [context]'s
+/// window (EXPANDED, at least [kuteDeskNavMinWidth] wide): a browse page
+/// then leaves to it what the navigation already offers.
+bool kuteDeskNavShown(BuildContext context) =>
+    KuteLayout.isExpanded(context) &&
+    MediaQuery.sizeOf(context).width >= kuteDeskNavMinWidth;
+
 /// The left navigation's width in a window [width] wide: 192 up to a
 /// 1200 window, then growing with it to 248 (from 1550).
 double kuteDeskNavWidthFor(double width) =>

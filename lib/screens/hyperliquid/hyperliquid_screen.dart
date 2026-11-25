@@ -1143,6 +1143,19 @@ class _HlBoardHeading extends StatelessWidget {
 /// list under them, then each category under its heading).
 const double kHlBoardBlockGap = 28;
 
+/// A category page's heading on the Dollars page on EXPANDED, as
+/// Investing's own ([_HlBoardHeading] with `page`): Predictions' category
+/// pages wear the same (polymarket_screen.dart).
+class HlBrowsePageHeading extends StatelessWidget {
+  const HlBrowsePageHeading(this.label, {super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) =>
+      _HlBoardHeading(label, page: true, seeAll: const SizedBox.shrink());
+}
+
 // ───────────────────────── empty state ─────────────────────────
 
 class _EmptyState extends StatelessWidget {
