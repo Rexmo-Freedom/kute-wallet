@@ -29,6 +29,9 @@
 
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/gestures.dart'
+    show GestureBinding, PointerScrollEvent;
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -52,7 +55,7 @@ const double kuteDeskButtonHeight = 68;
 /// The market page's two sides on EXPANDED (see the file header): [left]
 /// across the rest of the window, and at the right either [column] (at
 /// rest) or [panel] (while [open]), the one sliding in over the other.
-class KuteDeskMarket extends StatelessWidget {
+class KuteDeskMarket extends StatefulWidget {
   const KuteDeskMarket({
     super.key,
     required this.left,
@@ -70,6 +73,20 @@ class KuteDeskMarket extends StatelessWidget {
   final Widget column;
   final Widget panel;
   final bool open;
+
+  @override
+  State<KuteDeskMarket> createState() => _KuteDeskMarketState();
+}
+
+class _KuteDeskMarketState extends State<KuteDeskMarket> {
+  /// The left side, whose scroll the wheel over the column turns.
+  final GlobalKey _left = GlobalKey();
+
+  Widget get left => KeyedSubtree(key: _left, child: widget.left);
+  Widget get column => KuteWheelRelay(target: _left, child: widget.column);
+  Widget get panel => widget.panel;
+  bool get open => widget.open;
+  double get gap => widget.gap;
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +217,61 @@ class KuteDeskUnderPanel extends StatelessWidget {
             child: child,
           ),
         );
+      },
+      child: child,
+    );
+  }
+}
+
+/// The wheel over a market page's right column scrolls the PAGE (founder,
+/// 25 November 2026: "we should be able to scroll down on the right side
+/// if the mouse is there", the wheel over the chart being the chart's
+/// zoom). A vertical wheel or trackpad turn over [child] that nothing
+/// inside it takes (a list in the column that can still move takes its
+/// own) turns the first downward scroll under [target], the page's left
+/// side; at that scroll's end it does nothing.
+class KuteWheelRelay extends StatelessWidget {
+  const KuteWheelRelay({super.key, required this.target, required this.child});
+
+  /// A key over the subtree that holds the page's scroll.
+  final GlobalKey target;
+  final Widget child;
+
+  static ScrollPosition? _positionUnder(BuildContext? context) {
+    if (context == null) return null;
+    ScrollPosition? found;
+    void visit(Element e) {
+      if (found != null) return;
+      if (e is StatefulElement && e.state is ScrollableState) {
+        final scrollable = e.state as ScrollableState;
+        if (scrollable.axisDirection == AxisDirection.down) {
+          found = scrollable.position;
+          return;
+        }
+      }
+      e.visitChildren(visit);
+    }
+
+    (context as Element).visitChildren(visit);
+    return found;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is! PointerScrollEvent) return;
+        final d = event.scrollDelta;
+        if (d.dy == 0 || d.dx.abs() > d.dy.abs()) return;
+        final position = _positionUnder(target.currentContext);
+        if (position == null || !position.hasPixels) return;
+        final to = (position.pixels + d.dy)
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble();
+        if (to == position.pixels) return;
+        // After the column's own lists: the first to ask wins.
+        GestureBinding.instance.pointerSignalResolver
+            .register(event, (_) => position.jumpTo(to));
       },
       child: child,
     );

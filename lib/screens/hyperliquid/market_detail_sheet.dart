@@ -16,6 +16,7 @@ import 'package:kute/screens/shared/kute_motion.dart'
     show KuteStillWhenCovered, kuteReduceMotion, kuteMotion, kArrivalDuration;
 import 'package:kute/screens/shared/kute_detail_panes.dart'
     show kuteDetailPaneWidth;
+import 'package:kute/screens/shared/kute_desk_market.dart' show KuteWheelRelay;
 import 'package:kute/screens/shared/kute_desk_trade_buttons.dart';
 import 'package:kute/screens/shared/position_rows_card.dart'
     show PositionStatTile, PositionStatTiles, positionTileValueStyle;
@@ -348,6 +349,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
   /// The right column's top, on the price's line: the header's height
   /// (measured) plus the price block's top gutter.
   final GlobalKey _deskHeaderKey = GlobalKey();
+
+  /// The page's left side on a laptop, whose scroll the wheel over the
+  /// right column turns.
+  final GlobalKey _deskLeftKey = GlobalKey();
   double _deskHeaderHeight = 48;
 
   /// Opens the panel on [isLong] (a second click on the side it is open
@@ -959,7 +964,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                 top: 0,
                 bottom: 0,
                 right: math.max(0.0, reserve - inner),
-                child: column,
+                child: KeyedSubtree(key: _deskLeftKey, child: column),
               ),
               if (rightColumn != null && t < 1)
                 Positioned(
@@ -976,7 +981,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                     ignoring: t > 0,
                     child: Opacity(
                       opacity: (1 - t * 2).clamp(0.0, 1.0),
-                      child: rightColumn,
+                      // The wheel over the column scrolls the page
+                      // (kute_desk_market.dart, KuteWheelRelay).
+                      child: KuteWheelRelay(
+                          target: _deskLeftKey, child: rightColumn),
                     ),
                   ),
                 ),
