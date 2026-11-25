@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 class ApiResponse<T> {
@@ -20,6 +21,21 @@ class ApiClient {
       : _http = client ?? http.Client(),
         _defaultHeaders = {'Content-Type': 'application/json', ...?headers};
 
+  /// Headers for a GET. In a browser a GET carrying `Content-Type:
+  /// application/json` is not a "simple" request, so the browser first sends
+  /// an OPTIONS preflight, and public Esplora hosts (blockstream.info) answer
+  /// that with a 404: the GET is then blocked by CORS. A GET has no body, so
+  /// the web build leaves the default Content-Type off; a header the caller
+  /// passes for this request is still sent.
+  Map<String, String> _getHeaders(Map<String, String>? headers) {
+    if (!kIsWeb) return {..._defaultHeaders, ...?headers};
+    return {
+      for (final e in _defaultHeaders.entries)
+        if (e.key.toLowerCase() != 'content-type') e.key: e.value,
+      ...?headers,
+    };
+  }
+
   Future<ApiResponse<T>> get<T>(
     String path,
     T Function(dynamic) parser, {
@@ -29,7 +45,7 @@ class ApiClient {
       final res = await _http
           .get(
             Uri.parse('$baseUrl$path'),
-            headers: {..._defaultHeaders, ...?headers},
+            headers: _getHeaders(headers),
           )
           .timeout(const Duration(seconds: 15));
       if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -49,7 +65,7 @@ class ApiClient {
       final res = await _http
           .get(
             Uri.parse('$baseUrl$path'),
-            headers: {..._defaultHeaders, ...?headers},
+            headers: _getHeaders(headers),
           )
           .timeout(const Duration(seconds: 15));
       if (res.statusCode >= 200 && res.statusCode < 300) {
