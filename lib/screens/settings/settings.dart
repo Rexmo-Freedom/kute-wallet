@@ -70,6 +70,7 @@ import 'package:kute/platform/platform_caps.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/platform/web_biometrics.dart';
 import 'package:kute/platform/open_external.dart';
+import 'package:kute/platform/web_build.dart';
 
 final biometricsAvailableProvider = FutureProvider<bool>((ref) async {
   // Web without a platform authenticator: the PIN is the only lock.
@@ -115,11 +116,16 @@ Future<void> requestAppReview(WidgetRef ref) async {
 
 /// The app version as Settings → Advanced shows it: the exact string the
 /// app sends to the backend policy request (`appVersion`, the pubspec
-/// version without the build number), then the build number.
+/// version without the build number), then the build number. On web, also
+/// the first 7 characters of the running web build (the stamp's id), so a
+/// screenshot tells which deploy it came from.
 final appVersionLabelProvider = FutureProvider<String>((ref) async {
   final info = await PackageInfo.fromPlatform();
   final build = info.buildNumber.trim();
-  return build.isEmpty ? info.version : '${info.version} ($build)';
+  final label = build.isEmpty ? info.version : '${info.version} ($build)';
+  final web = kIsWeb ? webBuildId() : null;
+  if (web == null || web.isEmpty) return label;
+  return '$label · web ${web.length > 7 ? web.substring(0, 7) : web}';
 });
 
 class Settings extends ConsumerStatefulWidget {
