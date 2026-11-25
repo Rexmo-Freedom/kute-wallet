@@ -51,4 +51,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(other), findsOneWidget);
   });
+
+  test('details keep the venue\'s words without an address or an id', () {
+    // Throwaway values: a made-up address and order id.
+    const reason = 'User or API Wallet 0x1111111111111111111111111111111111111111 '
+        'does not exist. oid 46728193441';
+    expect(
+        hlTradeRejectionDetails(const HyperliquidSignatureRejectedException(reason)),
+        'User or API Wallet 0x… does not exist. oid …');
+    expect(
+        hlTradeRejectionDetails(
+            const HyperliquidRejectedException('Price must be divisible by tick size. asset=110023')),
+        'Price must be divisible by tick size. asset=110023');
+  });
 }

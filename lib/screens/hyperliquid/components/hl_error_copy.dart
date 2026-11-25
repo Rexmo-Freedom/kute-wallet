@@ -11,12 +11,18 @@ export 'package:kute/helpers/hyperliquid_error_message.dart';
 /// Only a bounded exchange rejection is suitable for optional user details.
 /// HTTP bodies and arbitrary exceptions can contain request or account data.
 /// Details are the fallback for a rejection the app has no words for; the
-/// minimum's own line ("Minimum is $X.") needs none.
+/// minimum's own line ("Minimum is $X.") needs none. The venue's own words
+/// stay, but any hex value (an address, a hash, a signature) and any long
+/// number (an order id, a nonce) inside them is cut out: a signature the
+/// venue cannot match comes back as "User or API Wallet 0x… does not exist".
 String? hlTradeRejectionDetails(Object? error) {
   if (error is! HyperliquidRejectedException) return null;
   if (hlIsMinNotionalError(error)) return null;
-  final reason =
-      error.reason.replaceAll(RegExp(r'[\x00-\x1f\x7f]'), ' ').trim();
+  final reason = error.reason
+      .replaceAll(RegExp(r'[\x00-\x1f\x7f]'), ' ')
+      .replaceAll(RegExp(r'0[xX][0-9a-fA-F]{6,}'), '0x…')
+      .replaceAll(RegExp(r'\d{9,}'), '…')
+      .trim();
   if (reason.isEmpty) return null;
   return reason.length > 800 ? '${reason.substring(0, 800)}…' : reason;
 }
