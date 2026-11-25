@@ -49,6 +49,34 @@ void main() {
       expect(old.copyWith(locked: true).copyWith(dashed: true).locked, isTrue);
     });
 
+    test('an unknown tool is never read as a trend line', () {
+      expect(chartDrawingToolFromName('pitchforkSchiff'), isNull);
+      expect(chartDrawingToolFromName(null), isNull);
+      expect(chartDrawingToolFromName('ray'), ChartDrawingTool.ray);
+      expect(
+          () => ChartDrawing.fromJson({
+                'id': 'x',
+                'tool': 'pitchforkSchiff',
+                'points': const [],
+              }),
+          throwsFormatException);
+    });
+
+    test('keys this build does not read are written back unchanged', () {
+      final d = ChartDrawing.fromJson({
+        'id': 'k',
+        'tool': 'trendline',
+        'points': [
+          {'t': 1, 'p': 2},
+          {'t': 3, 'p': 4},
+        ],
+        'future': {'x': 1},
+      });
+      final again = d.copyWith(dashed: true).toJson();
+      expect(again['future'], {'x': 1});
+      expect(again['dash'], isTrue);
+    });
+
     test('round-trips every tool with and without a color', () {
       for (final tool in ChartDrawingTool.values) {
         final d = ChartDrawing(
@@ -95,15 +123,17 @@ void main() {
         ).isValid,
         isFalse,
       );
-      // Unknown tool name falls back instead of throwing.
-      final d = ChartDrawing.fromJson({
-        'id': 'z',
-        'tool': 'squiggle',
-        'points': [
-          {'t': 1, 'p': 2.0},
-        ],
-      });
-      expect(d.tool, ChartDrawingTool.trendline);
+      // An unknown tool name is refused, never read as a trend line: the
+      // store keeps such entries raw (chart_drawings_provider_test).
+      expect(
+          () => ChartDrawing.fromJson({
+                'id': 'z',
+                'tool': 'squiggle',
+                'points': [
+                  {'t': 1, 'p': 2.0},
+                ],
+              }),
+          throwsFormatException);
     });
   });
 

@@ -6,6 +6,10 @@
 // identity, no backend. Drawings are stored in chart coordinates (time ms,
 // price), so they re-anchor correctly on any timeframe.
 //
+// Forward compatibility: an entry whose tool this build does not know (a
+// newer build's tool) is kept as its raw JSON, never shown, and written
+// back unchanged, ahead of the known drawings, on every save.
+//
 // Mutations wait for the initial load, then persist captured snapshots in
 // order. Closing the editor never needs an explicit save. Undo/redo keeps
 // bounded local history for creations, edits and deletions.
@@ -37,6 +41,10 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
   final List<List<ChartDrawing>> _undo = [];
   final List<List<ChartDrawing>> _redo = [];
   Future<void> _writes = Future.value();
+
+  /// Stored entries whose tool this build does not know, each the exact
+  /// JSON it was read as (see the file comment).
+  final List<String> _unknown = [];
 
   bool get canUndo => _undo.isNotEmpty || state.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
@@ -72,8 +80,14 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
       final loaded = <ChartDrawing>[];
+      _unknown.clear();
       for (final e in decoded) {
         if (e is! Map) continue;
+        if (chartDrawingToolFromName(e['tool']) == null) {
+          // A newer build's tool: kept, skipped, written back as it was.
+          _unknown.add(jsonEncode(e));
+          continue;
+        }
         try {
           final drawing = ChartDrawing.fromJson(Map<String, dynamic>.from(e));
           if (drawing.isValid) loaded.add(drawing);
@@ -88,10 +102,7 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
       state = merged.length > kMaxDrawingsPerMarket
           ? merged.sublist(merged.length - kMaxDrawingsPerMarket)
           : merged;
-      if (migrated) {
-        await box.put(marketKey,
-            jsonEncode([for (final drawing in state) drawing.toJson()]));
-      }
+      if (migrated) await box.put(marketKey, _encode());
     } catch (_) {/* local-only drawing storage must not block the chart */}
   }
 
@@ -158,9 +169,16 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
         _persist();
       });
 
+  /// The stored list: the unknown entries as they were read, then the
+  /// drawings. With no unknown entries it is exactly jsonEncode(list).
+  String _encode() => '[${[
+        ..._unknown,
+        for (final d in state) jsonEncode(d.toJson()),
+      ].join(',')}]';
+
   void _persist() {
     final key = arg;
-    final encoded = jsonEncode([for (final d in state) d.toJson()]);
+    final encoded = _encode();
     // Serialize captured snapshots: a slow earlier disk write cannot undo
     // a later edit. Already queued writes survive closing the chart.
     _writes = _writes.then((_) async {

@@ -91,11 +91,16 @@ int chartDrawingPointCount(ChartDrawingTool tool) {
   }
 }
 
-ChartDrawingTool _toolFromName(String? name) {
+/// The tool stored under [name], or null when this build does not know
+/// it (a newer build's tool). Never a guess: a stored drawing whose tool
+/// is unknown is kept as it was and skipped (ChartDrawingsNotifier writes
+/// its raw JSON back unchanged), so an older build can never rewrite a
+/// newer tool as a trend line.
+ChartDrawingTool? chartDrawingToolFromName(Object? name) {
   for (final t in ChartDrawingTool.values) {
     if (t.name == name) return t;
   }
-  return ChartDrawingTool.trendline;
+  return null;
 }
 
 /// One anchor: a market moment (epoch ms) at a price.
@@ -121,6 +126,9 @@ class ChartDrawingPoint {
 ///
 /// [dashed], [locked] and [extend] came later: absent in older records,
 /// they read as false, and are only written when on.
+///
+/// Forward compatibility: keys this build does not know (a newer build's
+/// settings) are kept in [extra] and written back as they were.
 class ChartDrawing {
   final String id;
   final ChartDrawingTool tool;
@@ -138,6 +146,9 @@ class ChartDrawing {
   /// A trend line carried on past its later point to the right edge.
   final bool extend;
 
+  /// Stored keys this build does not read, written back unchanged.
+  final Map<String, Object?> extra;
+
   const ChartDrawing({
     required this.id,
     required this.tool,
@@ -147,7 +158,20 @@ class ChartDrawing {
     this.dashed = false,
     this.locked = false,
     this.extend = false,
+    this.extra = const {},
   });
+
+  /// The keys [toJson] writes itself; anything else read is [extra].
+  static const Set<String> _ownKeys = {
+    'id',
+    'tool',
+    'points',
+    'color',
+    'text',
+    'dash',
+    'lock',
+    'ext',
+  };
 
   /// The picked color, or null for "use the theme neutral".
   Color? get color => colorValue == null ? null : Color(colorValue!);
@@ -171,6 +195,7 @@ class ChartDrawing {
         dashed: dashed ?? this.dashed,
         locked: locked ?? this.locked,
         extend: extend ?? this.extend,
+        extra: extra,
       );
 
   /// Replace one anchor point (handle drag).
@@ -190,12 +215,17 @@ class ChartDrawing {
         if (dashed) 'dash': true,
         if (locked) 'lock': true,
         if (extend) 'ext': true,
+        for (final e in extra.entries)
+          if (!_ownKeys.contains(e.key)) e.key: e.value,
       };
 
+  /// Throws a [FormatException] for a tool this build does not know
+  /// ([chartDrawingToolFromName]); the store keeps such entries raw.
   factory ChartDrawing.fromJson(Map<String, dynamic> json) => ChartDrawing(
         id: json['id'] as String? ??
             DateTime.now().microsecondsSinceEpoch.toString(),
-        tool: _toolFromName(json['tool'] as String?),
+        tool: chartDrawingToolFromName(json['tool']) ??
+            (throw FormatException('unknown drawing tool', json['tool'])),
         points: [
           for (final p in (json['points'] as List? ?? const []))
             if (p is Map)
@@ -206,6 +236,10 @@ class ChartDrawing {
         dashed: json['dash'] == true,
         locked: json['lock'] == true,
         extend: json['ext'] == true,
+        extra: {
+          for (final e in json.entries)
+            if (!_ownKeys.contains(e.key)) e.key: e.value,
+        },
       );
 
   /// Structurally usable — enough points for its tool and a real price on

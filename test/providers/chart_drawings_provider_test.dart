@@ -118,4 +118,42 @@ void main() {
     expect(container.read(hlChartDrawingsProvider(key)).map((d) => d.id),
         ['saved', 'first', 'second']);
   });
+
+  test(
+      'a newer build\'s tool is kept, skipped and written back byte for '
+      'byte through a load, an edit and a save', () async {
+    final key = hlChartDrawingMarketKey(_market('SOL', 'SOL'));
+    // What a newer build wrote: its own tool (with its own fields) among
+    // a known drawing that also carries a key this build does not read.
+    const unknown = '{"id":"future","tool":"pitchforkSchiff",'
+        '"points":[{"t":1,"p":2.5},{"t":3,"p":4},{"t":5,"p":6}],'
+        '"color":4280391411,"w":3,"mystery":{"a":[1,2]}}';
+    const known = '{"id":"lvl","tool":"level",'
+        '"points":[{"t":100,"p":110.0}],"glow":true}';
+    await box.put(key, '[$unknown,$known]');
+    final provider = hlChartDrawingsProvider(key);
+    await _until(() => container.read(provider).isNotEmpty);
+    // Never shown, never turned into a trend line.
+    expect(container.read(provider).map((d) => d.id), ['lvl']);
+    expect(container.read(provider).single.tool, ChartDrawingTool.level);
+
+    final notifier = container.read(provider.notifier);
+    notifier.update(container.read(provider).single.copyWith(dashed: true));
+    notifier.add(_drawing('new'));
+    await _until(() => box.get(key)?.contains('"new"') == true);
+    final saved = box.get(key)!;
+    expect(saved.startsWith('[$unknown,'), isTrue, reason: saved);
+    // The known drawing keeps the key it does not read, too.
+    final back = (jsonDecode(saved) as List).cast<Map>();
+    expect(back[1]['glow'], isTrue);
+    expect(back[1]['dash'], isTrue);
+
+    // A second load sees the same: one unknown kept, two drawings.
+    container.dispose();
+    container = ProviderContainer();
+    await _until(() => container.read(provider).length == 2);
+    container.read(provider.notifier).remove('new');
+    await _until(() => box.get(key)?.contains('"new"') == false);
+    expect(box.get(key)!.startsWith('[$unknown,'), isTrue);
+  });
 }
