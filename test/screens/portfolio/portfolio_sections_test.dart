@@ -419,6 +419,17 @@ String _rolling(WidgetTester tester, Finder row, String key) => tester
     .text;
 
 void main() {
+  // Inter in the engine before any layout, as main.dart has it before the
+  // first frame (see loadAppFonts). Without it the first test to run here
+  // laid its pills out in the test's fallback font, whose glyphs are a full
+  // em wide: at 375 pt and 130 % text the switch's other pills hugged
+  // those wide words and squeezed the picked one past its icon. Every
+  // later test had the font an earlier one loaded, so the file passed
+  // whole and failed when CI's sharding ran that test first
+  // (25 November 2026).
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(loadAppFonts);
+
   testWidgets(
       'all three sections empty: one empty state, Sal and the title at the '
       'same place, only the copy changes; the hero is the total and its '
