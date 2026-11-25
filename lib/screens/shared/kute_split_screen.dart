@@ -56,7 +56,7 @@ class KuteSplitScreen extends StatelessWidget {
     }
     final c = context.colors;
     final height =
-        math.min(window.height - 2 * kuteWideGutter, kuteSplitFormHeight);
+        math.min(window.height - 64, kuteSplitFormHeight);
     const width = KuteLayout.paneWidth;
     final mq = MediaQuery.of(context);
     // A keyboard (an iPad in landscape is EXPANDED) covers the window's

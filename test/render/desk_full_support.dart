@@ -41,6 +41,7 @@ final String? deskFullDir = Platform.environment['DESK_FULL_RENDER'];
 const List<(String, Size)> deskFullExpanded = [
   ('1440x900', Size(1440, 900)),
   ('1920x1080', Size(1920, 1080)),
+  ('2400x1200', Size(2400, 1200)),
   ('1180x820', Size(1180, 820)),
   ('1000x700', Size(1000, 700)),
 ];

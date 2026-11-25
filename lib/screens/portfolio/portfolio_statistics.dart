@@ -29,7 +29,8 @@ import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_pnl_section.dart'
-    show PortfolioPnlBreakdown;
+    show PortfolioPnlBreakdown, PortfolioPnlColumns;
+import 'package:kute/platform/kute_layout.dart' show KuteLayout;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/shared/venue_deposit_button.dart'
@@ -305,12 +306,27 @@ class _PortfolioStatisticsOverviewState
     final all = [if (header != null) header, ...top];
     if (widget.boxed) {
       assert(widget.footer.isEmpty, 'a boxed section takes no footer');
+      // A laptop's Portfolio: the breakdown lays out its own columns; the
+      // rest (the resting orders, an empty state) keeps a readable column
+      // at the left, never a row across the pane.
+      final columns = PortfolioPnlColumns.inColumns(context);
       return Padding(
         padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ...all,
+            for (final w in all)
+              if (!columns || w is PortfolioPnlBreakdown)
+                w
+              else
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                        maxWidth: KuteLayout.columnMaxWidth),
+                    child: w,
+                  ),
+                ),
             SizedBox(
                 height: widget.endClearance ??
                     32.h + kuteDockScrollClearance(context)),
@@ -333,11 +349,26 @@ class _PortfolioStatisticsOverviewState
               ];
               final n = kuteColumnsFor(constraints.crossAxisExtent,
                   min: kuteWideColumnMin + 32.w, gap: 0, max: 1 + lists.length);
+              // The balance's card and its Move money at a readable
+              // width at the figures' left, the chart under it across.
+              final figures = [
+                if (header != null)
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxWidth: kuteWideColumnMax),
+                      child: header,
+                    ),
+                  ),
+                ...top,
+              ];
               final columns = <List<Widget>>[
                 [
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
-                    sliver: SliverList(delegate: SliverChildListDelegate(all)),
+                    sliver:
+                        SliverList(delegate: SliverChildListDelegate(figures)),
                   ),
                 ],
                 if (n >= 3 || lists.length < 2)
@@ -348,10 +379,20 @@ class _PortfolioStatisticsOverviewState
               if (columns.length == 1) {
                 return SliverMainAxisGroup(slivers: columns.single);
               }
+              // Three columns: the lists keep a readable column each
+              // (their rows and cards never past it); the figures, the
+              // chart first, take the rest of the window (the page runs
+              // gutter to gutter). Two: halves, as before.
               return SliverCrossAxisGroup(slivers: [
-                for (final c in columns)
-                  SliverCrossAxisExpanded(
-                      flex: 1, sliver: SliverMainAxisGroup(slivers: c)),
+                for (final (i, c) in columns.indexed)
+                  if (i == 0 || columns.length < 3)
+                    SliverCrossAxisExpanded(
+                        flex: 1, sliver: SliverMainAxisGroup(slivers: c))
+                  else
+                    SliverConstrainedCrossAxis(
+                        maxExtent: kuteSideColumnWidthFor(
+                            MediaQuery.sizeOf(context).width),
+                        sliver: SliverMainAxisGroup(slivers: c)),
               ]);
             }),
           ),

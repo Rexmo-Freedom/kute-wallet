@@ -31,6 +31,7 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/creation/add_wallet.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/creation/bitcoin_wallet_setup.dart';
 import 'package:kute/screens/creation/external_address_import_screen.dart';
 import 'package:kute/screens/creation/share_code_screen.dart';
@@ -368,7 +369,16 @@ void main() {
         await _up(tester);
         await _pump(tester, size: size, dark: false, page: build(), mode: mode);
         expect(tester.takeException(), isNull);
-        expectDeskNothingStretched(tester, maxCard: kuteWideColumnMax + 1);
+        expectDeskNothingStretched(tester,
+            maxCard: kuteWideColumnMax + 1,
+            // Add wallet's Other Wallet row spans its section's two
+            // square cards exactly (a grid row, not a stretched card).
+            allow: [
+              if (name == 'add_wallet')
+                find.ancestor(
+                    of: find.text('Other Wallet'),
+                    matching: find.byType(KutePressable)),
+            ]);
         await _end(tester);
       });
     }

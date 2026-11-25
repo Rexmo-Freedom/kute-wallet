@@ -17,7 +17,7 @@
 //     Two panes: what you look at (the chart, the market, the lists) on
 //     the left, what you do (the ticket, the slip, the balance and its
 //     actions) in a [paneWidth] column on the right; the whole page
-//     centred at [pageMaxWidth].
+//     across the window between its gutters.
 //
 // SCALING: on a phone flutter_screenutil scales the 430-wide design to
 // the screen's width. Past 600 that would blow every size up with the
@@ -56,8 +56,10 @@ abstract final class KuteLayout {
   /// A sheet on MEDIUM and EXPANDED.
   static const double sheetMaxWidth = 480;
 
-  /// The two panes together on EXPANDED; wider windows keep the page
-  /// centred with the app background at its sides.
+  /// The two panes together on EXPANDED, once: since 25 November 2026
+  /// ("it must be all occupying full screen") a page runs from the
+  /// window's left gutter to its right at any width (kuteWideMaxWidth,
+  /// kute_wide_frames.dart); kept for a MEDIUM page's wide editor.
   static const double pageMaxWidth = 1360;
 
   /// The gap between the two panes and the page's side gutter on EXPANDED.

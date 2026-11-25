@@ -739,8 +739,8 @@ const double kuteDeskListMaxWidth = 960;
 // window: "lots of screens are vertical only. It must be all occupying
 // full screen when we can." Round one's rule (every pushed page a centred
 // [KuteFormColumn]) holds on MEDIUM only. On EXPANDED a page spans the
-// window: page gutters of [kuteWideGutter], at most
-// [KuteLayout.pageMaxWidth] for a reading page, its content arranged in
+// window: page gutters of [kuteWideGutter] (the top bar's), no width cap
+// ([kuteWideMaxWidth]; a readable measure inside it), its content arranged in
 // COLUMNS ([KuteColumns]) and GRIDS ([KuteGrid], [SliverKuteGrid]) of the
 // existing cards and rows, so no row, card or button is stretched and no
 // half of the window is empty. A rows card stays about 360-560 wide, prose
@@ -776,8 +776,18 @@ enum KuteWideMode {
   own,
 }
 
-/// A full page's side gutter on EXPANDED.
-const double kuteWideGutter = 32;
+/// A full page's side gutter on EXPANDED: the desktop top bar's
+/// ([kuteDeskGutter]), so a page's back button and its last column stand
+/// on the bar's logo and its last button (founder, 25 November 2026:
+/// "make it full screen also").
+const double kuteWideGutter = kuteDeskGutter;
+
+/// A full page's content width on EXPANDED: no cap, the window between
+/// its gutters at any width (founder, 25 November 2026, of pages centred
+/// at [KuteLayout.pageMaxWidth] on a 2000 window: "why is this one not
+/// full screen also?"). A page with a readable measure (a form, prose, a
+/// pair of rows cards) passes its own `maxWidth`.
+const double kuteWideMaxWidth = double.infinity;
 
 /// The least width of a column of rows or cards on EXPANDED: three
 /// columns from a window of about 1200, two under it.
@@ -798,25 +808,27 @@ bool kuteIsExpanded(BuildContext context) =>
 /// The horizontal padding that centres a full page's content at
 /// [maxWidth] with at least [kuteWideGutter] at its sides, for a scroll
 /// view's own padding (the whole window scrolls, the content stays in the
-/// page). [width] is the page's width.
+/// page). [width] is the page's width. By default the content runs from
+/// gutter to gutter ([kuteWideMaxWidth]).
 EdgeInsets kuteWidePaddingFor(double width,
-    {double maxWidth = KuteLayout.pageMaxWidth}) {
+    {double maxWidth = kuteWideMaxWidth}) {
   final side = math.max(kuteWideGutter, (width - maxWidth) / 2);
   return EdgeInsets.symmetric(horizontal: side);
 }
 
 /// [kuteWidePaddingFor] for [context]'s width.
 EdgeInsets kuteWidePadding(BuildContext context,
-        {double maxWidth = KuteLayout.pageMaxWidth}) =>
+        {double maxWidth = kuteWideMaxWidth}) =>
     kuteWidePaddingFor(MediaQuery.sizeOf(context).width, maxWidth: maxWidth);
 
-/// A full page's content on EXPANDED: centred at [maxWidth] inside the
-/// page gutters ([kuteWidePadding]). Elsewhere [child] as it is.
+/// A full page's content on EXPANDED: inside the page gutters
+/// ([kuteWidePadding]), centred at [maxWidth] when it has one. Elsewhere
+/// [child] as it is.
 class KuteWidePage extends StatelessWidget {
   const KuteWidePage({
     super.key,
     required this.child,
-    this.maxWidth = KuteLayout.pageMaxWidth,
+    this.maxWidth = kuteWideMaxWidth,
   });
 
   final Widget child;
@@ -832,17 +844,36 @@ class KuteWidePage extends StatelessWidget {
   }
 }
 
+/// A side column's width on an EXPANDED page in a window [window] wide
+/// (the Bitcoin home's goals, the Portfolio's positions and activity), its
+/// cards' own 16 insets in: cards a quarter of the window, 440 to 520, on
+/// the window's right gutter.
+double kuteSideColumnWidthFor(double window) =>
+    (window * 0.25).clamp(440.0, 520.0) + 32;
+
 /// How many columns of at least [min] wide (with [gap] between) fit in
-/// [width], from 1 to [max].
+/// [width], from 1 to [max]. With [maxItem], [max] gives way on a wide
+/// window (the page runs gutter to gutter): as many more columns as keep
+/// each at most [maxItem], while they still fit at [min].
 int kuteColumnsFor(double width,
-    {double min = kuteWideColumnMin, double gap = kuteWideGap, int max = 4}) {
+    {double min = kuteWideColumnMin,
+    double gap = kuteWideGap,
+    int max = 4,
+    double? maxItem}) {
   if (!width.isFinite || width <= 0) return 1;
-  return ((width + gap) / (min + gap)).floor().clamp(1, math.max(1, max));
+  final fit = ((width + gap) / (min + gap)).floor();
+  var n = fit.clamp(1, math.max(1, max)).toInt();
+  if (maxItem != null) {
+    final need = ((width + gap) / (maxItem + gap)).ceil();
+    if (need > n) n = math.max(1, math.min(need, fit));
+  }
+  return n;
 }
 
 /// Sections side by side: [children] (each a section: its header and its
 /// grouped card, or any block) laid out in as many columns of at least
-/// [minColumnWidth] as the width takes, at most [maxColumns] and never
+/// [minColumnWidth] as the width takes, at most [maxColumns] (more on a
+/// window wide enough that they would pass [kuteWideColumnMax]) and never
 /// more than there are children, filled in reading order across the
 /// columns (the first child top left, the second top of the next column,
 /// …). Each column's children stack with [spacing] between. One column:
@@ -902,10 +933,15 @@ class KuteColumns extends StatelessWidget {
         if (c is! SizedBox || c.child != null) c
     ];
     return LayoutBuilder(builder: (context, constraints) {
-      final n = kuteColumnsFor(constraints.maxWidth,
-          min: minColumnWidth,
-          gap: gap,
-          max: math.min(maxColumns, math.max(1, items.length)));
+      // Never a column past a readable one while there are sections
+      // left to put beside it.
+      final n = math.min(
+          kuteColumnsFor(constraints.maxWidth,
+              min: minColumnWidth,
+              gap: gap,
+              max: maxColumns,
+              maxItem: kuteWideColumnMax),
+          math.max(1, items.length));
       Widget stack(List<Widget> list) => Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -956,7 +992,10 @@ class KuteGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final n = kuteColumnsFor(constraints.maxWidth,
-          min: minItemWidth, gap: gap, max: maxColumns);
+          min: minItemWidth,
+          gap: gap,
+          max: maxColumns,
+          maxItem: kuteWideColumnMax);
       final rows = <Widget>[];
       for (var i = 0; i < children.length; i += n) {
         if (i > 0) rows.add(SizedBox(height: rowGap));
@@ -1019,7 +1058,10 @@ class SliverKuteGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverLayoutBuilder(builder: (context, constraints) {
       final n = kuteColumnsFor(constraints.crossAxisExtent,
-          min: minItemWidth, gap: gap, max: maxColumns);
+          min: minItemWidth,
+          gap: gap,
+          max: maxColumns,
+          maxItem: kuteWideColumnMax);
       final rows = (itemCount + n - 1) ~/ n;
       return SliverList(
         delegate: SliverChildBuilderDelegate(

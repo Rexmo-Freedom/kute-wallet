@@ -98,6 +98,8 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
         portfolioRowTitleStyle;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show KuteColumns, kuteColumnsFor, kuteWideGap;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
 import 'package:kute/screens/portfolio/portfolio_closed_receipt.dart';
@@ -146,42 +148,98 @@ class PortfolioPnlBreakdown extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = portfolioPnlPeriod(ref, venue: selected);
-    return Column(
+    final split = portfolioPnlSplit(ref, period);
+    final headline = [
+      _PnlHeadline(period: period),
+      if (split != null) ...[
+        SizedBox(height: 14.h),
+        _PnlSplitCard(split: split),
+      ],
+    ];
+    final byProduct = [
+      Text(context.l10n.portfolioPnlByProduct,
+          key: const ValueKey('statistics-pnl-by-product'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: balancesFlatSectionTitle(context)),
+      SizedBox(height: kBalancesTitleGap.h),
+      _ByProduct(
+        listed: listed,
+        quiet: quiet,
+        quietText: quietText,
+        selected: selected,
+        onPick: onPick,
+        range: period.ready ? period.range : null,
+      ),
+    ];
+    final closed = _ClosedPositions(
+      venue: selected,
+      since:
+          period.ready && period.range != BalanceRange.all ? period.start : null,
+    );
+    final stack = Column(
       key: const ValueKey('statistics-pnl-section'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         // The section's list starts 4 under the strip.
         SizedBox(height: (kPortfolioSectionEmptyTop - 4).h),
-        _PnlHeadline(period: period),
-        if (portfolioPnlSplit(ref, period) case final split?) ...[
-          SizedBox(height: 14.h),
-          _PnlSplitCard(split: split),
-        ],
+        ...headline,
         SizedBox(height: kBalancesGroupGap.h),
-        Text(context.l10n.portfolioPnlByProduct,
-            key: const ValueKey('statistics-pnl-by-product'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: balancesFlatSectionTitle(context)),
-        SizedBox(height: kBalancesTitleGap.h),
-        _ByProduct(
-          listed: listed,
-          quiet: quiet,
-          quietText: quietText,
-          selected: selected,
-          onPick: onPick,
-          range: period.ready ? period.range : null,
-        ),
-        _ClosedPositions(
-          venue: selected,
-          since: period.ready && period.range != BalanceRange.all
-              ? period.start
-              : null,
-        ),
+        ...byProduct,
+        closed,
       ],
     );
+    if (!PortfolioPnlColumns.inColumns(context)) return stack;
+    // A laptop's Portfolio (PortfolioPnlColumns): the same blocks side by
+    // side, their first lines on one line; one column: as above.
+    return LayoutBuilder(builder: (context, box) {
+      final n = kuteColumnsFor(box.maxWidth, max: 3);
+      if (n <= 1) return stack;
+      Widget block(List<Widget> children) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: children,
+          );
+      // The closed positions carry their own gap over them: in a column
+      // of their own it is the room the others have over their first line.
+      final columns = n >= 3
+          ? [
+              block([SizedBox(height: kBalancesGroupGap.h), ...headline]),
+              block([SizedBox(height: kBalancesGroupGap.h), ...byProduct]),
+              block([closed]),
+            ]
+          : [
+              block([
+                SizedBox(height: kBalancesGroupGap.h),
+                ...headline,
+                closed,
+              ]),
+              block([SizedBox(height: kBalancesGroupGap.h), ...byProduct]),
+            ];
+      return KuteColumns.fixed(
+          key: const ValueKey('statistics-pnl-section'),
+          columns: columns,
+          gap: kuteWideGap + 8);
+    });
   }
+}
+
+/// Marks the Portfolio screen's P&L on a laptop (investments_portfolio.
+/// dart, the wide page): under it the breakdown lays its blocks ("You're
+/// up" and its split, By product, the closed positions) side by side as
+/// the width takes ([kuteColumnsFor]), and the rows after it (the resting
+/// orders, an empty state) keep one readable column at its left.
+class PortfolioPnlColumns extends InheritedWidget {
+  const PortfolioPnlColumns({super.key, required super.child});
+
+  static bool inColumns(BuildContext context) =>
+      context.getElementForInheritedWidgetOfExactType<
+          PortfolioPnlColumns>() !=
+      null;
+
+  @override
+  bool updateShouldNotify(PortfolioPnlColumns oldWidget) => false;
 }
 
 /// A P&L as the tab writes it: signed dollars;

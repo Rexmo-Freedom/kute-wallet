@@ -13,20 +13,27 @@
 //     it ("the balance always on the top"): the balance and Purchase /
 //     Scan / Receive / Send are the desktop top bar's
 //     (desktop_top_bar_money.dart), so the page under it is what you look
-//     at ([BitcoinPanesFrame]: centred at [KuteLayout.pageMaxWidth], the
-//     page gutters, the top bar's room, [KuteLayout.paneGap] between):
+//     at ([BitcoinPanesFrame]: the whole window between the top bar's
+//     gutters, the top bar's room; founder, 25 November 2026: "why is
+//     this one not full screen also?"):
 //       - LEFT, the one scroll, the floating bar centred under it
-//         ([KuteBarPane]): the home's pill (Activity) at its top left,
-//         where the Dollars pills stand; the backup banner, slim, at the
-//         top of its list; then the full Bitcoin activity (what "See all"
-//         opens on a phone, loading more as it scrolls) in a readable
-//         column ([kBitcoinListMaxWidth]), left-aligned.
-//       - RIGHT, at [KuteLayout.paneWidth], still, once the wallet has a
-//         history: the Goals card (the balance chart and the goals; a
-//         Ledger or watch-only wallet's Balance charts). The floating bar
-//         stays the search there ([BalanceGoalsNoBar]).
+//         ([KuteBarPane]): no pill on a laptop (founder, 25 November
+//         2026, of the Activity chip: "no need on desktop"; it opened
+//         nothing there); the backup banner, slim, at the top of its
+//         list; then the full Bitcoin activity (what "See all" opens on
+//         a phone, loading more as it scrolls): its day cards in masonry
+//         columns as the Activity page lays them ([ActivityDayColumns],
+//         [bitcoinActivityColumns]: each day whole, Today first, the
+//         cards [kBitcoinCardMin] to [kBitcoinCardMax] wide), one
+//         column at most [kBitcoinListMaxWidth] on a narrower window.
+//       - RIGHT, on the window's right gutter, still, once the wallet has
+//         a history ([bitcoinSideColumnWidth], 440 to 520 cards): the
+//         Goals card (the balance chart, taller on a tall window, and the
+//         goals; a Ledger or watch-only wallet's Balance charts), its top
+//         on the first day's name. The floating bar stays the search
+//         there ([BalanceGoalsNoBar]).
 //       - A new wallet: no right column; one empty state (Sal, "No
-//         activity yet") close under the pill, centred in the page.
+//         activity yet") at the top of the page, centred.
 //     Another wallet's tab (WalletBitcoinBody.wide) takes the same frame:
 //     its activity on the left, its charts on the right.
 
@@ -35,7 +42,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
@@ -46,6 +52,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/screens/analytics/components/balance_goals.dart'
     show BalanceGoalsNoBar;
+import 'package:kute/screens/analytics/components/balance_history_chart.dart'
+    show BalanceChartPlotHeight;
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/home/home.dart' show Home;
 import 'package:kute/screens/share/pending_share_links.dart';
@@ -53,7 +61,10 @@ import 'package:kute/screens/shared/all_activity.dart'
     show ActivityScope, AllActivitySliver, watchAllActivity;
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/desk_lists.dart'
+    show DeskFirstColumn, DeskListColumnRule, kDeskListInset;
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart'
+    show kKuteTrendPlotHeight;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
@@ -63,6 +74,38 @@ import 'package:kute/theme/app_theme.dart';
 /// A single column of rows in the left pane: at most this wide,
 /// left-aligned (the Dollars lists' rule), never stretched across it.
 const double kBitcoinListMaxWidth = 720;
+
+/// The narrowest and the widest a day card stands in the left pane's
+/// columns (its 16 insets out): a row reads whole, never stretched.
+const double kBitcoinCardMin = 420;
+const double kBitcoinCardMax = 680;
+
+/// How many columns of day cards the left pane lays out at [width] (the
+/// cards' 16 insets in): as few as keep each card under
+/// [kBitcoinCardMax], never so many that one is under [kBitcoinCardMin].
+/// One up to a window of about 1200, two from there, three on a very
+/// wide one.
+int bitcoinActivityColumns(double width) {
+  if (!width.isFinite || width <= 0) return 1;
+  final inset = 2 * kDeskListInset;
+  final most = (width / (kBitcoinCardMin + inset)).floor();
+  final least = (width / (kBitcoinCardMax + inset)).ceil();
+  return math.max(1, math.min(least, most));
+}
+
+/// The right column's width on EXPANDED in a window [window] wide, the
+/// cards' 16 insets in: cards a quarter of the window, 440 to 520.
+double bitcoinSideColumnWidth(double window) => kuteSideColumnWidthFor(window);
+
+/// The balance chart's plot in the right column of a window [height]
+/// tall: taller on a tall window, the goals still under it above the
+/// fold.
+double bitcoinSidePlotHeight(double height) =>
+    (height * 0.28).clamp(kKuteTrendPlotHeight, 340.0);
+
+/// The right column's top: its card's top on the first day's name in the
+/// left pane (ActivityDaySection's 14 over it).
+double get kBitcoinSideTop => 14.h;
 
 /// The key of the right pane on EXPANDED (the hero), for the frame check.
 const Key kBitcoinActionPaneKey = ValueKey('bitcoin-home-action-pane');
@@ -87,11 +130,12 @@ class BitcoinHomePanes extends StatelessWidget {
 
 /// The Dollars page's frame on EXPANDED (usd_account_screen.dart,
 /// _InvestmentsPanes), for a Bitcoin surface: the desktop top bar's room,
-/// the page centred at [KuteLayout.pageMaxWidth] with [KuteLayout.paneGap]
-/// at its sides and between the panes; [left] flexible, the floating bar
-/// centred under it ([KuteBarPane]); [right], when there is one, at
-/// [KuteLayout.paneWidth], a phone column (its MediaQuery's width the
-/// pane's).
+/// the whole window, the cards' edges on the top bar's gutters (the
+/// lists' own 16 inside [kuteBrowsePagePadding]); [left] flexible, the
+/// floating bar centred under it ([KuteBarPane]); [right], when there is
+/// one, at [bitcoinSideColumnWidth] on the right gutter, a phone column
+/// (its MediaQuery's width the pane's), the cards 32 apart as the left
+/// pane's columns are.
 class BitcoinPanesFrame extends StatelessWidget {
   const BitcoinPanesFrame({super.key, required this.left, this.right});
 
@@ -101,56 +145,25 @@ class BitcoinPanesFrame extends StatelessWidget {
   final Widget? right;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        // The desktop top bar's room, which the shell keeps.
-        padding: const EdgeInsets.only(top: kuteTopBarHeight),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: KuteBarPane(child: left)),
-                  if (right != null) ...[
-                    const SizedBox(width: KuteLayout.paneGap),
-                    SizedBox(
-                      width: KuteLayout.paneWidth,
-                      child: kuteNarrowMedia(context,
-                          width: KuteLayout.paneWidth, child: right!),
-                    ),
-                  ],
-                ],
-              ),
+  Widget build(BuildContext context) {
+    final side = bitcoinSideColumnWidth(MediaQuery.sizeOf(context).width);
+    return Padding(
+      // The desktop top bar's room, which the shell keeps.
+      padding: const EdgeInsets.fromLTRB(
+          kuteBrowsePagePadding, kuteTopBarHeight, kuteBrowsePagePadding, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: KuteBarPane(child: left)),
+          if (right != null)
+            SizedBox(
+              width: side,
+              child: kuteNarrowMedia(context, width: side, child: right!),
             ),
-          ),
-        ),
-      );
-}
-
-/// A pill row at the top left of a left pane, where the Dollars page
-/// draws its own (usd_account_screen.dart): the same insets and width cap.
-class BitcoinPaneTop extends StatelessWidget {
-  const BitcoinPaneTop({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 10.h),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: KuteLayout.paneWidth - 24),
-            child: child,
-          ),
-        ),
-      );
+        ],
+      ),
+    );
+  }
 }
 
 /// [sliver] at most [kBitcoinListMaxWidth] wide, at the pane's left, with
@@ -249,17 +262,20 @@ class BitcoinHomeDesktop extends ConsumerWidget {
           if (!isSavings) const PendingShareLinksCard(),
         ],
         empty: emptyState,
-        list: (controller) => history.waking
+        list: (controller, columns) => history.waking
             ? const SliverToBoxAdapter(child: SkeletonRowList(count: 3))
             : isSavings
-                ? const SliverToBoxAdapter(
+                ? SliverToBoxAdapter(
                     child: TransactionList(
-                        showAll: true, emptyState: NoActivityState()),
+                        showAll: true,
+                        columns: columns,
+                        emptyState: const NoActivityState()),
                   )
                 // What the phone's See all opens, in full.
                 : AllActivitySliver(
                     controller: controller,
                     scope: ActivityScope.bitcoin,
+                    columns: columns,
                     emptyState: const NoActivityState()),
       ),
       right: history.empty
@@ -269,7 +285,7 @@ class BitcoinHomeDesktop extends ConsumerWidget {
                 surface: 'home',
                 showPrice: false,
                 balanceGoals: !isSavings,
-                padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+                padding: EdgeInsets.only(top: kBitcoinSideTop, bottom: 24.h),
               ),
             ),
     );
@@ -287,20 +303,24 @@ class BitcoinSideColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => BalanceGoalsNoBar(
-        child: SingleChildScrollView(
-          key: kBitcoinActionPaneKey,
-          physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.only(
-              bottom: MediaQuery.viewPaddingOf(context).bottom + 16.h),
-          child: RepaintBoundary(child: child),
+        child: BalanceChartPlotHeight(
+          height: bitcoinSidePlotHeight(MediaQuery.sizeOf(context).height),
+          child: SingleChildScrollView(
+            key: kBitcoinActionPaneKey,
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.viewPaddingOf(context).bottom + 16.h),
+            child: RepaintBoundary(child: child),
+          ),
         ),
       );
 }
 
-/// The left pane of a Bitcoin surface on EXPANDED: the Activity pill at
-/// its top left (where the Dollars pills stand), then one scroll: the
-/// [banners], slim, and the [list] in a readable column, or, [empty], the
-/// one empty state centred under the pill. Pull-to-refresh is [onRefresh].
+/// The left pane of a Bitcoin surface on EXPANDED: one scroll, no pill
+/// over it (see the file header): the [banners], slim, and the [list] in
+/// columns of day cards ([bitcoinActivityColumns]) or one readable
+/// column, or, [empty], the one empty state centred at its top.
+/// Pull-to-refresh is [onRefresh].
 class BitcoinActivityPane extends ConsumerStatefulWidget {
   const BitcoinActivityPane({
     super.key,
@@ -312,8 +332,10 @@ class BitcoinActivityPane extends ConsumerStatefulWidget {
 
   final RefreshCallback onRefresh;
 
-  /// The rows, as a sliver, given the pane's scroll (to load more).
-  final Widget Function(ScrollController controller) list;
+  /// The rows, as a sliver, given the pane's scroll (to load more) and
+  /// whether to lay their day cards in columns ([ActivityDayColumns],
+  /// under the pane's [DeskListColumnRule]).
+  final Widget Function(ScrollController controller, bool columns) list;
   final bool empty;
   final List<Widget> banners;
 
@@ -334,64 +356,62 @@ class _BitcoinActivityPaneState extends ConsumerState<BitcoinActivityPane> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // The phone strip's first pill, named as it names it; on EXPANDED it
-    // is the activity itself (no "See all"), the goals standing beside it.
-    final pill = KutePillTabs(
-      items: [
-        KutePillItem(
-            label: context.l10n.activity, icon: Icons.receipt_long_rounded),
-      ],
-      selectedIndex: 0,
-      onTap: (_) {},
-      size: kutePillSwitchSize,
-      // Its own width, as the Dollars pills hug theirs.
-      scroll: true,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        BitcoinPaneTop(child: pill),
-        Expanded(
-          child: bitcoinPaneScrollWatch(
-            ref,
-            RefreshIndicator(
-              onRefresh: widget.onRefresh,
-              color: c.accent,
-              backgroundColor: c.surface,
-              child: CustomScrollView(
-                controller: _controller,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  if (widget.banners.isNotEmpty)
-                    BitcoinListWidthSliver(
-                      sliver: SliverToBoxAdapter(
-                        // On the rows' 16 gutter.
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.w),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: widget.banners,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (widget.empty)
-                    // ONE empty state, centred in the page, close under
-                    // the pill like the empty Dollars Overview (Sal's
-                    // sprite carries ~20 of air above him).
-                    const SliverToBoxAdapter(
-                      child: NoActivityState(
-                          padding: EdgeInsets.fromLTRB(24, 44, 24, 8)),
-                    )
-                  else
-                    BitcoinListWidthSliver(sliver: widget.list(_controller)),
-                  bitcoinPaneEnd(context),
-                ],
-              ),
-            ),
+    Widget banners() => Padding(
+          // On the rows' 16 gutter.
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: widget.banners,
           ),
+        );
+    return bitcoinPaneScrollWatch(
+      ref,
+      RefreshIndicator(
+        onRefresh: widget.onRefresh,
+        color: c.accent,
+        backgroundColor: c.surface,
+        child: CustomScrollView(
+          controller: _controller,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            if (widget.empty) ...[
+              if (widget.banners.isNotEmpty)
+                BitcoinListWidthSliver(
+                    sliver: SliverToBoxAdapter(child: banners())),
+              // ONE empty state, centred in the page, at its top like
+              // the empty Dollars Overview (Sal's sprite carries ~20 of
+              // air above him).
+              const SliverToBoxAdapter(
+                child: NoActivityState(
+                    padding: EdgeInsets.fromLTRB(24, 44, 24, 8)),
+              ),
+            ] else
+              SliverLayoutBuilder(builder: (context, constraints) {
+                final columns =
+                    bitcoinActivityColumns(constraints.crossAxisExtent) > 1;
+                if (!columns) {
+                  return BitcoinListWidthSliver(
+                    sliver: SliverMainAxisGroup(slivers: [
+                      if (widget.banners.isNotEmpty)
+                        SliverToBoxAdapter(child: banners()),
+                      widget.list(_controller, false),
+                    ]),
+                  );
+                }
+                return DeskListColumnRule(
+                  columnsFor: bitcoinActivityColumns,
+                  child: SliverMainAxisGroup(slivers: [
+                    if (widget.banners.isNotEmpty)
+                      SliverToBoxAdapter(
+                          child: DeskFirstColumn(child: banners())),
+                    widget.list(_controller, true),
+                  ]),
+                );
+              }),
+            bitcoinPaneEnd(context),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

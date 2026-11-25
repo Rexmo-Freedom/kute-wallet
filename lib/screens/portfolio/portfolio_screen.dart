@@ -137,31 +137,25 @@ class PortfolioScreen extends ConsumerWidget {
       ),
     );
     // EXPANDED (investments_portfolio.dart, WIDE): the back button on the
-    // page's left gutter, over the total's edge, the title beside it, both
-    // inside the page centred at pageMaxWidth.
+    // page's left gutter (the top bar's), over the total's edge, the title
+    // beside it, the page across the window.
     final PreferredSizeWidget appBar = KuteLayout.isExpanded(context)
         ? PreferredSize(
             preferredSize: const Size.fromHeight(kToolbarHeight),
             child: SafeArea(
               bottom: false,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints:
-                      const BoxConstraints(maxWidth: KuteLayout.pageMaxWidth),
-                  child: Padding(
-                    key: const ValueKey('portfolio-wide-header'),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: KuteLayout.paneGap),
-                    child: SizedBox(
-                      height: kToolbarHeight,
-                      child: Row(
-                        children: [
-                          const KuteBackButton(fallbackRoute: '/usd'),
-                          const SizedBox(width: 12),
-                          title,
-                        ],
-                      ),
-                    ),
+              child: Padding(
+                key: const ValueKey('portfolio-wide-header'),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
+                child: SizedBox(
+                  height: kToolbarHeight,
+                  child: Row(
+                    children: [
+                      const KuteBackButton(fallbackRoute: '/usd'),
+                      const SizedBox(width: 12),
+                      title,
+                    ],
                   ),
                 ),
               ),

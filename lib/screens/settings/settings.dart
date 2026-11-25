@@ -289,7 +289,10 @@ class _SettingsState extends ConsumerState<Settings> {
         KuteColumns(
           // In reading order across the columns: Security, Preferences,
           // Advanced on the first line, Export and Support under the
-          // first two.
+          // first two; on a window of about 1900 and up (the page running
+          // gutter to gutter) four or all five side by side, no card
+          // past a readable column.
+          maxColumns: 5,
           children: [
             security,
             preferences,
