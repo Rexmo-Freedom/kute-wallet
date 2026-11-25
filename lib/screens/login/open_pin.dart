@@ -422,12 +422,29 @@ class _OpenPinState extends ConsumerState<OpenPin>
           await recordBiometricUnlockDomainState();
 
           if (!context.mounted) return;
-          markSessionUnlocked(ref,
-              method: UnlockMethod.biometric, dependency: dependency);
-          final container = ProviderScope.containerOf(context, listen: false);
-          salHappy();
-          _unlockApp(context, ref, method: 'biometric');
-          _scheduleAfterUnlock(container);
+          void finish() {
+            if (!mounted || !context.mounted) return;
+            markSessionUnlocked(ref,
+                method: UnlockMethod.biometric, dependency: dependency);
+            final container =
+                ProviderScope.containerOf(context, listen: false);
+            salHappy();
+            _unlockApp(context, ref, method: 'biometric');
+            _scheduleAfterUnlock(container);
+          }
+
+          // A PIN vault in a laptop browser is upgraded whichever way it
+          // was opened: the biometric check opened the vault's key as the
+          // PIN does, and the password re-wraps it (the biometric
+          // enrolment, its own wrap of the key, stays).
+          if (UnlockSecret.needsPasswordUpgrade) {
+            setState(() {
+              _clearEntry();
+              _afterUpgrade = finish;
+            });
+            return;
+          }
+          finish();
         } else if (!authenticated) {
           TrackingService.track('biometric_prompt_cancelled',
               params: {'surface': 'cold_start'});

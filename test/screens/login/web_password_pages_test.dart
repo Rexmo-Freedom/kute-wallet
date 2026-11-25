@@ -42,6 +42,30 @@ import '../../services/support/fake_secret_store.dart';
 
 const testPassword = 'correct horse battery';
 
+/// A device whose biometric check always passes.
+class _PassingBiometrics extends LocalAuthentication {
+  int prompts = 0;
+
+  @override
+  Future<bool> isDeviceSupported() async => true;
+
+  @override
+  Future<List<BiometricType>> getAvailableBiometrics() async =>
+      const [BiometricType.fingerprint];
+
+  @override
+  Future<bool> authenticate({
+    required String localizedReason,
+    Iterable<Object?> authMessages = const <Object?>[],
+    bool biometricOnly = false,
+    bool sensitiveTransaction = true,
+    bool persistAcrossBackgrounding = false,
+  }) async {
+    prompts++;
+    return true;
+  }
+}
+
 class _NoBiometrics extends LocalAuthentication {
   @override
   Future<bool> isDeviceSupported() async => false;
@@ -110,13 +134,15 @@ void main() {
     Size size = const Size(1440, 900),
     List<Override> overrides = const [],
     bool lock = false,
+    LocalAuthentication? localAuth,
+    Settings Function() settings = _settings,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final container = ProviderContainer(overrides: [
-      settingsProvider.overrideWith((ref) => SettingsModel(_settings())),
+      settingsProvider.overrideWith((ref) => SettingsModel(settings())),
       storageBootStateProvider.overrideWith((ref) => StorageBootState.ok),
       if (lock) appLockedProvider.overrideWith((ref) => true),
       ...overrides,
@@ -131,7 +157,8 @@ void main() {
           path: '/confirm_pin', builder: (_, __) => split(const ConfirmPin())),
       GoRoute(
           path: '/open_pin',
-          builder: (_, __) => split(OpenPin(localAuth: _NoBiometrics()))),
+          builder: (_, __) =>
+              split(OpenPin(localAuth: localAuth ?? _NoBiometrics()))),
       GoRoute(path: '/home', builder: (_, __) => stub('home')),
       GoRoute(path: '/start', builder: (_, __) => stub('start')),
       GoRoute(
@@ -146,7 +173,7 @@ void main() {
           builder: (context, child) => Stack(children: [
             child!,
             const KuteShellBar(),
-            if (lock) const LockOverlay(),
+            if (lock) LockOverlay(localAuth: localAuth ?? _NoBiometrics()),
           ]),
           routerConfig: router,
           theme: ThemeData(
@@ -331,6 +358,79 @@ void main() {
       final field = tester.getRect(find.byType(KutePasswordField));
       final button = tester.getRect(find.byType(KuteBarPrimaryButton));
       expect(button.top - field.bottom, greaterThan(200));
+    });
+
+    Settings biometricSettings() => Settings(
+          wallets: [WalletConfig(id: 'w1', name: 'Spending')],
+          activeWalletId: 'w1',
+          currency: 'USD',
+          language: 'en',
+          btcFormat: 'sats',
+          backup: true,
+          biometricsEnabled: true,
+          bitcoinElectrumNode: 'ssl://example.com:50002',
+          nodeType: 'electrum',
+          reviewDone: true,
+        );
+
+    Future<void> letUnlockRun(WidgetTester tester) async {
+      // The unlock reads Hive (real file I/O): let it run.
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await settle(tester);
+    }
+
+    testWidgets('a PIN vault opened by biometrics: the password must still '
+        'be created before going on', (tester) async {
+      UnlockSecret.debugDeviceKind = VaultSecretKind.password;
+      UnlockSecret.debugVaultKind = VaultSecretKind.pin;
+      final auth = _PassingBiometrics();
+      final container = await pump(tester, '/open_pin',
+          localAuth: auth, settings: biometricSettings);
+      await letUnlockRun(tester);
+      // The automatic prompt on entry passed.
+      expect(auth.prompts, 1);
+      expect(find.byType(PasswordUpgradePage), findsOneWidget);
+      expect(find.text('Create a password'), findsOneWidget);
+      expect(find.textContaining('route:home'), findsNothing);
+      // Not unlocked until the password is made.
+      expect(container.read(sessionAuthProvider), isNull);
+    });
+
+    testWidgets('a password vault opened by biometrics goes straight on',
+        (tester) async {
+      laptop();
+      final auth = _PassingBiometrics();
+      final container = await pump(tester, '/open_pin',
+          localAuth: auth, settings: biometricSettings);
+      await letUnlockRun(tester);
+      expect(auth.prompts, 1);
+      expect(find.byType(PasswordUpgradePage), findsNothing);
+      expect(find.textContaining('route:home'), findsOneWidget);
+      expect(container.read(sessionAuthProvider)?.method,
+          UnlockMethod.biometric);
+      // The deferred post-unlock work (3 s and 6 s) runs out.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 7));
+    });
+
+    testWidgets('the lock overlay: a biometric unlock of a PIN vault asks '
+        'for the password too', (tester) async {
+      UnlockSecret.debugDeviceKind = VaultSecretKind.password;
+      UnlockSecret.debugVaultKind = VaultSecretKind.pin;
+      final auth = _PassingBiometrics();
+      final container = await pump(tester, '/',
+          lock: true, localAuth: auth, settings: biometricSettings);
+      // The PIN pad's biometric key.
+      await tester.tap(find.byIcon(Icons.fingerprint_rounded));
+      await letUnlockRun(tester);
+      expect(auth.prompts, 1);
+      expect(find.byType(PasswordUpgradePage), findsOneWidget);
+      expect(container.read(appLockedProvider), isTrue);
+      expect(container.read(sessionAuthProvider), isNull);
     });
 
     testWidgets('the lock overlay asks for the password', (tester) async {

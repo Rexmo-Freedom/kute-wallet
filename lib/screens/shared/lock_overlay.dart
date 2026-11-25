@@ -56,7 +56,9 @@ import 'package:kute/platform/platform_caps.dart';
 import 'package:kute/platform/web_biometrics.dart';
 
 class LockOverlay extends ConsumerStatefulWidget {
-  const LockOverlay({super.key});
+  const LockOverlay({super.key, @visibleForTesting this.localAuth});
+
+  final LocalAuthentication? localAuth;
 
   @override
   ConsumerState<LockOverlay> createState() => _LockOverlayState();
@@ -64,7 +66,8 @@ class LockOverlay extends ConsumerStatefulWidget {
 
 class _LockOverlayState extends ConsumerState<LockOverlay>
     with SingleTickerProviderStateMixin, PinSalMoodMixin {
-  final LocalAuthentication _localAuth = LocalAuthentication();
+  late final LocalAuthentication _localAuth =
+      widget.localAuth ?? LocalAuthentication();
   String _pin = '';
   bool _verifying = false;
   bool _biometricInFlight = false;
@@ -226,9 +229,23 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       await BiometricPinPolicy().applyAfterUnlock(dependency);
       await recordBiometricUnlockDomainState();
       if (!mounted) return;
-      markSessionUnlocked(ref,
-          method: UnlockMethod.biometric, dependency: dependency);
-      _finishUnlock(method: 'biometric');
+      void finish() {
+        if (!mounted) return;
+        markSessionUnlocked(ref,
+            method: UnlockMethod.biometric, dependency: dependency);
+        _finishUnlock(method: 'biometric');
+      }
+
+      // A PIN vault in a laptop browser is upgraded after a biometric
+      // unlock too (open_pin.dart): the vault's key is open either way.
+      if (UnlockSecret.needsPasswordUpgrade) {
+        setState(() {
+          _clearEntry();
+          _afterUpgrade = finish;
+        });
+        return;
+      }
+      finish();
     } catch (e) {
       // local_auth 3 throws a LocalAuthException for a dismissed prompt
       // too; the helper files that as a cancel, not a failure. The PIN

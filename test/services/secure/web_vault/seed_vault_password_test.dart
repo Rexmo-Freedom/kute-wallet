@@ -125,6 +125,29 @@ void main() {
       expect(reloaded.prf?.credentialId, 'cred');
     });
 
+    test('opened by its biometric (PRF) key, a PIN vault upgrades to a '
+        'password, and the biometric still opens it after', () async {
+      final input = Uint8List.fromList(List.filled(32, 1));
+      final output = Uint8List.fromList(List.filled(32, 2));
+      await vault.create('123456');
+      await vault.write(key, phrase);
+      await vault.enrolPrf('cred', input, output);
+      vault.lock();
+      // The biometric unlock: no PIN typed.
+      expect(await vault.unlockWithPrf('cred', Uint8List.fromList(output)),
+          isTrue);
+      await vault.changePin(testPassword, kind: VaultSecretKind.password);
+
+      final reloaded = await newVault(db);
+      expect(reloaded.secretKind, VaultSecretKind.password);
+      expect(await reloaded.unlock('123456'), VaultUnlock.wrongPin);
+      expect(await reloaded.unlock(testPassword), VaultUnlock.ok);
+      reloaded.lock();
+      expect(await reloaded.unlockWithPrf('cred', Uint8List.fromList(output)),
+          isTrue);
+      expect(await reloaded.read(key), phrase);
+    });
+
     test('a change without a kind keeps the record\'s kind', () async {
       await vault.create(testPassword, kind: VaultSecretKind.password);
       await vault.changePin('another long password');
