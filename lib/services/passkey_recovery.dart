@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:kute/models/breez/init.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
+import 'package:kute/platform/breez_web_storage.dart';
 import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/services/passkey_service.dart';
 
@@ -141,7 +142,11 @@ class PasskeyRecovery {
       return null;
     } finally {
       final dir = req?.storageDir;
-      if (dir != null) {
+      if (dir != null && kIsWeb) {
+        // A browser has no folder: the probe's SDK databases are named
+        // from the dir. probeSeed awaited its handle's shutdown.
+        await deleteBreezWebStorage(dir);
+      } else if (dir != null) {
         try {
           final d = Directory(dir);
           if (await d.exists()) await d.delete(recursive: true);

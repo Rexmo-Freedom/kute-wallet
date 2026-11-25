@@ -1,6 +1,7 @@
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
 import 'package:kute/services/onchain/onchain_web_store.dart';
+import 'package:kute/models/breez/init.dart' show deleteWalletWebStorage;
 import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/models/auth_model.dart';
@@ -644,9 +645,12 @@ class SettingsModel extends StateNotifier<Settings> {
     await _bestEffort('local_files', () async {
       if (kIsWeb) {
         // No files in a browser: the wallet's BDK data is its stored
-        // changeset (the Breez SDK keeps its own browser database).
+        // changeset, and the Breez SDK keeps its own browser databases.
         final directory = await onchainDatabaseDirectory();
         await OnchainWebStore.delete('$directory/bdk_wallet_$walletId.sqlite');
+        // The SDK's IndexedDB databases for this wallet, once no handle
+        // on them is running (the folder breez_<id> on a phone).
+        await deleteWalletWebStorage(walletId);
         return;
       }
       final appDocDir = await getApplicationDocumentsDirectory();

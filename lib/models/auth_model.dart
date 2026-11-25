@@ -18,6 +18,7 @@ import 'package:kute/services/secure/web_vault/seed_vault.dart'
 import 'package:kute/services/secure/web_vault/web_vault.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/hive_wipe.dart' show wipeHiveBoxes;
+import 'package:kute/models/breez/init.dart' show deleteWalletWebStorage;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -851,10 +852,34 @@ class AuthModel {
       PasskeyPrfService.drainPendingWrites(),
       PasskeyService.drainPendingWrites(),
     ]);
+    // Web: each wallet's Breez SDK browser databases, while the wallet
+    // list that names them is still stored (folders on a phone stay as
+    // they were). The SDK is disconnected first.
+    if (kIsWeb) await _deleteWebSdkStorage();
     await _store.deleteAllLocalOnly();
 
     // Every app box, from the one list in hive_wipe.dart (best-effort,
     // box by box). Only the boxes that list says survive do.
     await wipeHiveBoxes();
+  }
+
+  /// Web: deletes every listed wallet's SDK databases (best-effort; the
+  /// ids never leave this function).
+  Future<void> _deleteWebSdkStorage() async {
+    final ids = <String>{};
+    try {
+      final box = await Hive.openBox('settings');
+      final wallets = box.get('wallets');
+      if (wallets is List) {
+        for (final w in wallets) {
+          if (w is Map && w['id'] is String) ids.add(w['id'] as String);
+        }
+      }
+    } catch (_) {}
+    var first = true;
+    for (final id in ids) {
+      await deleteWalletWebStorage(id, disconnectAny: first);
+      first = false;
+    }
   }
 }
