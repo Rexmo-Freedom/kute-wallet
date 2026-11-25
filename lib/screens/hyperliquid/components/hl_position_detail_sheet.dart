@@ -796,8 +796,11 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   /// step opened from one stays in it (kute_wide_frames.dart,
   /// KuteSideFlow). Elsewhere [open] as it was.
   void _atSide(VoidCallback open) {
-    if (kuteWindowIsExpanded(context)) KuteSideFlow.arm();
-    open();
+    if (kuteWindowIsExpanded(context)) {
+      KuteSideFlow.run(open);
+    } else {
+      open();
+    }
   }
 
   /// The scroll's padding on EXPANDED at [panel] (0 at rest, 1 with a

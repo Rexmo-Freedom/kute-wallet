@@ -1242,9 +1242,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
         ref.read(hlMarketDescriptionsProvider);
         // THE DESK: at the window's right edge, as every panel the page
         // opens (kute_wide_frames.dart, KuteSideFlow).
-        if (kuteWindowIsExpanded(context)) KuteSideFlow.arm();
         // Once: a second tap while it slides in does not stack another.
-        unawaited(OpenOnce.run(
+        void open() => unawaited(OpenOnce.run(
             'hl-about:${m.wireCoin}',
             () => showAppBottomSheet<void>(
                   context: context,
@@ -1255,6 +1254,11 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                     position: position,
                   ),
                 )));
+        if (kuteWindowIsExpanded(context)) {
+          KuteSideFlow.run(open);
+        } else {
+          open();
+        }
       },
     );
   }
