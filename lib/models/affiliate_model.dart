@@ -15,6 +15,7 @@ import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/secure_storage.dart';
+import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 import 'package:kute/services/security/address_guard.dart'
@@ -153,6 +154,8 @@ class AffiliateService {
   /// Cached affiliate code (the user's own). Available after [authWallet].
   static String? get affiliateCode => _affiliateCode;
 
+  @visibleForTesting
+  static set debugAffiliateCode(String? code) => _affiliateCode = code;
 
   /// Cached session token. Available after [authWallet].
   static String? get sessionToken => _sessionToken;
@@ -1282,8 +1285,10 @@ class AffiliateService {
 }
 
 /// No wallet session could be obtained for a route that requires one.
-/// [message] is localized copy for the user; nothing was sent.
-class WalletSessionUnavailable implements Exception {
+/// [message] is localized copy for the user; nothing was sent, which the
+/// settlement runner is told ([SettlementFundingNotStarted]).
+class WalletSessionUnavailable
+    implements Exception, SettlementFundingNotStarted {
   const WalletSessionUnavailable(this.message);
 
   final String message;

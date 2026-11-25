@@ -1,6 +1,6 @@
 // Render harness for the Investments market lists (the "lists light" pass,
-// October 2026): Investing → Trending and Predictions → Trending (the BTC
-// 5-minute card on top, markets under it) on the real Investments screen,
+// October 2026): Investing → Trending and Predictions → Trending (its top
+// markets, the list under them) on the real Investments screen,
 // at 390 x 1600 in the app's real themes and Inter, light and dark. Writes
 // PNGs.
 //
@@ -60,7 +60,7 @@ import '../screens/usd/investments_harness.dart'
 const _out = String.fromEnvironment('MARKET_LISTS_OUT');
 const _key = ValueKey('shot');
 const _dpr = 3.0;
-// Tall enough to show the list under the 5-minute card.
+// Tall enough to show the list.
 const _size = Size(390, 1600);
 
 class _NoStars extends HlWatchlistNotifier {
@@ -439,8 +439,7 @@ void main() {
         final img = await _shoot(tester, dark, predictions: predictions);
         await _png(tester, img, shot);
         expect(tester.takeException(), isNull);
-        // Back on Investing the 5-minute card counts itself off screen
-        // while the scope is alive, so the unmount has nothing to count.
+        // Back on Investing, as a person leaves.
         if (predictions) {
           final l10n = AppLocalizations.of(
               tester.element(find.byType(KutePillTabs).first));

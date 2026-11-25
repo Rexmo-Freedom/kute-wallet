@@ -10,10 +10,13 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/receipt_bar.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 Future<void> editBitcoinLabel(
   BuildContext context,
@@ -153,10 +156,19 @@ class _LabelEditorState extends ConsumerState<_LabelEditor> {
                               color: c.error)),
                     ],
                     SizedBox(height: 20.h),
-                    AppButton(
-                        text: context.l10n.save,
-                        onPressed: _saving ? null : _save,
-                        isLoading: _saving),
+                    // THE BAR IS THE BUTTON (founder, 31 October 2026;
+                    // kute_bar_context.dart): Save is the floating Sal
+                    // bar's primary action, busy while the label is
+                    // written; it rides above the keyboard with the field.
+                    KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                            label: context.l10n.save,
+                            onPrimary: _save,
+                            enabled: !_saving,
+                            busy: _saving,
+                            source: 'bitcoin_label',
+                            disabledLabel: null,),
+                        child: SizedBox(height: kuteBarScrollClearance.h)),
                   ])),
         ]));
   }
@@ -185,6 +197,9 @@ class _LabelRow extends StatelessWidget {
       onTap: onTap);
 }
 
+/// A receipt's transaction label: its own full-width row (the title
+/// above, the label or its "add" placeholder under it, the edit glyph),
+/// never squeezed into a value column. Tapping edits it.
 class BitcoinTransactionLabel extends ConsumerWidget {
   const BitcoinTransactionLabel({super.key, required this.txid, this.walletId});
   final String txid;
@@ -195,10 +210,12 @@ class BitcoinTransactionLabel extends ConsumerWidget {
     if (owner == null) return const SizedBox.shrink();
     final label = ref
         .watch(bitcoinLabelsProvider(owner))[bitcoinTransactionLabelKey(txid)];
-    return _LabelRow(
-      title: context.l10n.coinTransactionLabel,
-      label: label,
-      placeholder: context.l10n.coinAddTransactionLabel,
+    return ReceiptLongRow(
+      key: const ValueKey('receipt-transaction-label'),
+      label: context.l10n.coinTransactionLabel,
+      value: label ?? context.l10n.coinAddTransactionLabel,
+      valueColor: label == null ? context.colors.textTertiary : null,
+      trailingIcon: Icons.edit_outlined,
       onTap: () => editBitcoinLabel(context, ref,
           walletId: owner,
           labelKey: bitcoinTransactionLabelKey(txid),
@@ -313,7 +330,7 @@ class _CoinDetailsSheet extends ConsumerWidget {
                                     ? context.l10n.confirmed
                                     : context.l10n.unconfirmed,
                                 valueColor:
-                                    confirmed ? c.success : c.accent),
+                                    confirmed ? c.success : c.warning),
                             if (blockTime != null &&
                                 blockTime.confirmationTime != 0)
                               SheetDetailRow(
@@ -345,11 +362,20 @@ class _CoinDetailsSheet extends ConsumerWidget {
                                     value: '${blockTime.blockId.height}'),
                             ]),
                             SizedBox(height: 16.h),
-                            SheetLinkButton(
+                            // The bar is the button (founder, 1 November
+                            // 2026; receipt_bar.dart).
+                            ReceiptBarButton(
                                 label: context.l10n.activityViewOnBlockchain,
-                                uri: Uri.parse(
-                                    'https://mempool.space/tx/$txid'),
-                                onPressed: () => Navigator.of(context).pop()),
+                                onPressed: () async {
+                                  Navigator.of(context).pop();
+                                  final uri = Uri.parse(
+                                      'https://mempool.space/tx/$txid');
+                                  if (!await launchUrl(uri,
+                                      mode: LaunchMode.inAppBrowserView)) {
+                                    await launchUrl(uri,
+                                        mode: LaunchMode.externalApplication);
+                                  }
+                                }),
                           ]))),
             ]));
   }

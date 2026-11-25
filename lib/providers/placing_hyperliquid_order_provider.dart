@@ -32,7 +32,10 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/foreground_timer.dart';
 
 enum PlacingHlOrderStatus { placing, succeeded, failed }
 
@@ -125,10 +128,16 @@ class PlacingHlOrder {
       );
 }
 
+/// How long a tile that has turned into "Confirming with the exchange…"
+/// stays before it is dropped quietly (see the Polymarket twin,
+/// `kPlacingConfirmingBound`). Never a failure.
+const Duration kHlPlacingConfirmingBound = Duration(minutes: 10);
+
 class PlacingHyperliquidOrderNotifier extends Notifier<List<PlacingHlOrder>> {
   // One timer per placement so concurrent orders don't cancel each
-  // other's watchdog/fail-clear timers.
-  final Map<String, Timer> _watchdogTimers = {};
+  // other's watchdog/fail-clear timers. The watchdogs count foreground
+  // time only (a Face ID sheet or the background does not run them down).
+  final Map<String, ForegroundTimer> _watchdogTimers = {};
   final Map<String, Timer> _failClearTimers = {};
   int _idSeq = 0;
 
@@ -157,10 +166,12 @@ class PlacingHyperliquidOrderNotifier extends Notifier<List<PlacingHlOrder>> {
   /// id when the order finally lands, so the user sees one continuous
   /// "Opening position" tile instead of two stacked.
   ///
-  /// [watchdogDuration] caps how long the tile can sit in "placing"
-  /// status before auto-failing. Default 25 s for direct exchange
-  /// submits; pass a longer value (e.g. 5 min) when registering during a
-  /// deposit/funding wait so the credit has time to land.
+  /// [watchdogDuration] is how long the tile says its step before it says
+  /// "Confirming with the exchange…" instead. Default 25 s for direct
+  /// exchange submits; pass a longer value (e.g. 5 min) when registering
+  /// during a deposit/funding wait so the credit has time to land.
+  /// Running out of time is never a failure: only a placement that heard
+  /// the venue's answer calls [markFailed].
   String markPlacing({
     required String coin,
     required String marketLabel,
@@ -202,15 +213,45 @@ class PlacingHyperliquidOrderNotifier extends Notifier<List<PlacingHlOrder>> {
     );
     state = [...state, order];
 
-    // Stop the spinner after the watchdog interval. A timeout does not
-    // prove no fill occurred; null selects the UI's unconfirmed-result copy.
-    _watchdogTimers[id] = Timer(watchdogDuration, () {
-      final o = _find(id);
-      if (o == null || o.status != PlacingHlOrderStatus.placing) return;
-      markFailed(id, null);
-    });
+    // A timeout does not prove no fill occurred: the tile says it is
+    // confirming, never that it failed. It used to be marked failed here
+    // while a builder-dex order was still waiting (up to 30 s) for its
+    // cash to land, and the order then filled.
+    _watchdogTimers[id] =
+        ForegroundTimer(watchdogDuration, () => _markConfirming(id));
 
     return id;
+  }
+
+  /// The watchdog ran out with the order still going: "Confirming with
+  /// the exchange…" until the fill, the position or the placement settles
+  /// it, at most [kHlPlacingConfirmingBound], then dropped quietly.
+  void _markConfirming(String placementId) {
+    final current = _find(placementId);
+    if (current == null || current.status != PlacingHlOrderStatus.placing) {
+      return;
+    }
+    state = [
+      for (final o in state)
+        o.placementId == placementId
+            ? o.copyWith(
+                stepLabel: l10nForLanguage(ref.read(settingsProvider).language)
+                    .investingConfirmingWithExchange)
+            : o,
+    ];
+    _watchdogTimers[placementId] =
+        ForegroundTimer(kHlPlacingConfirmingBound, () {
+      _watchdogTimers.remove(placementId);
+      final o = _find(placementId);
+      if (o?.status == PlacingHlOrderStatus.placing) clear(placementId);
+    });
+  }
+
+  /// Says "Confirming with the exchange…" on [placementId] now: the order
+  /// is being looked up after an answer that proved nothing.
+  void markConfirming(String placementId) {
+    _watchdogTimers.remove(placementId)?.cancel();
+    _markConfirming(placementId);
   }
 
   PlacingHlOrder? _find(String placementId) {

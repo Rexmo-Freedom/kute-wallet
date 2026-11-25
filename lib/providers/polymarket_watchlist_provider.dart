@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/services/polymarket/event_trading_over.dart';
 
 /// The Predictions markets starred on this device, newest first, as their
 /// public event slugs (nothing about the person or their positions). Kept
@@ -21,6 +22,21 @@ final polyWatchlistProvider =
 String? polyWatchlistKey(PolymarketEvent event) {
   final slug = event.slug.trim();
   return slug.isEmpty ? null : slug;
+}
+
+/// The starred slugs in [asked] that a successful read ([returned]) shows
+/// are no longer on offer: their event's trading is over (closed, ended,
+/// inactive, every market closed) or the read did not return it at all (a
+/// settled event the feed leaves out, or a slug that is gone). The
+/// Watchlist never lists those, so they must not count either.
+Set<String> polyWatchlistOver(
+    List<String> asked, List<PolymarketEvent> returned) {
+  final bySlug = {for (final e in returned) e.slug: e};
+  return {
+    for (final s in asked)
+      if (bySlug[s] == null || polyTradingOver(bySlug[s]!, inPlay: bySlug[s]!.isInPlay))
+        s
+  };
 }
 
 class PolyWatchlistNotifier extends Notifier<List<String>> {
@@ -45,9 +61,36 @@ class PolyWatchlistNotifier extends Notifier<List<String>> {
   @visibleForTesting
   Future<void> get saved => _saving;
 
+  /// Reads the starred events (one Gamma call); tests replace it.
+  @visibleForTesting
+  static Future<List<PolymarketEvent>> Function(List<String> slugs) reader =
+      (slugs) async => (await PolymarketModel.readGammaEventsPage(
+            const {},
+            multi: {'slug': slugs},
+            limit: slugs.length,
+          ))
+              .events;
+
+  /// When the list was last checked for markets that are over: at most
+  /// once every [checkEvery], across the app's session.
+  static DateTime? _checkedAt;
+  static const checkEvery = Duration(minutes: 10);
+
+  @visibleForTesting
+  static void resetCheck() => _checkedAt = null;
+
+  /// The check started when the stored list loaded, for tests.
+  Future<void> _check = Future<void>.value();
+  @visibleForTesting
+  Future<void> get checked => _check;
+
   @override
   List<String> build() {
-    if (Hive.isBoxOpen(boxName)) return _read(Hive.box<String>(boxName));
+    if (Hive.isBoxOpen(boxName)) {
+      final stored = _read(Hive.box<String>(boxName));
+      if (stored.isNotEmpty) Future.microtask(_startCheck);
+      return stored;
+    }
     _loaded = Hive.openBox<String>(boxName).then((box) {
       final stored = _read(box);
       if (stored.isNotEmpty) {
@@ -56,9 +99,40 @@ class PolyWatchlistNotifier extends Notifier<List<String>> {
           for (final s in stored)
             if (!state.contains(s)) s
         ];
+        _startCheck();
       }
     }).catchError((_) {});
     return const [];
+  }
+
+  /// Drops the stars on markets that are over, so the count shown next to
+  /// "Watchlist" is the number of markets the Watchlist lists, before it
+  /// is opened. A read that fails changes nothing.
+  void _startCheck() {
+    final now = DateTime.now();
+    final last = _checkedAt;
+    if (last != null && now.difference(last) < checkEvery) return;
+    _checkedAt = now;
+    final asked = List<String>.of(state);
+    if (asked.isEmpty) return;
+    _check = reader(asked)
+        .then((events) => forgetOver(asked, events))
+        .catchError((_) {});
+  }
+
+  /// After a successful read of [asked] that returned [returned]: removes
+  /// the slugs whose markets are over ([polyWatchlistOver]). Stars added
+  /// since the read began are kept.
+  void forgetOver(List<String> asked, List<PolymarketEvent> returned) {
+    final over = polyWatchlistOver(asked, returned);
+    if (over.isEmpty) return;
+    final next = [
+      for (final s in state)
+        if (!over.contains(s)) s
+    ];
+    if (next.length == state.length) return;
+    state = next;
+    _saving = _saving.then((_) => _save(next));
   }
 
   static List<String> _read(Box<String> box) {

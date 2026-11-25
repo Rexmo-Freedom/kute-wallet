@@ -78,8 +78,11 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   factory AppColorsExtension.dark() => AppColorsExtension(
         accent: const Color(0xFFF7931A),
         accentLight: const Color(0xFFFFB74D),
-        success: const Color(0xFF34C759),
-        error: const Color(0xFFFF3B30),
+        // One green, one red, one amber across the app: success/error are
+        // the market pair (see [AppColors.marketUp]), so a "Completed"
+        // status, a received amount and a profit read as the same green.
+        success: AppColors.marketUp,
+        error: AppColors.marketDown,
         warning: const Color(0xFFF7931A),
         info: const Color(0xFF007AFF),
         // Flat charcoal, the same near-black as the light-mode primary button.
@@ -114,8 +117,8 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   factory AppColorsExtension.light() => AppColorsExtension(
         accent: const Color(0xFF3B82F6),
         accentLight: const Color(0xFF60A5FA),
-        success: const Color(0xFF1B9E52),
-        error: const Color(0xFFCC3328),
+        success: AppColors.marketUp,
+        error: AppColors.marketDown,
         warning: const Color(0xFFD4800E),
         info: const Color(0xFF1A6FD4),
         // Pure white background; card surface is a near-imperceptible
@@ -329,11 +332,13 @@ class AppColors {
   static const Color ctaTextOnLight = Color(0xFFFFFFFF); // on the dark fill
   static const Color ctaTextOnDark = Color(0xFF111114); // on the white fill
 
-  // Canonical market-direction pair for BUY/SELL, YES/NO, up/down fills and
-  // chart strokes. Distinct from `success`/`error` (which mean "operation
-  // outcome", not "price direction"). These replace the scattered local
-  // greens/reds (#16A34A, #1FA663, #22C55E, #47C97A / #FF5252, #D9485A,
-  // #EF4444, #FF6565) — use these two everywhere a value goes up or down.
+  // Canonical green/red pair for BUY/SELL, YES/NO, up/down fills, chart
+  // strokes AND operation outcomes: [success] and [error] are these same
+  // two values, so the app has one green and one red (owner, Nov 2026:
+  // "colors here and such should be unified"). These replace the scattered
+  // local greens/reds (#16A34A, #1FA663, #22C55E, #47C97A, #34C759 /
+  // #FF5252, #D9485A, #EF4444, #FF6565, #FF3B30). Pending / in progress is
+  // the theme's `warning` amber (`context.colors.warning`).
   static const Color marketUp = Color(0xFF1FA663);
   static const Color marketDown = Color(0xFFD9485A);
 
@@ -341,8 +346,11 @@ class AppColors {
   // claimed payout. Defined once here; nothing hardcodes the gold.
   static const Color celebrate = Color(0xFFD4AF37);
 
-  static const Color success = Color(0xFF34C759);
-  static const Color error = Color(0xFFFF3B30);
+  /// Completed / received / in: the one green ([marketUp]).
+  static const Color success = marketUp;
+
+  /// Failed / loss / needs attention: the one red ([marketDown]).
+  static const Color error = marketDown;
   static const Color warning = Color(0xFFF7931A);
   static const Color info = Color(0xFF007AFF);
 

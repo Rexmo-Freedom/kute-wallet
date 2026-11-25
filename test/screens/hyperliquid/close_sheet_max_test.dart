@@ -4,10 +4,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -23,6 +21,8 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
+
+import '../../helpers/shell_bar_harness.dart';
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -90,6 +90,8 @@ Future<void> _pump(WidgetTester tester) async {
   tester.view.physicalSize = const Size(430, 932) * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
+  // The bar over the sheet is the sheet's button (shell_bar_harness.dart).
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -109,18 +111,13 @@ Future<void> _pump(WidgetTester tester) async {
       runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
       aiEnabledProvider.overrideWith((_) async => false),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          splashFactory: NoSplash.splashFactory,
-          extensions: [AppColorsExtension.light()],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
-          body: HlClosePositionSheet(position: _position, market: _btc),
-        ),
+    child: shellBarApp(
+      theme: ThemeData(
+        splashFactory: NoSplash.splashFactory,
+        extensions: [AppColorsExtension.light()],
+      ),
+      home: const Scaffold(
+        body: HlClosePositionSheet(position: _position, market: _btc),
       ),
     ),
   ));
@@ -196,7 +193,11 @@ void main() {
     final hero = find.byType(BigAmountDisplay);
     final max = find.descendant(of: hero, matching: find.byType(AmountMaxChip));
     expect(max, findsOneWidget);
-    // Opens on the whole position, in dollars: 0.5 BTC at 66,000.
+    // Opens empty: nothing is closed until the user says how much.
+    expect(_typed(tester), '');
+    // Max: the whole position, in dollars: 0.5 BTC at 66,000.
+    await tester.tap(find.bySemanticsLabel('Use maximum'));
+    await tester.pump();
     final whole = _typed(tester);
     expect(whole, '33000');
 
@@ -205,14 +206,21 @@ void main() {
         of: pad, matching: find.byIcon(Icons.backspace_rounded)));
     await tester.pump();
 
-    // 3300 dollars of 33000 is a tenth of the position.
+    // 3300 dollars of 33000 is a tenth of the position. The bar is the
+    // sheet's one button: it reads the close (a frame after the sheet
+    // declares it).
     expect(_typed(tester), '3300');
-    expect(find.text('Close 10% now'), findsOneWidget);
+    await pumpBar(tester);
+    expect(barPrimaryLabel(tester), 'Close 10% now');
+    expect(barPrimaryText('Close 10% now'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('Use maximum'));
     await tester.pump();
     expect(_typed(tester), whole);
-    expect(find.text('Close 100% now'), findsOneWidget);
+    await pumpBar(tester);
+    expect(barPrimaryLabel(tester), 'Close 100% now');
+    expect(barPrimaryText('Close 100% now'), findsOneWidget);
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(tester.takeException(), isNull);
   });
 }

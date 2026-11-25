@@ -135,9 +135,34 @@ class PoolBalanceHeader extends StatelessWidget {
     this.showActionRow = true,
   });
 
+  /// One line of the figure in [style], as [RollingNumberText] lays its
+  /// digits out (the OS text size included).
+  static double _figureLineHeight(BuildContext context, TextStyle style) {
+    final tp = TextPainter(
+      text: TextSpan(
+          text: '0', style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      textHeightBehavior: const TextHeightBehavior(
+        applyHeightToFirstAscent: false,
+        applyHeightToLastDescent: false,
+      ),
+    )..layout();
+    final height = tp.height;
+    tp.dispose();
+    return height;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final amountStyle = TextStyle(
+      fontSize: amountFontSize ?? 48.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.2,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     // Mirrors the Home hero balance (user decision): just the centered
     // 48.sp number, whose formatter already prefixes the currency symbol.
     // Same size, weight and spacing as wallet_cards.dart's headline.
@@ -151,57 +176,64 @@ class PoolBalanceHeader extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(totalLabel!,
                     style: TextStyle(color: c.textSecondary))),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (amountTrailing != null)
-                  SizedBox(width: amountTrailingWidth),
-                if (loading)
-                  KuteSkeleton(
-                    child: SkeletonBar(150.w, (amountFontSize ?? 48.sp) * 0.9,
-                        radius: 12.r),
-                  )
-                else
-                  // Still updating: dimmed, with the skeleton's sweep
-                  // running over the digits.
-                  StaleShimmer(
-                    stale: stale,
-                    child: RollingNumberText(
-                      // The formatted amount carries its own currency
-                      // symbol ($ / € / ₿ per settings) — no icon, per
-                      // Joao. Rolls per digit like every live number
-                      // on these screens.
-                      text: amountText,
-                      style: TextStyle(
-                        color: stale ? c.textSecondary : c.textPrimary,
-                        fontSize: amountFontSize ?? 48.sp,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1.2,
-                        height: 1.0,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+          // Never shorter than one line of the figure: the FittedBox
+          // scales a figure too wide for the screen down, height and all,
+          // and the skeleton is a little shorter than the digits, so a
+          // balance that ticked past a width (or landed after loading)
+          // used to change the header's height and nudge everything under
+          // it. The line is held; only the figure inside it shrinks.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+                minHeight: _figureLineHeight(context, amountStyle)),
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (amountTrailing != null)
+                      SizedBox(width: amountTrailingWidth),
+                    if (loading)
+                      KuteSkeleton(
+                        child: SkeletonBar(
+                            150.w, (amountFontSize ?? 48.sp) * 0.9,
+                            radius: 12.r),
+                      )
+                    else
+                      // Still updating: dimmed, with the skeleton's sweep
+                      // running over the digits.
+                      StaleShimmer(
+                        stale: stale,
+                        child: RollingNumberText(
+                          // The formatted amount carries its own currency
+                          // symbol ($ / € / ₿ per settings) — no icon, per
+                          // Joao. Rolls per digit like every live number
+                          // on these screens.
+                          text: amountText,
+                          style: amountStyle.copyWith(
+                              color: stale ? c.textSecondary : c.textPrimary),
+                        ),
                       ),
-                    ),
-                  ),
-                if (heroPctText != null)
-                  Padding(
-                    padding: EdgeInsets.only(left: 8.w),
-                    child: Text(
-                      heroPctText!,
-                      style: TextStyle(
-                        color: heroPctUp ? greenColor : redColor,
-                        fontSize: 17.sp,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    if (heroPctText != null)
+                      Padding(
+                        padding: EdgeInsets.only(left: 8.w),
+                        child: Text(
+                          heroPctText!,
+                          style: TextStyle(
+                            color: heroPctUp ? greenColor : redColor,
+                            fontSize: 17.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                if (amountTrailing != null) amountTrailing!,
-              ],
+                    if (amountTrailing != null) amountTrailing!,
+                  ],
+                ),
+              ),
             ),
           ),
           if (investedText != null || availableText != null) ...[

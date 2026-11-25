@@ -1,7 +1,47 @@
+import 'package:kute/helpers/kute_dog_asset.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+/// Whether [asset] is the Kute dog (the Spending wallet's own mark).
+bool isKuteDogAsset(String? asset) =>
+    asset == kuteDogLightAsset || asset == kuteDogDarkAsset;
+
+/// A wallet's or provider's mark at [size] (a square): where the mark is
+/// the Kute dog it is the 3D Sal's `idle` still (sal_sprite.dart), the
+/// theme's pixel SVG under it until the sheets exist (founder, 31 October
+/// 2026: every pixel-Sal glyph in a title or a row is the 3D face); any
+/// other mark is its SVG, [tint]ed when given (a monochrome brand logo).
+class BrandMark extends StatelessWidget {
+  const BrandMark(
+      {super.key, required this.asset, required this.size, this.tint});
+
+  final String asset;
+  final double size;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isKuteDogAsset(asset)) {
+      return SalSprite(
+        clip: 'idle',
+        size: size,
+        fallback: SvgPicture.asset(kuteDogAsset(context),
+            width: size, height: size),
+      );
+    }
+    return SvgPicture.asset(
+      asset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      colorFilter:
+          tint == null ? null : ColorFilter.mode(tint!, BlendMode.srcIn),
+    );
+  }
+}
 
 /// Wallet visual config resolved from walletType string.
 class WalletVisual {
@@ -140,13 +180,10 @@ class WalletIcon extends StatelessWidget {
       iconWidget = SizedBox(
         width: s,
         height: s,
-        child: SvgPicture.asset(
-          visual.svgAsset!,
-          width: s,
-          height: s,
-          colorFilter: isWhite
-              ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn)
-              : null,
+        child: BrandMark(
+          asset: visual.svgAsset!,
+          size: s,
+          tint: isWhite ? c.textPrimary : null,
         ),
       );
     } else {

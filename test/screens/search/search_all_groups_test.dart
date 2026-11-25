@@ -1,10 +1,10 @@
 // What All searches: transactions, Predictions and Investing at once, and
 // nothing else. No balances, no Send/Receive shortcuts, no Settings rows,
 // even for a query like "bitcoin" that used to surface all three. The
-// groups always read Predictions, Investing, Transactions, and the pills
-// read All, Predictions, Investing, Transactions; each group shows
-// three with a "See all" that switches to its pill; the pills narrow to
-// one group.
+// groups always read Predictions, Investing, Transactions, and the scope
+// menu (the "All ⌄" chip on the composer line) reads All, Predictions,
+// Investing, Transactions; each group shows three with a "See all" that
+// switches to its scope; a scope narrows to one group.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,7 +27,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show AppBottomSheetListTile;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -189,6 +190,39 @@ Future<void> _close(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 6));
 }
 
+/// The scope chip at the end of the composer line, its label, and the
+/// scope menu it opens (one AppBottomSheetListTile per scope).
+final Finder _scopeChip = find.byKey(const ValueKey('search-scope-chip'));
+
+String _chipLabel(WidgetTester tester) => tester
+    .widget<Text>(find.descendant(of: _scopeChip, matching: find.byType(Text)))
+    .data!;
+
+Future<void> _openScopeMenu(WidgetTester tester) async {
+  await tester.tap(_scopeChip);
+  for (var i = 0; i < 24; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+List<String> _menuLabels(WidgetTester tester) => [
+      for (final t in tester
+          .widgetList<AppBottomSheetListTile>(find.byType(AppBottomSheetListTile)))
+        t.title,
+    ];
+
+/// Opens the scope menu and picks [label]; the menu closes on its own.
+Future<void> _pickScope(WidgetTester tester, String label) async {
+  if (_menuLabels(tester).isEmpty) await _openScopeMenu(tester);
+  await tester.tap(find.descendant(
+      of: find.byType(AppBottomSheetListTile), matching: find.text(label)));
+  await tester.pump();
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  for (var i = 0; i < 24; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 /// The group headers on screen, top to bottom.
 List<String> _headers(WidgetTester tester) {
   final keys = [
@@ -222,13 +256,13 @@ void main() {
       (tester) async {
     await _open(tester, 'bitcoin');
     expect(_headers(tester), ['predictions', 'investing', 'transactions']);
-    // The pills read in the same order as the groups.
-    expect(
-        tester
-            .widget<KutePillTabs>(find.byType(KutePillTabs))
-            .items
-            .map((i) => i.label),
+    // The scope menu reads in the same order as the groups; the chip on
+    // the composer line wears the selected scope.
+    expect(_chipLabel(tester), 'All');
+    await _openScopeMenu(tester);
+    expect(_menuLabels(tester),
         ['All', 'Predictions', 'Investing', 'Transactions']);
+    await _pickScope(tester, 'All');
     for (final gone in [
       'Balances',
       'Spending balance',
@@ -296,7 +330,7 @@ void main() {
     await _close(tester);
   });
 
-  testWidgets('See all and the pills narrow to one group, unlabelled',
+  testWidgets('See all and the scope menu narrow to one group, unlabelled',
       (tester) async {
     final container = await _open(tester, 'bitcoin');
     // The Transactions group's See all (the last one on screen).
@@ -310,12 +344,12 @@ void main() {
     expect(find.text('See all'), findsNothing);
     expect(_txRows(tester), 6);
 
-    // Back to All, then the Predictions pill.
-    await tester.tap(find.text('All'));
-    await _settle(tester);
+    // Back to All, then Predictions, both through the scope menu.
+    await _pickScope(tester, 'All');
     expect(_headers(tester), hasLength(3));
-    await tester.tap(find.text('Predictions').first);
-    await _settle(tester);
+    expect(_chipLabel(tester), 'All');
+    await _pickScope(tester, 'Predictions');
+    expect(_chipLabel(tester), 'Predictions');
     expect(container.read(selectedSearchCategoryProvider),
         SearchCategory.predictions);
     expect(_headers(tester), isEmpty);

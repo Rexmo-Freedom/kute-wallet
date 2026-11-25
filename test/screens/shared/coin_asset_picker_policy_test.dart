@@ -12,6 +12,7 @@ import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
 OrchestraReceiveOption _row(String chain, String asset, String name) =>
@@ -50,6 +51,9 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           theme: ThemeData(
               fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
+          // The unavailable sheet's one button is the shell bar's primary
+          // (capability_unavailable_sheet.dart): the app's layering.
+          builder: withKuteShellBar,
           home: Scaffold(
             body: CoinAssetPickerSheet(
               groups: groupCoinsByAsset([
@@ -148,7 +152,8 @@ void main() {
         findsOneWidget);
     expect(find.text("If this isn't where you are, check your VPN settings."),
         findsOneWidget);
-    expect(find.text('Check connection'), findsOneWidget);
+    // A region block's one action, on the bar: "Check connection".
+    expect(kuteBarPrimaryWithText('Check connection'), findsOneWidget);
     expect(picked, isNull);
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();

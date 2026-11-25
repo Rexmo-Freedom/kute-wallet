@@ -11,7 +11,6 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
@@ -25,6 +24,7 @@ import 'package:kute/services/network_change_signal.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 /// The runtime policy and the venue's location answer, as the test sets
 /// them. Everything is allowed until a capability is put in [denied] or
@@ -179,10 +179,12 @@ Future<ProviderContainer> _pump(WidgetTester tester,
             ]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // The shell bar over the page, as app_widget.dart mounts it: the
+        // stages' primary is the bar (kute_bar_test_support.dart).
         builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(textScale)),
-            child: child!),
+            child: withKuteShellBar(context, child)),
         home: PortfolioBuilderScreen(pool: pool),
       ),
     ),
@@ -206,9 +208,7 @@ void main() {
     final scope = await _pump(tester);
     expect(find.widgetWithText(AppBar, 'Build portfolio'), findsOneWidget);
     expect(
-        tester
-            .widget<AppButton>(find.widgetWithText(AppButton, 'Select markets'))
-            .onPressed,
+        kuteBarPrimaryProbe(tester).onPressed,
         isNull);
     await _select(tester, _event.title);
     expect(find.widgetWithText(AppBar, 'Set amounts'), findsOneWidget);
@@ -406,9 +406,9 @@ void main() {
           find.textContaining('Polymarket is restricted in the region'),
           findsOneWidget);
       // Its one button asks again; the back button still leaves.
-      expect(find.widgetWithText(AppButton, 'Check connection'),
+      expect(kuteBarPrimaryWithText('Check connection'),
           findsOneWidget);
-      expect(find.widgetWithText(AppButton, 'Close'), findsNothing);
+      expect(kuteBarPrimaryWithText('Close'), findsNothing);
       expectNoBuilder();
       expect(tester.takeException(), isNull);
     });
@@ -430,7 +430,7 @@ void main() {
       });
 
       Future<void> tapCheck(WidgetTester tester) async {
-        await tester.tap(find.widgetWithText(AppButton, 'Check connection'));
+        await tester.tap(kuteBarPrimaryWithText('Check connection'));
         for (var i = 0; i < 20; i++) {
           await tester.pump(const Duration(milliseconds: 50));
         }
@@ -456,7 +456,7 @@ void main() {
         await _pump(tester, policy: policy);
         await tapCheck(tester);
         expect(find.text('Not available in your region'), findsOneWidget);
-        expect(find.widgetWithText(AppButton, 'Check connection'),
+        expect(kuteBarPrimaryWithText('Check connection'),
             findsOneWidget);
         expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
         expectNoBuilder();

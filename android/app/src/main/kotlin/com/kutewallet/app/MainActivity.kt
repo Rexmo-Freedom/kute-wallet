@@ -73,6 +73,11 @@ class MainActivity: FlutterFragmentActivity() {
         if (!flutterEngine.plugins.has(ContinuousHapticsPlugin::class.java)) {
             flutterEngine.plugins.add(ContinuousHapticsPlugin())
         }
+        // A short stay of execution for an order still being placed when
+        // the person leaves (`kute/background_grace`): a wake lock per trip.
+        if (!flutterEngine.plugins.has(BackgroundGracePlugin::class.java)) {
+            flutterEngine.plugins.add(BackgroundGracePlugin())
+        }
         // Network changes (`kute/network_path`): a VPN or network switch
         // re-asks every region answer.
         if (!flutterEngine.plugins.has(NetworkPathPlugin::class.java)) {

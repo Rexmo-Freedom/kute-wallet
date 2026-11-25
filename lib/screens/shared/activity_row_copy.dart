@@ -261,8 +261,8 @@ bool hlFillIsSpot(HlFill fill) =>
     fill.coin.startsWith('@') || fill.coin.contains('/');
 
 /// Short title of an Investing fill: "Long BTC", "Short ETH", "Closed
-/// BTC", "Reduced BTC", "Bought · HYPE", "Sold · HYPE". [coin] is the
-/// display symbol.
+/// BTC long", "Closed ETH short", "Reduced BTC", "Bought · HYPE", "Sold ·
+/// HYPE". [coin] is the display symbol.
 String hlFillRowTitle(HlFill fill, String coin, AppLocalizations l) {
   if (fill.liquidated) return l.activityRowLiquidated(coin);
   if (hlFillIsSpot(fill)) {
@@ -274,7 +274,12 @@ String hlFillRowTitle(HlFill fill, String coin, AppLocalizations l) {
       fill.sz > 0 &&
       (fill.side == 'B' || fill.side == 'A')) {
     final after = before + (fill.isBuy ? fill.sz : -fill.sz);
-    if (after.abs() < 1e-10) return l.activityRowClosed(coin);
+    // Closed, with the side it held: "Closed BTC long".
+    if (after.abs() < 1e-10) {
+      return before > 0
+          ? l.activityRowClosedLong(coin)
+          : l.activityRowClosedShort(coin);
+    }
     final grew = before == 0 ||
         before.sign != after.sign ||
         after.abs() > before.abs();
@@ -282,7 +287,8 @@ String hlFillRowTitle(HlFill fill, String coin, AppLocalizations l) {
     return after > 0 ? l.activityRowLong(coin) : l.activityRowShort(coin);
   }
   final direction = fill.dir.toLowerCase();
-  if (direction.contains('close')) return l.activityRowClosed(coin);
+  if (direction.contains('close short')) return l.activityRowClosedShort(coin);
+  if (direction.contains('close')) return l.activityRowClosedLong(coin);
   if (direction.contains('open long')) return l.activityRowLong(coin);
   if (direction.contains('open short')) return l.activityRowShort(coin);
   return fill.isBuy ? l.activityRowLong(coin) : l.activityRowShort(coin);

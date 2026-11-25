@@ -10,6 +10,11 @@
 // credit and places the queued order. Nothing is placed from here, and
 // nothing leaves Dollars without the venue funder's verified quote.
 //
+// Only ever called from a ticket's Confirm, under the approval that tap
+// asked (founder decision, 11 November 2026: pre-funding removed, money
+// moves only after Confirm; never at slip open or on an amount typed,
+// tapped or held).
+//
 // Money safety: the slip checks Dollars BEFORE asking for the one
 // approval, and this controller checks them again right before the
 // move. A refusal of any kind before the funder's `fund` resolves means
@@ -36,6 +41,8 @@ import 'package:kute/services/funding/settlement_funding_outcome.dart'
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementFundingUnknown, SettlementStopReason, SettlementStopped;
 import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show DollarsCommitments, committedFundsProvider;
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
     show hyperliquidVenueFunderProvider;
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -397,17 +404,38 @@ class OrderFundingController {
   const OrderFundingController({
     required VenueFunder Function(OneBalanceVenue venue) funderFor,
     required double Function() dollarsUsd,
+    DollarsCommitments? Function()? commitments,
   })  : _funderFor = funderFor,
-        _dollarsUsd = dollarsUsd;
+        _dollarsUsd = dollarsUsd,
+        _commitments = commitments;
 
   final VenueFunder Function(OneBalanceVenue venue) _funderFor;
   final double Function() _dollarsUsd;
 
+  /// What other accepted orders hold of Dollars (`committed_funds.dart`):
+  /// a move is checked against Dollars less theirs, and its own share is
+  /// claimed in the same synchronous step, so two orders accepted at
+  /// nearly the same time can never both count the same dollars. Null:
+  /// Dollars as read (tests of a single order).
+  final DollarsCommitments? Function()? _commitments;
+
   /// This controller reading Dollars through [dollarsUsd]: an order funded
   /// from bitcoin passes the fresh balance its dollars landed in, before
-  /// the shown balance caught up. The check stays the guard.
+  /// the shown balance caught up. The check stays the guard, and what
+  /// other orders hold is still taken off.
   OrderFundingController withDollars(double Function() dollarsUsd) =>
-      OrderFundingController(funderFor: _funderFor, dollarsUsd: dollarsUsd);
+      OrderFundingController(
+          funderFor: _funderFor,
+          dollarsUsd: dollarsUsd,
+          commitments: _commitments);
+
+  DollarsCommitments? _ledger() {
+    try {
+      return _commitments?.call();
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// [orderUsd] is the order's size, [requiredUsd] what the venue must
   /// hold for it (size plus any margin or reservation), [readyUsd] what
@@ -445,7 +473,14 @@ class OrderFundingController {
     bool continueJourney = false,
     String? marketKind,
   }) {
-    final funder = _funderFor(venue);
+    final VenueFunder funder;
+    try {
+      funder = _funderFor(venue);
+    } catch (_) {
+      // Nothing moves: whatever the order held of Dollars is free again.
+      _ledger()?.releaseDollars(venue);
+      rethrow;
+    }
     return _run(
       funder,
       venue: venue,
@@ -478,9 +513,14 @@ class OrderFundingController {
     bool continueJourney = false,
     String? marketKind,
   }) async {
+    final ledger = _ledger();
     final shortfall =
         ShortfallRules.shortfallUsd(requiredUsd: requiredUsd, readyUsd: readyUsd);
-    if (shortfall <= 0) return const OrderFundingNotNeeded();
+    if (shortfall <= 0) {
+      // Nothing leaves Dollars for it.
+      ledger?.releaseDollars(venue);
+      return const OrderFundingNotNeeded();
+    }
     final journey = OrderFundingJourney.instance;
     final dollars = _dollarsUsd();
     if (!continueJourney || !journey.isRunning(venue)) {
@@ -495,9 +535,12 @@ class OrderFundingController {
     }
 
     // Quote: the amount to move, from the venue's estimate unless the slip
-    // already had it approved.
+    // already had it approved. The rail's minimum is read beside the
+    // estimate, never after it: two independent answers, one wait.
     onStage?.call(OrderFundingStage.quote);
     journey.step(venue, OrderFundingStage.quote);
+    final quotedAt = OrderFundingJourney.clock();
+    final minimumRead = _minimum(funder);
     double fund;
     if (fundUsd != null && fundUsd.isFinite && fundUsd > 0) {
       fund = fundUsd;
@@ -511,21 +554,34 @@ class OrderFundingController {
       } catch (e) {
         final reason = _refusalReason(e);
         journey.failed(venue, OrderFundingStage.quote, reason);
+        ledger?.releaseDollars(venue);
         return OrderFundingRefused(reason, error: e);
       }
       journey.setFundUsd(venue, fund);
+      journey.leg(venue, OrderFundingLeg.estimate,
+          OrderFundingJourney.clock().difference(quotedAt).inMilliseconds);
     }
-    final minimum = await _minimum(funder);
+    final minimum = await minimumRead;
     if (fund < minimum) fund = minimum;
 
     // Dollars are checked again right here, the last read before any
     // approval is used: a balance that fell since the slip looked sends
-    // the person to the Dollars door, with nothing moved.
-    if (!dollars.isFinite || dollars + 1e-9 < fund) {
+    // the person to the Dollars door, with nothing moved. What OTHER
+    // accepted orders hold is not this move's (an Investing order and a
+    // bet accepted together never both count the same dollars), and this
+    // move's own share is claimed in the same synchronous step: no other
+    // check can slip between the two.
+    final reading = _dollarsUsd();
+    final available = ledger == null
+        ? reading
+        : ledger.availableFor(venue, dollarsUsd: reading);
+    if (!available.isFinite || available + 1e-9 < fund) {
+      ledger?.releaseDollars(venue);
       journey.failed(venue, OrderFundingStage.quote, 'insufficient_funds');
-      return OrderFundingNeedsDollars(
-          OrderFundingPlan._ceilCents(fund - (dollars.isFinite ? dollars : 0)));
+      return OrderFundingNeedsDollars(OrderFundingPlan._ceilCents(
+          fund - (available.isFinite && available > 0 ? available : 0)));
     }
+    ledger?.claimDollars(venue, fund);
 
     onStage?.call(OrderFundingStage.fund);
     journey.step(venue, OrderFundingStage.fund);
@@ -542,6 +598,12 @@ class OrderFundingController {
               })
           : await funder.fund(usd: fund, auth: auth, purpose: purpose);
     } catch (e) {
+      if (e is SettlementFundingUnknown) {
+        // Maybe sent: held until the reading shows it, or briefly.
+        ledger?.dollarsSent(venue, fromUsd: reading);
+      } else {
+        ledger?.releaseDollars(venue);
+      }
       if (keepUnconfirmed && e is SettlementFundingUnknown) {
         // Maybe sent: the run stays open at the credit, which the venue's
         // autofire closes (placed, or the credit wait running out).
@@ -554,7 +616,9 @@ class OrderFundingController {
       return OrderFundingRefused(reason, error: e);
     }
 
-    // Dollars have left. The credit is the venue autofire's to wait for.
+    // Dollars have left: they count here until the reading shows them.
+    ledger?.dollarsSent(venue, fromUsd: reading);
+    // The credit is the venue autofire's to wait for.
     onStage?.call(OrderFundingStage.credit);
     journey.funded(venue, move, orderUsd: orderUsd);
     return OrderFundingFunded(move);
@@ -608,6 +672,7 @@ final orderFundingControllerProvider = Provider<OrderFundingController>(
         return 0;
       }
     },
+    commitments: () => ref.read(committedFundsProvider.notifier),
   ),
 );
 
@@ -717,7 +782,7 @@ class _FundingRun {
   String? fundingSource;
 
   /// `live` for a game in play, `short` for a 5- or 15-minute round
-  /// (`PrefundMarketKind`), so their funded orders read apart.
+  /// (`FastMarketKind`), so their funded orders read apart.
   String? marketKind;
 
   /// The Bitcoin leg's sats left, and its dollars landed.
@@ -740,6 +805,63 @@ class _FundingRun {
   /// Each leg's milliseconds from its start to its money landing, by
   /// source (`ms_leg_bitcoin`, `ms_leg_dollars`, ...).
   final Map<String, int> legMs = {};
+
+  /// Finer legs inside the stages ([OrderFundingLeg]), exact milliseconds
+  /// each, for the `legs` breakdown of `order_funding_completed`.
+  final Map<String, int> subLegs = {};
+
+  /// The credit's exact timings (`ms_funded_to_onchain_seen`,
+  /// `ms_seen_to_wrap_submitted`, `ms_wrap_submitted_to_mined`,
+  /// `ms_mined_to_book_counts` on Predictions; `ms_funded_to_ledger_push`,
+  /// `ms_funded_to_account_shows` on Investing), first figure kept.
+  final Map<String, int> timings = {};
+
+  /// Read counters (`chain_reads`, `chain_rpc_errors`,
+  /// `chain_rpc_endpoint`, `readiness_read_errors`, `book_count_errors`,
+  /// Investing `account_reads`, `account_read_errors`), latest value.
+  final Map<String, int> counts = {};
+
+  /// What first saw the money in full (Predictions `detected_by`), or
+  /// which read showed the credit (Investing `credited_by`).
+  String? detectedBy;
+  String? creditedBy;
+}
+
+/// The closed vocabulary of the `legs` breakdown on
+/// `order_funding_completed`: where a funded order's seconds went, one
+/// exact millisecond figure per leg. The four stages are always there;
+/// the finer legs when that run had them.
+abstract final class OrderFundingLeg {
+  /// Sizing the move (the slip's estimate, or the controller's).
+  static const quote = 'quote';
+
+  /// Dollars leaving (the quote verified, the send made).
+  static const fund = 'fund';
+
+  /// The venue crediting the move.
+  static const credit = 'credit';
+
+  /// The order placed on the credit.
+  static const order = 'order';
+
+  /// Inside [quote]: the funder's estimate round trip(s).
+  static const estimate = 'estimate';
+
+  /// Inside [credit] (Predictions): the USDC.e → pUSD conversion.
+  static const wrap = 'wrap';
+
+  /// Inside [credit] (Predictions): the order's collateral check, from
+  /// the placement's start until the order book counts the money (its
+  /// re-reads of the wallet included).
+  static const venueCount = 'venue_count';
+
+  /// Inside [credit] (Investing): the builder-deployed perp dex crediting
+  /// its own collateral after the account's.
+  static const dexCredit = 'dex_credit';
+
+  /// Before [quote]: an order funded from the person's own bitcoin, its
+  /// sats leaving to its dollars landing.
+  static const bitcoin = 'bitcoin';
 }
 
 /// Follows one funded order per venue from the slip's tap to its one
@@ -822,7 +944,19 @@ class OrderFundingJourney {
 
   /// The route an order that needs Bitcoin took (`direct` or
   /// `via_dollars`) and, for the chain, why ([reason], a fixed code).
-  void setRoute(OneBalanceVenue venue, String route, {String? reason}) {
+  ///
+  /// [decision] (a fixed code: the chain's reason, or why direct),
+  /// [costDiffUsd] (direct minus via) and the two costs compared,
+  /// [directCostUsd] and [viaCostUsd] (exact dollars, each route's sats at
+  /// the wallet's price after its own Kute fee and provider costs, plus
+  /// the Dollars it uses), ride on this event only, when the planner
+  /// priced both.
+  void setRoute(OneBalanceVenue venue, String route,
+      {String? reason,
+      String? decision,
+      double? costDiffUsd,
+      double? directCostUsd,
+      double? viaCostUsd}) {
     final run = _runs[venue];
     if (run == null) return;
     if (run.route == route && run.routeReason == reason) return;
@@ -833,6 +967,12 @@ class OrderFundingJourney {
       'duration_ms': clock().difference(run.startedAt).inMilliseconds.clamp(0, 1 << 31),
       ..._legParams(run),
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      if (decision != null) 'route_decision': decision,
+      if (costDiffUsd != null && costDiffUsd.isFinite)
+        'route_cost_diff_usd': costDiffUsd,
+      if (directCostUsd != null && directCostUsd.isFinite)
+        'direct_cost_usd': directCostUsd,
+      if (viaCostUsd != null && viaCostUsd.isFinite) 'via_cost_usd': viaCostUsd,
     });
   }
 
@@ -856,6 +996,42 @@ class OrderFundingJourney {
     return run == null ? const {} : _legParams(run);
   }
 
+  /// When Dollars left for [venue] ([funded]); null before, or with no
+  /// run.
+  DateTime? fundedAtOf(OneBalanceVenue venue) => _runs[venue]?.fundedAt;
+
+  /// An exact credit timing [name] (`ms_*`) of the run: [ms] milliseconds.
+  /// The first figure is kept.
+  void timing(OneBalanceVenue venue, String name, int ms) {
+    final run = _runs[venue];
+    if (run == null || ms < 0) return;
+    run.timings.putIfAbsent(name, () => ms);
+  }
+
+  /// A read counter [name] of the run is [value] now (latest kept).
+  void count(OneBalanceVenue venue, String name, int value) {
+    final run = _runs[venue];
+    if (run == null || value < 0) return;
+    run.counts[name] = value;
+  }
+
+  /// What first saw the run's money in full ([how], a fixed code:
+  /// `status`, `chain_poll`, `await_poll`, `trading_poll`). The first
+  /// answer is kept.
+  void detectedBy(OneBalanceVenue venue, String how) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.detectedBy ??= how;
+  }
+
+  /// Which read showed the run's credit ([how], a fixed code). The first
+  /// answer is kept.
+  void creditedBy(OneBalanceVenue venue, String how) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.creditedBy ??= how;
+  }
+
   /// One leg's money landed [ms] after it started. [source] is the
   /// balance it came from (`bitcoin`, `dollars`, `predictions`,
   /// `investing`).
@@ -865,6 +1041,35 @@ class OrderFundingJourney {
     run.legMs['ms_leg_$source'] = ms;
   }
 
+  /// A finer leg of the run took [ms] ([name] from [OrderFundingLeg]), for
+  /// the `legs` breakdown. A leg recorded twice keeps its total.
+  void leg(OneBalanceVenue venue, String name, int ms) {
+    final run = _runs[venue];
+    if (run == null || ms < 0) return;
+    run.subLegs[name] = (run.subLegs[name] ?? 0) + ms;
+  }
+
+  /// The `legs` property of `order_funding_completed`: exact milliseconds
+  /// per leg, keyed by [OrderFundingLeg] names. The four stages always;
+  /// [extra] (finer legs) when known. Shared by both emitters (this
+  /// journey and the Investing autofire) so the breakdown reads the same.
+  static Map<String, int> legsBreakdown({
+    required int quoteMs,
+    required int fundMs,
+    int? creditMs,
+    int? orderMs,
+    Map<String, int> extra = const {},
+  }) {
+    int clamp(int ms) => ms.clamp(0, 1 << 31);
+    return {
+      OrderFundingLeg.quote: clamp(quoteMs),
+      OrderFundingLeg.fund: clamp(fundMs),
+      if (creditMs != null) OrderFundingLeg.credit: clamp(creditMs),
+      if (orderMs != null) OrderFundingLeg.order: clamp(orderMs),
+      for (final e in extra.entries) e.key: clamp(e.value),
+    };
+  }
+
   /// The route and per-leg timings for the funnel's end events.
   static Map<String, Object> _legParams(_FundingRun run) => {
         if (run.route != null) 'route': run.route!,
@@ -872,6 +1077,10 @@ class OrderFundingJourney {
         if (run.otherVenueUsed != null)
           'other_venue_used': run.otherVenueUsed!,
         ...run.legMs,
+        ...run.timings,
+        ...run.counts,
+        if (run.detectedBy != null) 'detected_by': run.detectedBy!,
+        if (run.creditedBy != null) 'credited_by': run.creditedBy!,
       };
 
   void setFundUsd(OneBalanceVenue venue, double fundUsd) {
@@ -943,14 +1152,33 @@ class OrderFundingJourney {
     final quoted = run.quotedAt ?? quoteFrom;
     final funded = run.fundedAt ?? quoted;
     final credited = run.creditedAt ?? funded;
+    final quoteMs = quoted.difference(quoteFrom).inMilliseconds;
+    final fundMs = funded.difference(quoted).inMilliseconds;
+    final creditMs = credited.difference(funded).inMilliseconds;
+    final orderMs = now.difference(credited).inMilliseconds;
+    final bitcoinSent = run.bitcoinSentAt;
+    final bitcoinLanded = run.bitcoinLandedAt;
     TrackingService.track('order_funding_completed', params: {
       'venue': orderFundingVenueCode(venue),
       'fund_usd': run.fundUsd,
       'amount_usd': amountUsd ?? run.orderUsd,
-      'ms_quote': quoted.difference(quoteFrom).inMilliseconds,
-      'ms_fund': funded.difference(quoted).inMilliseconds,
-      'ms_credit': credited.difference(funded).inMilliseconds,
-      'ms_order': now.difference(credited).inMilliseconds,
+      'ms_quote': quoteMs,
+      'ms_fund': fundMs,
+      'ms_credit': creditMs,
+      'ms_order': orderMs,
+      // Where the seconds went, one exact figure per leg.
+      'legs': legsBreakdown(
+        quoteMs: quoteMs,
+        fundMs: fundMs,
+        creditMs: creditMs,
+        orderMs: orderMs,
+        extra: {
+          if (bitcoinSent != null && bitcoinLanded != null)
+            OrderFundingLeg.bitcoin:
+                bitcoinLanded.difference(bitcoinSent).inMilliseconds,
+          ...run.subLegs,
+        },
+      ),
       'duration_ms': now.difference(run.startedAt).inMilliseconds,
       'resized': resized,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,

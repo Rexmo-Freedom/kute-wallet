@@ -79,6 +79,39 @@ void main() {
     model.dispose();
   });
 
+  test('a page after the first says so; a topic scopes with its tag slug; '
+      'Gamma says whether more follow', () async {
+    final requests = <Map<String, String>>[];
+    final model = PolymarketModel(searchClient: MockClient((request) async {
+      requests.add(request.url.queryParameters);
+      final page2 = request.url.queryParameters['page'] == '2';
+      return http.Response(
+          jsonEncode({
+            'events': [event(page2 ? 2 : 1, volumeNum: 1)],
+            'pagination': {'hasMore': !page2, 'totalResults': 2},
+          }),
+          200);
+    }));
+    final first = await model.searchEventsPage('btc', eventsTag: 'sports');
+    expect(first.events.map((e) => e.id), ['1']);
+    expect(first.hasMore, isTrue);
+    // The first page is Gamma's default: no page parameter.
+    expect(requests.single['page'], isNull);
+    expect(requests.single['events_tag'], 'sports');
+    final second =
+        await model.searchEventsPage('btc', eventsTag: 'sports', page: 2);
+    expect(second.events.map((e) => e.id), ['2']);
+    expect(second.hasMore, isFalse);
+    expect(requests.last['page'], '2');
+    expect(requests.last['events_tag'], 'sports');
+    // Everything: no tag. No pagination block reads as the last page.
+    final all = await model.searchEventsPage('btc');
+    expect(requests.last.containsKey('events_tag'), isFalse);
+    expect(all.hasMore, isTrue);
+    expect((await model.searchEventsPage('eth')).events, isNotEmpty);
+    model.dispose();
+  });
+
   test('most traded first, Gamma order for ties, no title re-ranking',
       () async {
     final model = PolymarketModel(

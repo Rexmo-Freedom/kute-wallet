@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show KuteDockClearance, kuteDockScrollClearance;
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -36,32 +37,13 @@ class PredictionHistoryScreen extends ConsumerWidget {
 
   static void show(BuildContext context) {
     TrackingService.screenView('prediction_history');
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 300),
-        reverseTransitionDuration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 300),
-        pageBuilder: (_, __, ___) => const PredictionHistoryScreen(),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(
-                begin: const Offset(0, 1),
-                end: Offset.zero,
-              ).chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
+        builder: (_) => const PredictionHistoryScreen(),
       ),
     );
   }

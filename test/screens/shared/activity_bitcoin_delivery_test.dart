@@ -417,6 +417,25 @@ void main() {
           ['rx_twin', 'msm_1']);
     });
 
+    test('an on-chain deposit of the same amount is never the delivery', () {
+      // Orchestra pays over Spark or Lightning: a claimed deposit is the
+      // person's own money and keeps its row, whatever it matches.
+      final deposit = _received('rx_deposit', 19900, const Duration(minutes: 30),
+          type: SparkTransactionType.bitcoin);
+      expect(_ids(_surface([hl, deposit], moves: [move])),
+          ['rx_deposit', 'msm_1']);
+      // The reconciler never settles a move on one either, even a move
+      // whose figure is unknown and would take any receive.
+      expect(
+          reconcilerDeliveryLegs(
+              targetSats: 0, rowAt: _t0, receives: [deposit]),
+          isNull);
+      expect(
+          reconcilerDeliveryLegs(
+              targetSats: 19900, rowAt: _t0, receives: [deposit]),
+          isNull);
+    });
+
     test('the same amount before the move started', () {
       final before =
           _received('rx_before', 19900, const Duration(minutes: -30));

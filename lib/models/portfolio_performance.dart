@@ -86,6 +86,10 @@ class PortfolioPerformance {
   /// * open: each live position at [livePrices] (its last Data API price
   ///   where there is none) against its entry cost.
   ///
+  /// Each outcome token counts once, open or closed, never both: a token
+  /// the Data API lists under both statuses mid-transition counts as its
+  /// latest row ([distinctPredictionRecords]).
+  ///
   /// Where the position list could not be read whole, the series' own
   /// realised figure stands in, plus the positions opened after it.
   PortfolioPerformance withLivePredictions(Map<String, double> livePrices,
@@ -95,14 +99,15 @@ class PortfolioPerformance {
     var realized = 0.0;
     var open = 0.0;
     final since = asOf;
+    final records = distinctPredictionRecords(book.records);
     if (book.complete) {
-      for (final r in book.records) {
+      for (final r in records) {
         realized += r.decidedPnlUsd ?? r.realizedPnlUsd;
       }
       realized += otherPnlUsd ?? 0;
     } else {
       realized = realizedPnlUsd ?? 0;
-      for (final r in book.records) {
+      for (final r in records) {
         final entered = r.firstEntryAt;
         if (since != null && (entered == null || !entered.isAfter(since))) {
           continue;
@@ -110,8 +115,13 @@ class PortfolioPerformance {
         realized += r.decidedPnlUsd ?? r.realizedPnlUsd;
       }
     }
-    for (final r in book.records) {
-      if (!r.open || r.redeemable) continue;
+    for (final r in records) {
+      // Open at its mark only while shares are held: a dust remainder
+      // (what a sell-all leaves) is a closed position, its realised P&L
+      // already counted above and never valued at a price again.
+      if (!r.open || r.redeemable || !(r.size >= _kDustShares)) {
+        continue;
+      }
       final live = livePrices[r.tokenId];
       final price = live != null && live.isFinite ? live : r.currentPrice;
       open += price * r.size - r.entryCostUsd;
@@ -385,6 +395,53 @@ class PredictionRecord {
   }
 }
 
+/// Under this many shares a Polymarket position is dust worth under a cent
+/// whatever the result, such as what a "sell all" leaves behind: a closed
+/// position, never open. Mirrors `kPredictionDustShares`
+/// (prediction_results.dart) and `kPolyDustShares`.
+const double _kDustShares = 0.01;
+
+/// [records] with one row per outcome token. The Data API moves a position
+/// from `status=OPEN` to `status=CLOSED` when it is sold or claimed, and
+/// the two lists are separate reads: a token can show in both for a moment
+/// (the pre-sale open row next to the closed one with the sale's realised
+/// P&L). The row with the latest event stands; on a tie, the closed one.
+/// Rows without a token id are kept as they are.
+List<PredictionRecord> distinctPredictionRecords(
+    List<PredictionRecord> records) {
+  final byToken = <String, int>{};
+  final out = <PredictionRecord?>[];
+  var dropped = false;
+  for (final r in records) {
+    if (r.tokenId.isEmpty) {
+      out.add(r);
+      continue;
+    }
+    final at = byToken[r.tokenId];
+    if (at == null) {
+      byToken[r.tokenId] = out.length;
+      out.add(r);
+      continue;
+    }
+    dropped = true;
+    final kept = out[at]!;
+    if (_laterRecord(r, kept)) out[at] = r;
+  }
+  if (!dropped) return records;
+  return [for (final r in out) r!];
+}
+
+/// [a] is a later account of its token than [b].
+bool _laterRecord(PredictionRecord a, PredictionRecord b) {
+  final ta = a.lastEventAt;
+  final tb = b.lastEventAt;
+  if (ta != null && tb != null && ta != tb) return ta.isAfter(tb);
+  if (ta != null && tb == null) return true;
+  if (ta == null && tb != null) return false;
+  // Same moment (or none known): the closed row is the later state.
+  return !a.open && b.open;
+}
+
 /// Every position of a Polymarket account. [complete] is false when the
 /// list was cut at the read limit; [coversFrom] is then the oldest exit it
 /// still holds, and statistics reaching back before it are unknown.
@@ -406,7 +463,7 @@ class PredictionsBook {
         since == null || (at != null && !at.isBefore(since));
     var count = 0;
     var staked = 0.0;
-    for (final r in records) {
+    for (final r in distinctPredictionRecords(records)) {
       if (inRange(r.firstEntryAt)) {
         count++;
         staked += r.stakeUsd;
@@ -480,12 +537,13 @@ double? _pnlDifference(double? current, double? previous) {
 /// P&L that never left zero is the last week, flat at zero (the chart's
 /// empty state). Times are local wall-clock, as the Balance charts'.
 BalanceSeries pnlSeries(PortfolioPerformance data, DateTime now) {
+  debugPnlSeriesGrids++;
   final end = now.toLocal();
-  final changes = <(DateTime, double)>[
-    for (final p in data.points)
-      if (!p.timestamp.toLocal().isAfter(end))
-        (p.timestamp.toLocal(), p.pnlUsd)
-  ];
+  final changes = <(DateTime, double)>[];
+  for (final p in data.points) {
+    final at = p.timestamp.toLocal();
+    if (!at.isAfter(end)) changes.add((at, p.pnlUsd));
+  }
   final current =
       data.totalPnlUsd ?? (data.points.isEmpty ? 0.0 : data.points.last.pnlUsd);
   DateTime? start;
@@ -516,6 +574,49 @@ BalanceSeries pnlSeries(PortfolioPerformance data, DateTime now) {
     current: current,
   );
 }
+
+/// The live prices [PortfolioPerformance.withLivePredictions] reads out
+/// of [all]: those of the shares [book] still holds (open, not resolved,
+/// above dust), every other market's left out. Equal while each of
+/// those prices is, so a screen that selects it rebuilds on a tick of a
+/// prediction held, never on another market's (the feed ticks for every
+/// market on screen anywhere in the app). The figures are the same as
+/// from the whole map.
+class HeldPredictionPrices {
+  const HeldPredictionPrices._(this.prices);
+
+  factory HeldPredictionPrices.of(
+      PredictionsBook? book, Map<String, double> all) {
+    if (book == null || all.isEmpty) return const HeldPredictionPrices._({});
+    final held = <String, double>{};
+    for (final r in book.records) {
+      if (!r.open || r.redeemable || !(r.size >= _kDustShares)) continue;
+      final price = all[r.tokenId];
+      if (price != null) held[r.tokenId] = price;
+    }
+    return HeldPredictionPrices._(held);
+  }
+
+  final Map<String, double> prices;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! HeldPredictionPrices) return false;
+    if (other.prices.length != prices.length) return false;
+    for (final e in prices.entries) {
+      if (other.prices[e.key] != e.value) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAllUnordered(
+      [for (final e in prices.entries) Object.hash(e.key, e.value)]);
+}
+
+/// How many grids [pnlSeries] has laid (tests count the work a frame
+/// does).
+int debugPnlSeriesGrids = 0;
 
 /// Distinct from an empty, successfully read history and a transport failure.
 class PortfolioPerformanceUnavailable implements Exception {

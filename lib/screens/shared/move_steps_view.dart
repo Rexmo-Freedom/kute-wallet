@@ -476,7 +476,6 @@ class MoveStepsSection extends ConsumerWidget {
         builder: (context, slow) => MoneyStepsView(
             lines: lines,
             graph: graph,
-            toLabel: sendTo,
             slow: slow,
             failureHaptic: failureHaptic),
       ),

@@ -26,10 +26,17 @@ class KuteDockHost extends StatefulWidget {
   /// `onHeightChanged` so the frost band and clearance track its real size.
   final Widget Function(ValueChanged<double> onHeightChanged) dockBuilder;
 
+  /// The frosted band behind the dock. False for a dock that is the one
+  /// search pill (Home, Dollars), which frosts its own bounds plus 8 px
+  /// (KuteBottomActionBar): a band across the screen behind one small
+  /// pill read as too much blur (founder, 31 October 2026).
+  final bool frostBand;
+
   const KuteDockHost({
     super.key,
     required this.body,
     required this.dockBuilder,
+    this.frostBand = true,
   });
 
   @override
@@ -63,6 +70,7 @@ class _KuteDockHostState extends State<KuteDockHost> {
           child: widget.body,
         ),
         if (!keyboardUp) ...[
+          if (widget.frostBand)
           Positioned(
             left: 0,
             right: 0,

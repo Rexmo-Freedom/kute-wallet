@@ -39,6 +39,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
     show sportsLiveProvider, sportsUpdateFor, SportsMatchUpdate;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
+import 'package:kute/screens/search/search_result_order.dart'
+    show predictionMatchedOutcome, rankPredictionResults;
 
 /// Sealed union of everything the unified search can surface. The UI
 /// switches on the concrete subtype to render the row and to dispatch
@@ -68,10 +70,15 @@ class OwnedPositionSearchResult extends SearchResult {
 }
 
 /// A global Polymarket market from the remote Gamma search. Tapping
-/// opens `MarketDetailSheet.show(event:)`.
+/// opens `MarketDetailSheet.show(event:)`. [matchedOutcome] is the one
+/// outcome among many the query named ("porto" in "UEFA Champions League:
+/// 2027 Champion"), whose chance the row shows instead of the leader's;
+/// null when the event itself is about the query
+/// ([predictionMatchedOutcome]).
 class GlobalMarketSearchResult extends SearchResult {
   final PolymarketEvent event;
-  const GlobalMarketSearchResult(this.event);
+  final PolymarketOutcome? matchedOutcome;
+  const GlobalMarketSearchResult(this.event, {this.matchedOutcome});
 }
 
 /// Grouped synchronous results — everything except the remote
@@ -126,15 +133,48 @@ enum SearchCategory {
 final selectedSearchCategoryProvider =
     StateProvider<SearchCategory>((ref) => SearchCategory.all);
 
+/// The Predictions category the Predictions scope is narrowed to (the
+/// topic row under the composer: Politics, Sports … Art); null is All.
+/// Reset with the scope each time the sheet opens.
+final searchPredictionsTopicProvider = StateProvider<PolyPill?>((ref) => null);
+
+/// The venue search the sheet runs now: the query, scoped to the picked
+/// topic's Gamma tag under the Predictions scope (`events_tag`), to
+/// nothing under All.
+final polySearchQueryProvider = Provider.autoDispose<PolySearchQuery>((ref) {
+  final query = ref.watch(searchQueryProvider).trim();
+  final scoped =
+      ref.watch(selectedSearchCategoryProvider) == SearchCategory.predictions;
+  final topic = scoped ? ref.watch(searchPredictionsTopicProvider) : null;
+  return (query: query, tag: topic?.tagSlugs.firstOrNull);
+});
+
+/// Whether the Predictions results can grow ("Show more": Gamma has a
+/// page after the ones read) and whether a page is being read now. Only
+/// under the Predictions scope with a query; false otherwise.
+final searchPredictionsPagingProvider =
+    Provider.autoDispose<({bool hasMore, bool loadingMore})>((ref) {
+  const none = (hasMore: false, loadingMore: false);
+  if (ref.watch(selectedSearchCategoryProvider) != SearchCategory.predictions) {
+    return none;
+  }
+  if (ref.watch(searchWalletScopeProvider) != null) return none;
+  final q = ref.watch(polySearchQueryProvider);
+  if (q.query.isEmpty) return none;
+  final feed = ref.watch(polySearchFeedProvider(q));
+  return (hasMore: feed.hasMore && !feed.loading, loadingMore: feed.loadingMore);
+});
+
 /// Per-subsection caps so a broad query ("a") can't dump hundreds of
 /// rows into one section.
 const int _kMaxTransactionResults = 25;
 const int _kMaxOwnedPositionResults = 5;
 /// Predictions under the All filter (the section shows four and "See all").
 const int kMaxGlobalMarketResults = 5;
-/// Predictions under the Predictions filter: the whole venue page (the
-/// model asks Gamma for 50, its cap), most traded first.
-const int kMaxPredictionsFilterResults = 50;
+/// Predictions under the Predictions filter: the venue pages read so far
+/// (50 each, Gamma's cap; "Show more" reads the next), most traded first
+/// within each page; five pages at most.
+const int kMaxPredictionsFilterResults = 250;
 const int kMaxHyperliquidResults = 6;
 
 /// Short, user-facing label for a wallet, attached to each transaction
@@ -334,19 +374,19 @@ final unifiedSearchResultsProvider = FutureProvider.autoDispose<UnifiedSearchRes
   );
 });
 
-/// Remote global-market leg. Wraps the debounced `polymarketSearchProvider`
-/// (which already sleeps 300ms before hitting Gamma) and projects the
-/// events into search results, de-duped by conditionId and capped at [kMaxGlobalMarketResults] under All, at
-/// [kMaxPredictionsFilterResults] under the Predictions filter.
+/// Remote global-market leg. Wraps the debounced, paged
+/// [polySearchFeedProvider] (the query, scoped to the picked topic under
+/// the Predictions scope; [polySearchQueryOf]) and projects the events
+/// into search results, de-duped by conditionId and capped at
+/// [kMaxGlobalMarketResults] under All, at [kMaxPredictionsFilterResults]
+/// under the Predictions filter.
 ///
-/// ONGOING / LIVE markets are surfaced FIRST: `polymarketSearchProvider`'s
-/// resolved filter already keeps genuinely in-play games (it returns false
-/// for a live, score/period-seeded, not-ended event), but the cap could
-/// otherwise drop a live market sitting below the first five Gamma hits. We
-/// stable-sort in-play markets ahead of the rest — using the live WS feed
-/// (keyed by slug, then `game:<gameId>`) and the event's own seeded in-play
-/// signal as a fallback — so a live game matching the query always makes the
-/// (capped) cut and leads the section, where the UI tags it "LIVE".
+/// The markets ABOUT the query lead, then the ones that only list it among
+/// many outcomes, a game in play first within each
+/// ([rankPredictionResults], search_result_order.dart), BEFORE the cap, so
+/// Porto's own games are never cut for the Champions League winner. In
+/// play is the live WS feed (keyed by slug, then `game:<gameId>`) or the
+/// event's own seeded in-play signal, where the UI tags it "LIVE".
 final globalMarketResultsProvider =
     Provider.autoDispose<AsyncValue<List<GlobalMarketSearchResult>>>((ref) {
   if (!ref.watch(runtimeCapabilitiesProvider).allows('polymarket.browse')) {
@@ -357,17 +397,19 @@ final globalMarketResultsProvider =
   if (category != SearchCategory.all && category != SearchCategory.predictions) {
     return const AsyncValue.data([]);
   }
-  final query = ref.watch(searchQueryProvider).trim();
+  final search = ref.watch(polySearchQueryProvider);
+  final query = search.query;
   if (query.isEmpty) return const AsyncValue.data([]);
 
-  final async = ref.watch(polymarketSearchProvider(query));
+  final feed = ref.watch(polySearchFeedProvider(search));
   // While the venue answers, the markets the Predictions screen already
-  // holds in memory that match stand in, so results show at once.
-  final events = async.valueOrNull ??
-      (async.isLoading ? _browsedMarketsMatching(ref, query) : null);
-  if (events == null) {
-    return async.whenData((_) => const <GlobalMarketSearchResult>[]);
-  }
+  // holds in memory that match stand in, so results show at once (not
+  // under a topic: they are not scoped to it).
+  final events = feed.loading
+      ? (search.tag == null
+          ? _browsedMarketsMatching(ref, query)
+          : const <PolymarketEvent>[])
+      : feed.events;
   // Which of these markets are in play, as one value: only a game among
   // them starting or stopping re-sorts the list, not every score tick.
   final liveMask = ref.watch(sportsLiveProvider.select((live) => [
@@ -379,9 +421,9 @@ final globalMarketResultsProvider =
       if (liveMask[i] == '1') events[i],
   };
   List<GlobalMarketSearchResult> project(List<PolymarketEvent> events) {
-    // De-dup first (repeated conditionIds), then
-    // stable-sort live-first, then cap — so the cap is applied AFTER live
-    // markets are pulled to the top, never before.
+    // De-dup first (repeated conditionIds), then rank, then cap — so the
+    // cap is applied AFTER the markets about the query (and live games)
+    // are pulled to the top, never before.
     final deduped = <PolymarketEvent>[];
     final seen = <String>{};
     for (final e in events) {
@@ -392,22 +434,20 @@ final globalMarketResultsProvider =
 
     bool isLive(PolymarketEvent e) => live.contains(e) || e.isInPlay;
 
-    // Stable partition: in-play markets first, original (Gamma) order kept
-    // within each group.
-    final sorted = [
-      ...deduped.where(isLive),
-      ...deduped.where((e) => !isLive(e)),
-    ];
+    final sorted =
+        rankPredictionResults(deduped, (e) => e, query: query, isLive: isLive);
 
     final cap = category == SearchCategory.predictions
         ? kMaxPredictionsFilterResults
         : kMaxGlobalMarketResults;
     return [
-      for (final e in sorted.take(cap)) GlobalMarketSearchResult(e),
+      for (final e in sorted.take(cap))
+        GlobalMarketSearchResult(e,
+            matchedOutcome: predictionMatchedOutcome(query, e)),
     ];
   }
 
-  if (async.hasValue) return AsyncValue.data(project(events));
+  if (!feed.loading) return AsyncValue.data(project(events));
   // Still loading: the in-memory matches, flagged as loading so the sheet
   // keeps its "searching" row under them until the venue answers.
   return const AsyncLoading<List<GlobalMarketSearchResult>>()

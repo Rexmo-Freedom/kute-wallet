@@ -20,10 +20,10 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
-import 'package:kute/screens/polymarket/components/position_card.dart';
+import 'package:kute/screens/search/components/search_rows.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show AppBottomSheetListTile;
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/investment_market_browser.dart'
-    show PredictionBrowseCard;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/trade_notification_store.dart'
@@ -191,23 +191,28 @@ Future<void> _close(WidgetTester tester) async {
 }
 
 Future<void> _pickTab(WidgetTester tester, String label) async {
-  // The pill row scrolls: Transactions, the last pill, can sit past the
-  // edge.
-  await tester.ensureVisible(find.text(label).first);
-  await tester.pump();
-  await tester.tap(find.text(label).first);
+  // The scope chip at the end of the composer line opens the scope menu;
+  // the scope is one of its rows.
+  await tester.tap(find.byKey(const ValueKey('search-scope-chip')));
+  for (var i = 0; i < 24; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.tap(find.descendant(
+      of: find.byType(AppBottomSheetListTile), matching: find.text(label)));
   await tester.pump();
   await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-  await _settle(tester);
+  for (var i = 0; i < 24; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 /// A past bet, drawn with the Portfolio's position card.
 Finder _bet(String s) => find
-    .byWidgetPredicate((w) => w is PolyPositionCard && w.question.contains(s));
+    .byWidgetPredicate((w) => w is SearchPositionRow && w.position.marketQuestion.contains(s));
 
 /// A market, drawn with the Predictions list's card.
 Finder _marketCard(String s) => find.byWidgetPredicate(
-    (w) => w is PredictionBrowseCard && w.event.title.contains(s));
+    (w) => w is SearchPredictionRow && w.event.title.contains(s));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

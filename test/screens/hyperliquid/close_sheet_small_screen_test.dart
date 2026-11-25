@@ -24,7 +24,6 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/hyperliquid/components/close_position_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_error_copy.dart';
-import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
@@ -33,6 +32,7 @@ import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
+import '../../helpers/shell_bar_harness.dart';
 import '../../services/support/fake_secret_store.dart';
 
 class _LivePrices extends HlLivePricesNotifier {
@@ -130,6 +130,8 @@ Future<void> _pump(WidgetTester tester, {double scale = 1.0}) async {
   tester.view.padding = const FakeViewPadding(top: 40);
   tester.view.viewPadding = const FakeViewPadding(top: 40);
   addTearDown(tester.view.reset);
+  // The bar over the sheet is the sheet's button (shell_bar_harness.dart).
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -164,10 +166,13 @@ Future<void> _pump(WidgetTester tester, {double scale = 1.0}) async {
         theme: buildLightTheme(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // The text size reaches the bar too: the MediaQuery wraps the
+        // bar's layer, not only the navigator.
         builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!),
+            child: shellBarBuilder(context, child)),
+        navigatorObservers: shellBarObservers(),
         home: Builder(builder: (context) {
           final c = context.colors;
           return Scaffold(backgroundColor: c.background);
@@ -196,6 +201,12 @@ Future<void> _pump(WidgetTester tester, {double scale = 1.0}) async {
   );
   await _frames(tester);
   expect(find.byType(HlClosePositionSheet), findsOneWidget);
+  // Opens empty; Max fills the whole position.
+  expect(
+      tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).amountText,
+      isNot('33000'));
+  await tester.tap(find.bySemanticsLabel('Use maximum'));
+  await _frames(tester);
   expect(
       tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).amountText,
       '33000');
@@ -207,9 +218,12 @@ Future<void> _frames(WidgetTester tester, [int n = 12]) async {
   }
 }
 
-/// Taps Close, approves with the PIN, and lets the fake venue refuse.
+/// Taps Close (the bar is the sheet's one button), approves with the PIN,
+/// and lets the fake venue refuse.
 Future<void> _fail(WidgetTester tester) async {
-  await tester.tap(find.byType(PolySlipCta));
+  expect(barPrimaryLabel(tester), 'Close 100% now');
+  expect(barPrimaryEnabled(tester), isTrue);
+  await tapBarPrimary(tester, settle: false);
   await _frames(tester, 8);
   expect(find.byType(PinGateSheet), findsOneWidget);
   for (final d in '111111'.split('')) {

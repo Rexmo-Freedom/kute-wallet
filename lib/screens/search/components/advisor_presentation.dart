@@ -7,7 +7,6 @@ import 'package:kute/screens/hyperliquid/components/hl_market_stats.dart'
     show formatHlFundingRate;
 import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyChance, formatPolyChanceMove;
-import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 
 /// Exact identifiers come from the backend's verified market card.
 /// Never infer a side, amount or market from the answer's prose.
@@ -47,23 +46,6 @@ AdvisorActionButton? advisorMarketAction(AdvisorBlock block,
     }
   }
   return null;
-}
-
-/// The jurisdiction gate a Sal market card answers to, or null when none
-/// applies: `hyperliquid.stocks` for a stock-linked perpetual (by the
-/// backend's instrument, category or the answer's stocks section) and the
-/// prediction category gates by the market's category. The card came from
-/// the backend, so this is where the app hides it once the policy denies.
-String? advisorMarketGateCapability(AdvisorCard card, String? section) {
-  if (card.venue == 'polymarket') {
-    return polymarketCategoryCapability(card.category, const []);
-  }
-  if (card.venue != 'hyperliquid') return null;
-  final instrument = card.instrument ?? '';
-  final stock = instrument == 'stock_perp' ||
-      (instrument.endsWith('_perp') &&
-          (card.category == 'stocks' || section == 'stocks'));
-  return stock ? 'hyperliquid.stocks' : null;
 }
 
 /// Product words for a market card: Predictions and Investing, never the

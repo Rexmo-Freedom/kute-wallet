@@ -62,14 +62,16 @@ double polyWhiteContrast(Color fill) => 1.05 / (fill.computeLuminance() + 0.05);
 
 final Map<int, Color> _fills = {};
 
-/// The solid fill of an outcome's button and of the bet slip opened on it,
-/// for an outcome whose chart line is [line]: the line's own hue and
-/// saturation, its lightness lowered only as far as white text on it needs
-/// to read at 4.5:1. The palette's light tones (sky blue, orange) come out
-/// a deeper blue and amber, still that line's colour; a line already dark
-/// enough is its own fill. The same in light and dark mode: the text on
-/// it is always white.
+/// The solid fill of the bet slip opened on an outcome whose chart line is
+/// [line], lettered in [contrastingOnColor] of it. A line that dark ink
+/// reads on (the palette's soft sky blue, lavender, orange) is its own
+/// fill, so the button, the chart's line and the slip are one colour
+/// (founder, 12 November 2026: "the sheet still has the old colors"). A
+/// line lettered in white keeps its hue and saturation, its lightness
+/// lowered only as far as that white needs to read at 4.5:1; one already
+/// dark enough is its own fill. The same in light and dark mode.
 Color polyOutcomeFill(Color line) => _fills.putIfAbsent(line.toARGB32(), () {
+      if (contrastingOnColor(line) != Colors.white) return line;
       if (polyWhiteContrast(line) >= 4.5) return line;
       final hsl = HSLColor.fromColor(line);
       var l = hsl.lightness;

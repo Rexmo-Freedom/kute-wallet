@@ -11,7 +11,9 @@
 // [formatHlPrice] follows Hyperliquid's own tick rule: up to 5 significant
 // figures (whole-number prices are always shown in full), never more
 // decimals than the market allows (HlMarket.pxDecimalCap: 6 − szDecimals
-// for perps, 8 − szDecimals for spot).
+// for perps, 8 − szDecimals for spot). The browse LIST writes a shorter
+// price ([formatHlListPrice]: four figures, two decimals at least), since
+// a row is read at a glance, not traded on.
 //
 // Letter badges: Hyperliquid lists hundreds of coins and we deliberately
 // ship NO network icon fetching (same call the home stocks rail made —
@@ -25,6 +27,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// Hyperliquid surface accent — the mint/emerald tone of the HL brand,
@@ -86,6 +89,40 @@ String formatHlPriceLike(double px, double reference, {int? decimalCap}) {
           symbol: r'$', decimalDigits: _shownDecimals(reference, decimalCap))
       .format(px);
 }
+
+/// The Investing LIST's price (the browse rows and the "Moving now"
+/// cards): a short price, the way Revolut / Coinbase / Robinhood write
+/// theirs, not the venue's tick ("$47.91", "$4,128.40", "$2.631",
+/// "$0.2051"): four significant figures, never fewer than two decimals,
+/// never more than the market allows ([decimalCap]), trailing zeros
+/// dropped down to two decimals. The charts, the order ladder and the
+/// slip keep [formatHlPrice], whose five figures tell two ticks apart.
+String formatHlListPrice(double px, {int? decimalCap}) {
+  if (px <= 0 || !px.isFinite) return '—';
+  return NumberFormat.currency(
+          symbol: r'$', decimalDigits: hlListPriceDecimals(px, decimalCap))
+      .format(px);
+}
+
+/// The decimals [formatHlListPrice] writes [px] with.
+int hlListPriceDecimals(double px, int? decimalCap) {
+  if (px <= 0 || !px.isFinite) return 2;
+  var magnitude = (math.log(px) / math.ln10).floor();
+  if (math.pow(10, magnitude + 1) <= px) magnitude += 1;
+  if (math.pow(10, magnitude) > px) magnitude -= 1;
+  var decimals = kHlListPriceSigFigs - 1 - magnitude;
+  if (decimalCap != null) decimals = math.min(decimals, decimalCap);
+  decimals = math.max(2, decimals);
+  final exact = _roundTo(px, decimals);
+  var shown = decimals;
+  while (shown > 2 && _roundTo(px, shown - 1) == exact) {
+    shown -= 1;
+  }
+  return shown;
+}
+
+/// The list price's precision: at most this many significant figures.
+const int kHlListPriceSigFigs = 4;
 
 double _roundTo(double v, int decimals) {
   final f = math.pow(10, decimals).toDouble();
@@ -174,6 +211,9 @@ const Map<String, String> _kHlFriendlyNames = {
   'SPY': 'S&P 500',
   'TSLA': 'Tesla',
   'XAUT0': 'Tether Gold',
+  // Private companies' pre-IPO perps.
+  'ANTH': 'Anthropic',
+  'OAI': 'OpenAI',
   // Builder-dex commodity and index perps, by their bare symbol.
   'GOLD': 'Gold',
   'SILVER': 'Silver',
@@ -186,6 +226,169 @@ const Map<String, String> _kHlFriendlyNames = {
   'SP500': 'S&P 500',
   'XYZ100': 'Nasdaq 100',
 };
+
+/// The venue's asset classes whose markets are the same thing under
+/// several builders' tickers (gold on xyz, flx and km; Anthropic as ANTH,
+/// ANT and ANTHROPIC), where [hlUnderlyingKey] reads [_kHlUnderlyingAliases].
+const Set<String> _kHlAliasedCategories = {
+  'stocks',
+  'indices',
+  'commodities',
+  'preipo',
+};
+
+/// Every ticker and name, folded ([hlNormalizeName]), the builder dexes and
+/// tracker tokens use for one underlying, onto that underlying. Read only
+/// for the tradfi classes ([_kHlAliasedCategories]): the main dex's GAS
+/// is a crypto coin, flx:GAS is natural gas.
+const Map<String, String> _kHlUnderlyingAliases = {
+  'anthropic': 'anthropic',
+  'anth': 'anthropic',
+  'ant': 'anthropic',
+  'openai': 'openai',
+  'oai': 'openai',
+  'spacex': 'spacex',
+  'spcx': 'spacex',
+  'gold': 'gold',
+  'xaut': 'gold',
+  'xaut0': 'gold',
+  'tethergold': 'gold',
+  'paxg': 'gold',
+  'gld': 'gold',
+  'silver': 'silver',
+  'slv': 'silver',
+  'cl': 'wtioil',
+  'wti': 'wtioil',
+  'wtioil': 'wtioil',
+  'usoil': 'wtioil',
+  'oil': 'wtioil',
+  'crudeoil': 'wtioil',
+  'natgas': 'natgas',
+  'gas': 'natgas',
+  'naturalgas': 'natgas',
+  'sp500': 'sp500',
+  'spx': 'sp500',
+  'spy': 'sp500',
+  'us500': 'sp500',
+  'usa500': 'sp500',
+  'xyz100': 'nasdaq100',
+  'nasdaq100': 'nasdaq100',
+  'qqq': 'nasdaq100',
+  'ndx': 'nasdaq100',
+  'us100': 'nasdaq100',
+};
+
+/// Lower case with everything but letters and digits removed
+/// ("Tether Gold" → "tethergold", "S&P 500" → "sp500").
+String hlNormalizeName(String s) =>
+    s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+/// What [m] is a market ON, so two markets on one underlying count as one
+/// (the big-card strip never shows two cards for it, and the list under
+/// the strip never repeats it). Not the coin id: Anthropic trades as
+/// io:ANTH, para:ANTH, xyz:ANT and vntl:ANTHROPIC, gold as xyz:GOLD,
+/// flx:GOLD, km:GOLD and the XAUT0 token. A tradfi market resolves through
+/// [_kHlUnderlyingAliases] on its ticker, the app's name for it, the
+/// venue's display name or the Unit asset; anything else is its display
+/// name ([hlFriendlyName], the Unit asset, else the ticker), folded. The
+/// asset class leads the key, so a crypto token that borrows a tradfi
+/// name is never taken for the tradfi market. A token that holds a stock
+/// (NVDAX, EQNVDA: [HlMarket.wrappedTicker]) is read by the stock's
+/// ticker, so it is on that stock.
+String hlUnderlyingKey(HlMarket m) => _hlUnderlyingKeys[m] ??= _keyOf(m);
+
+/// Each market's key, computed once: the lists group the whole universe
+/// on every build, and a market never changes.
+final Expando<String> _hlUnderlyingKeys = Expando<String>();
+
+String _keyOf(HlMarket m) {
+  final tradfi = _kHlAliasedCategories.contains(m.category) ||
+      m.category == 'fx';
+  final ticker = m.underlyingTicker;
+  final friendly = hlFriendlyName(ticker);
+  if (_kHlAliasedCategories.contains(m.category)) {
+    for (final n in [
+      ticker,
+      friendly,
+      m.annotatedName,
+      m.unitAssetName,
+    ]) {
+      if (n == null || n.isEmpty) continue;
+      final alias = _kHlUnderlyingAliases[hlNormalizeName(n)];
+      if (alias != null) return 't:$alias';
+    }
+  }
+  final name = hlNormalizeName(friendly ?? m.unitAssetName ?? ticker);
+  return '${tradfi ? 't' : 'c'}:${name.isEmpty ? ticker : name}';
+}
+
+/// The order one underlying's listings are ranked in, best first: a perp
+/// before a spot token, then the most traded in 24 h, then the larger
+/// open interest in dollars, then the wire id, so the pick never flips
+/// between two equal listings. The best is the PRIMARY listing.
+int hlCompareListings(HlMarket a, HlMarket b) {
+  if (a.isSpot != b.isSpot) return a.isSpot ? 1 : -1;
+  final v = b.dayNtlVlm.compareTo(a.dayNtlVlm);
+  if (v != 0) return v;
+  double oi(HlMarket m) => (m.openInterest ?? 0) * m.markPx;
+  final o = oi(b).compareTo(oi(a));
+  if (o != 0) return o;
+  return a.wireCoin.compareTo(b.wireCoin);
+}
+
+/// One underlying's listings ([hlUnderlyingKey]) among a list of markets:
+/// the [primary] ([hlCompareListings]' best) and the [alternatives], best
+/// first. Nvidia trades as xyz:NVDA and io:NVDA and as the NVDAX and
+/// EQNVDA tokens: one group, xyz:NVDA its primary.
+class HlListingGroup {
+  const HlListingGroup({
+    required this.key,
+    required this.primary,
+    this.alternatives = const [],
+  });
+
+  final String key;
+  final HlMarket primary;
+  final List<HlMarket> alternatives;
+
+  /// Every listing, the primary first.
+  List<HlMarket> get listings => [primary, ...alternatives];
+
+  /// The ticker the group trades, as its primary is read
+  /// ([HlMarket.underlyingTicker]): NVDA for Nvidia, even where only its
+  /// tokens are offered.
+  String get ticker => primary.underlyingTicker;
+}
+
+/// [markets] grouped by underlying ([HlListingGroup]), the groups in the
+/// order their primaries stand in [markets]. THE one grouping search,
+/// the Investing lists, the big squares and the market map share, so they
+/// agree on which listing stands for an underlying.
+List<HlListingGroup> hlListingGroups(Iterable<HlMarket> markets) {
+  final byKey = <String, List<HlMarket>>{};
+  for (final m in markets) {
+    (byKey[hlUnderlyingKey(m)] ??= <HlMarket>[]).add(m);
+  }
+  final byPrimary = <HlMarket, HlListingGroup>{};
+  for (final e in byKey.entries) {
+    final ranked = [...e.value]..sort(hlCompareListings);
+    byPrimary[ranked.first] = HlListingGroup(
+        key: e.key, primary: ranked.first, alternatives: ranked.sublist(1));
+  }
+  return [
+    for (final m in markets)
+      if (byPrimary.remove(m) case final HlListingGroup g) g,
+  ];
+}
+
+/// [markets] with one listing per underlying: each underlying's primary
+/// ([hlListingGroups]), at its own place in [markets]. A list with no
+/// underlying twice comes back as it is (the same list).
+List<HlMarket> hlPrimaryListings(List<HlMarket> markets) {
+  final keys = <String>{};
+  if (markets.every((m) => keys.add(hlUnderlyingKey(m)))) return markets;
+  return [for (final g in hlListingGroups(markets)) g.primary];
+}
 
 /// Deterministic per-symbol tint for the letter badge (same HSL trick as
 /// the Polymarket comment avatars) — stable across sessions, no assets.

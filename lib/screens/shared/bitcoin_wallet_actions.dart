@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,10 +17,11 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show selectedNetworkTypeProvider;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/receive/receive_sheet.dart'
-    show showBitcoinReceiveSheet;
+    show showBitcoinQrReceiveSheet, showBitcoinReceiveSheet;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
+import 'package:kute/screens/shared/receive_arrow_glyph.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/services/onramp_visibility.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -47,11 +50,20 @@ bool _pinBitcoinWallet(
 /// `quick_action_tapped` event for both buttons.
 /// Receive on the left, Send on the right. Money coming in reads first,
 /// and the order matches the way the two are arranged everywhere else.
+///
+/// The spending wallet's Receive opens the Receive sheet (founder, 6 and
+/// 7 November 2026; bitcoin_receive_options.dart): Bitcoin, the QR, on
+/// top, then Another crypto. A
+/// watch-only or hardware wallet has no Dollars and nothing to receive
+/// another coin into, so its Receive opens the QR itself. Every Receive
+/// wears the plain receive arrow, moving as the hub's "+" does
+/// ([ReceiveArrowGlyph]).
 List<KuteDockAction> bitcoinWalletDockActions(
     BuildContext context, WidgetRef ref, WalletConfig wallet) {
   return [
     KuteDockAction(
       icon: Icons.south_west_rounded,
+      glyph: receiveArrowGlyph,
       label: context.l10n.receive,
       trackingId: 'receive',
       onTap: () {
@@ -59,7 +71,9 @@ List<KuteDockAction> bitcoinWalletDockActions(
         ref.read(selectedNetworkTypeProvider.notifier).state =
             'Bitcoin Network';
         // ignore: discarded_futures
-        showBitcoinReceiveSheet(context);
+        wallet.isSparkWallet
+            ? showBitcoinReceiveSheet(context)
+            : showBitcoinQrReceiveSheet(context);
       },
     ),
     KuteDockAction(
@@ -77,7 +91,124 @@ List<KuteDockAction> bitcoinWalletDockActions(
   ];
 }
 
-/// Same purchase and camera controls for Home and the displayed cold wallet.
+/// The Unavailable sheet's `surface` when Purchase finds no Cash App.
+const String kBitcoinPurchaseSurface = 'bitcoin_purchase';
+
+/// Test seam: stands in for the Cash App purchase Purchase opens
+/// ([showDepositSheet], the Buy bitcoin door on Cash App). Receives the
+/// savings wallet the bitcoin lands in, null for the spending wallet.
+@visibleForTesting
+void Function(BuildContext context, {String? fiatDepositWalletId})?
+    debugBitcoinPurchaseOpener;
+
+/// PURCHASE IS CASH APP, OR UNAVAILABLE (founder, 7 November 2026:
+/// "Bitcoin Purchase is not showing the Unavailable sheet, and it should;
+/// only when Cash App is available should it show the purchase"). A buy
+/// is money in from outside, and Cash App (`onramp.cashapp`, offered only
+/// where the policy offers it, the United States) is the one live way in,
+/// so:
+///   * Cash App on offer: the Buy bitcoin door opened on Cash App, as
+///     Activity's "Create new purchase" opens it, into the spending wallet
+///     or the savings wallet whose button it is;
+///   * otherwise: the shared Unavailable sheet, never another flow (not
+///     the Dollars into Bitcoin move, which is Receive's "From your
+///     Dollars"). Outside the United States, Cash App's allow list
+///     (`country_not_allowed`) reads just "Not available right now" over
+///     "Got it" (founder, 7 November 2026: "not avaliable in usa? my vpn
+///     is in lisbon. please just say not avaliable right now"): no region,
+///     no VPN sentence, nothing counted as a region block
+///     ([CapabilityDecision.notOfferedHere]). A block-list region refusal
+///     names the region over the VPN sentence and offers "Check
+///     connection" (counted once as `capability_region_blocked` on
+///     [kBitcoinPurchaseSurface]); found allowed there, the purchase opens
+///     after all. Any other refusal reads "Buy unavailable".
+/// The policy is asked again first ([confirmCapability]), so a refusal
+/// from an older network or minute never shuts a rail open now. Both
+/// Purchase doors (the compact row's square and the big button) open it;
+/// the tap itself counts as `quick_action_tapped` `purchase`.
+Future<void> openBitcoinPurchase(
+    BuildContext context, WidgetRef ref, WalletConfig wallet) async {
+  final policy = ref.read(runtimeCapabilitiesProvider);
+  final decision = await confirmCapability(policy, kOnrampCashApp);
+  if (!context.mounted) return;
+  if (!decision.allowed || decision.comingSoon) {
+    final l10n = context.l10n;
+    // The sheet reads an allow list's refusal as "Not available right
+    // now" by itself ([showCapabilityUnavailableSheet]).
+    final region = decision.regionBlocked;
+    final allowedNow = await showCapabilityUnavailableSheet(
+      context,
+      title: l10n.buyUnavailableTitle,
+      message: region ? decision.bodyIn(l10n) : l10n.buyUnavailableBody,
+      regionRestricted: region,
+      capabilities: const [kOnrampCashApp],
+      denial: (capability: kOnrampCashApp, decision: decision),
+      surface: kBitcoinPurchaseSurface,
+    );
+    if (!allowedNow || !context.mounted) return;
+  }
+  if (!_pinBitcoinWallet(context, ref, wallet)) return;
+  final walletId = wallet.isSparkWallet ? null : wallet.id;
+  final open = debugBitcoinPurchaseOpener;
+  if (open != null) return open(context, fiatDepositWalletId: walletId);
+  showDepositSheet(
+    context,
+    lockedSide: MoveLockedSide.depositFromFiat,
+    fiatDepositWalletId: walletId,
+    cashAppSource: true,
+  );
+}
+
+/// Purchase as one action of the compact row (the primary one, solid):
+/// the same door the big Purchase Bitcoin button opens
+/// ([openBitcoinPurchase]: Cash App, or the Unavailable sheet).
+KuteDockAction bitcoinPurchaseDockAction(
+    BuildContext context, WidgetRef ref, WalletConfig wallet,
+    {required String source}) {
+  return KuteDockAction(
+    icon: Icons.currency_bitcoin_rounded,
+    label: context.l10n.purchaseShort,
+    trackingId: 'purchase',
+    solid: true,
+    onTap: () => unawaited(openBitcoinPurchase(context, ref, wallet)),
+  );
+}
+
+/// The Bitcoin home's one row under the balance: Purchase · Scan · Receive
+/// · Send, for the spending wallet as for a cold wallet Home is showing
+/// (founder, 10 November 2026: "on the bitcoin screen instead of the swap,
+/// let's bring back the scanner camera. The swap we can only have it in
+/// the dollars"). Swap lives on the Dollars home alone
+/// (UsdAccountActionBar.moneyActions), in the same column Scan takes here.
+List<KuteDockAction> bitcoinHomeDockActions(
+    BuildContext context, WidgetRef ref, WalletConfig wallet,
+    {required String source}) {
+  return [
+    bitcoinPurchaseDockAction(context, ref, wallet, source: source),
+    bitcoinScanDockAction(context, ref, wallet),
+    ...bitcoinWalletDockActions(context, ref, wallet),
+  ];
+}
+
+/// The scanner as one action of the compact row: the camera, as a sheet
+/// over the screen, the same as the square beside Purchase opens.
+KuteDockAction bitcoinScanDockAction(
+    BuildContext context, WidgetRef ref, WalletConfig wallet) {
+  return KuteDockAction(
+    icon: Icons.qr_code_scanner_rounded,
+    label: context.l10n.scan,
+    trackingId: 'scan',
+    onTap: () {
+      if (!_pinBitcoinWallet(context, ref, wallet)) return;
+      ref.read(sendTxProvider.notifier).resetToDefault();
+      showRoutingScannerSheet(context);
+    },
+  );
+}
+
+/// The purchase and camera controls of a wallet shown in the shell's first
+/// tab or on the Ledger's Bitcoin tab (`WalletBitcoinBody`); Home's row is
+/// [bitcoinHomeDockActions].
 class BitcoinWalletPrimaryActions extends ConsumerWidget {
   const BitcoinWalletPrimaryActions(
       {super.key,
@@ -93,11 +224,9 @@ class BitcoinWalletPrimaryActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Purchase opens Buy bitcoin and is always drawn (founder decision,
-    // October 2026). The spending account can always pay from the dollar
-    // balance, so its Purchase always opens the buy. A savings wallet has
-    // nothing to pay with but an onramp: with none on offer, or no policy,
-    // its tap opens the "no purchase providers" sheet instead.
+    // Purchase is always drawn (founder decision, October 2026) and opens
+    // the Cash App purchase, or the Unavailable sheet where Cash App is
+    // not on offer ([openBitcoinPurchase]).
     final scan = PoolHeaderShortcut(
       label: context.l10n.scan,
       icon: Icons.qr_code_scanner_rounded,
@@ -119,22 +248,9 @@ class BitcoinWalletPrimaryActions extends ConsumerWidget {
                 // same control pointed at two balances.
                 text: context.l10n.purchaseBitcoin,
                 svgAsset: kBitcoinMarkAsset,
-                onPressed: () async {
+                onPressed: () {
                   TrackingService.quickAction('purchase', source: source);
-                  if (!wallet.isSparkWallet &&
-                      !await confirmAnyOnrampVisible(
-                          ref.read(runtimeCapabilitiesProvider))) {
-                    if (context.mounted) showBuyUnavailableSheet(context);
-                    return;
-                  }
-                  if (!context.mounted) return;
-                  if (!_pinBitcoinWallet(context, ref, wallet)) return;
-                  showDepositSheet(
-                    context,
-                    lockedSide: MoveLockedSide.depositFromFiat,
-                    fiatDepositWalletId:
-                        wallet.isSparkWallet ? null : wallet.id,
-                  );
+                  unawaited(openBitcoinPurchase(context, ref, wallet));
                 },
               ))),
       if (showScan) ...[

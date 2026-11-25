@@ -26,6 +26,8 @@ import 'package:kute/services/polymarket/polymarket_account_resolver.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/sal_notices.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show OrderType;
 
@@ -76,7 +78,7 @@ void _showFailure(BuildContext context, Object error) {
       : error is LedgerSubmissionUnknownException
           ? l10n.ledgerBetPending
           : ledgerFundingErrorMessage(context, error);
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  showMessageSnackBar(context: context, message: message, error: true);
 }
 
 /// Uses only the explicitly named Ledger. The ticket remains owned by its
@@ -517,8 +519,7 @@ Future<LedgerPmBetOutcome> checkLedgerPredictionStatus(
         : LedgerPmBetOutcome.pending;
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.l10n.ledgerBetPending)));
+      SalNotices.pending(context, message: context.l10n.ledgerBetPending);
     }
     return LedgerPmBetOutcome.pending;
   } finally {

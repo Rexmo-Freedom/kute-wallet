@@ -18,11 +18,15 @@ import 'package:kute/screens/shared/deposit_quick_claim.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/spark_transaction_details.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
+import 'package:kute/services/mempool_address_service.dart'
+    show MempoolTransaction;
 import 'package:kute/services/spark_deposit_actions.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/models/breez/deposit_update.dart' show sparkOutpointKey;
 import 'package:kute/models/currency_conversions.dart';
 import 'package:money2/money2.dart';
+
+import '../helpers/kute_bar_test_support.dart';
 
 class _Settings extends StateNotifier<Settings> implements SettingsModel {
   _Settings()
@@ -104,6 +108,13 @@ class _Actions extends SparkDepositActions {
   }
 
   SparkDepositQuote? quoteResult;
+
+  /// The SDK's deposit for a txid (the pending-deposit sheet looks its
+  /// output up): the live one.
+  @override
+  Future<breez.DepositInfo?> depositForTxid(
+          {required String walletId, required String txid}) async =>
+      live;
 
   @override
   Future<SparkDepositQuote> quote(
@@ -233,6 +244,10 @@ void main() {
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp.router(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // unclaimed sheet's Add to wallet / Claim now is the bar
+          // (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
           routerConfig: router,
           theme: buildLightTheme(),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -277,6 +292,9 @@ void main() {
     expect(find.text(l10n.depositAutoAfterConfirmations), findsOneWidget);
     expect(find.textContaining('Claim now'), findsNothing);
     expect(find.text(l10n.activityAddToWallet), findsNothing);
+    // Until an early claim is offered, View on blockchain is the bar.
+    expect(kuteBarPrimaryWithText(l10n.activityViewOnBlockchain),
+        findsOneWidget);
     expectNoSendBack();
   });
 
@@ -416,7 +434,8 @@ void main() {
     await open(tester, rowFor(info(claimError: failed)));
     await tapText(tester, l10n.activityAddToWallet);
     await tester.enterText(find.byType(TextField), '300');
-    await tester.pump();
+    // The bar follows the sheet a frame later: "Pick a fee" to Confirm.
+    await settle(tester);
     await tapText(tester, l10n.confirmClaim);
     expect(actions.calls, ['live', 'claim 300']);
     expect(cachedRows(), hasLength(1));
@@ -435,7 +454,8 @@ void main() {
     await open(tester, rowFor(info(claimError: failed)));
     await tapText(tester, l10n.activityAddToWallet);
     await tester.enterText(find.byType(TextField), '300');
-    await tester.pump();
+    // The bar follows the sheet a frame later: "Pick a fee" to Confirm.
+    await settle(tester);
     await tapText(tester, l10n.confirmClaim);
     expect(find.byType(KuteConfirmation), findsOneWidget);
     expect(find.text(l10n.depositClaimFailedTitle), findsOneWidget);
@@ -490,9 +510,11 @@ void main() {
     await settle(tester);
     expect(find.text(l10n.activityAddingToBalance), findsWidgets);
     expectNoSendBack();
-    final claimNow = tester.widget<AppButton>(find.byWidgetPredicate(
-        (w) => w is AppButton && w.text.startsWith('Claim now')));
+    // The bar is the sheet's button: held, busy, under the same label.
+    final claimNow = kuteBarPrimaryProbe(tester);
+    expect(claimNow.text, startsWith('Claim now'));
     expect(claimNow.onPressed, isNull);
+    expect(claimNow.isLoading, isTrue);
     expect(actions.calls, isEmpty);
     actions.busyOutpoints.value = const {};
     await settle(tester);
@@ -549,6 +571,50 @@ void main() {
     expect(find.byType(DepositSheetNote), findsNothing);
   });
 
+  // The deposit tracked from the mempool (one confirmation, not yet listed
+  // as unclaimed): the same Claim now, on the bar, with View on blockchain
+  // as the quiet text button above it.
+  testWidgets(
+      'a confirming deposit seen on the mempool: Claim now is the bar, '
+      'View on blockchain a text button', (tester) async {
+    final deposit = info(mature: false, sats: 11900000);
+    actions
+      ..live = deposit
+      ..quoteResult = const SparkDepositQuote(
+          confirmations: 1,
+          matureFeeSats: 12000,
+          earlyFeeSats: 30000,
+          earlyConfirmations: 1);
+    final pending = SparkPendingDeposit(
+      id: 'spark_pending_${deposit.txid}',
+      timestamp: seenAt,
+      confirmations: 1,
+      mempoolTx: MempoolTransaction(
+          txid: deposit.txid, confirmed: true, fee: 0, balanceChange: 11900000),
+    );
+    await open(tester, rowFor(deposit),
+        tapOpen: false,
+        body: (context, ref) => Center(
+              child: TextButton(
+                onPressed: () => openTransactionDetails(context, ref, pending),
+                child: const Text('open pending'),
+              ),
+            ));
+    await tester.tap(find.text('open pending'));
+    await settle(tester);
+    final fee = container.read(conversionProvider(30000));
+    expect(kuteBarPrimaryWithText(l10n.depositClaimNowFee(fee)),
+        findsOneWidget);
+    expect(find.byType(AppButton), findsNothing);
+    expect(find.widgetWithText(AppTextButton, l10n.activityViewOnBlockchain),
+        findsOneWidget);
+    await tester.tap(kuteBarPrimaryWithText(l10n.depositClaimNowFee(fee)));
+    await settle(tester);
+    expect(actions.calls, ['claim 33000 early']);
+    expect(find.text(l10n.activityBitcoinAdded), findsOneWidget);
+    await clearToasts(tester);
+  });
+
   // The optional, costlier path while confirming: shown only when the
   // provider quotes an early claim, claimed early after one approval.
   testWidgets(
@@ -566,6 +632,15 @@ void main() {
     expect(find.text(l10n.depositAutoAfterConfirmations), findsOneWidget);
     final fee = container.read(conversionProvider(30000));
     expect(find.text(l10n.depositClaimNowFee(fee)), findsOneWidget);
+    // Claim now is the floating bar, not a button drawn on the sheet; View
+    // on blockchain steps down to the quiet text button above it.
+    expect(kuteBarPrimaryWithText(l10n.depositClaimNowFee(fee)),
+        findsOneWidget);
+    expect(find.byType(AppButton), findsNothing);
+    expect(find.widgetWithText(AppTextButton, l10n.activityViewOnBlockchain),
+        findsOneWidget);
+    expect(kuteBarPrimaryWithText(l10n.activityViewOnBlockchain),
+        findsNothing);
     expectNoSendBack();
     await tapText(tester, l10n.depositClaimNowFee(fee));
     expect(approvals.single.amountMax, BigInt.from(33000));

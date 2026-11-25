@@ -159,12 +159,8 @@ class LedgerPmMarketRules {
   /// book, or null when the book cannot absorb the whole stake.
   double? depthPriceFor(double budgetUsd) {
     if (!budgetUsd.isFinite || budgetUsd <= 0 || asks.isEmpty) return null;
-    var remaining = budgetUsd;
-    for (final (price, size) in asks) {
-      remaining -= price * size;
-      if (remaining <= 0) return price;
-    }
-    return null;
+    final walk = polymarketWalkAsks(asks, amountUsd: budgetUsd);
+    return walk.fills ? walk.lastPrice : null;
   }
 
   /// Checks a market buy of [budgetUsd] signed with a maximum price of

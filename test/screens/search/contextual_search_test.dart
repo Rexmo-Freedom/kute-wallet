@@ -11,7 +11,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart';
+import 'package:kute/screens/search/components/sal_chat_panel.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 
@@ -39,6 +40,7 @@ class _Advisor extends AdvisorSessionNotifier {
       int? chipIndex,
       String? locale}) async {
     probe.advisorRequests.add(query);
+    probe.contexts.add(context);
     probe.asks.add((input: input, template: template, chipIndex: chipIndex));
     state = AdvisorSessionState(turns: [AdvisorTurn(query: query)]);
   }
@@ -48,6 +50,7 @@ class _Probe {
   int advisorBuilds = 0;
   int aiConfigReads = 0;
   final advisorRequests = <String>[];
+  final contexts = <AdvisorContext?>[];
   final asks = <({String input, String? template, int? chipIndex})>[];
   final publicQueries = <String>[];
   final navigator = GlobalKey<NavigatorState>();
@@ -58,6 +61,7 @@ Future<_Probe> _openSearch(
   WidgetTester tester, {
   InvestmentsProduct? product,
   bool aiEnabled = true,
+  KuteBarContext? barContext,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -111,6 +115,8 @@ Future<_Probe> _openSearch(
                                 ? 'Search investments or ask for anything'
                                 : 'Search predictions or ask for anything',
                         source: product == null ? 'home' : product.name,
+                        barContext: barContext,
+                        initialQuestion: barContext?.question,
                       ),
                       child: const Text('Open search'),
                     ))),
@@ -138,9 +144,13 @@ void main() {
           (tester) async {
         final probe =
             await _openSearch(tester, product: product, aiEnabled: aiEnabled);
-        // With Sal on, the field names both jobs whatever venue opened it,
-        // the dock square's own words; search-only keeps the market hint.
-        final hint = aiEnabled ? 'Search or ask Sal' : 'Search markets';
+        // With Sal on, the field names both jobs in the bar's words,
+        // narrowed to the venue; search-only keeps the market hint.
+        final hint = !aiEnabled
+            ? 'Search markets'
+            : product == InvestmentsProduct.trading
+                ? 'Search investments or Manage with AI'
+                : 'Search predictions or Manage with AI';
         expect(
             tester
                 .widget<TextField>(find.byType(TextField))
@@ -211,7 +221,6 @@ void main() {
   testWidgets('Home keeps Ask Sal but has no scanner in the search sheet',
       (tester) async {
     final probe = await _openSearch(tester);
-    expect(find.text('Search or ask Sal anything'), findsWidgets);
     expect(find.byIcon(Icons.qr_code_scanner_rounded), findsNothing);
     expect(find.byTooltip('Scan QR code'), findsNothing);
     await tester.enterText(find.byType(TextField), 'Explain margin');
@@ -227,18 +236,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('idle Home search offers Sal\'s opening questions as chips',
+  testWidgets('the bar\'s context reaches Sal: a receipt\'s question is '
+      'asked with the receipt\'s public context (no Ask Sal circle)',
       (tester) async {
-    final probe = await _openSearch(tester);
-    expect(find.byType(SalSuggestionButton), findsWidgets);
-    await tester.tap(find.text('How do I receive Bitcoin in Kute?'));
+    const receipt = AdvisorContext(surface: 'btc_tx_detail');
+    final probe = await _openSearch(tester,
+        barContext: const KuteBarContext(
+          label: 'What happened here?',
+          question: 'Explain this transaction receipt',
+          advisorContext: receipt,
+          source: 'receipt',
+        ));
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    expect(probe.advisorRequests, ['How do I receive Bitcoin in Kute?']);
-    expect(probe.asks.single,
-        (input: 'suggested', template: 'wallet.receive', chipIndex: 0));
-    probe.navigator.currentState!.pop();
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 6));
-    expect(tester.takeException(), isNull);
+    expect(probe.advisorRequests, ['Explain this transaction receipt']);
+    expect(probe.contexts, [receipt]);
+    expect(find.byType(SalChatPanel), findsOneWidget);
   });
 }

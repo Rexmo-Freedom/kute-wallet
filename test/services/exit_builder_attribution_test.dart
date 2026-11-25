@@ -220,11 +220,13 @@ void main() {
           PolymarketBackendService.getBuilderCode, () => backend);
       expect(code, _code);
       expect(code, isNot(PolymarketConstants.bytes32Zero));
-      // Buys and sells share one signing path, and it signs this code.
+      // Buys and sells share one signing path, and it signs this code: the
+      // live order and the standing order signed at the accept both call it.
       final source = File('lib/providers/polymarket_trading_provider.dart')
           .readAsStringSync();
-      expect(RegExp(r'_buildSignedOrder\(').allMatches(source).length, 2,
-          reason: 'one definition, one call shared by buy and sell');
+      expect(RegExp(r'_buildSignedOrder\(').allMatches(source).length, 3,
+          reason: 'one definition; one call shared by buy and sell, one for '
+              'the standing order signed at the accept');
       final signing = source.substring(
           source.indexOf('Future<SignedOrderV2> _buildSignedOrder('));
       // Signed with the code held now, never a wait on the backend (the

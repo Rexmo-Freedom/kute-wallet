@@ -45,8 +45,9 @@ import 'package:kute/services/tracking_service.dart';
 /// The venue-cash runner's request for [pending], approved under [grant]:
 /// [legPlan] (the plan the approval bound) run exactly, [fundUsd] the
 /// approved move into Predictions, [readyUsd] what Predictions held for
-/// the bet at the approval ([balanceUsd] its whole cash, [incomingUsd]
-/// pre-funded money still on its way).
+/// the bet at the approval ([balanceUsd] its whole cash). Asked only from
+/// Confirm: nothing moves for a bet before its approval (founder decision,
+/// 11 November 2026: pre-funding removed).
 VenueCashFundedRequest predictionsVenueCashRequest(
   ProviderContainer container, {
   required AuthGrant grant,
@@ -57,7 +58,6 @@ VenueCashFundedRequest predictionsVenueCashRequest(
   required double requiredUsd,
   required double readyUsd,
   required double balanceUsd,
-  double incomingUsd = 0,
   String? moveId,
   String? entrySource,
   String? marketKind,
@@ -113,7 +113,7 @@ VenueCashFundedRequest predictionsVenueCashRequest(
       final direct = math.max(0.0, readyUsd - approvedReadyUsd);
       if (fundUsd < 0.01) {
         // Nothing from Dollars: queued now, behind the legs.
-        final arriving = incomingUsd + direct;
+        final arriving = direct;
         notifier().setIntent(current.copyWith(
           status: PendingBetStatus.awaitingBalance,
           fundReadyUsd: balanceUsd,
@@ -146,12 +146,12 @@ VenueCashFundedRequest predictionsVenueCashRequest(
           notifier().setIntent(queued.copyWith(
             status: PendingBetStatus.awaitingBalance,
             fundQuoteRef: quoteRef,
-            fundReadyUsd: balanceUsd + incomingUsd,
+            fundReadyUsd: balanceUsd,
             fundArrivingUsd: move.arrivingUsdEstimate + direct,
             queuedAt: DateTime.now(),
           ));
         case OrderFundingNotNeeded():
-          final arriving = incomingUsd + direct;
+          final arriving = direct;
           notifier().setIntent(queued.copyWith(
             status: PendingBetStatus.awaitingBalance,
             fundReadyUsd: arriving > 0 ? balanceUsd : null,

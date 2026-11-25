@@ -1,15 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/advisor_context.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/services/advisor/advisor_service.dart';
-import 'package:kute/services/advisor/sal_chip_catalogue.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  final en = l10nForLanguage('en');
 
   test('spot display names stay local while requests retain the exact market',
       () async {
@@ -20,10 +17,6 @@ void main() {
       marketDisplayName: 'EXAMPLE',
       orderType: 'limit',
     );
-    final chips = SalChipCatalogue.select(context, en).map((c) => c.text);
-    expect(chips.join(' '), contains('EXAMPLE'));
-    expect(chips.join(' '), isNot(contains('@288')));
-    expect(SalChipCatalogue.introduction(context, en), isNot(contains('@288')));
     final body = await const AdvisorRequest(
       query: 'How does this order work?',
       context: context,
@@ -56,11 +49,6 @@ void main() {
       'market': {'venue': 'hyperliquid', 'id': 'xyz:XYZ100'},
       'education': {'orderType': 'stop_market'},
     });
-    final first = SalChipCatalogue.select(context, en).first;
-    expect(first.template, 'edu.limit_order');
-    expect(first.text, contains('stop market'));
-    expect(first.text, contains('XYZ100'));
-    expect(SalChipCatalogue.introduction(context, en), contains('stop market'));
     for (final field in [
       'surface',
       'side',

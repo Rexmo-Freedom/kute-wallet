@@ -9,12 +9,36 @@
 //
 // Purely presentational: every tap is a callback the Move sheet owns,
 // exactly the ones the two chips carried before.
+//
+// SWAP, IN SQUARES (founder, 7 November 2026, the Dollars home's new
+// button: "it basically allows for [both directions] but with a button in
+// a reversible way. Also this screen make it with the squares you just
+// [did], just better overall"): Move money between the person's own
+// accounts ([MoveRouteSquares]) shows its two ends as the Send Review's
+// From and To do, two of the app's cards side by side
+// ([KuteActionCard.fact], kute_action_cards.dart): each end's mark at the
+// top left, "From" / "To" over the account's name and, on From, what it
+// has to move ("$273.44 available"). To says no figure: what the
+// destination holds is not what this screen spends, and the Dollars a
+// person moves from are all their dollar money (Dollars, Predictions and
+// Investing cash), so a Dollars balance on To would read as a second,
+// smaller "Dollars". The swap circle ([KuteCircleButton]) rides the edge
+// the two share, centred on it; a tap reverses the move: the circle turns
+// half a turn on the chip spring and the pair switches in as every
+// switch does (KuteMotion.switchIn, [SelectionFade]), from the right,
+// where the new From was. Under Reduce Motion it is drawn at once.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCircleButton;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show SelectionFade, kuteMotion;
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// One end of a move: the pool or wallet the money leaves, or the one
 /// it lands in.
@@ -83,7 +107,12 @@ class MoveRouteCard extends StatelessWidget {
     this.from,
     this.to,
     this.onSwap,
+    this.hideSwap = false,
   }) : assert(from != null || to != null, 'a route needs at least one end');
+
+  /// True draws no flip button at all (a pinned route that never flips),
+  /// rather than the quiet disabled one a busy sheet shows.
+  final bool hideSwap;
 
   /// Null renders the To row alone.
   final MoveRouteEndpoint? from;
@@ -129,29 +158,31 @@ class MoveRouteCard extends StatelessWidget {
                         reserveFlip: true),
                   ],
                 ),
-                Padding(
-                  padding: EdgeInsets.only(right: 14.w),
-                  child: Material(
-                    color: c.background,
-                    shape: CircleBorder(
-                      side: BorderSide(color: c.borderSubtle, width: 0.5),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: onSwap,
-                      child: SizedBox(
-                        width: 38.sp,
-                        height: 38.sp,
-                        child: Icon(
-                          Icons.swap_vert_rounded,
-                          color:
-                              onSwap == null ? c.textTertiary : c.textPrimary,
-                          size: 20.sp,
+                if (!hideSwap)
+                  Padding(
+                    padding: EdgeInsets.only(right: 14.w),
+                    child: Material(
+                      color: c.background,
+                      shape: CircleBorder(
+                        side: BorderSide(color: c.borderSubtle, width: 0.5),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: onSwap,
+                        child: SizedBox(
+                          width: 38.sp,
+                          height: 38.sp,
+                          child: Icon(
+                            Icons.swap_vert_rounded,
+                            color: onSwap == null
+                                ? c.textTertiary
+                                : c.textPrimary,
+                            size: 20.sp,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
     );
@@ -348,6 +379,146 @@ class _AvailableBalance extends StatelessWidget {
           child: column,
         ),
       ),
+    );
+  }
+}
+
+/// One end of [MoveRouteSquares]: the account the money leaves or lands
+/// in.
+@immutable
+class MoveRouteSquareEnd {
+  const MoveRouteSquareEnd({
+    required this.name,
+    required this.asset,
+    this.line,
+    this.onTap,
+  });
+
+  /// The account's name ("Bitcoin", "Dollars").
+  final String name;
+
+  /// The account's mark (a brand SVG).
+  final String asset;
+
+  /// The line under the name: what the source has to move ("$273.44
+  /// available") or its balance's state ("Updating balance"). Null draws
+  /// none.
+  final String? line;
+
+  /// Opens the account picker (the Portfolio's Move money, whose ends are
+  /// a choice); the name then wears the picker's chevron. Null: the end
+  /// only states.
+  final VoidCallback? onTap;
+}
+
+/// Move money's two ends as two squares side by side with the swap circle
+/// on their shared edge (see the file header). [onSwap] null draws the
+/// circle quiet (a busy sheet, a pair with no way back); [showSwap] false
+/// draws none at all.
+class MoveRouteSquares extends StatefulWidget {
+  const MoveRouteSquares({
+    super.key,
+    required this.from,
+    required this.to,
+    this.onSwap,
+    this.showSwap = true,
+  });
+
+  final MoveRouteSquareEnd from;
+  final MoveRouteSquareEnd to;
+  final VoidCallback? onSwap;
+  final bool showSwap;
+
+  /// The circle's diameter in design units: a step under the header's 40,
+  /// so it rides the gap without reaching the cards' text.
+  static const double swapSize = 36;
+
+  @override
+  State<MoveRouteSquares> createState() => _MoveRouteSquaresState();
+}
+
+class _MoveRouteSquaresState extends State<MoveRouteSquares> {
+  /// Half a turn per swap, for the circle's arrows.
+  double _turns = 0;
+
+  @override
+  void didUpdateWidget(MoveRouteSquares oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final reversed = oldWidget.from.name == widget.to.name &&
+        oldWidget.to.name == widget.from.name;
+    if (reversed) _turns += 0.5;
+  }
+
+  KuteActionCard _end(BuildContext context, String key, String label,
+      MoveRouteSquareEnd end) {
+    final c = context.colors;
+    final pick = end.onTap;
+    return KuteActionCard.fact(
+      key: ValueKey('money-movement-$key'),
+      visual: SvgPicture.asset(end.asset,
+          width: kKuteActionCardVisualSize.sp,
+          height: kKuteActionCardVisualSize.sp),
+      label: label,
+      title: end.name,
+      // A pickable end says so with the picker's chevron after its name.
+      oneLineTitle: pick == null
+          ? null
+          : (style) => Row(children: [
+                Flexible(
+                  child: Text(end.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style),
+                ),
+                Icon(Icons.keyboard_arrow_down_rounded,
+                    color: c.textTertiary, size: 18.sp),
+              ]),
+      subtitle: end.line,
+      onTap: pick,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    // The switch's one choreography: the new From comes in from the
+    // right, where it was the To.
+    final pair = SelectionFade(
+      selection: '${widget.from.name}>${widget.to.name}',
+      child: KuteActionCardGrid(
+        key: const ValueKey('money-movement-squares'),
+        cards: [
+          _end(context, 'from', l10n.from, widget.from),
+          _end(context, 'to', l10n.to, widget.to),
+        ],
+      ),
+    );
+    if (!widget.showSwap) return pair;
+    final swap = widget.onSwap;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        pair,
+        KuteCircleButton(
+          key: const ValueKey('money-movement-swap'),
+          size: MoveRouteSquares.swapSize,
+          semanticsLabel: l10n.swap,
+          enabled: swap != null,
+          onPressed: swap ?? () {},
+          // The page's own ground with a hairline: the cards' edges stop
+          // at the circle instead of showing through it.
+          fill: c.background,
+          borderColor: c.border,
+          child: AnimatedRotation(
+            turns: _turns,
+            duration: kuteMotion(context, KuteMotion.chipDuration),
+            curve: KuteMotion.chip,
+            child: Icon(Icons.swap_horiz_rounded,
+                color: c.textPrimary, size: 20.sp),
+          ),
+        ),
+      ],
     );
   }
 }

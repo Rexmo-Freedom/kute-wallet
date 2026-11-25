@@ -32,6 +32,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:kute/services/polymarket/relayer_transaction.dart';
+import 'package:kute/services/funding/settlement_funding_outcome.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/polymarket_claim_receipt.dart';
 
 import 'package:flutter/foundation.dart';
@@ -127,12 +129,36 @@ const _kMaxUint256Hex = PolymarketConstants.maxUint256Hex;
 /// A Polygon RPC or relayer read that failed or returned no usable result.
 /// Thrown only by the strict read variants; callers flag the read as
 /// failed instead of treating it as zero.
+/// A light poll's read ([PolymarketOnboardingService.readBalancesForPoll])
+/// got no answer from any endpoint it tried: [attempts] endpoints failed
+/// (an error, a 429 or other non-200, a timeout, a malformed answer).
+class PolygonPollReadFailed implements Exception {
+  const PolygonPollReadFailed(this.attempts);
+  final int attempts;
+
+  @override
+  String toString() => 'PolygonPollReadFailed($attempts)';
+}
+
 class PolymarketReadException implements Exception {
   final String message;
   const PolymarketReadException(this.message);
 
   @override
   String toString() => 'PolymarketReadException: $message';
+}
+
+/// The relayer answered a submit with a client error (4xx): it refused the
+/// batch and queued nothing, so a transfer that met this never left. The
+/// text is the one the relayer refusal classifiers already read.
+class RelayerSubmitRejected implements Exception, SettlementFundingNotStarted {
+  const RelayerSubmitRejected(this.statusCode, this.body);
+
+  final int statusCode;
+  final String body;
+
+  @override
+  String toString() => 'Relayer submit failed: $statusCode $body';
 }
 
 class PolymarketOnboardingService {
@@ -340,12 +366,21 @@ class PolymarketOnboardingService {
   /// first starts at once, the next joins after [polygonRpcStagger] without
   /// an answer, and the first answer wins. Signed transactions never go
   /// here: they are submitted through the backend relay.
+  ///
+  /// Five independent providers, in the order they answered from here on
+  /// 2026-11-09 (publicnode first as the project's Polygon endpoint; it
+  /// and Tenderly were within 10 ms of each other). The others on the
+  /// public lists were checked the same day and left out: polygon-rpc.com
+  /// (key disabled), llamarpc and meowrpc (no answer), Ankr, BlockPI and
+  /// OnFinality (key or rate limit), Blast (shut down), Omnia (521), and
+  /// polygon-bor.publicnode.com is the same provider as the first entry.
   @visibleForTesting
   static const polygonReadRpcs = [
     PolymarketConstants.polygonRpc,
+    'https://polygon.gateway.tenderly.co',
+    'https://rpc-mainnet.matic.quiknode.pro',
     'https://polygon.drpc.org',
     'https://1rpc.io/matic',
-    'https://polygon.gateway.tenderly.co',
   ];
 
   /// Endpoints known to serve Polygon: the `eth_chainId` check is skipped
@@ -353,9 +388,10 @@ class PolymarketOnboardingService {
   /// endpoint (a test's, a future config) is still checked.
   static const Set<String> knownPolygonRpcs = {
     PolymarketConstants.polygonRpc,
+    'https://polygon.gateway.tenderly.co',
+    'https://rpc-mainnet.matic.quiknode.pro',
     'https://polygon.drpc.org',
     'https://1rpc.io/matic',
-    'https://polygon.gateway.tenderly.co',
   };
 
   /// Test seam: the read list to use instead of [polygonReadRpcs].
@@ -369,9 +405,19 @@ class PolymarketOnboardingService {
   static Duration polygonRpcTimeout = const Duration(seconds: 5);
 
   /// How long the first endpoint has the read to itself before the next
-  /// one is started beside it.
+  /// one is started beside it. Short: a healthy endpoint answers in well
+  /// under this, and a slow one must not hold the others back (on
+  /// 2026-11-08 every endpoint took 5 to 8 s from one phone, one after the
+  /// other, and the read failed closed).
   @visibleForTesting
-  static Duration polygonRpcStagger = const Duration(seconds: 1);
+  static Duration polygonRpcStagger = const Duration(milliseconds: 400);
+
+  /// The most one read takes in all, however many endpoints it tries.
+  /// Without it a read lasted the stagger per endpoint plus one timeout
+  /// (and a chain check first for an unlisted endpoint); past this the
+  /// read fails closed and a late answer is kept only as endpoint health.
+  @visibleForTesting
+  static Duration polygonRpcTotalTimeout = const Duration(seconds: 8);
 
   /// How long an endpoint that just failed is tried after the others, so a
   /// hanging RPC costs one timeout rather than one per read.
@@ -408,7 +454,8 @@ class PolymarketOnboardingService {
     _healthyRpcsLoading = null;
     debugReadRpcs = null;
     polygonRpcTimeout = const Duration(seconds: 5);
-    polygonRpcStagger = const Duration(seconds: 1);
+    polygonRpcStagger = const Duration(milliseconds: 400);
+    polygonRpcTotalTimeout = const Duration(seconds: 8);
     loadHealthyRpcs = _PolygonRpcMemory.read;
     persistHealthyRpcs = _PolygonRpcMemory.write;
   }
@@ -524,14 +571,30 @@ class PolymarketOnboardingService {
   /// next one is started every [polygonRpcStagger], and the first String
   /// result wins. An endpoint that times out, errors or is not on Polygon
   /// is skipped; one that answers is remembered first for later reads.
-  /// Throws [PolymarketReadException] only when none answers, so strict
-  /// callers still fail closed.
+  /// Throws [PolymarketReadException] only when none answers, or when
+  /// none has within [polygonRpcTotalTimeout], so strict callers still
+  /// fail closed, and within a bounded time.
   Future<String> _rpcFirstAnswer(String method, List<Object> params) async {
     await _ensureHealthyRpcsLoaded();
     final order = _polygonReadOrder();
+    if (order.isEmpty) {
+      _trackReadFailedClosed(method, 0);
+      throw PolymarketReadException('$method: no Polygon RPC answered');
+    }
     final winner = Completer<String>();
     var pending = 0;
     var started = 0;
+
+    void failClosed() {
+      if (winner.isCompleted) return;
+      _trackReadFailedClosed(method, order.length);
+      winner.completeError(
+          PolymarketReadException('$method: no Polygon RPC answered'));
+    }
+
+    // The whole read is bounded: whatever is still in flight past this
+    // only feeds the endpoint health for the next read.
+    final deadline = Timer(polygonRpcTotalTimeout, failClosed);
 
     Future<void> attempt(String rpc) async {
       pending++;
@@ -546,10 +609,7 @@ class PolymarketOnboardingService {
         _rpcFailed(rpc);
       } finally {
         pending--;
-        if (!winner.isCompleted && pending == 0 && started == order.length) {
-          winner.completeError(
-              PolymarketReadException('$method: no Polygon RPC answered'));
-        }
+        if (pending == 0 && started == order.length) failClosed();
       }
     }
 
@@ -567,10 +627,21 @@ class PolymarketOnboardingService {
       ]);
       if (!winner.isCompleted && pending == 0) continue;
     }
-    if (order.isEmpty) {
-      throw PolymarketReadException('$method: no Polygon RPC answered');
+    try {
+      return await winner.future;
+    } finally {
+      deadline.cancel();
     }
-    return winner.future;
+  }
+
+  /// Every Polygon read endpoint failed one read. Setup, live balances and
+  /// withdrawals all fail closed on this, so the fleet signal names the
+  /// read, not only the failures it causes downstream.
+  static void _trackReadFailedClosed(String method, int endpoints) {
+    TrackingService.track('polygon_rpc_read_failed', params: {
+      'method': method,
+      'endpoints': endpoints,
+    });
   }
 
   /// Solady LibClone.initCodeHashERC1967(implementation, args).
@@ -1699,6 +1770,10 @@ class PolymarketOnboardingService {
     Future<void> Function(String relayerTxId)? onSubmitted,
     bool requireConfirmed = false,
     void Function()? ensureCurrent,
+    // Told once when the relayer reports the batch mined (in a block,
+    // not yet confirmed), while the poll goes on to the confirmation
+    // [requireConfirmed] waits for. See [_pollTransaction].
+    void Function()? onMined,
   }) async {
     final lockKey = walletAddress.toLowerCase();
     if (!_inFlightBatches.add(lockKey)) {
@@ -1715,6 +1790,7 @@ class PolymarketOnboardingService {
             onSubmitted: onSubmitted,
             requireConfirmed: requireConfirmed,
             ensureCurrent: ensureCurrent,
+            onMined: onMined,
           );
       // A hot batch the relayer refused only because it was still busy or
       // the nonce moved (nothing accepted) is signed again on a fresh
@@ -1748,6 +1824,7 @@ class PolymarketOnboardingService {
     Future<void> Function(String relayerTxId)? onSubmitted,
     bool requireConfirmed = false,
     void Function()? ensureCurrent,
+    void Function()? onMined,
   }) async {
     ensureCurrent?.call();
     final nonce = await _getDepositWalletNonce(eoaAddress);
@@ -1809,7 +1886,8 @@ class PolymarketOnboardingService {
     if (onSubmitted != null) await onSubmitted(txId);
     final String hash;
     try {
-      hash = await _pollTransaction(txId, requireConfirmed: requireConfirmed);
+      hash = await _pollTransaction(txId,
+          requireConfirmed: requireConfirmed, onMined: onMined);
     } catch (e) {
       if (kDebugMode) {
         // ignore: avoid_print
@@ -1931,6 +2009,13 @@ class PolymarketOnboardingService {
     required String privateKey,
     required String walletAddress,
     void Function()? ensureCurrent,
+    // Told once when the relayer reports the conversion mined, before it
+    // is confirmed: the order book can be asked to re-read the wallet
+    // then, while the poll waits on for the confirmation.
+    void Function()? onMined,
+    // Told right before the conversion is signed and sent (the balance
+    // read showed something to convert), for its timings.
+    void Function()? onSubmitting,
   }) async {
     // One conversion per delivered amount: in the wallet's queue, after
     // any action before it is confirmed, and never again for a read that
@@ -1948,6 +2033,7 @@ class PolymarketOnboardingService {
         return usdce;
       },
       wrap: (usdce) async {
+        onSubmitting?.call();
         if (kDebugMode) {
           // ignore: avoid_print
           print('[poly-relayer] WRAP $usdce micro USDC.e → pUSD '
@@ -1961,6 +2047,7 @@ class PolymarketOnboardingService {
           data: _encodeWrap(_kUsdcEAddress, walletAddress, usdce),
           ensureCurrent: ensureCurrent,
           requireConfirmed: true,
+          onMined: onMined,
         );
       },
       log: kDebugMode
@@ -1984,6 +2071,7 @@ class PolymarketOnboardingService {
     required String data, // hex with or without 0x prefix
     void Function()? ensureCurrent,
     bool requireConfirmed = false,
+    void Function()? onMined,
   }) async {
     ensureCurrent?.call();
     final deadline = DateTime.now()
@@ -2004,6 +2092,7 @@ class PolymarketOnboardingService {
       deadline: deadline,
       ensureCurrent: ensureCurrent,
       requireConfirmed: requireConfirmed,
+      onMined: onMined,
     );
   }
 
@@ -2650,6 +2739,66 @@ class PolymarketOnboardingService {
   }
 
   /// ERC-20 balance, throwing on RPC failure.
+  /// The per-call bound of [readBalancesForPoll].
+  static const Duration pollCallTimeout = Duration(seconds: 3);
+
+  /// [owner]'s balances of [tokens] for a poll that must stay light (the
+  /// funded bet's chain watch, funded_chain_watch.dart): ONE endpoint at a
+  /// time, never raced, its calls one after the other (the read client
+  /// sends one `eth_call` per request: no batch), each bounded by
+  /// [perCallTimeout]. The endpoint is the first in the read order (the
+  /// one that answered last, recently failed ones last). When it fails
+  /// (an error, a 429 or other non-200, a timeout, a malformed answer) it
+  /// is cooled down like any failed read and the NEXT configured endpoint
+  /// is tried, [endpoints] at most. Returns the balances (in [tokens]'
+  /// order), the index in [polygonReadRpcs] of the endpoint that answered
+  /// (an index, never the URL) and how many endpoints failed before it.
+  /// Throws [PolygonPollReadFailed] when none answered.
+  Future<({List<BigInt> balances, int endpoint, int errors})>
+      readBalancesForPoll({
+    required List<String> tokens,
+    required String owner,
+    Duration perCallTimeout = pollCallTimeout,
+    int endpoints = 2,
+  }) async {
+    await _ensureHealthyRpcsLoaded();
+    final order = _polygonReadOrder();
+    final data = '0x${_encodeBalanceOfCall(owner)}';
+    var errors = 0;
+    for (final rpc in order.take(endpoints)) {
+      try {
+        if (!await _isPolygonRpc(rpc)) {
+          errors++;
+          continue;
+        }
+        final out = <BigInt>[];
+        for (final token in tokens) {
+          final answer = await _rpcRequest(
+              rpc,
+              'eth_call',
+              [
+                {'to': token, 'data': data},
+                'latest',
+              ],
+              timeout: perCallTimeout);
+          final result = answer?.result;
+          if (result is! String ||
+              !result.startsWith('0x') ||
+              result.length != 66) {
+            throw const PolymarketReadException('balanceOf failed');
+          }
+          out.add(BigInt.parse(result.substring(2), radix: 16));
+        }
+        _rpcAnswered(rpc);
+        return (balances: out, endpoint: _readRpcs.indexOf(rpc), errors: errors);
+      } catch (_) {
+        errors++;
+        _rpcFailed(rpc);
+      }
+    }
+    throw PolygonPollReadFailed(errors);
+  }
+
   Future<BigInt> readErc20BalanceOrThrow({
     required String token,
     required String owner,
@@ -3197,6 +3346,12 @@ class PolymarketOnboardingService {
     });
 
     if (response.statusCode != 200 && response.statusCode != 201) {
+      // A definite refusal (bad request, unauthorized, forbidden, not
+      // found, unprocessable) queued nothing. A timeout-ish or server
+      // status (408, 429, 5xx) may have, and stays an ordinary throw.
+      if (const {400, 401, 403, 404, 422}.contains(response.statusCode)) {
+        throw RelayerSubmitRejected(response.statusCode, response.body);
+      }
       throw Exception(
         'Relayer submit failed: ${response.statusCode} ${response.body}',
       );
@@ -3215,14 +3370,52 @@ class PolymarketOnboardingService {
     return txId.toString();
   }
 
-  /// How long a receipt poll waits before asking the relayer again: every
-  /// second for the first 20 s (a Polygon block is about 2 s, so a deposit's
-  /// conversion is seen within a second of landing), then every 2 s. Also
-  /// the cadence a deposit's own path re-reads the wallet at.
+  /// How long a deposit's own path waits before re-reading the wallet for
+  /// the delivered USDC.e: every second for the first 20 s (a Polygon block
+  /// is about 2 s, so a deposit's conversion is seen within a second of
+  /// landing), then every 2 s. Public Polygon RPC reads: not tightened.
   static Duration receiptPollInterval(Duration elapsed) =>
       elapsed < const Duration(seconds: 20)
           ? const Duration(seconds: 1)
           : const Duration(seconds: 2);
+
+  /// How long [_pollTransaction] waits before asking the relayer again
+  /// for a batch's receipt: twice a second for the first 15 s (a Polygon
+  /// block is about 2 s, the relayer's own GET is cheap, so a mined or
+  /// confirmed batch is seen within half a second), every second to 30 s,
+  /// then every 2 s. Was every second for 20 s, then every 2 s.
+  static Duration relayerReceiptPollInterval(Duration elapsed) {
+    if (elapsed < const Duration(seconds: 15)) {
+      return const Duration(milliseconds: 500);
+    }
+    if (elapsed < const Duration(seconds: 30)) return const Duration(seconds: 1);
+    return const Duration(seconds: 2);
+  }
+
+  /// Whether a relayer transaction [state] says the batch is in a block
+  /// (`STATE_MINED` in `@polymarket/builder-relayer-client`'s
+  /// `RelayerTransactionState`: NEW → EXECUTED → MINED → CONFIRMED, with
+  /// FAILED and INVALID terminal). Not yet [relayerStateConfirmed].
+  @visibleForTesting
+  static bool relayerStateMined(String state) =>
+      state.toUpperCase().contains('MINED');
+
+  /// Whether a relayer transaction [state] is the confirmation the docs
+  /// say to wait for before using new balances (`STATE_CONFIRMED`).
+  @visibleForTesting
+  static bool relayerStateConfirmed(String state) =>
+      const {'STATE_CONFIRMED', 'CONFIRMED', 'DONE'}
+          .contains(state.toUpperCase());
+
+  /// [_pollTransaction], for tests (with an injected HTTP client through
+  /// `http.runWithClient`).
+  @visibleForTesting
+  Future<String> pollTransactionForTest(String txId,
+          {Duration timeout = const Duration(seconds: 90),
+          bool requireConfirmed = false,
+          void Function()? onMined}) =>
+      _pollTransaction(txId,
+          timeout: timeout, requireConfirmed: requireConfirmed, onMined: onMined);
 
   /// Polls until the relayer transaction is confirmed. Returns the on-chain tx hash.
   ///
@@ -3231,11 +3424,19 @@ class PolymarketOnboardingService {
   /// the tx is still healthy. Terminal state failures (FAILED /
   /// SKIPPED) propagate immediately, so the timeout only kicks in
   /// when the relayer never reaches a definitive state.
+  ///
+  /// [onMined] is told once, the first time the relayer reports the
+  /// batch mined ([relayerStateMined]) while [requireConfirmed] keeps the
+  /// poll going to the confirmation: a conversion's caller asks the order
+  /// book to re-read the wallet then, blocks before the confirmation,
+  /// instead of after it. The answer is still the confirmed hash.
   Future<String> _pollTransaction(String txId,
       {Duration timeout = const Duration(seconds: 90),
-      bool requireConfirmed = false}) async {
+      bool requireConfirmed = false,
+      void Function()? onMined}) async {
     final startedAt = DateTime.now();
     final deadline = startedAt.add(timeout);
+    var minedTold = false;
 
     while (DateTime.now().isBefore(deadline)) {
       _PollTerminalException? terminal;
@@ -3254,8 +3455,8 @@ class PolymarketOnboardingService {
           final data = relayerTransactionForId(jsonDecode(response.body), txId);
           if (data == null) {
             // Malformed or unrelated history never resolves this operation.
-            await Future<void>.delayed(
-                receiptPollInterval(DateTime.now().difference(startedAt)));
+            await Future<void>.delayed(relayerReceiptPollInterval(
+                DateTime.now().difference(startedAt)));
             continue;
           }
 
@@ -3267,9 +3468,19 @@ class PolymarketOnboardingService {
                       ?.toString() ??
                   '';
 
-          final confirmed =
-              const {'STATE_CONFIRMED', 'CONFIRMED', 'DONE'}.contains(state);
-          if (confirmed || (!requireConfirmed && state.contains('MINED'))) {
+          final confirmed = relayerStateConfirmed(state);
+          if (requireConfirmed &&
+              !minedTold &&
+              onMined != null &&
+              (confirmed || relayerStateMined(state))) {
+            // In a block (or already confirmed on the first read): the
+            // caller may act on it now; the poll goes on to CONFIRMED.
+            minedTold = true;
+            try {
+              onMined();
+            } catch (_) {}
+          }
+          if (confirmed || (!requireConfirmed && relayerStateMined(state))) {
             if (!requireConfirmed ||
                 RegExp(r'^0x[0-9a-fA-F]{64}$').hasMatch(txHash)) {
               return txHash.isNotEmpty ? txHash : txId;
@@ -3328,7 +3539,7 @@ class PolymarketOnboardingService {
       }
 
       await Future.delayed(
-          receiptPollInterval(DateTime.now().difference(startedAt)));
+          relayerReceiptPollInterval(DateTime.now().difference(startedAt)));
     }
 
     throw Exception('The relayer has not confirmed this transaction yet. '

@@ -16,14 +16,23 @@
 //
 // Motion: the sheet slides up, then the small disc pops in on a soft
 // spring and its glyph draws (a check, a "!" for a failure, a clock for
-// something pending). As the check lands Sal wags his tail in a quick
-// burst (a cheer for a win, ears down for a failure) and settles into his
-// idle loop. The success haptic fires exactly when the stroke completes;
+// something pending). Sal plays the tone's moment (sal_moments.dart;
+// founder, 12 November 2026): a win cheers once and settles into happy, a
+// success nods once, a failure shakes it off once (never sad), each then
+// still; pending waits (think, search), a record read again blinks. A
+// caller can name the moment itself ([KuteConfirmation.salMoment]: a lost
+// prediction's receipt shrugs under the neutral mark). While the sheet is
+// up it holds the spotlight (SalSpotlight, sal_sprite.dart): the bar's
+// Sal under it keeps still. The success haptic fires exactly when the stroke completes;
 // a failure plays the soft failure tap at the same moment instead.
 // Reduce Motion shows everything in its final state at once.
 
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -89,18 +98,18 @@ Future<void> pushKuteSuccessOverlayAfter({
 /// What a result sheet is saying, which picks its mark, Sal's mood and
 /// the haptic.
 enum KuteConfirmationTone {
-  /// Done. Green check, Sal wags, the success haptic.
+  /// Done. Green check, Sal nods once, the success haptic.
   success,
 
-  /// A win (winnings, a won prediction). Gold check, Sal cheers, the
-  /// success haptic.
+  /// A win (winnings, a won prediction). Gold check, Sal cheers once
+  /// and settles into happy, the success haptic.
   celebrate,
 
   /// Accepted but not finished (an order resting, funds on their way).
-  /// Neutral clock, Sal calm, no haptic.
+  /// Neutral clock, Sal waits, no haptic.
   pending,
 
-  /// It did not happen. Red "!", Sal's ears down, the failure tap.
+  /// It did not happen. Red "!", Sal shakes it off, the failure tap.
   failure,
 
   /// A result read again later. Neutral receipt glyph, Sal calm, no
@@ -177,7 +186,11 @@ class KuteConfirmation extends StatefulWidget {
     this.buttonText,
     this.secondaryButtonText,
     this.onSecondary,
+    this.salMoment,
   });
+
+  /// Sal's moment; null: the tone's ([momentFor]).
+  final SalMoment? salMoment;
 
   /// Test seams for the haptics. The real ones schedule timers, so widget
   /// tests install fakes here.
@@ -204,6 +217,40 @@ class KuteConfirmation extends StatefulWidget {
           : success
               ? KuteConfirmationTone.success
               : KuteConfirmationTone.failure);
+
+  /// The 3D Sal's clips the sheet can show (every moment's, [momentFor]).
+  static const List<String> salClips = SalMoments.faceClips;
+
+  /// Decodes [salClips] at the device's density, once for the app's life:
+  /// a send flow calls it as it opens, so the result sheet after Send
+  /// shows the 3D Sal from its first frame rather than an empty place
+  /// while his sheet is read (founder, 9 November 2026).
+  static Future<void> warmSal() => SalSpriteCache.warm(
+      salClips,
+      SalSpriteCache.densityFor(WidgetsBinding
+              .instance.platformDispatcher.implicitView?.devicePixelRatio ??
+          2.0));
+
+  /// Sal's moment for [tone] (sal_moments.dart).
+  static SalMoment momentFor(KuteConfirmationTone tone) => switch (tone) {
+        KuteConfirmationTone.celebrate => SalMoment.win,
+        KuteConfirmationTone.success => SalMoment.done,
+        KuteConfirmationTone.failure => SalMoment.shrug,
+        KuteConfirmationTone.pending => SalMoment.waiting,
+        KuteConfirmationTone.neutral => SalMoment.calm,
+      };
+
+  /// The moment this sheet plays.
+  SalMoment get resolvedSalMoment => salMoment ?? momentFor(resolvedTone);
+
+  /// A clip whose sheet cannot be read, said once: the rig draws him
+  /// there ([SalSprite.fallback]), never silently.
+  static final Set<String> _salSaid = {};
+  static void _salUnavailable(String clip) {
+    if (!_salSaid.add(clip) || !kDebugMode) return;
+    debugPrint('KuteConfirmation: Sal\'s $clip sheet not read; '
+        'the rig draws him on the result sheet');
+  }
 
   @override
   State<KuteConfirmation> createState() => _KuteConfirmationState();
@@ -232,6 +279,8 @@ class _KuteConfirmationState extends State<KuteConfirmation>
   @override
   void initState() {
     super.initState();
+    // One Sal at a time: the sheet's performs, the bar's keeps still.
+    SalSpotlight.hold(this);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: KuteConfirmation.totalMs),
@@ -343,6 +392,7 @@ class _KuteConfirmationState extends State<KuteConfirmation>
 
   @override
   void dispose() {
+    SalSpotlight.release(this);
     _routeEntrance?.removeStatusListener(_onRouteEntranceStatus);
     _slide?.dispose();
     _drag.dispose();
@@ -424,19 +474,31 @@ class _KuteConfirmationState extends State<KuteConfirmation>
               ),
             ),
             SizedBox(height: 24.h),
-            AppButton(
-              text: widget.buttonText ?? context.l10n.done,
-              onPressed: () => _finish(widget.onDone),
-            ),
+            // THE BAR IS THE BUTTON (founder, 1 November 2026: the search
+            // pill floated over this sheet's own black button): Done /
+            // Continue is the bar's primary, Sal happy; the sheet draws no
+            // button of its own, the quiet second one stays above the bar.
             if (secondary != null && widget.onSecondary != null) ...[
-              SizedBox(height: 6.h),
               AppTextButton(
                 key: const ValueKey('kute-confirmation-secondary'),
                 text: secondary,
                 textColor: c.textPrimary,
                 onPressed: () => _finish(widget.onSecondary),
               ),
+              SizedBox(height: 6.h),
             ],
+            KuteBarContextScope(
+              barContext: KuteBarContext.primary(
+                label: widget.buttonText ?? context.l10n.done,
+                onPrimary: () => _finish(widget.onDone),
+                clip: 'happy',
+                disabledLabel: null,
+                source: 'confirmation',
+              ),
+              child: SizedBox(
+                  key: const ValueKey('kute-confirmation-bar-room'),
+                  height: kuteBarScrollClearance.h - 8.h),
+            ),
           ],
         ),
       ),
@@ -513,18 +575,30 @@ class _KuteConfirmationState extends State<KuteConfirmation>
             ),
             SizedBox(width: 12.w),
             ExcludeSemantics(
-              child: KuteDogConfirmation(
-                key: const ValueKey('kute-confirmation-sal'),
+              // The 3D Sal (founder, 31 October 2026) playing the sheet's
+              // moment (12 November 2026, sal_moments.dart). Nothing in
+              // his place while the sheet is read (a flow warms it on
+              // open, [warmSal]); the rig only where it cannot be read,
+              // said once in the logs.
+              child: SalMomentSprite(
+                spriteKey: const ValueKey('kute-confirmation-sal-sprite'),
+                moment: widget.resolvedSalMoment,
                 size: 42.sp,
-                awake: _salAwake,
-                mood: switch (tone) {
-                  KuteConfirmationTone.success => KuteDogMood.happy,
-                  KuteConfirmationTone.celebrate => KuteDogMood.cheer,
-                  KuteConfirmationTone.failure => KuteDogMood.sad,
-                  KuteConfirmationTone.pending ||
-                  KuteConfirmationTone.neutral =>
-                    KuteDogMood.calm,
-                },
+                onUnavailable: KuteConfirmation._salUnavailable,
+                fallback: KuteDogConfirmation(
+                  key: const ValueKey('kute-confirmation-sal'),
+                  size: 42.sp,
+                  awake: _salAwake,
+                  mood: switch (tone) {
+                    KuteConfirmationTone.success => KuteDogMood.happy,
+                    KuteConfirmationTone.celebrate => KuteDogMood.cheer,
+                    // Calm, never sad for money (sal_moments.dart).
+                    KuteConfirmationTone.failure => KuteDogMood.calm,
+                    KuteConfirmationTone.pending ||
+                    KuteConfirmationTone.neutral =>
+                      KuteDogMood.calm,
+                  },
+                ),
               ),
             ),
           ],
@@ -916,14 +990,19 @@ class KuteSuccessOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KuteConfirmation(
-      message: _sentenceCase(headlineLabel),
-      amount: amount.isEmpty ? null : amount,
-      contextLine: subtitle,
-      rows: rows,
-      detail: detail,
-      buttonText: ctaText,
-      onDone: onDone ?? () => Navigator.of(context).pop(),
+    // The bar reads "Ask Sal what happens next" over a receipt.
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+          label: context.l10n.barAskWhatNext, source: 'receipt'),
+      child: KuteConfirmation(
+        message: _sentenceCase(headlineLabel),
+        amount: amount.isEmpty ? null : amount,
+        contextLine: subtitle,
+        rows: rows,
+        detail: detail,
+        buttonText: ctaText,
+        onDone: onDone ?? () => Navigator.of(context).pop(),
+      ),
     );
   }
 }

@@ -1071,7 +1071,6 @@ void main() {
                     teams: e.teams,
                     slug: e.slug,
                     gameId: e.gameId,
-                    hasLivestream: e.hasLivestream,
                     dayMove: e.oneDayPriceChange,
                   ),
                 ),
@@ -1294,7 +1293,6 @@ void main() {
     const layers = {
       'vol',
       kHlLayerBigTrades,
-      kHlLayerFunding,
       kHlLayerOi,
       kHlLayerCrowd,
       kHlLayerMacro,
@@ -1312,9 +1310,9 @@ void main() {
         style: 'area', interval: '5m', layers: layers, bigTrades: big);
     await market(tester, btc, '13_layers_1d_candles_light',
         style: 'candles', interval: '1d', layers: layers, bigTrades: big);
-    await market(tester, btc, '13_layers_4h_candles_dark',
+    await market(tester, btc, '13_layers_1w_candles_dark',
         style: 'candles',
-        interval: '4h',
+        interval: '1w',
         dark: true,
         layers: layers,
         bigTrades: big);

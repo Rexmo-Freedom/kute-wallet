@@ -55,6 +55,33 @@ void main() {
     expect(kMoneyMovementDisabledRoutes, isEmpty);
   });
 
+  test('out of Predictions only Bitcoin is offered; the app manages the rest',
+      () {
+    expect(kMoneyMovementHiddenRoutes, {
+      const MoneyMovementRoute(_p, _d),
+      const MoneyMovementRoute(_p, _i),
+    });
+    expect(MoneyMovementRoute.offered, hasLength(10));
+    expect(MoneyMovementRoute.offered,
+        isNot(contains(const MoneyMovementRoute(_p, _d))));
+    expect(MoneyMovementRoute.destinationsFrom(_p), [_b]);
+    expect(MoneyMovementRoute.destinationsFrom(_d), [_b, _i, _p]);
+    // Into Predictions every door stays open.
+    for (final from in [_b, _d, _i]) {
+      expect(MoneyMovementRoute.destinationsFrom(from), contains(_p));
+    }
+    // A hidden pair opens on the source's one offered destination.
+    expect(const MoneyMovementRoute(_p, _d).offeredOrNearest,
+        const MoneyMovementRoute(_p, _b));
+    expect(const MoneyMovementRoute(_p, _i).offeredOrNearest,
+        const MoneyMovementRoute(_p, _b));
+    expect(const MoneyMovementRoute(_d, _p).offeredOrNearest,
+        const MoneyMovementRoute(_d, _p));
+    // Its plan is still there for the rails that run it off-sheet.
+    expect(moneyMovementPlanFor(const MoneyMovementRoute(_p, _d)).flow,
+        SettlementFlow.movePredictionsToDollars);
+  });
+
   group('the plan for each pair', () {
     final expected = <MoneyMovementRoute,
         (MoneyMovementRail, SettlementFlow, String, String)>{

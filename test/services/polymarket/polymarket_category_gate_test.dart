@@ -60,29 +60,31 @@ void main() {
     expect(polymarketBetCapabilities('crypto', const []), ['polymarket.trade']);
   });
 
-  test('a blocked category hides its events and pills, the others stay',
-      () async {
+  test(
+      'a blocked category refuses bets on its events, the others stay '
+      'bettable (the Builder\'s picks; browse lists every one: founder, '
+      '12 November 2026)', () async {
     final events = [
       _event('nba-game', tags: const ['nba']),
       _event('election', category: 'politics'),
       _event('btc-100k', category: 'crypto'),
     ];
     final open = await policy({});
-    expect(polymarketEventsOffered(events, open).map((e) => e.slug),
+    expect(polymarketEventsBettable(events, open).map((e) => e.slug),
         ['nba-game', 'election', 'btc-100k']);
     final noSports = await policy({'polymarket.sports'});
-    expect(polymarketEventsOffered(events, noSports).map((e) => e.slug),
+    expect(polymarketEventsBettable(events, noSports).map((e) => e.slug),
         ['election', 'btc-100k']);
-    expect(polymarketTagOffered('nfl', noSports), isFalse);
-    expect(polymarketTagOffered('politics', noSports), isTrue);
+    expect(polymarketTagBettable('nfl', noSports), isFalse);
+    expect(polymarketTagBettable('politics', noSports), isTrue);
     final noPolitics = await policy({'polymarket.politics'});
-    expect(polymarketEventsOffered(events, noPolitics).map((e) => e.slug),
+    expect(polymarketEventsBettable(events, noPolitics).map((e) => e.slug),
         ['nba-game', 'btc-100k']);
-    expect(polymarketTagOffered('elections', noPolitics), isFalse);
-    expect(polymarketTagOffered('crypto', noPolitics), isTrue);
+    expect(polymarketTagBettable('elections', noPolitics), isFalse);
+    expect(polymarketTagBettable('crypto', noPolitics), isTrue);
   });
 
-  test('the gates fail closed without a readable policy', () {
+  test('the gates fail closed for bets without a readable policy', () {
     final unavailable = runtimePolicyFixture();
     addTearDown(unavailable.dispose);
     final events = [
@@ -90,10 +92,12 @@ void main() {
       _event('election', category: 'politics'),
       _event('btc-100k', category: 'crypto'),
     ];
-    expect(polymarketEventsOffered(events, unavailable).map((e) => e.slug),
+    expect(polymarketEventsBettable(events, unavailable).map((e) => e.slug),
         ['btc-100k']);
     expect(unavailable.allows('polymarket.close'), isTrue,
         reason: 'exits stay allowed while the policy is unavailable');
+    expect(unavailable.allows('polymarket.browse'), isTrue,
+        reason: 'markets stay visible while the policy is unavailable');
   });
 
   test('a new bet needs the category gate; a sell does not', () async {

@@ -42,6 +42,25 @@ import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
 
+/// Real daily candles of a market (WIRE coin), one read, newest last, for
+/// the chart's Pivots: read only while they are on, and again just after
+/// each UTC midnight, when a new day's levels are due. Pivots look at the
+/// days before today, so the live day's ticks are not needed.
+final hyperliquidDailyCandlesProvider = FutureProvider.autoDispose
+    .family<List<HyperliquidCandle>, String>((ref, wireCoin) async {
+  final now = DateTime.now().toUtc();
+  final next = DateTime.utc(now.year, now.month, now.day + 1, 0, 0, 30);
+  final timer = Timer(next.difference(now), ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
+  return ref
+      .read(hyperliquidTradingModelProvider)
+      .getCandles(
+        coin: wireCoin,
+        interval: '1d',
+        window: const Duration(days: 400),
+      );
+});
+
 /// Family key for [hyperliquidLiveCandlesProvider]. [wireCoin] MUST be the
 /// wire coin (HlMarket.wireCoin) — a spot display symbol silently yields
 /// no frames. [interval] is an HL candle interval ('1m','5m','1h','4h',…);

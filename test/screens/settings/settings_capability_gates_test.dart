@@ -135,14 +135,16 @@ void main() {
     expect(find.text(_l10n.electrumNode), findsOneWidget);
   });
 
-  testWidgets('affiliate.program denied: no referral row, no message',
+  testWidgets('affiliate.program denied: no referral card, no message',
       (tester) async {
     await pumpSettings(tester, denied: {'affiliate.program'});
     expect(find.text(_l10n.settingsReferralProgram), findsNothing);
-    expect(find.text(_l10n.settingsEarnAShareOfFees), findsNothing);
+    expect(find.text(_l10n.shareCodeTitle), findsNothing);
     expect(find.text(_l10n.capabilityUnavailable), findsNothing);
-    // The rest of Settings is there, so the absence is meaningful.
-    expect(find.text(_l10n.settingsSupportAndFeedback), findsOneWidget);
+    // The rest of Settings is there, so the absence is meaningful: Rate
+    // the app takes the referral card's place among the four.
+    expect(find.text(_l10n.chatWithSupport), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings-card-rate')), findsOneWidget);
   });
 
   testWidgets('export.transactions denied: the Export section is gone',

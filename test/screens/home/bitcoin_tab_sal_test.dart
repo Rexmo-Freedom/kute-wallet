@@ -92,7 +92,7 @@ void main() {
         Icons.currency_bitcoin_rounded,
         Icons.attach_money_rounded,
       ]) {
-        expect(tester.widget<Icon>(find.byIcon(icon)).size, 24.sp);
+        expect(tester.widget<Icon>(find.byIcon(icon)).size, 20.sp);
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

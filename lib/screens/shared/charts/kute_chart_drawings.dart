@@ -116,18 +116,24 @@ class KuteDrawingGeometry {
 
 // ───────────────────────────── hit-testing ─────────────────────────────
 
-const kuteFibonacciLevels = [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0];
+/// The default Fibonacci levels (a drawing's own: ChartDrawing.fibLevels).
+const kuteFibonacciLevels = kChartFibDefaultLevels;
 
-TextPainter _noteText(String text, Color color) => TextPainter(
+TextPainter _noteText(String text, Color color,
+        {int size = kChartNoteDefaultTextSize}) =>
+    TextPainter(
       text: TextSpan(text: text, style: TextStyle(
-          fontFamily: kuteChartFontFamily, color: color, fontSize: 13)),
+          fontFamily: kuteChartFontFamily,
+          color: color,
+          fontSize: size.toDouble())),
       textDirection: TextDirection.ltr,
       maxLines: 4,
       ellipsis: '…',
     )..layout(maxWidth: 180);
 
 Rect _noteBounds(ChartDrawing drawing, KuteDrawingGeometry geom) {
-  final label = _noteText(drawing.text ?? '', const Color(0xFFFFFFFF));
+  final label = _noteText(drawing.text ?? '', const Color(0xFFFFFFFF),
+      size: drawing.textSize ?? kChartNoteDefaultTextSize);
   final anchor = geom.offsetFor(drawing.points.first);
   return Rect.fromLTWH(
     anchor.dx.clamp(0.0, math.max(0, geom.width - label.width - 12)),
@@ -154,6 +160,44 @@ Offset _rayEnd(Offset a, Offset b, double width) {
   final slope = (b.dy - a.dy) / (b.dx - a.dx);
   final edge = b.dx > a.dx ? width : 0.0;
   return Offset(edge, a.dy + slope * (edge - a.dx));
+}
+
+/// A trend line's painted segment: a→b, or with [extend] from its
+/// earlier point through its later one to the right edge.
+(Offset, Offset) _trendSegment(Offset a, Offset b, double width, bool extend) {
+  if (!extend) return (a, b);
+  final (l, r) = a.dx <= b.dx ? (a, b) : (b, a);
+  if ((r.dx - l.dx).abs() < 0.5) return (a, b);
+  return (l, _rayEnd(l, r, width));
+}
+
+/// The part of segment a→b inside [r] (Liang–Barsky), or null.
+(Offset, Offset)? kuteClipSegment(Offset a, Offset b, Rect r) {
+  var t0 = 0.0, t1 = 1.0;
+  final dx = b.dx - a.dx, dy = b.dy - a.dy;
+  for (final (p, q) in [
+    (-dx, a.dx - r.left),
+    (dx, r.right - a.dx),
+    (-dy, a.dy - r.top),
+    (dy, r.bottom - a.dy),
+  ]) {
+    if (p == 0) {
+      if (q < 0) return null;
+      continue;
+    }
+    final t = q / p;
+    if (p < 0) {
+      if (t > t1) return null;
+      if (t > t0) t0 = t;
+    } else {
+      if (t < t0) return null;
+      if (t < t1) t1 = t;
+    }
+  }
+  return (
+    Offset(a.dx + dx * t0, a.dy + dy * t0),
+    Offset(a.dx + dx * t1, a.dy + dy * t1),
+  );
 }
 
 /// Both ends of the line through a and b, clipped to the plot's width so
@@ -212,6 +256,59 @@ String kuteFormatDrawingDuration(int ms) {
   return '${d.inMinutes}m';
 }
 
+/// Everything the drawings write on the chart, from the host: its number
+/// formats and its words, so labels follow the app's language and the
+/// chart's price format. The defaults (plain English, plain numbers) are
+/// for tests and hosts without localisations.
+class KuteDrawingWords {
+  const KuteDrawingWords({
+    this.price = kuteFormatDrawingPrice,
+    this.percent = kuteFormatDrawingPct,
+    this.duration = kuteFormatDrawingDuration,
+    this.ratio = _ratio,
+    this.fibLevel = _fibLevel,
+    this.target = _target,
+    this.stop = _stop,
+    this.long = _long,
+    this.short = _short,
+    this.bars = _bars,
+  });
+
+  /// A price or a price difference (never negative here).
+  final String Function(double price) price;
+
+  /// A signed change, as a fraction ("+2.00%").
+  final String Function(double fraction) percent;
+
+  /// A span of time ("1d 4h").
+  final String Function(int ms) duration;
+
+  /// A reward-to-risk ratio ("2.00").
+  final String Function(double ratio) ratio;
+
+  /// A Fibonacci level ("61.8%").
+  final String Function(double level) fibLevel;
+
+  /// A position's pills: target and stop (price, change), entry (price,
+  /// ratio).
+  final String Function(String price, String change) target;
+  final String Function(String price, String change) stop;
+  final String Function(String price, String ratio) long;
+  final String Function(String price, String ratio) short;
+
+  /// A time span's bars and duration.
+  final String Function(int count, String duration) bars;
+
+  static String _ratio(double r) => r.toStringAsFixed(2);
+  static String _fibLevel(double l) =>
+      '${(l * 100).toStringAsFixed(l == 0 || l == 1 ? 0 : 1)}%';
+  static String _target(String p, String c) => 'Target $p  $c';
+  static String _stop(String p, String c) => 'Stop $p  $c';
+  static String _long(String p, String r) => 'Long $p · R/R $r';
+  static String _short(String p, String r) => 'Short $p · R/R $r';
+  static String _bars(int n, String d) => '$n bars · $d';
+}
+
 /// Bars whose open time falls between two moments, inclusive.
 int kuteBarsBetween(KuteDrawingGeometry geom, int t0, int t1) {
   final lo = math.min(t0, t1), hi = math.max(t0, t1);
@@ -232,22 +329,25 @@ bool kuteDrawingHit(
 }) {
   switch (drawing.tool) {
     case ChartDrawingTool.level:
+    case ChartDrawingTool.priceLine:
       final y = geom.yForPrice(drawing.points.first.price);
       return (pos.dy - y).abs() <= tolerance;
     case ChartDrawingTool.trendline:
-      final a = geom.offsetFor(drawing.points[0]);
-      final b = geom.offsetFor(drawing.points[1]);
+      final (a, b) = _trendSegment(geom.offsetFor(drawing.points[0]),
+          geom.offsetFor(drawing.points[1]), geom.width, drawing.extend);
       return _distToSegment(pos, a, b) <= tolerance;
     case ChartDrawingTool.ray:
       final a = geom.offsetFor(drawing.points[0]);
       final b = geom.offsetFor(drawing.points[1]);
       return _distToSegment(pos, a, _rayEnd(a, b, geom.width)) <= tolerance;
     case ChartDrawingTool.rect:
-    case ChartDrawingTool.fibonacci:
       final a = geom.offsetFor(drawing.points[0]);
       final b = geom.offsetFor(drawing.points[1]);
       final r = Rect.fromPoints(a, b).inflate(tolerance);
       return r.contains(pos);
+    case ChartDrawingTool.fibonacci:
+      // The box its levels span (extensions past the move included).
+      return _fibBox(drawing, geom).inflate(tolerance).contains(pos);
     case ChartDrawingTool.text:
       return _noteBounds(drawing, geom).inflate(tolerance).contains(pos);
     case ChartDrawingTool.horizontalRay:
@@ -336,6 +436,128 @@ int? kuteHitTestHandle(
   return best;
 }
 
+/// A retracement's box: across its anchors' times, over every level it
+/// draws (both anchors' prices included).
+Rect _fibBox(ChartDrawing d, KuteDrawingGeometry geom) {
+  final a = geom.offsetFor(d.points[0]);
+  final b = geom.offsetFor(d.points[1]);
+  var top = math.min(a.dy, b.dy), bottom = math.max(a.dy, b.dy);
+  for (final ratio in d.fibLevels) {
+    final y = geom.yForPrice(
+        d.points[0].price + (d.points[1].price - d.points[0].price) * ratio);
+    if (!y.isFinite) continue;
+    top = math.min(top, y);
+    bottom = math.max(bottom, y);
+  }
+  return Rect.fromLTRB(math.min(a.dx, b.dx), top, math.max(a.dx, b.dx), bottom);
+}
+
+/// The box a drawing occupies on the plot, for placing its floating
+/// toolbar: its anchors' bounds (a level spans the plot's width at its
+/// price; a note, its card).
+Rect kuteDrawingBounds(ChartDrawing drawing, KuteDrawingGeometry geom) {
+  if (drawing.points.isEmpty) return Rect.zero;
+  if (drawing.tool == ChartDrawingTool.text && drawing.text != null) {
+    return _noteBounds(drawing, geom);
+  }
+  if (drawing.tool == ChartDrawingTool.fibonacci &&
+      drawing.points.length >= 2) {
+    return _fibBox(drawing, geom);
+  }
+  var rect = Rect.fromCenter(
+      center: geom.offsetFor(drawing.points.first), width: 0, height: 0);
+  for (final p in drawing.points.skip(1)) {
+    rect = rect.expandToInclude(
+        Rect.fromCenter(center: geom.offsetFor(p), width: 0, height: 0));
+  }
+  return rect;
+}
+
+/// Whether a drawing's tool puts a price tag in the chart's tag column:
+/// the price lines (a horizontal line, a horizontal ray).
+bool kuteDrawingHasPriceTag(ChartDrawing drawing) =>
+    drawing.tool == ChartDrawingTool.level ||
+    drawing.tool == ChartDrawingTool.horizontalRay ||
+    drawing.tool == ChartDrawingTool.priceLine;
+
+/// The price tags of the horizontal drawings, in the chart's tag column:
+/// the same small, fully rounded filled pill as the latest price's, in
+/// the drawing's colour. Mounted full width over the chart; the geometry
+/// maps across the plot only (the column starts at its right edge).
+class KuteDrawingPriceTagsPainter extends CustomPainter {
+  final List<ChartDrawing> drawings;
+  final double tagColumn;
+  final double tagLead;
+  final Color neutralColor;
+  final double fontSize;
+  final double padH;
+  final double padV;
+  final String Function(double price) formatPrice;
+  final KuteDrawingGeometry? Function(Size size) resolveGeometry;
+  final Object? repaintKey;
+
+  KuteDrawingPriceTagsPainter({
+    required this.drawings,
+    required this.tagColumn,
+    required this.tagLead,
+    required this.neutralColor,
+    required this.fontSize,
+    required this.padH,
+    required this.padV,
+    required this.formatPrice,
+    required this.resolveGeometry,
+    required this.repaintKey,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (tagColumn <= 0) return;
+    final geom = resolveGeometry(size);
+    if (geom == null) return;
+    final left = math.min(geom.width + tagLead, size.width);
+    for (final d in drawings) {
+      if (!kuteDrawingHasPriceTag(d) || !d.isValid) continue;
+      final price = d.points.first.price;
+      final y = geom.yForPrice(price);
+      if (!y.isFinite || y < 0 || y > geom.priceH) continue;
+      final color = d.color ?? neutralColor;
+      final fg = color.computeLuminance() > 0.55
+          ? const Color(0xFF000000)
+          : const Color(0xFFFFFFFF);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: formatPrice(price),
+          style: TextStyle(
+            fontFamily: kuteChartFontFamily,
+            color: fg,
+            fontSize: fontSize,
+            fontWeight: FontWeight.w800,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final w = tp.width + padH * 2, h = tp.height + padV * 2;
+      final x = math.max(0.0, math.min(left, size.width - w));
+      final top =
+          (y - h / 2).clamp(0.0, math.max(0.0, geom.priceH - h)).toDouble();
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromLTWH(x, top, w, h), Radius.circular(h / 2)),
+          Paint()..color = color);
+      tp.paint(canvas, Offset(x + padH, top + padV));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant KuteDrawingPriceTagsPainter old) =>
+      !identical(old.drawings, drawings) ||
+      old.repaintKey != repaintKey ||
+      old.tagColumn != tagColumn ||
+      old.neutralColor != neutralColor ||
+      old.fontSize != fontSize;
+}
+
 // ───────────────────────────── painter ─────────────────────────────
 
 class KuteChartDrawingsPainter extends CustomPainter {
@@ -369,9 +591,18 @@ class KuteChartDrawingsPainter extends CustomPainter {
     required this.handleCore,
     required this.resolveGeometry,
     required this.repaintKey,
+    this.words = const KuteDrawingWords(),
   });
 
+  /// The labels' words and number formats (the host's language).
+  final KuteDrawingWords words;
+
   Color _colorOf(ChartDrawing d) => d.color ?? neutralColor;
+
+  /// A drawing's fill: its own opacity, else its tool's ([base], the
+  /// opacity it always had).
+  static double _fillAlpha(ChartDrawing d, double base) =>
+      d.fill == null ? base : d.fill! / 100;
 
   /// A small pill with [text] anchored at [at] (top-left), kept inside the
   /// plot. Used by the measuring and position tools.
@@ -436,12 +667,28 @@ class KuteChartDrawingsPainter extends CustomPainter {
     }
   }
 
+  /// The plot of the current paint pass (dashes are only laid along the
+  /// stretch of a line that can be seen).
+  Rect _visible = Rect.zero;
+
+  /// A drawing's own stroke: solid, or dashed when the drawing says so.
+  void _line(Canvas canvas, Offset a, Offset b, Paint paint, bool dashed) {
+    if (!dashed) {
+      canvas.drawLine(a, b, paint);
+      return;
+    }
+    final seg = kuteClipSegment(a, b, _visible.inflate(8));
+    if (seg == null) return;
+    _dashed(canvas, seg.$1, seg.$2, paint, dash: 6, gap: 4);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     if (drawings.isEmpty && draft == null) return;
     final geom = resolveGeometry(size);
     if (geom == null) return;
 
+    _visible = Rect.fromLTWH(0, 0, size.width, geom.priceH);
     canvas.save();
     // Clip to the price area — drawings never bleed into the volume strip.
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, geom.priceH));
@@ -466,53 +713,85 @@ class KuteChartDrawingsPainter extends CustomPainter {
   }) {
     if (!d.isValid) return;
     final color = _colorOf(d);
+    final dash = d.dashed || d.tool == ChartDrawingTool.priceLine;
+    // A placement whose second point is not down yet: just its anchor.
+    if (isDraft &&
+        d.points.every((p) =>
+            p.timeMs == d.points.first.timeMs &&
+            p.price == d.points.first.price)) {
+      _handle(canvas, geom.offsetFor(d.points.first), color);
+      return;
+    }
     final alpha = isDraft ? 0.55 : (selected ? 0.95 : 0.75);
+    // Width 2 (the default) is the 1.6 every drawing always had.
+    final width = (d.width ?? kChartDrawingDefaultWidth) * 0.8;
+    final labels = d.labels;
     final stroke = Paint()
       ..color = color.withValues(alpha: alpha)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = selected ? 2.0 : 1.6
+      ..strokeWidth = selected ? width + 0.4 : width
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     switch (d.tool) {
       case ChartDrawingTool.level:
+      case ChartDrawingTool.priceLine:
         final y = geom.yForPrice(d.points.first.price);
-        canvas.drawLine(Offset(0, y), Offset(geom.width, y), stroke);
+        _line(canvas, Offset(0, y), Offset(geom.width, y), stroke, dash);
         break;
       case ChartDrawingTool.trendline:
-        canvas.drawLine(
-          geom.offsetFor(d.points[0]),
-          geom.offsetFor(d.points[1]),
-          stroke,
-        );
+        final (a, b) = _trendSegment(geom.offsetFor(d.points[0]),
+            geom.offsetFor(d.points[1]), geom.width, d.extend);
+        _line(canvas, a, b, stroke, dash);
         break;
       case ChartDrawingTool.ray:
         final a = geom.offsetFor(d.points[0]);
         final b = geom.offsetFor(d.points[1]);
-        canvas.drawLine(a, _rayEnd(a, b, geom.width), stroke);
+        _line(canvas, a, _rayEnd(a, b, geom.width), stroke, dash);
         break;
       case ChartDrawingTool.rect:
         final r = Rect.fromPoints(
           geom.offsetFor(d.points[0]),
           geom.offsetFor(d.points[1]),
         );
-        canvas.drawRect(r, Paint()..color = color.withValues(alpha: 0.08));
-        canvas.drawRect(r, stroke);
+        canvas.drawRect(
+            r, Paint()..color = color.withValues(alpha: _fillAlpha(d, 0.08)));
+        if (dash) {
+          _line(canvas, r.topLeft, r.topRight, stroke, true);
+          _line(canvas, r.topRight, r.bottomRight, stroke, true);
+          _line(canvas, r.bottomRight, r.bottomLeft, stroke, true);
+          _line(canvas, r.bottomLeft, r.topLeft, stroke, true);
+        } else {
+          canvas.drawRect(r, stroke);
+        }
+        if (selected && !isDraft && labels) {
+          // Selected: the zone's height in price and per cent of its
+          // lower edge, under it, in the measure tool's pill.
+          final lo = math.min(d.points[0].price, d.points[1].price);
+          final hi = math.max(d.points[0].price, d.points[1].price);
+          _pill(
+              canvas,
+              geom,
+              Offset(r.center.dx - 50, r.bottom + 4),
+              '${words.price(hi - lo)} (${words.percent(lo > 0 ? (hi - lo) / lo : double.nan).replaceFirst('+', '')})',
+              color,
+              strong: true);
+        }
         break;
       case ChartDrawingTool.fibonacci:
         final a = geom.offsetFor(d.points[0]);
         final b = geom.offsetFor(d.points[1]);
         final left = math.min(a.dx, b.dx);
         final right = math.max(a.dx, b.dx);
-        for (final ratio in kuteFibonacciLevels) {
+        for (final ratio in d.fibLevels) {
           final price = d.points[0].price +
               (d.points[1].price - d.points[0].price) * ratio;
           final y = geom.yForPrice(price);
-          canvas.drawLine(Offset(left, y), Offset(right, y), stroke);
+          _line(canvas, Offset(left, y), Offset(right, y), stroke, dash);
+          if (!labels) continue;
           final label = TextPainter(
             text: TextSpan(
-              text:
-                  '${(ratio * 100).toStringAsFixed(ratio == 0 || ratio == 1 ? 0 : 1)}%  ${price.toStringAsPrecision(6)}',
+              text: '${words.fibLevel(ratio)}  ${words.price(price)}',
               style: TextStyle(
                   fontFamily: kuteChartFontFamily,
                   color: color,
@@ -525,16 +804,16 @@ class KuteChartDrawingsPainter extends CustomPainter {
         break;
       case ChartDrawingTool.horizontalRay:
         final a = geom.offsetFor(d.points.first);
-        canvas.drawLine(a, Offset(geom.width, a.dy), stroke);
+        _line(canvas, a, Offset(geom.width, a.dy), stroke, dash);
         break;
       case ChartDrawingTool.verticalLine:
         final x = geom.xForTime(d.points.first.timeMs);
-        canvas.drawLine(Offset(x, 0), Offset(x, geom.priceH), stroke);
+        _line(canvas, Offset(x, 0), Offset(x, geom.priceH), stroke, dash);
         break;
       case ChartDrawingTool.extendedLine:
         final (e0, e1) = _extendedEnds(geom.offsetFor(d.points[0]),
             geom.offsetFor(d.points[1]), geom.width);
-        canvas.drawLine(e0, e1, stroke);
+        _line(canvas, e0, e1, stroke, dash);
         break;
       case ChartDrawingTool.parallelChannel:
         final a = geom.offsetFor(d.points[0]);
@@ -547,9 +826,9 @@ class KuteChartDrawingsPainter extends CustomPainter {
               ..lineTo(c1.dx, c1.dy)
               ..lineTo(c0.dx, c0.dy)
               ..close(),
-            Paint()..color = color.withValues(alpha: 0.08));
-        canvas.drawLine(a, b, stroke);
-        canvas.drawLine(c0, c1, stroke);
+            Paint()..color = color.withValues(alpha: _fillAlpha(d, 0.08)));
+        _line(canvas, a, b, stroke, dash);
+        _line(canvas, c0, c1, stroke, dash);
         // The middle line, the way traders read a channel's centre.
         _dashed(
             canvas,
@@ -576,8 +855,9 @@ class KuteChartDrawingsPainter extends CustomPainter {
             left, math.min(entry.dy, stopY), right, math.max(entry.dy, stopY));
         const up = Color(0xFF16A34A);
         const down = Color(0xFFDC2626);
-        canvas.drawRect(profit, Paint()..color = up.withValues(alpha: 0.16));
-        canvas.drawRect(risk, Paint()..color = down.withValues(alpha: 0.16));
+        final zone = _fillAlpha(d, 0.16);
+        canvas.drawRect(profit, Paint()..color = up.withValues(alpha: zone));
+        canvas.drawRect(risk, Paint()..color = down.withValues(alpha: zone));
         canvas.drawLine(
             Offset(left, entry.dy),
             Offset(right, entry.dy),
@@ -596,6 +876,7 @@ class KuteChartDrawingsPainter extends CustomPainter {
             Paint()
               ..color = down
               ..strokeWidth = 1.2);
+        if (!labels) break;
         final reward = (targetPx - entryPx).abs();
         final riskAmt = (stopPx - entryPx).abs();
         final rr = riskAmt > 0 ? reward / riskAmt : double.nan;
@@ -603,20 +884,26 @@ class KuteChartDrawingsPainter extends CustomPainter {
         _pill(
             canvas,
             geom,
-            Offset(left + 4, math.min(entry.dy, target.dy) + 4),
-            'Target ${kuteFormatDrawingPrice(targetPx)}  ${kuteFormatDrawingPct(sign * (targetPx - entryPx) / entryPx)}',
+            // Each pill inside its zone at the far edge (a short's target
+            // is below the entry, its stop above).
+            Offset(left + 4,
+                target.dy <= entry.dy ? target.dy + 4 : target.dy - 26),
+            words.target(words.price(targetPx),
+                words.percent(sign * (targetPx - entryPx) / entryPx)),
             up);
         _pill(
             canvas,
             geom,
-            Offset(left + 4, math.max(entry.dy, stopY) - 26),
-            'Stop ${kuteFormatDrawingPrice(stopPx)}  ${kuteFormatDrawingPct(sign * (stopPx - entryPx) / entryPx)}',
+            Offset(left + 4, stopY >= entry.dy ? stopY - 26 : stopY + 4),
+            words.stop(words.price(stopPx),
+                words.percent(sign * (stopPx - entryPx) / entryPx)),
             down);
         _pill(
             canvas,
             geom,
             Offset(right - 96, entry.dy - 11),
-            '${long ? 'Long' : 'Short'} ${kuteFormatDrawingPrice(entryPx)} · R/R ${rr.isFinite ? rr.toStringAsFixed(2) : '—'}',
+            (long ? words.long : words.short)(words.price(entryPx),
+                rr.isFinite ? words.ratio(rr) : '—'),
             color,
             strong: true);
         break;
@@ -630,7 +917,8 @@ class KuteChartDrawingsPainter extends CustomPainter {
         final t0 = d.points[0].timeMs, t1 = d.points[1].timeMs;
         final measuresPrice = d.tool != ChartDrawingTool.dateRange;
         final measuresTime = d.tool != ChartDrawingTool.priceRange;
-        canvas.drawRect(r, Paint()..color = color.withValues(alpha: 0.10));
+        canvas.drawRect(
+            r, Paint()..color = color.withValues(alpha: _fillAlpha(d, 0.10)));
         if (measuresPrice) {
           final x = r.center.dx;
           canvas.drawLine(Offset(x, r.top), Offset(x, r.bottom), stroke);
@@ -650,15 +938,17 @@ class KuteChartDrawingsPainter extends CustomPainter {
         final parts = <String>[];
         if (measuresPrice) {
           parts.add(
-              '${p1 - p0 >= 0 ? '+' : '−'}${kuteFormatDrawingPrice((p1 - p0).abs())} (${kuteFormatDrawingPct(p0 != 0 ? (p1 - p0) / p0 : double.nan)})');
+              '${p1 - p0 >= 0 ? '+' : '−'}${words.price((p1 - p0).abs())} (${words.percent(p0 != 0 ? (p1 - p0) / p0 : double.nan)})');
         }
         if (measuresTime) {
           parts.add(
-              '${kuteBarsBetween(geom, t0, t1)} bars · ${kuteFormatDrawingDuration(t1 - t0)}');
+              words.bars(kuteBarsBetween(geom, t0, t1), words.duration(t1 - t0)));
         }
-        _pill(canvas, geom, Offset(r.center.dx - 50, r.bottom + 4),
-            parts.join('\n'), color,
-            strong: true);
+        if (labels) {
+          _pill(canvas, geom, Offset(r.center.dx - 50, r.bottom + 4),
+              parts.join('\n'), color,
+              strong: true);
+        }
         break;
       case ChartDrawingTool.text:
         final rect = _noteBounds(d, geom);
@@ -669,22 +959,26 @@ class KuteChartDrawingsPainter extends CustomPainter {
           canvas.drawRRect(
               RRect.fromRectAndRadius(rect, const Radius.circular(5)), stroke);
         }
-        _noteText(d.text!, color)
+        _noteText(d.text!, color,
+                size: d.textSize ?? kChartNoteDefaultTextSize)
             .paint(canvas, rect.topLeft + const Offset(6, 5));
         break;
     }
 
-    if (selected) {
+    // A locked drawing shows no handles: nothing on it can be dragged.
+    if (selected && !d.locked) {
       for (final p in d.points) {
-        final o = geom.offsetFor(p);
-        // Handles read as grabbable on a phone: a wide soft halo, a
-        // solid disc and a core in the background colour.
-        canvas.drawCircle(
-            o, 12.0, Paint()..color = color.withValues(alpha: 0.16));
-        canvas.drawCircle(o, 7.0, Paint()..color = color);
-        canvas.drawCircle(o, 3.5, Paint()..color = handleCore);
+        _handle(canvas, geom.offsetFor(p), color);
       }
     }
+  }
+
+  /// Handles read as grabbable on a phone: a wide soft halo, a solid
+  /// disc and a core in the background colour.
+  void _handle(Canvas canvas, Offset o, Color color) {
+    canvas.drawCircle(o, 12.0, Paint()..color = color.withValues(alpha: 0.16));
+    canvas.drawCircle(o, 7.0, Paint()..color = color);
+    canvas.drawCircle(o, 3.5, Paint()..color = handleCore);
   }
 
   @override

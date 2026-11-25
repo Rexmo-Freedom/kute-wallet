@@ -256,7 +256,9 @@ void main() {
           findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-1')), findsOneWidget);
-      expect(_inSheet(find.text('Date')), findsOneWidget);
+      // The date is the receipt hero's quiet line; Status a tile.
+      expect(_inSheet(find.byKey(const ValueKey('receipt-hero-date'))),
+          findsOneWidget);
       expect(_inSheet(find.text('Status')), findsOneWidget);
     });
   });

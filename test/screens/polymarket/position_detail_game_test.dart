@@ -25,21 +25,22 @@ import 'package:kute/screens/polymarket/components/game_header.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart'
     show MarketChart;
 import 'package:kute/screens/polymarket/components/market_livestream_view.dart';
-import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
-    show PolyRulesRow;
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/polymarket/components/position_awaiting.dart'
     show polyExpectedSettlementProvider;
 import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarContextScope;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_motion.dart' show ScorePulseText;
 import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/balance_privacy.dart';
 
 /// The header's score ([ScorePulseText]: a goal pulses its number), found
 /// by the score it shows.
@@ -126,7 +127,7 @@ Future<void> _pump(WidgetTester tester, Widget child,
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
-    overrides: overrides,
+    overrides: [balancePrivacyOverride(), ...overrides],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
@@ -327,25 +328,25 @@ void main() {
         const PositionDetailSheet(position: position),
         overrides: overrides(_game(), ai: true),
       );
-      expect(find.byType(AskSalChip), findsNothing);
-      expect(find.byType(SalWhyMovingRow), findsNothing);
       expect(find.byType(KuteDogGlance), findsNothing);
       // 120 shares bought at 42c: worth $60 now (+$9.60), $120 paid if
-      // the 49ers win, $50.40 paid for it. No risk sentence.
+      // the 49ers win, $50.40 paid for it. No risk sentence. The value
+      // tile leads with the profit, what it is worth under it (founder,
+      // 11 November 2026).
       final value = find.byKey(const ValueKey('poly-position-value'));
-      expect(find.descendant(of: value, matching: find.text('Worth now')),
+      expect(find.descendant(of: value, matching: find.text('Profits')),
           findsOneWidget);
       expect(
           find.descendant(
               of: value,
               matching: find.byWidgetPredicate((w) =>
-                  w is RollingNumberText && w.text == r'$60.00')),
+                  w is RollingNumberText && w.text == r'+$9.60')),
           findsOneWidget);
       expect(
           find.descendant(
               of: value,
               matching: find.byWidgetPredicate((w) =>
-                  w is RollingNumberText && w.text == r'+$9.60 · +19.0%')),
+                  w is RollingNumberText && w.text == r'Worth now $60.00')),
           findsOneWidget);
       final payout = find.byKey(const ValueKey('poly-position-payout'));
       expect(
@@ -363,7 +364,10 @@ void main() {
       expect(protect, findsOneWidget);
       expect(find.descendant(of: protect, matching: find.text('Protect it')),
           findsOneWidget);
-      expect(find.descendant(of: protect, matching: find.text('Sell at')),
+      // Its option card says what it sets: a sell at the user's price.
+      expect(
+          find.descendant(
+              of: protect, matching: find.text('Sell at your price')),
           findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -389,6 +393,36 @@ void main() {
       );
       expect(find.textContaining('Paid'), findsNothing);
       expect(find.text(r'$120.00'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a 5-minute window: titled by its own name, whichever window '
+        'the card shows', (tester) async {
+      await _pump(
+        tester,
+        const PositionDetailSheet(
+            position: PolymarketPosition(
+          marketId: 'm',
+          marketQuestion: 'Bitcoin Up or Down - November 8, 7:00AM-7:05AM ET',
+          outcome: 'Up',
+          size: 20,
+          avgPrice: 0.5,
+          currentPrice: 0.5,
+          pnl: 0,
+          pnlPercent: 0,
+          isResolved: false,
+          eventSlug: 'btc-updown-5m-1794139200',
+        )),
+        overrides: overrides(null),
+      );
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('poly-position-title')),
+              matching: find.textContaining(
+                  RegExp(r'^BTC up or down · '
+                      r'\d{1,2}:\d\d⁠–⁠\d{1,2}:\d\d$'))),
+          findsOneWidget);
+      expect(find.textContaining('7:00AM-7:05AM ET'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -431,7 +465,13 @@ void main() {
       expect(
           find.byKey(const ValueKey('poly-position-title')), findsOneWidget);
       expect(find.text('49ERS'), findsNothing);
-      expect(find.text('Sell'), findsOneWidget);
+      // Sell is the floating bar's button (kute_bar_context.dart).
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is KuteBarContextScope &&
+              w.barContext.isPrimary &&
+              w.barContext.label == 'Sell'),
+          findsOneWidget);
       // On the screen two tiles and plain rows, no card of rows; what the
       // position is made of waits behind one Details row.
       expect(find.byType(PositionRowsCard), findsNothing);
@@ -516,6 +556,16 @@ void main() {
       expect(find.byType(PositionSidePill), findsNothing);
       expect(tester.getRect(pill).bottom,
           lessThan(tester.getRect(find.byType(PolyPositionSpeedometer)).top));
+      // Nothing to share beside the result or under the tiles (founder,
+      // 4 November 2026): the round Sal button floats beside Sell.
+      expect(
+          find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
+      expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
+      final sell = tester
+          .widget<KuteBarContextScope>(find.byWidgetPredicate(
+              (w) => w is KuteBarContextScope && w.barContext.isPrimary))
+          .barContext;
+      expect(sell.share!.barContext!.market, isTrue);
       expect(
           tester.getRect(find.byType(PolyPositionSpeedometer)).bottom,
           lessThan(tester
@@ -686,28 +736,30 @@ void main() {
         const PositionDetailSheet(position: position),
         overrides: overrides(event),
       );
-      // A row, not an expander: the text is not on the screen itself.
+      // An option card, not an expander: the odd last card, one compact
+      // full-width row under View market and Details, with no preview of
+      // the rules (founder, 7 November 2026); the text is on its sheet.
       final row = find.text('Closing Conditions');
       await tester.pump();
       await tester.ensureVisible(row);
       await tester.pumpAndSettle();
       expect(row, findsOneWidget);
+      final card = find.byKey(PositionDetailSheet.closingConditionsKey);
+      expect(find.descendant(of: card, matching: row), findsOneWidget);
       expect(find.text(conditions), findsNothing);
-      // Two taps inside one frame (the row's handler called twice before
+      // Two taps inside one frame (the card's handler called twice before
       // the sheet's route is built): one sheet.
-      final onTap = tester
-          .widget<PolyRulesRow>(find.ancestor(
-              of: row, matching: find.byType(PolyRulesRow)))
-          .onTap;
+      final onTap = tester.widget<KuteActionCard>(card).onTap!;
       onTap();
       onTap();
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheetHeader), findsOneWidget);
+      // The whole text on the sheet.
       expect(find.text(conditions), findsOneWidget);
       // Closed with its own button, then opened again.
       await tester.tap(find.descendant(
           of: find.byType(AppBottomSheetHeader),
-          matching: find.byIcon(Icons.close_rounded)));
+          matching: find.byType(AppBottomSheetCloseButton)));
       await tester.pumpAndSettle();
       expect(find.byType(AppBottomSheetHeader), findsNothing);
       await tester.tap(row);
@@ -865,7 +917,7 @@ void main() {
     });
 
     testWidgets('under a day to go: "Ends in 12:34" counted down on a '
-        'centred pill', (tester) async {
+        'quiet centred line', (tester) async {
       final end = DateTime.now().add(const Duration(minutes: 12, seconds: 40));
       await _pump(
         tester,
@@ -875,17 +927,14 @@ void main() {
         width: 375,
       );
       await tester.pump();
-      final pill = find.byKey(const ValueKey('poly-position-expiry'));
-      expect(pill, findsOneWidget);
+      final line = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(line, findsOneWidget);
       expect(
-          find.descendant(
-              of: pill,
-              matching: find.byWidgetPredicate((w) =>
-                  w is Text &&
-                  RegExp(r'^Ends in 12:[0-9]{2}$').hasMatch(w.data ?? ''))),
-          findsOneWidget);
+          RegExp(r'^Ends in 12:[0-9]{2}$')
+              .hasMatch(tester.widget<Text>(line).data ?? ''),
+          isTrue);
       expect(find.textContaining('ENDS'), findsNothing);
-      expect(tester.getCenter(pill).dx, closeTo(375 / 2, 1));
+      expect(tester.getCenter(line).dx, closeTo(375 / 2, 1));
       expect(tester.takeException(), isNull);
     });
 

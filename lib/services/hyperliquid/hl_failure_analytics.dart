@@ -47,6 +47,9 @@ String hlRefusalClass(String reason) {
 /// The step an Investing order failure ended at, as one closed word.
 String hlFailureStage(Object error) {
   if (error is OwnDexCreditPending) return 'credit';
+  // Sent with no answer, then looked up on the account.
+  if (error is HyperliquidOrderNotPlacedException) return 'not_placed';
+  if (error is HyperliquidOrderUnconfirmedException) return 'unconfirmed';
   if (error is ReauthRequired) return 'reauth';
   if (error is GrantRevoked) return 'user_declined';
   if (error is AuthGrantException) return 'grant_expired';

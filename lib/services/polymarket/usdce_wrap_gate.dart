@@ -73,6 +73,45 @@ abstract final class FundedConversionHold {
   static void reset() => _held = _never;
 }
 
+/// The moments of each USDC.e → pUSD conversion, told to whoever listens
+/// (the bet autofire, for a funded bet's exact timings: `legs.wrap`,
+/// `ms_seen_to_wrap_submitted`, `ms_wrap_submitted_to_mined`). Nothing
+/// but the phase is told: no amount, wallet or hash.
+enum WrapPhase {
+  /// The conversion is being signed and sent to the relayer.
+  submitting,
+
+  /// The relayer reports it mined.
+  mined,
+
+  /// It ended having converted something.
+  done,
+}
+
+abstract final class WrapTimeline {
+  static void _none(WrapPhase _) {}
+  static void Function(WrapPhase) _listener = _none;
+
+  /// Tells the listener [phase]. Never throws.
+  static void note(WrapPhase phase) {
+    try {
+      _listener(phase);
+    } catch (_) {}
+  }
+
+  /// The listener from now on; the returned callback removes it (only
+  /// while it is still the current one).
+  static void Function() install(void Function(WrapPhase) listener) {
+    _listener = listener;
+    return () {
+      if (identical(_listener, listener)) _listener = _none;
+    };
+  }
+
+  @visibleForTesting
+  static void reset() => _listener = _none;
+}
+
 /// Whether a funded bet still holds conversions: its funding is running
 /// (`converting`) or queued for its money (`awaitingBalance`) and the
 /// deposit wallet's balances have not yet been read covering all of it

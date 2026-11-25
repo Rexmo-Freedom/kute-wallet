@@ -118,4 +118,76 @@ void main() {
     expect(container.read(hlChartDrawingsProvider(key)).map((d) => d.id),
         ['saved', 'first', 'second']);
   });
+
+  test(
+      'a newer build\'s tool is kept, skipped and written back byte for '
+      'byte through a load, an edit and a save', () async {
+    final key = hlChartDrawingMarketKey(_market('SOL', 'SOL'));
+    // What a newer build wrote: its own tool (with its own fields) among
+    // a known drawing that also carries a key this build does not read.
+    const unknown = '{"id":"future","tool":"pitchforkSchiff",'
+        '"points":[{"t":1,"p":2.5},{"t":3,"p":4},{"t":5,"p":6}],'
+        '"color":4280391411,"w":3,"mystery":{"a":[1,2]}}';
+    const known = '{"id":"lvl","tool":"level",'
+        '"points":[{"t":100,"p":110.0}],"glow":true}';
+    await box.put(key, '[$unknown,$known]');
+    final provider = hlChartDrawingsProvider(key);
+    await _until(() => container.read(provider).isNotEmpty);
+    // Never shown, never turned into a trend line.
+    expect(container.read(provider).map((d) => d.id), ['lvl']);
+    expect(container.read(provider).single.tool, ChartDrawingTool.level);
+
+    final notifier = container.read(provider.notifier);
+    notifier.update(container.read(provider).single.copyWith(dashed: true));
+    notifier.add(_drawing('new'));
+    await _until(() => box.get(key)?.contains('"new"') == true);
+    final saved = box.get(key)!;
+    expect(saved.startsWith('[$unknown,'), isTrue, reason: saved);
+    // The known drawing keeps the key it does not read, too.
+    final back = (jsonDecode(saved) as List).cast<Map>();
+    expect(back[1]['glow'], isTrue);
+    expect(back[1]['dash'], isTrue);
+
+    // A second load sees the same: one unknown kept, two drawings.
+    container.dispose();
+    container = ProviderContainer();
+    await _until(() => container.read(provider).length == 2);
+    container.read(provider.notifier).remove('new');
+    await _until(() => box.get(key)?.contains('"new"') == false);
+    expect(box.get(key)!.startsWith('[$unknown,'), isTrue);
+  });
+
+  test('every tool on the rail persists and reloads as it was', () async {
+    final key = hlChartDrawingMarketKey(_market('ETH', 'ETH'));
+    final provider = hlChartDrawingsProvider(key);
+    final drawings = [
+      for (final tool in ChartDrawingTool.values)
+        if (tool != ChartDrawingTool.priceLine)
+          ChartDrawing(
+            id: 'd-${tool.name}',
+            tool: tool,
+            points: [
+              for (var i = 0; i < chartDrawingPointCount(tool); i++)
+                ChartDrawingPoint(timeMs: 1000 + i * 60000, price: 100.0 + i),
+            ],
+            text: tool == ChartDrawingTool.text ? 'note' : null,
+            width: tool == ChartDrawingTool.ray ? 3 : null,
+            fill: tool == ChartDrawingTool.parallelChannel ? 20 : null,
+            labels: tool != ChartDrawingTool.longPosition,
+          ),
+    ];
+    final notifier = container.read(provider.notifier);
+    for (final d in drawings) {
+      notifier.add(d);
+    }
+    await _until(() => box.get(key)?.contains('d-dateAndPriceRange') == true);
+    container.dispose();
+    container = ProviderContainer();
+    await _until(() => container.read(provider).length == drawings.length);
+    final back = container.read(provider);
+    for (var i = 0; i < drawings.length; i++) {
+      expect(jsonEncode(back[i].toJson()), jsonEncode(drawings[i].toJson()),
+          reason: drawings[i].tool.name);
+    }
+  });
 }

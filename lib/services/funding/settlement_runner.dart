@@ -893,7 +893,7 @@ class SettlementRunner {
         }
         await store.transition(operationId, SettlementStage.fundingUnknown,
             from: SettlementStage.broadcasting);
-        TrackingService.settlementFundingUnknown(plan.flow.code);
+        TrackingService.settlementFundingUnknown(plan.flow.code, cause: e);
         throw SettlementFundingUnknown(operationId, e);
       }
 

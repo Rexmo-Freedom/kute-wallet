@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart'
     show runSendTapBusy;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -24,6 +25,7 @@ import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/success_feedback.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 /// One send route, as the bitcoin send's routes run: the SDK prepare,
 /// the face scan (`_approveSend` raises and clears the auth flag around
@@ -118,17 +120,23 @@ class _ReviewState extends State<_Review> {
 
 Future<void> _pump(WidgetTester tester, _Route route,
     {bool reduceMotion = false}) async {
-  await tester.pumpWidget(ScreenUtilInit(
+  // A ProviderScope for the bar's context stack.
+  await tester.pumpWidget(ProviderScope(
+      child: ScreenUtilInit(
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
       theme: ThemeData(extensions: [AppColorsExtension.light()]),
+      // Reduce Motion when asked; the shell bar over the page, Send being
+      // the bar (kute_bar_test_support.dart).
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
-        child: child!,
+        child: withKuteShellBar(context, child),
       ),
       home: _Review(route: route),
     ),
-  ));
+  )));
+  // The bar reads the page's context a frame after it mounts.
+  await tester.pump();
 }
 
 RubberBandProgressState _band(WidgetTester tester) =>
@@ -364,6 +372,8 @@ void main() {
     route.approved.complete(true);
     await still();
     route.broadcast.complete();
+    await tester.pump();
+    // The page rebuilds with the send done on the next frame.
     await tester.pump();
     expect(_send(tester).outcome, RubberBandOutcome.success);
     // Nothing waits for a snap that is not drawn.

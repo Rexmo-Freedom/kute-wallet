@@ -13,6 +13,7 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/open_pnl_history_provider.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
@@ -88,6 +89,15 @@ const kPortfolioNoPerformance = PortfolioPerformance(
     basisLabel: 'P&L',
     coverageLabel: 'No observations');
 
+/// The open positions' chart reads nothing: no trades, no prices (every
+/// position left out, so the Positions chart folds unless a test gives
+/// its own [OpenPnlSources]).
+final kPortfolioNoOpenPnlSources = OpenPnlSources(
+  activity: (_) async => const [],
+  candles: (_, __, ___, ____) async => null,
+  polyHistory: (_, __, ___) async => null,
+);
+
 /// [btcUsd] is the price of one bitcoin in dollars.
 List<Override> portfolioOverrides({
   HyperliquidTradingState trading = const HyperliquidTradingState(),
@@ -101,8 +111,13 @@ List<Override> portfolioOverrides({
 
   /// The spending account's history (the Activity tab's rows).
   Transaction? history,
+
+  /// Where the Positions chart reads trades and prices; none by default.
+  OpenPnlSources? openPnlSources,
 }) =>
     [
+      openPnlSourcesProvider
+          .overrideWithValue(openPnlSources ?? kPortfolioNoOpenPnlSources),
       hyperliquidTradingProvider
           .overrideWith(() => PortfolioTestTrading(trading)),
       // These tests control a live offline book, including pending/error

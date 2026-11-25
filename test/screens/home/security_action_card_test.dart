@@ -8,10 +8,11 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -74,6 +75,8 @@ void main() {
               ]),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          // Done is the shell bar over the navigator.
+          builder: withKuteShellBar,
         ),
       ),
     ));
@@ -151,7 +154,7 @@ void main() {
             of: find.byType(KuteConfirmation), matching: find.text('Spending')),
         findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
   });

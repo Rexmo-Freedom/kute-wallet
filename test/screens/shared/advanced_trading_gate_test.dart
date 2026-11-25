@@ -6,6 +6,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +14,8 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
 
 class _Policy extends Fake implements RuntimeCapabilitiesService {
   _Policy(this.decisionFor);
@@ -28,18 +31,24 @@ Future<bool?> _tapAdvanced(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   bool? offered;
-  await tester.pumpWidget(ScreenUtilInit(
-    designSize: const Size(430, 932),
-    builder: (_, __) => MaterialApp(
-      theme: ThemeData(
-          fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => offered = advancedTradingOffered(context, policy),
-            child: const Text('Advanced'),
+  await tester.pumpWidget(ProviderScope(
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        // The shell bar over the page (kute_bar_test_support.dart): the
+        // sheet's one button is the bar.
+        builder: withKuteShellBar,
+        theme: ThemeData(
+            fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () =>
+                  offered = advancedTradingOffered(context, policy),
+              child: const Text('Advanced'),
+            ),
           ),
         ),
       ),
@@ -50,7 +59,8 @@ Future<bool?> _tapAdvanced(
   return offered;
 }
 
-const _gotIt = ValueKey('capability-unavailable-got-it');
+/// The sheet's "Got it": the bar as the sheet's primary button.
+final Finder _gotIt = kuteBarPrimaryWithText('Got it');
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -59,7 +69,7 @@ void main() {
     final offered = await _tapAdvanced(
         tester, _Policy((_) => const CapabilityDecision(allowed: true)));
     expect(offered, isTrue);
-    expect(find.byKey(_gotIt), findsNothing);
+    expect(_gotIt, findsNothing);
   });
 
   testWidgets('withheld: the sheet with the policy reason, nothing opens',
@@ -69,7 +79,7 @@ void main() {
         _Policy((_) =>
             const CapabilityDecision(allowed: false, reason: 'disabled')));
     expect(offered, isFalse);
-    expect(find.byKey(_gotIt), findsOneWidget);
+    expect(_gotIt, findsOneWidget);
     expect(find.text('This feature is currently unavailable in Kute.'),
         findsOneWidget);
     expect(find.text('Advanced'), findsOneWidget);
@@ -82,10 +92,8 @@ void main() {
             allowed: false, reason: 'country_blocked')));
     expect(offered, isFalse);
     // A region block's one button asks again: "Check connection".
-    expect(find.byKey(_gotIt), findsNothing);
-    expect(
-        find.byKey(const ValueKey('capability-unavailable-check-connection')),
-        findsOneWidget);
+    expect(_gotIt, findsNothing);
+    expect(kuteBarPrimaryWithText('Check connection'), findsOneWidget);
     expect(find.text('Check connection'), findsOneWidget);
     expect(find.text('Not available in your region'), findsOneWidget);
   });
@@ -96,7 +104,7 @@ void main() {
         _Policy((_) =>
             const CapabilityDecision(allowed: true, comingSoon: true)));
     expect(offered, isFalse);
-    expect(find.byKey(_gotIt), findsOneWidget);
+    expect(_gotIt, findsOneWidget);
   });
 
   test('every Advanced entry asks the gate before it opens', () {

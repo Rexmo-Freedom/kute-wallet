@@ -48,6 +48,7 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show hypercoreCctpWithdrawalProvider;
 import 'package:kute/services/hyperliquid/hypercore_transfer_proof.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 
 /// A completed full Spark SDK sync the payment lookup can count.
 typedef SparkSyncMark = ({
@@ -489,6 +490,12 @@ class SettlementReconcilerDriver {
         case SettlementReconcileSignal.needsAttention:
           TrackingService.settlementNeedsAttention(route);
         case SettlementReconcileSignal.terminal:
+          // The move ended with funds moved (delivered, refunded, failed):
+          // both of its ends read again now. An abandoned record never paid,
+          // so nothing changed.
+          if (result.stage.mayHaveMovedFunds) {
+            MoveSettledRefresh.settledFlow(op.flow, source: 'reconciler');
+          }
           final walletKind = op.accountKind.isLedger ? 'ledger' : 'hot';
           final amountUsd = _operationUsd(op);
           TrackingService.settlementTerminal(

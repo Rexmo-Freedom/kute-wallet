@@ -70,9 +70,10 @@ void main() {
   });
 
   test('Perps and Spot are the two kinds', () {
-    // Most traded first. A thinly traded market still lists.
+    // Most traded first. A thinly traded market still lists. Tesla on two
+    // builders' exchanges is one row, the more traded (xyz).
     expect(wires(hlBrowseListForTab(HlBrowseTab.perps, universe)), [
-      'BTC', 'HYPE', 'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'flx:TSLA', 'km:EUR', //
+      'BTC', 'HYPE', 'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'km:EUR', //
     ]);
     expect(wires(hlBrowseListForTab(HlBrowseTab.spot, universe)),
         ['@107', '@590']);
@@ -93,10 +94,10 @@ void main() {
     final all = [
       ...universe, spcx, tenYear, sp500, unclassified, builderCrypto //
     ];
-    // The stock's spot token (@590) follows the perps.
+    // One row per underlying: flx:TSLA stands behind xyz:TSLA, and the
+    // SpaceX token (@590) behind the SpaceX perp.
     expect(wires(hlBrowseListForTab(HlBrowseTab.tradfi, all)), [
-      'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'flx:TSLA', 'xyz:SPCX', 'xyz:SP500',
-      'km:EUR', '@590', //
+      'xyz:TSLA', 'km:NVDA', 'flx:GOLD', 'xyz:SPCX', 'xyz:SP500', 'km:EUR', //
     ]);
     // The site's sub-pills, in its order, with no All; one with no market
     // is hidden.
@@ -114,7 +115,8 @@ void main() {
     ]);
     List<String> sub(HlBrowseSub s) =>
         wires(hlBrowseListForTab(HlBrowseTab.tradfi, all, sub: s));
-    expect(sub(HlBrowseSub.stocks), ['xyz:TSLA', 'km:NVDA', 'flx:TSLA', '@590']);
+    // Under Stocks the token is SpaceX's only listing: it shows.
+    expect(sub(HlBrowseSub.stocks), ['xyz:TSLA', 'km:NVDA', '@590']);
     expect(sub(HlBrowseSub.indices), ['xyz:SP500']);
     expect(sub(HlBrowseSub.commodities), ['flx:GOLD']);
     expect(sub(HlBrowseSub.fx), ['km:EUR']);
@@ -233,28 +235,26 @@ void main() {
   });
 
   test(
-      'the stock gate is what clears Tradfi of stock perps: closed, none '
-      'is offered', () async {
-    final open = runtimePolicyFixture();
-    addTearDown(open.dispose);
-    expect(await open.refresh(), isTrue);
-    expect(
-        wires(hlBrowseListForTab(HlBrowseTab.tradfi,
-            hlMarketsOfferedUnderPolicy(universe, open),
-            sub: HlBrowseSub.stocks)),
-        ['xyz:TSLA', 'km:NVDA', 'flx:TSLA', '@590']);
+      'the stock gate never clears Tradfi (founder, 12 November 2026): '
+      'closed, the stock perps stay listed and only their tickets shut',
+      () async {
     final blocked = runtimePolicyFixture(blocked: {'hyperliquid.stocks'});
     addTearDown(blocked.dispose);
     expect(await blocked.refresh(), isTrue);
-    final offered = hlMarketsOfferedUnderPolicy(universe, blocked);
-    // The stock's spot token is not a perp: it is what Stocks still lists,
-    // and it stays under Spot too.
     expect(
-        wires(hlBrowseListForTab(HlBrowseTab.tradfi, offered,
+        wires(hlBrowseListForTab(HlBrowseTab.tradfi, universe,
             sub: HlBrowseSub.stocks)),
-        ['@590']);
-    expect(wires(hlBrowseListForTab(HlBrowseTab.spot, offered)),
+        ['xyz:TSLA', 'km:NVDA', '@590']);
+    expect(wires(hlBrowseListForTab(HlBrowseTab.spot, universe)),
         ['@107', '@590']);
+    // What the gate refuses is a new position on a stock perp, never the
+    // stock's spot token.
+    expect(
+        [
+          for (final m in universe)
+            if (!hlStockGateAllows(m, blocked)) m.wireCoin
+        ],
+        ['xyz:TSLA', 'flx:TSLA', 'km:NVDA']);
   });
 
   test('icon candidates: dex-qualified perp, spot token, default dex', () {

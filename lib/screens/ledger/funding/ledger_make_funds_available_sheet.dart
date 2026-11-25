@@ -30,6 +30,7 @@ import 'package:kute/screens/ledger/polymarket/ledger_pm_support.dart'
     show ledgerPmBatchReconcile;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/route_pause_gate.dart';
 import 'package:kute/services/funding/ledger_polymarket_funding_service.dart';
 import 'package:kute/services/release/route_pause_policy.dart';
@@ -53,6 +54,26 @@ Future<void> showLedgerMakeFundsAvailableSheet(
     builder: (_) => LedgerMakeFundsAvailableSheet(walletId: walletId),
   );
 }
+
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the sheet's primary is the floating Sal bar's primary action;
+/// Cancel / Close is a text button above it, over the bar's clearance.
+Widget _bar(String label, VoidCallback? onPrimary,
+        {bool busy = false,
+        String? disabledLabel, String source = 'ledger_make_funds_available'}) =>
+    KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onPrimary,
+        enabled: onPrimary != null && !busy,
+        busy: busy,
+        source: source,
+        disabledLabel: disabledLabel,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
+
+Widget _clearance() => SizedBox(height: kuteBarScrollClearance.h);
 
 class LedgerMakeFundsAvailableSheet extends ConsumerStatefulWidget {
   const LedgerMakeFundsAvailableSheet({super.key, required this.walletId});
@@ -241,23 +262,17 @@ class _LedgerMakeFundsAvailableSheetState
         ],
       ],
       buttons: [
-        if (plan != null && _error == null && !_loading) ...[
-          AppButton(
-            text: l10n.ledgerFundApproveCta,
-            isLoading: _working,
-            onPressed: _working ? null : _approve,
-          ),
-          SizedBox(height: 10.h),
-        ],
-        if (_error != null && !_loading) ...[
-          AppButton(text: l10n.retry, onPressed: _load),
-          SizedBox(height: 10.h),
-        ],
-        AppButton(
+        AppTextButton(
           text: l10n.cancel,
-          variant: AppButtonVariant.secondary,
           onPressed: _working ? null : () => Navigator.of(context).pop(),
         ),
+        if (plan != null && _error == null && !_loading)
+          _bar(l10n.ledgerFundApproveCta, _working ? null : _approve,
+              busy: _working)
+        else if (_error != null && !_loading)
+          _bar(l10n.retry, _load)
+        else
+          _clearance(),
       ],
     );
   }

@@ -19,8 +19,12 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/claim_placed_overlay.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart';
 
 /// Conditions with a claim on its way from this app session: a second tap
 /// (the same button twice, or the card and then the position screen) never
@@ -100,7 +104,7 @@ Future<bool> claimPolymarketPosition(
         message: e is PolymarketNothingToClaimException
             ? context.l10n.betClaimNothingHeld
             : context.l10n
-                .betClaimResultRecording(formatPolyAmount(ref, pos.size)),
+                .betClaimResultRecording(formatDollars(pos.size)),
         error: false,
         info: true,
       );
@@ -171,17 +175,12 @@ class _PolyClaimButtonState extends ConsumerState<PolyClaimButton> {
   @override
   Widget build(BuildContext context) {
     final pos = widget.position;
-    // A redeem already sent and still propagating through the lagging Data
-    // API keeps the button locked, so a claim that went through is not
-    // fired again.
-    final clearing = ref.watch(polymarketTradingProvider.select((s) =>
-        s.valueOrNull?.clearingConditionIds.contains(pos.marketId) ?? false));
-    final busy = _claiming || clearing;
+    final busy = _claiming || _polyClearing(ref, pos);
     final won = pos.won == true;
     final l10n = context.l10n;
     final text = widget.label ??
         (won
-            ? l10n.betClaimAmount(formatPolyAmount(ref, pos.size))
+            ? l10n.betClaimAmount(formatDollars(pos.size))
             : l10n.betClearPosition);
     if (widget.compact) {
       return AppButton(
@@ -198,6 +197,82 @@ class _PolyClaimButtonState extends ConsumerState<PolyClaimButton> {
       onPressed: busy ? null : _claim,
       variant: won ? AppButtonVariant.moneyIn : AppButtonVariant.primary,
       fontWeight: FontWeight.w800,
+    );
+  }
+}
+
+/// A redeem already sent and still propagating through the lagging Data
+/// API keeps the button locked, so a claim that went through is not fired
+/// again.
+bool _polyClearing(WidgetRef ref, PolymarketPosition pos) =>
+    ref.watch(polymarketTradingProvider.select((s) =>
+        s.valueOrNull?.clearingConditionIds.contains(pos.marketId) ?? false));
+
+/// The position screen's Claim or Clear as the floating bar's primary
+/// button (kute_bar_context.dart; founder, 2 November 2026: the position
+/// pages' actions float like every other): [PolyClaimButton]'s same
+/// redeem on a tap, busy (Sal thinking) while it runs and while the
+/// redeem propagates. The app's primary look for a lost side's Clear, the
+/// money-in green for a Claim. [child] is the page's own content under the
+/// scope. [share]: the round Sal button at the button's right (the
+/// position page's Send to a friend; kute_bar_context.dart, THE TRADE ROW).
+class PolyClaimBarAction extends ConsumerStatefulWidget {
+  final PolymarketPosition position;
+  final String surface;
+  final bool popRoute;
+  final Widget child;
+  final KuteBarShare? share;
+
+  const PolyClaimBarAction({
+    super.key,
+    required this.position,
+    required this.surface,
+    this.popRoute = false,
+    this.child = const SizedBox.shrink(),
+    this.share,
+  });
+
+  @override
+  ConsumerState<PolyClaimBarAction> createState() =>
+      _PolyClaimBarActionState();
+}
+
+class _PolyClaimBarActionState extends ConsumerState<PolyClaimBarAction> {
+  bool _claiming = false;
+
+  Future<void> _claim() async {
+    if (_claiming) return;
+    setState(() => _claiming = true);
+    await claimPolymarketPosition(context, ref, widget.position,
+        surface: widget.surface, popRoute: widget.popRoute);
+    if (mounted) setState(() => _claiming = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pos = widget.position;
+    final won = pos.won == true;
+    final l10n = context.l10n;
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: won
+            ? l10n.betClaimAmount(formatDollars(pos.size))
+            : l10n.betClearPosition,
+        onPrimary: _claim,
+        busy: _claiming || _polyClearing(ref, pos),
+        // Never off for want of input: busy is its only wait.
+        disabledLabel: null,
+        // AppButton's money-in tier for a Claim, as the old button had.
+        style: won
+            ? KuteBarPrimaryStyle(
+                fill: context.colors.success,
+                foreground: contrastingOnColor(context.colors.success))
+            : null,
+        category: SearchCategory.predictions,
+        source: 'predictions',
+        share: widget.share,
+      ),
+      child: widget.child,
     );
   }
 }

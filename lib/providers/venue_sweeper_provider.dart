@@ -54,6 +54,8 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
+import 'package:kute/services/one_balance/funded_orders.dart'
+    show FundedOrderRecord;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/investing_sweep_rules.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -69,6 +71,7 @@ import 'package:kute/services/one_balance/venue_sweeper.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show claimOrderTerminalAnalytics;
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 export 'package:kute/services/one_balance/venue_sweeper.dart'
     show
@@ -113,6 +116,30 @@ bool pendingBetHoldsCash(PendingBetIntent? intent) => switch (intent?.status) {
         true,
       _ => false,
     };
+
+/// Whether the queued Predictions bet in [intent] is a bet the person
+/// already ACCEPTED and whose money is on its way, so a second accept must
+/// be refused (one funded bet at a time: one queued intent, one approval
+/// slot) instead of overwriting it. Every state [pendingBetHoldsCash]
+/// names, and the one before them: held (`awaitingDeposit` with its
+/// funding cap) while the funding chain it is bound to ([runs], its
+/// `fundedRunId`) is still live. A venue-cash bet (Dollars and the
+/// Investing cash) waits there while its legs run; overwritten, its chain
+/// found its bet gone (`order_gone`) after its money had moved. An armed
+/// bet still waiting for its own slip's Confirm (no run yet), a slip
+/// being filled in and a bet whose run is over block nothing.
+bool pendingBetBlocksNewBet(
+    PendingBetIntent? intent, List<FundedOrderRecord> runs) {
+  if (intent == null || !intent.funded) return false;
+  if (pendingBetHoldsCash(intent)) return true;
+  if (intent.status != PendingBetStatus.awaitingDeposit) return false;
+  final runId = intent.fundedRunId;
+  if (runId == null) return false;
+  for (final r in runs) {
+    if (r.id == runId) return r.stage.active;
+  }
+  return false;
+}
 
 /// Whether a settlement record in [stage], last updated at [updatedAt],
 /// is money genuinely on its way (broadcast to processing, and recent)
@@ -505,10 +532,18 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
         polymarketTradingProvider.select((s) => (
               cash: s.valueOrNull?.usdcBalance,
               orders: s.valueOrNull?.openOrders.length,
+              known: (s.valueOrNull?.isAuthenticated ?? false) &&
+                  (s.valueOrNull?.balanceKnown ?? false),
             )), (previous, next) {
       if (previous != null && previous != next) {
         _cashMoved(OneBalanceVenue.predictions);
       }
+    });
+    // Investing's cash from the badge poll (the trading stack's own state
+    // moves with VenueCashReleased): its first read, and every change,
+    // re-classifies it, as Predictions' does.
+    ref.listen<double>(hyperliquidFreeUsdcProvider, (previous, next) {
+      if (previous != next) _cashMoved(OneBalanceVenue.investing);
     });
     StreamSubscription<void>? depositSettled;
     try {
@@ -552,6 +587,17 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
       _cashPass?.cancel();
       _sweeper.dispose();
     });
+    // The first classification at once, read-only (founder, 10 November
+    // 2026: a recovered wallet's venue cash waited for a bet to show).
+    // Before, nothing classified the venues on a cold start until an
+    // event, a cash move, a resume or the 3-minute heartbeat: the session
+    // unlocks before Home builds this, and Predictions' account (from its
+    // cache, or read before Home) rarely moves in that window. A preview
+    // never sends, never reports and never runs the rollout, whatever
+    // [venueAutoSweepProvider] says. Venues that have not answered yet
+    // are classified when their cash first moves (the listeners above).
+    unawaited(Future<void>(() => _sweeper.preview())
+        .then((_) {}, onError: (_) {}));
     return const VenueSweeperState();
   }
 
@@ -574,7 +620,7 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
   void _startHeartbeat() {
     _heartbeat?.cancel();
     _heartbeat = Timer.periodic(kVenueSweepHeartbeat, (_) {
-      if (_visible) unawaited(trigger('timer'));
+      if (_visible && !OrderPollGate.paused) unawaited(trigger('timer'));
     });
   }
 
@@ -587,6 +633,10 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
     final retry = _sweeper.nextDueIsRetry();
     _due = Timer(wait + const Duration(seconds: 1), () {
       _due = null;
+      if (OrderPollGate.paused) {
+        _armDueTimer();
+        return;
+      }
       if (_visible) unawaited(trigger(retry ? 'retry' : 'timer'));
     });
   }

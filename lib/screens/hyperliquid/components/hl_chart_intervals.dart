@@ -5,10 +5,15 @@
 // sheets alike). Changing the symbol keeps both, as TradingView keeps the
 // layout's chart type and interval when you switch symbol.
 //
-//   * [kHlCandleIntervals]: the interval row every style shows (1m 5m 15m
-//     1h 4h 1D 1W), all intervals Hyperliquid's candleSnapshot serves.
-//     The style only changes how each bar is drawn; line, area and
-//     baseline draw its close.
+//   * [kHlCandleIntervals]: the intervals every style has (1m 5m 15m 1h
+//     4h 1D 1W), all served by Hyperliquid's candleSnapshot. 15m and 4h
+//     left on 31 October 2026 so the row stayed five whole pills beside
+//     the chart-type button, and came back on 8 November 2026 (founder):
+//     seven still fit there on the narrowest phone, one row in the app's
+//     pills and the Interval sheet's squares. The style only changes how
+//     each bar is drawn; line, area and baseline draw its close. A saved
+//     interval the picker does not have opens as 1h ([hlPickerInterval]);
+//     a 15m or 4h kept from an older build is itself again.
 //   * [hlChartLayoutProvider]: the saved choice, read synchronously from
 //     the 'settings' Hive box (opened at app start) so the very first
 //     frame of a chart already shows it. Older builds kept a style per
@@ -59,8 +64,17 @@ HlCandleInterval hlCandleInterval(String interval) {
   for (final iv in kHlCandleIntervals) {
     if (iv.interval == interval) return iv;
   }
-  return kHlCandleIntervals[3];
+  return kHlCandleIntervals
+      .firstWhere((iv) => iv.interval == kHlDefaultCandleInterval);
 }
+
+/// An interval the picker has, or the default (1h) for anything else: a
+/// value no build's picker offered, or none.
+String hlPickerInterval(Object? interval) =>
+    interval is String &&
+            kHlCandleIntervals.any((iv) => iv.interval == interval)
+        ? interval
+        : kHlDefaultCandleInterval;
 
 /// Trailing window (hours) that holds [kHlCandleSeedBars] bars.
 int hlCandleWindowHours(HlCandleInterval iv) =>
@@ -137,9 +151,13 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
         final box = Hive.box(_box);
         final style = box.get(_styleKey);
         final interval = box.get(_intervalKey);
-        if (_isStyle(style) && _isInterval(interval)) {
-          return HlChartLayout(
-              style: style as String, interval: interval as String);
+        if (_isStyle(style) && interval is String) {
+          // An interval the picker does not have opens as 1h; the fallback
+          // is saved so the next read is plain.
+          final layout = HlChartLayout(
+              style: style as String, interval: hlPickerInterval(interval));
+          if (layout.interval != interval) unawaited(_save(layout));
+          return layout;
         }
       }
     } catch (_) {
@@ -171,7 +189,7 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
     try {
       final box = await Hive.openBox<String>('hl_chart_candle_interval');
       final last = box.get('last');
-      if (_isInterval(last)) interval = last;
+      if (last is String) interval = hlPickerInterval(last);
     } catch (_) {}
     // A choice made while this ran wins over the old saved one.
     final next =

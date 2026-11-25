@@ -144,6 +144,7 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                       items: events,
                       groups: (e) => polyCardGroups(e.title, e.outcomes),
                       dividerIndent: polyGroupRowIndent(),
+                      divider: polyGroupRowDivider,
                       build: (market, inGroup) =>
                           _GroupFeedCard(market: market, inGroup: inGroup),
                     ),
@@ -266,7 +267,7 @@ class _GroupFeedCard extends ConsumerWidget {
       tokens: tokenIds,
       child: MarketCard(
         inGroup: inGroup,
-        title: market.title,
+        title: market.displayTitle,
         imageUrl: market.imageUrl,
         outcomes: market.outcomes,
         volume: market.volume,
@@ -286,13 +287,14 @@ class _GroupFeedCard extends ConsumerWidget {
         teams: market.teams,
         slug: market.slug,
         gameId: market.gameId,
-        hasLivestream: market.hasLivestream,
         onTapDown: () => MarketDetailSheet.prefetch(market),
         onTap: () {
           HapticFeedback.mediumImpact();
           MarketDetailSheet.show(context,
               event: market, source: 'group_landing');
         },
+        onPickSide: (pick) => polyCardOpenSlip(context,
+            event: market, pick: pick, source: 'group_landing'),
       ),
     );
   }

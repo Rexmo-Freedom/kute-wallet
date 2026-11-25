@@ -6,18 +6,17 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/providers/usd_account_provider.dart';
-import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/shared/charts/kute_chart_time_axis.dart';
 import 'package:kute/screens/shared/charts/kute_chart_zoom_hint.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
-import 'package:kute/screens/usd/components/usd_balance_chart.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The Balance charts (Bitcoin wallets, the Ledger Bitcoin tab and
-/// Dollars all draw [BalanceHistoryChart]) write when the window on
-/// screen starts and ends under the plot, following pinch and pan, and
-/// play the one-time zoom nudge shared with the Predictions chart.
+/// The shared zoomable line chart ([KuteLineChart], the Price tab) writes
+/// when the window on screen starts and ends under the plot, following
+/// pinch and pan, and plays the one-time zoom nudge shared with the
+/// Predictions chart. Driven here over a balance series laid on the
+/// Balance charts' grid. (The Balance charts themselves moved to the
+/// modern [KuteTrendChart], which has no axis and no zoom.)
 void main() {
   final now = DateTime(2026, 10, 5, 18, 0);
 
@@ -40,17 +39,27 @@ void main() {
         current: 150,
       );
 
-  Widget chart(BalanceHistory history, {Key? key}) => SizedBox(
-        key: key,
-        height: 300,
-        child: BalanceHistoryChart(
-          history: history,
-          format: (v) => '\$${v.toStringAsFixed(2)}',
-          emptyMessage: 'Nothing held yet',
-          trackingChart: 'valuation',
-          now: now,
-        ),
-      );
+  Widget chart(BalanceHistory history, {Key? key}) {
+    final s = balanceSeries(history, now);
+    return SizedBox(
+      key: key,
+      height: 300,
+      child: KuteLineChart(
+        values: s.values,
+        lineColor: Colors.green,
+        buckets: KuteLineBuckets(strideFor: s.strideFor, phase: s.phase),
+        defaultSpan: s.spanFor(BalanceRange.month),
+        minSpan: s.minSpan,
+        zoomAroundFingers: true,
+        resetViewOnLengthChange: false,
+        animateChanges: false,
+        timeAxis: KuteLineTimeAxis(
+            timeAt: (i) => s.times[i], nowLabel: 'Now', locale: 'en'),
+        zoomHint: true,
+        onScrub: (_) {},
+      ),
+    );
+  }
 
   Future<void> pump(WidgetTester tester, Widget child,
       {bool reduceMotion = false, List<Override> overrides = const []}) async {
@@ -157,27 +166,6 @@ void main() {
       }
       expect(startText(tester), matches(month));
       expect(endText(tester), 'Now');
-      await dispose(tester);
-    });
-
-    testWidgets('the Dollars chart has it, under the plot', (tester) async {
-      final h = BalanceHistory(
-        opening: 0,
-        changes: [(DateTime.now().subtract(const Duration(days: 60)), 5.02)],
-        current: 5.02,
-      );
-      await pump(tester, const UsdBalanceChart(),
-          overrides: [usdBalanceStepsProvider.overrideWithValue(h)]);
-      final plot = tester.getRect(find.byType(KuteLineChart));
-      final axis = tester.getRect(find.byType(KuteTimeAxis));
-      expect(axis.height, kKuteTimeAxisHeight);
-      expect(axis.bottom, closeTo(plot.bottom, 0.01));
-      expect(startText(tester), matches(day));
-      expect(endText(tester), 'Now');
-      // The end label sits at the plot's right edge.
-      final end = tester.getRect(
-          find.byKey(const ValueKey('kute-time-axis-end')));
-      expect(end.right, closeTo(plot.right, 0.5));
       await dispose(tester);
     });
 

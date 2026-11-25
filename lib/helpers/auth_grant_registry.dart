@@ -132,6 +132,17 @@ class AuthGrantRegistry {
     return g != null && !g.consumed && !g.revoked;
   }
 
+  /// The live, unconsumed autofire grant for [intentId] WITHOUT consuming
+  /// it, or null. For a standing order's one signature at the accept: a
+  /// child grant is chained from it (`GrantGuard.chain`) and consumed
+  /// against the exact order, while this one stays live for the funding
+  /// legs the same approval covers. Never for a second order.
+  AuthGrant? peekAutofire(String intentId) {
+    sweepExpired();
+    final g = _autofire[intentId];
+    return g != null && !g.consumed && !g.revoked ? g : null;
+  }
+
   /// Consumes the autofire grant for [intentId] against [actual].
   ///
   /// Throws [GrantSessionLocked] (grant kept) when locked,

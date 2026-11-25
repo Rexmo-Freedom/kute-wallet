@@ -113,6 +113,9 @@ import 'package:kute/services/hyperliquid/hypercore_transfer_proof.dart'
     show hypercorePerpUsdcWire, hypercoreUsdcToken, verifyHypercoreUsdcMetadata;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show MoneyMovementAccount;
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraCapabilityRequirements;
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
@@ -361,13 +364,18 @@ enum CctpUnavailableReason {
 /// The fallback cannot run. Thrown before anything is posted (a signed
 /// action that was never POSTed left nothing).
 class CctpUnavailable implements Exception {
-  const CctpUnavailable(this.reason, {this.decision});
+  const CctpUnavailable(this.reason, {this.decision, this.capability});
   final CctpUnavailableReason reason;
 
   /// The policy's denial when [reason] is
   /// [CctpUnavailableReason.capability], so a screen can show it the way
   /// every other withheld capability is shown.
   final CapabilityDecision? decision;
+
+  /// The capability [decision] refuses (a fixed id), when known: the
+  /// shared sheet's "Check connection" asks it again rather than every
+  /// region denial the policy holds.
+  final String? capability;
 
   @override
   String toString() => 'CctpUnavailable(${reason.code})';
@@ -780,10 +788,10 @@ class HypercoreCctpWithdrawal {
   static String rowIdFor(String operationId) => '$kCctpRowPrefix$operationId';
 
   Never _unavailable(CctpUnavailableReason reason, double usd,
-      {CapabilityDecision? decision}) {
+      {CapabilityDecision? decision, String? capability}) {
     TrackingService.hyperliquidCctpUnavailable(
         reason: reason.code, amountUsd: usd);
-    throw CctpUnavailable(reason, decision: decision);
+    throw CctpUnavailable(reason, decision: decision, capability: capability);
   }
 
   /// Brings [usd] of Investing cash home to Dollars by CCTP. [stepUp]
@@ -866,7 +874,8 @@ class HypercoreCctpWithdrawal {
       await _policy().ensureAllAllowed(cctpCapabilitiesFor(destination),
           maxAge: kCctpPolicyMaxAge);
     } on CapabilityUnavailableException catch (e) {
-      _unavailable(CctpUnavailableReason.capability, usd, decision: e.decision);
+      _unavailable(CctpUnavailableReason.capability, usd,
+          decision: e.decision, capability: e.capability);
     }
     wallet.ensureSpending(walletId);
 
@@ -1049,11 +1058,16 @@ class HypercoreCctpWithdrawal {
       // with it, so a move's stopped leg keeps its row.
       throw SettlementFundingRefused(cause, operationId: op.operationId);
     } on CctpSendRejected catch (e) {
-      // Signed and answered with a rejection: not executed. The record
-      // keeps its slow ledger check in case the answer was wrong.
+      // Signed and answered with a rejection (`status: err`): not
+      // executed. The record keeps its slow ledger check in case the
+      // answer was wrong. The stop carries that proof and the record, as
+      // a stop before the POST does: a bare cause read as an outcome
+      // nobody could account for, so a Swap's Investing leg stayed "on
+      // its way" for good beside its own unlinked "Expired" row, with no
+      // Retry, while its cash had never left Investing.
       await _markNotFunded(store, op.operationId, rowId);
       if (lease != null) store.releaseLease(op.operationId, lease);
-      throw e.cause;
+      throw SettlementFundingRefused(e.cause, operationId: op.operationId);
     } catch (e) {
       // The POST may have reached the exchange. Nothing signs again; the
       // ledger decides.
@@ -1131,12 +1145,12 @@ class HypercoreCctpWithdrawal {
             idempotencyKey: OrchestraService.generateIdempotencyKey());
       } on CapabilityUnavailableException catch (e) {
         _unavailable(CctpUnavailableReason.capability, usd,
-            decision: e.decision);
+            decision: e.decision, capability: e.capability);
       } on OrchestraQuoteFailure catch (e) {
         final denial = e.denial;
         if (denial is CapabilityUnavailableException) {
           _unavailable(CctpUnavailableReason.capability, usd,
-              decision: denial.decision);
+              decision: denial.decision, capability: denial.capability);
         }
         _unavailable(CctpUnavailableReason.quoteUnavailable, usd);
       } on WalletGuardException catch (e) {
@@ -1615,6 +1629,8 @@ class HypercoreCctpWithdrawal {
         from: op.stage, expectedVersion: op.version);
     if (!write.applied) return;
     if (target.isTerminal || target == SettlementStage.failed) {
+      // The move ended: Investing and its destination read again now.
+      MoveSettledRefresh.settledFlow(op.flow, source: 'cctp');
       _reportTerminal(write.operation!, target, orderId);
     }
   }
@@ -1832,6 +1848,9 @@ class HypercoreCctpWithdrawal {
                         kind: SettlementFundingKind.hyperliquid))
                 .copyWith(evmTxHash: ledgerHash, hlActionHash: ledgerHash)));
     if (!write.applied) return;
+    // The burn is on the ledger: Investing reads what left now.
+    MoveSettledRefresh.settled({MoneyMovementAccount.investing},
+        source: 'cctp_sent');
     if (op.stage == SettlementStage.notFunded) {
       // A late ledger row: the row comes back as in flight.
       final rowId = rowIdFor(operationId);
@@ -2088,58 +2107,59 @@ class LiveCctpSender implements CctpSender {
         );
       }
 
-      final portfolio = await model.getPortfolioSnapshot(hl.address);
-      ensureWallet();
-      final spotMove = hypercorePerpShortfall(
-          requiredBaseUnits: reserve,
-          spotAvailable: hypercoreAvailableUsdc(0, portfolio.spotBalances),
-          perpAvailable: portfolio.withdrawable);
-      final requiredDefault = reserve - spotMove;
-      final exchange = HyperliquidExchangeService(
-        credentials: hl.credentials,
-        walletAddress: hl.address,
-        allowNonceRetry: false,
-        onBeforePost: (post) async {
-          ensureWallet();
-          if (post.action['type'] == 'sendToEvmWithData') {
-            if (await perpShortfall() > BigInt.zero) {
-              throw HypercoreBalanceShortfall(
-                  'Insufficient available perpetuals balance.');
-            }
-            await onBeforePost(post.nonce);
+      // One money-moving action at a time on the Investing cash: an order
+      // being funded or placed finishes first, then the cash is read afresh.
+      return await InvestingCashLock.run(maxWait: kInvestingCashLockWait,
+          () async {
+        final portfolio = await model.getPortfolioSnapshot(hl.address);
+        ensureWallet();
+        final spotMove = hypercorePerpShortfall(
+            requiredBaseUnits: reserve,
+            spotAvailable: hypercoreAvailableUsdc(0, portfolio.spotBalances),
+            perpAvailable: portfolio.withdrawable);
+        final requiredDefault = reserve - spotMove;
+        final exchange = HyperliquidExchangeService(
+          credentials: hl.credentials,
+          walletAddress: hl.address,
+          allowNonceRetry: false,
+          onBeforePost: (post) async {
             ensureWallet();
-          }
-        },
-      );
-      try {
-        await collectOwnDexCash(
-            model: model,
-            exchange: exchange,
-            requiredDefaultUsd: requiredDefault.toDouble() / 1e8,
-            beforeSend: ensureWallet);
-        final move = await perpShortfall();
-        if (move > BigInt.zero) {
-          await exchange.usdClassTransfer(
-            amount: move.toDouble() / 1e8,
-            toPerp: true,
-            beforeSend: ensureWallet,
-          );
+            if (post.action['type'] == 'sendToEvmWithData') {
+              if (await perpShortfall() > BigInt.zero) {
+                throw HypercoreBalanceShortfall(
+                    'Insufficient available perpetuals balance.');
+              }
+              await onBeforePost(post.nonce);
+              ensureWallet();
+            }
+          },
+        );
+        try {
+          // Builder dex and spot cash home to perpetuals, each move waited
+          // for until the main account's read shows it.
+          await gatherOwnPerpCash(
+              model: model,
+              exchange: exchange,
+              requiredBaseUnits: reserve,
+              requiredDefaultBaseUnits: requiredDefault,
+              spotMove: perpShortfall,
+              beforeSend: ensureWallet);
+        } on HyperliquidRejectedException catch (e) {
+          throw SettlementFundingRefused(e);
         }
-      } on HyperliquidRejectedException catch (e) {
-        throw SettlementFundingRefused(e);
-      }
-      return await exchange.sendToEvmWithData(
-        destination: destination,
-        amount: amountWire,
-        sourceDex: '',
-        destinationDomain: domain,
-        gasLimit: kCctpForwardGasLimit,
-        token: token,
-        beforeSend: () {
-          ensureWallet();
-          externalPostStarted = true;
-        },
-      );
+        return await exchange.sendToEvmWithData(
+          destination: destination,
+          amount: amountWire,
+          sourceDex: '',
+          destinationDomain: domain,
+          gasLimit: kCctpForwardGasLimit,
+          token: token,
+          beforeSend: () {
+            ensureWallet();
+            externalPostStarted = true;
+          },
+        );
+      });
     } on HyperliquidRejectedException catch (e) {
       // A rejection answer: the action was not executed.
       if (externalPostStarted) throw CctpSendRejected(e);

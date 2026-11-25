@@ -315,7 +315,9 @@ void main() {
     expect(tester.getTopLeft(_back).dx, closeTo(16 * 390 / 430, 1));
   });
 
-  testWidgets('the Investments pills keep the boxed chip', (tester) async {
+  testWidgets(
+      'the Investments pills keep the boxed chip: the one sliding box, '
+      'under the selected pill', (tester) async {
     await _pump(
       tester,
       KutePillTabs(
@@ -329,8 +331,15 @@ void main() {
         size: KutePillSize.large,
       ),
     );
-    expect(_boxed(tester, 'Investing'), isTrue);
+    // A tabs row of three: the pills are flat and ONE white box slides
+    // between them (kute_pill_tabs.dart); it sits under Investing.
+    expect(_boxed(tester, 'Investing'), isFalse);
     expect(_boxed(tester, 'Predictions'), isFalse);
+    final box = tester.getRect(find.byKey(kutePillIndicatorKey));
+    final investing = tester.getRect(find.text('Investing'));
+    final predictions = tester.getRect(find.text('Predictions'));
+    expect(box.contains(investing.center), isTrue);
+    expect(box.contains(predictions.center), isFalse);
   });
 
   testWidgets(

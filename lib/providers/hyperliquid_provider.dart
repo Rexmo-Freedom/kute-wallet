@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 final _hyperliquidModelProvider = Provider<HyperliquidModel>((ref) {
   return HyperliquidModel();
@@ -24,7 +25,7 @@ final hyperliquidSpotTickersProvider = FutureProvider.autoDispose<({
   final model = ref.watch(_hyperliquidModelProvider);
 
   final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-    ref.invalidateSelf();
+    if (!OrderPollGate.paused) ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
 

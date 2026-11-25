@@ -35,6 +35,11 @@ String hlTradeErrorMessage(AppLocalizations l10n, Object error) {
     return l10n.investingInsufficientBalance;
   }
   if (error is OwnDexCreditPending) return l10n.moneyStepCrediting;
+  // The send got no answer and the account showed the order nowhere for
+  // the whole lookup: nothing was placed.
+  if (error is HyperliquidOrderNotPlacedException) {
+    return l10n.investingOrderNotPlaced;
+  }
   if (error is AuthGrantException) return l10n.investingApprovalExpired;
   if (error is HyperliquidRejectedException) {
     return hlRejectionCopy(l10n, error.reason) ?? l10n.investingTradeRejected;

@@ -33,6 +33,10 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show KuteSheetBarFit, kuteBarShortSheetFraction;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -207,7 +211,7 @@ void main() {
 
   testWidgets(
       'the Investments deposit\'s picker reads "Add money to Investments": '
-      'the spending bitcoin first, then another wallet or exchange, which '
+      'the spending bitcoin first, then Another crypto, which '
       'closes the sheet and opens the Dollars receive screen from the sheet',
       (tester) async {
     final container = await _open(tester, MoveLockedSide.depositToUsd);
@@ -223,19 +227,35 @@ void main() {
     final bitcoinRow = find.text('Bitcoin').last;
     expect(find.textContaining(l10n.depositFromSpendingWallet), findsOneWidget);
     expect(find.text(l10n.spending), findsNothing);
-    // Then the way in from outside, in the picker's own row style: the
-    // inflow arrow, what it is and what it does.
-    final other = find.text(l10n.depositFromAnotherWallet);
+    // Then the way in from outside, in the picker's own card style (big
+    // squares, founder 1 November 2026): the inflow arrow, what it is and
+    // what it does.
+    final other = find.text(l10n.receiveAnotherCrypto);
     expect(other, findsOneWidget);
     expect(find.text(l10n.depositFromAnotherWalletSubtitle), findsOneWidget);
     expect(find.byIcon(Icons.south_west_rounded), findsOneWidget);
     expect(find.text(l10n.receive), findsNothing);
+    // Two cards side by side: Bitcoin first (left), the other beside it.
+    expect(find.byKey(const ValueKey('move-picker-cards')), findsOneWidget);
     expect(tester.getTopLeft(bitcoinRow).dy,
-        lessThan(tester.getTopLeft(other).dy));
-    expect(tester.getTopLeft(other).dy - tester.getTopLeft(bitcoinRow).dy,
-        lessThan(120));
+        moreOrLessEquals(tester.getTopLeft(other).dy));
+    expect(tester.getTopLeft(bitcoinRow).dx,
+        lessThan(tester.getTopLeft(other).dx));
     // A way in, not a source to pay from: never marked selected.
     expect(find.text(l10n.moveSelectedBadge), findsNothing);
+    // A short sheet: the floating Sal pill goes while it is up (founder,
+    // 5 November 2026: it sat over the cards, "this is cut"). The picker's
+    // own hidden context is the bar's top, over the page's Move money and
+    // its primary.
+    final sheet = tester.getRect(find
+        .ancestor(
+            of: find.byKey(const ValueKey('move-picker-cards')),
+            matching: find.byType(KuteSheetBarFit))
+        .first);
+    expect(sheet.height, lessThan(932 * kuteBarShortSheetFraction));
+    final bar = kuteBarTop(container.read(kuteBarContextProvider));
+    expect(bar, isNotNull);
+    expect(bar!.hidden, isTrue);
 
     await tester.tap(other);
     await tester.pumpAndSettle(const Duration(milliseconds: 50));
@@ -252,7 +272,7 @@ void main() {
     final l10n = AppLocalizations.of(tester.element(find.byType(DepositSheet)));
     await _openFromPicker(tester);
     expect(find.text('Bitcoin'), findsWidgets);
-    expect(find.text(l10n.depositFromAnotherWallet), findsNothing);
+    expect(find.text(l10n.receiveAnotherCrypto), findsNothing);
     // Venue doors keep their "Move from" picker and its wording.
     expect(find.text(l10n.moveMoveFrom), findsOneWidget);
     expect(find.text(l10n.spending), findsOneWidget);

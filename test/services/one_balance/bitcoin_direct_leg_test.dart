@@ -358,6 +358,91 @@ void main() {
       expect(p.directCostUsd! > p.viaCostUsd!, isTrue);
     });
 
+    group('the tolerance: direct unless dearer by more than max(\$0.02, 0.25%)',
+        () {
+      // 1 sat is $0.00015 at $15,000; the direct leg's cost does not depend
+      // on the via leg's sats, so the via cost is set around the boundary.
+      const satUsd = 15000 / 1e8;
+      Future<(DirectBitcoinPlan, DirectBitcoinPlan)> around(
+          double fundUsd) async {
+        final probe = await plan(
+            fundUsd: fundUsd,
+            addUsd: fundUsd,
+            dollars: 0,
+            maxSats: 900000,
+            via: BitcoinLegPlan(
+                dollarsShortUsd: fundUsd,
+                targetUsd: fundUsd,
+                sats: 10000000,
+                maxSats: 10000000,
+                usdPerBtc: 15000));
+        expect(probe.direct, isTrue);
+        final tol = directToleranceUsd(probe.targetUsd);
+        final edge = (probe.directCostUsd! - tol) / satUsd;
+        BitcoinLegPlan viaOf(int sats) => BitcoinLegPlan(
+            dollarsShortUsd: fundUsd,
+            targetUsd: fundUsd,
+            sats: sats,
+            maxSats: sats + 5000,
+            usdPerBtc: 15000);
+        final inside = await plan(
+            fundUsd: fundUsd,
+            addUsd: fundUsd,
+            dollars: 0,
+            maxSats: 900000,
+            via: viaOf(edge.floor() + 1));
+        final outside = await plan(
+            fundUsd: fundUsd,
+            addUsd: fundUsd,
+            dollars: 0,
+            maxSats: 900000,
+            via: viaOf(edge.floor() - 1));
+        return (inside, outside);
+      }
+
+      test('the tolerance is the larger of two cents and 0.25% of the leg',
+          () {
+        expect(directToleranceUsd(1), 0.02);
+        expect(directToleranceUsd(8), 0.02);
+        expect(directToleranceUsd(8.01), closeTo(0.020025, 1e-12));
+        expect(directToleranceUsd(100), closeTo(0.25, 1e-12));
+        expect(directToleranceUsd(double.nan), 0.02);
+      });
+
+      test('a small leg: two cents dearer still goes direct, a hair more not',
+          () async {
+        final (inside, outside) = await around(5.1);
+        expect(directToleranceUsd(inside.targetUsd), 0.02);
+        expect(inside.direct, isTrue);
+        expect(inside.decision, DirectBitcoinDecision.withinTolerance);
+        expect(inside.costDiffUsd!, greaterThan(0.019));
+        expect(inside.costDiffUsd!, lessThanOrEqualTo(0.02));
+        expect(outside.direct, isFalse);
+        expect(outside.reason, DirectBitcoinReason.costlier);
+        expect(outside.decision, DirectBitcoinReason.costlier);
+        expect(outside.costDiffUsd!, greaterThan(0.02));
+      });
+
+      test('a larger leg: 0.25% of it is the line', () async {
+        final (inside, outside) = await around(40.1);
+        final tol = directToleranceUsd(inside.targetUsd);
+        expect(tol, closeTo(inside.targetUsd * 0.0025, 1e-12));
+        expect(tol, greaterThan(0.09));
+        expect(inside.direct, isTrue);
+        expect(inside.costDiffUsd!, lessThanOrEqualTo(tol));
+        expect(inside.costDiffUsd!, greaterThan(tol - 0.001));
+        expect(outside.direct, isFalse);
+        expect(outside.costDiffUsd!, greaterThan(tol));
+      });
+
+      test('direct no dearer than the chain reads not_costlier', () async {
+        final p = await plan(fundUsd: 15.1, addUsd: 15.1, dollars: 0);
+        expect(p.direct, isTrue);
+        expect(p.decision, DirectBitcoinDecision.notCostlier);
+        expect(p.costDiffUsd!, lessThanOrEqualTo(0));
+      });
+    });
+
     test('no estimate, or over the approval cap: via Dollars', () async {
       expect(
           (await plan(fundUsd: 15.1, addUsd: 15.1, dollars: 0, estimate: false))

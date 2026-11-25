@@ -1,21 +1,22 @@
 // An empty Investments balance takes the same path as a partly funded one
 // (founder, 15 October 2026), for adding margin too: with $0 in
-// Investments and enough spending bitcoin, "Add $X to Investments" on the
+// Investments and enough spending bitcoin, "Add $X to Dollars" on the
 // margin sheet is the change itself, funded in place under ONE approval
 // with the steps on the sheet. No deposit or Receive sheet is pushed, and
 // the direct Bitcoin → Investing leg is planned before the chain picks
 // its route.
+//
+// The sheet's one button is the shell bar (kute_shell_bar.dart,
+// shell_bar_harness.dart): `PolySlipCta` declares it, the bar draws it.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -51,6 +52,8 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
+
+import '../../helpers/shell_bar_harness.dart';
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -315,6 +318,8 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // The bar over the sheet is the sheet's button (shell_bar_harness).
+    installShellBar();
     await tester.pumpWidget(ProviderScope(
       overrides: [
         hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
@@ -352,24 +357,19 @@ void main() {
             ))),
         currencyProvider.overrideWith((_) => _Currency()),
       ],
-      child: ScreenUtilInit(
-        designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(
-            splashFactory: NoSplash.splashFactory,
-            extensions: [AppColorsExtension.light()],
-          ),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const Scaffold(
-            body: Align(
-              alignment: Alignment.bottomCenter,
-              child: HlAdjustMarginSheet(
-                  position: _long,
-                  market: _market,
-                  add: true,
-                  source: HlMarginSource.liquidationRow),
-            ),
+      child: shellBarApp(
+        theme: ThemeData(
+          splashFactory: NoSplash.splashFactory,
+          extensions: [AppColorsExtension.light()],
+        ),
+        home: const Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: HlAdjustMarginSheet(
+                position: _long,
+                market: _market,
+                add: true,
+                source: HlMarginSource.liquidationRow),
           ),
         ),
       ),
@@ -384,10 +384,13 @@ void main() {
     }
     await _frames(tester, 5);
     expect(_cta(tester).label, startsWith(r'Add $'));
-    expect(_cta(tester).label, endsWith('to Investments'));
+    expect(_cta(tester).label, endsWith('to Dollars'));
     expect(_cta(tester).enabled, isTrue);
+    // The bar reads the door the sheet declared, and the tap is its.
+    expect(barPrimaryLabel(tester), _cta(tester).label);
+    expect(barPrimaryEnabled(tester), isTrue);
 
-    await tester.tap(find.byType(PolySlipCta));
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 10);
 
     // No sheet of any kind: the margin sheet is still the only screen.
@@ -410,6 +413,8 @@ void main() {
     expect(find.byType(SlipFundingSteps), findsOneWidget);
     expect(find.text(r'Adding $30.00 margin to TSLA'), findsWidgets);
     expect(_cta(tester).isBusy, isTrue);
+    expect(barPrimaryBusy(tester), isTrue);
+    expect(barPrimaryEnabled(tester), isFalse);
     expect(account.signed, isEmpty);
 
     // The dollars land: the change is signed once, never a second prompt.

@@ -20,7 +20,12 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/money_steps_view.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
     show fundedOrderGraph;
+import 'package:kute/screens/shared/money_journey_plan.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/move_steps.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show VenueCashDestination;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -188,12 +193,13 @@ void main() {
     expect(hl.dy - btc.dy, greaterThan(icon.height));
     expect(pm.dx, greaterThan(btc.dx));
     expect(pm.dy, closeTo((btc.dy + hl.dy) / 2, 0.01));
-    // The row about 100 high with two sources (the whole view about 125
-    // with its one status line), so a sheet's cards stay above the
-    // keypad.
+    // The row about 150 high with two sources (the big Sal on the thin
+    // track, 1 November 2026: the rows far enough apart for him to stand
+    // clear of the line above, the names under the lower leg's amount;
+    // the whole view about 175 with its one status line).
     expect(
         tester.getSize(find.byKey(const ValueKey('money-steps-map'))).height,
-        lessThan(105));
+        lessThan(160));
     // One merge point on Predictions' centre line; the shared line into
     // it waits for both legs.
     final merge = tester.getTopLeft(
@@ -256,13 +262,15 @@ void main() {
             .getSize(find.byKey(const ValueKey('money-steps-station-predictions')))
             .width /
         2;
-    // The ring: 4 (scaled with the station's 14) past its edge, 1.5 wide.
-    final ringLeft = pm2.dx - r - 4 * r / 14 - 0.75;
+    // The pulse: up to 9 (scaled with the station's 14) past its edge.
+    final k = r / 14;
+    final pulseLeft = pm2.dx - r - 9 * k;
     expect(sal.dy, closeTo(pm2.dy, 0.5));
     expect(sal.dx, greaterThan(merge2.dx));
-    // His right edge (0.45 of his 20 px size, scaled alike) short of
-    // the ring.
-    expect(sal.dx + 9 * r / 14, lessThan(ringLeft));
+    // His right edge (0.3 of his 64 box, scaled alike) short of the
+    // station's dot and of its pulse.
+    expect(sal.dx + 19.2 * k, lessThan(pm2.dx - r));
+    expect(sal.dx + 19.2 * k, lessThan(pulseLeft));
     expect(_motion(tester).walking, isFalse);
     expect(find.text('Converting to pUSD'), findsNothing);
     final lines =
@@ -301,6 +309,94 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
+
+  group('a send from two venues', () {
+    MoneyStepGraph send() => MoveSteps.planned(
+          destination: VenueCashDestination.dollars,
+          forAction: VenueCashFor.send,
+          legs: const [
+            (venue: OneBalanceVenue.investing, usd: 6.52, direct: false),
+            (venue: OneBalanceVenue.predictions, usd: 3.00, direct: false),
+          ],
+          onwardUsd: 16.35,
+          totalUsd: 16.35,
+          at: DateTime.utc(2026, 11, 8),
+        );
+
+    test('both venues go into Dollars, then out to the recipient', () {
+      final plan = MoneyJourneyPlan.of(_lines(send()), graph: send());
+      JourneyStation of(String id) =>
+          plan.stations.firstWhere((s) => s.id == id);
+      expect(plan.stations.map((s) => s.id).toSet(),
+          {'investing', 'predictions', 'dollars', 'outside'});
+      expect(plan.columns, 3);
+      expect(of('investing').column, 0);
+      expect(of('predictions').column, 0);
+      expect(of('dollars').column, 1);
+      expect(of('outside').column, 2);
+      expect(plan.stations[plan.destination!].id, 'outside');
+      expect(plan.roads.map((r) => (plan.stations[r.from].id, plan.stations[r.to].id)),
+          containsAll([
+            ('investing', 'dollars'),
+            ('predictions', 'dollars'),
+            ('dollars', 'outside'),
+          ]));
+    });
+
+    testWidgets('no two stations or labels overlap', (tester) async {
+      tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(send()));
+      await tester.pump(const Duration(milliseconds: 600));
+      final labels = [
+        for (final id in const ['investing', 'predictions', 'dollars', 'outside'])
+          tester.getRect(find.byKey(ValueKey('money-steps-station-amount-$id'))),
+      ];
+      for (var i = 0; i < labels.length; i++) {
+        for (var j = i + 1; j < labels.length; j++) {
+          expect(labels[i].overlaps(labels[j]), isFalse, reason: '$i and $j');
+        }
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+    });
+  });
+
+  // The send's frame for a look by eye (written only when asked:
+  // JOURNEY_SEND_FRAME=<file.png>).
+  final sendFrame = Platform.environment['JOURNEY_SEND_FRAME'];
+  testWidgets('the send\'s frame', skip: sendFrame == null, (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 400 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final key = GlobalKey();
+    await tester.pumpWidget(_app(
+        MoveSteps.planned(
+          destination: VenueCashDestination.dollars,
+          forAction: VenueCashFor.send,
+          legs: const [
+            (venue: OneBalanceVenue.investing, usd: 6.52, direct: false),
+            (venue: OneBalanceVenue.predictions, usd: 3.00, direct: false),
+          ],
+          onwardUsd: 16.35,
+          totalUsd: 16.35,
+          at: DateTime.utc(2026, 11, 8),
+        ),
+        theme: buildDarkTheme(),
+        boundary: key));
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.runAsync(() async {
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      File(sendFrame!).writeAsBytesSync(bytes!.buffer.asUint8List());
+    });
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  }, timeout: const Timeout(Duration(seconds: 60)));
 
   // Frames for a look by eye, 390 wide (written only when asked:
   // JOURNEY_FRAMES=<dir>).

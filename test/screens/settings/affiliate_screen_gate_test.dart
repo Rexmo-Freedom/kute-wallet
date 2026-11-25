@@ -1,8 +1,9 @@
-// The Earn dashboard where the runtime policy withholds `affiliate.program`:
-// the code card and the late-entry "got a friend's code?" prompt are
-// hidden, with no unavailable message in their place. Balances, history
-// and payouts keep their own backend rules and stay. Allowed, everything
-// shows as before.
+// The Referral program where the runtime policy withholds
+// `affiliate.program`: nothing promotes the program (no hero, no code
+// card, no QR, no Share invite in the bar, no "Share your link" step, no
+// late-entry "got a friend's code?" prompt), with no unavailable message
+// in their place. The progress, balances, history, payouts and the rules
+// keep their own backend rules and stay. Allowed, everything shows.
 
 import 'dart:convert';
 
@@ -19,6 +20,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/screens/settings/affiliate_screen.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -118,6 +120,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// The Share invite the page holds for the bar, if any.
+  Finder shareInvite() => find.byWidgetPredicate((w) =>
+      w is KuteBarContextScope &&
+      w.active &&
+      w.barContext.isPrimary &&
+      w.barContext.label == 'Share invite');
+
   Map<String, Object>? dashboardParams() => events
       .where((e) => e.$1 == 'affiliate_dashboard_loaded')
       .map((e) => e.$2)
@@ -129,8 +138,13 @@ void main() {
     RuntimeCapabilitiesService.debugInstance = policy;
     await http.runWithClient(() async {
       await pumpEarn(tester);
+      expect(find.byKey(const ValueKey('referral-hero')), findsOneWidget);
       expect(find.text('Your code'), findsOneWidget);
       expect(find.text('KUTE42'), findsOneWidget);
+      expect(shareInvite(), findsOneWidget);
+      await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('referral-step-share')), 200,
+          scrollable: find.byType(Scrollable).first);
       await tester.scrollUntilVisible(find.text("Got a friend's code?"), 200,
           scrollable: find.byType(Scrollable).first);
       expect(find.text("Got a friend's code?"), findsOneWidget);
@@ -148,9 +162,19 @@ void main() {
     RuntimeCapabilitiesService.debugInstance = policy;
     await http.runWithClient(() async {
       await pumpEarn(tester);
+      expect(find.byKey(const ValueKey('referral-hero')), findsNothing);
       expect(find.text('Your code'), findsNothing);
       expect(find.text('KUTE42'), findsNothing);
+      expect(find.byKey(const ValueKey('referral-code-qr')), findsNothing);
+      expect(shareInvite(), findsNothing);
       expect(find.text("Got a friend's code?"), findsNothing);
+      // The record stays: the progress, the money and the rules.
+      expect(find.byKey(const ValueKey('referral-progress')), findsOneWidget);
+      expect(find.byKey(const ValueKey('referral-pending')), findsOneWidget);
+      await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('referral-step-earn')), 200,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.byKey(const ValueKey('referral-step-share')), findsNothing);
       expect(find.byType(TextField), findsNothing);
       expect(find.byType(CapabilityBlockNote), findsNothing);
       expect(find.text(policy.blockReason('affiliate.program')!), findsNothing);

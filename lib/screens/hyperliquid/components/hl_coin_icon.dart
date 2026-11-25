@@ -30,6 +30,15 @@
 // takes the first embedded image out of such a file and the icon draws it
 // as an ordinary image; an SVG flutter_svg cannot parse at all is a miss
 // and the next candidate is tried.
+//
+// A crypto market none of those candidates has a logo for (NBT, ANSEM,
+// KNTQ, LIT) gets two last resorts, tried only once every candidate
+// above has missed: the venue's own image under the bare upper-case
+// display symbol, then CoinCap's PNG ([hlIconLastResorts]). A PNG body is
+// drawn as a raster like a wrapped one. Both hosts' hits and misses go
+// through the same memory and disk caches as every other candidate, so a
+// coin no host knows costs its three requests once per miss TTL, not once
+// per list build; the letter tile shows until an image lands.
 
 import 'dart:async';
 import 'dart:convert';
@@ -63,10 +72,13 @@ String hlBaseCoin(String coin) {
 
 /// The builder-perp symbol of the asset a spot token tracks, for tokens
 /// Hyperliquid keeps no logo of their own for: the gold and silver
-/// trackers and the index trackers. A token named like its perp (TSLA,
-/// SPCX) needs no entry. Null when the token is not a tracker we know.
+/// trackers, the index trackers and the tokens that hold a stock
+/// ([kHlStockWrapperTokens]: NVDAX and EQNVDA → NVDA). A token named like
+/// its perp (TSLA, SPCX) needs no entry. Null when the token is not a
+/// tracker we know.
 String? hlIconUnderlying(String coin) {
-  final base = hlBaseCoin(coin).toUpperCase();
+  final held = kHlStockWrapperTokens[hlBaseCoin(coin).toUpperCase()];
+  final base = held ?? hlBaseCoin(coin).toUpperCase();
   const known = {
     'XAUT0': 'GOLD',
     'XAUT': 'GOLD',
@@ -79,6 +91,7 @@ String? hlIconUnderlying(String coin) {
   };
   final mapped = known[base];
   if (mapped != null) return mapped;
+  if (held != null) return held;
   // The app's own name for the symbol ("Tether Gold", "Silver").
   final name = (hlFriendlyName(base) ?? '').toLowerCase();
   if (RegExp(r'\bgold\b').hasMatch(name)) return 'GOLD';
@@ -123,11 +136,7 @@ Uint8List? hlEmbeddedRaster(String svg) {
 /// Width divided by height of a PNG, read from its header, or null for
 /// any other format (drawn as if square).
 double? hlPngAspectRatio(Uint8List bytes) {
-  const signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-  if (bytes.length < 24) return null;
-  for (var i = 0; i < signature.length; i++) {
-    if (bytes[i] != signature[i]) return null;
-  }
+  if (bytes.length < 24 || !hlLooksLikePng(bytes)) return null;
   int be(int at) =>
       (bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3];
   final w = be(16);
@@ -196,7 +205,9 @@ List<String> hlCoinIconCandidates(
     urls.add('https://app.hyperliquid.xyz/coins/$sibling.svg');
   }
   if (category == 'stocks' || category == 'indices') {
-    final ticker = hlBaseCoin(coin).toUpperCase();
+    // A token that holds a stock is looked up by the stock's ticker.
+    final base = hlBaseCoin(coin).toUpperCase();
+    final ticker = isSpotPair ? (kHlStockWrapperTokens[base] ?? base) : base;
     if (ticker.isNotEmpty) {
       urls.add('https://assets.parqet.com/logos/symbol/$ticker');
     }
@@ -246,6 +257,62 @@ class HlIconArt {
   final double? aspect;
 }
 
+final RegExp _svgShape = RegExp(
+    r'<(path|circle|rect|ellipse|polygon|polyline|line|text)\b([^>]*)>',
+    caseSensitive: false);
+
+bool _svgWhite(String paint) {
+  final p = paint.trim().toLowerCase().replaceAll(' ', '');
+  return p == 'white' ||
+      p == '#fff' ||
+      p == '#ffffff' ||
+      p == '#ffff' ||
+      p == '#ffffffff' ||
+      p == 'rgb(255,255,255)';
+}
+
+/// True when every shape of [svg] is painted white or not at all, and at
+/// least one is white: a mark drawn for a dark plate (XPL's logo is white
+/// strokes under a drop shadow flutter_svg does not paint), which on the
+/// app's light plate is an empty circle. Shapes outside `<defs>` only
+/// (a clip rect or mask is not drawn). Such a logo is not used: the
+/// letter tile or the category glyph shows instead.
+bool hlSvgPaintsOnlyWhite(String svg) {
+  final drawn = svg.replaceAll(
+      RegExp(r'<defs\b.*?</defs>', caseSensitive: false, dotAll: true), '');
+  var white = false;
+  for (final shape in _svgShape.allMatches(drawn)) {
+    final attrs = shape.group(2)!;
+    String? paint(String name) {
+      final attr = RegExp('(?:^|\\s)$name\\s*=\\s*["\']([^"\']*)["\']',
+              caseSensitive: false)
+          .firstMatch(attrs);
+      if (attr != null) return attr.group(1);
+      final style = RegExp('$name\\s*:\\s*([^;"\']+)', caseSensitive: false)
+          .firstMatch(attrs);
+      return style?.group(1);
+    }
+
+    final fill = paint('fill');
+    final stroke = paint('stroke');
+    // An unpainted fill is black: visible.
+    if (fill == null) return false;
+    for (final p in [fill, if (stroke != null) stroke]) {
+      if (p.trim().toLowerCase() == 'none') continue;
+      if (!_svgWhite(p)) return false;
+      white = true;
+    }
+  }
+  return white;
+}
+
+/// True when [svg] draws through an `<svg>` inside its root `<svg>`.
+/// flutter_svg drops a nested one with everything in it, so a logo that
+/// puts its mark there (EQX's tokens: a beige plate, the mark in a nested
+/// `<svg>`) paints as its background alone.
+bool hlSvgNestsSvg(String svg) =>
+    RegExp(r'<svg\b', caseSensitive: false).allMatches(svg).length > 1;
+
 /// What the icon draws for a downloaded SVG body, or null when it is not
 /// a logo it can draw: too large, or neither a vector under
 /// [kHlIconMaxBytes] nor a wrapped raster under
@@ -265,6 +332,10 @@ HlIconArt? hlIconArtFromSvg(Uint8List body) {
         bytes: raster, raster: true, aspect: hlPngAspectRatio(raster));
   }
   if (body.length > kHlIconMaxBytes) return null;
+  // A white-only mark is invisible on the light plate, and a mark inside
+  // a nested <svg> is not drawn at all: a miss, so the next candidate (or
+  // the letter tile) is drawn instead of an empty plate.
+  if (hlSvgPaintsOnlyWhite(text) || hlSvgNestsSvg(text)) return null;
   // Two repairs, once, before the bytes are cached. Logos styled
   // through CSS classes (Zcash among them) lose every fill in
   // flutter_svg and arrive as a black silhouette. Logos wrapped
@@ -357,6 +428,19 @@ HlIconArt hlIconArtFromCache(Uint8List bytes, {required bool raster}) =>
 /// disk), or a failed request (remembered for this session only).
 enum _HlFetch { hit, miss, failed }
 
+const List<int> _pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+/// True when [bytes] is a PNG document (its eight-byte signature). The
+/// body decides, not the content type: the signature is definitive and a
+/// CDN may label a PNG as an octet stream.
+bool hlLooksLikePng(Uint8List bytes) {
+  if (bytes.length < _pngSignature.length) return false;
+  for (var i = 0; i < _pngSignature.length; i++) {
+    if (bytes[i] != _pngSignature[i]) return false;
+  }
+  return true;
+}
+
 Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
   try {
     IconLoadStats.network++;
@@ -365,9 +449,9 @@ Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
         timeout: const Duration(seconds: 8));
     final ct = (resp.headers['content-type'] ?? '').toLowerCase();
     // A missing logo answers 200 with the web app's HTML shell, not a
-    // 404: only a real SVG of a sane size counts. A 5xx, a rate limit or
-    // a request timeout is the host's trouble, not the logo's, so it is
-    // not believed as a miss.
+    // 404: only a real SVG (or, from the last-resort host, a PNG) of a
+    // sane size counts. A 5xx, a rate limit or a request timeout is the
+    // host's trouble, not the logo's, so it is not believed as a miss.
     final status = resp.statusCode;
     if (status >= 500 || status == 429 || status == 408) {
       return (_HlFetch.failed, null);
@@ -377,6 +461,17 @@ Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
       if (art != null && (art.raster || await _svgParses(art.bytes))) {
         return (_HlFetch.hit, art);
       }
+    }
+    // A PNG (CoinCap's last resort) is drawn as a raster, like the
+    // raster taken out of a wrapping SVG; the same size cap as a vector.
+    if (status == 200 &&
+        hlLooksLikePng(resp.bodyBytes) &&
+        resp.bodyBytes.length <= kHlIconMaxBytes) {
+      final bytes = resp.bodyBytes;
+      return (
+        _HlFetch.hit,
+        HlIconArt(bytes: bytes, raster: true, aspect: hlPngAspectRatio(bytes))
+      );
     }
     return (_HlFetch.miss, null);
   } catch (_) {
@@ -408,7 +503,15 @@ Future<HlIconArt?> _loadHlSvg(String url) {
               raster: entry.kind == IconCacheKind.raster);
           // The parse also compiles the picture into flutter_svg's cache,
           // keyed by these very bytes, so the icon paints at once.
-          if (art.raster || await _svgParses(art.bytes)) {
+          // A white-only logo, or one whose mark sits in a nested <svg>,
+          // that an earlier build kept is a miss now: the download below
+          // records it as one.
+          final text = art.raster
+              ? null
+              : utf8.decode(art.bytes, allowMalformed: true);
+          final blank = text != null &&
+              (hlSvgPaintsOnlyWhite(text) || hlSvgNestsSvg(text));
+          if (!blank && (art.raster || await _svgParses(art.bytes))) {
             IconLoadStats.disk++;
             _hlSvgCache[url] = art;
             disk.touch(url);
@@ -477,6 +580,7 @@ abstract final class HlIconPrefetch {
   static Future<void> warmFromDisk({int limit = warmLimit}) async {
     final disk = await IconCaches.resolve(IconCaches.hyperliquid);
     if (disk == null) return;
+    _hlDiskNow();
     final sw = Stopwatch()..start();
     // Misses first: they are what lets an icon skip straight past the
     // candidates that have no logo to the one that does.
@@ -518,20 +622,58 @@ abstract final class HlIconPrefetch {
     _hlSvgCache.clear();
     _hlSvgFailed.clear();
     _hlSvgInflight.clear();
+    HlIconAvailability.debugReset();
   }
+}
+
+/// Where a crypto market that has no logo under any candidate of
+/// [hlCoinIconCandidates] looks last, in order:
+///   1. Hyperliquid's own asset image under the bare upper-case display
+///      symbol, `coins/<SYMBOL>.svg` (a builder-dex crypto under the
+///      default dex's name; for a spot token the token name);
+///   2. CoinCap's `assets/icons/<symbol>@2x.png`, lower case.
+/// Crypto only: a stock or commodity ticker (para:STX, flx:GAS) would
+/// pull the logo of the crypto of the same letters, and those categories
+/// have a glyph of their own. Empty for anything else.
+List<String> hlIconLastResorts(String coin, String? category) {
+  if (category != null && category.isNotEmpty && category != 'crypto') {
+    return const [];
+  }
+  final symbol = hlBaseCoin(coin);
+  if (symbol.isEmpty) return const [];
+  return [
+    'https://app.hyperliquid.xyz/coins/${symbol.toUpperCase()}.svg',
+    'https://assets.coincap.io/assets/icons/${symbol.toLowerCase()}@2x.png',
+  ];
 }
 
 /// The candidate URLs [HlCoinIcon] tries for a market, in order: the
 /// explicit [iconUrl] first, then [hlCoinIconCandidates] with its sibling
-/// markets, without repeats.
+/// markets, then [hlIconLastResorts], without repeats. Each is asked only
+/// after every one before it missed. A token that holds a stock
+/// ([kHlStockWrapperTokens]) shows the stock's logo first: it is one more
+/// way to trade that stock, and the venue's own art for some of these
+/// tokens is drawn in a way the app cannot paint (EQNVDA's came out as
+/// a blank beige plate).
 List<String> hlIconUrlsFor(
     String coin, String? wireCoin, String? iconUrl, String? category) {
   final override = iconUrl?.trim();
-  final candidates = hlCoinIconCandidates(coin, wireCoin, category,
-      siblingWires: hlIconSiblingWires(coin, wireCoin, category));
+  final siblings = hlIconSiblingWires(coin, wireCoin, category);
+  final candidates =
+      hlCoinIconCandidates(coin, wireCoin, category, siblingWires: siblings);
+  final wire = wireCoin?.trim() ?? '';
+  final wrapper = (wire.startsWith('@') || wire.contains('/')) &&
+      kHlStockWrapperTokens.containsKey(hlBaseCoin(coin).toUpperCase());
+  final seen = <String>{};
   return [
-    if (override != null && override.isNotEmpty) override,
-    ...candidates.where((u) => u != override),
+    for (final u in [
+      if (wrapper)
+        for (final s in siblings) 'https://app.hyperliquid.xyz/coins/$s.svg',
+      if (override != null && override.isNotEmpty) override,
+      ...candidates,
+      ...hlIconLastResorts(coin, category),
+    ])
+      if (seen.add(u)) u,
   ];
 }
 
@@ -542,6 +684,138 @@ Future<HlIconArt?> _loadFirstSvg(List<String> urls) async {
     if (art != null) return art;
   }
   return null;
+}
+
+/// The CoinCap host of [hlIconLastResorts]' last resort. A logo found
+/// only there is a stranger's guess at a ticker, not the market's own art.
+const String kHlCoinCapIconPrefix = 'https://assets.coincap.io/';
+
+/// What is known, without a request, about whether a market has a logo
+/// of its own ([HlIconAvailability]).
+enum HlLogoStatus {
+  /// A logo from the venue's own images, the backend's iconUrl or the
+  /// stock-logo CDN is in the memory or disk cache.
+  hit,
+
+  /// Every one of those candidates is a known miss (memory, or a disk
+  /// miss within its TTL): the icon would draw CoinCap's guess, a
+  /// category glyph or the letter tile.
+  miss,
+
+  /// At least one candidate has not been asked yet (and none is a hit).
+  unknown,
+}
+
+/// Whether a Hyperliquid market has a logo of its own: the candidates of
+/// [hlIconUrlsFor] less CoinCap's last resort, read from the memory cache
+/// and the disk cache (no request), and [ensure] to settle the unknown
+/// ones. Used where a market without a logo is left out ("Moving now":
+/// founder, 11 November 2026, a market with no logo is a thin one).
+abstract final class HlIconAvailability {
+  /// Bumped each time [ensure] settles a batch, so a list choosing by
+  /// [of] can choose again.
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
+  /// Candidate lists settled (or being settled) this session, so a list
+  /// that rebuilds asks for each at most once.
+  static final Set<String> _asked = {};
+
+  /// The candidates that count as the market's own logo: [hlIconUrlsFor]
+  /// without CoinCap's last resort.
+  static List<String> logoUrlsFor(HlMarket m) => [
+        for (final u
+            in hlIconUrlsFor(m.coin, m.wireCoin, m.iconUrl, m.category))
+          if (!u.startsWith(kHlCoinCapIconPrefix)) u,
+      ];
+
+  /// What is known about [m]'s logo now: a hit when any of its own
+  /// candidates is in memory or on disk (the icon draws one of them once
+  /// the ones before it are settled), a miss when every one is a known
+  /// miss, else unknown. Never asks the network.
+  static HlLogoStatus of(HlMarket m) {
+    if (debugEveryLogoKnown) return HlLogoStatus.hit;
+    final disk = _hlDiskNow();
+    var unknown = false;
+    for (final u in logoUrlsFor(m)) {
+      if (_hlSvgFailed.contains(u)) continue;
+      if (_hlSvgCache.containsKey(u)) return HlLogoStatus.hit;
+      final entry = disk?.lookup(u);
+      if (entry == null) {
+        unknown = true;
+      } else if (!entry.isMiss) {
+        return HlLogoStatus.hit;
+      }
+    }
+    return unknown ? HlLogoStatus.unknown : HlLogoStatus.miss;
+  }
+
+  /// Settles the logos of [markets] whose status is [HlLogoStatus.unknown]
+  /// (disk, else network), [HlIconPrefetch.concurrency] at a time, in
+  /// order, through the same loader the icon uses (one request per URL in
+  /// flight, misses believed for the disk cache's TTL), never past the
+  /// market's own candidates to CoinCap. A market already asked this
+  /// session is not asked again. [revision] is bumped when it is done.
+  static Future<void> ensure(Iterable<HlMarket> markets) async {
+    final lists = <List<String>>[];
+    for (final m in markets) {
+      if (of(m) != HlLogoStatus.unknown) continue;
+      final urls = logoUrlsFor(m);
+      if (urls.isEmpty || !_asked.add(urls.join('|'))) continue;
+      lists.add(urls);
+    }
+    if (lists.isEmpty) return;
+    await runBounded(lists, HlIconPrefetch.concurrency, _loadFirstSvg);
+    revision.value++;
+  }
+
+  /// Tests: [m]'s logo is known to be its first own candidate ([hit]),
+  /// or every own candidate a known miss.
+  @visibleForTesting
+  static void debugSeed(HlMarket m, {bool hit = true}) {
+    final urls = logoUrlsFor(m);
+    if (urls.isEmpty) return;
+    if (hit) {
+      _hlSvgFailed.remove(urls.first);
+      _hlSvgCache[urls.first] = HlIconArt(
+          bytes: Uint8List.fromList(utf8.encode(
+              '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+              '<circle cx="12" cy="12" r="12" fill="#F7931A"/></svg>')),
+          raster: false,
+          aspect: 1);
+    } else {
+      _hlSvgFailed.addAll(urls);
+    }
+  }
+
+  /// Tests about something else than logos: every market has one.
+  @visibleForTesting
+  static bool debugEveryLogoKnown = false;
+
+  @visibleForTesting
+  static void debugReset() {
+    debugEveryLogoKnown = false;
+    _asked.clear();
+    _hlDiskFuture = null;
+    _hlDiskValue = null;
+  }
+}
+
+/// The opened disk cache, once [IconCaches.hyperliquid] has resolved, for
+/// the synchronous [HlIconAvailability.of]; null before.
+Future<IconDiskCache?>? _hlDiskFuture;
+IconDiskCache? _hlDiskValue;
+
+IconDiskCache? _hlDiskNow() {
+  final pending = IconCaches.hyperliquid;
+  if (pending == null) return null;
+  if (!identical(pending, _hlDiskFuture)) {
+    _hlDiskFuture = pending;
+    _hlDiskValue = null;
+    pending.then((d) {
+      if (identical(_hlDiskFuture, pending)) _hlDiskValue = d;
+    }, onError: (_) {});
+  }
+  return _hlDiskValue;
 }
 
 /// A tasteful fallback glyph for a market that has no CDN logo. Hyperliquid's
@@ -615,6 +889,10 @@ class HlCoinIcon extends StatefulWidget {
 
   final double size;
 
+  /// Drawn instead of the category glyph or letter tile while the logo
+  /// loads or when there is none (Moving now never shows a letter tile).
+  final Widget? placeholder;
+
   const HlCoinIcon({
     super.key,
     required this.coin,
@@ -622,6 +900,7 @@ class HlCoinIcon extends StatefulWidget {
     this.iconUrl,
     this.category,
     this.size = 44,
+    this.placeholder,
   });
 
   @override
@@ -758,6 +1037,8 @@ class _HlCoinIconState extends State<HlCoinIcon> {
   /// Category/symbol glyph when we have one (oil, gold, wheat, index,
   /// stock…), otherwise the deterministic tinted letter badge.
   Widget _fallback(BuildContext context) {
+    final placeholder = widget.placeholder;
+    if (placeholder != null) return placeholder;
     final glyph = hlFallbackGlyph(widget.coin, widget.category);
     if (glyph == null) {
       return HlLetterBadge(coin: widget.coin, size: widget.size);

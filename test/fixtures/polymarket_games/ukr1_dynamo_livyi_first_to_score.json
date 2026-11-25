@@ -1,0 +1,128 @@
+{
+ "id": "724767",
+ "slug": "ukr1-dyn-liv-2026-08-02-first-to-score",
+ "title": "FK Dynamo Kyiv vs. FK Livyi Bereh - First Team to Score",
+ "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/ukr1.png",
+ "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/ukr1.png",
+ "active": true,
+ "closed": false,
+ "negRisk": true,
+ "gameId": 90120294,
+ "startTime": "2026-08-02T15:00:00Z",
+ "endDate": "2026-08-02T15:00:00Z",
+ "liquidity": 324.8,
+ "seriesSlug": "ukraine-premier-liha",
+ "parentEventId": 724732,
+ "tags": [
+  {
+   "slug": "sports",
+   "label": "Sports"
+  },
+  {
+   "slug": "games",
+   "label": "Games"
+  },
+  {
+   "slug": "soccer",
+   "label": "Soccer"
+  },
+  {
+   "slug": "ukraine-premier-liha",
+   "label": "Ukraine Premier Liha"
+  }
+ ],
+ "teams": [
+  {
+   "id": 3264762,
+   "name": "FK Dynamo Kyiv",
+   "league": "ukr1",
+   "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/FK Dynamo Kyiv-c8414d27cd.png",
+   "abbreviation": "dyn",
+   "ordering": "home"
+  },
+  {
+   "id": 3282009,
+   "name": "FK Livyi Bereh",
+   "league": "ukr1",
+   "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/team_logos/ukr1/fk-livyi-bereh.png",
+   "abbreviation": "liv",
+   "ordering": "away"
+  }
+ ],
+ "markets": [
+  {
+   "id": "2999093",
+   "question": "FK Dynamo Kyiv to score first vs. FK Livyi Bereh?",
+   "conditionId": "0xa80126eeb1f13a3f1799d4819bb3c003540938340a6d36b7c1d2318c58a04a6f",
+   "slug": "ukr1-dyn-liv-2026-08-02-first-to-score-home",
+   "groupItemTitle": "FK Dynamo Kyiv",
+   "groupItemThreshold": "0",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.52\", \"0.48\"]",
+   "clobTokenIds": "[\"19020652387434316016086531008899365578027404470197705002483055948672047143117\", \"3467870525408655026529080410631331472498475654412084394167209922074686165445\"]",
+   "sportsMarketType": "soccer_first_to_score",
+   "bestBid": 0.06,
+   "bestAsk": 0.98,
+   "spread": 0.92,
+   "active": true,
+   "closed": false,
+   "negRisk": true,
+   "endDate": "2026-08-02T15:00:00Z",
+   "gameStartTime": "2026-08-02 15:00:00+00",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 166
+  },
+  {
+   "id": "2999094",
+   "question": "FK Livyi Bereh to score first vs. FK Dynamo Kyiv?",
+   "conditionId": "0x82bb85f9e566346a163ea15e9a47635e11a4f3ed8f11545572dfaee53ffbbdfb",
+   "slug": "ukr1-dyn-liv-2026-08-02-first-to-score-away",
+   "groupItemTitle": "FK Livyi Bereh",
+   "groupItemThreshold": "1",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.48\", \"0.52\"]",
+   "clobTokenIds": "[\"103073905679094987416671567349678513356976093562399750052499140578220382704092\", \"33689074455947516350189253364615144604851919840008173905365678515717768525960\"]",
+   "sportsMarketType": "soccer_first_to_score",
+   "bestBid": 0.02,
+   "bestAsk": 0.94,
+   "spread": 0.92,
+   "active": true,
+   "closed": false,
+   "negRisk": true,
+   "endDate": "2026-08-02T15:00:00Z",
+   "gameStartTime": "2026-08-02 15:00:00+00",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 156.8
+  },
+  {
+   "id": "2999095",
+   "question": "FK Dynamo Kyiv vs. FK Livyi Bereh: Neither team to score first?",
+   "conditionId": "0x2893b1947ecb19a395e9940204623709cd90c00737a4a8146a64ff3c50f11e3f",
+   "slug": "ukr1-dyn-liv-2026-08-02-first-to-score-neither",
+   "groupItemTitle": "Neither",
+   "groupItemThreshold": "2",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.495\", \"0.505\"]",
+   "clobTokenIds": "[\"111698597271665231517362456170072552828285301505361852166969886678387401453889\", \"98582560154898280188801007865305461085381673322693632811088789265094222059561\"]",
+   "sportsMarketType": "soccer_first_to_score",
+   "bestAsk": 0.99,
+   "spread": 0.99,
+   "active": true,
+   "closed": false,
+   "negRisk": true,
+   "endDate": "2026-08-02T15:00:00Z",
+   "gameStartTime": "2026-08-02 15:00:00+00",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 2
+  }
+ ]
+}

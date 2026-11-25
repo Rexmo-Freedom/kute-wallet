@@ -26,6 +26,22 @@
 // A buy is followed the same way ([PmSellSettlementWatcher.watch] with
 // `buy: true`): the shares it got and what they cost, from the same reads.
 //
+// EVERY STAGE HAS ONE WALL-CLOCK DEADLINE (founder, 10 November 2026:
+// "what is it confirming? why does it stay confirming on sold?"). Each
+// read is cut at what is left of its stage ([matchTimeout] from the POST,
+// [confirmTimeout] from the match), the trades are read together, and a
+// sleep never runs past the deadline: a read used to wait out its own
+// HTTP timeout (an order 15 s, each trade 8 s, one after the other) and
+// the deadline was only looked at between polls, so on a slow phone link
+// the sell ticket sat on "Sold · confirming" for half a minute.
+//
+// THE RECEIPT ON THE MATCH ([PmSellSettlementWatcher.receiptOnMatch], the
+// sell ticket's): a matched sell is sold, the venue's match. The stage
+// ends as soon as the sale's proceeds are known from the venue (the POST's
+// echo, at once, or a trade's prices), `confirmedBy` 'matched', and the
+// chain is followed after it ([PmSellSettlement.chain]): it speaks only
+// if a trade then FAILED.
+//
 // Read-only: nothing here signs, submits, cancels or retries an order.
 
 import 'dart:async';
@@ -47,7 +63,8 @@ enum PmSellResult {
   /// Every share offered was sold.
   filled,
 
-  /// Some shares sold; the rest of a limit sell still rests on the book.
+  /// Some shares sold. The rest of a limit sell still rests on the book;
+  /// the rest of a market (fill-and-kill) sell was killed and stays held.
   partial,
 
   /// Nothing sold yet; the whole limit sell rests on the book.
@@ -75,6 +92,7 @@ class PmSellSettlement {
     this.proceeds,
     this.timeToConfirm,
     this.delayed = false,
+    this.chain,
   });
 
   final PmSellResult result;
@@ -91,8 +109,11 @@ class PmSellSettlement {
   /// The POST's status, lowercased ('matched', 'delayed', 'live', '').
   final String firstStatus;
 
-  /// 'mined', 'confirmed', 'position' (the account shows it), 'timeout'
-  /// (matched, chain not seen in time) or 'none' (nothing sold).
+  /// 'mined', 'confirmed', 'position' (the account shows it), 'matched'
+  /// (the receipt shown on the venue's match, its proceeds known, the
+  /// chain not seen yet: [PmSellSettlementWatcher.receiptOnMatch]),
+  /// 'timeout' (matched, the stage's deadline reached first) or 'none'
+  /// (nothing sold).
   final String confirmedBy;
 
   /// From the POST's answer to the match (zero when it matched at once).
@@ -103,6 +124,14 @@ class PmSellSettlement {
 
   /// The venue held the order for a live game's delay.
   final bool delayed;
+
+  /// Matched and not on chain yet when the watch returned
+  /// ([confirmedBy] 'matched' or 'timeout', with a receipt on the match):
+  /// what the chain then says of the trades, [PmSellResult.failed] when
+  /// one FAILED, [PmSellResult.filled] once all are mined, null when it
+  /// did not say within [PmSellSettlementWatcher.chainTimeout]. Null when
+  /// nothing is left to follow. Never throws.
+  final Future<PmSellResult?>? chain;
 
   double get remainingShares => math.max(0, offeredShares - soldShares);
 
@@ -141,6 +170,8 @@ class PmSellSettlementWatcher {
     this.pollEvery = const Duration(seconds: 1),
     this.matchTimeout = const Duration(seconds: 15),
     this.confirmTimeout = const Duration(seconds: 12),
+    this.receiptOnMatch = false,
+    this.chainTimeout = const Duration(seconds: 90),
     Future<void> Function(Duration)? sleep,
     DateTime Function()? now,
   })  : _sleep = sleep ?? ((d) => Future<void>.delayed(d)),
@@ -161,8 +192,16 @@ class PmSellSettlementWatcher {
   /// How long to wait for a held (delayed) or unreadable order to settle.
   final Duration matchTimeout;
 
-  /// How long to wait, after the match, for the trade to be mined.
+  /// How long to wait, after the match, for the trade to be mined: the
+  /// whole stage, wall clock, reads included (see the file header).
   final Duration confirmTimeout;
+
+  /// End the stage after the match as soon as the proceeds are known
+  /// ('matched'), and follow the chain after it ([PmSellSettlement.chain]).
+  final bool receiptOnMatch;
+
+  /// How long [PmSellSettlement.chain] follows the trades.
+  final Duration chainTimeout;
 
   final Future<void> Function(Duration) _sleep;
   final DateTime Function() _now;
@@ -173,6 +212,27 @@ class PmSellSettlementWatcher {
     if (raw is num) return raw.toDouble();
     if (raw is String) return double.tryParse(raw) ?? 0;
     return 0;
+  }
+
+  /// [read], cut at [deadline] (null past it, or on an error).
+  Future<T?> _within<T>(Future<T?> Function() read, DateTime deadline) async {
+    final left = deadline.difference(_now());
+    if (left <= Duration.zero) return null;
+    try {
+      // Re-typed first: a reader's own non-nullable future cannot take the
+      // timeout's null.
+      return await read()
+          .then<T?>((value) => value)
+          .timeout(left, onTimeout: () => null);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// One poll's pause, never past [deadline].
+  Future<void> _pause(DateTime deadline) {
+    final left = deadline.difference(_now());
+    return _sleep(left < pollEvery ? left : pollEvery);
   }
 
   static String? orderIdOf(Map<String, dynamic> response) =>
@@ -225,14 +285,11 @@ class PmSellSettlementWatcher {
     } else {
       sold = 0;
       if (orderId != null && orderId.isNotEmpty) {
-        while (_now().difference(start) < matchTimeout) {
+        final deadline = start.add(matchTimeout);
+        while (_now().isBefore(deadline)) {
           if (cancelled?.call() ?? false) break;
-          Map<String, dynamic>? order;
-          try {
-            order = await readOrder(orderId);
-          } catch (_) {
-            order = null; // Unreachable for a moment; ask again.
-          }
+          // Unreachable for a moment, or past the deadline: null.
+          final order = await _within(() => readOrder(orderId), deadline);
           if (order != null) {
             orderStatus = order['status']?.toString().toUpperCase() ?? '';
             for (final t in (order['associate_trades'] as List?) ?? const []) {
@@ -262,7 +319,7 @@ class PmSellSettlementWatcher {
               break;
             }
           }
-          await _sleep(pollEvery);
+          await _pause(deadline);
         }
       }
     }
@@ -299,74 +356,72 @@ class PmSellSettlementWatcher {
     onStage?.call(PmSellStage.matched, sold);
 
     // ── Is it on chain? ───────────────────────────────────────────────
+    // One deadline for the whole stage (see the file header).
+    final deadline = matchedAt.add(confirmTimeout);
+    final echoProceeds = echoValid && (echoShares - sold).abs() <= 0.01;
     var confirmedBy = 'timeout';
     var failed = false;
+    var chainSeen = false;
     double? tradeProceeds;
-    while (_now().difference(matchedAt) < confirmTimeout) {
+    while (_now().isBefore(deadline)) {
       if (cancelled?.call() ?? false) break;
+      // The receipt on the match: sold, and the venue said for how much.
+      if (receiptOnMatch && (echoProceeds || tradeProceeds != null)) {
+        confirmedBy = 'matched';
+        break;
+      }
       if (tradeIds.isEmpty && orderId != null && orderId.isNotEmpty) {
-        try {
-          final order = await readOrder(orderId);
-          for (final t in (order?['associate_trades'] as List?) ?? const []) {
-            if (t != null && '$t'.isNotEmpty) tradeIds.add('$t');
-          }
-        } catch (_) {}
+        final order = await _within(() => readOrder(orderId), deadline);
+        for (final t in (order?['associate_trades'] as List?) ?? const []) {
+          if (t != null && '$t'.isNotEmpty) tradeIds.add('$t');
+        }
       }
       final read = readTrade;
       if (read != null && tradeIds.isNotEmpty) {
-        final statuses = <String>[];
-        double sum = 0;
-        var priced = true;
-        for (final id in tradeIds) {
-          Map<String, dynamic>? trade;
-          try {
-            trade = await read(id);
-          } catch (_) {
-            trade = null;
-          }
-          if (trade == null) {
-            statuses.add('');
-            priced = false;
-            continue;
-          }
-          statuses.add(trade['status']?.toString().toUpperCase() ?? '');
-          final part = orderId == null
-              ? null
-              : tradeProceedsFor(trade, orderId: orderId, tokenId: tokenId);
-          if (part == null) {
-            priced = false;
-          } else {
-            sum += part;
-          }
-        }
-        if (priced && sum > 0) tradeProceeds = sum;
-        if (statuses.contains('FAILED')) {
+        final status = await _readTrades(read, tradeIds,
+            orderId: orderId, tokenId: tokenId, deadline: deadline);
+        if (status.proceeds != null) tradeProceeds = status.proceeds;
+        if (status.failed) {
           failed = true;
           break;
         }
-        if (statuses.every((s) => s == 'MINED' || s == 'CONFIRMED')) {
-          confirmedBy = statuses.every((s) => s == 'CONFIRMED')
-              ? 'confirmed'
-              : 'mined';
+        if (status.onChain != null) {
+          confirmedBy = status.onChain!;
+          chainSeen = true;
           break;
         }
       }
       final moved = positionMoved;
       if (moved != null) {
-        var yes = false;
-        try {
-          yes = await moved();
-        } catch (_) {}
+        final yes = await _within(moved, deadline) ?? false;
         if (yes) {
           confirmedBy = 'position';
           break;
         }
       }
-      await _sleep(pollEvery);
+      if (receiptOnMatch && (echoProceeds || tradeProceeds != null)) {
+        confirmedBy = 'matched';
+        break;
+      }
+      await _pause(deadline);
     }
-    if (cancelled?.call() ?? false) confirmedBy = 'none';
+    final stopped = cancelled?.call() ?? false;
+    if (stopped) confirmedBy = 'none';
     final timeToConfirm =
         confirmedBy == 'none' ? null : _now().difference(matchedAt);
+
+    // Sold and not seen on chain yet: the chain is followed after the
+    // receipt, and speaks only if a trade then FAILED.
+    final follow = readTrade;
+    final Future<PmSellResult?>? chain = receiptOnMatch &&
+            !failed &&
+            !stopped &&
+            !chainSeen &&
+            follow != null &&
+            (tradeIds.isNotEmpty || (orderId != null && orderId.isNotEmpty))
+        ? _followChain(follow,
+            tradeIds: tradeIds, orderId: orderId, tokenId: tokenId)
+        : null;
 
     // The proceeds are the venue's: the POST's echo when it describes
     // exactly these shares, else the trades' own prices. Never the limit.
@@ -382,7 +437,7 @@ class PmSellSettlementWatcher {
           ? PmSellResult.failed
           : (sold >= offeredShares - 0.01
               ? PmSellResult.filled
-              : (resting ? PmSellResult.partial : PmSellResult.filled)),
+              : PmSellResult.partial),
       offeredShares: offeredShares,
       soldShares: sold,
       proceeds: failed ? null : proceeds,
@@ -391,7 +446,80 @@ class PmSellSettlementWatcher {
       timeToMatch: timeToMatch,
       timeToConfirm: failed ? null : timeToConfirm,
       delayed: delayed,
+      chain: chain,
     );
+  }
+
+  /// One read of [ids], together, each cut at [deadline]: whether one
+  /// FAILED, whether all are on chain ('mined' or 'confirmed'), and the
+  /// proceeds when every trade said them.
+  Future<({bool failed, String? onChain, double? proceeds})> _readTrades(
+    Future<Map<String, dynamic>?> Function(String) read,
+    Set<String> ids, {
+    required String? orderId,
+    required String tokenId,
+    required DateTime deadline,
+  }) async {
+    final trades = await Future.wait(
+        [for (final id in ids) _within(() => read(id), deadline)]);
+    final statuses = <String>[];
+    double sum = 0;
+    var priced = true;
+    for (final trade in trades) {
+      if (trade == null) {
+        statuses.add('');
+        priced = false;
+        continue;
+      }
+      statuses.add(trade['status']?.toString().toUpperCase() ?? '');
+      final part = orderId == null
+          ? null
+          : tradeProceedsFor(trade, orderId: orderId, tokenId: tokenId);
+      if (part == null) {
+        priced = false;
+      } else {
+        sum += part;
+      }
+    }
+    return (
+      failed: statuses.contains('FAILED'),
+      onChain: statuses.isNotEmpty &&
+              statuses.every((s) => s == 'MINED' || s == 'CONFIRMED')
+          ? (statuses.every((s) => s == 'CONFIRMED') ? 'confirmed' : 'mined')
+          : null,
+      proceeds: priced && sum > 0 ? sum : null,
+    );
+  }
+
+  /// After a receipt on the match: the trades read until all are mined
+  /// ([PmSellResult.filled]), one FAILED ([PmSellResult.failed]), or
+  /// [chainTimeout] passes (null). Never throws.
+  Future<PmSellResult?> _followChain(
+    Future<Map<String, dynamic>?> Function(String) read, {
+    required Set<String> tradeIds,
+    required String? orderId,
+    required String tokenId,
+  }) async {
+    final ids = {...tradeIds};
+    final deadline = _now().add(chainTimeout);
+    try {
+      while (_now().isBefore(deadline)) {
+        if (ids.isEmpty && orderId != null && orderId.isNotEmpty) {
+          final order = await _within(() => readOrder(orderId), deadline);
+          for (final t in (order?['associate_trades'] as List?) ?? const []) {
+            if (t != null && '$t'.isNotEmpty) ids.add('$t');
+          }
+        }
+        if (ids.isNotEmpty) {
+          final status = await _readTrades(read, ids,
+              orderId: orderId, tokenId: tokenId, deadline: deadline);
+          if (status.failed) return PmSellResult.failed;
+          if (status.onChain != null) return PmSellResult.filled;
+        }
+        await _pause(deadline);
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// USDC one trade paid [orderId] for selling [tokenId], from the trade's

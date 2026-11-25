@@ -147,4 +147,45 @@ void main() {
       ]);
     });
   });
+
+  group('withdrawal failure causes', () {
+    test('settlement_funding_unknown names what made the outcome unknown',
+        () {
+      final seen = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => seen.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+
+      TrackingService.settlementFundingUnknown('move_predictions_to_dollars');
+      TrackingService.settlementFundingUnknown('move_predictions_to_dollars',
+          cause: StateError('Predictions account changed 0xabc'));
+
+      expect(seen.map((e) => e.$2), [
+        <String, Object>{'flow': 'move_predictions_to_dollars'},
+        <String, Object>{
+          'flow': 'move_predictions_to_dollars',
+          'cause_reason': 'StateError',
+        },
+      ]);
+    });
+
+    test('polymarket_withdraw_failed carries a text-free cause', () {
+      final seen = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => seen.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+
+      TrackingService.polymarketWithdrawFailed(
+        amountUsd: 11.46,
+        provider: 'orchestra',
+        reason: 'settlement',
+        stage: 'pre_send',
+        cause: Exception('insufficient balance at 0xdeadbeef'),
+      );
+
+      final params = seen.single.$2!;
+      expect(params['stage'], 'pre_send');
+      expect(params['error_category'], 'settlement');
+      expect(params['cause_reason'], 'insufficient_funds');
+      expect(params.values.join(' '), isNot(contains('0xdeadbeef')));
+    });
+  });
 }

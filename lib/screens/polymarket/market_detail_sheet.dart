@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
-import 'package:kute/screens/shared/kute_blur.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -18,43 +22,54 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
 import 'package:kute/providers/polymarket_provider.dart'
     show kCryptoPredictAssets, CryptoAssetConfig;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
+import 'package:kute/screens/share/send_pick_session.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/current_round.dart'
+    show polyRoundWindowReaderProvider;
+import 'package:kute/screens/polymarket/components/round_window_label.dart'
+    show polyRoundClock;
+import 'package:kute/screens/shared/message_display.dart'
+    show showMessageSnackBar;
 import 'package:kute/services/polymarket/event_trading_over.dart';
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
-import 'package:kute/services/polymarket/live_game/game_market_groups.dart';
 import 'package:kute/services/polymarket/live_game/game_sides.dart'
     show gameShortSideNames;
 import 'package:kute/providers/polymarket_tweet_count_provider.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart';
 import 'package:kute/screens/polymarket/components/game_header.dart';
 import 'package:kute/screens/polymarket/components/exact_score_list.dart';
+import 'package:kute/screens/polymarket/components/special_event_section.dart';
 import 'package:kute/services/polymarket/thin_history.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
 import 'package:kute/screens/polymarket/components/game_winner_lines.dart';
-import 'package:kute/screens/polymarket/components/live_token_scope.dart';
+import 'package:kute/screens/polymarket/components/game_more_markets.dart';
+import 'package:kute/screens/polymarket/components/game_side_button.dart';
+import 'package:kute/screens/polymarket/components/line_ladder.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyAutoScrollRow;
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
+import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/theme/kute_motion.dart' show KuteMotion;
 import 'package:kute/screens/polymarket/polymarket_screen.dart'
     show CryptoPredictBanner;
 
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -93,6 +108,12 @@ CryptoAssetConfig _resolveCryptoConfig(PolymarketEvent event) {
   String? sym;
   final match = _kFiveMinSlugRegex.firstMatch(event.slug);
   if (match != null) sym = match.group(1)?.toUpperCase();
+  // A round of any length names its coin in its slug (the hourly rounds by
+  // name: `ethereum-up-or-down-…`).
+  if (sym == null) {
+    final round = polyCryptoRoundOf(event.slug, endDate: event.endDate);
+    if (round != null) sym = polyRoundTicker(round.asset);
+  }
   sym ??= () {
     final upper = event.title.toUpperCase();
     for (final cfg in kCryptoPredictAssets) {
@@ -122,15 +143,15 @@ String _formatPctShort(double price) => formatPolyChance(price);
 
 String _formatVolume(WidgetRef ref, double value) {
   if (value >= 1e9) {
-    return '${formatPolyAmount(ref, value / 1e9, decimalDigits: 1)}B';
+    return '${formatDollars(value / 1e9, decimalDigits: 1)}B';
   }
   if (value >= 1e6) {
-    return '${formatPolyAmount(ref, value / 1e6, decimalDigits: 1)}M';
+    return '${formatDollars(value / 1e6, decimalDigits: 1)}M';
   }
   if (value >= 1e3) {
-    return '${formatPolyAmount(ref, value / 1e3, decimalDigits: 1)}K';
+    return '${formatDollars(value / 1e3, decimalDigits: 1)}K';
   }
-  return formatPolyAmount(ref, value, decimalDigits: 0);
+  return formatDollars(value, decimalDigits: 0);
 }
 
 String _formatEndsIn(BuildContext context, DateTime? end) {
@@ -161,12 +182,20 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
   /// slip so polymarket_bet_placed.entry_source keeps the original entry.
   final String source;
 
+  /// SEND MODE (screens/share/send_pick_session.dart): the page opened
+  /// from Send's market search. Its slips run in send mode (their primary
+  /// sends the pick, nothing is placed) and the page says so at the top;
+  /// its round Sal button still shares the market. Null: the ordinary
+  /// page.
+  final SendPickSession? sendPick;
+
   const MarketDetailSheet({
     super.key,
     required this.event,
     this.onDeposit,
     this.ledgerWalletId,
     this.source = 'unknown',
+    this.sendPick,
   });
 
   static const routeName = 'polymarket-market-detail-sheet';
@@ -177,6 +206,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     VoidCallback? onDeposit,
     String? ledgerWalletId,
     String source = 'unknown',
+    SendPickSession? sendPick,
   }) {
     trackViewed(event, source: source, ledgerWalletId: ledgerWalletId);
     // Drop the active focus before we push the detail route. The
@@ -194,8 +224,10 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     // draws the five-minute round in play of the app's own assets and
     // nothing else, so every other Up/Down market (15 minutes, an hour,
     // four hours, a day, another asset) opens below as the market it is.
-    if (polyOpensRoundSheet(
-        event.slug, [for (final c in kCryptoPredictAssets) c.asset])) {
+    // In send mode every market opens as its page, whose slip sends.
+    if (sendPick == null &&
+        polyOpensRoundSheet(
+            event.slug, [for (final c in kCryptoPredictAssets) c.asset])) {
       FiveMinMarketDetailSheet.show(
         context,
         event: event,
@@ -207,36 +239,22 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     _prefetchChart(event);
     // Skip the slide-up transition entirely when the OS asks to reduce
     // motion (the route still appears, just without the animated slide).
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        pageBuilder: (_, __, ___) => FastBetScope(
+        builder: (_) => FastBetScope(
           active: ledgerWalletId == null && polyIsFastBetRound(event.slug),
           child: MarketDetailSheet(
             event: event,
             onDeposit: onDeposit,
             ledgerWalletId: ledgerWalletId,
             source: source,
+            sendPick: ledgerWalletId == null ? sendPick : null,
           ),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     );
   }
@@ -364,41 +382,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// (search-opened events lose `teams`). Populated in [build].
   List<PolymarketTeam> _fetchedTeams = const [];
 
-  /// Fits one screen above the sticky outcome bar and Buy buttons on a
-  /// standard iPhone. With [_chartFill] added when the screen has room.
-  static const double _chartHeight = 380;
-
-  /// Height added to the chart so a short list (a Yes / No market, two or
-  /// three outcomes) leaves no empty room under it ([polyChartFillExtra]).
-  /// Worked out once, the first time the sheet is laid out with its chart
-  /// at its own height, from the room left in the scroll area; never
-  /// changed again for that height, so nothing moves as prices and the
-  /// chart's history load.
-  double _chartFill = 0;
-
-  /// The scroll area's height [_chartFill] was worked out for.
-  double? _chartFillViewport;
-
-  /// The chart's own height (without [_chartFill]) as last built; null
-  /// when the sheet has no chart.
-  double? _chartBase;
-
-  /// Works out [_chartFill] from [constraints], the constraints of a sliver
-  /// laid out after everything else in the scroll area.
-  void _fitChartToScreen(SliverConstraints constraints) {
-    final base = _chartBase;
-    if (base == null || watchingStream) return;
-    final viewport = constraints.viewportMainAxisExtent;
-    if (_chartFillViewport == viewport) return;
-    _chartFillViewport = viewport;
-    final content = constraints.precedingScrollExtent - _chartFill;
-    final fill = polyChartFillExtra(
-        leftover: viewport - content, base: base, viewport: viewport);
-    if ((fill - _chartFill).abs() < 1) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _chartFill = fill);
-    });
-  }
+  /// The chart's height: the Investing market chart's plot over the time
+  /// axis ([polyMarketChartHeight]), the same for every market, event and
+  /// game, and never grown to fill the screen (founder, 4 November 2026).
+  double get _chartHeight => polyMarketChartHeight();
 
   /// The event as this sheet lists it: [MarketDetailSheet.event], with any
   /// placeholder outcome the user holds listed again
@@ -523,8 +510,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     }
   }
 
+  /// Repaints the bar when a round on screen reaches its cutoff, so it
+  /// turns read-only then ([_buildTradeBar]).
+  Timer? _roundCutoffTimer;
+
   @override
   void dispose() {
+    _roundCutoffTimer?.cancel();
     final entry = _onScreenEntry;
     if (entry != null) MarketDetailSheet._onScreen.remove(entry);
     // Release the live-feed hold exactly once (nulled to guard a double
@@ -618,6 +610,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // when this sheet is on top again.
     // A sheet being closed is no longer active: its stream stops with it.
     syncStreamHandoff(context);
+    final bar = _barContext();
     return Scaffold(
       backgroundColor: context.isDark
           ? context.colors.gradientBottom
@@ -629,7 +622,16 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
-              _buildHeader(c),
+              _buildHeader(c, bar),
+              // Send mode says it at the top (send_pick_session.dart).
+              if (widget.sendPick case final send?)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 6.h),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SendPickChip(session: send),
+                  ),
+                ),
               Expanded(
                 // Slivers, so a long outcome list ("More markets" of a game
                 // with 300 markets) builds only the rows in view.
@@ -668,9 +670,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 // chart and nothing else.
                                 Consumer(builder: (context, chartRef, _) {
                                   final chartWidget = _buildChartBody(chartRef);
-                                  _chartBase = chartWidget == null
-                                      ? null
-                                      : chartWidget.height - _chartFill;
                                   if (chartWidget == null) {
                                     return const SizedBox.shrink();
                                   }
@@ -695,18 +694,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                               // resolution keep their own row below. Own
                               // Consumer: the live score feed is read for
                               // this alone.
-                              Consumer(
-                                builder: (context, salRef, _) =>
-                                    SalWhyMovingRow(
-                                  advisorContext: _salContext,
-                                  question: salWhyMovingPm(context.l10n,
-                                      oddsChange1d: event.oneDayPriceChange,
-                                      liveGame: _isGameLive(
-                                          _liveMatchUpdate(salRef))),
-                                  chipSignals: salSignalsForPolyEvent(event),
-                                  padding: EdgeInsets.only(bottom: 8.h),
-                                ),
-                              ),
+                              // (The "Why is it moving?" row is gone:
+                              // that question is the first Ask Sal chip
+                              // in the bar's Sal sheet; founder, 31
+                              // October 2026.)
                               // Count markets: the running tally, refreshed
                               // while open.
                               if (event.tweetCount != null)
@@ -717,6 +708,17 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                             ],
                           ),
                         ),
+                        // A US election event drawn: its state map ("Build
+                        // your map", one market per state) or its races
+                        // split by party, above its outcomes; nothing for
+                        // any other event (special_event_section.dart).
+                        // Send mode's bar brings the outcomes up to here.
+                        if (!event.isBinary)
+                          SliverToBoxAdapter(
+                              child: SizedBox(key: _outcomesAnchor)),
+                        if (!event.isBinary)
+                          PolySpecialEventSection.sliver(event,
+                              onPickOutcome: _openCandidateDetail),
                         // Own Consumer, returning slivers: it rebuilds when
                         // the order of the outcomes changes; a price tick
                         // repaints the one row (or board button) it moved.
@@ -727,9 +729,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         // buttons below carry both chances.
                         if (!event.isBinary)
                           Consumer(
-                            builder: (context, priceRef, _) => _showsGameLines
-                                ? _buildGameMarkets(priceRef, c)
-                                : _buildMultiOutcomeList(priceRef, c),
+                            builder: (context, priceRef, _) => _ladder != null
+                                ? _buildLadder(priceRef, c)
+                                : _showsGameLines
+                                    ? _buildGameMarkets(priceRef, c)
+                                    : _buildMultiOutcomeList(priceRef, c),
                           ),
                         SliverToBoxAdapter(
                           child: Column(
@@ -743,16 +747,18 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         ),
                       ]),
                     ),
-                    // Laid out last, it reads how much room the content
-                    // leaves, for the chart to take ([_fitChartToScreen]).
-                    SliverLayoutBuilder(builder: (context, constraints) {
-                      _fitChartToScreen(constraints);
-                      return const SliverToBoxAdapter(child: SizedBox.shrink());
-                    }),
+                    // The last rows (the outcomes, Rules) scroll clear of
+                    // the floating bar (kute_bar_context.dart) and of the
+                    // home indicator: nothing is pinned under the list.
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                          height: kuteBarScrollClearance.h +
+                              MediaQuery.viewPaddingOf(context).bottom),
+                    ),
                   ],
                 ),
               ),
-              _buildStickyActions(c),
+              _buildTradeBar(bar),
             ],
           ),
         ),
@@ -760,26 +766,88 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Sal's grounding: this public event and, when every outcome is one
-  /// market, that market.
-  AdvisorContext get _salContext => AdvisorContext(
-      surface: 'polymarket_market_detail',
-      marketVenue: 'polymarket',
-      marketId: event.slug,
-      submarketId:
-          event.outcomes.map((o) => o.gammaMarketId).toSet().length == 1
-              ? event.outcomes.firstOrNull?.gammaMarketId
-              : null);
+  /// The page's Sal context (Send to a friend), held by the scope around
+  /// the close button while the page is up (founder, 4 November 2026: no
+  /// Send to a friend in the header or beside the figure; "it must be a
+  /// floating button"). One prediction's Yes / No row covers it with the
+  /// trade row, whose round Sal button carries it ([_buildTradeBar]); an
+  /// event or a game, with no pair, shows it as the floating Sal pill,
+  /// "Send to a friend", folding into that same round button while the
+  /// page scrolls down (kute_shell_bar.dart). Either sends the market at
+  /// once (kute_share_actions.dart); a prediction is sent from its slip.
+  ///
+  /// A candidate opened as its own Yes / No page (the ↑76,000 row of an
+  /// event, [_openCandidateDetail]) shares that market alone, its card and
+  /// its link, by the candidate's name on the event (founder, 7 November
+  /// 2026: "sharing here should be just the yes or no. only here is the
+  /// full market"); the event's page shares the whole event.
+  ///
+  /// SEND MODE never offers the look-only link (send_pick_session.dart):
+  /// an event's bar says "Pick an outcome · You're buying it for Ana", a
+  /// tap bringing the outcomes into view; a Yes / No page's trade row
+  /// sends ([_buildTradeBar]).
+  KuteBarContext _barContext() {
+    if (widget.sendPick case final send?) {
+      return sendPickInfoBar(
+        context,
+        send,
+        onTap: _showOutcomes,
+        category: SearchCategory.predictions,
+        searchHint: context.l10n.searchPredictionsHint,
+        source: 'predictions',
+      );
+    }
+    return marketBarContext(
+      context,
+      title: event.displayTitle,
+      venue: kMarketLinkPredictions,
+      slug: event.slug,
+      chance: event.isBinary ? event.yesPrice * 100 : null,
+      imageUrl: event.displayIconUrl,
+      position: false,
+      category: SearchCategory.predictions,
+      searchHint: context.l10n.searchPredictionsHint,
+      source: 'predictions',
+      candidate: event.isSyntheticBinary ? event.title : null,
+    );
+  }
 
-  /// Close, the event's image and title (up to two lines), and the
-  /// watchlist star. Sal's door is the "Why is it moving?" row under the
-  /// chart, when there is a move worth explaining.
-  Widget _buildHeader(AppColorsExtension c) {
+  /// Where the outcomes start on an event's page: send mode's bar brings
+  /// them into view ([_showOutcomes]).
+  final GlobalKey _outcomesAnchor = GlobalKey();
+
+  /// Send mode's bar on an event: the outcomes to the top of the page
+  /// (eased; at once under Reduce Motion), where one is picked.
+  void _showOutcomes() {
+    final target = _outcomesAnchor.currentContext;
+    if (target == null) return;
+    unawaited(Scrollable.ensureVisible(
+      target,
+      duration: kuteMotion(context, KuteMotion.sheetInDuration),
+      curve: KuteMotion.settle,
+    ));
+  }
+
+  /// Close, the event's image and title (up to two lines) and the
+  /// watchlist star; the title has the row's whole width (founder, 4
+  /// November 2026: Send to a friend floats at the foot, never here). The
+  /// page's Sal context is held by the scope around the close button.
+  Widget _buildHeader(AppColorsExtension c, KuteBarContext bar) {
+    final titleStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 18.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.3,
+      height: 1.2,
+    );
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: Row(
         children: [
-          const KuteCloseButton(),
+          KuteBarContextScope(
+            barContext: bar,
+            child: const KuteCloseButton(),
+          ),
           SizedBox(width: 8.w),
           // The SAME resolver the cards use (team crest for a gaming /
           // esports "vs" market the sports detector didn't catch, the
@@ -802,15 +870,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           Expanded(
             // The whole title: smaller rather than cut.
             child: FittedTitle(
-              event.title,
+              event.displayTitle,
               key: const ValueKey('poly-detail-title'),
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-                height: 1.2,
-              ),
+              style: titleStyle,
+              // Never cut: a third line only for a title too long for two
+              // at the smallest size (320 pt, a large text size).
+              longMaxLines: 3,
             ),
           ),
           SizedBox(width: 8.w),
@@ -1028,6 +1093,357 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
+  // ── Line ladders (line_ladder.dart) ─────────────────────────────────
+
+  /// This event read as ladders ([polyLadderBoard]), worked out once per
+  /// event; null for any other event, and for a game whose own board
+  /// shows its lines (a "More Markets" event with a game behind it: its
+  /// Spread and Total rows and "More markets" under them, as before).
+  PolyLadderBoard? get _ladder {
+    final e = event;
+    if (!identical(e, _ladderMemoEvent)) {
+      _ladderMemoEvent = e;
+      _ladderMemo = polyLadderBoard(e);
+      _ladderOnGameBoard = e.outcomes.any((o) {
+        final kind = (o.marketLine?.kind ?? '').toLowerCase();
+        return kind == 'spreads' || kind == 'totals';
+      });
+    }
+    if (_ladderMemo == null) return null;
+    if (_ladderOnGameBoard && _showsGameLines) return null;
+    return _ladderMemo;
+  }
+
+  PolymarketEvent? _ladderMemoEvent;
+  PolyLadderBoard? _ladderMemo;
+  bool _ladderOnGameBoard = false;
+
+  /// The group picked on the picker, by its key; null until one is picked
+  /// (the group with the most volume then).
+  String? _ladderGroupPick;
+
+  /// The line picked on each group's stepper, by the group's key and the
+  /// market's first token; a group with none opens on the line nearest
+  /// 50%.
+  final Map<String, String> _ladderLinePick = {};
+
+  /// Where the page of ladders stands at the live prices: the group
+  /// shown (null when no group has a line that trades: the page then says
+  /// once that it awaits liquidity), the lines its stepper offers (empty
+  /// for a group that awaits liquidity) and the one selected.
+  ({PolyLineLadder? group, List<PolyLadderLine> lines, int index})
+      _ladderState(WidgetRef ref) {
+    final board = _ladder!;
+    final live = ref.watch(
+        livePriceProvider.select((s) => (s.prices, s.unpriced)));
+    final opening =
+        polyLadderDefaultGroup(board.groups, live.$1, live.$2);
+    if (opening == null) return (group: null, lines: const [], index: 0);
+    final picked = _ladderGroupPick == null
+        ? -1
+        : board.groups.indexWhere((g) => g.key == _ladderGroupPick);
+    final group = board.groups[picked < 0 ? opening : picked];
+    final lines = polyLadderShownLines(group, live.$1, live.$2);
+    final pick = _ladderLinePick[group.key];
+    var index = pick == null
+        ? -1
+        : lines.indexWhere((l) => l.outcome.tokenId == pick);
+    if (index < 0) index = polyLadderDefaultIndex(lines, live.$1, live.$2);
+    return (group: group, lines: lines, index: index);
+  }
+
+  /// The chance of [line]'s first side as a list would show it
+  /// ([polyShownChanceOf]); null when its book has none.
+  double? _ladderChance(WidgetRef ref, PolyLadderLine line) =>
+      _shownChanceFor(ref, line.outcome);
+
+  /// The two sides of [line] of [ladder] by name, in the app's language:
+  /// "Over 8.5" / "Under 8.5"; a handicap's two teams by their short
+  /// names, each with its own line ("Dynamo Kyiv -1.5" / "Livyi Bereh
+  /// +1.5"); else the market's own sides ("Yes" / "No").
+  ({String a, String b}) _ladderSideNames(
+      PolyLineLadder ladder, PolyLadderLine line) {
+    final l10n = context.l10n;
+    String word(String side) => switch (side.trim().toLowerCase()) {
+          'over' => l10n.polySideOver,
+          'under' => l10n.polySideUnder,
+          'yes' => l10n.yes,
+          'no' => l10n.betNo,
+          _ => side,
+        };
+    if (ladder.overUnder) {
+      return (
+        a: '${word(ladder.sideA)} ${line.lineText}',
+        b: '${word(ladder.sideB)} ${line.lineText}',
+      );
+    }
+    const plain = {'yes', 'no'};
+    if (plain.contains(ladder.sideA.trim().toLowerCase()) ||
+        plain.contains(ladder.sideB.trim().toLowerCase())) {
+      return (a: word(ladder.sideA), b: word(ladder.sideB));
+    }
+    final short = gameShortSideNames(ladder.sideA, ladder.sideB,
+        teams: event.teams.isNotEmpty ? event.teams : _fetchedTeams);
+    if (!ladder.spread) return (a: short.$1, b: short.$2);
+    // The market's line belongs to its first side.
+    return (
+      a: '${short.$1} ${polyLadderLineText(line.line, signed: true)}',
+      b: '${short.$2} ${polyLadderLineText(-line.line, signed: true)}',
+    );
+  }
+
+  /// The colours of a ladder's two sides: their chart lines' and their
+  /// buttons' alike (the game palette's first two, never up and down).
+  (Color, Color) get _ladderColors => (kGameSideColors[0], kGameSideColors[1]);
+
+  /// The picker over a page's ladders, in the app's pill row ("Total ·
+  /// 1st half · Shakhtar · Fenerbahçe"; it scrolls, so no name is cut).
+  /// Nothing for a page of one ladder, and nothing while no group trades:
+  /// the page then says once that it awaits liquidity.
+  Widget _buildLadderPicker(WidgetRef ref) {
+    final board = _ladder!;
+    if (board.groups.length < 2) return const SizedBox.shrink();
+    final state = _ladderState(ref);
+    final shown = state.group;
+    if (shown == null) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    final teams = _detectSportsTeams();
+    final short = teams == null
+        ? null
+        : gameShortSideNames(teams.teamA, teams.teamB,
+            teams: event.teams.isNotEmpty ? event.teams : _fetchedTeams);
+    final labels = polyLadderGroupLabels(
+      board.groups,
+      teamA: teams?.teamA,
+      teamB: teams?.teamB,
+      shortA: short?.$1,
+      shortB: short?.$2,
+      total: l10n.polyGameTotal,
+      firstHalf: l10n.polyPeriodFirstHalf,
+      secondHalf: l10n.polyPeriodSecondHalf,
+      spread: l10n.polyGameSpread,
+    );
+    return Padding(
+      padding: EdgeInsets.only(top: teams != null ? 18.h : 0, bottom: 2.h),
+      child: PolyAutoScrollRow(
+        key: const ValueKey('ladder-group-chips'),
+        height: 34.h,
+        padding: 0,
+        itemCount: board.groups.length,
+        selectedIndex: board.groups.indexOf(shown),
+        itemBuilder: (context, i) {
+          final group = board.groups[i];
+          return KutePill(
+            key: ValueKey('ladder-group-$i'),
+            label: labels[i],
+            selected: identical(group, shown),
+            onTap: () {
+              if (identical(group, shown)) return;
+              HapticFeedback.selectionClick();
+              TrackingService.track('category_pill_tapped', params: {
+                'section': 'ladder_groups',
+                'subcategory': group.kind.isEmpty ? 'line' : group.kind,
+              });
+              setState(() => _ladderGroupPick = group.key);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /// A page of ladders' headline: the selected line's question ("O/U 8.5
+  /// Total Corners") and its first side's chance, as the leading-outcome
+  /// headline writes them. A group with no line that trades, and a page
+  /// with no such group, says it awaits liquidity rather than write a
+  /// figure nobody traded.
+  Widget _buildLadderHero(WidgetRef ref, AppColorsExtension c) {
+    final state = _ladderState(ref);
+    if (state.lines.isEmpty) return _buildAwaitingLiquidityHeroPill(c);
+    final line = state.lines[state.index];
+    final chance = _ladderChance(ref, line);
+    if (chance == null) return _buildAwaitingLiquidityHeroPill(c);
+    return Column(
+      key: const ValueKey('ladder-hero'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          line.question,
+          maxLines: 2,
+          style: TextStyle(
+            color: c.textTertiary,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          _formatPctShort(chance),
+          style: TextStyle(
+            color: _kPolyPurple,
+            fontSize: 56.sp,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.6,
+            height: 1.0,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A page of ladders' chart: the selected line's two sides, each in its
+  /// button's colour and tagged by its side and line. No chart for a
+  /// group (or a page) that awaits liquidity: never the event's most
+  /// likely markets drawn over each other.
+  MarketChart? _buildLadderChart(WidgetRef ref) {
+    final state = _ladderState(ref);
+    if (state.lines.isEmpty) return null;
+    final line = state.lines[state.index];
+    final o = line.outcome;
+    final names = _ladderSideNames(state.group!, line);
+    final colors = _ladderColors;
+    final over = _livePriceFor(ref, o.tokenId, o.price).clamp(0.0, 1.0);
+    final lines = <MarketChartLine>[
+      MarketChartLine(
+        tokenId: o.tokenId!,
+        color: colors.$1,
+        label: names.a,
+        livePrice: over,
+        thin: polyTokenIsThin(event, o.tokenId),
+      ),
+      if (o.noTokenId != null && o.noTokenId!.isNotEmpty)
+        MarketChartLine(
+          tokenId: o.noTokenId!,
+          color: colors.$2,
+          label: names.b,
+          livePrice: 1 - over,
+          thin: polyTokenIsThin(event, o.noTokenId),
+        ),
+    ];
+    return MarketChart(
+      // A new line is a new chart: its history, its tags.
+      key: ValueKey('ladder-chart-${o.tokenId}'),
+      lines: lines,
+      height: _chartHeight,
+      accentColor: colors.$1,
+      bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
+      shortMarket: _isShortRound,
+      resolved: _isOverFor(ref),
+      openedAt: polyChartOpenedAt(event),
+      inPlay: event.isInPlay,
+      kindIds: [event.id],
+    );
+  }
+
+  /// Under the chart of a page of ladders: the group's stepper (none for
+  /// a group of one line) and the selected line's two sides as the game
+  /// page's side buttons ("Over 8.5 · 53.5%", "Under 8.5 · 46.5%"), each
+  /// in its chart line's colour, a side opening the slip on it; nothing
+  /// for a group that awaits liquidity. Then the event's markets that are
+  /// no line of any ladder ("Odd or Even?", "Both Teams to Score") as the
+  /// plain rows they were, only those with a price to show.
+  Widget _buildLadder(WidgetRef ref, AppColorsExtension c) {
+    final board = _ladder!;
+    final state = _ladderState(ref);
+    final live = ref.watch(
+        livePriceProvider.select((s) => (s.prices, s.unpriced)));
+    final others = [
+      for (final o in board.others)
+        if (polyLadderLineTrades(live.$1, live.$2, o)) o
+    ];
+    Widget? head;
+    if (state.lines.isNotEmpty) {
+      final ladder = state.group!;
+      final line = state.lines[state.index];
+      final names = _ladderSideNames(ladder, line);
+      final colors = _ladderColors;
+      final pair = formatPolyChancePair(
+          _ladderChance(ref, line) ?? line.outcome.price);
+      Widget side(bool a) => Expanded(
+            child: PolyGameSideButton(
+              key: ValueKey('ladder-side-${a ? 'a' : 'b'}'),
+              label: a ? names.a : names.b,
+              pctText: a ? pair.first : pair.second,
+              lineColor: a ? colors.$1 : colors.$2,
+              onTap: () => _openLadderSide(ladder, line, second: !a),
+            ),
+          );
+      head = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: 8.h),
+          if (state.lines.length > 1)
+            PolyLineStepper(
+              key: const ValueKey('ladder-stepper'),
+              lines: [for (final l in state.lines) l.lineText],
+              selected: state.index,
+              semanticPrefix: line.question,
+              onSelect: (i) => setState(() => _ladderLinePick[ladder.key] =
+                  state.lines[i].outcome.tokenId!),
+            ),
+          SizedBox(height: 8.h),
+          Row(children: [side(true), SizedBox(width: 8.w), side(false)]),
+          _buildInPlayDelayNote(c),
+        ],
+      );
+    }
+    return SliverMainAxisGroup(
+      slivers: [
+        if (head != null) SliverToBoxAdapter(child: head),
+        if (others.isNotEmpty) ...[
+          SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+          _ExpandableOutcomeLegend(
+            outcomes: others,
+            livePriceFor: _shownChanceFor,
+            nameFor: _rowName,
+            sideLabelsFor: _sideLabelsFor,
+            onPickOutcome: _openCandidateDetail,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// One side of a ladder's line, tapped: the slip on that side at the
+  /// live price, its sides named as the buttons name them and wearing
+  /// their colours, titled by the market's question.
+  void _openLadderSide(PolyLineLadder ladder, PolyLadderLine line,
+      {required bool second}) {
+    TrackingService.track('prediction_outcome_tapped', params: {
+      'outcome_type': second ? 'no' : 'yes',
+      if (event.category.isNotEmpty) 'category': event.category.toLowerCase(),
+    });
+    final o = line.outcome;
+    final live =
+        o.tokenId == null ? null : ref.read(livePriceProvider).prices[o.tokenId];
+    final names = _ladderSideNames(ladder, line);
+    final colors = _ladderColors;
+    _openLineBetSlip(
+      live == null
+          ? o
+          : PolymarketOutcome(
+              name: o.name,
+              price: live,
+              tokenId: o.tokenId,
+              noTokenId: o.noTokenId,
+              imageUrl: o.imageUrl,
+              conditionId: o.conditionId,
+              gammaMarketId: o.gammaMarketId,
+              marketLine: o.marketLine,
+              question: o.question,
+            ),
+      second: second,
+      pos: names.a,
+      neg: names.b,
+      // The slip has no teams header: the market's whole question.
+      question: o.question ?? o.name,
+      colors: [colors.$1, colors.$2],
+    );
+  }
+
   /// Matches (a team-vs-team event with a game id) get the main-lines
   /// board.
   bool get _showsGameLines =>
@@ -1035,14 +1451,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       event.gameId != null &&
       _detectSportsTeams() != null;
 
-  /// The kind of market "More markets" is narrowed to ('all' for none).
-  String _marketGroup = 'all';
-
   /// A game's markets the way a sportsbook lays them out: the main lines
   /// on top as a board (Winner, Spread, Total; each side a button that
   /// opens the bet slip on it), then every OTHER market under "More
-  /// markets", by kind. A market on the board is never listed again.
-  /// Falls back to the plain outcome list when the game has no main line.
+  /// markets", by period and kind, each a line with its two sides
+  /// ([PolyGameMoreMarkets]). A market on the board is never listed
+  /// again. Falls back to the plain outcome list when the game has no
+  /// main line.
   Widget _buildGameMarkets(WidgetRef ref, AppColorsExtension c) {
     final l10n = context.l10n;
     final lines = polyGameLinesFor(ref, event);
@@ -1073,7 +1488,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     }) =>
         Expanded(
           child: Consumer(
-            builder: (context, priceRef, _) => _WdlOutcomeButton(
+            builder: (context, priceRef, _) => PolyGameSideButton(
               label: label,
               crestUrl: crest,
               pctText: _formatPctShort(price(priceRef)),
@@ -1139,7 +1554,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       String sideLabel(bool a, {bool short = false}) {
         final name = a ? r.sideA : r.sideB;
         if (r.kind == 'moneyline' || r.line == null) return name;
-        if (r.kind == 'totals') return '$name ${r.lineText}';
+        if (r.kind == 'totals') {
+          // Over / Under in the app's language, as the lines under it.
+          final side = switch (name.trim().toLowerCase()) {
+            'over' => l10n.polySideOver,
+            'under' => l10n.polySideUnder,
+            _ => name,
+          };
+          return '$side ${r.lineText}';
+        }
         // The market's line belongs to its first side.
         final l = a ? r.line! : -r.line!;
         final t = l == l.roundToDouble() ? l.toStringAsFixed(0) : '$l';
@@ -1277,22 +1700,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     }
     if (rows.isEmpty) return _buildMultiOutcomeList(ref, c);
 
-    // Everything the board does not show, most likely first. Watched as
-    // an order: a tick that moves no market past another rebuilds nothing
-    // here (each row follows its own price).
-    final rest = _listOrderWatched(ref,
-        skip: (o) =>
-            onBoard.contains(o.gammaMarketId) || onBoard.contains(o.tokenId));
-    final groups = [
-      for (final g in GameMarketGroup.values)
-        if (rest.any((o) => gameMarketGroupOf(o.name) == g)) g.key
+    // Everything the board does not show, in the event's order: "More
+    // markets" sorts it into periods and kinds, and folds away the lines
+    // not trading yet and the settled ones (each line follows its own
+    // price).
+    final rest = [
+      for (final o in event.outcomes)
+        if (!onBoard.contains(o.gammaMarketId) && !onBoard.contains(o.tokenId))
+          o
     ];
-    // A handful of markets needs no filter.
-    final filterable = groups.length > 1 && rest.length > 8;
-    final picked = filterable && groups.contains(_marketGroup)
-        ? _marketGroup
-        : 'all';
-    final keys = ['all', ...groups];
 
     final head = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1332,71 +1748,56 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         // While the game is on, orders wait before they reach the book:
         // said once, under the board.
         _buildInPlayDelayNote(c),
-        if (rest.isNotEmpty) ...[
-          SizedBox(height: 24.h),
-          Text(
-            l10n.polyMoreMarkets,
-            style: TextStyle(
-              color: c.textPrimary,
-              fontSize: 17.sp,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-            ),
-          ),
-          if (filterable) ...[
-            SizedBox(height: 10.h),
-            PolyAutoScrollRow(
-              height: 34.h,
-              padding: 0,
-              itemCount: keys.length,
-              selectedIndex: keys.indexOf(picked),
-              itemBuilder: (context, i) => KutePill(
-                label: keys[i] == 'all'
-                    ? l10n.polySubAll
-                    : gameMarketGroupLabel(l10n, keys[i]),
-                selected: keys[i] == picked,
-                onTap: () {
-                  if (keys[i] == picked) return;
-                  HapticFeedback.selectionClick();
-                  TrackingService.track('category_pill_tapped', params: {
-                    'section': 'game_markets',
-                    'subcategory': keys[i],
-                  });
-                  setState(() => _marketGroup = keys[i]);
-                },
-              ),
-            ),
-          ],
-          SizedBox(height: 10.h),
-        ],
       ],
     );
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(child: head),
         if (rest.isNotEmpty)
-          // A filter pill fades the list in; a price tick never does. The
-          // rows are built as they scroll into view.
-          SliverSelectionFade(
-            selection: picked,
-            slivers: [
-              _ExpandableOutcomeLegend(
-                outcomes: rest,
-                livePriceFor: _shownChanceFor,
-                nameFor: _rowName,
-                sideLabelsFor: _sideLabelsFor,
-                onPickOutcome: _openCandidateDetail,
-                // A game's sub-markets all carry the league's logo: no
-                // icon.
-                showThumbs: false,
-                calmFigures: true,
-                gameGroups: true,
-                onlyGroup: picked == 'all' ? null : picked,
-                collapseAfter: picked == 'all' && filterable ? 4 : null,
-              ),
-            ],
+          PolyGameMoreMarkets(
+            event: event,
+            teams: teams,
+            outcomes: rest,
+            onSide: _openGameLineSide,
+            // The line's own page (its chart, its rules), as before.
+            onOpen: _openCandidateDetail,
           ),
       ],
+    );
+  }
+
+  /// One side of a "More markets" line, tapped: the slip opens straight on
+  /// that side ([side] 0 the market's first token, 1 its second), its sides
+  /// named as the line names them ([pos], [neg]), at the live price. Its
+  /// question is the market's own, as on the line's own page before (the
+  /// slip's analytics read the kind of market from it).
+  void _openGameLineSide(PolymarketOutcome market, int side,
+      {required String pos, required String neg}) {
+    // The same intent signal the line's own page sent from its Yes / No.
+    TrackingService.track('prediction_outcome_tapped', params: {
+      'outcome_type': side == 0 ? 'yes' : 'no',
+      if (event.category.isNotEmpty) 'category': event.category.toLowerCase(),
+    });
+    final live = market.tokenId == null
+        ? null
+        : ref.read(livePriceProvider).prices[market.tokenId];
+    _openLineBetSlip(
+      live == null
+          ? market
+          : PolymarketOutcome(
+              name: market.name,
+              price: live,
+              tokenId: market.tokenId,
+              noTokenId: market.noTokenId,
+              imageUrl: market.imageUrl,
+              conditionId: market.conditionId,
+              gammaMarketId: market.gammaMarketId,
+              marketLine: market.marketLine,
+            ),
+      second: side == 1,
+      pos: pos,
+      neg: neg,
+      question: market.name,
     );
   }
 
@@ -1405,11 +1806,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// [neg] name the sides on the slip ("49ers -3.5" / "Broncos +3.5").
   /// The same call the feed card makes for one candidate of an event.
   /// [colors] are the two sides' line colours (either may be null): the
-  /// slip wears the picked side's.
+  /// slip wears the picked side's. [question] is the slip's question, the
+  /// event's title and the market's name when null.
   void _openLineBetSlip(PolymarketOutcome market,
       {required bool second,
       String? pos,
       String? neg,
+      String? question,
       List<Color?> colors = const []}) {
     if (!market.hasYesNo) {
       _openCandidateDetail(market);
@@ -1422,7 +1825,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       negRisk: event.negRisk,
       marketSlug: event.slug,
       event: event,
-      marketQuestion: '${event.title}: ${market.name}',
+      marketQuestion: question ??
+          polyMarketDisplayTitle(event.title,
+              question: market.question, itemTitle: market.name),
       marketImage: PolymarketEvent.logoFromTeams(
               event.teams.isNotEmpty ? event.teams : _fetchedTeams,
               market.name) ??
@@ -1453,6 +1858,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       sideLabelNeg: neg,
       outcomeColors: colors.any((c) => c != null) ? colors : null,
       source: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 
@@ -1479,7 +1885,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       context,
       event: event,
       negRisk: event.negRisk,
-      marketQuestion: event.title,
+      marketQuestion: event.displayTitle,
       marketSlug: event.slug,
       marketImage: event.imageUrl,
       outcomes: [
@@ -1503,6 +1909,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       marketEndAt: event.endDate,
       outcomeColors: colors.any((c) => c != null) ? colors : null,
       source: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 
@@ -1582,12 +1989,20 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           // A game has no headline: its header carries the score and the
           // clock and its board the chances. (The most likely of its many
           // markets, an over/under at 99%, said nothing about the game.)
-          if (!_isGameSheet) ...[
+          // A page of ladders: its picker ("Total · 1st half · Shakhtar").
+          // Own Consumer: which group it opens on follows the prices.
+          if (_ladder != null)
+            Consumer(
+              builder: (context, pickRef, _) => _buildLadderPicker(pickRef),
+            ),
+          // A ladder is one question: it has its headline, game or not.
+          if (!_isGameSheet || _ladder != null) ...[
             if (sportsTeams != null) SizedBox(height: 22.h),
             // Own Consumer: the hero percentage is the only thing in the
             // hero card that has to follow a price tick.
             Consumer(
-              builder: (context, heroRef, _) => _buildHeroHeadline(heroRef, c),
+              builder: (context, heroRef, _) =>
+                  _buildHeroHeadline(heroRef, c),
             ),
           ],
         ],
@@ -1609,7 +2024,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   ///   5. Otherwise — leading outcome's name + its % (drops the
   ///      misleading "Leading" framing in favour of the actual
   ///      candidate, e.g. "Senegal 50%" / "France 18%").
-  Widget _buildHeroHeadline(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildHeroHeadline(
+      WidgetRef ref, AppColorsExtension c) {
     if (event.isBinary) {
       return _buildBinaryHeroHeadline(ref, c);
     }
@@ -1619,14 +2035,24 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     if (_allOutcomesStubFor(ref)) {
       return _buildAwaitingLiquidityHeroPill(c);
     }
+    if (_ladder != null) return _buildLadderHero(ref, c);
     if (_isLargeMultiOutcome) {
       return _buildMarketCountHero(ref, c);
     }
     return _buildLeadingOutcomeHero(ref, c);
   }
 
-  Widget _buildBinaryHeroHeadline(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildBinaryHeroHeadline(
+      WidgetRef ref, AppColorsExtension c) {
     final heroProb = _liveYesPrice(ref);
+    final figureStyle = TextStyle(
+      color: _kPolyGreen,
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1641,17 +2067,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 4.h),
-        Text(
-          _formatPctShort(heroProb),
-          style: TextStyle(
-            color: _kPolyGreen,
-            fontSize: 56.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.6,
-            height: 1.0,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
+        Text(_formatPctShort(heroProb), style: figureStyle),
       ],
     );
   }
@@ -1659,7 +2075,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// Leading-outcome hero — shows the actual top candidate's name and
   /// its probability instead of the generic "Leading" label. Mirrors
   /// polymarket.com's event hero treatment ("Senegal 50%").
-  Widget _buildLeadingOutcomeHero(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildLeadingOutcomeHero(
+      WidgetRef ref, AppColorsExtension c) {
     // Rank only the BETTABLE field — a decided sports sub-market pinned
     // at 100% (e.g. a finished "Set 1 Winner") must not hijack the
     // headline from the still-live markets. Falls back to the raw list
@@ -1676,12 +2093,23 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     });
     final leader = pool[indexed.first];
     final leaderPrice = _priceOf(prices, leader.tokenId, leader.price);
+    final figureStyle = TextStyle(
+      // An Up or Down market's leader in its own colour.
+      color: polyUpDownColor(leader.name, event.outcomes) ?? _kPolyPurple,
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          leader.name,
+          // The fixture is the header's: "O/U 8.5 Total Corners", never
+          // "Sabah FK vs. FC Barcelona: O/U 8.5 Total Corners".
+          _rowName(leader),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -1692,19 +2120,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 4.h),
-        Text(
-          _formatPctShort(leaderPrice),
-          style: TextStyle(
-            // An Up or Down market's leader in its own colour.
-            color: polyUpDownColor(leader.name, event.outcomes) ??
-                _kPolyPurple,
-            fontSize: 56.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.6,
-            height: 1.0,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
+        Text(_formatPctShort(leaderPrice), style: figureStyle),
       ],
     );
   }
@@ -1713,7 +2129,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// "Leading 100%" hero when every sub-market has settled. Picks the
   /// outcome with price >0.97 as the winner; falls back to the
   /// highest-priced outcome if none crosses the threshold (defensive).
-  Widget _buildResolvedHeroPill(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildResolvedHeroPill(
+      WidgetRef ref, AppColorsExtension c) {
     final prices = _livePriceMap(ref);
     final indexed = List.generate(event.outcomes.length, (i) => i);
     indexed.sort((a, b) {
@@ -1730,6 +2147,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       orElse: () => indexed.first,
     );
     final winner = event.outcomes[winnerIdx];
+    final figureStyle = TextStyle(
+      color: _kPolyGreen,
+      fontSize: 28.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.6,
+      height: 1.1,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1751,18 +2175,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 10.h),
-        Text(
-          winner.name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: _kPolyGreen,
-            fontSize: 28.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-            height: 1.1,
-          ),
-        ),
+        Text(winner.name,
+            maxLines: 2, overflow: TextOverflow.ellipsis, style: figureStyle),
       ],
     );
   }
@@ -1770,7 +2184,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// "Awaiting liquidity" pill — every outcome sits at the 0.5 stub
   /// because no one has placed an order yet. Don't pretend there's a
   /// leader.
-  Widget _buildAwaitingLiquidityHeroPill(AppColorsExtension c) {
+  Widget _buildAwaitingLiquidityHeroPill(
+      AppColorsExtension c) {
+    final figureStyle = TextStyle(
+      color: c.textSecondary,
+      fontSize: 22.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.4,
+      height: 1.1,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1792,16 +2214,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 10.h),
-        Text(
-          context.l10n.betNoPricesYet,
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 22.sp,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            height: 1.1,
-          ),
-        ),
+        Text(context.l10n.betNoPricesYet, style: figureStyle),
       ],
     );
   }
@@ -1884,7 +2297,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     return [for (final i in key.indices) outcomes[i]];
   }
 
-  Widget _buildMarketCountHero(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildMarketCountHero(
+      WidgetRef ref, AppColorsExtension c) {
     final bettable = _bettableOutcomesFor(ref);
     final n = bettable.length;
     // The headline is the leader: the open outcome with the highest
@@ -1901,22 +2315,25 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         leaderPrice = p;
       }
     }
+    final figureStyle = TextStyle(
+      color: _kPolyPurple,
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     if (leader != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // The headline decides from its width where the name goes
+          // (beside the figure or under it).
           _LeaderHeadline(
             figure: _formatPctShort(leaderPrice),
             name: leader.name,
-            figureStyle: TextStyle(
-              color: _kPolyPurple,
-              fontSize: 56.sp,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1.6,
-              height: 1.0,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+            figureStyle: figureStyle,
             nameStyle: TextStyle(
               color: c.textSecondary,
               fontSize: 16.sp,
@@ -1934,17 +2351,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              '$n',
-              style: TextStyle(
-                color: _kPolyPurple,
-                fontSize: 56.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.6,
-                height: 1.0,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
+            Text('$n', style: figureStyle),
             SizedBox(width: 8.w),
             Padding(
               padding: EdgeInsets.only(bottom: 10.h),
@@ -1991,28 +2398,47 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Under the chart and the outcomes: the one row that opens the
-  /// market's rules, how it resolves, its stats and what people wrote
-  /// under it. The stats (24h volume, volume, liquidity) go in with the
-  /// sheet rather than sitting on this screen (owner decision); when the
-  /// market closes is already one of the sheet's own rows, so the end
-  /// date is not among them.
+  /// Under the chart and the outcomes: the market's option card, as the
+  /// Investing screens' (founder, 4 November 2026: "like squares";
+  /// kute_action_cards.dart), alone, so one compact full-width row
+  /// (founder, 7 November 2026, the big card with the rules' first lines:
+  /// "way too much"), saying when the market ends and opening its rules,
+  /// how it resolves, its stats and what people wrote under it.
+  /// The stats (24h volume, volume, liquidity) go in with the sheet
+  /// rather than sitting on this screen (owner decision); when the market
+  /// closes is already one of the sheet's own rows, so the end date is not
+  /// among them.
   Widget _buildRulesRow() => Consumer(
-        builder: (context, statsRef, _) => PolyRulesRow(
-          onTap: () => showPolyRulesSheet(
-            context,
-            event,
-            stats: polyMarketStats(
-              context.l10n,
-              volume24hr: event.volume24hr,
-              volume: event.volume,
-              liquidity: event.liquidity,
-              endDate: null,
-              ended: _isOverFor(statsRef),
-              money: (v) => _formatVolume(statsRef, v),
-            ),
-          ),
-        ),
+        builder: (context, statsRef, _) {
+          final over = _isOverFor(statsRef);
+          return KuteActionCardGrid(
+            key: const ValueKey('poly-market-options'),
+            cards: [
+              polyRulesCard(
+                context,
+                subtitle: polyRulesCardLine(
+                  context.l10n,
+                  endDate: event.endDate,
+                  ended: over,
+                  locale: Localizations.localeOf(context).toString(),
+                ),
+                onTap: () => showPolyRulesSheet(
+                  context,
+                  event,
+                  stats: polyMarketStats(
+                    context.l10n,
+                    volume24hr: event.volume24hr,
+                    volume: event.volume,
+                    liquidity: event.liquidity,
+                    endDate: null,
+                    ended: over,
+                    money: (v) => _formatVolume(statsRef, v),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       );
 
   /// The outcome list of an event with many outcomes, as slivers (its
@@ -2121,8 +2547,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final short = gameShortSideNames(wdl.teamAName, wdl.teamBName,
         teams: event.teams.isNotEmpty ? event.teams : _fetchedTeams);
     final teams = (teamA: short.$1, teamB: short.$2);
-    // Solid slabs, each in its outcome's chart-line colour (the draw's
-    // too) with white text, so the buttons read as the chart's traces
+    // Solid slabs, each in exactly its outcome's chart-line colour (the
+    // draw's too) in the ink that reads on it, so the buttons read as the
+    // chart's traces
     // (never green and red, which read as up and down). Each card shows
     // the team/outcome name on top and its live percentage big
     // underneath. Tapping opens the match's three-way slip on it.
@@ -2142,7 +2569,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       // flat integer.
       return Expanded(
         child: Consumer(
-          builder: (context, priceRef, _) => _WdlOutcomeButton(
+          builder: (context, priceRef, _) => PolyGameSideButton(
             label: label,
             pctText: _formatPctShort(
                 _livePriceFor(priceRef, o.tokenId, o.price)),
@@ -2184,6 +2611,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// Builds the chart against [ref] — the chart Consumer's ref, NOT the
   /// sheet's — so everything watched in here repaints the chart alone.
   MarketChart? _buildChartBody(WidgetRef ref) {
+    // A ladder charts its selected line alone, Over and Under, each tag
+    // naming its side and line ("Over 8.5"): never six lines whose tags
+    // all read "Total Corners".
+    if (_ladder != null) return _buildLadderChart(ref);
     if (event.isBinary) {
       final yesIdx =
           event.outcomes.indexWhere((o) => o.name.toLowerCase() == 'yes');
@@ -2229,7 +2660,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         if (tokenId == null || tokenId.isEmpty) return null;
         return MarketChart(
           tokenId: tokenId,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: _kPolyGreen,
           bought: _chartBought(ref, [tokenId]),
           shortMarket: _isShortRound,
@@ -2242,7 +2673,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       }
       return MarketChart(
         lines: lines,
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         // Match the charted line: green for Yes, red for the No-only
         // fallback.
         accentColor: lines.first.color,
@@ -2272,7 +2703,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               livePrice: _livePriceFor(ref, line.tokenId, line.price),
             ),
         ],
-        height: _chartHeight + _chartFill,
+        height: _chartHeight,
         accentColor: winner.first.color,
         bought: _chartBought(ref, [for (final l in winner) l.tokenId]),
         shortMarket: _isShortRound,
@@ -2310,7 +2741,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       if (wdlLines.length >= 2) {
         return MarketChart(
           lines: wdlLines,
-          height: _chartHeight + _chartFill,
+          height: _chartHeight,
           accentColor: colors.teamA,
           bought: _chartBought(ref, [for (final l in wdlLines) l.tokenId]),
           shortMarket: _isShortRound,
@@ -2340,7 +2771,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
     return MarketChart(
       lines: lines,
-      height: polyChartHeightFor(lines.length) + _chartFill,
+      height: _chartHeight,
       accentColor: lines.first.color,
       bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
       shortMarket: _isShortRound,
@@ -2475,105 +2906,148 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     return polymarketSideLabels(name);
   }
 
-  Widget _buildStickyActions(AppColorsExtension c) {
-    // Multi-outcome has no sticky bar — tapping a candidate opens its own
-    // full-screen binary detail (chart + Yes/No). Keeps the list flush to
-    // the bottom (no empty CTA space).
+  /// THE BAR IS THE YES / NO PAIR (founder, 4 November 2026: "On the
+  /// Invest and Short and Yes and No, we have the new floating buttons but
+  /// it should be the same"; kute_bar_context.dart, THE TRADE ROW): one
+  /// prediction's two sides float at the foot as the bar's trade pills, in
+  /// the green and red the pinned pair had, each naming the outcome it
+  /// opens the slip on with its live price ("Yes 62%"), and at the row's
+  /// end the round Sal button that sends the market to a friend ([bar]).
+  /// Own Consumer: the two prices follow the live feed without rebuilding
+  /// the sheet. An event (a multi-outcome list, a game's board) has no
+  /// pair: a candidate opens its own Yes / No page, and the bar is the
+  /// page's Sal pill.
+  Widget _buildTradeBar(KuteBarContext bar) {
+    // A crypto Up-or-Down round in play past its cutoff (crypto_round.dart's
+    // polyRoundBetCutoff: two minutes into a 5m round, the last 3, 5 and
+    // 10 minutes of a 15m, 1h and 4h one) is read-only: from then on only
+    // the next round is bet (founder, 12 November 2026; a tap on its Up or
+    // Down opens no slip, BetSlipSheet.show). The bar's one pill opens the
+    // next round. Before the cutoff the round is bet here as any market.
+    final round = polyCryptoRoundOf(event.slug, endDate: event.endDate);
+    final roundNow = DateTime.now();
+    final cutoff =
+        round == null ? null : polyRoundBetCutoff(round.window.inMinutes);
+    if (round != null && cutoff != null && _roundCutoffTimer == null) {
+      final closesAt = round.end.subtract(cutoff);
+      if (closesAt.isAfter(roundNow)) {
+        _roundCutoffTimer = Timer(closesAt.difference(roundNow), () {
+          if (mounted) setState(() {});
+        });
+      }
+    }
+    if (round != null &&
+        widget.sendPick == null &&
+        polyRoundBuyClosed(event.slug,
+            endDate: event.endDate, now: roundNow)) {
+      final use24h = MediaQuery.maybeAlwaysUse24HourFormatOf(context) ?? false;
+      return KuteBarContextScope(
+        barContext: KuteBarContext.trade(
+          trades: [
+            KuteBarTrade(
+              id: 'next-round',
+              label: context.l10n.predictNextWindow(polyRoundClock(round.end,
+                  locale: context.l10n.localeName, use24h: use24h)),
+              onTap: () => _openNextRound(round),
+            ),
+          ],
+          share: KuteBarShare(barContext: bar),
+          category: SearchCategory.predictions,
+          searchHint: context.l10n.searchPredictionsHint,
+          source: 'predictions',
+        ),
+        child: const SizedBox.shrink(),
+      );
+    }
     if (!event.isBinary) {
       return const SizedBox.shrink();
     }
-    return ClipRect(
-      child: KuteBlur(
-        sigmaX: 18,
-        sigmaY: 18,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 8.h),
-          decoration: BoxDecoration(
-            color: (context.isDark ? c.surface : c.background)
-                .withValues(alpha: 0.55),
-            border: Border(
-              top: BorderSide(color: c.borderSubtle, width: 0.5),
+    return Consumer(builder: (context, priceRef, _) {
+      // The two written off the one price, so they add up to 100.
+      final sides = formatPolyChancePair(_liveYesPrice(priceRef));
+      // Semantic side labels: Over/Under → OVER/UNDER, moneyline → the two
+      // teams (from the reliable vs-header detector), spread → team +
+      // line, etc. — Yes/No is meaningless here.
+      final title = _sideLabelsFor(event.title);
+      // Each pill names the outcome it opens the slip on: the title's pair
+      // matched to the outcomes by name (the slip reads it the same way),
+      // else the outcomes' own names.
+      final names = [for (final o in event.outcomes) o.name];
+      final labels = () {
+        if (names.length != 2) return title;
+        final positive = polymarketPositiveIndex(names);
+        final matched = polymarketBinarySideLabels(names, title);
+        if (matched != null) {
+          return (pos: matched[positive], neg: matched[1 - positive]);
+        }
+        final lower = names.map((n) => n.trim().toLowerCase()).toSet();
+        if (lower.containsAll(const {'yes', 'no'})) return title;
+        return (pos: names[positive], neg: names[1 - positive]);
+      }();
+      // YES / NO outcome tokens keep their localized display labels; any
+      // other side label (teams, Over/Under, Up/Down) passes through.
+      String side(String l) => l.toUpperCase() == 'YES'
+          ? context.l10n.yes
+          : l.toUpperCase() == 'NO'
+              ? context.l10n.betNo
+              : l;
+      // SEND MODE (send_pick_session.dart): each pill says it sends
+      // ("Send Yes 18.5%"), the green and red kept, and the round Sal
+      // button is away: no look-only link while sending.
+      final sending = widget.sendPick != null;
+      String displayFor(String l) => sending
+          ? sendPickTradeLabel(context.l10n, side(l))
+          : side(l);
+      return KuteBarContextScope(
+        barContext: KuteBarContext.trade(
+          trades: [
+            KuteBarTrade(
+              id: 'yes',
+              label: displayFor(labels.pos),
+              value: sides.first,
+              fill: _kPolyGreen,
+              onTap: () => _openBetSlip('yes'),
             ),
-          ),
-          child: SafeArea(
-            top: false,
-            // Own Consumer: the two cent values follow the live feed; the
-            // blurred bar around them does not need to be rebuilt for that.
-            child: Consumer(builder: (context, priceRef, _) {
-              // The two written off the one price, so they add up to 100.
-              final sides = formatPolyChancePair(_liveYesPrice(priceRef));
-              // Semantic side labels: Over/Under → OVER/UNDER, moneyline →
-              // the two teams (from the reliable vs-header detector),
-              // spread → team + line, etc. — Yes/No is meaningless here.
-              final title = _sideLabelsFor(event.title);
-              // Each button names the outcome it opens the slip on: the
-              // title's pair matched to the outcomes by name (the slip
-              // reads it the same way), else the outcomes' own names.
-              final names = [for (final o in event.outcomes) o.name];
-              final labels = () {
-                if (names.length != 2) return title;
-                final positive = polymarketPositiveIndex(names);
-                final matched = polymarketBinarySideLabels(names, title);
-                if (matched != null) {
-                  return (
-                    pos: matched[positive],
-                    neg: matched[1 - positive]
-                  );
-                }
-                final lower = names.map((n) => n.trim().toLowerCase()).toSet();
-                if (lower.containsAll(const {'yes', 'no'})) return title;
-                return (pos: names[positive], neg: names[1 - positive]);
-              }();
-              // Shared badge CTA (disc icon + glow). YES/NO outcome
-              // tokens keep their localized display labels; any other
-              // semantic side label (teams, Over/Under) passes through
-              // with the generic bolt glyph — exactly the old
-              // `_ActionButton` logic, now at the call site.
-              // Up/Down sides take the browse card's arrows.
-              IconData iconFor(String l) => switch (polymarketSideGlyph(l)) {
-                    PolymarketSideGlyph.yes => Icons.check_rounded,
-                    PolymarketSideGlyph.no => Icons.close_rounded,
-                    PolymarketSideGlyph.up => Icons.arrow_upward_rounded,
-                    PolymarketSideGlyph.down => Icons.arrow_downward_rounded,
-                    PolymarketSideGlyph.neutral => Icons.bolt_rounded,
-                  };
-              String displayFor(String l) => l.toUpperCase() == 'YES'
-                  ? context.l10n.yes
-                  : l.toUpperCase() == 'NO'
-                      ? context.l10n.betNo
-                      : l;
-              return Row(
-                children: [
-                  Expanded(
-                    child: MarketPairButton(
-                      label: displayFor(labels.pos),
-                      value: sides.first,
-                      icon: iconFor(labels.pos),
-                      iconDisc: true,
-                      glow: true,
-                      color: _kPolyGreen,
-                      onTap: () => _openBetSlip('yes'),
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: MarketPairButton(
-                      label: displayFor(labels.neg),
-                      value: sides.second,
-                      icon: iconFor(labels.neg),
-                      iconDisc: true,
-                      glow: true,
-                      color: _kPolyRed,
-                      onTap: () => _openBetSlip('no'),
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
+            KuteBarTrade(
+              id: 'no',
+              label: displayFor(labels.neg),
+              value: sides.second,
+              fill: _kPolyRed,
+              onTap: () => _openBetSlip('no'),
+            ),
+          ],
+          share: sending ? null : KuteBarShare(barContext: bar),
+          category: SearchCategory.predictions,
+          searchHint: context.l10n.searchPredictionsHint,
+          source: 'predictions',
         ),
-      ),
-    );
+        child: const SizedBox.shrink(),
+      );
+    });
+  }
+
+  /// The round after [round] (the one in play this sheet shows read-only):
+  /// read from its series and opened as its own market, where it can be
+  /// bet. "No prices yet" while Polymarket does not list it.
+  Future<void> _openNextRound(PolyCryptoRound round) async {
+    HapticFeedback.selectionClick();
+    final next = await ref.read(polyRoundWindowReaderProvider)(
+        round.asset,
+        round.end.millisecondsSinceEpoch ~/ 1000,
+        round.window.inMinutes);
+    if (!mounted) return;
+    if (next == null || next.closed || !next.active) {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.predictRoundNoPricesYet,
+          error: false);
+      return;
+    }
+    MarketDetailSheet.show(context,
+        event: polyRoundAsEvent(next, fallbackTitle: event.title),
+        onDeposit: widget.onDeposit,
+        ledgerWalletId: widget.ledgerWalletId,
+        source: widget.source);
   }
 
   /// Tap a multi-outcome row. Only TRUE candidate-pickers — where the
@@ -2607,7 +3081,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final binaryEvent = PolymarketEvent(
       id: '${event.id}-${cand.name}',
       slug: event.slug,
+      // The candidate by its name on the event (a share link names it so);
+      // the page, its slip and its cards are titled by the market's own
+      // question, never the bare name ("December 31, 2026").
       title: cand.name,
+      marketQuestion: polyMarketDisplayTitle(event.title,
+          question: cand.question, itemTitle: cand.name),
       imageUrl: crest ?? cand.imageUrl ?? event.imageUrl,
       volume: cand.volume ?? 0,
       liquidity: event.liquidity,
@@ -2645,6 +3124,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       onDeposit: widget.onDeposit,
       ledgerWalletId: widget.ledgerWalletId,
       source: widget.source,
+      sendPick: widget.sendPick,
     );
   }
 
@@ -2704,7 +3184,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       context,
       event: event,
       negRisk: event.negRisk,
-      marketQuestion: event.title,
+      marketQuestion: event.displayTitle,
       marketSlug: event.slug,
       marketImage: event.imageUrl,
       outcomes: event.outcomes,
@@ -2717,158 +3197,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       sideLabelNeg: labels.neg,
       outcomeColors: outcomeColors,
       source: widget.source,
-    );
-  }
-}
-
-/// The name of a kind of game market, for the "More markets" pills and
-/// headings.
-String gameMarketGroupLabel(AppLocalizations l10n, String key) => switch (key) {
-      'winner' => l10n.betGroupMoneyline,
-      'spreads' => l10n.betGroupSpread,
-      'totals' => l10n.betGroupTotals,
-      'halves' => l10n.polyGroupHalves,
-      'quarters' => l10n.polyGroupQuarters,
-      _ => l10n.betGroupProps,
-    };
-
-/// One outcome button of a game's board or a Win/Draw/Lose row: the
-/// team/outcome name on top and the live percentage big underneath. An
-/// outcome with a line on the chart is a solid slab of that line's colour
-/// with white text; one without (an Over/Under the chart does not draw)
-/// is a neutral surface card. Press language (scale 0.97, medium haptic,
-/// reduce-motion aware) matches `MarketPairButton`.
-class _WdlOutcomeButton extends StatefulWidget {
-  final String label;
-
-  /// The side's crest (a team's badge or flag), before its name.
-  final String? crestUrl;
-  final String pctText;
-  final Color accent;
-
-  /// The colour of this outcome's line on the chart above. When set the
-  /// card is a solid slab of it ([polyOutcomeFill]) with white text, the
-  /// weight of the Up/Down buttons, so each side reads as its line.
-  final Color? lineColor;
-  final VoidCallback onTap;
-
-  const _WdlOutcomeButton({
-    required this.label,
-    this.crestUrl,
-    required this.pctText,
-    required this.accent,
-    this.lineColor,
-    required this.onTap,
-  });
-
-  @override
-  State<_WdlOutcomeButton> createState() => _WdlOutcomeButtonState();
-}
-
-class _WdlOutcomeButtonState extends State<_WdlOutcomeButton> {
-  bool _pressed = false;
-
-  void _setPressed(bool v) {
-    if (_pressed == v) return;
-    setState(() => _pressed = v);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
-    final line = widget.lineColor;
-    final fill = line == null ? null : polyOutcomeFill(line);
-    return GestureDetector(
-      onTapDown: (_) => _setPressed(true),
-      onTapCancel: () => _setPressed(false),
-      onTapUp: (_) => _setPressed(false),
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        widget.onTap();
-      },
-      child: AnimatedScale(
-        scale: (_pressed && !reduceMotion) ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeInOut,
-        child: Container(
-          height: 62.h,
-          padding: EdgeInsets.symmetric(horizontal: 6.w),
-          decoration: fill == null
-              ? BoxDecoration(
-                  color: c.surface,
-                  borderRadius: BorderRadius.circular(16.r),
-                  border: Border.all(color: c.borderSubtle, width: 0.5),
-                )
-              // MarketPairButton's slab: the solid fill with a faint top
-              // highlight so it reads as pressable, not flat paint.
-              : BoxDecoration(
-                  color: fill,
-                  borderRadius: BorderRadius.circular(16.r),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color.alphaBlend(
-                          Colors.white.withValues(alpha: 0.08), fill),
-                      fill,
-                    ],
-                    stops: const [0.0, 0.55],
-                  ),
-                ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.crestUrl != null &&
-                      widget.crestUrl!.isNotEmpty) ...[
-                    PolyCrestImage(
-                      url: widget.crestUrl!,
-                      size: 16.sp,
-                      radius: 4.r,
-                      fit: BoxFit.contain,
-                      fallback: const SizedBox.shrink(),
-                    ),
-                    SizedBox(width: 5.w),
-                  ],
-                  Flexible(
-                    child: Text(
-                      widget.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        // Full white: the fill is set for 4.5:1 on it.
-                        color: fill == null ? c.textSecondary : Colors.white,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 3.h),
-              RollingNumberText(
-                text: widget.pctText,
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 250),
-                style: TextStyle(
-                  color: fill == null ? widget.accent : Colors.white,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                  height: 1.0,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      sendPick: widget.sendPick,
     );
   }
 }
@@ -2924,26 +3253,6 @@ class _ExpandableOutcomeLegend extends StatefulWidget {
   /// range its tally is in); null for none.
   final String? Function(PolymarketOutcome)? noteFor;
 
-  /// Whether rows lead with the outcome's image, or with the dot of its
-  /// chart line when it has none ([PolyOutcomeLeading]). A list with no
-  /// image and no charted outcome is text only either way.
-  final bool showThumbs;
-
-  /// Every row's figure in the primary text colour, instead of the colour
-  /// of the row's chart line.
-  final bool calmFigures;
-
-  /// A game's "More markets": grouped by kind of market
-  /// ([gameMarketGroupOf]) instead of the plain list's sections.
-  final bool gameGroups;
-
-  /// Show this group alone, under no heading; null for every group.
-  final String? onlyGroup;
-
-  /// With every group listed, the rows a group shows before its "Show N
-  /// more" row; null to list each group whole.
-  final int? collapseAfter;
-
   /// The name a row shows; the outcome's own when null.
   final String Function(PolymarketOutcome)? nameFor;
   const _ExpandableOutcomeLegend({
@@ -2954,11 +3263,6 @@ class _ExpandableOutcomeLegend extends StatefulWidget {
     // TODO(dead-code): optional parameter never passed — candidate for removal.
     this.sideLabelsFor,
     this.noteFor,
-    this.showThumbs = true,
-    this.calmFigures = false,
-    this.gameGroups = false,
-    this.onlyGroup,
-    this.collapseAfter,
     this.nameFor,
   });
 
@@ -2979,11 +3283,7 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
 
   String _groupFor(String name) => _groupMemo[name] ??= _computeGroupFor(name);
 
-  /// Groups opened past their first rows ("Show N more").
-  final Set<String> _opened = {};
-
   String _computeGroupFor(String name) {
-    if (widget.gameGroups) return gameMarketGroupOf(name).key;
     final n = name.toLowerCase();
     if (_kGroupTotalsRegex.hasMatch(n) && _kGroupDigitRegex.hasMatch(n)) {
       return 'Totals';
@@ -3003,7 +3303,6 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
   /// Localized display label for a `_groupFor` bucket. The bucket ids stay
   /// English (they double as sort keys); only the rendered header changes.
   String _groupLabel(BuildContext context, String g) {
-    if (widget.gameGroups) return gameMarketGroupLabel(context.l10n, g);
     switch (g) {
       case 'Moneyline':
         return context.l10n.betGroupMoneyline;
@@ -3024,31 +3323,30 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
     final display = widget.outcomes;
 
     // Group by section, preserving the (price-sorted) order within each.
-    final order = widget.gameGroups
-        ? [for (final g in GameMarketGroup.values) g.key]
-        : const ['Moneyline', 'Spread', 'Totals', 'Props', 'Other'];
+    const order = ['Moneyline', 'Spread', 'Totals', 'Props', 'Other'];
     final byGroup = <String, List<int>>{};
     for (int i = 0; i < display.length; i++) {
       (byGroup[_groupFor(display[i].name)] ??= []).add(i);
     }
-    final only = widget.onlyGroup;
     final groups = [
       ...order.where(byGroup.containsKey),
       ...byGroup.keys.where((g) => !order.contains(g)),
-    ].where((g) => only == null || g == only).toList();
-    final showHeaders = only == null && groups.length > 1;
+    ];
+    final showHeaders = groups.length > 1;
 
     // One leading width for the whole list: the image's when any outcome
     // has one, the dot's when none has but the chart draws lines, and
     // none at all otherwise. Worked out once, not once per row.
     final anyImage =
         display.any((o) => PolyOutcomeLeading.hasImage(o.imageUrl));
-    final leads = widget.showThumbs &&
-        PolyOutcomeLeading.listLeads(
-          anyImage: anyImage,
-          anyLine: widget.lineColorFor != null &&
-              display.any((o) => widget.lineColorFor!(o) != null),
-        );
+    // Rows lead with the outcome's image, or with the dot of its chart
+    // line when it has none ([PolyOutcomeLeading]); a list with neither
+    // is text only.
+    final leads = PolyOutcomeLeading.listLeads(
+      anyImage: anyImage,
+      anyLine: widget.lineColorFor != null &&
+          display.any((o) => widget.lineColorFor!(o) != null),
+    );
 
     // What the list shows, top to bottom; each entry is built only when
     // it scrolls into view.
@@ -3070,37 +3368,9 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
               ),
             ));
       }
-      final rows = byGroup[g]!;
-      final limit = widget.collapseAfter;
-      final folded = limit != null &&
-          showHeaders &&
-          rows.length > limit + 1 &&
-          !_opened.contains(g);
-      for (final i in folded ? rows.take(limit) : rows) {
+      for (final i in byGroup[g]!) {
         entries.add((context) =>
             _buildRow(context, c, i, anyImage: anyImage, leads: leads));
-      }
-      if (folded) {
-        entries.add((context) => InkWell(
-              borderRadius: BorderRadius.circular(12.r),
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _opened.add(g));
-              },
-              child: Padding(
-                padding:
-                    EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
-                child: Text(
-                  context.l10n.salShowMore(rows.length - limit),
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-              ),
-            ));
       }
     }
 
@@ -3237,9 +3507,7 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
                 children: [
                   () {
                     final style = TextStyle(
-                      color: widget.calmFigures
-                          ? c.textPrimary
-                          : (lineColor ?? c.textPrimary),
+                      color: lineColor ?? c.textPrimary,
                       fontSize: 15.sp,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.2,
@@ -3282,9 +3550,38 @@ class _ExpandableOutcomeLegendState extends State<_ExpandableOutcomeLegend> {
   }
 }
 
-// The paired badge CTA now lives in the shared `MarketPairButton`
-// (disc icon + glow configuration); the YES/NO icon + label mapping
-// moved to the call site above.
+// The Yes / No pair is the floating bar's trade row ([_buildTradeBar] above,
+// kute_bar_trade_row.dart).
+
+/// A crypto round Gamma read by its window ([Btc5MinEvent]) as the thin
+/// market the sheets open: its slug, title, end, image and the Up and
+/// Down outcomes with their tokens. The round sheet resolves the asset
+/// from the slug; the market sheet reads the rest by itself.
+PolymarketEvent polyRoundAsEvent(Btc5MinEvent ev, {String? fallbackTitle}) =>
+    PolymarketEvent(
+      id: ev.slug,
+      slug: ev.slug,
+      title: ev.title.isNotEmpty ? ev.title : fallbackTitle ?? ev.slug,
+      imageUrl: ev.image,
+      volume: 0,
+      volume24hr: 0,
+      liquidity: 100000,
+      category: 'crypto',
+      endDate: ev.endDate,
+      conditionId: ev.conditionId ?? '',
+      outcomes: [
+        PolymarketOutcome(
+            name: 'Up',
+            price: ev.upPrice,
+            tokenId: ev.upTokenId,
+            conditionId: ev.conditionId),
+        PolymarketOutcome(
+            name: 'Down',
+            price: ev.downPrice,
+            tokenId: ev.downTokenId,
+            conditionId: ev.conditionId),
+      ],
+    );
 
 /// Detail sheet for the 5-min Up/Down crypto markets. Mirrors the
 /// standard `MarketDetailSheet` chrome (close button, the Instant chip,
@@ -3298,11 +3595,17 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
   final VoidCallback? onDeposit;
   final String? ledgerWalletId;
 
+  /// The round length the sheet shows (a coin's row on Predictions ›
+  /// Crypto › 5 Min, 15 Min, 1 Hour or 4 Hours opens its round at the
+  /// page's length); null follows the shared choice.
+  final int? minutes;
+
   const FiveMinMarketDetailSheet({
     super.key,
     required this.event,
     this.onDeposit,
     this.ledgerWalletId,
+    this.minutes,
   });
 
   static const routeName = 'polymarket-5min-market-detail-sheet';
@@ -3312,38 +3615,25 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
     required PolymarketEvent event,
     VoidCallback? onDeposit,
     String? ledgerWalletId,
+    int? minutes,
   }) {
     // Skip the slide-up transition entirely when the OS asks to reduce
     // motion (the route still appears, just without the animated slide).
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        pageBuilder: (_, __, ___) => FastBetScope(
+        builder: (_) => FastBetScope(
           active: ledgerWalletId == null && polyIsFastBetRound(event.slug),
           child: FiveMinMarketDetailSheet(
             event: event,
             onDeposit: onDeposit,
             ledgerWalletId: ledgerWalletId,
+            minutes: minutes,
           ),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     );
   }
@@ -3406,6 +3696,7 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
                           child: CryptoPredictBanner(
                             config: config,
                             onDeposit: onDeposit,
+                            roundMinutes: minutes,
                           ),
                         )
                       else
@@ -3413,6 +3704,7 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
                           config: config,
                           onDeposit: onDeposit,
                           ledgerWalletId: ledgerWalletId,
+                          roundMinutes: minutes,
                         ),
                     ],
                   ),

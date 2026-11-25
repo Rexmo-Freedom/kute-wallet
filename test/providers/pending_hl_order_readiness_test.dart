@@ -18,7 +18,9 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
+import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/foreground_timer.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
@@ -181,7 +183,8 @@ void main() {
   PendingHlOrderIntent terminal() => history.lastWhere((s) =>
       s != null &&
       (s.status == PendingHlOrderStatus.done ||
-          s.status == PendingHlOrderStatus.failed))!;
+          s.status == PendingHlOrderStatus.failed ||
+          s.status == PendingHlOrderStatus.unconfirmed))!;
 
   setUp(() {
     rail = FakeHyperliquidMoveRail();
@@ -630,5 +633,227 @@ void main() {
         hlTraceOf(['0xa', '0xB'], open: [open('0xb')], fills: const []).found!;
     expect(resting.kind, HlOrderResultKind.resting);
     expect(resting.oid, 3);
+  });
+
+  // The funded order's send timed out (a slow builder dex): the venue may
+  // have taken it. It is looked up first, the order still `placing`, and
+  // never sent again. The founder's OPENAI short "failed" in the slip and
+  // then turned out placed.
+  group('a send with no answer from the venue', () {
+    test('found on the account: placed, never shown as failed', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        final looked = <List<String>>[];
+        queue(placement, trace: (cloids) {
+          looked.add(cloids);
+          return const HlSentOrderTrace.found(HlOrderResult(
+              kind: HlOrderResultKind.filled,
+              oid: 11,
+              cloid: 'c1',
+              filledSz: 0.0003,
+              avgPx: 60000));
+        });
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 3));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(looked.single, ['c1']);
+        expect(history.whereType<PendingHlOrderIntent>().map((s) => s.status),
+            isNot(contains(PendingHlOrderStatus.failed)));
+        final done = terminal();
+        expect(done.status, PendingHlOrderStatus.done);
+        expect(done.result!.oid, 11);
+      });
+    });
+
+    // The exchange was still taking the order when the first read came
+    // back empty. Before, that first empty read was believed: "failed",
+    // and the position then appeared.
+    test('found only on a later read: placed, never shown as failed', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        var reads = 0;
+        queue(placement,
+            trace: (_) => ++reads < 3
+                ? const HlSentOrderTrace.none()
+                : const HlSentOrderTrace.found(HlOrderResult(
+                    kind: HlOrderResultKind.filled,
+                    oid: 12,
+                    cloid: 'c1',
+                    filledSz: 0.0003,
+                    avgPx: 60000)));
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 10));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(history.whereType<PendingHlOrderIntent>().map((s) => s.status),
+            isNot(contains(PendingHlOrderStatus.failed)));
+        final done = terminal();
+        expect(done.status, PendingHlOrderStatus.done);
+        expect(done.result!.oid, 12);
+      });
+    });
+
+    test('nowhere on the account for the whole window: not placed, never '
+        'sent again', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        queue(placement);
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 25));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final failed = terminal();
+        expect(failed.status, PendingHlOrderStatus.failed);
+        expect(failed.errorMessage,
+            'This order did not go through. Nothing was placed.');
+      });
+    });
+
+    test('unreadable: unconfirmed (never failed), never sent again', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        final c =
+            queue(placement, trace: (_) => const HlSentOrderTrace.unknown());
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 25));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(history.whereType<PendingHlOrderIntent>().map((s) => s.status),
+            isNot(contains(PendingHlOrderStatus.failed)));
+        final end = terminal();
+        expect(end.status, PendingHlOrderStatus.unconfirmed);
+        expect(end.errorMessage, contains('not confirmed'));
+        // The Portfolio tile keeps confirming; it never says it failed.
+        final tile = c.read(placingHyperliquidOrderProvider).single;
+        expect(tile.status, PlacingHlOrderStatus.placing);
+        expect(tile.stepLabel, 'Confirming with the exchange…');
+        expect(
+            events.where((e) =>
+                e.$1 == 'order_funding_failed' ||
+                e.$1 == 'hyperliquid_order_failed'),
+            isEmpty);
+      });
+    });
+
+    test('the notifier already looked it up: one read more, then unconfirmed',
+        () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true,
+            refusals: [const HyperliquidOrderUnconfirmedException()]);
+        var reads = 0;
+        queue(placement, trace: (_) {
+          reads++;
+          return const HlSentOrderTrace.unknown();
+        });
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 8));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(reads, lessThanOrEqualTo(3));
+        expect(terminal().status, PendingHlOrderStatus.unconfirmed);
+      });
+    });
+  });
+
+  // Founder, on device: "left on Face ID, sometimes it says the
+  // investment failed but it didn't really fail". A funding leg that is
+  // slow but lands, and an order whose cash is credited late, with the app
+  // inactive behind a Face ID sheet for part of it: nothing on the way
+  // says failed, and the order ends placed with its receipt.
+  group('a slow funding leg that lands', () {
+    var foreground = true;
+    setUp(() {
+      foreground = true;
+      ForegroundTimer.debugForeground = () => foreground;
+    });
+    tearDown(() => ForegroundTimer.debugForeground = null);
+
+    test('the move credited after 8 minutes, Face ID up for 2 of them: '
+        'placed, never failed', () {
+      fakeAsync((async) {
+        final placement = _Placement(resizable: true);
+        final c = queue(placement);
+        final tiles = <PlacingHlOrderStatus>[];
+        c.listen<List<PlacingHlOrder>>(placingHyperliquidOrderProvider,
+            (_, next) => tiles.addAll(next.map((t) => t.status)));
+        async.flushMicrotasks();
+        async.elapse(const Duration(minutes: 3));
+        // A Face ID sheet (another approval, the lock screen) keeps the
+        // app inactive for two minutes while the money is on its way.
+        foreground = false;
+        async.elapse(const Duration(minutes: 2));
+        foreground = true;
+        async.elapse(const Duration(minutes: 3));
+        // Waiting, never failed, nothing sent before the money is there.
+        expect(placement.placed, isEmpty);
+        expect(c.read(pendingHyperliquidOrderProvider)!.status,
+            PendingHlOrderStatus.awaitingBalance);
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 5));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(history.whereType<PendingHlOrderIntent>().map((s) => s.status),
+            isNot(contains(PendingHlOrderStatus.failed)));
+        final done = terminal();
+        expect(done.status, PendingHlOrderStatus.done);
+        expect(done.result!.oid, 7);
+        expect(tiles, isNot(contains(PlacingHlOrderStatus.failed)));
+        expect(
+            events.where((e) =>
+                e.$1 == 'order_funding_failed' ||
+                e.$1 == 'hyperliquid_autofire_failed'),
+            isEmpty);
+      });
+    });
+
+    test('the cash credited to the market late (45 s, the app inactive '
+        'meanwhile): the tile says confirming, then placed', () {
+      fakeAsync((async) {
+        final credit = Completer<void>();
+        final placement =
+            _Placement(resizable: true, targetCredit: credit.future);
+        final c = queue(placement);
+        final tiles = <PlacingHlOrder>[];
+        c.listen<List<PlacingHlOrder>>(placingHyperliquidOrderProvider,
+            (_, next) => tiles.addAll(next));
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 2));
+        // The order is on its way and the cash is still being credited:
+        // the Face ID sheet goes up for 20 s, then 25 s more on screen.
+        foreground = false;
+        async.elapse(const Duration(seconds: 20));
+        foreground = true;
+        async.elapse(const Duration(seconds: 20));
+        // 42 s on the wall clock, 22 s on screen: the watchdog has not
+        // run out (a wall-clock one would have, with the sheet up).
+        expect(tiles.last.status, PlacingHlOrderStatus.placing);
+        expect(tiles.last.stepLabel, isNot('Confirming with the exchange…'));
+        async.elapse(const Duration(seconds: 7));
+        expect(c.read(pendingHyperliquidOrderProvider)!.status,
+            PendingHlOrderStatus.placing);
+        // Past the watchdog on screen time: confirming, never failed.
+        expect(tiles.last.status, PlacingHlOrderStatus.placing);
+        expect(tiles.last.stepLabel, 'Confirming with the exchange…');
+        credit.complete();
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(terminal().status, PendingHlOrderStatus.done);
+        expect(tiles.map((t) => t.status),
+            isNot(contains(PlacingHlOrderStatus.failed)));
+      });
+    });
   });
 }

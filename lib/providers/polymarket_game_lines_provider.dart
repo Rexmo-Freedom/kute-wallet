@@ -11,6 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/services/polymarket/market_protocol.dart';
+import 'package:kute/services/polymarket/shown_price.dart'
+    show polyGammaShownPrice;
 
 /// One two-sided market of a match, as a compact row shows it.
 class PolyGameLine {
@@ -36,6 +38,11 @@ class PolyGameLine {
   /// In-play order delay in seconds (Gamma `secondsDelay`); 0 when none.
   final int secondsDelay;
 
+  /// Its book is wider than 10¢ and has never traded: no price to show
+  /// ([polyGammaShownPrice]), so never a game's main line while another
+  /// line of its kind trades.
+  final bool unpriced;
+
   const PolyGameLine({
     required this.kind,
     required this.question,
@@ -49,6 +56,7 @@ class PolyGameLine {
     this.conditionId,
     this.gammaMarketId,
     this.secondsDelay = 0,
+    this.unpriced = false,
   });
 
   /// This market as an outcome of its event, the shape the detail sheet
@@ -168,6 +176,7 @@ class PolyGameLines {
             'conditionId': o.conditionId,
             'id': o.gammaMarketId,
             'closed': l.closed,
+            'unpriced': o.unpriced,
           },
     ];
     if (markets.isEmpty) return empty;
@@ -196,6 +205,11 @@ class PolyGameLines {
             .toList();
         if (matching.isNotEmpty) pool = matching;
       }
+      // A line nobody has traded sits at Gamma's untouched figure (a
+      // football match's "Hull City (-4.5)" at 44.5%, its book 1¢ to
+      // 89¢): it reads as the most even line and is no line at all.
+      final traded = pool.where((c) => !c.unpriced).toList();
+      if (traded.isNotEmpty) pool = traded;
       pool.sort((a, b) =>
           (a.priceA - 0.5).abs().compareTo((b.priceA - 0.5).abs()));
       return pool.first;
@@ -240,6 +254,8 @@ class PolyGameLines {
       conditionId: m['conditionId'] as String?,
       gammaMarketId: m['id']?.toString(),
       secondsDelay: _num(m['secondsDelay'])?.toInt() ?? 0,
+      unpriced: m['unpriced'] == true ||
+          polyGammaShownPrice(m, prices[0]!).unpriced,
     );
   }
 

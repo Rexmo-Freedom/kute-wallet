@@ -1,13 +1,15 @@
 // lib/services/polymarket/current_round.dart
 //
-// The round in play of a crypto Up-or-Down series (founder, 23 October
+// The next round of a crypto Up-or-Down series (founder, 23 October
 // 2026). A funded bet on a short round can land after the round ended, or
 // with the price past what was approved: nothing is placed and the money
-// stays as Predictions cash. The slip's Retry then opens the series' round
-// in play now, with the same side and stake, for the person to confirm:
-// a new round is a new market (its own condition and tokens, a new slug
-// every window), so it is resolved from the series, never from the old
-// market's id, and never placed by itself.
+// stays as Predictions cash. The slip's Retry then opens the series' NEXT
+// round, the one after the round in play now (founder, 12 November 2026:
+// people bet only on the next round, never the one in play), with the
+// same side and stake, for the person to confirm: a new round is a new
+// market (its own condition and tokens, a new slug every window), so it
+// is resolved from the series, never from the old market's id, and never
+// placed by itself.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/polymarket_model.dart'
@@ -47,12 +49,12 @@ final polyRoundWindowReaderProvider = Provider<PolyRoundWindowReader>(
   return (asset: round.asset, minutes: minutes);
 }
 
-/// The round of [eventSlug]'s series in play at [now]: the window that
-/// holds [now], else the next one (Polymarket lists a window shortly
-/// before it opens). Only an event taking orders with both sides' tokens
-/// counts, and never the round [eventSlug] itself. Null when the series
-/// is not one ([polyRoundSeriesOf]) or nothing answers.
-Future<Btc5MinEvent?> resolveCurrentPolyRound(
+/// The next round of [eventSlug]'s series at [now]: the window after the
+/// one that holds [now], never the one in play. Only an event taking
+/// orders with both sides' tokens counts, and never the round [eventSlug]
+/// itself. Null when the series is not one ([polyRoundSeriesOf]) or
+/// nothing answers.
+Future<Btc5MinEvent?> resolveNextPolyRound(
   PolyRoundWindowReader read,
   String? eventSlug, {
   DateTime? now,
@@ -64,7 +66,7 @@ Future<Btc5MinEvent?> resolveCurrentPolyRound(
   final epoch = at.millisecondsSinceEpoch ~/ 1000;
   final current = (epoch ~/ span) * span;
   final original = eventSlug!.trim().toLowerCase();
-  for (final start in [current, current + span]) {
+  for (final start in [current + span]) {
     final slug = '${series.asset}-updown-${series.minutes}m-$start';
     if (slug == original) continue;
     Btc5MinEvent? event;

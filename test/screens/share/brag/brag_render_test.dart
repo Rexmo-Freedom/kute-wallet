@@ -1,0 +1,235 @@
+// The brag cards as images, for a look by eye: a big win (with its
+// all-time line over its holdings, and without it: the holdings' rows
+// alone), the founder's card (+$3.43 on the line, with none, two and five
+// positions open, in English and German), a small win, a
+// loss, flat, and the positions (a winning prediction, a losing Investing
+// position), a won prediction (resolved), the P&L card (pnl_share_card.dart, up and down), German and
+// Japanese, at 1080 × 1350 with Sal's real stills.
+// Every frame lays out without an overflow; the PNGs are written only
+// when asked:
+//
+//   BRAG_FRAMES=<dir> flutter test test/screens/share/brag/brag_render_test.dart
+//
+// Asked, the renders go to the network for the real logos a phone would
+// load: the coins' (HlCoinIcon) and two live Polymarket pictures for the
+// prediction rows (an esports crest, an economy market's picture).
+// BRAG_OFFLINE=1 writes them without the network (the fixtures' tiles).
+
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/share/brag/brag_card.dart';
+import 'package:kute/models/balance_history.dart' show BalanceRange;
+import 'package:kute/screens/share/brag/brag_data.dart';
+import 'package:kute/screens/share/brag/pnl_share_card.dart';
+import 'package:kute/screens/share/cards/share_card_frame.dart'
+    show ShareCardSal;
+import 'package:kute/theme/app_theme.dart';
+
+import 'brag_fixtures.dart';
+import '../cards/share_card_fixtures.dart' show kShareLongQuestion;
+import '../cards/share_card_test_fonts.dart'
+    show loadShareCardFonts, loadShareCardSal;
+import '../share_artwork.dart';
+
+/// A live Polymarket event's picture for [tag] (its first team's crest
+/// when it has teams); null offline.
+Future<String?> _livePicture(String tag) async {
+  final client = HttpClient();
+  try {
+    final req = await client
+        .getUrl(Uri.parse('https://gamma-api.polymarket.com/events/keyset'
+            '?closed=false&order=volume24hr&ascending=false&limit=10'
+            '&tag_slug=$tag'))
+        .timeout(const Duration(seconds: 10));
+    final res = await req.close().timeout(const Duration(seconds: 10));
+    final body = jsonDecode(await res.transform(utf8.decoder).join());
+    for (final e in (body is Map ? body['events'] as List? : null) ?? []) {
+      if (e is! Map) continue;
+      for (final t in (e['teams'] as List? ?? const [])) {
+        final logo = t is Map ? t['logo'] as String? : null;
+        if (logo != null && logo.isNotEmpty) return logo;
+      }
+      final image = e['image'] as String?;
+      if (image != null && image.isNotEmpty) return image;
+    }
+  } catch (_) {
+  } finally {
+    client.close(force: true);
+  }
+  return null;
+}
+
+void main() {
+  final dir = Platform.environment['BRAG_FRAMES'];
+  final online = dir != null && Platform.environment['BRAG_OFFLINE'] == null;
+
+  testWidgets('brag cards render to PNG', (tester) async {
+    // The share cards' fonts: Inter and the Japanese fallback.
+    await tester.runAsync(loadShareCardFonts);
+    ShareCardSal.debugReset();
+    addTearDown(ShareCardSal.debugReset);
+    await tester.runAsync(loadShareCardSal);
+    expect(ShareCardSal.peek(), isNotNull, reason: "Sal's face decodes");
+    tester.view.physicalSize = const Size(1080, 1350);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    String? geng;
+    String? fed;
+    if (online) {
+      HttpOverrides.global = null;
+      useShareTestArtwork(online: true);
+      geng = await tester.runAsync<String?>(() => _livePicture('esports'));
+      fed = await tester.runAsync<String?>(() => _livePicture('economy'));
+    }
+    // The P&L card (pnl_share_card.dart): the frame's pieces too.
+    BragPnl pnl({double usd = 128.4, String text = r'+$128.40'}) => BragPnl(
+          title: 'My profits',
+          link: 'https://backend.kutewallet.com/m/investing',
+          referralCode: kBragTestCode,
+          range: BalanceRange.month,
+          allTime: BragResult(usd: usd, text: text),
+          series: kFakeBragPortfolioSeries,
+        );
+    const en = Locale('en');
+    final frames = <String, (BragData, Locale)>{
+      'portfolio_series': (
+        fakeBragPortfolio(series: kFakeBragPortfolioSeries),
+        en
+      ),
+      'portfolio_series_more': (
+        fakeBragPortfolio(series: kFakeBragPortfolioSeries, open: 7),
+        en
+      ),
+      // The founder's card (7 November 2026): none, two and five open.
+      'portfolio_0': (fakeBragFounderPortfolio(holdings: 0, open: 0), en),
+      'portfolio_2': (fakeBragFounderPortfolio(holdings: 2, open: 2), en),
+      'portfolio_5': (fakeBragFounderPortfolio(), en),
+      'portfolio_5_no_line': (fakeBragFounderPortfolio(series: false), en),
+      'de_portfolio_0': (
+        fakeBragFounderPortfolio(holdings: 0, open: 0, title: 'Mein Portfolio'),
+        const Locale('de')
+      ),
+      'de_portfolio_2': (
+        fakeBragFounderPortfolio(holdings: 2, open: 2, title: 'Mein Portfolio'),
+        const Locale('de')
+      ),
+      'de_portfolio_5': (
+        fakeBragFounderPortfolio(title: 'Mein Portfolio'),
+        const Locale('de')
+      ),
+      'big_win_more': (
+        fakeBragPortfolio(gengImage: geng, fedImage: fed, open: 6),
+        en
+      ),
+      'big_win': (fakeBragPortfolio(gengImage: geng, fedImage: fed), en),
+      'small_win': (fakeBragSmallWinPortfolio(), en),
+      'loss': (fakeBragLosingPortfolio(), en),
+      'flat': (fakeBragFlatPortfolio(), en),
+      'position_win': (fakeBragPosition(), en),
+      'position_loss': (fakeBragLosingPosition(), en),
+      // Long titles (founder, 2 November 2026: "try to not cut titles").
+      'position_long_title': (
+        fakeBragPosition(title: 'LoL Worlds 2026 Final: Gen.G vs T1'),
+        en
+      ),
+      'de_position_long_title': (
+        fakeBragPosition(title: 'LoL Worlds 2026 Final: Gen.G vs T1'),
+        const Locale('de')
+      ),
+      'ja_position_long_title': (
+        fakeBragPosition(title: 'LoL Worlds 2026 Final: Gen.G vs T1'),
+        const Locale('ja')
+      ),
+      'position_92_chars': (fakeBragPosition(title: kShareLongQuestion), en),
+      'position_win_short': (fakeBragWinningShort(), en),
+      // A won prediction (founder, 4 November 2026: past wins brag too).
+      'won': (fakeBragWin(), en),
+      'won_named_long': (
+        fakeBragWin(title: 'LoL Worlds 2026 Final: Gen.G vs T1', side: 'Gen.G'),
+        en
+      ),
+      'de_won': (fakeBragWin(), const Locale('de')),
+      'ja_won': (fakeBragWin(), const Locale('ja')),
+      'fi_won': (fakeBragWin(), const Locale('fi')),
+      'pnl_win': (pnl(), en),
+      'pnl_loss': (pnl(usd: -42.1, text: '−\$42.10'), en),
+      'de_position_win_short': (fakeBragWinningShort(), const Locale('de')),
+      'de_pnl_win': (pnl(), const Locale('de')),
+      'ja_big_win': (
+        fakeBragPortfolio(gengImage: geng, fedImage: fed),
+        const Locale('ja')
+      ),
+    };
+    // A seed whose own line takes two lines: a card listing its holdings
+    // takes the next one that sets on one (bragCardEdge).
+    final seeds = <String, int>{'portfolio_5_seed1': 1};
+    frames['portfolio_5_seed1'] = (fakeBragFounderPortfolio(), en);
+    for (final MapEntry(key: name, value: (data, locale)) in frames.entries) {
+      final seed = seeds[name] ?? 0;
+      final key = GlobalKey();
+      final app = ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+                debugShowCheckedModeBanner: false,
+                locale: locale,
+                theme: ThemeData(
+                    fontFamily: 'Inter',
+                    extensions: [AppColorsExtension.light()]),
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: Align(
+                  alignment: Alignment.topLeft,
+                  child: RepaintBoundary(
+                    key: key,
+                    child: data is BragPnl
+                        ? PnlShareCard(data: data, mark: ShareCardSal.peek())
+                        : BragCard(
+                            data: data,
+                            mark: ShareCardSal.peek(),
+                            lineSeed: seed),
+                  ),
+                ),
+              ));
+      if (!online) {
+        await tester.pumpWidget(app);
+      } else {
+        // Built on real time so the logos load over the network.
+        await tester.runAsync(() async {
+          await tester.pumpWidget(app);
+          await Future<void>.delayed(const Duration(seconds: 4));
+          // The artwork resolved: its image decodes on real time too.
+          await tester.pump();
+          await Future<void>.delayed(const Duration(seconds: 1));
+          await tester.pump();
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        });
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull, reason: '$name overflowed');
+      if (dir == null) continue;
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: kBragCardPixelRatio);
+        expect(image.width, 1080);
+        expect(image.height, 1350);
+        final png = await image.toByteData(format: ui.ImageByteFormat.png);
+        Directory(dir).createSync(recursive: true);
+        File('$dir/brag_$name.png').writeAsBytesSync(png!.buffer.asUint8List());
+      });
+    }
+    // The logo fetches' timeouts, run out.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 30));
+  });
+}

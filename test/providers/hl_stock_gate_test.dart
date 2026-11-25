@@ -49,19 +49,23 @@ void main() {
   });
 
   test(
-      'the stock gate hides stock perps from offered lists and refuses '
-      'new positions, leaving other markets and exits alone', () async {
-    final all = [btc, tsla, unannotatedStock, stockToken];
+      'the stock gate refuses new positions on stock perps only, leaving '
+      'other markets and exits alone; it never filters a list (founder, '
+      '12 November 2026)', () async {
     final open = runtimePolicyFixture();
     addTearDown(open.dispose);
     expect(await open.refresh(), isTrue);
-    expect(hlMarketsOfferedUnderPolicy(all, open), all);
+    for (final m in [btc, tsla, unannotatedStock, stockToken]) {
+      expect(hlStockGateAllows(m, open), isTrue, reason: m.coin);
+    }
     final blocked = runtimePolicyFixture(blocked: {'hyperliquid.stocks'});
     addTearDown(blocked.dispose);
     expect(await blocked.refresh(), isTrue);
-    expect(hlMarketsOfferedUnderPolicy(all, blocked).map((m) => m.coin),
-        ['BTC', 'TSLA']);
-    expect(hlMarketOfferedUnderPolicy(tsla, blocked), isFalse);
+    expect(hlStockGateAllows(btc, blocked), isTrue);
+    expect(hlStockGateAllows(tsla, blocked), isFalse);
+    expect(hlStockGateAllows(unannotatedStock, blocked), isFalse);
+    expect(hlStockGateAllows(stockToken, blocked), isTrue,
+        reason: 'a spot token is not a perpetual');
     await blocked.ensureAllAllowed(hlOpenCapabilities(btc));
     await expectLater(
         blocked.ensureAllAllowed(hlOpenCapabilities(tsla)),
@@ -73,7 +77,8 @@ void main() {
   test('the stock gate fails closed without a readable policy', () {
     final unavailable = runtimePolicyFixture();
     addTearDown(unavailable.dispose);
-    expect(hlMarketsOfferedUnderPolicy([btc, tsla], unavailable), [btc]);
+    expect(hlStockGateAllows(btc, unavailable), isTrue);
+    expect(hlStockGateAllows(tsla, unavailable), isFalse);
     expect(unavailable.allows('hyperliquid.browse'), isTrue,
         reason: 'markets stay visible while the policy is unavailable');
     expect(unavailable.allows('hyperliquid.trade'), isFalse,

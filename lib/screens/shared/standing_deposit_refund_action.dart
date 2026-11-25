@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/standing_deposit_activity.dart'
     show stuckStandingDepositStatus;
@@ -103,9 +106,8 @@ class _StandingDepositRefundActionState
                                     style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.w700))),
-                            IconButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                icon: const Icon(Icons.close))
+                            KuteCloseButton(
+                                onPressed: () => Navigator.pop(ctx))
                           ]),
                           const SizedBox(height: 16),
                           Text('${orchestraChainDisplayName(chain)} · $asset'),
@@ -128,14 +130,24 @@ class _StandingDepositRefundActionState
                           const SizedBox(height: 12),
                           Text(ctx.l10n.receiveOwnRefundAddress),
                           const SizedBox(height: 20),
-                          AppButton(
-                              text: ctx.l10n.standingDepositsRefund,
-                              onPressed: formatMatchesChain(
+                          // THE BAR IS THE BUTTON (founder, 31 October
+                          // 2026; kute_bar_context.dart): the sheet's
+                          // Refund is the floating Sal bar's primary
+                          // action, off until the address fits the chain;
+                          // it rides above the keyboard with the field.
+                          KuteBarContextScope(
+                              barContext: KuteBarContext.primary(
+                                  label: ctx.l10n.standingDepositsRefund,
+                                  onPrimary: () =>
+                                      Navigator.pop(ctx, input.text.trim()),
+                                  enabled: formatMatchesChain(
                                           chain, input.text.trim(),
                                           mainnet: true) ==
-                                      AddressFormatMatch.ok
-                                  ? () => Navigator.pop(ctx, input.text.trim())
-                                  : null),
+                                      AddressFormatMatch.ok,
+                                  source: 'standing_deposit_refund',
+                                  disabledLabel: input.text.trim().isEmpty ? ctx.l10n.barNeedAddress : ctx.l10n.barNeedValidAddress,),
+                              child:
+                                  SizedBox(height: kuteBarScrollClearance.h)),
                         ])),
               ));
     } finally {

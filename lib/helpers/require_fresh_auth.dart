@@ -25,8 +25,9 @@
 //   * A dismissed PIN sheet denies. Phase 1a makes the sheet counted: at
 //     the threshold it locks the app (D-13), which also denies.
 //
-// The D-11 small-action allowance is tried before any prompt when the
-// caller passes a [SmallActionContext].
+// The small-action allowance (orders under \$50 while unlocked, see
+// `SmallActionAllowance`) is tried before any prompt when the caller passes
+// a [SmallActionContext], for autofire (funded) orders too.
 //
 // The Polymarket short-round fast-bet window (`FastBetWindow`) is tried
 // first when the caller passes an eligible [FastBetRequest]; a prompt
@@ -58,20 +59,23 @@ import 'package:kute/screens/shared/step_up_review_again_sheet.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/tracking_service.dart';
 
-/// Inputs for the D-11 small-action allowance. Only Polymarket buys and
-/// Hyperliquid spot buys paid from the venue balance ever qualify; the
-/// allowance re-checks the scope itself.
+/// Inputs for the small-action allowance (`SmallActionAllowance`): the
+/// order's USD amount. Pass it on every order the allowance may cover; the
+/// allowance decides the scope from the intent itself (the order kind and
+/// its funding legs), so passing it never widens anything.
 class SmallActionContext {
-  const SmallActionContext({
-    required this.amountUsdCents,
-    required this.paidFromVenueBalance,
-    required this.hasFundingLeg,
-  });
+  const SmallActionContext({required this.amountUsdCents});
 
-  /// USD value of `intent.amountMax`, in cents.
+  /// [usd] rounded up to whole cents; 0 (which always asks) for a
+  /// non-finite or non-positive amount.
+  factory SmallActionContext.usd(double usd) => SmallActionContext(
+        amountUsdCents:
+            usd.isFinite && usd > 0 ? ((usd * 100) - 1e-9).ceil() : 0,
+      );
+
+  /// The order's USD amount (the stake, the margin, the sell or close
+  /// proceeds) in cents, rounded up.
   final int amountUsdCents;
-  final bool paidFromVenueBalance;
-  final bool hasFundingLeg;
 }
 
 /// Session state for the allowance and autofire grants, backed by the
@@ -108,7 +112,8 @@ class _RiverpodStepUpSession implements StepUpSessionState {
 ///
 /// [autofireIntentId] stores the grant as the 30 min autofire grant for
 /// that pending intent (D-10, `AuthGrantRegistry.issueAutofire`) instead
-/// of a 60 s transient one. The allowance is never used for autofire.
+/// of a 60 s transient one, whether a prompt or the small-action allowance
+/// approved it (a funded order under the threshold).
 Future<AuthGrant?> requireFreshAuthGrant(
   BuildContext context,
   WidgetRef ref, {
@@ -137,17 +142,21 @@ Future<AuthGrant?> requireFreshAuthGrant(
     if (windowGrant != null) return windowGrant;
   }
 
-  if (smallAction != null && autofireIntentId == null) {
+  if (smallAction != null) {
     final allowed = SmallActionAllowance.instance.tryIssue(
       intent,
       amountUsdCents: smallAction.amountUsdCents,
-      paidFromVenueBalance: smallAction.paidFromVenueBalance,
-      hasFundingLeg: smallAction.hasFundingLeg,
       session: ref.read(stepUpSessionStateProvider),
+      issue: (i) => autofireIntentId != null
+          ? AuthGrantRegistry.instance.issueAutofire(autofireIntentId, i,
+              method: AuthGrantMethod.allowance)
+          : AuthGrantRegistry.instance
+              .issue(i, method: AuthGrantMethod.allowance),
     );
     if (allowed != null) {
       TrackingService.track('step_up_small_action_allowed', params: {
         'action_type': actionType,
+        'funded': SmallActionAllowance.hasFundingLeg(intent),
         'amount_bucket':
             TrackingService.usdBucket(smallAction.amountUsdCents / 100),
         ...TrackingService.exactUsd(

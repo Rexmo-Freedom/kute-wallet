@@ -31,10 +31,16 @@ class KuteListGroup extends StatelessWidget {
 /// secondary subtitle, and a trailing slot that defaults to the tertiary
 /// 20sp chevron. Press feedback is a flat surfaceLight wash plus a haptic
 /// (light impact; a selection click with [selectionHaptic]); no tinted
-/// fills, no ripple.
+/// fills, no ripple. The icon is the one monochrome family (Material
+/// rounded filled; founder, 31 October 2026), 20 px in textPrimary on the
+/// same square; [tint] overrides that colour where a list has a reason
+/// (none in Settings).
 class KuteListRow extends StatefulWidget {
   final String title;
   final IconData? icon;
+
+  /// The section's colour for [icon]; null is the quiet secondary.
+  final Color? tint;
 
   /// Drawn inside the 44 tile instead of [icon] (the Kute dog on Sal's
   /// questions).
@@ -48,6 +54,7 @@ class KuteListRow extends StatefulWidget {
     super.key,
     required this.title,
     this.icon,
+    this.tint,
     this.glyph,
     this.subtitle,
     this.trailing,
@@ -86,7 +93,8 @@ class _KuteListRowState extends State<KuteListRow> {
               border: Border.all(color: c.borderSubtle, width: 0.5),
             ),
             child: widget.glyph ??
-                Icon(widget.icon, color: c.textSecondary, size: 22.sp),
+                Icon(widget.icon,
+                    color: widget.tint ?? c.textPrimary, size: 20.sp),
           ),
           SizedBox(width: 14.w),
           Expanded(

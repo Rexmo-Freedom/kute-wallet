@@ -23,11 +23,10 @@
 //     Balances and Activity are the Portfolio pill's sections now): the
 //     app bar with its back over one scrolling page — the balance
 //     breakdown with its Rebalance (portfolio_balance_breakdown.dart:
-//     Dollars, Investing and Predictions cash), the one P&L chart with its
-//     All · Investing · Predictions toggle, then the Balances frame
-//     around the figures: the ring, Open P&L with the Active | Historic
-//     pair, each venue's row with its figures and its resting orders
-//     under it (PortfolioStatisticsOverview, the orders from
+//     Dollars, Investing and Predictions cash), the P&L charts' one card
+//     (the realised P&L, the chart and its ranges, one line per venue
+//     that picks the series) with the resting orders under it
+//     (PortfolioStatisticsOverview, the orders from
 //     PortfolioOrdersBook), then Positions (the Positions pill's rows,
 //     when anything is held), then
 //     the Activity, the one merged list (portfolio_activity.dart), its
@@ -53,8 +52,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/open_pnl_history.dart'
+    show openPnlKeyPerp, openPnlKeyPrediction, openPnlKeySpot;
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -82,7 +84,7 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesCategory, BalancesPnlText, BalancesVenueList;
+    show BalancesCategory, BalancesPnlText, BalancesVenueList, kBalancesCentUsd;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
@@ -118,7 +120,7 @@ class OpenInvestmentsScreen extends ConsumerStatefulWidget {
   /// Pushes the Portfolio full screen, over the shell's nav bar and dock,
   /// with the app's standard back.
   static Future<void> show(BuildContext context, {required String source}) =>
-      Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
+      Navigator.of(context, rootNavigator: true).push(KutePageRoute<void>(
           builder: (_) => OpenInvestmentsScreen(source: source)));
 
   @override
@@ -381,10 +383,13 @@ List<Widget> portfolioPositionsSlivers(
 /// (founder decision 27 October 2026: the Positions pill is gone, its rows
 /// live under their venue): under Predictions the bets on their way, the
 /// open positions and combos largest first, then the settled ones in their
-/// own row style; under Investing the perps and spot holdings largest
-/// first. Each with the venue's P&L beside its value and shimmer rows
-/// while it is still read with nothing listed. The rows, taps and sheets
-/// are the Positions list's own.
+/// own row style ([BalancesVenueList.settled]: the card lists them only
+/// once its "See all" opens it, founder 28 October 2026); under Investing
+/// the perps and spot holdings largest first. Each with the venue's P&L
+/// beside its value and shimmer rows while it is still read with nothing
+/// listed. The rows, taps and sheets are the Positions list's own, drawn
+/// in whichever shape their caller asks (components/balances_overview.dart:
+/// the Portfolio screen's squares, or the first three in a card).
 Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
     BuildContext context, WidgetRef ref, PortfolioVenues venues) {
   List<Widget> ranked(List<(double, Widget)> cards) {
@@ -407,6 +412,9 @@ Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
             for (final p in book.placing)
               PlacingBetRow(key: ValueKey('placing-${p.placementId}'), bet: p),
             ...ranked(book.openCards()),
+          ],
+          // Settled: listed once the venue's "See all" opens its card.
+          settled: [
             for (final p in book.claimable)
               PolyPositionRow(
                   key: ValueKey('poly-r-${p.tokenId}'), position: p),
@@ -439,6 +447,244 @@ Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
   };
 }
 
+/// The Positions section's open positions, biggest first (founder, 2
+/// November 2026: "maybe the biggest investments get the squares and the
+/// others just get a normal line"): the ids of their rows ("hl-BTC",
+/// "hl-spot-HYPE", "poly-" and its token, "combo-" and its condition), the
+/// same ones the rows list, by what each is worth now at the live price as
+/// its row reads it (a perp what closing it gives back, a holding at the
+/// mid, a prediction its shares at the live price, a combo its estimate).
+/// Settled positions and bets on their way are not open; a holding whose
+/// market is not known yet, or a position under a cent, is left out.
+List<String> portfolioOpenRanked(WidgetRef ref, PortfolioVenues venues) {
+  final raw = <(String, double)>[];
+  if (venues.trading) {
+    final state = ref.watch(hyperliquidDisplayTradingProvider).valueOrNull;
+    for (final p in state?.positions ?? const <HlPerpPosition>[]) {
+      final mid = ref.watch(hyperliquidLiveMidProvider(p.coin));
+      raw.add(('hl-${p.coin}', hlCloseValue(p, liveMid: mid)));
+    }
+    final spot = (state?.spotBalances ?? const <HlSpotBalance>[])
+        .where((b) => b.coin != 'USDC' && b.total > 0)
+        .toList();
+    if (spot.isNotEmpty) {
+      final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+          const <HlMarket>[];
+      for (final b in spot) {
+        final market = markets.where((m) => m.coin == b.coin).firstOrNull;
+        if (market == null || market.midPx <= 0) continue;
+        raw.add(('hl-spot-${b.coin}', b.total * market.midPx));
+      }
+    }
+  }
+  if (venues.predictions) {
+    final book = _PolyBook.watch(ref);
+    for (final p in book.open) {
+      final live = ref.watch(livePriceProvider
+          .select((s) => s.live ? s.prices[p.tokenId] : null));
+      raw.add(('poly-${p.tokenId}', p.size * (live ?? p.currentPrice)));
+    }
+    for (final p in book.openCombos) {
+      raw.add(('combo-${p.conditionId}', p.estimatedValueUsd));
+    }
+  }
+  final shown = raw.where((r) => r.$2.isFinite && r.$2 >= 0.005).toList()
+    ..sort((a, b) => b.$2.compareTo(a.$2));
+  return [for (final r in shown) r.$1];
+}
+
+/// How many positions are open at the venues on the account: Investing's
+/// perps and holdings (USDC is cash), Predictions' open positions and
+/// combos (the rows the Positions section lists as open). Reads no price:
+/// a tick never changes it.
+int portfolioOpenCount(WidgetRef ref, PortfolioVenues venues) {
+  var count = 0;
+  if (venues.trading) {
+    count += ref.watch(hyperliquidDisplayTradingProvider.select<int>((s) {
+      final hl = s.valueOrNull;
+      if (hl == null) return 0;
+      return hl.positions.length +
+          hl.spotBalances
+              .where((b) => b.coin != 'USDC' && b.total > 0)
+              .length;
+    }));
+  }
+  if (venues.predictions) {
+    count += ref.watch(polymarketActivePositionsProvider).length;
+    count += ref.watch(polymarketCombosProvider
+        .select<int>((s) => s.valueOrNull?.open.length ?? 0));
+  }
+  return count;
+}
+
+/// What a venue's open positions made or lost so far, as their rows read
+/// it ([portfolioPredictionsOpenPnl], [portfolioInvestingOpenPnl]):
+/// [usd] their P&L added, [costUsd] what they cost added (the base each
+/// row's percent divides by), [count] the positions counted and
+/// [costed] false when one of them has no cost of its own (no percent of
+/// the whole is written then).
+typedef PortfolioOpenPnlPart = ({
+  double usd,
+  double costUsd,
+  int count,
+  bool costed,
+});
+
+/// The open predictions' P&L at the live price, as their rows read it
+/// (PolyPositionRow: the shares at the live price, a resolved one at its
+/// last price, less what they cost), and what they cost. A position whose
+/// cost is not known (PolymarketPosition.costKnown: just filled, listed
+/// before its entry is priced) writes no P&L on its row and counts for
+/// none here, never its whole value as a profit (founder, 11 November
+/// 2026, on 2.2.0 (106): "Open profits +$14.85" on a $14.85 prediction).
+/// Rebuilds the caller only when the sum moves. [leaveOut]: positions
+/// left out by their key ([openPnlKeyPrediction]; the open P&L chart's
+/// pin leaves out the positions it could not chart).
+PortfolioOpenPnlPart portfolioPredictionsOpenPnl(
+    WidgetRef ref, List<PolymarketPosition> positions,
+    {Set<String> leaveOut = const {}}) {
+  if (leaveOut.isNotEmpty || positions.any((p) => !p.costKnown)) {
+    positions = [
+      for (final p in positions)
+        if (p.costKnown &&
+            !leaveOut.contains(openPnlKeyPrediction(
+                tokenId: p.tokenId, marketId: p.marketId, outcome: p.outcome)))
+          p,
+    ];
+  }
+  final usd = ref.watch(livePriceProvider.select((s) {
+    var sum = 0.0;
+    for (final p in positions) {
+      final live = s.live ? s.prices[p.tokenId] : null;
+      final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
+      sum += (price - p.avgPrice) * p.size;
+    }
+    return sum;
+  }));
+  // What was paid, for the percentage, as each row divides by.
+  var cost = 0.0;
+  var costed = true;
+  for (final p in positions) {
+    if (p.avgPrice > 0 && p.size > 0) {
+      cost += p.avgPrice * p.size;
+    } else {
+      costed = false;
+    }
+  }
+  return (usd: usd, costUsd: cost, count: positions.length, costed: costed);
+}
+
+/// The open Investing positions' P&L, as their rows read it: each perp's
+/// at the live mid (HlPositionRow, on its margin), each holding's at the
+/// mid against what the venue records as paid (HlSpotRow; a holding with
+/// no cost on record, or whose market is not known yet, shows no P&L and
+/// counts for none here); and what they cost (a perp's margin, a
+/// holding's recorded cost). [leaveOut]: positions left out by their key
+/// ([openPnlKeyPerp], [openPnlKeySpot]).
+PortfolioOpenPnlPart portfolioInvestingOpenPnl(
+    WidgetRef ref, HyperliquidTradingState state,
+    {Set<String> leaveOut = const {}}) {
+  var usd = 0.0;
+  var cost = 0.0;
+  var count = 0;
+  var costed = true;
+  for (final p in state.positions) {
+    if (leaveOut.contains(openPnlKeyPerp(p.coin))) continue;
+    usd += hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
+    count++;
+    final margin = hlPositionMargin(p);
+    if (margin.isFinite && margin > 0) {
+      cost += margin;
+    } else {
+      costed = false;
+    }
+  }
+  final spot = state.spotBalances
+      .where((b) =>
+          b.coin != 'USDC' &&
+          b.total > 0 &&
+          b.costBasis != null &&
+          !leaveOut.contains(openPnlKeySpot(b.coin)))
+      .toList();
+  if (spot.isNotEmpty) {
+    final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+        const <HlMarket>[];
+    for (final b in spot) {
+      final mid =
+          markets.where((m) => m.coin == b.coin).firstOrNull?.midPx ?? 0;
+      if (mid > 0) {
+        usd += b.total * mid - b.costBasis!;
+        cost += b.costBasis!;
+        count++;
+        if (!(b.costBasis! > 0)) costed = false;
+      }
+    }
+  }
+  return (usd: usd, costUsd: cost, count: count, costed: costed);
+}
+
+/// What the open positions the Positions section lists made or lost so
+/// far, both venues added (founder, 5 November 2026: on Positions the hero
+/// shows "only the open ones"): every open position whose row writes a
+/// P&L, at the live prices ([portfolioPredictionsOpenPnl],
+/// [portfolioInvestingOpenPnl]), so the figure is the rows' P&L added and
+/// the venues' P&L beside their names added. An open combo writes an
+/// estimate, not a P&L, and counts for none. Null with nothing open that
+/// writes one. [leaveOut]: positions left out by their key (the open P&L
+/// chart's pin: the positions it charts; with nothing left out, this very
+/// figure).
+PortfolioOpenPnlPart? portfolioOpenPnl(WidgetRef ref, PortfolioVenues venues,
+    {Set<String> leaveOut = const {}}) {
+  final parts = <PortfolioOpenPnlPart>[
+    if (venues.predictions)
+      portfolioPredictionsOpenPnl(
+          ref, ref.watch(polymarketActivePositionsProvider),
+          leaveOut: leaveOut),
+    if (venues.trading)
+      if (ref.watch(hyperliquidDisplayTradingProvider).valueOrNull
+          case final state?)
+        portfolioInvestingOpenPnl(ref, state, leaveOut: leaveOut),
+  ];
+  var usd = 0.0;
+  var cost = 0.0;
+  var count = 0;
+  var costed = true;
+  for (final p in parts) {
+    usd += p.usd;
+    cost += p.costUsd;
+    count += p.count;
+    costed = costed && p.costed;
+  }
+  if (count == 0) return null;
+  return (usd: usd, costUsd: cost, count: count, costed: costed);
+}
+
+/// The Dollars page's one open P&L: [portfolioOpenPnl] over the venues
+/// the account shows ([portfolioVenuesProvider]), with nothing left out.
+/// The Overview's "Open profits" card (DollarsPnlStrip) and the line
+/// under the Dollars balance (InvestmentBalanceHeader) both read it, so
+/// they never disagree. Null with no venue shown or nothing open that
+/// writes a P&L (a prediction whose cost is not known yet counts for
+/// none, [portfolioPredictionsOpenPnl]).
+PortfolioOpenPnlPart? dollarsOpenPnl(WidgetRef ref) {
+  final venues = ref.watch(portfolioVenuesProvider);
+  if (!venues.any) return null;
+  return portfolioOpenPnl(ref, venues);
+}
+
+/// The open P&L as a share of what the open positions cost, in percent
+/// ([PortfolioOpenPnlPart.usd] over [PortfolioOpenPnlPart.costUsd]); null
+/// when a position has no cost of its own or the cost is under a cent.
+double? openPnlPercent(PortfolioOpenPnlPart open) {
+  if (!open.costed ||
+      !open.costUsd.isFinite ||
+      open.costUsd < kBalancesCentUsd) {
+    return null;
+  }
+  final pct = open.usd / open.costUsd * 100;
+  return pct.isFinite ? pct : null;
+}
+
 /// The open predictions' P&L at the live price, as their rows read it.
 class _PredictionsPnl extends ConsumerWidget {
   const _PredictionsPnl({super.key, required this.positions});
@@ -450,22 +696,11 @@ class _PredictionsPnl extends ConsumerWidget {
     if (!ref.watch(settingsProvider.select((s) => s.balanceVisible))) {
       return const SizedBox.shrink();
     }
-    final pnl = ref.watch(livePriceProvider.select((s) {
-      var sum = 0.0;
-      for (final p in positions) {
-        final live = s.live ? s.prices[p.tokenId] : null;
-        final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
-        sum += (price - p.avgPrice) * p.size;
-      }
-      return sum;
-    }));
-    // What was paid, for the percentage, as each row divides by.
-    var cost = 0.0;
-    for (final p in positions) {
-      if (p.avgPrice > 0 && p.size > 0) cost += p.avgPrice * p.size;
-    }
+    final pnl = portfolioPredictionsOpenPnl(ref, positions);
     return BalancesPnlText(
-        usd: pnl, costUsd: cost, money: (v) => formatPolyAmount(ref, v));
+        usd: pnl.usd,
+        costUsd: pnl.costUsd,
+        money: (v) => formatDollars(v));
   }
 }
 
@@ -482,33 +717,11 @@ class _InvestingPnl extends ConsumerWidget {
     if (!ref.watch(settingsProvider.select((s) => s.balanceVisible))) {
       return const SizedBox.shrink();
     }
-    var pnl = 0.0;
-    // What was put in, for the percentage, as each row divides by: a
-    // perp's margin (hlPositionMargin), a holding's recorded cost.
-    var cost = 0.0;
-    for (final p in state.positions) {
-      pnl +=
-          hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
-      final margin = hlPositionMargin(p);
-      if (margin.isFinite && margin > 0) cost += margin;
-    }
-    final spot = state.spotBalances
-        .where((b) => b.coin != 'USDC' && b.total > 0 && b.costBasis != null)
-        .toList();
-    if (spot.isNotEmpty) {
-      final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
-          const <HlMarket>[];
-      for (final b in spot) {
-        final mid =
-            markets.where((m) => m.coin == b.coin).firstOrNull?.midPx ?? 0;
-        if (mid > 0) {
-          pnl += b.total * mid - b.costBasis!;
-          cost += b.costBasis!;
-        }
-      }
-    }
+    final pnl = portfolioInvestingOpenPnl(ref, state);
     return BalancesPnlText(
-        usd: pnl, costUsd: cost, money: (v) => formatPolyAmount(ref, v));
+        usd: pnl.usd,
+        costUsd: pnl.costUsd,
+        money: (v) => formatDollars(v));
   }
 }
 
@@ -664,8 +877,8 @@ class HlPortfolioPositionCard extends ConsumerWidget {
       caption:
           '${p.isLong ? l10n.longLabel : l10n.shortLabel} ${p.leverageValue}x',
       trailing: PortfolioCardValue(
-        value: formatPolyAmount(ref, hlCloseValue(p, liveMid: mid)),
-        pnl: PortfolioCardValue.pnlText(formatPolyAmount(ref, pnl.abs()), pnl,
+        value: formatDollars(hlCloseValue(p, liveMid: mid)),
+        pnl: PortfolioCardValue.pnlText(formatDollars(pnl.abs()), pnl,
             percent: roe * 100),
         up: pnl >= 0,
       ),

@@ -15,6 +15,9 @@ import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/advisor/sal_chip_templates.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/polymarket/order_connection.dart';
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show polyRoundWindowParams;
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/secure_storage.dart';
 import 'package:local_auth/local_auth.dart'
@@ -656,13 +659,22 @@ class TrackingService {
     if (has(['quote'])) return 'quote_rejected';
     if (has(['fee'])) return 'fee_unavailable';
     if (has(['timeout', 'timed out', 'deadline'])) return 'timeout';
+    // "no Polygon RPC answered": every chain read endpoint failed one read
+    // (PolymarketReadException). The chain was unreachable from the phone,
+    // which is a network failure, not an unknown one.
     if (has(['socket', 'network', 'connection', 'host lookup',
-        'unreachable', 'offline'])) {
+        'unreachable', 'offline', 'no polygon rpc answered'])) {
       return 'network';
     }
     if (has(['ledger', 'hardware', 'device'])) return 'hardware_wallet';
     if (has(['rate limit', '429'])) return 'rate_limited';
-    if (has(['route', 'no path', 'liquidity'])) return 'no_route';
+    // The order book's kill of a fill-or-kill or fill-and-kill order, and
+    // the sell ladder's own "no bids matched": nothing was on the book at
+    // that price. No liquidity, not an unknown failure.
+    if (has(['route', 'no path', 'liquidity', 'fully filled or killed',
+        'partially filled or killed', 'no bids matched'])) {
+      return 'no_route';
+    }
     if (has(['settle', 'refund'])) return 'settlement';
     return 'unknown';
   }
@@ -2759,10 +2771,12 @@ class TrackingService {
   /// the Send screen — captures the entry intent (and abandonment before
   /// a network is picked), which `swap_asset_selected` only sees LATER
   /// once a network resolves. [assetCode] is a categorical label
-  /// ('usdc' | 'usdt'); [flow] is 'send'. No amount.
+  /// ('usdc' | 'usdt' | 'other'); [flow] is 'send'. No amount.
   static void sendAssetShortcutTapped(String assetCode) {
-    track('send_asset_shortcut_tapped',
-        params: {'asset_code': assetCode, 'flow': 'send'});
+    track('send_asset_shortcut_tapped', params: {
+      'asset_code': assetCode,
+      'flow': 'send',
+    });
   }
 
   /// Fired when a stablecoin shortcut (USDC / USDT) is tapped on the
@@ -2837,6 +2851,18 @@ class TrackingService {
     });
   }
 
+  /// On an order's outcome event for a 5-minute window: which window the
+  /// slip opened on (`window`, as staged at submit; `current` or `next`)
+  /// and the exact `seconds_to_window_end` now.
+  static Map<String, Object> _roundWindowParams(
+      String marketId, String? marketSlug) {
+    final slug = VenueAnalytics.pmEventParams([marketId, marketSlug],
+        eventSlug: marketSlug, title: false)['event_slug'] as String?;
+    return polyRoundWindowParams(slug,
+        window: VenueAnalytics.staged('pm', marketId)['window'] as String?,
+        at: DateTime.now());
+  }
+
   static void polymarketBetPlaced({
     required String marketId,
     required String outcome,
@@ -2901,8 +2927,10 @@ class TrackingService {
     }
     _bumpAffiliateActivity(); // count toward affiliate activity (all tx types)
     markMoneyAction('bet', venue: 'polymarket');
-    track('polymarket_bet_placed', params: {
+    final placedParams = <String, Object>{
+      ...polymarketOrderConnectionParams(),
       ...VenueAnalytics.staged('pm', marketId),
+      ..._roundWindowParams(marketId, marketSlug),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug],
           fallbackCategory: category),
       // The parent event (event_id, event_slug), the key the funnel
@@ -2934,7 +2962,9 @@ class TrackingService {
       // Database join key: the real CLOB order id only, never the
       // synthetic fallback below (the database cannot hold it).
       ...orderJoinParams(providerOrderId),
-    });
+    };
+    track('polymarket_bet_placed',
+        params: priceMovedBps(placedParams, fillPrice: price));
     // First-bet referee-conversion signal — gates once per device so
     // we don't double-count attribution after the first qualifying bet.
     affiliateRefereeConverted(provider: 'polymarket', amountUsd: amount);
@@ -2979,9 +3009,11 @@ class TrackingService {
     recordHandled(errorCategory(reason), reason, stackTrace,
         flow: 'polymarket_bet', stage: orderType);
     track('polymarket_bet_failed', params: {
+      ...polymarketOrderConnectionParams(),
       ...VenueAnalytics.staged('pm', marketId),
+      ..._roundWindowParams(marketId, marketSlug),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug]),
-      ...?extra,
+      ...priceMovedBps(extra ?? const {}),
       if (entrySource != null) 'entry_source': entrySource,
       'market_id': marketId,
       'venue': 'polymarket',
@@ -3017,6 +3049,7 @@ class TrackingService {
     final usdcOut = shares * price;
     _bumpAffiliateActivity(); // count toward affiliate activity (all tx types)
     track('polymarket_position_sold', params: {
+      ...polymarketOrderConnectionParams(),
       ...VenueAnalytics.staged('pm_sell', marketId),
       ...VenueAnalytics.pmKindParams([marketId, marketSlug],
           fallbackCategory: category),
@@ -4374,6 +4407,7 @@ class TrackingService {
     required String reason,
     String? errorCode,
     String? stage, // pre_send | post_send
+    Object? cause,
   }) {
     track('polymarket_withdraw_failed', params: {
       'amount_bucket': _usdBucket(amountUsd),
@@ -4383,6 +4417,7 @@ class TrackingService {
       if (stage != null) 'stage': stage,
       'error_category': errorCategory(reason),
       'reason': _safeReason(reason) ?? '',
+      if (cause != null) 'cause_reason': errorReason(cause),
       if (errorCode != null) 'error_code': errorCode,
     });
   }
@@ -5150,14 +5185,18 @@ class TrackingService {
   // ─── Affiliate / Earn (extra) ────────────────────────────────────
   static void affiliateCodeShared({String? method, String? result, String? surface}) =>
       track('affiliate_code_shared', params: {
-        if (method != null) 'method': method, // sheet | image
+        if (method != null) 'method': method, // card | sheet | image
         if (result != null) 'result': result, // success | dismissed | unavailable
         if (surface != null) 'surface': surface,
       });
 
-  static void affiliateCodeCopied({String? surface}) =>
+  /// [source]: what was tapped on the surface (the Referral program's
+  /// code card: `code_card` for the card, `copy_button` for its copy
+  /// square). Never the code or the link.
+  static void affiliateCodeCopied({String? surface, String? source}) =>
       track('affiliate_code_copied', params: {
         if (surface != null) 'surface': surface,
+        if (source != null) 'source': source,
       });
 
   // ── Affiliate v2 (Earn screen) ──
@@ -6285,8 +6324,14 @@ class TrackingService {
             flow: flow, attempts: attempts, outcome: outcome));
   }
 
-  static void settlementFundingUnknown(String flow) {
-    track('settlement_funding_unknown', params: {'flow': flow});
+  /// [cause] is what the funding call threw: its text-free
+  /// [errorReason] rides along as `cause_reason`, so an unknown outcome
+  /// says what made it unknown instead of only that it is.
+  static void settlementFundingUnknown(String flow, {Object? cause}) {
+    track('settlement_funding_unknown', params: {
+      'flow': flow,
+      if (cause != null) 'cause_reason': errorReason(cause),
+    });
   }
 
   static void settlementFundingResolved({
@@ -6797,6 +6842,27 @@ class TrackingService {
 
   /// True the first time [key] is seen for [event] this session (one
   /// outcome per real action; the key is hashed and never sent).
+  /// A standing order's outcome against the price its slip first quoted
+  /// (`first_quote_price`, put on the order's analytics by the autofire):
+  /// `price_moved_bps`, the fill's price over the quote in basis points
+  /// (positive: paid more). The helper key itself never goes out. Without
+  /// a fill ([fillPrice] null) only the key is dropped.
+  static Map<String, Object> priceMovedBps(Map<String, Object> params,
+      {double? fillPrice}) {
+    final first = params['first_quote_price'];
+    if (first == null) return params;
+    final out = Map<String, Object>.of(params)..remove('first_quote_price');
+    if (first is num &&
+        first > 0 &&
+        fillPrice != null &&
+        fillPrice.isFinite &&
+        fillPrice > 0) {
+      out['price_moved_bps'] =
+          ((fillPrice - first) / first * 10000).round();
+    }
+    return out;
+  }
+
   static bool claimOutcome(String event, String key) =>
       _mfOutcomeSeen.add('$event|${orderRef(key)}');
 

@@ -3,11 +3,9 @@
 // Two quiet pieces of the open-position screen, around the speedometer
 // (position_speedometer.dart):
 //
-//   * the result, at the top left over the dial: "▲ $9.40", the figure in
-//     the app's up / down colour after a painted caret, as the Portfolio
-//     rows write theirs (flat reads "$0.00" quietly, no caret), and a
-//     quiet "+247% since 19¢" under it; while the needle is dragged, the
-//     what-if result the same way;
+//   * the value, at the top left over the dial: "$13.20", and under it
+//     "+247% since 19¢" in the up / down colour (flat, quietly); while the
+//     needle is dragged, the what-if value and change the same way;
 //   * the chart, at the bottom, brokerage style: the held side's chance
 //     since the first buy of this holding (the market sheet's own price
 //     history of the held token, so a No reads as 1 − Yes), one 2 px line
@@ -56,51 +54,80 @@ String polyResultPercent(double percent) {
 /// Whether a profit or loss of [pnl] dollars reads as flat.
 bool polyResultIsFlat(double pnl) => pnl.abs() < 0.005;
 
-/// "▲ $9.40" at the top left over the dial, "+247% since 19¢" under it.
+/// The top left over the dial: what the position is worth ("$4.26", the
+/// value tile's old figure; founder, 11 November 2026: the value up here,
+/// its profit or loss the large figure of the tile under the dial, so the
+/// screen never says one figure twice), and under it the change since the
+/// buy, "-1.5% since 87¢", in the up / down colour (flat, quietly). While
+/// the needle is dragged, the what-if value and change the same way. With
+/// balances hidden both are masked ("••••••", "••%", no colour).
 class PolyPositionResultLine extends StatelessWidget {
   const PolyPositionResultLine({
     super.key,
+    required this.valueText,
     required this.pnl,
     required this.pnlPercent,
-    required this.amountText,
     this.boughtText,
+    this.masked = false,
   });
 
+  /// What the position is worth (now, or at the dragged chance),
+  /// formatted ("$4.26").
+  final String valueText;
+
   /// The profit or loss in dollars (value now, or at the dragged chance,
-  /// less what was paid).
+  /// less what was paid): the colour of the line under the value.
   final double pnl;
   final double pnlPercent;
-
-  /// [pnl]'s size, formatted ("$9.40"), no sign.
-  final String amountText;
 
   /// The average price paid ("19¢"); the percent alone without it.
   final String? boughtText;
 
+  /// Balances hidden: the value and the percent masked, no colour.
+  final bool masked;
+
   static const lineKey = ValueKey('poly-position-result');
   static const figureKey = ValueKey('poly-position-result-figure');
-  static const caretKey = ValueKey('poly-position-result-caret');
   static const sinceKey = ValueKey('poly-position-result-since');
+
+  /// What balances hidden write in place of a sum, and of a percent.
+  static const hiddenFigure = '••••••';
+  static const hiddenPercent = '••%';
+
+  /// The figure's size and line height (the "since" caption is smaller,
+  /// under it): 20, a step up from the 17 it was (founder, 10 November
+  /// 2026, on 2.2.0 (101)), still under the tiles' 24 below it.
+  static const double _figureSize = 20;
+  static const double _figureHeight = 1.25;
+
+  /// The height of the figure's line ("$4.26") as drawn, for what sits
+  /// beside it ("You hold No" is centred on it).
+  static double figureLineHeight(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(_figureSize.sp) * _figureHeight;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final flat = polyResultIsFlat(pnl);
     final up = pnl > 0;
-    final color = flat
-        ? c.textSecondary
+    final color = masked || flat
+        ? c.textTertiary
         : (up ? AppColors.marketUp : AppColors.marketDown);
-    final percent = flat ? '0.0%' : polyResultPercent(pnlPercent);
+    final percent = masked
+        ? hiddenPercent
+        : flat
+            ? '0.0%'
+            : polyResultPercent(pnlPercent);
     final figure = TextStyle(
-      color: color,
-      fontSize: 17.sp,
+      color: c.textPrimary,
+      fontSize: _figureSize.sp,
       fontWeight: FontWeight.w700,
       letterSpacing: -0.2,
-      height: 1.25,
+      height: _figureHeight,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final quiet = TextStyle(
-      color: c.textTertiary,
+      color: color,
       fontSize: 12.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
@@ -116,20 +143,8 @@ class PolyPositionResultLine extends StatelessWidget {
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!flat) ...[
-                CustomPaint(
-                  key: caretKey,
-                  size: Size(8.w, 6.h),
-                  painter: PolyCaretPainter(up: up, color: color),
-                ),
-                SizedBox(width: 5.w),
-              ],
-              Text(amountText, key: figureKey, style: figure, maxLines: 1),
-            ],
-          ),
+          child: Text(masked ? hiddenFigure : valueText,
+              key: figureKey, style: figure, maxLines: 1),
         ),
         FittedBox(
           fit: BoxFit.scaleDown,

@@ -12,7 +12,6 @@ import 'package:kute/providers/auth_provider.dart' show appLockedProvider;
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/advisor/advisor_local_stub.dart';
 import 'package:kute/services/advisor/advisor_service.dart';
-import 'package:kute/services/advisor/sal_chip_catalogue.dart';
 import 'package:kute/services/tracking_service.dart';
 
 class _StreamingClient extends http.BaseClient {
@@ -244,20 +243,12 @@ void main() {
     expect(jsonEncode(body), isNot(contains('account')));
   });
 
-  test('local questions cover market and wallet surfaces', () {
-    final en = l10nForLanguage('en');
-    List<String> texts(AdvisorContext c) =>
-        [for (final chip in SalChipCatalogue.select(c, en)) chip.text];
+  test('a market context carries only the public market', () {
     const spot = AdvisorContext(
         surface: 'hl_market_detail',
         marketVenue: 'hyperliquid',
         marketId: 'PURR/USDC');
-    expect(texts(spot), contains('What drives the price of PURR/USDC?'));
     expect(spot.toRequestMarket, {'venue': 'hyperliquid', 'id': 'PURR/USDC'});
-    expect(texts(const AdvisorContext(surface: 'btc_tx_detail')).first,
-        contains('confirmation'));
-    expect(texts(const AdvisorContext(surface: 'backup')).join(' '),
-        contains('recovery'));
   });
 
   test('SSE emits actual deltas before completion across split UTF-8 packets',

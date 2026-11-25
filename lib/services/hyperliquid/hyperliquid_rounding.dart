@@ -221,6 +221,49 @@ double hlCheckedNotionalUsd({
   return size * checkPx;
 }
 
+/// The size a PARTIAL reduce-only market close of [requestedSz] (out of a
+/// [positionSz] position) goes out with, so the venue does not refuse it
+/// for its minimum.
+///
+/// The venue checks a close's notional like any order's: its size, rounded
+/// to the market's step, at the IOC's price ([checkPx], below the mid for
+/// a sell). Flooring the size and checking at the slippage price used to
+/// take a typed $10 or $11 close on OPENAI (about 1,405 a coin, steps of
+/// 0.001, so 1.40 a step) down to 0.007 coins, worth 9.74 as sent, and
+/// the venue answered "minimum is $10". A close asked at the minimum or
+/// more is rounded UP to the first step that clears the minimum (plus
+/// [buffer]) at [checkPx], never past the position: one that would reach
+/// it closes the whole position (the remainder could never be closed on
+/// its own). A close asked below the minimum is only floored; the caller
+/// refuses it. Within half a step of the whole position is the whole
+/// position, sent as [positionSz] exactly (the venue's own size).
+double hlPartialCloseSize({
+  required double requestedSz,
+  required double positionSz,
+  required double referencePx,
+  required double checkPx,
+  required int szDecimals,
+  double minNotionalUsd = HyperliquidConstants.minOrderNotionalUsd,
+  double buffer = hlMinNotionalBuffer,
+}) {
+  final step = math.pow(10, -szDecimals).toDouble();
+  if (positionSz <= 0 || requestedSz <= 0) return 0;
+  if (requestedSz >= positionSz - step / 2) return positionSz;
+  final floored = flooredSize(requestedSz, szDecimals);
+  if (referencePx <= 0 || checkPx <= 0) return floored;
+  final target = minNotionalUsd * (1 + buffer);
+  if (floored * checkPx >= target) return floored;
+  // Asked below the minimum, at the mid now. [buffer] of slack: the mid
+  // the sheet turned the typed dollars into may have moved since.
+  if (requestedSz * referencePx < minNotionalUsd * (1 - buffer)) {
+    return floored;
+  }
+  final steps = (target / checkPx / step - 1e-9).ceil();
+  final size = flooredSize(steps * step, szDecimals);
+  if (size >= positionSz - step / 2) return positionSz;
+  return math.max(floored, size);
+}
+
 bool meetsMinNotional({required double px, required double sz}) {
   return px * sz >= HyperliquidConstants.minOrderNotionalUsd - 1e-9;
 }

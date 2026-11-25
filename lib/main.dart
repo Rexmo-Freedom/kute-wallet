@@ -24,7 +24,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:overlay_support/overlay_support.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
@@ -119,6 +118,10 @@ Future<void> _bootstrap() async {
   // `silent` ones (e.g. image-load noise) are skipped entirely.
   FlutterError.onError = (FlutterErrorDetails details) {
     if (details.silent) return;
+    // A debug build still prints the error to the console (the default
+    // handler did; this one replaced it and swallowed them, so a build or
+    // layout failure left a blank sheet with nothing in the run log).
+    if (kDebugMode) FlutterError.presentError(details);
     if (!kDebugMode) {
       try {
         TrackingService.recordCrash(
@@ -163,10 +166,8 @@ Future<void> _bootstrap() async {
   startIconWarmup();
 
   runApp(
-    const OverlaySupport.global(
-      child: RestartWidget(
-        child: AppWidget(),
-      ),
+    const RestartWidget(
+      child: AppWidget(),
     ),
   );
 }

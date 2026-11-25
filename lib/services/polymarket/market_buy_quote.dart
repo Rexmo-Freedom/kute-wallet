@@ -153,16 +153,113 @@ double polymarketSellSendPrice({
 
 /// The dollars the asks at or under [maxPrice] add up to: what a buy
 /// capped there can fill against this book.
-double polymarketDepthWithin(OrderBook book, double maxPrice) {
-  var usd = 0.0;
-  for (final level in book.asks) {
-    final p = level.priceNum, size = level.sizeNum;
-    if (!p.isFinite || p <= 0 || p >= 1 || !size.isFinite || size <= 0) {
-      continue;
+double polymarketDepthWithin(OrderBook book, double maxPrice) =>
+    polymarketWalkAsks(polymarketLevels(book.asks),
+            amountUsd: 0, maxPrice: maxPrice)
+        .depthUsd;
+
+/// A book side as (price, size) levels, for [polymarketWalkAsks] and
+/// [polymarketWalkBids].
+List<(double, double)> polymarketLevels(Iterable<OrderSummary> side) =>
+    [for (final l in side) (l.priceNum, l.sizeNum)];
+
+bool _validLevel((double, double) level) {
+  final (p, size) = level;
+  return p.isFinite && p > 0 && p < 1 && size.isFinite && size > 0;
+}
+
+/// What a market buy of [amountUsd] gets from a book's asks: walked
+/// cheapest first, taking no level priced over the order's cap. The one
+/// walk every buy preview, the quote and the Ledger check share, so what
+/// a slip says the stake buys ("Payout if you win": [shares], \$1 each)
+/// is what the order sent with that cap fills, never the stake over the
+/// mid price.
+class PolymarketAskWalk {
+  const PolymarketAskWalk({
+    required this.amountUsd,
+    required this.spentUsd,
+    required this.shares,
+    required this.depthUsd,
+    this.lastPrice,
+  });
+
+  /// The stake walked.
+  final double amountUsd;
+
+  /// The part of the stake the asks under the cap absorb.
+  final double spentUsd;
+
+  /// The shares [spentUsd] buys.
+  final double shares;
+
+  /// Every ask at or under the cap, in dollars: what fills there now.
+  final double depthUsd;
+
+  /// The dearest level the stake reached (with no cap: the marginal ask;
+  /// the dearest level there is when the book cannot absorb it). Null when
+  /// nothing is for sale under the cap.
+  final double? lastPrice;
+
+  /// Whether the whole stake fills under the cap.
+  bool get fills => amountUsd - spentUsd <= 1e-9;
+
+  /// The average price paid per share; null when nothing fills.
+  double? get averagePrice => shares > 0 ? spentUsd / shares : null;
+}
+
+/// Walks [asks] (any order, invalid levels skipped) for a market buy of
+/// [amountUsd] capped at [maxPrice] (1: no cap).
+PolymarketAskWalk polymarketWalkAsks(Iterable<(double, double)> asks,
+    {required double amountUsd, double maxPrice = 1}) {
+  final levels = asks.where(_validLevel).toList()
+    ..sort((a, b) => a.$1.compareTo(b.$1));
+  var remaining = amountUsd.isFinite && amountUsd > 0 ? amountUsd : 0.0;
+  var spent = 0.0, shares = 0.0, depth = 0.0;
+  double? last;
+  for (final (p, size) in levels) {
+    if (p > maxPrice + 1e-9) break;
+    final cost = p * size;
+    depth += cost;
+    if (remaining <= 0) continue;
+    last = p;
+    if (cost >= remaining) {
+      spent += remaining;
+      shares += remaining / p;
+      remaining = 0;
+    } else {
+      spent += cost;
+      shares += size;
+      remaining -= cost;
     }
-    if (p <= maxPrice + 1e-9) usd += p * size;
   }
-  return usd;
+  return PolymarketAskWalk(
+      amountUsd: amountUsd.isFinite && amountUsd > 0 ? amountUsd : 0,
+      spentUsd: spent,
+      shares: shares,
+      depthUsd: depth,
+      lastPrice: last);
+}
+
+/// What a market sell of [shares] brings walking [bids] (any order)
+/// dearest first, taking no level under [minPrice]: [soldShares] of them
+/// sell, for [proceedsUsd] before fees. The sell previews' mirror of
+/// [polymarketWalkAsks].
+({double soldShares, double proceedsUsd}) polymarketWalkBids(
+    Iterable<(double, double)> bids,
+    {required double shares,
+    double minPrice = 0}) {
+  final levels = bids.where(_validLevel).toList()
+    ..sort((a, b) => b.$1.compareTo(a.$1));
+  var remaining = shares.isFinite && shares > 0 ? shares : 0.0;
+  var sold = 0.0, proceeds = 0.0;
+  for (final (p, size) in levels) {
+    if (remaining <= 0 || p < minPrice - 1e-9) break;
+    final take = math.min(size, remaining);
+    sold += take;
+    proceeds += take * p;
+    remaining -= take;
+  }
+  return (soldShares: sold, proceedsUsd: proceeds);
 }
 
 /// A public book snapshot prepared before approval. The dollar budget and
@@ -178,11 +275,16 @@ class PolymarketMarketBuyQuote {
     required this.negRisk,
     required this.fees,
     required this.fillableUsd,
+    required this.shares,
   }) : fetchedAt = DateTime.now();
 
   /// What the asks at or under [maxPrice] add up to: less than [amount]
   /// when the book cannot fill the whole stake within the cap.
   final double fillableUsd;
+
+  /// The shares [amount] buys walking the asks up to [maxPrice]
+  /// ([polymarketWalkAsks]): what the bet pays, \$1 each, if it wins.
+  final double shares;
 
   final String tokenId, tickSize;
 
@@ -240,13 +342,11 @@ class PolymarketMarketBuyQuote {
     if (asks.isEmpty) {
       throw StateError('No liquidity available for this outcome');
     }
-    var remaining = amount;
-    var price = asks.first.priceNum;
-    for (final ask in asks) {
-      price = ask.priceNum;
-      remaining -= price * ask.sizeNum;
-      if (remaining <= 0) break;
-    }
+    final levels = polymarketLevels(asks);
+    // The marginal ask the stake reaches walking the whole book.
+    final price =
+        polymarketWalkAsks(levels, amountUsd: amount).lastPrice ??
+            asks.first.priceNum;
     final tick = double.parse(tickSize!);
     // The selected slippage rounded down, with one tick of room at least;
     // the approval names exactly this cap.
@@ -255,6 +355,8 @@ class PolymarketMarketBuyQuote {
     if (maxPrice < price - 1e-9) {
       throw const FormatException('Price is outside the market limits');
     }
+    final capped =
+        polymarketWalkAsks(levels, amountUsd: amount, maxPrice: maxPrice);
     return PolymarketMarketBuyQuote._(
         tokenId: tokenId,
         amount: amount,
@@ -264,8 +366,13 @@ class PolymarketMarketBuyQuote {
         tickSize: tickSize,
         negRisk: book.negRisk,
         fees: fees,
-        fillableUsd: polymarketDepthWithin(book, maxPrice));
+        fillableUsd: capped.depthUsd,
+        shares: capped.shares);
   }
+
+  /// Whether the book fills the whole stake within [maxPrice]: the check
+  /// the slip makes before approval ([PolymarketThinBook] otherwise).
+  bool get fills => fillableUsd + 1e-6 >= amount;
 
   /// Whether the increment and neg-risk this quote carries can be signed
   /// with now: read within the last 15 seconds, or still what the market

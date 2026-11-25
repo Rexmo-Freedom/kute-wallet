@@ -26,6 +26,7 @@ import 'package:kute/providers/current_route_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/sync/sync_pipeline.dart';
 import 'package:kute/services/sync/sync_status.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 class PolymarketPollPipeline implements SyncPipeline {
   PolymarketPollPipeline();
@@ -77,7 +78,13 @@ class PolymarketPollPipeline implements SyncPipeline {
 
   void _scheduleNext() {
     _timer?.cancel();
-    _timer = Timer(_interval, _tick);
+    _timer = Timer(_interval, () {
+      if (OrderPollGate.paused) {
+        _scheduleNext();
+        return;
+      }
+      _tick();
+    });
   }
 
   Future<void> _tick() async {

@@ -486,11 +486,12 @@ void main() {
       }
       expect(find.byKey(const ValueKey('money-steps-station-done-predictions')),
           findsNothing);
-      // Three sources, each on its own row with a small gap (B2, 27
-      // October 2026): about 160 high, still short of a sheet's keypad.
-      // Two sources stay about 125 (money_journey_parallel_test).
+      // Three sources, each on its own row with a gap (B2, 27 October
+      // 2026; the rows apart enough for the big Sal to stand clear of the
+      // track above him, 1 November 2026): about 270 high with its status
+      // line. Two sources stay about 175 (money_journey_parallel_test).
       expect(tester.getSize(find.byKey(const ValueKey('money-steps'))).height,
-          lessThan(170));
+          lessThan(290));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 3));
     });

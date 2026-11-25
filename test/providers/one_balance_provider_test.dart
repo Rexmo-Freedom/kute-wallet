@@ -334,10 +334,100 @@ void main() {
       final s = c.read(oneBalanceProvider);
       expect(s.dollarsUsd, 100);
       // 30 in positions + 5 reserved by the resting BUY; the other 15 of
-      // venue cash is the sweeper's, not "invested".
+      // venue cash is Available, not "invested" (counted at the live read
+      // until the sweeper's first pass classifies it).
       expect(s.investedUsd, 35);
       expect(s.predictionsKnown, isTrue);
-      expect(s.availableUsd, 100);
+      expect(s.availableUsd, 115);
+      expect(s.totalUsd, 150);
+    });
+
+    group('first boot: the sweeper has not looked at the venues yet', () {
+      // The founder's recovered wallet (10 November 2026): Predictions sale
+      // proceeds sit at the venue as pUSD, the sweeper's state is empty
+      // until its first pass, and Available was short by that cash.
+      const recovered = PolymarketTradingState(
+          isAuthenticated: true, balanceKnown: true, usdcBalance: 15.65);
+
+      test('venue cash a fresh recovery reads is Available at once',
+          () async {
+        final c = container(
+          dollars: 20.09,
+          hlFreeUsdc: 0.4,
+          pm: recovered,
+        );
+        addTearDown(c.dispose);
+        await c.read(polymarketTradingProvider.future);
+        final s = c.read(oneBalanceProvider);
+        expect(s.venueCash, {
+          OneBalanceVenue.investing: 0.4,
+          OneBalanceVenue.predictions: 15.65,
+        });
+        expect(s.availableUsd, closeTo(36.14, 1e-9));
+        expect(s.totalUsd, closeTo(36.14, 1e-9));
+        expect(s.waiting, isEmpty, reason: 'nothing is moving it');
+        expect(s.inFlight, isEmpty);
+      });
+
+      test('a sweep a previous run started is counted once, in flight',
+          () async {
+        // The venue's read still shows the $12 that left it; the row
+        // carries it home.
+        final c = container(
+          dollars: 5,
+          pm: const PolymarketTradingState(
+              isAuthenticated: true, balanceKnown: true, usdcBalance: 15),
+          rows: [
+            _row(
+                id: 'sweep',
+                coinFrom: 'USDC.e',
+                networkFrom: 'POLYGON',
+                coinTo: 'USDB',
+                networkTo: 'SPARK',
+                depositAmount: '12',
+                withdrawalAmount: '12'),
+          ],
+        );
+        addTearDown(c.dispose);
+        await c.read(polymarketTradingProvider.future);
+        final s = c.read(oneBalanceProvider);
+        expect(s.inFlight, const [
+          InFlightMove(
+              kind: InFlightKind.fromVenue,
+              venue: OneBalanceVenue.predictions,
+              usd: 12),
+        ]);
+        expect(s.venueCash, {OneBalanceVenue.predictions: 3});
+        expect(s.totalUsd, closeTo(20, 1e-9), reason: 'never 32');
+      });
+
+      test('once classified, the sweeper decides again (a sweep that took '
+          'everything leaves nothing behind)', () async {
+        final c = container(
+          dollars: 5,
+          pm: const PolymarketTradingState(
+              isAuthenticated: true, balanceKnown: true, usdcBalance: 15),
+          sweeper: const VenueSweeperState(
+              classified: {OneBalanceVenue.predictions}),
+        );
+        addTearDown(c.dispose);
+        await c.read(polymarketTradingProvider.future);
+        final s = c.read(oneBalanceProvider);
+        expect(s.venueCash, isEmpty);
+        expect(s.availableUsd, 5);
+      });
+
+      test('a venue that has not answered is still unknown, not cash',
+          () async {
+        final c = container(
+            dollars: 5,
+            pm: const PolymarketTradingState(usdcBalance: 15));
+        addTearDown(c.dispose);
+        await c.read(polymarketTradingProvider.future);
+        final s = c.read(oneBalanceProvider);
+        expect(s.predictionsKnown, isFalse);
+        expect(s.venueCash, isEmpty);
+      });
     });
 
     test('in flight and waiting come from the rows and the sweeper',

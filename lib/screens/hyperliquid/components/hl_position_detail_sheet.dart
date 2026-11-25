@@ -1,28 +1,50 @@
 import 'dart:async';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_page_route.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/share/brag/brag_data.dart' show bragHlPosition;
+import 'package:kute/screens/share/brag/position_share_card.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
-import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // lib/screens/hyperliquid/components/hl_position_detail_sheet.dart
 //
-// The open-position screen of an Investing position, in plain words. It
-// reads like the market sheet of the same market: its header row (logo,
-// ticker), the live price as the big figure with its change today ("Low
-// liquidity" on a thin market) and the sheet's chart, clean, with its
-// pressure bar. Under the price, what is the user's: the side and the
-// leverage ("Long · 5x") and the profit or loss with the return on what
-// was put in ("Profit +$1,000.00 (+15.6%)"). Then two tiles: what was put
-// in (the margin; the collateral on cross) with what it is worth now (the
-// margin plus the profit or loss, the Portfolio card's own figure,
-// [hlCloseValue]), and the liquidation price with how far it is ("12%
-// away", coloured as it closes in: HlLiquidationTile); then plain rows:
-// "Add margin" on an isolated position (the margin sheet, where Remove is
-// a mode), "Protect it" and "Details". The position size (the notional,
-// size x price, with the coin size), entry, leverage, margin mode and
-// funding wait in Details, with one line on what the position size is;
-// closing stays wallet-scoped.
+// The open-position screen of an Investing position, in plain words. Its
+// header row is the market sheet's (logo, ticker). The big figure is what
+// the position is worth now (the margin plus the live profit or loss,
+// [hlCloseValue]), with the unrealised profit or loss under it in the up /
+// down colour ("+$0.42 (+3.9%)", the return on what was put in), then one
+// quiet line: the side, the size and the market price with its change
+// today ("Short · 0.006 ANTH · $2,104 (+0.8% today)"; founder, 2 November
+// 2026). Then the sheet's chart, clean, with its pressure bar and its
+// interval row; then, actions first (founder, 6 November 2026), what can
+// be done to the position as cards, two side by side
+// (kute_action_cards.dart; founder, 4 November 2026: "big squares"; a lone
+// one full width): "Add margin" on an isolated position (the margin
+// sheet, where Remove is a mode) and "Protect it"; then two tiles: what
+// was put in (the margin; the collateral on cross) with its leverage ("2x
+// leverage", "No leverage"), and the liquidation price with how far it is
+// ("12% away", coloured as it closes in: HlLiquidationTile); then the
+// cards to read more, "Advanced chart" and "Details". The position size
+// (the notional, size x price,
+// with the coin size), entry, leverage, margin mode and funding wait in
+// Details, with one line on what the position size is; closing stays
+// wallet-scoped.
+//
+// Close position is the floating bar's primary button (founder, 2
+// November 2026: "a floating pill like the others"; kute_bar_context.dart),
+// in the red the pinned button had (KuteBarPrimaryStyle.destructive): it
+// opens the close ticket, whose own button is the bar while it is up (and
+// thinks while the close runs). Once the position this screen saw is gone
+// from the account, the bar reads "Position closed" and takes no tap. At
+// its right the round Sal button (founder, 4 November 2026: no share pill
+// beside the figure, it floats; kute_bar_context.dart, THE TRADE ROW):
+// "Brag about it" in profit (the brag card), else Send to a friend (the
+// page's Sal sheet; position_share_card.dart). The body scrolls clear of
+// the bar; chart-edit mode takes both away with the header.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,12 +71,22 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlCandleChart, HlChartEditBody;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// The "You put in" tile's sub-line: "2x leverage" ("3.5x leverage" when
+/// the leverage is not whole: an integer when whole, else one decimal), or
+/// "No leverage" at 1x. Display only: the app opens no leveraged position.
+String hlLeverageCaption(AppLocalizations l10n, num leverage) {
+  if (leverage <= 1) return l10n.hlPositionNoLeverage;
+  final whole = leverage == leverage.roundToDouble();
+  return l10n.hlPositionLeverage(
+      whole ? leverage.round().toString() : leverage.toStringAsFixed(1));
+}
 
 // ───────────────────────────── sheet ─────────────────────────────
 
@@ -95,36 +127,21 @@ class HlPositionDetailSheet extends ConsumerStatefulWidget {
     // Drop active focus (search field) so closing the sheet doesn't
     // re-summon the keyboard — same fix as the market detail sheet.
     FocusManager.instance.primaryFocus?.unfocus();
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final navigator = Navigator.of(context, rootNavigator: true);
     unawaited(OpenOnce.run(key, () => navigator.push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
         // Still while the close sheet (or any sheet) covers it, so its tick
         // animations never share the frames of the sheet being scrolled.
-        pageBuilder: (_, __, ___) => KuteStillWhenCovered(
+        builder: (_) => KuteStillWhenCovered(
           child: HlPositionDetailSheet(
               position: position,
               market: market,
               ledgerWalletId: ledgerWalletId),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     )));
   }
@@ -141,9 +158,15 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   /// freeze the headline PnL.
   HlLivePricesNotifier? _livePrices;
   /// The chart's edit mode is on: as on the market sheet, the header,
-  /// the position and the Close bar give way and the chart takes the
-  /// whole screen (HlChartEditBody); Done or back brings them back.
+  /// the position and the bar's Close position give way and the chart
+  /// takes the whole screen (HlChartEditBody); Done or back brings them
+  /// back.
   bool _advancedChart = false;
+
+  /// The account has shown this position live while the screen is open:
+  /// its absence after that means it closed (an empty list before it, a
+  /// loading account, says nothing).
+  bool _seenLive = false;
 
   /// The chart keeps the editing state, and the body changes shape around
   /// it (scrolling column when reading, the whole screen when editing);
@@ -213,6 +236,9 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     }
     final current =
         positions.where((p) => p.coin == widget.position.coin).firstOrNull;
+    if (current != null) _seenLive = true;
+    // Gone from the account it was seen in: nothing left to close.
+    final closed = _seenLive && current == null;
     final pos = current ?? widget.position;
     final m = _market;
 
@@ -229,6 +255,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final roe = margin > 0 ? pnl / margin : pos.returnOnEquity;
     final positive = pnl >= 0;
     final accent = positive ? greenColor : redColor;
+    final pnlText = '${positive ? '+' : '−'}${formatDollars(pnl.abs())}';
+    // What the position is worth now: the margin plus the live profit or
+    // loss, what closing gives back (the hero figure).
+    final worth = hlCloseValue(pos, liveMid: liveMid);
     final liquidation = current != null ? hlLiquidationPrice(pos) : null;
     // Isolated margin can be topped up or taken out (spending wallet
     // only: the Ledger signer has no reviewed path for
@@ -236,8 +266,88 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final canAdjustMargin =
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
+    // What can be done to the position, first under the chart (founder, 6
+    // November 2026: actions first).
+    final actions = <KuteActionCard>[
+      if (current != null && canAdjustMargin)
+        KuteActionCard.option(
+          key: const ValueKey('hl-add-margin'),
+          icon: Icons.add_rounded,
+          title: context.l10n.hlMarginAdd,
+          subtitle: context.l10n.optionAddMarginSub,
+          // Removing is a mode of the same sheet.
+          onTap: () => HlAdjustMarginSheet.show(context,
+              position: pos,
+              market: m!,
+              add: true,
+              source: HlMarginSource.liquidationRow),
+        ),
+      // The ticket's own protective orders (stop / take profit, the
+      // trailing stop), one tap away. Needs the market to place them.
+      if (current != null && m != null && !m.isSpot)
+        KuteActionCard.option(
+          key: const ValueKey('hl-position-protect'),
+          icon: Icons.shield_outlined,
+          title: context.l10n.positionProtectIt,
+          subtitle: ledgerId == null
+              ? context.l10n.hlStopLoss
+              : context.l10n.investingTrailingStop,
+          onTap: () {
+            TrackingService.track('position_protect_tapped', params: {
+              'venue': 'hyperliquid',
+              'coin': pos.coin,
+              ...VenueAnalytics.hlAssetParams(pos.coin),
+              'side': pos.isLong ? 'long' : 'short',
+              'wallet_kind': ledgerId != null ? 'ledger' : 'hot',
+              'target': ledgerId == null ? 'stop_loss' : 'trailing_stop',
+            });
+            HlClosePositionSheet.showProtect(context, ref,
+                position: pos, market: m, ledgerWalletId: ledgerId);
+          },
+        ),
+    ];
 
-    return Scaffold(
+    // The page's Sal context: the round Sal button beside Close position
+    // opens it (or, in profit, the brag card; positionBarShare). The
+    // scope is around the whole page, with the `header` placement so the
+    // chart editor, where Close position is away, has no bar at all. A
+    // long press on Close position asks Sal with this context.
+    final bar = marketBarContext(
+      context,
+      // As the header names it, the logo drawn as the header draws it.
+      title: hlFriendlyName(m?.coin ?? pos.coin) ?? (m?.coin ?? pos.coin),
+      ticker: m?.coin ?? pos.coin,
+      wireCoin: m?.wireCoin ?? pos.coin,
+      coinCategory: m?.category,
+      coinIconUrl: m?.iconUrl,
+      venue: kMarketLinkInvesting,
+      slug: widget.position.coin,
+      // The pick: this position's side.
+      outcome: pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel,
+      position: true,
+      category: SearchCategory.perpetuals,
+      searchHint: context.l10n.searchInvestmentsHint,
+      source: 'trading',
+      placement: KuteBarPlacement.header,
+      // An open position brags (kute_share_actions.dart).
+      brag: current == null
+          ? null
+          : () => bragHlPosition(ref.read,
+              position: pos,
+              title: m?.coin ?? pos.coin,
+              side: pos.isLong
+                  ? context.l10n.longLabel
+                  : context.l10n.shortLabel,
+              pnl: pnl,
+              markPx: markPx,
+              wireCoin: m?.wireCoin,
+              iconUrl: m?.iconUrl,
+              category: m?.category,
+              decimalCap: m?.pxDecimalCap),
+    );
+    return KuteBarContextScope(
+      barContext: bar,
+      child: Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
       resizeToAvoidBottomInset: false,
       body: Container(
@@ -256,9 +366,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                       const KuteCloseButton(),
                       SizedBox(width: 8.w),
                       // The market sheet's header row: logo and ticker; the
-                      // price is the big figure under it. No Sal on a
-                      // position: its rows say what is at risk and how to
-                      // protect it.
+                      // figure is under it.
                       HlCoinIcon(
                           coin: m?.coin ?? pos.coin,
                           wireCoin: m?.wireCoin ?? pos.coin,
@@ -293,24 +401,42 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                     ? HlChartEditBody(chart: _chart(m, fillHeight: true))
                     : SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
+                        // The foot scrolls clear of the floating Close
+                        // position (and of the home indicator: the page
+                        // runs to the screen's foot on iOS).
+                        padding: EdgeInsets.fromLTRB(
+                            20.w,
+                            0,
+                            20.w,
+                            kuteBarScrollClearance.h +
+                                MediaQuery.paddingOf(context).bottom),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SizedBox(height: 10.h),
-                            // The price now, large, as on the market screen
-                            // (a tick flashes and fades), with its change
-                            // today; then the position in plain words: its
-                            // side and leverage, and the profit or loss with
-                            // the return on what was put in.
+                            // The hero is what the position is worth now
+                            // (the margin plus the live profit or loss,
+                            // [hlCloseValue], the Portfolio card's figure;
+                            // a tick flashes it and fades), with the
+                            // unrealised profit or loss under it in the up
+                            // / down colour: "+$0.42 (+3.9%)", the return
+                            // on what was put in. Under that, one quiet
+                            // line: the side, the size, and the market
+                            // price with its change today. Entry, margin,
+                            // leverage and funding wait in Details
+                            // (founder, 2 November 2026: one big number,
+                            // one quiet line).
+                            // The row's whole width: the share floats
+                            // beside Close position (founder, 4 November
+                            // 2026).
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
                               child: HlTickPrice(
+                                // The hero figure.
                                 key: const ValueKey('hl-position-price'),
-                                price: markPx,
-                                text: formatHlPrice(markPx,
-                                    decimalCap: m?.pxDecimalCap),
+                                price: worth,
+                                text: formatDollars(worth),
                                 style: TextStyle(
                                   color: c.textPrimary,
                                   fontSize: 38.sp,
@@ -323,75 +449,90 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                 ),
                               ),
                             ),
-                            SizedBox(height: 4.h),
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8.w,
-                              runSpacing: 4.h,
-                              children: [
+                            SizedBox(height: 2.h),
+                            // The P&L, amount and return; read aloud with
+                            // its word ("Profit … (…)") since the colour
+                            // carries it on screen. One fixed-height line,
+                            // tabular figures: a tick never moves what is
+                            // under it.
+                            Semantics(
+                              label: (positive
+                                  ? context.l10n.hlPositionProfit
+                                  : context.l10n.hlPositionLoss)(
+                                pnlText,
+                                formatHlPct(roe),
+                              ),
+                              excludeSemantics: true,
+                              child: Text(
+                                '$pnlText (${formatHlPct(roe)})',
+                                key: const ValueKey('hl-position-result'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                strutStyle: StrutStyle(
+                                    fontSize: 17.sp,
+                                    height: 1.25,
+                                    forceStrutHeight: true),
+                                style: TextStyle(
+                                  color: accent,
+                                  fontSize: 17.sp,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                  height: 1.25,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+                            // "Short · 0.006 ANTH · $2,104 (+0.8% today)":
+                            // small, secondary, one line that ends in an
+                            // ellipsis rather than wrapping; the change
+                            // today keeps its colour.
+                            Text.rich(
+                              TextSpan(children: [
+                                TextSpan(text: [
+                                  pos.isLong
+                                      ? context.l10n.longLabel
+                                      : context.l10n.shortLabel,
+                                  '${formatHlSize(pos.szi.abs())} '
+                                      '${m?.coin ?? pos.coin}',
+                                  formatHlPrice(markPx,
+                                      decimalCap: m?.pxDecimalCap),
+                                ].join(' · ')),
                                 if (m != null)
-                                  Text(
-                                    context.l10n.polyCardMoveToday(
-                                        formatHlPct(m.dayChangeAt(markPx))),
-                                    key: const ValueKey('hl-position-change'),
+                                  TextSpan(
+                                    text: ' (${context.l10n.polyCardMoveToday(
+                                        formatHlPct(m.dayChangeAt(markPx)))})',
                                     style: TextStyle(
                                       color: m.dayChangeAt(markPx) >= 0
                                           ? greenColor
                                           : redColor,
-                                      fontSize: 15.sp,
-                                      fontWeight: FontWeight.w700,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures()
-                                      ],
                                     ),
                                   ),
-                                if (m != null && m.isLowLiquidity)
-                                  const HlLowLiquidityBadge(),
-                              ],
+                              ]),
+                              key: const ValueKey('hl-position-meta'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              strutStyle: StrutStyle(
+                                  fontSize: 14.sp,
+                                  height: 1.3,
+                                  forceStrutHeight: true),
+                              style: TextStyle(
+                                color: c.textSecondary,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w500,
+                                height: 1.3,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
                             ),
-                            SizedBox(height: 14.h),
-                            // "Long · 5x" in the side's colour (a spot
-                            // holding has no leverage: the side alone),
-                            // then "Profit +$1,000.00 (+15.6%)" or
-                            // "Loss −$500.00 (−7.8%)" in the up / down
-                            // colour.
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 10.w,
-                              runSpacing: 6.h,
-                              children: [
-                                HlSideChip(
-                                  key: const ValueKey('hl-position-side'),
-                                  text: [
-                                    pos.isLong
-                                        ? context.l10n.longLabel
-                                        : context.l10n.shortLabel,
-                                    if (!(m?.isSpot ?? false) &&
-                                        pos.leverageValue > 0)
-                                      '${pos.leverageValue}x',
-                                  ].join(' · '),
-                                  color: pos.isLong ? greenColor : redColor,
-                                ),
-                                Text(
-                                  (positive
-                                      ? context.l10n.hlPositionProfit
-                                      : context.l10n.hlPositionLoss)(
-                                    '${positive ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
-                                    formatHlPct(roe),
-                                  ),
-                                  key: const ValueKey('hl-position-result'),
-                                  style: TextStyle(
-                                    color: accent,
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.2,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures()
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                            // A thinly traded market still says so.
+                            if (m != null && m.isLowLiquidity) ...[
+                              SizedBox(height: 8.h),
+                              const HlLowLiquidityBadge(),
+                            ],
                             SizedBox(height: 20.h),
                             // The market sheet's chart, so both screens read the
                             // same: candle sizes, styles, zoom, history, the
@@ -405,38 +546,56 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               const SkeletonLineChart(
                                   height: 380, padding: EdgeInsets.zero),
                             SizedBox(height: 16.h),
-                            // Only what matters on the screen, in plain
-                            // words: what was put in (with what it is worth
-                            // now) and how far the liquidation is, each on
-                            // its own tile; then plain rows to
+                            // Actions first (founder, 6 November 2026):
+                            // what can be done to the position, as cards
+                            // two side by side (kute_action_cards.dart; a
+                            // lone one full width), right under the chart;
                             // add margin (an isolated position the app can
-                            // move margin on), to protect it, and Details
-                            // (what else the position is made of).
+                            // move margin on) and protect it.
+                            if (actions.isNotEmpty) ...[
+                              KuteActionCardGrid(
+                                key: const ValueKey('hl-position-actions'),
+                                // Alone (a cross position's Protect it):
+                                // one compact full-width row.
+                                cards: actions,
+                              ),
+                              SizedBox(height: 12.h),
+                            ],
+                            // Then only what matters on the screen, in
+                            // plain words: what was put in (with its
+                            // leverage) and how far the liquidation is,
+                            // each on its own tile; then the cards to read
+                            // more.
                             if (current != null) ...[
                               PositionStatTiles(
                                 left: PositionStatTile(
                                   key: const ValueKey('hl-position-margin'),
                                   // The margin (an isolated position's, with
                                   // any added since; a cross position's, the
-                                  // collateral it ties up), and under it
-                                  // what closing now gives back: the margin
-                                  // plus the profit or loss, the Portfolio
-                                  // card's figure. Isolated or cross is in
-                                  // Details.
+                                  // collateral it ties up). What it is worth
+                                  // now is the hero above, so the tile does
+                                  // not say it again. Isolated or cross is in
+                                  // Details. Under it the position's
+                                  // leverage, said only ("2x leverage", "No
+                                  // leverage"; founder, 2 November 2026): the
+                                  // Liquidation tile's sub-line style, so both
+                                  // tiles keep one height.
                                   label: context.l10n.hlPositionYouPutIn,
-                                  value: Text(formatPolyAmount(ref, margin),
+                                  value: Text(formatDollars(margin),
                                       maxLines: 1,
                                       style: positionTileValueStyle(c)),
                                   caption: Text(
-                                      context.l10n.hlPositionWorthNow(
-                                          formatPolyAmount(
-                                              ref,
-                                              hlCloseValue(pos,
-                                                  liveMid: liveMid))),
-                                      key: const ValueKey(
-                                          'hl-position-worth'),
-                                      maxLines: 1,
-                                      style: positionTileCaptionStyle(c)),
+                                    hlLeverageCaption(
+                                        context.l10n,
+                                        (m?.isSpot ?? false)
+                                            ? 1
+                                            : pos.leverageValue),
+                                    key: const ValueKey(
+                                        'hl-position-leverage'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: positionTileCaptionStyle(c),
+                                  ),
                                 ),
                                 right: HlLiquidationTile(
                                   liquidation: liquidation,
@@ -445,115 +604,71 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                 ),
                               ),
                               SizedBox(height: 12.h),
-                              if (canAdjustMargin)
-                                PositionLinkRow(
-                                  key: const ValueKey('hl-add-margin'),
-                                  label: context.l10n.hlMarginAdd,
-                                  // Removing is a mode of the same sheet.
-                                  onTap: () => HlAdjustMarginSheet.show(
-                                      context,
-                                      position: pos,
-                                      market: m!,
-                                      add: true,
-                                      source: HlMarginSource.liquidationRow),
-                                ),
-                              // The ticket's own protective orders (stop /
-                              // take profit, the trailing stop), one tap
-                              // away. Needs the market to place them.
-                              if (m != null && !m.isSpot)
-                                PositionLinkRow(
-                                  key: const ValueKey('hl-position-protect'),
-                                  label: context.l10n.positionProtectIt,
-                                  value: ledgerId == null
-                                      ? context.l10n.hlStopLoss
-                                      : context.l10n.investingTrailingStop,
-                                  onTap: () {
-                                    TrackingService.track(
-                                        'position_protect_tapped',
-                                        params: {
-                                          'venue': 'hyperliquid',
-                                          'coin': pos.coin,
-                                          ...VenueAnalytics.hlAssetParams(
-                                              pos.coin),
-                                          'side':
-                                              pos.isLong ? 'long' : 'short',
-                                          'wallet_kind': ledgerId != null
-                                              ? 'ledger'
-                                              : 'hot',
-                                          'target': ledgerId == null
-                                              ? 'stop_loss'
-                                              : 'trailing_stop',
-                                        });
-                                    HlClosePositionSheet.showProtect(
-                                        context, ref,
-                                        position: pos,
-                                        market: m,
-                                        ledgerWalletId: ledgerId);
-                                  },
-                                ),
                             ],
-                            // The chart's editing mode, as on the market
-                            // screen: one row, above Details, with no icon
-                            // like the rows around it.
-                            if (m != null)
-                              PositionLinkRow(
-                                key: const ValueKey('hl-advanced-chart'),
-                                label: context.l10n.hlAdvancedChart,
-                                onTap: () => HlCandleChart.openAdvanced(
-                                    _chartHostKey,
-                                    source: 'position'),
-                              ),
-                            _buildDetailsRow(c, pos),
+                            // The cards to read more, two side by side
+                            // (founder, 4 November 2026: "big squares";
+                            // kute_action_cards.dart; an odd last one full
+                            // width), as on the market screen and the
+                            // Predictions screens: the chart's editing mode
+                            // and Details (what else the position is made
+                            // of).
+                            KuteActionCardGrid(
+                              key: const ValueKey('hl-position-options'),
+                              cards: [
+                                // The chart's editing mode, as on the market
+                                // screen.
+                                if (m != null)
+                                  KuteActionCard.option(
+                                    key: const ValueKey('hl-advanced-chart'),
+                                    icon: Icons.candlestick_chart_rounded,
+                                    title: context.l10n.hlAdvancedChart,
+                                    subtitle:
+                                        context.l10n.optionAdvancedChartSub,
+                                    onTap: () => HlCandleChart.openAdvanced(
+                                        _chartHostKey,
+                                        source: 'position'),
+                                  ),
+                                _detailsCard(pos),
+                              ],
+                            ),
                           ],
                         ),
                       ),
               ),
 
-              // ── Sticky "Close position" bar ───────────────────────
-              // Edit mode drops it so the chart takes the whole screen,
-              // as the market sheet drops Invest; Done brings it back.
-              if (!editing)
-                ClipRect(
-                  child: KuteBlur(
-                    sigmaX: 18,
-                    sigmaY: 18,
-                    child: Container(
-                      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
-                      decoration: BoxDecoration(
-                        color: (context.isDark ? c.surface : c.background)
-                            .withValues(alpha: 0.55),
-                        border: Border(
-                          top: BorderSide(color: c.borderSubtle, width: 0.5),
-                        ),
-                      ),
-                      child: SafeArea(
-                        top: false,
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: MarketPairButton(
-                            label: context.l10n.hlClosePosition,
-                            color: AppColors.marketDown,
-                            icon: Icons.close_rounded,
-                            iconDisc: true,
-                            glow: true,
-                            onTap: () {
-                              HlClosePositionSheet.show(
-                                context,
-                                position: pos,
-                                market: m,
-                                ledgerWalletId: widget.ledgerWalletId,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
+              // ── Close position: the floating bar's button ─────────
+              // THE BAR IS THE BUTTON (kute_bar_context.dart): the same
+              // close ticket the pinned red button opened, in its red,
+              // with the round Sal button at its right (Brag about it in
+              // profit, else Send to a friend). Edit mode drops both so
+              // the chart takes the whole screen, as the header goes;
+              // Done brings them back.
+              KuteBarContextScope(
+                active: !editing,
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.hlClosePosition,
+                  onPrimary: () => HlClosePositionSheet.show(
+                    context,
+                    position: pos,
+                    market: m,
+                    ledgerWalletId: widget.ledgerWalletId,
                   ),
+                  enabled: !closed,
+                  disabledLabel: context.l10n.investingPositionClosed,
+                  style: KuteBarPrimaryStyle.destructive,
+                  category: SearchCategory.perpetuals,
+                  searchHint: context.l10n.searchInvestmentsHint,
+                  source: 'trading',
+                  share: positionBarShare(bar,
+                      brag: current != null && pnl >= 0.005),
                 ),
+                child: const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -576,12 +691,15 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         onAdvancedChanged: (on) => setState(() => _advancedChart = on),
       );
 
-  /// "Details": one row under the position, opening the shared bottom
-  /// sheet (as the market's "About" row does) with the size, entry,
-  /// leverage, margin mode and funding rows.
-  Widget _buildDetailsRow(AppColorsExtension c, HlPerpPosition pos) {
-    return PositionLinkRow(
-      label: context.l10n.details,
+  /// "Details": the last option card, opening the shared bottom sheet (as
+  /// the market's "About" card does) with the size, entry, leverage,
+  /// margin mode and funding rows.
+  KuteActionCard _detailsCard(HlPerpPosition pos) {
+    return KuteActionCard.option(
+      key: const ValueKey('hl-position-details'),
+      icon: Icons.receipt_long_rounded,
+      title: context.l10n.details,
+      subtitle: context.l10n.optionPositionDetailsSub,
       onTap: () {
         TrackingService.track('investing_position_details_opened',
             params: {'coin': pos.coin});
@@ -600,7 +718,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   }
 }
 
-/// The sheet behind the "Details" row: the position's size, entry,
+/// The sheet behind the "Details" card: the position's size, entry,
 /// leverage, margin mode and funding as plain rows (the side, the margin
 /// and the liquidation price are on the screen's tiles). The live price is in
 /// the screen's header and the return under its value, so neither is
@@ -640,11 +758,7 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
         children: [
           AppBottomSheetHeader(
             title: l10n.details,
-            trailing: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
+            trailing: const AppBottomSheetCloseButton(),
           ),
           Flexible(
             child: SingleChildScrollView(
@@ -658,9 +772,10 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                     // size: what the leverage controls, not the user's
                     // money (the line under the rows says so).
                     PositionRow(l10n.chartPositionSize,
-                        '${formatPolyAmount(ref, markPx * pos.szi.abs())} · ${formatHlSize(pos.szi.abs())} ${market?.coin ?? pos.coin}'),
-                    PositionRow(
-                        pos.isLong ? l10n.chartBoughtAt : l10n.chartSoldAt,
+                        '${formatDollars(markPx * pos.szi.abs())} · ${formatHlSize(pos.szi.abs())} ${market?.coin ?? pos.coin}'),
+                    // "Entry" for both sides: a short's entry is not
+                    // something it "sold", and a long's close is a sale.
+                    PositionRow(l10n.hlChartEntry,
                         formatHlPrice(pos.entryPx, decimalCap: cap)),
                     PositionRow(l10n.chartLeverage, '${pos.leverageValue}x'),
                     PositionRow(
@@ -673,7 +788,7 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                         pos.fundingSinceOpen! >= 0
                             ? l10n.investingFundingPaid
                             : l10n.investingFundingReceived,
-                        formatPolyAmount(ref, pos.fundingSinceOpen!.abs()),
+                        formatDollars(pos.fundingSinceOpen!.abs()),
                       ),
                   ]),
                   // What the screen's two figures are, in one quiet line:
@@ -684,6 +799,8 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                     l10n.hlPositionSizeExplain,
                     style: portfolioCardCaptionStyle(context.colors),
                   ),
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),
@@ -693,9 +810,3 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
     );
   }
 }
-
-/// Full-width "Close position" CTA — the only action on this sheet. Styled
-/// like the market detail's CLOSE POSITION button (red, icon disc, bold
-/// label).
-// The Close badge now renders via the shared MarketPairButton
-// (disc icon + light-mode glow configuration).

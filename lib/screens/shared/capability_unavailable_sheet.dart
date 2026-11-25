@@ -22,22 +22,41 @@
 // the generic "Unavailable") for anything else. A block a capability
 // inherits (`blockedBy`) reads the same.
 //
+// An allow list is not a region block (founder, 7 November 2026: "not
+// avaliable in usa? my vpn is in lisbon. please just say not avaliable
+// right now"). A policy denial because the person is outside the places a
+// feature is offered (`country_not_allowed`,
+// [CapabilityDecision.notOfferedHere]; Cash App is US-only) reads just
+// "Not available right now": no region (the backend's list is where it IS
+// offered), no VPN sentence, no body, the plain "Got it", and nothing
+// counted as `capability_region_blocked`, whatever the caller passed.
+//
 // A region block's one button is "Check connection" instead of "Got it"
 // (founder decision, October 2026; lib/services/region_freshness.dart):
-// it asks both venues and Kute's policy again, the button busy with the
-// shared rubber band meanwhile. Allowed now: the sheet closes, answering
+// it asks both venues and Kute's policy again, the button busy
+// meanwhile. Allowed now: the sheet closes, answering
 // true when what it was opened for is allowed, so a door can go on into
 // its action. Still restricted: it stays, with a soft failure tap, and
 // the button can be tapped again after the VPN changes. The sheet closes
 // by dragging it down or tapping outside, like every sheet.
+//
+// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context.dart):
+// the sheet draws no button of its own. "Got it" or "Check connection" is
+// the floating Sal bar's primary action ([KuteBarContext.primary]), busy
+// with the bar's progress ring while the re-check runs (the rubber band
+// the drawn button wore went with it), and the sheet keeps the room under
+// its header clear for the bar ([kuteBarScrollClearance]). The bar's long
+// press asks Sal scoped to the venue the block came from, when the sheet
+// knows one ([_category]).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -57,7 +76,8 @@ class CapabilityUnavailableSheet extends StatefulWidget {
   });
 
   /// The sentence that says why: [CapabilityDecision.messageIn] (or the
-  /// provider's own region sentence).
+  /// provider's own region sentence). Empty for none: the title alone
+  /// (an allow list's "Not available right now").
   final String message;
 
   /// A region block: the title names the region, whatever [title] says,
@@ -89,6 +109,22 @@ class CapabilityUnavailableSheet extends StatefulWidget {
 class _CapabilityUnavailableSheetState
     extends State<CapabilityUnavailableSheet> {
   bool _checking = false;
+
+  /// The venue the block came from, for the bar's long press (asking Sal
+  /// scoped to Predictions or Perpetuals): the venues whose own answer
+  /// opened the sheet, else the policy capabilities' prefix
+  /// (`polymarket.deposit`, `hyperliquid.deposit`); everything otherwise.
+  SearchCategory get _category {
+    final venues = widget.venues.toSet();
+    final ids = widget.capabilities?.toList() ?? const <String>[];
+    final predictions = venues.contains(InvestmentProvider.polymarket) ||
+        ids.any((id) => id.startsWith('polymarket.'));
+    final perpetuals = venues.contains(InvestmentProvider.hyperliquid) ||
+        ids.any((id) => id.startsWith('hyperliquid.'));
+    if (predictions && !perpetuals) return SearchCategory.predictions;
+    if (perpetuals && !predictions) return SearchCategory.perpetuals;
+    return SearchCategory.all;
+  }
 
   /// "Check connection": a fresh region round, then what stands. Allowed
   /// now closes the sheet (true when what it was opened for is allowed);
@@ -126,28 +162,34 @@ class _CapabilityUnavailableSheetState
             title: region
                 ? (widget.regionTitle ?? l10n.capabilityRegionTitle)
                 : (widget.title ?? l10n.gateUnavailableTitle),
-            subtitle: widget.message,
+            subtitle: widget.message.isEmpty ? null : widget.message,
           ),
           SizedBox(height: 8.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: region
-                ? RubberBandBusy(
+          // THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+          // .dart): "Check connection" (busy with the bar's progress ring
+          // while the re-check runs, so it takes no second tap) or "Got
+          // it" is the floating Sal bar's primary action, with the handler
+          // the drawn button had; the sheet keeps the room under its
+          // header for the bar.
+          KuteBarContextScope(
+            barContext: region
+                ? KuteBarContext.primary(
+                    label: l10n.checkConnection,
                     busy: _checking,
-                    expected: const Duration(seconds: 2),
-                    child: AppButton(
-                      key: const ValueKey(
-                          'capability-unavailable-check-connection'),
-                      text: l10n.checkConnection,
-                      isLoading: _checking,
-                      onPressed: _checking ? null : _checkConnection,
-                    ),
+                    busyLabel: l10n.checkConnection,
+                    onPrimary: _checkConnection,
+                    category: _category,
+                    source: 'capability_unavailable',
+                    disabledLabel: null,
                   )
-                : AppButton(
-                    key: const ValueKey('capability-unavailable-got-it'),
-                    text: l10n.gotIt,
-                    onPressed: () => Navigator.of(context).pop(false),
+                : KuteBarContext.primary(
+                    label: l10n.gotIt,
+                    onPrimary: () => Navigator.of(context).pop(false),
+                    category: _category,
+                    source: 'capability_unavailable',
+                    disabledLabel: null,
                   ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ],
       ),
@@ -172,7 +214,11 @@ bool _opening = false;
 /// [denial] is Kute's policy refusal behind the sheet, when there is one
 /// (the capability and its decision): a region block names its regions in
 /// the title when the backend did, and is counted once as
-/// `capability_region_blocked` on [surface].
+/// `capability_region_blocked` on [surface]. A denial by an allow list
+/// ([CapabilityDecision.notOfferedHere]) is not one: whatever [title],
+/// [message] and [regionRestricted] say, the sheet reads just "Not
+/// available right now" over "Got it", and nothing is counted, as for any
+/// refusal that is not about the region.
 Future<bool> showCapabilityUnavailableSheet(
   BuildContext context, {
   required String message,
@@ -187,7 +233,12 @@ Future<bool> showCapabilityUnavailableSheet(
   if (_opening || _openSheet?.mounted == true || !context.mounted) {
     return false;
   }
-  if (denial != null && denial.decision.regionRestricted) {
+  if (denial != null && denial.decision.notOfferedHere) {
+    title = context.l10n.capabilityNotAvailableNow;
+    message = '';
+    regionRestricted = false;
+    regionTitle = null;
+  } else if (denial != null && denial.decision.regionBlocked) {
     regionTitle ??= denial.decision.regionTitleIn(context.l10n);
     TrackingService.capabilityRegionBlocked(denial.capability,
         blockedBy: denial.decision.blockedBy, surface: surface);
@@ -228,7 +279,8 @@ Future<void> showBuyUnavailableSheet(BuildContext context) {
 /// The shared sheet for a policy [decision] that denies [capability]
 /// (when the caller knows it: "Check connection" reads it again). True
 /// when "Check connection" found it allowed now. A region block names
-/// the backend's regions in the title, over the VPN sentence.
+/// the backend's regions in the title, over the VPN sentence; an allow
+/// list's refusal reads "Not available right now".
 Future<bool> showCapabilityDecisionSheet(
   BuildContext context,
   CapabilityDecision decision, {
@@ -239,7 +291,7 @@ Future<bool> showCapabilityDecisionSheet(
     showCapabilityUnavailableSheet(
       context,
       message: decision.bodyIn(context.l10n),
-      regionRestricted: decision.regionRestricted,
+      regionRestricted: decision.regionBlocked,
       title: title,
       capabilities: capability == null ? null : [capability],
       denial: (capability: capability ?? 'unknown', decision: decision),

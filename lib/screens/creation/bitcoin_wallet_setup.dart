@@ -8,7 +8,7 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/bitcoin_wallet_creation_provider.dart';
 import 'package:kute/screens/creation/recover_wallet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -369,13 +369,22 @@ class _BitcoinWalletCreateState extends ConsumerState<BitcoinWalletCreate> {
                                     ]),
                               ),
                               SizedBox(height: 28.h),
-                              AppButton(
-                                  text: context.l10n.continueLabel,
-                                  isLoading: _creating,
-                                  onPressed:
-                                      _creating || _name.text.trim().isEmpty
-                                          ? null
-                                          : _create),
+                              // THE BAR IS THE BUTTON (kute_bar_context
+                              // .dart): Continue is the floating Sal bar's
+                              // primary action, on once the wallet is named.
+                              KuteBarContextScope(
+                                barContext: KuteBarContext.primary(
+                                  label: context.l10n.continueLabel,
+                                  onPrimary: _create,
+                                  enabled: !_creating &&
+                                      _name.text.trim().isNotEmpty,
+                                  busy: _creating,
+                                  source: 'bitcoin_wallet_setup',
+                                  disabledLabel: context.l10n.barNeedName,
+                                ),
+                                child:
+                                    SizedBox(height: kuteBarScrollClearance.h),
+                              ),
                             ]),
                           ),
                         ),

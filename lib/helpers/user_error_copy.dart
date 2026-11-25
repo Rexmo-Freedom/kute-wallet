@@ -21,6 +21,8 @@ import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
 import 'package:kute/services/polymarket_backend_service.dart'
     show GeoBlockException;
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolymarketReadException;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/secure/seed_access.dart';
 
@@ -65,6 +67,10 @@ String userErrorCopy(BuildContext context, Object? error, {String? fallback}) {
     return error.availability.messageIn(l10n);
   }
   if (error is GeoBlockException) return l10n.tradingNotAvailableInRegion;
+  // Every Polygon read endpoint failed: a read, so nothing was sent.
+  if (error is PolymarketReadException) {
+    return l10n.predictionsUnreachableNothingSent;
+  }
   if (error is HypercoreActivationFeeUnavailable) {
     return l10n.errorCopyActivationFeeUnavailable;
   }

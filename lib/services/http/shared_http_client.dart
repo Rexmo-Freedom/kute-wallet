@@ -41,6 +41,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import 'package:kute/services/http/connection_health.dart';
 import 'package:kute/services/http/http_timeout_policy.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 
@@ -94,6 +95,7 @@ abstract final class SharedHttpClient {
     _byHost.clear();
     _innerByHost.clear();
     debugRecycles++;
+    ConnectionHealth.instance.reset();
     for (final inner in pools.values) {
       try {
         inner.close();
@@ -291,6 +293,14 @@ abstract final class SharedHttpClient {
     int? statusCode,
   }) {
     try {
+      // Every request, before the sampling: the telemetry may skip a sample,
+      // the connection's health may not.
+      switch (outcome) {
+        case 'ok' || 'http_error':
+          ConnectionHealth.instance.noteAnswered(uri.host);
+        case 'timeout' || 'network_error':
+          ConnectionHealth.instance.noteFailed(uri.host);
+      }
       if (!debugReportEveryRequest) {
         if (outcome == 'ok') {
           if (_sampler.nextInt(okSampleRate) != 0) return;
@@ -331,6 +341,7 @@ abstract final class SharedHttpClient {
     _byHost.clear();
     _innerByHost.clear();
     debugRecycles = 0;
+    ConnectionHealth.instance.reset();
     debugOverride = null;
     debugReportEveryRequest = false;
     _failureWindowStartMs = 0;

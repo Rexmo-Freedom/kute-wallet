@@ -17,6 +17,15 @@
 // [hyperliquidMarketProvider] (display coin → full descriptor) for
 // everything else. Getting this wrong is silent (empty charts/books).
 //
+// Policy (founder decision, 12 November 2026): the browse universe is
+// never filtered by the runtime policy. A market the policy refuses for
+// the person's region (`hyperliquid.stocks` for stock-linked perps,
+// `hyperliquid.trade` for every new position) stays listed everywhere,
+// with its live price, chart and details; only buying is refused, at the
+// order ticket, before Face ID and before any money moves. Closing,
+// reducing, selling and withdrawing stay open. When the policy cannot be
+// read, the markets still show and buying stays refused (fail closed).
+//
 // The legacy hyperliquidSpotTickersProvider (hyperliquid_provider.dart)
 // is untouched. The cards' sparklines come from
 // hyperliquid_sparkline_provider.dart.
@@ -33,6 +42,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show hlPrimaryListings;
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// Shared thin HTTP client for the trading read paths. Stateless — one
 /// instance app-wide is fine (also imported by the account/orderbook/
@@ -95,12 +107,15 @@ const kHlCommoditySymbols = <String>{
 };
 
 /// True when [market] should surface under the Stocks pill (real equities
-/// ONLY — indices + commodities have their own pills).
-bool isHlStockMarket(HlMarket market) => kHlStockSymbols.contains(market.coin);
+/// ONLY — indices + commodities have their own pills). A token that holds
+/// a stock (NVDAX) is read by that stock's ticker.
+bool isHlStockMarket(HlMarket market) =>
+    kHlStockSymbols.contains(market.underlyingTicker);
 
 /// True when [market] should surface under the Indices pill (broad-market
 /// index trackers — the S&P 500, Nasdaq 100, Dow, Russell).
-bool isHlIndexMarket(HlMarket market) => kHlIndexSymbols.contains(market.coin);
+bool isHlIndexMarket(HlMarket market) =>
+    kHlIndexSymbols.contains(market.underlyingTicker);
 
 /// A stock-linked perpetual: a derivative on an equity, not a share. The
 /// venue's own annotation wins; the symbol set catches a market the venue
@@ -117,29 +132,30 @@ List<String> hlOpenCapabilities(HlMarket market) => [
       if (isHlStockPerp(market)) 'hyperliquid.stocks',
     ];
 
-/// Whether [market] may be offered as somewhere to open a position under
-/// the current policy. A stock-linked perp disappears from browse, search
-/// and Sal while `hyperliquid.stocks` denies, including when the policy
-/// cannot be read at all (the gate fails closed). Positions already held
-/// are looked up by their own providers and never pass through here.
-bool hlMarketOfferedUnderPolicy(
-        HlMarket market, RuntimeCapabilitiesService policy) =>
+/// Whether the stock gate lets a NEW position on [market] be composed
+/// here: false for a stock-linked perp while `hyperliquid.stocks` denies,
+/// including when the policy cannot be read (the gate fails closed).
+///
+/// This is NOT a browse filter. Founder decision, 12 November 2026: where
+/// the policy refuses `hyperliquid.stocks` (and/or `hyperliquid.trade`)
+/// for the person's region (the UK today, `country_blocked`) the markets
+/// stay listed: browse, Trending, the strip, search, Sal and the market
+/// page keep the live price, chart and details ("we should not hide, we
+/// can show, just not allow to purchase"). Only the buy / open paths are
+/// shut, before Face ID and before any money moves: the order ticket
+/// opens disabled under the policy's own reason (`_resolveOpenGate` in
+/// order_slip_sheet.dart, [CapabilityBlockNote]) and every placement
+/// re-checks [hlOpenCapabilities]. Closing, reducing, selling and
+/// withdrawing never pass through here. The one caller left is the
+/// Portfolio Builder's pick list, which is a purchase composer, not
+/// browse: a pick there is already a buy.
+bool hlStockGateAllows(HlMarket market, RuntimeCapabilitiesService policy) =>
     !isHlStockPerp(market) || policy.allows('hyperliquid.stocks');
-
-/// [markets] minus the ones the policy hides; see [hlMarketOfferedUnderPolicy].
-List<HlMarket> hlMarketsOfferedUnderPolicy(
-    List<HlMarket> markets, RuntimeCapabilitiesService policy) {
-  if (policy.allows('hyperliquid.stocks')) return markets;
-  return [
-    for (final m in markets)
-      if (!isHlStockPerp(m)) m
-  ];
-}
 
 /// True when [market] should surface under the Commodities pill (tokenized
 /// gold/silver trackers).
 bool isHlCommodityMarket(HlMarket market) =>
-    kHlCommoditySymbols.contains(market.coin);
+    kHlCommoditySymbols.contains(market.underlyingTicker);
 
 /// Coarse classification of a SPOT market into the Trading tab's browse
 /// buckets. Perps are never passed here (they carry their own annotation
@@ -424,8 +440,11 @@ List<HlMarket> _hlTabMarkets(HlBrowseTab tab, List<HlMarket> universe,
     case HlBrowseTab.watchlist:
       return hlWatchlistMarkets(watchlist, universe);
     case HlBrowseTab.trending:
-      // The most traded markets: pure volume.
-      return ([...universe]..sort(_byVolume)).take(kHlTrendingCount).toList();
+      // The most traded underlyings: pure volume, each by its primary
+      // listing.
+      return hlPrimaryListings([...universe]..sort(_byVolume))
+          .take(kHlTrendingCount)
+          .toList();
     default:
       return [
         for (final m in universe)
@@ -465,6 +484,11 @@ HlBrowseSub hlEffectiveSub(HlBrowseSub selected, List<HlBrowseSub> subs) {
 /// The browse list for [tab] and its subcategory [sub], derived
 /// CLIENT-SIDE from the in-memory [universe] (no network pagination).
 ///
+/// One row per underlying ([hlPrimaryListings]): of the listings of one
+/// underlying in the list, its primary (a perp before a token, then the
+/// most traded), as in search, the big squares and the market map. The
+/// Watchlist is the exception: it lists exactly what was starred.
+///
 /// Order: the Watchlist as starred, newest first; Trending by 24 h
 /// volume. Every other list puts the perps first, most traded first,
 /// then the spot tokens: the ones Hyperliquid's own app verifies
@@ -487,6 +511,7 @@ List<HlMarket> hlBrowseListForTab(
   final list = _hlTabMarkets(tab, universe).where(sub.matches).toList();
   if (tab == HlBrowseTab.trending) {
     list.sort(_byVolume);
+    // Already one per underlying (_hlTabMarkets).
     return _preferOwnership(list, universe);
   }
   int rank(HlMarket m) => !m.isSpot ? 0 : (hlSpotIsVerified(m) ? 1 : 2);
@@ -494,7 +519,10 @@ List<HlMarket> hlBrowseListForTab(
     final r = rank(a).compareTo(rank(b));
     return r != 0 ? r : _byVolume(a, b);
   });
-  return list;
+  // One row per underlying: Nvidia on two builder dexes and as two tokens
+  // is one row, its primary listing (hlListingGroups); search offers the
+  // others under it.
+  return hlPrimaryListings(list);
 }
 
 /// Ownership is the default landing on Trending: when an underlying is
@@ -551,8 +579,27 @@ class HlBrowseSelection {
   }
 }
 
-final hlBrowseSelectionProvider =
-    StateProvider<HlBrowseSelection>((ref) => const HlBrowseSelection());
+/// Where Investing opens (founder, 13 November 2026: "The watchlist, after
+/// it is created, should be the one it always opens with. Only on
+/// Investing"): the Watchlist while it holds a market, else Trending.
+/// Every time the Investing pill is entered (resetInvestmentsPicks) and on
+/// a fresh start (the watchlist's box is opened at boot, hive_boot.dart,
+/// so its list is read before the first frame).
+HlBrowseSelection hlDefaultBrowseSelection(List<String> watchlist) =>
+    watchlist.isEmpty
+        ? const HlBrowseSelection()
+        : const HlBrowseSelection(tab: HlBrowseTab.watchlist);
+
+final hlBrowseSelectionProvider = StateProvider<HlBrowseSelection>((ref) {
+  // The Watchlist emptied while it is the list on screen: Trending, as the
+  // default falls back.
+  ref.listen<List<String>>(hlWatchlistProvider, (prev, next) {
+    if (next.isEmpty && ref.controller.state.tab == HlBrowseTab.watchlist) {
+      ref.controller.state = const HlBrowseSelection();
+    }
+  });
+  return hlDefaultBrowseSelection(ref.read(hlWatchlistProvider));
+});
 
 /// Base symbols listed BOTH ways — a spot market and a perp for the same
 
@@ -586,7 +633,7 @@ final hyperliquidPerpMarketsProvider =
   final model = ref.watch(hyperliquidTradingModelProvider);
 
   final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-    ref.invalidateSelf();
+    if (!OrderPollGate.paused) ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
 
@@ -728,7 +775,7 @@ final hyperliquidSpotMarketsProvider =
   final model = ref.watch(hyperliquidTradingModelProvider);
 
   final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-    ref.invalidateSelf();
+    if (!OrderPollGate.paused) ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
 
@@ -826,13 +873,11 @@ final hyperliquidBrowseUniverseProvider =
     return const AsyncValue.loading();
   }
 
-  // Re-evaluated whenever the policy changes, so a stock-perp block or
-  // its lifting reaches every list built from the universe.
-  final policy = ref.watch(runtimeCapabilitiesProvider);
-  return AsyncValue.data(hlMarketsOfferedUnderPolicy(
-      resolveHlBrowseUniverse(
-          perpList ?? const <HlMarket>[], spotList ?? const <HlMarket>[]),
-      policy));
+  // The whole universe whatever the policy says (founder, 12 November
+  // 2026): a market the policy refuses here stays listed with its price;
+  // only its ticket is shut ([hlStockGateAllows]).
+  return AsyncValue.data(resolveHlBrowseUniverse(
+      perpList ?? const <HlMarket>[], spotList ?? const <HlMarket>[]));
 });
 
 /// Resolve browse metadata over a combined perp + spot universe: spot pairs
@@ -873,7 +918,9 @@ List<HlMarket> resolveHlBrowseUniverse(
   }
   HlMarket classifyAndIconSpot(HlMarket m) {
     var classified = _classifyDirectSpot(m);
-    final base = classified.coin.toUpperCase();
+    // A token that holds a stock (NVDAX, EQNVDA) borrows from that
+    // stock's perps: its class, its logo, its name and keywords.
+    final base = classified.underlyingTicker.toUpperCase();
     final perpCategory = perpCategoryByBase[base];
     // Only a spot token the symbol sets left as plain crypto borrows.
     if (classified.category == 'crypto' &&
@@ -1006,10 +1053,41 @@ class HlMarketDirectory {
   static final Map<String, HlMarket> _byWire = {};
 
   static void remember(Iterable<HlMarket> markets) {
+    var changed = false;
     for (final m in markets) {
+      final before = _byWire[m.wireCoin];
       _byWire[m.wireCoin] = m;
+      if (before == null || before.coin != m.coin) changed = true;
       if (m.isHip3 && m.dex.isNotEmpty && _dexes.add(m.dex)) dexEpoch++;
     }
+    if (changed) _shared = null;
+  }
+
+  /// Display symbols more than one perp lists ('ANTH' on two builder
+  /// dexes, 'ANT' on the main dex and a builder dex), rebuilt only when
+  /// the markets change.
+  static Set<String>? _shared;
+
+  /// Whether another market shows under perp [m]'s symbol (a perp on
+  /// another venue, or a spot token of the same name), so a list row has
+  /// to name [m]'s venue to tell them apart. A spot token says "Spot" on
+  /// its own and never needs it.
+  static bool sharesSymbol(HlMarket m) {
+    if (m.isSpot) return false;
+    final shared = _shared ??= () {
+      final perps = <String>{};
+      final spots = <String>{};
+      final twice = <String>{};
+      for (final x in _byWire.values) {
+        if (x.isSpot) {
+          spots.add(x.coin);
+        } else if (!perps.add(x.coin)) {
+          twice.add(x.coin);
+        }
+      }
+      return {...twice, ...perps.intersection(spots)};
+    }();
+    return shared.contains(m.coin);
   }
 
   /// Every builder dex the venue lists, in its own order, including a dex

@@ -4,9 +4,11 @@
 // so there is no second, full-screen receive.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -46,13 +48,20 @@ Future<GoRouter> _pump(WidgetTester tester) async {
     ),
   ]);
   addTearDown(router.dispose);
-  await tester.pumpWidget(ScreenUtilInit(
-    designSize: const Size(430, 932),
-    builder: (_, __) => MaterialApp.router(
-      routerConfig: router,
-      theme: ThemeData(
-          splashFactory: NoSplash.splashFactory,
-          extensions: [AppColorsExtension.light()]),
+  // The sheet's route builder reads the localisations (its bar context,
+  // "What is this?") and its KuteBarContextScope is a Riverpod consumer:
+  // a ProviderScope above, the app's delegates on the router app.
+  await tester.pumpWidget(ProviderScope(
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp.router(
+        routerConfig: router,
+        theme: ThemeData(
+            splashFactory: NoSplash.splashFactory,
+            extensions: [AppColorsExtension.light()]),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
     ),
   ));
   await tester.pumpAndSettle();

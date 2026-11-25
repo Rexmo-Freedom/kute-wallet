@@ -44,6 +44,42 @@ void main() {
           '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU');
     });
 
+    test('pol: (Branta payee codes) is Polygon: the address, chain 137', () {
+      const code = 'pol:$_evm?value=50&branta_id=a%2Bb&branta_secret=s';
+      expect(bareRecipientAddress(code), _evm);
+      expect(bareCrossChainRecipient(code), _evm);
+      expect(evmPaymentChainId(code), 137);
+      expect(evmPaymentChainId('POL:$_evm'), 137);
+      expect(evmPaymentChainId(_evm), isNull);
+    });
+
+    test(
+        'Branta 4.3.0 chain codes: eth:, bsc:, sol:, tron: lose scheme and '
+        'query; eth: is Ethereum (1), bsc: BNB Smart Chain (56)', () {
+      const q = '?value=50&branta_id=a%2Bb&branta_secret=s';
+      const sol = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+      expect(bareRecipientAddress('eth:$_evm$q'), _evm);
+      expect(bareCrossChainRecipient('eth:$_evm$q'), _evm);
+      expect(evmPaymentChainId('eth:$_evm$q'), 1);
+      expect(bareRecipientAddress('bsc:$_evm$q'), _evm);
+      expect(bareCrossChainRecipient('BSC:$_evm$q'), _evm);
+      expect(evmPaymentChainId('bsc:$_evm$q'), 56);
+      expect(bareRecipientAddress('sol:$sol$q'), sol);
+      expect(bareCrossChainRecipient('sol:$sol$q'), sol);
+      expect(evmPaymentChainId('sol:$sol$q'), isNull);
+      expect(bareRecipientAddress('tron:$_tron$q'), _tron);
+      expect(evmPaymentChainId('tron:$_tron$q'), isNull);
+      // The scheme pins the network: an EVM address on eth: is Ethereum's.
+      expect(
+          usdSendChainAcceptsAddress(
+              'ethereum', bareRecipientAddress('eth:$_evm$q')),
+          isTrue);
+      expect(
+          usdSendChainAcceptsAddress(
+              'solana', bareRecipientAddress('sol:$sol$q')),
+          isTrue);
+    });
+
     test('EIP-681: chain id and pay- prefix go', () {
       expect(bareRecipientAddress('ethereum:$_evm@8453'), _evm);
       expect(bareRecipientAddress('ethereum:pay-$_evm@1?value=1e18'), _evm);

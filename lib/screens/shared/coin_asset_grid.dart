@@ -23,6 +23,7 @@
 // shows it, and the quiet line that opens the sheet.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -152,6 +153,7 @@ class CoinAssetGrid extends StatelessWidget {
     required this.onPick,
     required this.emptyLabel,
     this.selectedKey,
+    this.shrinkWrap = false,
   });
 
   final List<CoinAssetGroup> groups;
@@ -162,6 +164,10 @@ class CoinAssetGrid extends StatelessWidget {
   final ValueChanged<CoinAssetGroup> onPick;
   final String emptyLabel;
   final String? selectedKey;
+
+  /// Sized to its tiles and never scrolling itself, for a grid that sits
+  /// in a scrolling step with other cards (the dollar send's coin step).
+  final bool shrinkWrap;
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +189,11 @@ class CoinAssetGrid extends StatelessWidget {
       );
     }
     return GridView.builder(
-      padding: EdgeInsets.only(bottom: 8.h),
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+      // Scrolling on its own in a sheet, the last row clears the bar.
+      padding: EdgeInsets.only(
+          bottom: 8.h + (shrinkWrap ? 0 : kuteSheetBarClearance(context))),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         mainAxisSpacing: 10.h,
@@ -327,13 +337,17 @@ String? coinNetworkRowNote(
 /// (founder decision, 27 October 2026): its tap says why instead
 /// ([coinPickStoppedByRegion]). What
 /// [CoinAssetPickerSheet] offers, and what a step that shows the grid
-/// itself offers, so the two can never be a different set.
+/// itself offers, so the two can never be a different set. With
+/// [keepRegionBlocked] false a region-blocked network goes too: what is
+/// really open, for a surface with no tap to say why (the Send field's
+/// coin marks).
 ({List<CoinAssetGroup> groups, String? hiddenReason})
     coinGroupsOfferedUnderPolicy(
   List<CoinAssetGroup> groups, {
   String otherLegAsset = 'BTC',
   bool depositAddress = false,
   String? reusableLegAsset,
+  bool keepRegionBlocked = true,
 }) {
   final policy = RuntimeCapabilitiesService.instance;
   final offered = <CoinAssetGroup>[];
@@ -342,7 +356,8 @@ String? coinNetworkRowNote(
     final result = orchestraOptionsOfferedUnderPolicy(group.options, policy,
         otherLegAsset: otherLegAsset,
         depositAddress: depositAddress,
-        reusableLegAsset: reusableLegAsset);
+        reusableLegAsset: reusableLegAsset,
+        keepRegionBlocked: keepRegionBlocked);
     reason ??= result.hiddenReason;
     if (result.offered.isEmpty) continue;
     offered.add(result.offered.length == group.options.length
@@ -439,11 +454,6 @@ class CoinAssetPickerSheet extends StatefulWidget {
   /// coin and its network wear the check.
   final String? selectedOptionId;
 
-  /// Pinned above the grid: the same-rail destination a send already
-  /// has (the plain bitcoin send), which is meaningful on send and
-  /// meaningless on receive.
-  final Widget? pinned;
-
   /// Which flow this is, for the analytics event only.
   final String flow;
 
@@ -481,7 +491,6 @@ class CoinAssetPickerSheet extends StatefulWidget {
     required this.onPicked,
     this.initialAssetCode,
     this.selectedOptionId,
-    this.pinned,
     this.otherLegAsset = 'BTC',
     this.depositAddress = false,
     this.reusableLegAsset,
@@ -570,12 +579,12 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
     final offered = _offered();
     final group = _openGroup;
     final selected = widget.selectedOptionId;
-    final pinned = widget.pinned;
     final hiddenReason = offered.hiddenReason;
     final close = KuteCloseButton(
-      size: 36,
       onPressed: () => Navigator.of(context).pop(),
     );
+    // The close and back circles sit centred on the title's first line.
+    final lift = math.min(14.h, kuteNavTitleLift(context, 24.sp));
 
     return AppBottomSheetContainer(
       maxHeight: 0.9,
@@ -585,7 +594,7 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(child: AppDecorations.dragHandle(context)),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14.h - lift),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -594,54 +603,54 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
                   SizedBox(width: 10.w),
                 ],
                 if (group != null) ...[
-                  Padding(
-                    padding: EdgeInsets.only(top: 2.h),
-                    child: _SheetBackButton(
-                      onTap: () => setState(() => _openGroupKey = null),
-                    ),
+                  KuteCircleBackButton(
+                    onPressed: () => setState(() => _openGroupKey = null),
                   ),
                   SizedBox(width: 10.w),
                 ],
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        group?.displayName ?? widget.title,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        group == null
-                            ? widget.subtitle
-                            : l10n.receivePickNetwork,
-                        style: TextStyle(
-                          color: c.textTertiary,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                      if (group == null && hiddenReason != null) ...[
-                        SizedBox(height: 6.h),
-                        // Some coins are not offered here: the policy's
-                        // own words for why, said once above the grid.
+                  child: Padding(
+                    padding: EdgeInsets.only(top: lift),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          hiddenReason,
+                          group?.displayName ?? widget.title,
                           style: TextStyle(
-                            color: c.textTertiary,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w500,
-                            height: 1.3,
+                            color: c.textPrimary,
+                            fontSize: 24.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
                           ),
                         ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          group == null
+                              ? widget.subtitle
+                              : l10n.receivePickNetwork,
+                          style: TextStyle(
+                            color: c.textTertiary,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                        if (group == null && hiddenReason != null) ...[
+                          SizedBox(height: 6.h),
+                          // Some coins are not offered here: the policy's
+                          // own words for why, said once above the grid.
+                          Text(
+                            hiddenReason,
+                            style: TextStyle(
+                              color: c.textTertiary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 if (!widget.closeOnLeft) ...[
@@ -651,10 +660,6 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
               ],
             ),
             SizedBox(height: 16.h),
-            if (group == null && pinned != null) ...[
-              pinned,
-              SizedBox(height: 14.h),
-            ],
             Expanded(
               child: group == null
                   ? CoinAssetGrid(
@@ -669,25 +674,32 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
                   // needed; every row is still its own widget.
                   : SingleChildScrollView(
                       padding: EdgeInsets.only(bottom: 8.h),
-                      child: PickerGroupedList(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          for (final option in group.options)
-                            PickerRow(
-                              leading: ChainAvatarIcon(
-                                chainId: option.chain,
-                                label: option.chainDisplayName,
-                                iconUrl: option.chainIconUrl,
-                                size: 40,
-                              ),
-                              title: option.chainDisplayName,
-                              // A row that takes one payment and
-                              // expires behaves differently enough to
-                              // say so before the tap, not after it.
-                              subtitle: coinNetworkRowNote(option, l10n),
-                              selected: '${option.chain}:${option.assetCode}' ==
-                                  selected,
-                              onTap: () => unawaited(_pick(option)),
-                            ),
+                          PickerGroupedList(
+                            children: [
+                              for (final option in group.options)
+                                PickerRow(
+                                  leading: ChainAvatarIcon(
+                                    chainId: option.chain,
+                                    label: option.chainDisplayName,
+                                    iconUrl: option.chainIconUrl,
+                                    size: 40,
+                                  ),
+                                  title: option.chainDisplayName,
+                                  // A row that takes one payment and
+                                  // expires behaves differently enough to
+                                  // say so before the tap, not after it.
+                                  subtitle: coinNetworkRowNote(option, l10n),
+                                  selected: '${option.chain}:${option.assetCode}' ==
+                                      selected,
+                                  onTap: () => unawaited(_pick(option)),
+                                ),
+                            ],
+                          ),
+                          // The last rows scroll clear of the floating bar.
+                          const KuteSheetBarSpace(),
                         ],
                       ),
                     ),
@@ -708,43 +720,6 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
       }
     }
     return null;
-  }
-}
-
-/// The back arrow on the sheet's network pane. Its own class so it
-/// reads the live theme.
-class _SheetBackButton extends StatelessWidget {
-  const _SheetBackButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      label: context.l10n.back,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(12.r),
-          child: Container(
-            width: 36.sp,
-            height: 36.sp,
-            decoration: BoxDecoration(
-              color: c.textPrimary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Icon(Icons.arrow_back_rounded,
-                size: 18.sp, color: c.textPrimary),
-          ),
-        ),
-      ),
-    );
   }
 }
 

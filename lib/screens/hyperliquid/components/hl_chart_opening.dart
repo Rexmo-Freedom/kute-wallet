@@ -8,7 +8,9 @@
 //     carry-forward line with one or two prints at the right edge. On
 //     open, a LOW LIQUIDITY market (HlMarket.isLowLiquidity, the rule
 //     behind its label) whose tape has too few traded bars in the opening
-//     view steps up the ladder 1m → 5m → 15m → 1h → 4h → 1D until enough bars traded,
+//     view steps up the ladder 1m → 5m → 1h → 1D (the picker's own
+//     intervals, so the pill row always shows the one on screen; a saved
+//     15m joins it at 1h and a saved 4h at 1D) until enough bars traded,
 //     for that sheet only: the saved layout is not changed, and an
 //     interval picked in the sheet is never stepped.
 //   * the autoscale RANGE when one or two bars stand far outside the rest
@@ -19,6 +21,8 @@
 import 'dart:math' as math;
 
 import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart'
+    show hlIntervalMinutes;
 
 /// Bars the chart opens on (HlCandlestickChart's default view): the thin
 /// test looks at exactly the bars the first frame would show.
@@ -31,8 +35,10 @@ const double kHlThinTradedShare = 0.30;
 /// … or fewer than this many of them did.
 const int kHlThinTradedBars = 20;
 
-/// The ladder the opening interval climbs. 1W is never stepped to.
-const List<String> kHlOpeningLadder = ['1m', '5m', '15m', '1h', '4h', '1d'];
+/// The ladder the opening interval climbs: a few of the picker's intervals
+/// (kHlCandleIntervals), each a big enough step that a thin market gets
+/// there in few reads, short of 1W, which is never stepped to.
+const List<String> kHlOpeningLadder = ['1m', '5m', '1h', '1d'];
 
 /// Bars in the opening view of [candles] (its newest [viewBars]) and how
 /// many of them had a trade.
@@ -59,12 +65,15 @@ bool hlTapeIsThin(
       a.traded < a.visible * kHlThinTradedShare;
 }
 
-/// The next interval up the opening ladder, or null at its top (1D) and
-/// for an interval that is not on it (1W).
+/// The next interval up the opening ladder: the first rung coarser than
+/// [interval] (15m joins at 1h, 4h at 1D). Null at its top (1D) and past
+/// it (1W).
 String? hlCoarserOpeningInterval(String interval) {
-  final i = kHlOpeningLadder.indexOf(interval);
-  if (i < 0 || i >= kHlOpeningLadder.length - 1) return null;
-  return kHlOpeningLadder[i + 1];
+  final minutes = hlIntervalMinutes(interval);
+  for (final rung in kHlOpeningLadder) {
+    if (hlIntervalMinutes(rung) > minutes) return rung;
+  }
+  return null;
 }
 
 /// One step of the opening ladder, taken when the tape of [interval] has

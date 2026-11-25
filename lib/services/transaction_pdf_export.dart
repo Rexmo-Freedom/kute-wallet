@@ -88,6 +88,10 @@ class ReportAssets {
   bool get hasFonts => regular != null && bold != null;
 }
 
+/// The export's type for a Dollars yield payout (the CSV prints it as is;
+/// the PDF reads it in the report's language).
+const String kExportTypeDollarsYield = 'Dollars yield';
+
 class TransactionPdfExport {
   // ──────────────────────────────────────────────────────────────
   // MAIN ENTRY POINT
@@ -103,12 +107,14 @@ class TransactionPdfExport {
     DateTime? periodStart,
     DateTime? periodEnd,
     AppLocalizations? l10n,
+    Set<String> dollarsYieldIds = const {},
   }) async {
     final rows = collectRows(
       walletTransactions: walletTransactions,
       wallets: wallets,
       currentBtcPrice: currentBtcPrice,
       hlFills: hlFills,
+      dollarsYieldIds: dollarsYieldIds,
     );
     final assets = await loadReportAssets();
     final bytes = await buildReportBytes(
@@ -172,12 +178,15 @@ class TransactionPdfExport {
   /// Every activity entry across [wallets] plus the Hyperliquid fills,
   /// unfiltered. Both exporters start from this list; the period
   /// filter is applied downstream so the opening balance can still be
-  /// derived from the full history.
+  /// derived from the full history. [dollarsYieldIds] are the received
+  /// payments that are Dollars yield (dollars_yield_provider.dart): their
+  /// type reads "Dollars yield".
   static List<ExportRow> collectRows({
     required Map<String, Transaction> walletTransactions,
     required List<WalletConfig> wallets,
     required double? currentBtcPrice,
     List<HlFill> hlFills = const [],
+    Set<String> dollarsYieldIds = const {},
   }) {
     final rows = <ExportRow>[];
     for (final wallet in wallets) {
@@ -186,7 +195,8 @@ class TransactionPdfExport {
       // allTransactionsWithSwaps includes token transfers and swap
       // orders, same as the Activity feed.
       for (final tx in txData.allTransactionsWithSwaps) {
-        final enriched = _enrich(tx, wallet, currentBtcPrice);
+        final enriched = _enrich(tx, wallet, currentBtcPrice,
+            dollarsYieldIds: dollarsYieldIds);
         if (enriched != null) rows.add(enriched);
       }
     }
@@ -273,12 +283,14 @@ class TransactionPdfExport {
     List<HlFill> hlFills = const [],
     DateTime? periodStart,
     DateTime? periodEnd,
+    Set<String> dollarsYieldIds = const {},
   }) async {
     final allTxs = collectRows(
       walletTransactions: walletTransactions,
       wallets: wallets,
       currentBtcPrice: currentBtcPrice,
       hlFills: hlFills,
+      dollarsYieldIds: dollarsYieldIds,
     );
 
     final rows = filterRowsByPeriod(allTxs, start: periodStart, end: periodEnd)
@@ -473,14 +485,16 @@ class TransactionPdfExport {
   /// caller drops those rows rather than render a half-empty entry.
   @visibleForTesting
   static ExportRow? enrichForTest(BaseTransaction tx, WalletConfig wallet,
-          {double? currentBtcPrice}) =>
-      _enrich(tx, wallet, currentBtcPrice);
+          {double? currentBtcPrice,
+          Set<String> dollarsYieldIds = const {}}) =>
+      _enrich(tx, wallet, currentBtcPrice, dollarsYieldIds: dollarsYieldIds);
 
   static ExportRow? _enrich(
     BaseTransaction tx,
     WalletConfig wallet,
-    double? currentBtcPrice,
-  ) {
+    double? currentBtcPrice, {
+    Set<String> dollarsYieldIds = const {},
+  }) {
     final walletName = wallet.name.isNotEmpty ? wallet.name : 'Wallet';
     final walletType = _walletTypeLabel(wallet);
 
@@ -556,7 +570,9 @@ class TransactionPdfExport {
       return ExportRow(
         date: tx.timestamp,
         venue: ExportVenue.wallet,
-        type: '$railLabel ${isSent ? 'Sent' : 'Received'}',
+        type: !isSent && dollarsYieldIds.contains(tx.id)
+            ? kExportTypeDollarsYield
+            : '$railLabel ${isSent ? 'Sent' : 'Received'}',
         category: railLabel,
         rail: railLabel,
         sats: tx.amountSats,
@@ -1053,6 +1069,8 @@ class _ReportRenderer {
     switch (word) {
       case 'Unclaimed Deposit':
         return l.pdfRowUnclaimedDeposit;
+      case kExportTypeDollarsYield:
+        return l.activityDollarsYield;
       case 'Bank Purchase':
         return l.pdfRowBankPurchase;
       case 'Bank Withdrawal':

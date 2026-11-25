@@ -291,11 +291,15 @@ void main() {
           _bitcoinTab([_investing(), _predictions()], moves: [move]).single;
       await pumpRow(tester, row);
       expect(find.text('Withdraw'), findsOneWidget);
-      expect(find.textContaining('from Investments'), findsOneWidget);
+      // The spending balance is Dollars (renamed 31 October 2026), and a
+      // move still landing says "On its way", never "Pending".
+      expect(find.textContaining('from Dollars'), findsOneWidget);
       expect(find.textContaining('25.02'), findsOneWidget);
       expect(find.textContaining('10,539'), findsNothing);
       expect(find.textContaining('₿0'), findsNothing);
-      expect(find.textContaining('Pending', findRichText: true), findsWidgets);
+      expect(find.textContaining('On its way', findRichText: true),
+          findsWidgets);
+      expect(find.textContaining('Pending', findRichText: true), findsNothing);
     });
 
     testWidgets('once every leg\'s bitcoin is known: the bitcoin of both',

@@ -18,6 +18,10 @@
 //     which `withdrawUsdc` only accepts for a quote-bound send whose
 //     verified recipient is this wallet's own Spark address.
 //
+// `fund` runs only for a bet the person confirmed, under that Confirm's
+// approval (founder decision, 11 November 2026: pre-funding removed,
+// money moves only after Confirm).
+//
 // Money safety: nothing leaves without a quote that passed the quote gate
 // (rule 7: the recipient is the wallet's own account), the step-up hook
 // refuses a quote whose recipient is not this wallet's Predictions
@@ -250,6 +254,16 @@ class PredictionsVenueFunder
       throw const RouteUnavailable('below the Predictions minimum');
     }
     final amountBaseUnits = BigInt.from((usd * 1e6).round());
+    final read = _read;
+    // Three independent answers the move needs before its quote (the own
+    // Predictions account, the own Spark refund address, the settlement
+    // runner) are asked together, not one after the other. Each is
+    // awaited below; the sink keeps a failure of one from going unheard
+    // while another is still being read.
+    final sparkRefundRead = read(sparkSelfAddressProvider.future);
+    unawaited(sparkRefundRead.then((_) {}, onError: (Object _) {}));
+    final runnerRead = HotSettlement.runner();
+    unawaited(runnerRead.then((_) {}, onError: (Object _) {}));
     final evm = await _ownPredictionsAccount();
     if (evm == null || evm.isEmpty) {
       throw const RouteUnavailable('Predictions account not ready');
@@ -265,10 +279,9 @@ class PredictionsVenueFunder
 
     var dollarsSent = false;
     String? pendingQuoteRowId;
-    final read = _read;
     try {
-      final sparkRefund = await read(sparkSelfAddressProvider.future);
-      final runner = await HotSettlement.runner();
+      final sparkRefund = await sparkRefundRead;
+      final runner = await runnerRead;
       final settled = await runner.run(HotSettlement.plan(
         read,
         flow: SettlementFlow.moveUsdToPredictions,
@@ -522,7 +535,10 @@ class PredictionsVenueFunder
           }
         },
         fund: (verifiedQuote, _) async {
-          usdcSent = true;
+          // Setup first: a deposit wallet not yet deployed or approved
+          // refuses the batch at the relayer. Shared and instant once
+          // done; a failure here is a refusal, nothing has left.
+          await pm.enableTrading();
           final txHash = await pm.withdrawUsdc(
             toAddress: verifiedQuote.depositAddress,
             amount: usd,
@@ -531,6 +547,9 @@ class PredictionsVenueFunder
             grant: approved,
             sweep: auth is SweepAuthorization ? auth : null,
             sweepQuote: verifiedQuote,
+            // Told the instant the batch goes to the relayer; a throw
+            // before that sent nothing.
+            onSubmitting: () => usdcSent = true,
           );
           return SettlementFundingProof.relayer(txHash);
         },
@@ -606,6 +625,7 @@ class PredictionsVenueFunder
         'stage': usdcSent ? 'post_send' : 'pre_send',
         'purpose': purpose,
         'error_category': _failReason(e),
+        'cause_reason': TrackingService.errorReason(e),
         ...TrackingService.moneyParams(amountUsd: usd),
       });
       rethrow;
@@ -761,7 +781,7 @@ class PredictionsVenueFunder
             }
           },
           fund: (verifiedQuote, _) async {
-            usdcSent = true;
+            await pm.enableTrading();
             final txHash = await pm.withdrawUsdc(
               toAddress: verifiedQuote.depositAddress,
               amount: usd,
@@ -770,6 +790,7 @@ class PredictionsVenueFunder
               grant: approved,
               sweep: auth is ApprovedLegAuthorization ? auth : null,
               sweepQuote: verifiedQuote,
+              onSubmitting: () => usdcSent = true,
             );
             return SettlementFundingProof.relayer(txHash);
           },
@@ -865,6 +886,7 @@ class PredictionsVenueFunder
         'error_category': e is DirectRouteRefused
             ? (e.reason ?? 'route_unavailable')
             : _failReason(e),
+        'cause_reason': TrackingService.errorReason(e),
         ...TrackingService.moneyParams(amountUsd: usd),
       });
       rethrow;

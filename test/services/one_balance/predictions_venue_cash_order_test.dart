@@ -18,6 +18,8 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
+import 'package:kute/providers/venue_sweeper_provider.dart'
+    show pendingBetBlocksNewBet, pendingBetHoldsCash;
 import 'package:kute/screens/shared/money_steps_view.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart' show fundedStopLine;
 import 'package:kute/services/funding/settlement_runner.dart'
@@ -526,12 +528,12 @@ void main() {
     expect(h.bet, isNull);
     final r = h.record;
     expect(r.reason, 'timeout');
-    // It lands in Dollars whenever it does: the money is in Investments.
+    // It lands in Dollars whenever it does: the line says so.
     expect(r.moneyAt, FundedMoneyAt.investments);
     expect(r.steps.byId('leg:investing:via_dollars')!.status,
         MoneyStepStatus.failed);
     expect(fundedStopLine(l10n, r, (usd) => '\$${usd.toStringAsFixed(2)}'),
-        contains('Investments'));
+        contains('is in Dollars'));
     // A transient refusal, said as one.
     expect(
         _lines(l10n, r.steps).first, 'Investing route busy, going via Dollars');
@@ -560,5 +562,98 @@ void main() {
     expect(line('account_unavailable'), 'Investing going via Dollars');
     expect(
         line('wallet_guard_recipient_not_own'), 'Investing going via Dollars');
+  });
+
+  group('one funded bet at a time, in every state', () {
+    /// What a second bet slip's Confirm stored before the guard looked at
+    /// the held state: its own prepared bet, over the first.
+    const second = PendingBetIntent(
+      tokenId: 'no-token',
+      amount: 4,
+      slippagePct: 2,
+      marketQuestion: 'Will it snow?',
+      outcomeName: 'Yes',
+      expectedPrice: 0.5,
+      fundUsd: 4,
+    );
+
+    test(
+        'reproduced: held while its legs run, the bet passed the old guard, '
+        'and an accept over it lost the bet after its money moved', () async {
+      final h = _Run();
+      final run = await h.start();
+      // Right after the accept: held (awaitingDeposit) with its funding,
+      // bound to its live run, its Investing leg on its way.
+      expect(h.bet!.status, PendingBetStatus.awaitingDeposit);
+      expect(h.bet!.funded, isTrue);
+      expect(h.bet!.fundedRunId, h.runId);
+      // The guard every other state answers to said nothing here.
+      expect(pendingBetHoldsCash(h.bet), isFalse);
+      // What a second accept did: its own bet over this one.
+      h.c.read(pendingPolymarketBetProvider.notifier).setIntent(second);
+      // Both of the first bet's sources still go (its Investing cash
+      // straight in, its Dollars share), but its bet is no longer queued
+      // anywhere: nothing will place it. The money stopped short of the
+      // order it was approved for.
+      await h.until(
+          () => h.investing.direct.isNotEmpty && h.funder.sent.isNotEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(h.bet!.tokenId, 'no-token');
+      expect(h.bet!.fundedRunId, isNull);
+      var placed = false;
+      unawaited(run.ended.then((e) => placed = e == BitcoinFundedEnd.placed));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(placed, isFalse);
+      expect(h.record.stage, isNot(FundedOrderStage.done));
+    });
+
+    test(
+        'fixed: the held bet blocks a second accept until its run is over, '
+        'then nothing is blocked', () async {
+      final h = _Run();
+      final run = await h.start();
+      expect(pendingBetBlocksNewBet(h.bet, h.c.read(fundedOrdersProvider)),
+          isTrue);
+      // Queued behind its moves: still blocked (as before).
+      await h.until(() => h.bet?.status == PendingBetStatus.awaitingBalance);
+      expect(pendingBetBlocksNewBet(h.bet, h.c.read(fundedOrdersProvider)),
+          isTrue);
+      unawaited(h.autofire({'ord_dollars', 'ord_direct'}));
+      expect(await run.ended.timeout(const Duration(seconds: 10)),
+          BitcoinFundedEnd.placed);
+      expect(pendingBetBlocksNewBet(h.bet, h.c.read(fundedOrdersProvider)),
+          isFalse);
+    });
+
+    test(
+        'an armed bet waiting for its own Confirm, a slip being filled in, '
+        'and a held bet whose run is over block nothing', () {
+      const armed = PendingBetIntent(
+        tokenId: 'yes-token',
+        amount: 10,
+        slippagePct: 2,
+        marketQuestion: 'Will it rain?',
+        outcomeName: 'Yes',
+        expectedPrice: 0.5,
+        fundUsd: 10,
+      );
+      expect(pendingBetBlocksNewBet(armed, const []), isFalse);
+      expect(
+          pendingBetBlocksNewBet(
+              const PendingBetIntent(
+                tokenId: 'yes-token',
+                amount: 10,
+                slippagePct: 2,
+                marketQuestion: 'Will it rain?',
+                outcomeName: 'Yes',
+                expectedPrice: 0.5,
+              ),
+              const []),
+          isFalse);
+      expect(
+          pendingBetBlocksNewBet(
+              armed.copyWith(fundedRunId: 'fo_gone'), const []),
+          isFalse);
+    });
   });
 }

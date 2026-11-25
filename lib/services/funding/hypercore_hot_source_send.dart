@@ -122,105 +122,105 @@ class HypercoreHotSourceSendNative implements HypercoreHotSourceSend {
         );
       }
 
-      // Any sender-side charge is additional to the quote (none for a
-      // usdSend today). Check the full reserve before any internal move.
-      // Validate aggregate withdrawable cash, then collect only the portion
-      // needed in the default perpetuals account. Never include locked margin.
-      final reserve = await requiredReserve();
-      final portfolio = await model.getPortfolioSnapshot(account.address);
-      ensureWallet();
-      final spotMove = hypercorePerpShortfall(
-          requiredBaseUnits: reserve,
-          activationFeeBaseUnits: reserve - amountBaseUnits,
-          spotAvailable: hypercoreAvailableUsdc(0, portfolio.spotBalances),
-          perpAvailable: portfolio.withdrawable);
-      final requiredDefault = reserve - spotMove;
-      final exchange = HyperliquidExchangeService(
-        credentials: account.credentials,
-        walletAddress: account.address,
-        allowNonceRetry: false,
-        onBeforePost: (post) async {
-          ensureWallet();
-          if (post.action['type'] == 'usdSend') {
-            final remainingMove = await requiredInternalMove();
-            if (remainingMove > BigInt.zero) {
-              throw HypercoreBalanceShortfall(
-                  'Insufficient available perpetuals balance.');
-            }
-            await onBeforeSend(post.nonce);
-            ensureWallet();
-          }
-        },
-      );
-      void beforeDispatch() {
+      // One money-moving action at a time on the Investing cash
+      // (InvestingCashLock): an order being funded or placed finishes
+      // first, then everything below reads the account afresh.
+      return await InvestingCashLock.run(maxWait: kInvestingCashLockWait,
+          () async {
+        // Any sender-side charge is additional to the quote (none for a
+        // usdSend today). Check the full reserve before any internal move.
+        // Validate aggregate withdrawable cash, then collect only the portion
+        // needed in the default perpetuals account. Never include locked margin.
+        final reserve = await requiredReserve();
+        final portfolio = await model.getPortfolioSnapshot(account.address);
         ensureWallet();
-        ensurePayable();
-      }
+        final spotMove = hypercorePerpShortfall(
+            requiredBaseUnits: reserve,
+            activationFeeBaseUnits: reserve - amountBaseUnits,
+            spotAvailable: hypercoreAvailableUsdc(0, portfolio.spotBalances),
+            perpAvailable: portfolio.withdrawable);
+        final requiredDefault = reserve - spotMove;
+        final exchange = HyperliquidExchangeService(
+          credentials: account.credentials,
+          walletAddress: account.address,
+          allowNonceRetry: false,
+          onBeforePost: (post) async {
+            ensureWallet();
+            if (post.action['type'] == 'usdSend') {
+              final remainingMove = await requiredInternalMove();
+              if (remainingMove > BigInt.zero) {
+                throw HypercoreBalanceShortfall(
+                    'Insufficient available perpetuals balance.');
+              }
+              await onBeforeSend(post.nonce);
+              ensureWallet();
+            }
+          },
+        );
+        void beforeDispatch() {
+          ensureWallet();
+          ensurePayable();
+        }
 
-      var internalMove = BigInt.zero;
-      try {
-        await collectOwnDexCash(
-            model: model,
-            exchange: exchange,
-            requiredDefaultUsd: requiredDefault.toDouble() / 1e8,
-            beforeSend: () {
-              beforeDispatch();
-              internalPostPending = true;
-            });
-        internalPostPending = false;
-        internalMove = await requiredInternalMove();
-        if (internalMove > BigInt.zero) {
-          await exchange.usdClassTransfer(
-            amount: internalMove.toDouble() / 1e8,
-            toPerp: true,
-            beforeSend: () {
-              beforeDispatch();
-              internalPostPending = true;
-            },
-          );
-          internalPostPending = false;
-        }
-      } on HyperliquidRejectedException {
-        internalPostPending = false;
-        rethrow;
-      }
-      // Check again before the external signature after an internal
-      // transfer. With none, the read just above is this same check with
-      // nothing in between, so it is not asked twice. The pre-POST hook
-      // repeats it after signing either way, before anything is recorded
-      // or sent.
-      if (internalMove > BigInt.zero &&
-          await requiredInternalMove() > BigInt.zero) {
-        throw HypercoreBalanceShortfall(
-            'Insufficient available perpetuals balance.');
-      }
-      final nonce = await exchange.usdSend(
-          destination: depositAddress,
-          amount: amountWire,
-          beforeSend: () {
-            beforeDispatch();
-            externalPostStarted = true;
-          });
-      // The exchange acknowledges acceptance without returning a tx hash.
-      // Find its canonical ledger hash; never sign or send again while waiting.
-      // Asked every second rather than every two, within the same six
-      // seconds: the ledger usually has it within one, and the sheet was
-      // held for the rest of the two-second step.
-      for (var attempt = 0; attempt < 7; attempt++) {
-        if (attempt > 0) await Future<void>.delayed(const Duration(seconds: 1));
+        var internalMove = BigInt.zero;
         try {
-          final hash = await readHypercorePerpTransferHash(
-              source: account.address,
-              destination: depositAddress,
-              amountBaseUnits: amountBaseUnits,
-              nonce: nonce);
-          if (hash != null) return hash;
-        } catch (_) {
-          // The persisted nonce lets the public reconciler continue after this
-          // foreground lookup or a process exit, without another signing step.
+          // Builder dex and spot cash home to perpetuals, each move waited
+          // for until the main account's read shows it (gatherOwnPerpCash).
+          await gatherOwnPerpCash(
+              model: model,
+              exchange: exchange,
+              requiredBaseUnits: reserve,
+              requiredDefaultBaseUnits: requiredDefault,
+              spotMove: () async => internalMove = await requiredInternalMove(),
+              beforeSend: () {
+                beforeDispatch();
+                internalPostPending = true;
+              },
+              afterSend: () => internalPostPending = false);
+        } on HyperliquidRejectedException {
+          internalPostPending = false;
+          rethrow;
         }
-      }
-      throw StateError('Native transfer submitted; waiting for confirmation.');
+        // Check again before the external signature after an internal
+        // transfer. With none, the read just above is this same check with
+        // nothing in between, so it is not asked twice. The pre-POST hook
+        // repeats it after signing either way, before anything is recorded
+        // or sent.
+        if (internalMove > BigInt.zero &&
+            await requiredInternalMove() > BigInt.zero) {
+          throw HypercoreBalanceShortfall(
+              'Insufficient available perpetuals balance.');
+        }
+        final nonce = await exchange.usdSend(
+            destination: depositAddress,
+            amount: amountWire,
+            beforeSend: () {
+              beforeDispatch();
+              externalPostStarted = true;
+            });
+        // The exchange acknowledges acceptance without returning a tx hash.
+        // Find its canonical ledger hash; never sign or send again while waiting.
+        // Asked every second rather than every two, within the same six
+        // seconds: the ledger usually has it within one, and the sheet was
+        // held for the rest of the two-second step.
+        for (var attempt = 0; attempt < 7; attempt++) {
+          if (attempt > 0)
+            await Future<void>.delayed(const Duration(seconds: 1));
+          try {
+            final hash = await readHypercorePerpTransferHash(
+                source: account.address,
+                destination: depositAddress,
+                amountBaseUnits: amountBaseUnits,
+                nonce: nonce);
+            if (hash != null) return hash;
+          } catch (_) {
+            // The persisted nonce lets the public reconciler continue after this
+            // foreground lookup or a process exit, without another signing step.
+          }
+        }
+        throw StateError(
+            'Native transfer submitted; waiting for confirmation.');
+      });
     } catch (error) {
       // A confirmed internal move stays in the same account. It does not
       // fund this quote. An uncertain internal POST remains blocked so a

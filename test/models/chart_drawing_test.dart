@@ -11,6 +11,125 @@ import 'package:kute/screens/shared/charts/kute_chart_drawings.dart';
 
 void main() {
   group('ChartDrawing JSON', () {
+    test('dashed, locked and extend round-trip; older records read them off',
+        () {
+      const d = ChartDrawing(
+        id: 'styled',
+        tool: ChartDrawingTool.trendline,
+        points: [
+          ChartDrawingPoint(timeMs: 1700000000000, price: 65000),
+          ChartDrawingPoint(timeMs: 1700003600000, price: 66000),
+        ],
+        dashed: true,
+        locked: true,
+        extend: true,
+      );
+      final json = d.toJson();
+      expect(json['dash'], isTrue);
+      expect(json['lock'], isTrue);
+      expect(json['ext'], isTrue);
+      final back = ChartDrawing.fromJson(
+          jsonDecode(jsonEncode(json)) as Map<String, dynamic>);
+      expect(back.dashed, isTrue);
+      expect(back.locked, isTrue);
+      expect(back.extend, isTrue);
+
+      // A record from before these fields: all off, and none written.
+      final old = ChartDrawing.fromJson({
+        'id': 'old',
+        'tool': 'level',
+        'points': [
+          {'t': 1700000000000, 'p': 65000}
+        ],
+      });
+      expect(old.dashed, isFalse);
+      expect(old.locked, isFalse);
+      expect(old.extend, isFalse);
+      expect(old.toJson().keys, isNot(contains('dash')));
+      expect(old.copyWith(locked: true).copyWith(dashed: true).locked, isTrue);
+    });
+
+    test('an unknown tool is never read as a trend line', () {
+      expect(chartDrawingToolFromName('pitchforkSchiff'), isNull);
+      expect(chartDrawingToolFromName(null), isNull);
+      expect(chartDrawingToolFromName('ray'), ChartDrawingTool.ray);
+      expect(
+          () => ChartDrawing.fromJson({
+                'id': 'x',
+                'tool': 'pitchforkSchiff',
+                'points': const [],
+              }),
+          throwsFormatException);
+    });
+
+    test('keys this build does not read are written back unchanged', () {
+      final d = ChartDrawing.fromJson({
+        'id': 'k',
+        'tool': 'trendline',
+        'points': [
+          {'t': 1, 'p': 2},
+          {'t': 3, 'p': 4},
+        ],
+        'future': {'x': 1},
+      });
+      final again = d.copyWith(dashed: true).toJson();
+      expect(again['future'], {'x': 1});
+      expect(again['dash'], isTrue);
+    });
+
+    test('the settings fields round-trip; older records read as defaults', () {
+      const d = ChartDrawing(
+        id: 'set',
+        tool: ChartDrawingTool.fibonacci,
+        points: [
+          ChartDrawingPoint(timeMs: 1, price: 100),
+          ChartDrawingPoint(timeMs: 2, price: 120),
+        ],
+        width: 3,
+        fill: 20,
+        labels: false,
+        textSize: 16,
+        levels: [0, 0.5, 1.618],
+      );
+      final json = d.toJson();
+      expect(json['w'], 3);
+      expect(json['fill'], 20);
+      expect(json['lbl'], isFalse);
+      expect(json['ts'], 16);
+      expect(json['levels'], [0, 0.5, 1.618]);
+      final back = ChartDrawing.fromJson(
+          jsonDecode(jsonEncode(json)) as Map<String, dynamic>);
+      expect(back.width, 3);
+      expect(back.fill, 20);
+      expect(back.labels, isFalse);
+      expect(back.textSize, 16);
+      expect(back.fibLevels, [0, 0.5, 1.618]);
+      expect(back.hasDefaultSettings, isFalse);
+      // Back to the defaults: none of the keys is written.
+      final reset = back.copyWith(
+          width: null, fill: null, labels: true, textSize: null, levels: null);
+      expect(reset.hasDefaultSettings, isTrue);
+      expect(reset.toJson().keys,
+          isNot(anyOf(contains('w'), contains('fill'), contains('lbl'),
+              contains('ts'), contains('levels'))));
+      expect(reset.fibLevels, kChartFibDefaultLevels);
+      // Leaving them out of copyWith keeps them.
+      expect(back.copyWith(dashed: true).width, 3);
+      // An older record: every default, and the same JSON written back.
+      final old = {
+        'id': 'old',
+        'tool': 'rect',
+        'points': [
+          {'t': 1, 'p': 2.0},
+          {'t': 3, 'p': 4.0},
+        ],
+      };
+      expect(jsonEncode(ChartDrawing.fromJson(old).toJson()), jsonEncode(old));
+      // Out-of-range values read as the default.
+      expect(
+          ChartDrawing.fromJson({...old, 'w': 9, 'ts': 'big'}).width, isNull);
+    });
+
     test('round-trips every tool with and without a color', () {
       for (final tool in ChartDrawingTool.values) {
         final d = ChartDrawing(
@@ -57,15 +176,17 @@ void main() {
         ).isValid,
         isFalse,
       );
-      // Unknown tool name falls back instead of throwing.
-      final d = ChartDrawing.fromJson({
-        'id': 'z',
-        'tool': 'squiggle',
-        'points': [
-          {'t': 1, 'p': 2.0},
-        ],
-      });
-      expect(d.tool, ChartDrawingTool.trendline);
+      // An unknown tool name is refused, never read as a trend line: the
+      // store keeps such entries raw (chart_drawings_provider_test).
+      expect(
+          () => ChartDrawing.fromJson({
+                'id': 'z',
+                'tool': 'squiggle',
+                'points': [
+                  {'t': 1, 'p': 2.0},
+                ],
+              }),
+          throwsFormatException);
     });
   });
 

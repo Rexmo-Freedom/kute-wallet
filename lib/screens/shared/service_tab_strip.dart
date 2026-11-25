@@ -6,9 +6,11 @@
 // a labelled pill and the neighbours reflow. Reduced motion snaps to the
 // final layout with no slide.
 //
-// Home behaviour and labels are unchanged: `FloatingActionPill` builds
-// its tabs and hands them to this strip.
+// `FloatingActionPill` builds a wallet's or a Ledger's tabs and hands them to
+// this strip; the spending account's Bitcoin | Dollars is its own switch
+// (home/components/home_tab_switch.dart).
 
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -66,8 +68,9 @@ class ServiceTabStrip extends StatefulWidget {
   final double? height;
 
   /// Every tab keeps its label and its share of the width; the active one
-  /// wears the fill. No slide and no reflow (user decision 2026-10-12 for
-  /// the two-tab spending strip: "just make them normal, no animation").
+  /// wears the fill. No slide and no reflow (user decision 2026-10-12:
+  /// "just make them normal, no animation"), for a wallet of one or two
+  /// tabs.
   final bool plain;
 
   const ServiceTabStrip(
@@ -85,7 +88,7 @@ class _ServiceTabStripState extends State<ServiceTabStrip>
   /// the layout just reads this 0..1 each frame.
   late final AnimationController _slide = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 260),
+    duration: KuteMotion.chipDuration,
     value: 1,
   );
 
@@ -113,13 +116,23 @@ class _ServiceTabStripState extends State<ServiceTabStrip>
         height: widget.height ?? 44.h,
         child: Row(
           children: [
+            // The selection springs across (KuteMotion.chip): the fill
+            // and tint of each tab ease between their two states; at
+            // once under Reduce Motion.
             for (var i = 0; i < tabs.length; i++)
               Expanded(
-                child: ServiceTab(
-                  data: tabs[i],
-                  colors: c,
-                  reveal: i == activeIndex ? 1 : 0,
-                  labelled: true,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: i == activeIndex ? 1 : 0),
+                  duration: MediaQuery.of(context).disableAnimations
+                      ? Duration.zero
+                      : KuteMotion.chipDuration,
+                  curve: KuteMotion.chip,
+                  builder: (context, reveal, _) => ServiceTab(
+                    data: tabs[i],
+                    colors: c,
+                    reveal: reveal.clamp(0.0, 1.0),
+                    labelled: true,
+                  ),
                 ),
               ),
           ],
@@ -170,7 +183,8 @@ class _ServiceTabStripState extends State<ServiceTabStrip>
         builder: (context, _) {
           // Ease the raw (linear) controller value so the pill DECELERATES
           // into place instead of stopping flat.
-          final double t = Curves.easeOutCubic.transform(_slide.value);
+          final double t =
+              KuteMotion.chip.transform(_slide.value).clamp(0.0, 1.0);
           return Row(
             children: [
               for (var i = 0; i < tabs.length; i++)

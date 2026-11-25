@@ -13,8 +13,9 @@
 // Public discovery stays visible independently of account reads. Activity
 // lives in Portfolio; its shared rows below use this Ledger's records only.
 
+import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart'
-    show polyCardGroups, polyGroupRowIndent;
+    show polyCardGroups, polyCardOpenSlip, polyGroupRowDivider, polyGroupRowIndent;
 import 'package:kute/screens/polymarket/components/position_card.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
@@ -270,9 +271,19 @@ class _LedgerPredictionsDiscovery extends ConsumerWidget {
               leading: fiveMinute,
               sections: sections,
               cardBuilder: (event, onTap, inGroup) => PredictionBrowseCard(
-                  event: event, onTap: onTap, inGroup: inGroup),
+                  event: event,
+                  onTap: onTap,
+                  inGroup: inGroup,
+                  // The card's pills open the slip on their side, for the
+                  // Ledger wallet.
+                  onPickSide: (pick) => polyCardOpenSlip(context,
+                      event: event,
+                      pick: pick,
+                      ledgerWalletId: walletId,
+                      source: 'ledger')),
               groups: (e) => polyCardGroups(e.title, e.outcomes),
               groupRowIndent: polyGroupRowIndent,
+              groupDivider: polyGroupRowDivider,
               onOpenMarket: (event) {
                 if (!context.mounted) return;
                 MarketDetailSheet.show(context,
@@ -360,14 +371,14 @@ class LedgerPmActivityRow extends ConsumerWidget {
       subtitle: copy.subtitle,
       status: claimable ? l10n.claim : null,
       statusColor: claimable ? AppColors.marketUp : null,
-      amount: formatPolyAmount(ref, figures.amount),
+      amount: formatDollars(figures.amount),
       flow: figures.flow,
       amountColor: predictionResultColor(figures),
       secondaryAmount: pnl == null
           ? ''
           : pnl >= 0
-              ? l10n.activityAmountProfit(formatPolyAmount(ref, pnl.abs()))
-              : l10n.activityAmountLoss(formatPolyAmount(ref, pnl.abs())),
+              ? l10n.activityAmountProfit(formatDollars(pnl.abs()))
+              : l10n.activityAmountLoss(formatDollars(pnl.abs())),
       secondaryColor: pnl == null
           ? null
           : pnl >= 0
@@ -464,7 +475,8 @@ class LedgerPmPositionRow extends ConsumerWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: PolyPositionCard(
-        question: position.title,
+        question: polyShownQuestion(
+            context, position.title, position.eventSlug),
         imageUrl: position.icon,
         outcome: position.outcome,
         shares: position.size,

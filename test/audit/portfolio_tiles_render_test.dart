@@ -114,7 +114,7 @@ Widget _stats(BuildContext context, {bool boxed = true}) => PortfolioTileRow(
       boxed: boxed,
       children: [
         for (final (label, figure, color) in [
-          ('Open P&L', r'+$12.50', AppColors.marketUp),
+          ('Open profits', r'+$12.50', AppColors.marketUp),
           ('Amount at stake', r'$605.00', context.colors.textPrimary),
           ('Open positions', '4', context.colors.textPrimary),
         ])

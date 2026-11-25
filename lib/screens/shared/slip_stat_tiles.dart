@@ -214,13 +214,18 @@ class _SlipOrderFigureState extends State<SlipOrderFigure> {
             ),
           ),
           SizedBox(height: 10.h),
+          // The order's line ("Yes · pays \$7.47 if you win"): read, not a
+          // caption (founder, 12 November 2026): the slip's body size.
           Text(
             widget.orderLine,
             key: const ValueKey('slip-order-figure-line'),
             style: TextStyle(
               color: c.textSecondary,
-              fontSize: 13.sp,
+              fontSize: 16.sp,
               fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+              height: 1.3,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

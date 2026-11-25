@@ -7,7 +7,8 @@
 //     trade names its aggressor side ('B' the buyer crossed the spread,
 //     'A' the seller did), so the share of notional bought against sold
 //     over a rolling window says who is pressing.
-//   * Funding flips: `fundingHistory` (one rate an hour).
+//   * Funding: one rate an hour (`fundingHistory`; the chart's Funding
+//     pane draws it, hl_chart_funding_pane.dart).
 //   * Open interest: the venue publishes no history, only the current
 //     value (`activeAssetCtx`), so it is sampled while the chart is open
 //     and a change is stated only once enough of it has been watched.
@@ -149,59 +150,9 @@ class HlTradeFlow {
 
 // ───────────────────────────── funding ─────────────────────────────
 
-/// One hourly funding rate.
+/// One hourly funding settlement: its `time` and its rate as a fraction,
+/// positive when longs pay shorts.
 typedef HlFundingPoint = ({int timeMs, double rate});
-
-/// A flip must hold this many hours to count: the rate crossing zero for
-/// an hour and back is noise.
-const int kHlFundingFlipHoldHours = 3;
-
-/// Flip markers kept, newest.
-const int kHlFundingFlipMax = 6;
-
-/// A moment funding changed sign and stayed there.
-class HlFundingFlip {
-  final int timeMs;
-
-  /// True when longs started paying shorts (the rate turned positive).
-  final bool longsPay;
-  const HlFundingFlip(this.timeMs, {required this.longsPay});
-}
-
-/// The sign changes of [history] (oldest first) that held for
-/// [kHlFundingFlipHoldHours] hours, newest [kHlFundingFlipMax].
-List<HlFundingFlip> hlFundingFlips(List<HlFundingPoint> history) {
-  final out = <HlFundingFlip>[];
-  int? held; // the sign in force: 1 or -1
-  var i = 0;
-  while (i < history.length) {
-    final sign = history[i].rate > 0
-        ? 1
-        : history[i].rate < 0
-            ? -1
-            : 0;
-    if (sign == 0 || sign == held) {
-      i++;
-      continue;
-    }
-    // A run of the new sign, from here.
-    var j = i;
-    while (j < history.length &&
-        (history[j].rate > 0 ? 1 : (history[j].rate < 0 ? -1 : 0)) == sign) {
-      j++;
-    }
-    if (j - i >= kHlFundingFlipHoldHours) {
-      if (held != null) {
-        out.add(HlFundingFlip(history[i].timeMs, longsPay: sign > 0));
-      }
-      held = sign;
-    }
-    i = j;
-  }
-  return out.length > kHlFundingFlipMax
-      ? out.sublist(out.length - kHlFundingFlipMax)
-      : out;
-}
 
 /// The next funding settlement after [now]: the top of the next hour.
 DateTime hlNextFundingTime(DateTime now) {

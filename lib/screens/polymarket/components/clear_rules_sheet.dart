@@ -21,8 +21,10 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition;
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -196,10 +198,20 @@ class _ClearRulesSheetState extends State<_ClearRulesSheet> {
               ),
             ),
             SizedBox(height: 16.h),
-            AppButton(
-              text: context.l10n.clear,
-              isLoading: _clearing,
-              onPressed: _clearing ? null : _handleClear,
+            // THE BAR IS THE BUTTON (kute_bar_context.dart): Clear is the
+            // floating Sal bar's primary action, busy while the redeem
+            // runs; the rules keep clear of it.
+            KuteBarContextScope(
+              barContext: KuteBarContext.primary(
+                label: context.l10n.clear,
+                onPrimary: _handleClear,
+                enabled: !_clearing,
+                busy: _clearing,
+                category: SearchCategory.predictions,
+                source: 'clear_rules',
+                disabledLabel: null,
+              ),
+              child: SizedBox(height: kuteBarScrollClearance.h),
             ),
           ],
         ),

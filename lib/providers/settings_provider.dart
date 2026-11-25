@@ -5,6 +5,7 @@ import 'package:kute/l10n/l10n.dart' show languageNativeNames;
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
 import 'package:kute/models/settings_model.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/device_currency.dart' show kSettingsCurrencyKey;
 import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/secure_storage.dart' as ss;
 import 'package:kute/services/tracking_service.dart';
@@ -23,7 +24,10 @@ final initialSettingsProvider = FutureProvider<Settings>((ref) async {
   const storage = ss.secureStorage;
 
   // General Settings
-  final currency = box.get('currency', defaultValue: 'USD');
+  // A new install's currency is already stored by now, from the device's
+  // region (device_currency.dart, at the box's open). No stored value means
+  // an existing install that never touched the setting: it stays on USD.
+  final currency = box.get(kSettingsCurrencyKey, defaultValue: 'USD');
   final language = box.get('language', defaultValue: deviceDefaultLanguage());
   final btcFormat = box.get('btcFormat', defaultValue: 'sats');
   final backup = box.get('backup', defaultValue: false);

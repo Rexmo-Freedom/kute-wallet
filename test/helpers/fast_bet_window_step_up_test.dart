@@ -1,7 +1,8 @@
 // The fast-bet window end to end through the step-up helper: the first
 // short-round order asks (here the Kute PIN fallback, biometrics off), the
 // next ones do not, and every way out of a short-round screen, the app or
-// the session makes the next order ask again.
+// the session makes the next order ask again. The under-$50 allowance
+// (local, always on) is switched off here so the window is tested alone.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/session_unlock.dart';
+import 'package:kute/helpers/small_action_allowance.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/auth_model.dart';
@@ -33,6 +35,19 @@ class _QuickAuth extends AuthModel {
   Future<PinCheck> checkPin(String incomingPin,
           {String rescueSource = 'pin'}) async =>
       incomingPin == '111111' ? PinCheck.match : PinCheck.mismatch;
+}
+
+/// The under-$50 allowance never approves: every order here reaches the
+/// window or the prompt.
+class _NoAllowance extends SmallActionAllowance {
+  @override
+  AuthGrant? tryIssue(
+    SensitiveIntent intent, {
+    required int amountUsdCents,
+    required StepUpSessionState session,
+    AuthGrant Function(SensitiveIntent intent)? issue,
+  }) =>
+      null;
 }
 
 class _Settings extends SettingsModel {
@@ -76,9 +91,11 @@ void main() {
     keychain.seed('v2:wallet:w1.mnemonic', 'words');
     SecretStores.debugOverride(local: keychain.local, synced: keychain.synced);
     FastBetWindow.instance.debugReset();
+    SmallActionAllowance.debugInstance = _NoAllowance();
   });
 
   tearDown(() {
+    SmallActionAllowance.debugInstance = null;
     FastBetWindow.instance.debugReset();
     SecretStores.debugReset();
   });
@@ -154,11 +171,8 @@ void main() {
       wref,
       intent: i,
       reason: 'Confirm',
-      smallAction: SmallActionContext(
-        amountUsdCents: PmGrants.usdCentsCeil(i.amountMax),
-        paidFromVenueBalance: true,
-        hasFundingLeg: false,
-      ),
+      smallAction:
+          SmallActionContext(amountUsdCents: PmGrants.usdCentsCeil(i.amountMax)),
       fastBet: FastBetRequest(eventSlug: slug, hot: hot),
     );
   }

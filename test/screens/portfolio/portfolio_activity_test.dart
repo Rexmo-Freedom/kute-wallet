@@ -19,13 +19,11 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
     show ActivityDaySection, assembleActivityRows, kActivityPreviewRows;
-import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -417,48 +415,6 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets(
-        '"See all" opens the Activity screen on the Investments list and '
-        'reports activity_history_opened from the Portfolio', (tester) async {
-      final events = <(String, Map<String, Object>?)>[];
-      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-      addTearDown(() => TrackingService.debugTrackObserver = null);
-      await pump(tester, history: bets(8), size: tall);
 
-      await tester.tap(find.byKey(seeAll));
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      final screen = tester
-          .widget<ActivityHistoryScreen>(find.byType(ActivityHistoryScreen));
-      expect(screen.investments, isTrue);
-      expect(find.byType(PortfolioActivityList), findsOneWidget);
-      // The whole list: all eight, not the preview's five.
-      expect(
-          find.descendant(
-              of: find.byType(PortfolioActivityList),
-              matching: find.text('Prediction · Yes')),
-          findsNWidgets(8));
-      final opened =
-          events.where((e) => e.$1 == 'activity_history_opened').toList();
-      expect(opened, hasLength(1));
-      expect(opened.single.$2?['entry_source'], 'portfolio');
-      expect(opened.single.$2?['scope'], 'investments');
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('no overflow at 375 pt with text at 130%', (tester) async {
-      await pump(tester,
-          history: bets(8), size: const Size(375, 3000), textScale: 1.3);
-      expect(find.byKey(seeAll), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.tap(find.byKey(seeAll));
-      for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(find.byType(PortfolioActivityList), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
   });
 }

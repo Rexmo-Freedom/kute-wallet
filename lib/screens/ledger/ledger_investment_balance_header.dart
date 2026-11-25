@@ -47,7 +47,7 @@ class LedgerInvestmentBalanceHeader extends ConsumerWidget {
         ? '••••••'
         : value == null
             ? context.l10n.ledgerBalanceUnavailable
-            : formatPolyAmount(ref, value);
+            : formatDollars(value);
     final trading = product == InvestmentsProduct.trading;
     final venue = trading ? 'trading' : 'predictions';
     final totalLabel =

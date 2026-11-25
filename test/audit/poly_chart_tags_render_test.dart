@@ -42,6 +42,8 @@ import 'package:kute/screens/polymarket/components/game_chart_section.dart'
 import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show kPolyOutcomeColors;
+import 'package:kute/screens/shared/charts/kute_chart_core.dart';
+import 'package:kute/screens/shared/charts/kute_chart_time_axis.dart';
 import 'package:kute/screens/shared/charts/kute_chart_zoom_hint.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -310,7 +312,7 @@ void main() {
                     livePrice: specs[i].points.last.price,
                   ),
               ],
-              height: polyChartHeightFor(specs.length),
+              height: kKuteMarketChartHeight + kKuteTimeAxisHeight,
             ),
           ),
           dark: dark,

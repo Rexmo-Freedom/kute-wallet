@@ -12,6 +12,7 @@
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,7 +28,6 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/amount_unit_picker.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart'
     show ReceiveSheetHeader;
@@ -229,10 +229,10 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // The close X on the left, as on every receive sheet (this
-          // sheet only ever opens from a receive).
+          // sheet only ever opens from a receive). No title (founder, 1
+          // November 2026: "the user already knows that"): the amount is
+          // the sheet.
           const ReceiveSheetHeader(leading: KuteCloseButton()),
-          AppBottomSheetHeader(
-              title: context.l10n.receiveRequestAmount, showDragHandle: false),
           // Hero block. It is the part that gives way on a short screen
           // or at a large text scale, so the keypad and the one CTA
           // below always stay on screen.
@@ -271,16 +271,18 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
             maxDecimals: _decimalsFor(currency),
             onChanged: (value) => setState(() => _typed = value),
           ),
-          SizedBox(height: 16.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: AppButton(
-              onPressed: positive && error == null && !_waiting
-                  ? () => _submit((amount: typed, currency: currency))
-                  : null,
-              isLoading: _waiting,
-              text: context.l10n.receiveCreateRequest,
+          // The bar is the Create request button (kute_shell_bar.dart);
+          // the keypad keeps clear of it.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: context.l10n.receiveCreateRequest,
+              onPrimary: () => _submit((amount: typed, currency: currency)),
+              enabled: positive && error == null && !_waiting,
+              busy: _waiting,
+              source: 'receive_request',
+              disabledLabel: positive ? context.l10n.barNeedCheckAmount : context.l10n.barNeedAmount,
             ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ],
       ),

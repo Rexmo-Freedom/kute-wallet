@@ -35,6 +35,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/shell_bar_harness.dart';
 import '../../services/support/fake_secret_store.dart';
 
 class _Trading extends PolymarketTradingNotifier {
@@ -135,6 +136,8 @@ Future<void> _pump(WidgetTester tester, {double scale = 1.0}) async {
   tester.view.padding = const FakeViewPadding(top: 40);
   tester.view.viewPadding = const FakeViewPadding(top: 40);
   addTearDown(tester.view.reset);
+  // The bar over the sheet is the sheet's button (shell_bar_harness.dart).
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -167,10 +170,13 @@ Future<void> _pump(WidgetTester tester, {double scale = 1.0}) async {
         theme: buildLightTheme(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // The text size reaches the bar too: the MediaQuery wraps the
+        // bar's layer, not only the navigator.
         builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!),
+            child: shellBarBuilder(context, child)),
+        navigatorObservers: shellBarObservers(),
         home: Builder(builder: (context) {
           final c = context.colors;
           return Scaffold(backgroundColor: c.background);
@@ -210,16 +216,15 @@ Future<void> _type(WidgetTester tester) async {
   await _frames(tester, 3);
 }
 
-/// Taps Sell, approves with the PIN, and lets the fake venue refuse.
+/// Taps Sell (the bar is the sheet's one button) and lets the fake venue
+/// refuse. The sale is under \$50 and the app unlocked, so no PIN is asked
+/// (`SmallActionAllowance`).
 Future<void> _fail(WidgetTester tester) async {
-  await tester.tap(find.byType(PolySlipCta));
+  expect(barPrimaryLabel(tester), startsWith('Sell'));
+  expect(barPrimaryEnabled(tester), isTrue);
+  await tapBarPrimary(tester, settle: false);
   await _frames(tester, 8);
-  expect(find.byType(PinGateSheet), findsOneWidget);
-  for (final d in '111111'.split('')) {
-    await tester.tap(
-        find.descendant(of: find.byType(PinGateSheet), matching: find.text(d)));
-    await tester.pump();
-  }
+  expect(find.byType(PinGateSheet), findsNothing);
   await _frames(tester, 60);
   expect(find.byType(PinGateSheet), findsNothing);
   expect(find.byType(PolySlipNotice), findsOneWidget);

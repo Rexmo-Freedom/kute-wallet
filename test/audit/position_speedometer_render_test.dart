@@ -44,6 +44,7 @@ import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../helpers/balance_privacy.dart';
 
 const _enabled = bool.fromEnvironment('SPEEDOMETER_RENDER');
 const _outDefine = String.fromEnvironment('SPEEDOMETER_RENDER_OUT');
@@ -109,6 +110,7 @@ Future<void> _show(WidgetTester tester, PolymarketPosition position,
   await tester.pumpWidget(ProviderScope(
     key: UniqueKey(),
     overrides: [
+      balancePrivacyOverride(),
       polymarketClaimablePositionsProvider.overrideWithValue(const []),
       polymarketActivePositionsProvider.overrideWithValue(const []),
       livePriceProvider.overrideWith(_Prices.new),

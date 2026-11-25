@@ -23,6 +23,7 @@
 // with the app in the background. Nothing scanned ever reaches analytics.
 
 import 'dart:async';
+import 'package:kute/theme/kute_motion.dart';
 
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/controllers/import_wallet_controller.dart';
@@ -40,6 +41,7 @@ import 'package:kute/providers/qr_scanner_provider.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/add_wallet_capabilities.dart';
+import 'package:kute/services/branta/branta_payee_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/breez_provider.dart';
@@ -53,6 +55,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -128,6 +131,8 @@ class ScannerSheetPage<T> extends Page<T> {
         useSafeArea: true,
         backgroundColor: Colors.transparent,
         barrierLabel: MaterialLocalizations.of(context).scrimLabel,
+        // The app's sheet motion (lib/theme/kute_motion.dart).
+        sheetAnimationStyle: KuteMotion.sheetStyle(context),
         builder: (_) => ScannerSheet(mode: mode),
       );
 }
@@ -455,6 +460,10 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     // so a withdraw voucher shared as a URL resolves like its bech32
     // `LNURL1…` twin.
     final input = _normalizeBech32Case(_normalizeLud17Scheme(rawInput));
+    // The code as scanned, for Branta's payee lookup on Send: every route
+    // below strips it down to the address, and its Branta params with it.
+    // Kept in memory only; nothing is looked up until a recipient card.
+    brantaNoteInput(rawInput);
 
     // Recipient mode: hand the payload back to the field that asked and
     // stop. The caller (the Send field's Scan) runs its own paste/commit
@@ -591,7 +600,10 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
         ref.read(runtimeCapabilitiesProvider), 'generic');
     if (!mounted) return;
     if (denial != null) {
-      await showCapabilityDecisionSheet(context, denial);
+      // Named, so "Check connection" asks this switch again, not every
+      // region denial the policy holds (a swap block included).
+      await showCapabilityDecisionSheet(context, denial,
+          capability: kHardwareWalletCapability);
       if (!mounted) return;
       setState(() => _isProcessing = false);
       _safeStart();
@@ -1136,7 +1148,17 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     // to its bottom edge, and the drag handle and the close X float over
     // the video. Shorter than the full-height sheets so it reads as a
     // sheet over the page, the send sheet's first-step height.
-    return PopScope<Object?>(
+    // The bar explains the scanner (founder, 31 October 2026): "What can
+    // I scan?", tapping sends the question to Sal.
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: context.l10n.barScannerLabel,
+        sublabel: context.l10n.barAskSalSub,
+        clip: 'curious',
+        question: context.l10n.barScannerQuestion,
+        source: 'scanner',
+      ),
+      child: PopScope<Object?>(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _onClosing();
       },
@@ -1183,7 +1205,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
           ),
         ),
       ),
-    );
+    ));
   }
 
   /// The preview, edge to edge: the camera (or a dark field with why it

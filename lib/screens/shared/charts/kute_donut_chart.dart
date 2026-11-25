@@ -31,6 +31,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 
 /// One slice of a [KuteDonutChart]. [id] keeps its identity across value
@@ -147,6 +148,10 @@ class KuteDonutChart extends StatefulWidget {
   /// What a screen reader says for the chart as a whole.
   final String? semanticsLabel;
 
+  /// The curve the slices morph on (shares and colours) when the segments
+  /// change; Reduce Motion lands at once whatever it is.
+  final Curve morphCurve;
+
   const KuteDonutChart({
     super.key,
     required this.segments,
@@ -157,6 +162,7 @@ class KuteDonutChart extends StatefulWidget {
     this.diameter = 176,
     this.thickness = 18,
     this.semanticsLabel,
+    this.morphCurve = Curves.easeOutCubic,
   });
 
   @override
@@ -171,13 +177,15 @@ class _KuteDonutChartState extends State<KuteDonutChart>
 
   late final AnimationController _sweep =
       AnimationController(vsync: this, duration: _sweepDuration);
+  // The entrance sweeps on the app's settle (kute_motion.dart), as the
+  // Portfolio hero it draws does.
   late final Animation<double> _sweepCurve =
-      CurvedAnimation(parent: _sweep, curve: Curves.easeOutCubic);
+      CurvedAnimation(parent: _sweep, curve: KuteMotion.settle);
 
   late final AnimationController _morph =
       AnimationController(vsync: this, duration: _morphDuration, value: 1);
-  late final Animation<double> _morphCurve =
-      CurvedAnimation(parent: _morph, curve: Curves.easeOutCubic);
+  late final CurvedAnimation _morphCurve =
+      CurvedAnimation(parent: _morph, curve: widget.morphCurve);
 
   late final AnimationController _pop =
       AnimationController(vsync: this, duration: _popDuration, value: 1);
@@ -251,6 +259,7 @@ class _KuteDonutChartState extends State<KuteDonutChart>
   @override
   void didUpdateWidget(covariant KuteDonutChart old) {
     super.didUpdateWidget(old);
+    _morphCurve.curve = widget.morphCurve;
     final target = _targetOf(widget.segments);
     final order = [for (final s in widget.segments) s.id];
     final same = _sameTarget(target, order);

@@ -31,8 +31,11 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
-    show HlIconPrefetch;
+    show HlIconAvailability, HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
+import 'package:kute/screens/hyperliquid/components/hl_watchlist_sheet.dart'
+    show showHlWatchlistSheet;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
@@ -41,6 +44,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/services/hyperliquid/hl_markets_disk_cache.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -146,6 +150,114 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     return _subsCache.putIfAbsent(tab, () => hlSubsForTab(tab, universe));
   }
 
+  /// The big-card strip's markets, memoized per list instance (the lists
+  /// are themselves memoized per universe, so this is once per category
+  /// per 30 s universe, not once per scroll-driven rebuild). Only the
+  /// default view (Trending, no subcategory) has a strip: the hyped
+  /// stocks and commodities of the whole [universe] ([hlTrendingStrip]).
+  /// A category or subcategory the person picks is the full plain list,
+  /// nothing excluded (founder, 1 November 2026). Only markets with a
+  /// logo of their own ([hlStripWithLogos]); chosen again when logos are
+  /// settled ([HlIconAvailability.revision]), and while ones that could
+  /// fill it are unknown the squares' skeleton stands ([_moversLoading]).
+  ///
+  /// The Watchlist has its squares too (founder, 13 November 2026): its
+  /// first markets, in its order, as many as fill full rows of two
+  /// ([hlWatchlistSquareCount]), the rest of it the rows under them.
+  List<HlMarket>? _moversListed;
+  HlBrowseTab? _moversTab;
+  bool _moversPerpsLanded = false;
+  bool _moversDefault = false;
+  int _moversLogos = -1;
+  bool _moversLoading = false;
+  List<HlMarket> _movers = const [];
+  List<HlMarket> _rest = const [];
+  List<HlMarket> _moversFor(HlBrowseTab tab, HlBrowseSub sub,
+      List<HlMarket> markets, List<HlMarket> universe) {
+    // The full perp list landing recomputes the strip too: Trending's
+    // waits for it ([_trendingStrip]).
+    final perpsLanded =
+        ref.read(hyperliquidPerpMarketsProvider).valueOrNull != null;
+    final defaultView = hlBrowseIsDefaultView(tab, sub);
+    final logos = HlIconAvailability.revision.value;
+    if (!identical(markets, _moversListed) ||
+        tab != _moversTab ||
+        perpsLanded != _moversPerpsLanded ||
+        defaultView != _moversDefault ||
+        logos != _moversLogos) {
+      _moversListed = markets;
+      _moversTab = tab;
+      _moversPerpsLanded = perpsLanded;
+      _moversDefault = defaultView;
+      _moversLogos = logos;
+      if (tab == HlBrowseTab.watchlist) {
+        // Exactly what was picked: no ranking, no logo rule, nothing
+        // left out (see [hlWatchlistSquareCount]).
+        final n = hlWatchlistSquareCount(markets.length);
+        _moversLoading = false;
+        _movers = markets.sublist(0, n);
+        _rest = markets.sublist(n);
+        return _movers;
+      }
+      final pick = defaultView
+          ? hlStripWithLogos(
+              (keep) => _trendingStrip(markets, universe, keep: keep))
+          : null;
+      if (pick != null && pick.pending.isNotEmpty) {
+        unawaited(HlIconAvailability.ensure(pick.pending));
+      }
+      final loading = pick?.loading ?? false;
+      // While loading, the list already leaves out the markets the
+      // squares would most likely hold, so it does not shift when they
+      // land.
+      final strip = pick == null
+          ? const <HlMarket>[]
+          : loading
+              ? pick.best
+              : pick.shown;
+      // A market on the strip is not repeated in the list under it
+      // (founder, 1 November 2026); and the strip never empties the
+      // list: with fewer than [kHlMoverListKeeps] rows left, no strip.
+      final rest = hlListUnderStrip(markets, strip);
+      _moversLoading = loading && rest != null;
+      _movers = rest == null || loading ? const [] : strip;
+      _rest = rest ?? markets;
+    }
+    return _movers;
+  }
+
+  /// Trending's strip ([hlTrendingStrip]). Until the full perp list has
+  /// landed the universe is the main dex alone (plus spot), with no
+  /// builder-dex stock or commodity in it, and the strip would open on the
+  /// crypto movers and swap to the hyped names seconds later. Meanwhile
+  /// the builder markets this device last saw stand in (as the universe
+  /// itself paints the last lists before the live ones), unfiltered like
+  /// the universe (founder, 12 November 2026); with none, no strip until
+  /// they arrive, never the movers. The movers are for a full list that
+  /// still has too few.
+  List<HlMarket> _trendingStrip(
+      List<HlMarket> markets, List<HlMarket> universe,
+      {bool Function(HlMarket market)? keep}) {
+    final pending =
+        !_moversPerpsLanded && !universe.any((m) => m.isHip3);
+    if (!pending) return hlTrendingStrip(universe, markets, keep: keep);
+    final lastSeen = HlMarketsDiskCache.instance.perps ?? const <HlMarket>[];
+    final lent = [for (final m in lastSeen) if (m.isHip3) m];
+    return hlTrendingStrip([...universe, ...lent], markets,
+        fallback: false, keep: keep);
+  }
+
+  /// The list under the strip: [markets] less the strip's; on the
+  /// default view (Trending at its default list) only its first
+  /// [kHlTrendingListRows], nothing after them: the floating bar
+  /// searches everything (founder, 1 November 2026). Any other category
+  /// is listed in full.
+  List<HlMarket> _listedFor(HlBrowseTab tab, HlBrowseSub sub,
+      List<HlMarket> markets, List<HlMarket> universe) {
+    _moversFor(tab, sub, markets, universe);
+    return hlBrowseRowsShown(hlBrowseIsDefaultView(tab, sub), _rest);
+  }
+
   /// The category whose subcategories the one browse row shows, in place
   /// of the categories ([PolyDrillRow]); null shows the categories.
   HlBrowseTab? _drilledInto;
@@ -213,6 +325,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     // scroll. Embedded, the list scrolls inside the Investments page,
     // which drives the bar from its own scroll notifications.
     if (!widget.embedded) _scrollController.addListener(_onScrollNavBar);
+    HlIconAvailability.revision.addListener(_onLogosSettled);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Warm the builder settings now so a slow connection has already
@@ -250,8 +363,14 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     });
   }
 
+  /// Logos were settled: the strip chooses again ([_moversFor]).
+  void _onLogosSettled() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    HlIconAvailability.revision.removeListener(_onLogosSettled);
     _scrollController.removeListener(_onScrollNavBar);
     _scrollController.dispose();
     // Release the allMids socket + watch-set — uses the notifier
@@ -409,6 +528,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     ref.watch(hlWatchlistProvider);
 
     final universeAsync = ref.watch(hyperliquidBrowseUniverseProvider);
+    // Trending's strip waits for the full perp list ([_trendingStrip]).
+    ref.watch(hyperliquidPerpMarketsProvider
+        .select((perps) => perps.valueOrNull != null));
     final universe = universeAsync.valueOrNull ?? const <HlMarket>[];
 
     // The builder-dex markets could not be read and were never seen: a
@@ -422,7 +544,12 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     var selection = ref.watch(hlBrowseSelectionProvider);
     ref.listen<HlBrowseSelection>(hlBrowseSelectionProvider, (prev, next) {
       final drill = _drillFor(next);
-      if (drill != null && drill != _drilledInto) {
+      // A pick drills in; the reset when the pill is left drills out (to
+      // Trending, or to the Watchlist once one holds a market).
+      final reset = next.subs.isEmpty &&
+          (next.tab == HlBrowseTab.trending ||
+              next.tab == HlBrowseTab.watchlist);
+      if (drill != _drilledInto && (drill != null || reset)) {
         setState(() => _drilledInto = drill);
       }
     });
@@ -476,7 +603,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                     // in: the row becomes "‹ Category" and its
                     // subcategories. Both filter the list below in place,
                     // like Predictions.
-                    if (canBrowse && availableTabs.isNotEmpty)
+                    // Inside Investments the page's own pill carries the
+                    // category (investments_category_sheet.dart): no row.
+                    if (canBrowse && availableTabs.isNotEmpty && !embedded)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(top: 4.h),
@@ -544,6 +673,44 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                           if (awaitingBuilderMarkets)
                             const SliverToBoxAdapter(child: _HlGroupSkeleton())
                           else ...[
+                            // The big squares, on the default view only
+                            // (Trending, no subcategory): the four hyped
+                            // stocks and commodities two by two, the
+                            // Bitcoin home's Latest squares, above the
+                            // list (which keeps its own order, less the
+                            // squares' names). Only with four to show;
+                            // search is its own screen, so the list here
+                            // is never a search result.
+                            if (_moversFor(tab, sub, markets, universe)
+                                    .isEmpty &&
+                                _moversLoading)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 8.h),
+                                  child: const HlMovingNowStripSkeleton(),
+                                ),
+                              )
+                            else if (_moversFor(tab, sub, markets, universe)
+                                .isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 8.h),
+                                  child: tab == HlBrowseTab.watchlist
+                                      // The Watchlist's own squares: every
+                                      // market shown whatever its logo.
+                                      ? HlMovingNowStrip(
+                                          key: const ValueKey(
+                                              'hl-watchlist-squares'),
+                                          markets: _moversFor(
+                                              tab, sub, markets, universe),
+                                          source: 'watchlist',
+                                          blankUntilLogo: false,
+                                        )
+                                      : HlMovingNowStrip(
+                                          markets: _moversFor(
+                                              tab, sub, markets, universe)),
+                                ),
+                              ),
                             SliverToBoxAdapter(child: SizedBox(height: 8.h)),
                             // The whole list is in memory, in ONE grouped
                             // card like Home's Activity (founder, October
@@ -552,9 +719,10 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             // scroll in, so every price on screen is live.
                             ...marketGroupSlivers<HlMarket>(
                               context,
-                              items: markets,
+                              items: _listedFor(tab, sub, markets, universe),
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
+                              divider: hlGroupRowDivider,
                               build: (market, inGroup) => RepaintBoundary(
                                 child: HlMarketCard(
                                   key: ValueKey(
@@ -564,6 +732,15 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                 ),
                               ),
                             ),
+                            // The Watchlist's Edit, under its list: the
+                            // watchlist sheet (hl_watchlist_sheet.dart).
+                            if (tab == HlBrowseTab.watchlist)
+                              SliverToBoxAdapter(
+                                child: _WatchlistEditRow(
+                                  onTap: () => showHlWatchlistSheet(context,
+                                      source: 'watchlist_view'),
+                                ),
+                              ),
                           ],
                         ],
                       ),
@@ -653,6 +830,55 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     );
   }
 
+}
+
+// ───────────────────────── watchlist edit ─────────────────────────
+
+/// "Edit ›" under the Watchlist's list: the quiet fold row of the
+/// Portfolio's cards (BalancesFoldRow: 13 sp, w600, the secondary ink, the
+/// chevron in the tertiary), at the list's 16 gutter and the rows' inset.
+class _WatchlistEditRow extends StatelessWidget {
+  const _WatchlistEditRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final label = context.l10n.edit;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: InkWell(
+          key: const ValueKey('hl-watchlist-edit'),
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Row(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+                SizedBox(width: 2.w),
+                Icon(Icons.chevron_right_rounded,
+                    size: 16.w, color: c.textTertiary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ───────────────────────── empty state ─────────────────────────

@@ -1,0 +1,89 @@
+// lib/services/share_link_events.dart
+//
+// The PostHog events of Share and send to anyone, in one place so every
+// surface sends the same shape. Exact amounts (the house rule: PostHog
+// gets exact values, never buckets); the kind and the asset as categories;
+// the market SLUG as the market (a public catalogue name, not an
+// identifier of the user). NEVER the link id, the URL, a destination
+// address or invoice, a payment id or the recipient's name.
+
+import 'package:kute/models/share_link_model.dart';
+import 'package:kute/services/one_balance/funding_fees.dart'
+    show OrderFundingFees, fundingFeeAnalytics;
+import 'package:kute/services/tracking_service.dart';
+
+abstract final class ShareLinkEvents {
+  /// `amountMinor` as the human figure: dollars for cents, sats for sats.
+  static Object _amount(ShareLinkKind kind, int amountMinor) =>
+      kind == ShareLinkKind.dollars ? amountMinor / 100 : amountMinor;
+
+  static Map<String, Object> _money(ShareLinkKind kind, int amountMinor) => {
+        'kind': kind.name,
+        'asset': kind.asset,
+        'amount': _amount(kind, amountMinor),
+      };
+
+  /// The sender created a link (the backend row exists; nothing moved).
+  /// [outcome] is the pick's label only ("Yes", "Long"), never an id;
+  /// [challenge] a prediction sent as a dare (`challenge: true`).
+  static void created(ShareLinkKind kind, int amountMinor,
+      {String? marketSlug, String? outcome, bool challenge = false}) {
+    TrackingService.track('share_link_created', params: {
+      ..._money(kind, amountMinor),
+      if (marketSlug != null && marketSlug.isNotEmpty) 'market': marketSlug,
+      if (outcome != null && outcome.isNotEmpty) 'outcome': outcome,
+      if (challenge) 'challenge': true,
+    });
+  }
+
+  /// The recipient of a challenge picked a side on the Claim screen:
+  /// `other_side` (against the sender) or `same_side`, with the link's
+  /// amount and the market slug. Fired when the slip (or the market, when
+  /// no single other side exists) opens, before anything is placed.
+  static void challengeAnswered(ShareLinkKind kind, int amountMinor,
+      {required bool otherSide, String? marketSlug}) {
+    TrackingService.track('share_challenge_answered', params: {
+      ..._money(kind, amountMinor),
+      'choice': otherSide ? 'other_side' : 'same_side',
+      if (marketSlug != null && marketSlug.isNotEmpty) 'market': marketSlug,
+    });
+  }
+
+  /// The OS share sheet closed after a link was handed to it. [result]
+  /// is the platform's `ShareResultStatus` name.
+  static void shared(ShareLinkKind kind, {required String result}) {
+    TrackingService.track('share_link_shared',
+        params: {'kind': kind.name, 'result': result});
+  }
+
+  /// The recipient claimed a link on this device.
+  static void claimed(ShareLinkKind kind, int amountMinor) {
+    TrackingService.track('share_link_claimed',
+        params: _money(kind, amountMinor));
+  }
+
+  /// The sender's wallet paid a claimed link. [funded]: legs brought money
+  /// into Dollars for it, [fees] their estimated fees and sources where this
+  /// attempt sent them ([fundingFeeAnalytics]). The money outcome of the
+  /// legs themselves is their own, tagged `conversion_leg`.
+  static void paid(ShareLinkKind kind, int amountMinor,
+      {bool funded = false, OrderFundingFees? fees}) {
+    TrackingService.track('share_link_paid', params: {
+      ..._money(kind, amountMinor),
+      if (kind == ShareLinkKind.dollars) 'amount_usd': amountMinor / 100,
+      'funded': funded,
+      ...fundingFeeAnalytics(fees),
+    });
+  }
+
+  static void cancelled(ShareLinkKind kind) {
+    TrackingService.track('share_link_cancelled', params: {'kind': kind.name});
+  }
+
+  /// The market share sheet opened for a market.
+  static void marketOpened({String? marketSlug}) {
+    TrackingService.track('share_market_opened', params: {
+      'market': marketSlug == null || marketSlug.isEmpty ? 'none' : marketSlug,
+    });
+  }
+}

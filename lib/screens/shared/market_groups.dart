@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:kute/theme/app_theme.dart';
 
 /// A run of markets drawn as one grouped card, or one market as its own
@@ -51,13 +52,20 @@ List<MarketSegment<T>> marketSegments<T>(
 double marketSegmentGap() => 16.h;
 
 /// The hairline between two rows of a group: Home Activity's, starting
-/// [indent] from the card's left edge (where the row's text starts).
+/// [indent] from the card's left edge (where the row's text starts). The
+/// default [MarketGroupDivider]; a market list may pass its own (the
+/// Investing rows draw none, the Predictions rows a fainter one).
 Widget marketGroupDivider(BuildContext context, double indent) => Divider(
       color: context.colors.borderSubtle,
       height: 1,
       thickness: 0.5,
       indent: indent,
     );
+
+/// What a list draws between two rows of a group, [indent] from the
+/// card's left edge.
+typedef MarketGroupDivider = Widget Function(
+    BuildContext context, double indent);
 
 /// A row of a group, its press ink clipped to the card's corners when it is
 /// the first or the last row.
@@ -75,14 +83,16 @@ Widget _clipped(Widget row, {required bool first, required bool last}) {
 
 /// The list as slivers, at the lists' 16 side inset: each group one card
 /// behind a lazy list of its rows, each other market its own card, [gap]
-/// ([marketSegmentGap] by default) between them. [build] draws a market as a group row (`inGroup`) or as
-/// its own card.
+/// ([marketSegmentGap] by default) between them. [build] draws a market
+/// as a group row (`inGroup`) or as its own card; [divider] what sits
+/// between two rows of a group.
 List<Widget> marketGroupSlivers<T>(
   BuildContext context, {
   required List<T> items,
   required bool Function(T item) groups,
   required Widget Function(T item, bool inGroup) build,
   required double dividerIndent,
+  MarketGroupDivider divider = marketGroupDivider,
   double? gap,
 }) {
   final space = gap ?? marketSegmentGap();
@@ -100,10 +110,14 @@ List<Widget> marketGroupSlivers<T>(
         decoration: PremiumGroupContainer.decorationOf(context),
         sliver: SliverList.separated(
           itemCount: rows.length,
-          separatorBuilder: (context, _) =>
-              marketGroupDivider(context, dividerIndent),
-          itemBuilder: (_, i) => _clipped(build(rows[i], true),
-              first: i == 0, last: i == rows.length - 1),
+          separatorBuilder: (context, _) => divider(context, dividerIndent),
+          // The first card's first rows arrive staggered on first paint.
+          itemBuilder: (_, i) => _clipped(
+              s == 0
+                  ? KuteStaggerIn(index: i, child: build(rows[i], true))
+                  : build(rows[i], true),
+              first: i == 0,
+              last: i == rows.length - 1),
         ),
       );
     } else {
@@ -126,6 +140,7 @@ List<Widget> marketGroupColumn<T>(
   required bool Function(T item) groups,
   required Widget Function(T item, bool inGroup) build,
   required double dividerIndent,
+  MarketGroupDivider divider = marketGroupDivider,
   double? gap,
 }) {
   final space = gap ?? marketSegmentGap();
@@ -141,7 +156,7 @@ List<Widget> marketGroupColumn<T>(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var i = 0; i < rows.length; i++) ...[
-              if (i > 0) marketGroupDivider(context, dividerIndent),
+              if (i > 0) divider(context, dividerIndent),
               build(rows[i], true),
             ],
           ],

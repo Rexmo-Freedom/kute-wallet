@@ -1,11 +1,15 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:kute/providers/polymarket_site_order.dart';
 import 'package:kute/services/polymarket/live_game/feed_score_order.dart';
 import 'package:kute/services/polymarket/livestream_source.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/services/polymarket/market_protocol.dart';
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/services/polymarket/search_aliases.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show polyCryptoRoundOf, polyCryptoRoundSlug, polyRoundStartAt;
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
     show CryptoPriceFeed, kCryptoTwapLookbackSeconds;
 // lib/models/polymarket_model.dart
@@ -20,7 +24,7 @@ import 'dart:isolate';
 import 'package:kute/helpers/polymarket_artwork.dart';
 import 'package:kute/helpers/prediction_results.dart'
     show closedPredictionWon, predictionClosedBySale, predictionPriceSettled;
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
@@ -72,6 +76,18 @@ export 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
 /// spreads, totals, …), kept on its outcome so the game centre can lay out
 /// its main lines from the event the card already has, before (or
 /// without) reading the event again.
+/// One page of the venue search (`public-search`): its events, most
+/// traded first, and whether Gamma has a page after it.
+class PolySearchPage {
+  final List<PolymarketEvent> events;
+  final bool hasMore;
+
+  const PolySearchPage({required this.events, required this.hasMore});
+
+  /// No events and nothing after (a failed or empty read).
+  static const none = PolySearchPage(events: [], hasMore: false);
+}
+
 class PolymarketMarketLine {
   /// Gamma `sportsMarketType`.
   final String kind;
@@ -111,11 +127,22 @@ class PolymarketOutcome {
   /// The sub-market's sports type and line, on a game's markets only.
   final PolymarketMarketLine? marketLine;
 
+  /// The market's own question (Gamma `question`: "Will Russia invade a
+  /// NATO country by December 31, 2026?"), on an outcome that is one
+  /// market of a grouped event: what a page, slip or card about this one
+  /// outcome is titled by, never its bare [name] ([polyMarketDisplayTitle]).
+  final String? question;
+
   /// Its book is wider than 10¢ and it has never traded, so Polymarket
   /// shows no chance for it ([polyGammaShownPrice]): a list writes "—"
   /// and puts it last. [price] is then Gamma's own figure, kept as the
   /// slip's starting point only.
   final bool unpriced;
+
+  /// This outcome's own 24 h move, a fraction (0.06 is 6 points): Gamma's
+  /// `oneDayPriceChange` of its market (the other side of a two-sided
+  /// market takes it negated). Null when the read did not carry it.
+  final double? dayMove;
 
   const PolymarketOutcome({
     this.gammaMarketId,
@@ -128,6 +155,8 @@ class PolymarketOutcome {
     this.conditionId,
     this.marketLine,
     this.unpriced = false,
+    this.question,
+    this.dayMove,
   });
 
   /// True when this outcome came from a binary YES/NO sub-market (i.e. a
@@ -161,8 +190,16 @@ class PolymarketTopMarket {
 /// the real crest logo so the vs-header shows actual badges instead of
 /// initial placeholders.
 /// Words a club's name carries that say what it is, not which one
-/// ("Leeds United FC", "AFC Bournemouth").
-const Set<String> kPolyClubTags = {'fc', 'afc', 'cf', 'sc', 'club'};
+/// ("Leeds United FC", "AFC Bournemouth", "FK Shakhtar Donetsk",
+/// "Fenerbahçe SK", "AC Milan", "SL Benfica", "VfB Stuttgart"): the
+/// football club abbreviations of England, Spain, Italy, Portugal,
+/// Germany, Turkey, Eastern Europe and Scandinavia.
+const Set<String> kPolyClubTags = {
+  'fc', 'afc', 'cf', 'sc', 'club', //
+  'fk', 'sk', 'pfc', 'nk', 'hnk', 'gnk', 'bk', //
+  'ac', 'ssc', 'ss', 'cd', 'ud', 'rc', 'rcd', 'sl', //
+  'sv', 'vfb', 'vfl', 'tsg', 'fsv', 'kv', 'krc',
+};
 
 /// Whether [side] reads as one side of a match title rather than part of
 /// a question that mentions one: at most four words and 30 characters.
@@ -334,6 +371,20 @@ class PolymarketEvent {
   /// reads them.
   final List<PolymarketOutcome> hiddenOutcomes;
 
+  /// The question of the one market this event is about, when Gamma
+  /// groups it with others: a grouped event with one open market left
+  /// ("Will Russia invade a NATO country by December 31, 2026?" under
+  /// "... by...?"), or one outcome opened as its own Yes / No page. Null
+  /// for a plain single-market event and for an event that lists several.
+  final String? marketQuestion;
+
+  /// The title this event is shown under ([polyMarketDisplayTitle]): the
+  /// one market's question when it is about one ([marketQuestion]), else
+  /// [title] with Polymarket's blank ("by...?") taken out. [title] stays
+  /// Gamma's own, for the logic that reads it (teams, rounds, analytics).
+  String get displayTitle =>
+      polyMarketDisplayTitle(title, question: marketQuestion);
+
   const PolymarketEvent({
     required this.id,
     required this.slug,
@@ -370,6 +421,7 @@ class PolymarketEvent {
     this.seriesId,
     this.tweetCount,
     this.hiddenOutcomes = const [],
+    this.marketQuestion,
   });
 
   /// This event with the [hiddenOutcomes] whose Yes or No token is in
@@ -423,6 +475,7 @@ class PolymarketEvent {
         for (final o in hiddenOutcomes)
           if (!held.contains(o)) o,
       ],
+      marketQuestion: marketQuestion,
     );
   }
 
@@ -2006,6 +2059,9 @@ class PolymarketModel {
       final names = _jsonListStrings(m['outcomes']);
       final prices = _jsonListDoubles(m['outcomePrices']);
       final tokens = PolyMarketProtocol.outcomeIds(m);
+      // The market's move is its first side's; a pair's other side moved
+      // the other way.
+      final move = _dayMoveOf(m);
       return List.generate(names.length, (i) {
         return PolymarketOutcome(
           name: names[i],
@@ -2013,6 +2069,13 @@ class PolymarketModel {
           tokenId: i < tokens.length ? tokens[i] : null,
           conditionId: m['conditionId'] as String?,
           gammaMarketId: m['id']?.toString(),
+          dayMove: move == null
+              ? null
+              : i == 0
+                  ? move
+                  : names.length == 2
+                      ? -move
+                      : null,
         );
       });
     }
@@ -2074,6 +2137,8 @@ class PolymarketModel {
       volume: (m['volumeNum'] as num?)?.toDouble(),
       conditionId: m['conditionId'] as String?,
       gammaMarketId: m['id']?.toString(),
+      question: question == 'Unknown' ? null : question,
+      dayMove: _dayMoveOf(m),
       marketLine: kind.isEmpty
           ? null
           : PolymarketMarketLine(
@@ -2094,6 +2159,12 @@ class PolymarketModel {
     r'\b(winner|total|over|under|o/u|odd/even|odd|even|spread|moneyline|first|last|exact|map\s*\d|game\s*\d|round\s*\d|set\s*\d|period|half|quarter|inning)\b',
     caseSensitive: false,
   );
+
+  /// A market's `oneDayPriceChange` (a fraction), or null.
+  static double? _dayMoveOf(Map<String, dynamic> m) {
+    final v = _jsonNum(m['oneDayPriceChange']);
+    return v == null || !v.isFinite ? null : v;
+  }
 
   static double? _jsonNum(dynamic v) =>
       v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
@@ -2323,6 +2394,7 @@ class PolymarketModel {
     final primaryMarket =
         markets.isNotEmpty ? markets.first as Map<String, dynamic> : null;
     final outcomes = _buildOutcomesFromRaw(markets);
+    final eventTitle = (e['title'] as String?) ?? 'Unknown Event';
     // Placeholder seats ("Person O", "Other") are not listed, but kept for
     // a holding in one (PolymarketEvent.withHeldOutcomes).
     final hiddenOutcomes = markets.length > 1
@@ -2453,7 +2525,8 @@ class PolymarketModel {
     return PolymarketEvent(
       id: (e['id'] ?? '').toString(),
       slug: (e['slug'] as String?) ?? '',
-      title: (e['title'] as String?) ?? 'Unknown Event',
+      title: eventTitle,
+      marketQuestion: _soleMarketQuestion(markets, allMarkets, eventTitle),
       imageUrl: imageUrl,
       volume: totalVolume,
       volume24hr: (e['volume24hr'] as num?)?.toDouble() ?? 0,
@@ -2504,6 +2577,24 @@ class PolymarketModel {
     );
   }
 
+  /// The question of the one market a grouped event still shows (its
+  /// other markets settled: "Will Russia invade a NATO country by
+  /// December 31, 2026?" under "... by...?"), the event's
+  /// [PolymarketEvent.marketQuestion]. Null when it shows several, when
+  /// it only ever had the one and its title has no blank (a plain market,
+  /// titled by the event), and on a game's line, which the game's own
+  /// title names.
+  static String? _soleMarketQuestion(
+      List<dynamic> shown, List<dynamic> all, String eventTitle) {
+    if (shown.length != 1) return null;
+    final m = shown.first;
+    if (m is! Map) return null;
+    if ('${m['sportsMarketType'] ?? ''}'.trim().isNotEmpty) return null;
+    if (all.length < 2 && !polyTitleHasPlaceholder(eventTitle)) return null;
+    final q = '${m['question'] ?? ''}'.trim();
+    return q.isEmpty ? null : q;
+  }
+
   /// The largest 24 h move among an event's markets (Gamma's
   /// `oneDayPriceChange`, a fraction), keeping its sign. Null when no
   /// market carries it.
@@ -2530,20 +2621,31 @@ class PolymarketModel {
   /// Bounded public typeahead. Never download the entire event catalog for
   /// each query; Gamma already searches event titles and outcome names.
   /// [eventsTag] limits the results to events carrying that tag slug
-  /// (Gamma's `events_tag`), for a search scoped to one category.
+  /// (Gamma's `events_tag`), for a search scoped to one category. The
+  /// first page; [searchEventsPage] reads the ones after it.
   Future<List<PolymarketEvent>> searchEvents(String query,
-      {String? eventsTag}) async {
+          {String? eventsTag}) async =>
+      (await searchEventsPage(query, eventsTag: eventsTag)).events;
+
+  /// One page of the venue search ([page], from 1: Gamma's `page`, 50
+  /// events each), and whether a page follows it (Gamma's
+  /// `pagination.hasMore`). [eventsTag] scopes it to one tag slug.
+  Future<PolySearchPage> searchEventsPage(String query,
+      {String? eventsTag, int page = 1}) async {
     final q = query.trim();
-    if (_disposed || q.isEmpty || q.length > 4000) return [];
+    if (_disposed || q.isEmpty || q.length > 4000) return PolySearchPage.none;
     final alias = polySearchAlias(q);
-    if (alias == null) return _serverSearch(q, eventsTag: eventsTag);
+    if (alias == null) return _serverSearch(q, eventsTag: eventsTag, page: page);
     // A localized name ("brasil", "alemanha"): Gamma matches the English
     // title only, so the query as typed and its rewrite both run, merged.
     final both = await Future.wait([
-      _serverSearch(q, eventsTag: eventsTag),
-      _serverSearch(alias, eventsTag: eventsTag),
+      _serverSearch(q, eventsTag: eventsTag, page: page),
+      _serverSearch(alias, eventsTag: eventsTag, page: page),
     ]);
-    return _mergeSearchResults(both[0], both[1]);
+    return PolySearchPage(
+      events: _mergeSearchResults(both[0].events, both[1].events),
+      hasMore: both[0].hasMore || both[1].hasMore,
+    );
   }
 
   /// [primary] and [alias] as one list: each event once (by id, the
@@ -2584,29 +2686,27 @@ class PolymarketModel {
     };
   }
 
-  /// The tags Polymarket relates to [tagId] that have open events
-  /// (`/tags/{id}/related-tags/tags?status=active&omit_empty=true`), each
-  /// with its `activeEventsCount`. Throws when Gamma does not answer.
-  Future<List<Map<String, dynamic>>> fetchRelatedTags(int tagId) async {
-    if (_disposed) return const [];
-    final uri = Uri.parse('$_gammaBase/tags/$tagId/related-tags/tags')
-        .replace(queryParameters: {'status': 'active', 'omit_empty': 'true'});
+  /// One of the views polymarket.com's own pages read
+  /// (polymarket_site_order.dart), decoded off the UI isolate. Throws when
+  /// the site does not answer.
+  static Future<Map<String, dynamic>> readSiteView(String path,
+      {Map<String, String>? query}) async {
+    final uri = Uri.parse('$kPolySiteGateway$path')
+        .replace(queryParameters: query);
     final resp = await http.get(uri).timeout(const Duration(seconds: 10));
     if (resp.statusCode != 200) {
-      throw http.ClientException('related tags failed (${resp.statusCode})');
+      throw http.ClientException('site view failed (${resp.statusCode})');
     }
-    final decoded = jsonDecode(resp.body);
-    if (decoded is! List) return const [];
-    return [
-      for (final t in decoded.whereType<Map<String, dynamic>>())
-        if (t['id'] != null)
-          {
-            'id': t['id'],
-            'slug': t['slug'],
-            'label': t['label'],
-            'activeEventsCount': t['activeEventsCount'],
-          }
-    ];
+    final decoded = await compute(_decodeSiteView, resp.bodyBytes);
+    return decoded;
+  }
+
+  static Map<String, dynamic> _decodeSiteView(Uint8List bytes) {
+    final decoded = jsonDecode(utf8.decode(bytes));
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('site view is not an object');
+    }
+    return decoded;
   }
 
   /// Open-market counts per crypto subcategory, as polymarket.com's crypto
@@ -2658,8 +2758,8 @@ class PolymarketModel {
   /// request in flight stops with the model.
   final Set<http.Client> _searchesInFlight = {};
 
-  Future<List<PolymarketEvent>> _serverSearch(String query,
-      {String? eventsTag}) async {
+  Future<PolySearchPage> _serverSearch(String query,
+      {String? eventsTag, int page = 1}) async {
     // Two searches can run at once (a localized name and its rewrite), so
     // each owns its client; an injected one (tests) is shared and kept.
     final injected = _searchClient;
@@ -2673,27 +2773,31 @@ class PolymarketModel {
         'events_status': 'active',
         'keep_closed_markets': '0',
         'limit_per_type': '$kSearchPageSize',
+        // The first page is Gamma's default; only the pages after it say so.
+        if (page > 1) 'page': '$page',
         'search_tags': 'false',
         'search_profiles': 'false',
         'sort': 'relevance',
       });
       final response = await client.send(http.Request('GET', uri))
           .timeout(const Duration(seconds: 8));
-      if (_disposed || response.statusCode != 200) return [];
+      if (_disposed || response.statusCode != 200) return PolySearchPage.none;
       // Bound bytes before JSON decoding, even if a provider ignores its cap.
       const maxBytes = 4 * 1024 * 1024;
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.stream
           .timeout(const Duration(seconds: 8))) {
-        if (_disposed || bytes.length + chunk.length > maxBytes) return [];
+        if (_disposed || bytes.length + chunk.length > maxBytes) {
+          return PolySearchPage.none;
+        }
         bytes.add(chunk);
       }
-      if (_disposed) return [];
+      if (_disposed) return PolySearchPage.none;
       final body = bytes.takeBytes();
       final result = await _parseSearchOffThread(body);
-      return _disposed ? [] : result;
+      return _disposed ? PolySearchPage.none : result;
     } catch (_) {
-      return [];
+      return PolySearchPage.none;
     } finally {
       _searchesInFlight.remove(client);
       if (injected == null) client.close();
@@ -2702,22 +2806,24 @@ class PolymarketModel {
 
   // Only the bounded PUBLIC response is copied to the worker. Parsing and
   // sorting never block keyboard/scroll frames on older devices.
-  static Future<List<PolymarketEvent>> _parseSearchOffThread(
-          Uint8List bytes) =>
+  static Future<PolySearchPage> _parseSearchOffThread(Uint8List bytes) =>
       Isolate.run(() => _parseSearchResponse(bytes));
 
   /// The events of one `public-search` page as the app lists them: most
   /// traded first (the event's total volume), Gamma's relevance order for
-  /// ties. No title re-ranking: Gamma already matched the title and the
-  /// candidate names. Games in play go first further up, where the live
-  /// feed is known (unified_search_provider.dart, search_result_order.dart).
+  /// ties. The events about the query (its title, a game's team) are put
+  /// ahead of the ones listing it among many outcomes further up, with the
+  /// games in play, where the query and the live feed are known
+  /// (unified_search_provider.dart, search_result_order.dart).
+  /// With the page comes whether Gamma has another (`pagination.hasMore`;
+  /// no pagination block reads as the last page).
   ///
   /// Each event is read by the same parser as the category lists
   /// ([_eventFromRawJson]), so a search result is the card the Politics
   /// list shows: each candidate under its own name (`groupItemTitle`) with
   /// its portrait, the chance by Polymarket's display rule, only the
   /// markets an open event still trades and no placeholder seats.
-  static List<PolymarketEvent> _parseSearchResponse(Uint8List bytes) {
+  static PolySearchPage _parseSearchResponse(Uint8List bytes) {
     final data = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     final rows = data['events'] as List? ?? [];
     final seen = <String>{};
@@ -2737,7 +2843,11 @@ class PolymarketModel {
         // A malformed event must not discard the other matching events.
       }
     }
-    return _mostTradedFirst(hits, (e) => e.volume);
+    final pagination = data['pagination'];
+    return PolySearchPage(
+      events: _mostTradedFirst(hits, (e) => e.volume),
+      hasMore: pagination is Map && pagination['hasMore'] == true,
+    );
   }
 
   Future<Map<String, dynamic>> getSportsMetadata() async {
@@ -2991,13 +3101,15 @@ class PolymarketModel {
   static const kCryptoWindowCandidates = [5];
 
   /// Slug of the Up-or-Down market for [asset] in the [minutes]-long
-  /// window that contains now, or [windowsBack] windows earlier.
+  /// window that contains now, or [windowsBack] windows earlier. The
+  /// windows run on the New York clock ([polyRoundStartAt]: the four-hour
+  /// ones start at 05:00Z, 09:00Z … under standard time, not at the UTC
+  /// multiples of four hours).
   static String cryptoWindowSlug(String asset, int minutes,
       {int windowsBack = 0}) {
-    final span = minutes * 60;
-    final epoch = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-    final windowStart = ((epoch ~/ span) - windowsBack) * span;
-    return '${asset.toLowerCase()}-updown-${minutes}m-$windowStart';
+    final windowStart =
+        polyRoundStartAt(DateTime.now(), minutes) - windowsBack * minutes * 60;
+    return polyCryptoRoundSlug(asset, minutes, windowStart);
   }
 
   /// The live Up-or-Down market for [asset] in the [minutes] window: the
@@ -3026,12 +3138,16 @@ class PolymarketModel {
     final meta = raw['eventMetadata'];
     final ptb = meta is Map ? meta['priceToBeat'] : null;
     final priceToBeat = ptb is num ? ptb.toDouble() : double.tryParse('$ptb');
+    final markets = raw['markets'];
+    final market =
+        markets is List && markets.isNotEmpty ? markets.first : null;
     return Btc5MinEvent.fromEvent(
       Event.fromJson(PolyMarketProtocol.eventWithTradingIds(raw)),
       priceToBeat:
           priceToBeat != null && priceToBeat.isFinite && priceToBeat > 0
               ? priceToBeat
               : null,
+      acceptingOrders: market is Map ? market['acceptingOrders'] != false : true,
     );
   }
 
@@ -3060,19 +3176,16 @@ class PolymarketModel {
   Future<Btc5MinEvent?> getCryptoUpdown5MinEvent(
     String asset, {
     /// When non-null, fetches the specific window whose start epoch
-    /// (seconds, aligned to [minutes]) is `targetWindowEpoch`. Used by
-    /// the Instant tab's window-picker so users can pre-stage a bet on
-    /// an upcoming round (#163). When null, falls back to the
-    /// current/previous window.
+    /// (seconds, aligned to [minutes]) is `targetWindowEpoch`. When null,
+    /// falls back to the current/previous window.
     int? targetWindowEpoch,
     int minutes = 5,
   }) async {
     if (_disposed) return null;
     try {
       if (targetWindowEpoch != null) {
-        final slug =
-            '${asset.toLowerCase()}-updown-${minutes}m-$targetWindowEpoch';
-        return await _fetchCryptoWindowEvent(slug);
+        return await _fetchCryptoWindowEvent(
+            polyCryptoRoundSlug(asset, minutes, targetWindowEpoch));
       }
       return await getCryptoWindowEvent(asset, minutes);
     } catch (e) {
@@ -3148,13 +3261,27 @@ class PolymarketModel {
   Future<List<({DateTime t, double p})>> fetchBinanceRecentPrices(
     String asset, {
     int seconds = 360,
+  }) =>
+      fetchBinanceKlines(asset, interval: '1s', limit: seconds);
+
+  /// Binance's public klines for `<ASSET>USDT` at [interval] (`1s`, `1m`,
+  /// …), the last [limit] (at most 1000) or, with [startMs], from that
+  /// time on. Close prices with their close times, oldest first; empty on
+  /// any failure. Backs the chart of a 15-minute, hourly or 4-hour round
+  /// from its start (the Chainlink snapshot holds two minutes).
+  Future<List<({DateTime t, double p})>> fetchBinanceKlines(
+    String asset, {
+    required String interval,
+    required int limit,
+    int? startMs,
   }) async {
     if (_disposed) return const [];
     try {
       final symbol = '${asset.toUpperCase()}USDT';
       final uri = Uri.parse(
           'https://api.binance.com/api/v3/klines?symbol=$symbol'
-          '&interval=1s&limit=${seconds.clamp(1, 1000)}');
+          '&interval=$interval&limit=${limit.clamp(1, 1000)}'
+          '${startMs == null ? '' : '&startTime=$startMs'}');
       final res = await http.get(uri).timeout(const Duration(seconds: 6));
       if (res.statusCode != 200) return const [];
       final decoded = jsonDecode(res.body);
@@ -3349,6 +3476,10 @@ class Btc5MinEvent {
   /// the window, when Gamma already carries it.
   final double? priceToBeat;
 
+  /// Gamma's `acceptingOrders` of the window's market: false only when
+  /// Gamma says it takes no orders.
+  final bool acceptingOrders;
+
   const Btc5MinEvent({
     required this.slug,
     required this.title,
@@ -3364,6 +3495,7 @@ class Btc5MinEvent {
     this.active = true,
     this.closed = false,
     this.priceToBeat,
+    this.acceptingOrders = true,
   });
 
   static DateTime? _parseWindowStart(String? slug) {
@@ -3374,7 +3506,8 @@ class Btc5MinEvent {
     return DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true);
   }
 
-  factory Btc5MinEvent.fromEvent(Event event, {double? priceToBeat}) {
+  factory Btc5MinEvent.fromEvent(Event event,
+      {double? priceToBeat, bool acceptingOrders = true}) {
     final markets = event.markets ?? [];
     final market = markets.isNotEmpty ? markets.first : null;
 
@@ -3393,7 +3526,10 @@ class Btc5MinEvent {
       title: event.title ?? 'BTC 5 Min Up or Down',
       startDate: event.startDate,
       endDate: event.endDate,
-      windowStartTime: _parseWindowStart(event.slug),
+      // The epoch off the slug; an hourly round's slug has none, its
+      // window is the hour before its end (crypto_round.dart).
+      windowStartTime: _parseWindowStart(event.slug) ??
+          polyCryptoRoundOf(event.slug ?? '', endDate: event.endDate)?.start,
       upPrice: (upIdx >= 0 && upIdx < prices.length) ? prices[upIdx] : 0.50,
       downPrice:
           (downIdx >= 0 && downIdx < prices.length) ? prices[downIdx] : 0.50,
@@ -3405,6 +3541,7 @@ class Btc5MinEvent {
       active: event.active,
       closed: event.closed,
       priceToBeat: priceToBeat,
+      acceptingOrders: acceptingOrders,
     );
   }
 

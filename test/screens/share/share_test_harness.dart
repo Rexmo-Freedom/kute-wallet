@@ -1,0 +1,143 @@
+// The harness the share-link widget tests pump into: the app theme, the
+// localizations, ScreenUtil and a fake share-links backend. Animations
+// are disabled (Sal's rig never settles otherwise), so tests pump a few
+// frames instead of pumpAndSettle.
+
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_ce/hive.dart';
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show polymarketEventDetailsProvider;
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/screens/share/cards/share_card_preview.dart';
+import 'package:kute/services/api/share_links_api.dart';
+import 'package:kute/services/share_links_store.dart';
+import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart';
+
+import '../../mocks/fake_share_links_api.dart';
+import 'share_artwork.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
+
+class ShareTestEnv {
+  ShareTestEnv(this.fake, this.events);
+  final FakeShareLinksApi fake;
+  final List<(String, Map<String, Object>?)> events;
+
+  Iterable<Map<String, Object>?> paramsOf(String event) =>
+      events.where((e) => e.$1 == event).map((e) => e.$2);
+}
+
+bool _hiveReady = false;
+
+/// Resets the store, tracking and fonts before each test. Hive gets a
+/// temp directory: the bitcoin amount label reads the currency provider,
+/// whose notifier opens its rates box on construction.
+ShareTestEnv setUpShareTest() {
+  if (!_hiveReady) {
+    Hive.init(Directory.systemTemp.createTempSync('share_test_hive').path);
+    _hiveReady = true;
+  }
+  GoogleFonts.config.allowRuntimeFetching = false;
+  TrackingService.setDisabled(true);
+  ShareLinksStore.debugMemory = <String, String>{};
+  final events = <(String, Map<String, Object>?)>[];
+  TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+  ShareCardShare.debugLineSeed = 0;
+  useShareTestArtwork();
+  return ShareTestEnv(FakeShareLinksApi(), events);
+}
+
+void tearDownShareTest() {
+  TrackingService.debugTrackObserver = null;
+  ShareLinksStore.debugMemory = null;
+  ShareCardShare.debugSharer = null;
+  ShareCardShare.debugLineSeed = null;
+}
+
+/// The venues the share cards read, empty: no network in a test
+/// (cards/share_card_sources.dart falls back on what the page handed
+/// over). A test passing its own [pumpShareWidget] overrides for these
+/// sets [cardVenues] false.
+List<Override> shareCardVenueOverrides() => [
+      polymarketEventDetailsProvider.overrideWith((ref, slug) async => null),
+      hyperliquidPerpMarketsProvider
+          .overrideWith((ref) async => const <HlMarket>[]),
+      hyperliquidSpotMarketsProvider
+          .overrideWith((ref) async => const <HlMarket>[]),
+    ];
+
+/// Taps the bar (Share) and waits on real time (the capture and the PNG,
+/// up to 5 s) until [sent] has grown.
+Future<void> shareCardAndWait(WidgetTester tester, List<Object?> sent,
+    {Finder? button}) async {
+  final before = sent.length;
+  await tester.runAsync(() async {
+    await tester.tap(button ?? kuteBarPrimary);
+    for (var i = 0; i < 100 && sent.length == before; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  });
+  await settle(tester);
+}
+
+/// [dollars] is the Dollars balance the dollar link's amount step reads
+/// (0: not known, never judged); no SDK is touched for it.
+Future<void> pumpShareWidget(
+  WidgetTester tester,
+  ShareTestEnv env,
+  Widget child, {
+  List<Override> overrides = const [],
+  bool cardVenues = true,
+  double dollars = 0,
+}) async {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  tester.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(disableAnimations: true);
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      shareLinksApiProvider.overrideWithValue(env.fake),
+      usdBalanceProvider.overrideWith((_) => dollars),
+      if (cardVenues) ...shareCardVenueOverrides(),
+      ...overrides,
+    ],
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        // The shell bar over the page, as app_widget.dart mounts it: the
+        // screens' primary buttons are the bar (kute_bar_test_support).
+        builder: withKuteShellBar,
+        home: Scaffold(body: child),
+        theme: ThemeData(
+            splashFactory: NoSplash.splashFactory,
+            fontFamily: 'Inter',
+            extensions: [AppColorsExtension.light()]),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ),
+  ));
+  await settle(tester);
+}
+
+/// A few frames, enough for futures and short transitions.
+Future<void> settle(WidgetTester tester) async {
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}

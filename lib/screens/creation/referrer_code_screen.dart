@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -14,7 +15,7 @@ import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The capability the referral-code and share-code onboarding steps hang
@@ -315,10 +316,14 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
         SizedBox(height: 24.h),
 
         Center(
-          child: SvgPicture.asset(
-            kuteDogAsset(context),
-            width: 48.sp,
-            height: 48.sp,
+          child: SalSprite(
+            clip: 'idle',
+            size: 48.sp,
+            fallback: SvgPicture.asset(
+              kuteDogAsset(context),
+              width: 48.sp,
+              height: 48.sp,
+            ),
           ),
         ),
         SizedBox(height: 24.h),
@@ -409,12 +414,19 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
         const Spacer(),
 
         const PasskeyBackupSyncingNote(),
-        AppButton(
-          text: context.l10n.continueLabel,
-          onPressed: _submitting ? null : _confirmCaptured,
-          isLoading: _submitting,
+        // THE BAR IS THE BUTTON (kute_bar_context.dart): Continue is the
+        // floating Sal bar's primary action.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: context.l10n.continueLabel,
+            onPrimary: _confirmCaptured,
+            enabled: !_submitting,
+            busy: _submitting,
+            source: 'referrer_code',
+            disabledLabel: null,
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
         ),
-        SizedBox(height: 20.h),
       ],
     );
   }
@@ -429,10 +441,14 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
         SizedBox(height: 24.h),
 
         Center(
-          child: SvgPicture.asset(
-            kuteDogAsset(context),
-            width: 48.sp,
-            height: 48.sp,
+          child: SalSprite(
+            clip: 'idle',
+            size: 48.sp,
+            fallback: SvgPicture.asset(
+              kuteDogAsset(context),
+              width: 48.sp,
+              height: 48.sp,
+            ),
           ),
         ),
         SizedBox(height: 24.h),
@@ -534,17 +550,9 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
         const Spacer(),
 
         const PasskeyBackupSyncingNote(),
-        // Apply — routed through AppButton for the same shape /
-        // typography / haptic story as every other primary CTA.
-        AppButton(
-          text: context.l10n.accountApplyCode,
-          onPressed: canApply ? _apply : null,
-          isLoading: _submitting,
-        ),
-        SizedBox(height: 10.h),
         // Skip — kept prominent so users without a code can clearly
         // see how to continue (was a faint 14sp tertiary line that
-        // people missed).
+        // people missed). Above the bar.
         Center(
           child: GestureDetector(
             onTap: _submitting ? null : _skip,
@@ -563,7 +571,19 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
             ),
           ),
         ),
-        SizedBox(height: 20.h),
+        // Apply code is the bar (kute_bar_context.dart), on once a code
+        // is typed, busy while it is checked.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: context.l10n.accountApplyCode,
+            onPrimary: _apply,
+            enabled: canApply,
+            busy: _submitting,
+            source: 'referrer_code',
+            disabledLabel: context.l10n.barNeedCode,
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
+        ),
       ],
     );
   }

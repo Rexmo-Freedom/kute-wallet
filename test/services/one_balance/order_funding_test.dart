@@ -2,6 +2,7 @@
 // what is refused with nothing moved, when the person is sent to the
 // Dollars door, and the journey events each path reports.
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/auth_grant.dart';
@@ -24,16 +25,21 @@ class _Funder implements StagedVenueFunder {
     this.minimum = 1.0,
     this.error,
     this.staged = true,
+    this.latency = Duration.zero,
   });
 
   final double routeFee;
   final double minimum;
   Object? error;
   final bool staged;
+
+  /// How long each estimate and minimum read takes (a round trip).
+  final Duration latency;
   final List<double> funded = [];
   final List<MoveAuthorization> auths = [];
   final List<OrderFundingStage> stages = [];
   int estimates = 0;
+  int minimumReads = 0;
 
   @override
   Future<VenueMoveResult> fund({
@@ -73,11 +79,16 @@ class _Funder implements StagedVenueFunder {
   Future<double> idleUsd() async => 0;
 
   @override
-  Future<double> minimumUsd() async => minimum;
+  Future<double> minimumUsd() async {
+    minimumReads++;
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+    return minimum;
+  }
 
   @override
   Future<VenueMoveQuote> estimate(double usd) async {
     estimates++;
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
     return VenueMoveQuote(
       arrivingUsd: usd * (1 - routeFee),
       feeUsd: usd * routeFee,
@@ -117,6 +128,26 @@ void main() {
   tearDown(() {
     TrackingService.debugTrackObserver = null;
     OrderFundingJourney.reset();
+  });
+
+  test('the route event carries the decision and the exact cost difference',
+      () {
+    final journey = OrderFundingJourney.instance;
+    journey.start(OneBalanceVenue.predictions,
+        orderUsd: 5, fundUsd: 5.1, readyUsd: 0, dollarsUsd: 0);
+    journey.setRoute(OneBalanceVenue.predictions, 'direct',
+        decision: 'within_tolerance',
+        costDiffUsd: 0.0175,
+        directCostUsd: 5.2175,
+        viaCostUsd: 5.2);
+    final p =
+        events.singleWhere((e) => e.$1 == 'order_funding_route_selected').$2!;
+    expect(p['route'], 'direct');
+    expect(p['route_decision'], 'within_tolerance');
+    expect(p['route_cost_diff_usd'], 0.0175);
+    expect(p['direct_cost_usd'], 5.2175);
+    expect(p['via_cost_usd'], 5.2);
+    expect(p.containsKey('route_reason'), isFalse);
   });
 
   OrderFundingController controller(_Funder funder, {double dollars = 100}) =>
@@ -317,6 +348,55 @@ void main() {
     expect(funder.funded, [5]);
   });
 
+  test('the estimate and the rail minimum are read together, not in turn',
+      () {
+    // Each read is one round trip of 300 ms. One after the other the
+    // quote stage took 600 ms; together it takes 300 ms.
+    fakeAsync((async) {
+      final funder =
+          _Funder(latency: const Duration(milliseconds: 300), staged: false);
+      OrderFundingOutcome? outcome;
+      controller(funder)
+          .fundAndQueue(
+            venue: OneBalanceVenue.predictions,
+            orderUsd: 10,
+            requiredUsd: 10.2,
+            readyUsd: 5,
+            auth: UserGrantAuthorization(_grant()),
+          )
+          .then((o) => outcome = o);
+      async.elapse(const Duration(milliseconds: 300));
+      expect(outcome, isA<OrderFundingFunded>(),
+          reason: 'both answers in one wait');
+      expect(funder.estimates, 1);
+      expect(funder.minimumReads, 1);
+      expect(funder.funded, hasLength(1));
+    });
+  });
+
+  test('with the amount approved, only the minimum is read (one round trip)',
+      () {
+    fakeAsync((async) {
+      final funder =
+          _Funder(latency: const Duration(milliseconds: 300), staged: false);
+      OrderFundingOutcome? outcome;
+      controller(funder)
+          .fundAndQueue(
+            venue: OneBalanceVenue.predictions,
+            orderUsd: 10,
+            requiredUsd: 10.2,
+            readyUsd: 5,
+            auth: UserGrantAuthorization(_grant()),
+            fundUsd: 5.3,
+          )
+          .then((o) => outcome = o);
+      async.elapse(const Duration(milliseconds: 300));
+      expect(outcome, isA<OrderFundingFunded>());
+      expect(funder.estimates, 0);
+      expect(funder.minimumReads, 1);
+    });
+  });
+
   test("Investing's funder is the Hyperliquid venue funder", () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -359,7 +439,78 @@ void main() {
       expect(p['resized'], isTrue);
       expect(p['fund_usd'], 5);
       expect(p['amount_usd'], 9.8);
+      // Where the seconds went, one exact figure per leg.
+      expect(p['legs'], {
+        'quote': 300,
+        'fund': 700,
+        'credit': 20000,
+        'order': 500,
+      });
       expect(j.isRunning(OneBalanceVenue.predictions), isFalse);
+    });
+
+    test('legs carries the finer legs a run recorded, and the Bitcoin leg',
+        () {
+      var now = DateTime.utc(2026, 11, 9, 12);
+      OrderFundingJourney.clock = () => now;
+      addTearDown(() => OrderFundingJourney.clock = DateTime.now);
+      final j = OrderFundingJourney.instance;
+      j.start(OneBalanceVenue.predictions,
+          orderUsd: 10, fundUsd: 5, readyUsd: 5, dollarsUsd: 20);
+      j.bitcoinSent(OneBalanceVenue.predictions);
+      now = now.add(const Duration(seconds: 4));
+      j.bitcoinLanded(OneBalanceVenue.predictions);
+      j.leg(OneBalanceVenue.predictions, OrderFundingLeg.estimate, 210);
+      now = now.add(const Duration(milliseconds: 300));
+      j.step(OneBalanceVenue.predictions, OrderFundingStage.fund);
+      now = now.add(const Duration(milliseconds: 700));
+      j.funded(
+          OneBalanceVenue.predictions,
+          const VenueMoveResult(
+              quoteId: 'q', orderId: 'o', sentUsd: 5, arrivingUsdEstimate: 4.9),
+          orderUsd: 10);
+      j.leg(OneBalanceVenue.predictions, OrderFundingLeg.wrap, 6000);
+      j.leg(OneBalanceVenue.predictions, OrderFundingLeg.venueCount, 1000);
+      // A leg recorded twice keeps its total.
+      j.leg(OneBalanceVenue.predictions, OrderFundingLeg.venueCount, 500);
+      now = now.add(const Duration(seconds: 20));
+      j.credited(OneBalanceVenue.predictions);
+      now = now.add(const Duration(milliseconds: 500));
+      j.completed(OneBalanceVenue.predictions, resized: false);
+      final p =
+          events.singleWhere((e) => e.$1 == 'order_funding_completed').$2!;
+      expect(p['legs'], {
+        'quote': 300,
+        'fund': 700,
+        'credit': 20000,
+        'order': 500,
+        'bitcoin': 4000,
+        'estimate': 210,
+        'wrap': 6000,
+        'venue_count': 1500,
+      });
+      // The figures the dashboards already read are unchanged.
+      expect(p['ms_quote'], 300);
+      expect(p['ms_bitcoin_landed'], 4000);
+    });
+
+    test('legsBreakdown is shared by both emitters: stages, then extras', () {
+      expect(
+          OrderFundingJourney.legsBreakdown(
+              quoteMs: 120,
+              fundMs: 3000,
+              creditMs: 24000,
+              orderMs: 900,
+              extra: {OrderFundingLeg.dexCredit: 2000}),
+          {
+            'quote': 120,
+            'fund': 3000,
+            'credit': 24000,
+            'order': 900,
+            'dex_credit': 2000,
+          });
+      expect(OrderFundingJourney.legsBreakdown(quoteMs: -5, fundMs: 10),
+          {'quote': 0, 'fund': 10});
     });
 
     test('a second start abandons the first run', () {

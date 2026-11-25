@@ -20,6 +20,8 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
+import 'package:kute/services/polymarket/placement_waits.dart'
+    show PolymarketCollateralPending, PolymarketCollateralWait;
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
@@ -186,6 +188,45 @@ void main() {
       expect(outcome['stage'], 'self_heal');
       expect(outcome['venue_market_type'], 'neg_risk');
       expect(outcome['price'], 0.64);
+    });
+  });
+
+  group('the balance still being confirmed is not "no money" (founder, 11 '
+      'November 2026: "we place the bet, then an error comes saying that '
+      'there is no money")', () {
+    test('the book has not counted the money yet: "try again in a moment", '
+        'never "Add funds to predict"', () async {
+      final (pending, trading) = await run(() =>
+          const PolymarketCollateralPending(PolymarketCollateralWait.notCounted));
+      expect(pending?.status, PendingBetStatus.failed);
+      expect(pending?.errorMessage, isNot(l10n.betAddFundsToPredict));
+      expect(pending?.errorMessage, l10n.betDepositStillConverting);
+      expect(trading.orders, 1);
+      expect(failedEvent()!['reason'], 'balance_confirming');
+    });
+
+    test('the wallet or the book could not be read: the connection, never '
+        '"Add funds to predict"', () async {
+      final (pending, _) = await run(() =>
+          const PolymarketCollateralPending(PolymarketCollateralWait.unread));
+      expect(pending?.errorMessage, isNot(l10n.betAddFundsToPredict));
+      expect(pending?.errorMessage, l10n.betConnectionUnavailable);
+      expect(failedEvent()!['reason'], 'venue_unreachable');
+    });
+
+    test('unsaid why: still never "Add funds to predict"', () async {
+      final (pending, _) =
+          await run(() => const PolymarketCollateralPending());
+      expect(pending?.errorMessage, isNot(l10n.betAddFundsToPredict));
+      expect(failedEvent()!['reason'], 'balance_confirming');
+    });
+
+    test('the wallet read and short of the buy: that is "Add funds"',
+        () async {
+      final (pending, _) = await run(() =>
+          const PolymarketCollateralPending(PolymarketCollateralWait.short));
+      expect(pending?.errorMessage, l10n.betAddFundsToPredict);
+      expect(failedEvent()!['reason'], 'balance_or_allowance');
     });
   });
 

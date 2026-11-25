@@ -13,7 +13,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -67,12 +67,18 @@ class StepUpReviewAgainSheet extends StatelessWidget {
             ),
           ),
           SizedBox(height: 28.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: AppButton(
-              text: context.l10n.stepUpReviewAgain,
-              onPressed: onReviewAgain,
+          // THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+          // .dart): "Review again" is the floating Sal bar's primary action,
+          // with the handler the drawn button had; the sheet keeps the room
+          // under its text for the bar.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: context.l10n.stepUpReviewAgain,
+              onPrimary: onReviewAgain,
+              source: 'step_up_review_again',
+              disabledLabel: null,
             ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ],
       ),

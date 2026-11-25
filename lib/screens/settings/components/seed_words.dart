@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/app_card.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -305,6 +306,8 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
                       isSelected: wallet.id == _selectedWallet?.id,
                       onTap: () => Navigator.of(ctx).pop(wallet),
                     ),
+                  // The last rows scroll clear of the floating bar.
+                  const KuteSheetBarSpace(),
                 ],
               ),
             ),
@@ -346,12 +349,16 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
                 Padding(
                   padding: EdgeInsets.only(right: 8.w),
                   child: Center(
-                    child: _CircleIconButton(
-                      icon: _revealed
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      tooltip: context.l10n.revealYourRecoveryPhrase,
+                    child: KuteCircleButton(
+                      semanticsLabel: context.l10n.revealYourRecoveryPhrase,
                       onPressed: _toggleRevealed,
+                      child: Icon(
+                        _revealed
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        color: context.colors.textPrimary,
+                        size: 20.sp,
+                      ),
                     ),
                   ),
                 ),
@@ -453,30 +460,35 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
   Widget _buildActions(bool backupDone) {
     final wallet = _selectedWallet!;
     final canCopy = _revealed && _mnemonic != null;
+    // THE BAR IS THE BUTTON (kute_bar_context.dart): Backup wallet is the
+    // floating Sal bar's primary action; Copy is a text button above it.
     final primary = wallet.isPasskey
         ? null
         : backupDone
             ? _buildBackupDoneStatus()
-            : AppButton(
-                text: context.l10n.backupWallet,
-                onPressed: () {
-                  TrackingService.track('seed_words_backup_tapped');
-                  // Pin BackupWallet to the wallet picked in the selector.
-                  context.push('/backup_wallet', extra: wallet.id);
-                },
+            : KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.backupWallet,
+                  onPrimary: () {
+                    TrackingService.track('seed_words_backup_tapped');
+                    // Pin BackupWallet to the wallet picked in the selector.
+                    context.push('/backup_wallet', extra: wallet.id);
+                  },
+                  source: 'seed_words',
+                  disabledLabel: null,
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               );
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (canCopy) ...[
-          AppButton(
+        if (canCopy)
+          AppTextButton(
             text: context.l10n.copy,
             icon: Icons.copy_rounded,
-            variant: AppButtonVariant.secondary,
             onPressed: _copyToClipboardWithAutoClear,
           ),
-          if (primary != null) SizedBox(height: 10.h),
-        ],
         if (primary != null) primary,
       ],
     );
@@ -750,49 +762,6 @@ class _WalletPickerTile extends StatelessWidget {
                 size: isSelected ? 22.sp : 20.sp,
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// AppBar action in the same 44 circle chassis as [KuteBackButton]
-/// (surface fill, hairline border, ripple clipped to the circle) so
-/// the copy affordance and the back affordance read as one family.
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _CircleIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        width: 44.w,
-        height: 44.w,
-        decoration: BoxDecoration(
-          color: c.surface,
-          shape: BoxShape.circle,
-          border: Border.all(color: c.borderSubtle, width: 0.5),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onPressed();
-            },
-            child: Icon(icon, color: c.textSecondary, size: 20.sp),
           ),
         ),
       ),

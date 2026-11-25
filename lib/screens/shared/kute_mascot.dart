@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/kute_state.dart';
@@ -62,11 +63,27 @@ class KuteMascot extends ConsumerWidget {
     }
 
     final KuteState activeState = state ?? ref.watch(kuteStateProvider);
-    return KuteDogLoop(
+    // The 3D Sal (founder, 31 October 2026): the face clips under 96 px
+    // (loading searches, error is sad, refreshing curious, idle blinks),
+    // the body clips from 96 up; the rig in his place until a sheet
+    // exists.
+    final body = size >= 96;
+    final clip = switch (activeState) {
+      KuteState.loading => body ? 'body_sniff' : 'search',
+      KuteState.error => body ? 'body_sad' : 'sad',
+      KuteState.refreshing => body ? 'body_idle' : 'curious',
+      _ => body ? 'body_idle' : 'blink',
+    };
+    return SalSprite(
+      clip: clip,
       size: size,
-      period: _periodFor(activeState),
-      poseAt: (ms) => _poseFor(activeState, ms),
-      restMs: _restMsFor(activeState),
+      speed: activeState == KuteState.loading && !body ? 1.4 : 1.0,
+      fallback: KuteDogLoop(
+        size: size,
+        period: _periodFor(activeState),
+        poseAt: (ms) => _poseFor(activeState, ms),
+        restMs: _restMsFor(activeState),
+      ),
     );
   }
 }

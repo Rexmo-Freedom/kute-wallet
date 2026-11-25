@@ -111,8 +111,10 @@ List<OrchestraReceiveOption> oneTimeReceiveOptions(
   ];
 }
 
-/// Coins whose unit is one dollar.
-bool _dollarCoin(String code) =>
+/// Coins whose unit is one dollar ([code] upper case): a one-time
+/// address asks them at par, and the Dollars Receive leads with them
+/// (usd_receive_screen.dart).
+bool isOneDollarCoin(String code) =>
     isOrchestraUsdLikeCoin(code) ||
     const {'USDT0', 'USDS', 'USDG', 'PYUSD'}.contains(code);
 
@@ -136,7 +138,7 @@ BigInt? oneTimeSourceUnits({
   final code = asset.trim().toUpperCase();
   final cents = BigInt.from(usdCents);
   final scale = BigInt.from(10).pow(decimals);
-  if (_dollarCoin(code)) return cents * scale ~/ BigInt.from(100);
+  if (isOneDollarCoin(code)) return cents * scale ~/ BigInt.from(100);
   if (_bitcoinCoin(code)) {
     if (!usdPerBtc.isFinite || usdPerBtc <= 0) return null;
     final sats = BigInt.from((usdCents * 1e6 / usdPerBtc).round());
@@ -209,6 +211,10 @@ abstract final class OneTimeReceive {
   static Future<void> Function(
           SwapOrder row, DateTime expiresAt, PendingReceiveQuoteScope scope)?
       debugRecord;
+
+  /// Test seam: takes the place of the deposit poller, and is handed what
+  /// the poller would report to. Read by the receive screen.
+  static void Function(void Function(SwapOrder order) onProgress)? debugWatch;
 
   static int destinationDecimals(String destinationAsset) =>
       destinationAsset.trim().toUpperCase() == 'BTC' ? 8 : 6;

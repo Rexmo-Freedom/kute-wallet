@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition, polymarketActivePositionsProvider;
@@ -12,16 +13,23 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/ledger/ledger_portfolio_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
-    show PortfolioSection;
+    show kHomeActivityLocation;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/trade_notification_copy.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show openInvestmentsPortfolio, openInvestmentsPositions;
+    show openInvestmentsPositions;
 import 'package:kute/services/trade_notification_store.dart';
+
+/// Whether [item] is a prediction that paid nothing (the store keeps the
+/// English title, trade_notifications_provider.dart).
+bool tradeNotificationLost(TradeNotification item) =>
+    item.title == 'Prediction lost';
 
 /// The market art of a results-inbox receipt: the prediction's crest or
 /// the Investing coin.
@@ -135,6 +143,11 @@ KuteConfirmation tradeNotificationConfirmation(
     tone: item.positive && !item.read
         ? KuteConfirmationTone.celebrate
         : KuteConfirmationTone.neutral,
+    // A prediction lost, seen for the first time: Sal shrugs it off once
+    // (sal_moments.dart), under the neutral mark; never sad for money.
+    salMoment: tradeNotificationLost(item) && !item.read
+        ? SalMoment.shrug
+        : null,
     amount: entries.isEmpty ? null : entries.first.value,
     contextLine: outcome == null || outcome.isEmpty
         ? receipt.title
@@ -192,15 +205,15 @@ void openTradeNotificationReceipt({
         navigator.pop();
         if (wallet == null) return;
         if (wallet.isLedger) {
-          navigator.push(MaterialPageRoute(
+          navigator.push(KutePageRoute(
               builder: (_) => LedgerPortfolioScreen(
                   walletId: wallet.id, product: product, initialTab: tab)));
         } else if (spending) {
-          // A fill's own row is in the Portfolio pill's Activity;
-          // everything else held is in its Positions.
+          // A fill's own row is in the activity, on the Bitcoin home
+          // (founder, 1 November 2026: no Activity on the Portfolio);
+          // everything else held is on the Portfolio.
           if (tab == 2) {
-            openInvestmentsPortfolio(
-                navigator.context, PortfolioSection.activity);
+            navigator.context.go(kHomeActivityLocation);
           } else {
             openInvestmentsPositions(navigator.context);
           }

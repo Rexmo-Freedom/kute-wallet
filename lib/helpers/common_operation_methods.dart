@@ -9,8 +9,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 export 'package:kute/helpers/formatters/transaction_formatter.dart';
 
-const Color fintechGreen = Color(0xFF27D17F);
-const Color fintechRed = Color(0xFFFF5252);
+/// The in/out arrow on a row's direction badge: the app's one green and
+/// one red, never a mint or coral of their own.
+const Color fintechGreen = AppColors.marketUp;
+const Color fintechRed = AppColors.marketDown;
 const Color cardColor = Color(0xFF1C1C1E);
 const Color borderColor = Color(0x14FFFFFF);
 

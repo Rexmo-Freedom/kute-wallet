@@ -19,6 +19,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../services/support/fake_secret_store.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 class _FakeLocalAuth extends LocalAuthentication {
   int supportChecks = 0;
@@ -85,6 +86,9 @@ void main() {
         child: ScreenUtilInit(
           designSize: const Size(430, 932),
           builder: (_, __) => MaterialApp.router(
+            // The shell bar over the page (kute_bar_test_support.dart): the
+            // screen's primary is the bar.
+            builder: withKuteShellBar,
             routerConfig: router,
             theme: ThemeData(
                 fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
@@ -348,13 +352,15 @@ void main() {
     testWidgets('retrying backs off', (tester) async {
       const result = StorageBootResult(StorageBootState.storageUnavailable);
       await pumpScreen(tester, result);
-      await tester.tap(find.byKey(const ValueKey('storage-retry')));
+      await tester.tap(kuteBarPrimary);
       await tester.pumpAndSettle();
       expect(find.textContaining('route:splash'), findsOneWidget);
 
       await pumpScreen(tester, result);
       expect(find.text('Try again (2s)'), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
+      // The bar's label follows the screen a frame later.
+      await tester.pump();
       expect(find.text('Try again'), findsOneWidget);
     });
   });

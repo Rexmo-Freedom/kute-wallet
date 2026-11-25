@@ -18,13 +18,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/polymarket/components/poly_sport_icon.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
-import 'package:kute/services/polymarket/polymarket_category_gate.dart'
-    show polymarketTagOffered;
-import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 String polyPillLabel(AppLocalizations l10n, PolyPill pill) => switch (pill) {
@@ -45,6 +42,7 @@ String polyPillLabel(AppLocalizations l10n, PolyPill pill) => switch (pill) {
       PolyPill.weather => l10n.polyPillWeather,
       PolyPill.mentions => l10n.polyPillMentions,
       PolyPill.elections => l10n.polyPillElections,
+      PolyPill.art => l10n.polyPillArt,
     };
 
 /// A subcategory chip's label: its own for a Gamma tag, a league, a game
@@ -110,6 +108,7 @@ String polySubLabel(AppLocalizations l10n, PolySub sub) {
     'rugby' => l10n.polySportRugby,
     'table-tennis' => l10n.polySportTableTennis,
     'darts' => l10n.polySportDarts,
+    'volleyball' => l10n.polySportVolleyball,
     'handball' => l10n.polySportHandball,
     'golf' => l10n.polySportGolf,
     'mma' => l10n.polySportCombat,
@@ -132,28 +131,16 @@ String polyRoundWindowLabel(AppLocalizations l10n, Duration window) =>
       final m => '${m}m',
     };
 
-/// The logo a chip shows before its name, at the text's height: a
-/// league's, a sport's or a game's own (Gamma `/sports`) on Sports and
-/// Esports, a coin's on Crypto. Null for every other chip (and for a chip
-/// of those rows with no logo), which stays text only. PolyCrestImage
-/// draws rasters and SVGs alike; a logo that fails to load leaves the
-/// chip as text.
+/// The icon a chip shows before its name, at the text's height: the row's
+/// own ([polySubIcon]: Polymarket's glyph for it, else its hosted image),
+/// on every topic with rows. Sports' rows always draw one (the trophy at
+/// worst); on the other topics a chip with no icon of its own stays text
+/// only, and one whose image fails draws its topic's glyph.
 Widget? polySubLogo(PolyPill pill, PolySub sub) {
-  if (pill != PolyPill.sports &&
-      pill != PolyPill.esports &&
-      pill != PolyPill.crypto) {
-    return null;
-  }
-  final url = sub.imageUrl;
-  if (url == null || url.isEmpty) return null;
   final size = 14.sp;
-  return PolyCrestImage(
-    url: url,
-    size: size,
-    radius: 3.r,
-    fit: BoxFit.contain,
-    fallback: SizedBox(width: size, height: size),
-  );
+  if (pill == PolyPill.sports) return PolySportIcon(sub: sub, size: size);
+  if (!polySubHasOwnIcon(pill, sub)) return null;
+  return polySubIcon(pill, sub, size);
 }
 
 /// A sideways row that keeps its selected child in view: on first layout
@@ -382,15 +369,31 @@ class PolyPillRow extends StatelessWidget {
 /// The subcategories of the category on screen, in the same pills as
 /// the categories. With [onBack] the row leads with the back pill that
 /// names the category ([kuteBackPill]): the drilled-in row of
-/// [PolyDrillRow].
+/// [PolyDrillRow]. A sport's league row (Sports › Soccer) is the same row
+/// one level down: its back pill names the sport ([backLabel]) and the
+/// sport's own chip, first, reads All ([allKey]). Given [groups] (the row
+/// cut as the site's side list is, [polySubGroups]), a thin divider stands
+/// between two groups ([PolySubGroupDivider]: Crypto's time filters and
+/// sections | its assets); the search topic row and a one-group row stay
+/// flat.
 class PolySubRow extends StatelessWidget {
   final PolyPill pill;
   final List<PolySub> subs;
+
+  /// The row's groups, when it has more than one; null draws [subs] whole.
+  final List<PolySubGroup>? groups;
   final String selectedKey;
   final ValueChanged<PolySub> onSelect;
 
   /// The back pill's tap; null draws no back pill.
   final VoidCallback? onBack;
+
+  /// What the back pill names; null names the category.
+  final String? backLabel;
+
+  /// The chip that reads "All" whatever its key names (a sport's own chip
+  /// at the head of its league row); null reads every chip by its name.
+  final String? allKey;
 
   /// See [PolyAutoScrollRow.revealOnMount].
   final bool revealOnMount;
@@ -401,7 +404,10 @@ class PolySubRow extends StatelessWidget {
     required this.subs,
     required this.selectedKey,
     required this.onSelect,
+    this.groups,
     this.onBack,
+    this.backLabel,
+    this.allKey,
     this.revealOnMount = true,
   });
 
@@ -409,21 +415,32 @@ class PolySubRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final lead = onBack == null ? 0 : 1;
-    final index = subs.indexWhere((s) => s.key == selectedKey);
+    // The row's items: every chip, and before each group after the first
+    // its divider (null).
+    final groups = this.groups;
+    final items = <PolySub?>[
+      if (groups == null || groups.length < 2)
+        ...subs
+      else
+        for (final (i, g) in groups.indexed) ...[if (i > 0) null, ...g.subs],
+    ];
+    final index = items.indexWhere((s) => s?.key == selectedKey);
     return PolyAutoScrollRow(
       height: kutePillRowHeight(),
       revealOnMount: revealOnMount,
-      itemCount: subs.length + lead,
+      itemCount: items.length + lead,
       selectedIndex: index < 0 ? null : index + lead,
       itemBuilder: (context, i) {
         if (i < lead) {
           return kuteBackPill(context,
-              label: polyPillLabel(l10n, pill), onTap: onBack!);
+              label: backLabel ?? polyPillLabel(l10n, pill), onTap: onBack!);
         }
-        final sub = subs[i - lead];
+        final sub = items[i - lead];
+        if (sub == null) return const PolySubGroupDivider();
+        final all = allKey != null && sub.key == allKey;
         return KutePill(
-          label: polySubLabel(l10n, sub),
-          leading: polySubLogo(pill, sub),
+          label: all ? l10n.polySubAll : polySubLabel(l10n, sub),
+          leading: all ? null : polySubLogo(pill, sub),
           selected: sub.key == selectedKey,
           onTap: () => onSelect(sub),
         );
@@ -435,10 +452,16 @@ class PolySubRow extends StatelessWidget {
 /// The subcategories under [pill], from the first frame (each source
 /// draws its last copy from disk and then the live one), in
 /// polymarket.com's order. A list of one or none means the pill has no
-/// row of them.
+/// row of them. Trending's row is the site's themes (the home page's chip
+/// row, [polyTrendingThemesProvider]) after All.
 List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
-  final policy = ref.watch(runtimeCapabilitiesProvider);
   switch (pill) {
+    case PolyPill.trending:
+      return [
+        const PolySub('all'),
+        ...ref.watch(polyTrendingThemesProvider).valueOrNull ??
+            const <PolySub>[],
+      ];
     case PolyPill.crypto:
       return ref.watch(polyCryptoSubsProvider).valueOrNull ??
           polyCryptoSubsFromCounts(null);
@@ -448,10 +471,7 @@ List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
       return ref.watch(polyEsportsSubsProvider).valueOrNull ??
           polyEsportsSubsFrom();
     case PolyPill.breaking:
-      return [
-        for (final key in kPolyBreakingTopics)
-          if (key == 'all' || polymarketTagOffered(key, policy)) PolySub(key),
-      ];
+      return [for (final key in kPolyBreakingTopics) PolySub(key)];
     case PolyPill.finance:
       return [for (final key in kPolyFinanceSubs) PolySub(key)];
     case PolyPill.weather:
@@ -467,13 +487,35 @@ List<PolySub> polySubsFor(WidgetRef ref, PolyPill pill) {
             const <PolySub>[],
       ];
     case PolyPill.watchlist:
-    case PolyPill.trending:
     case PolyPill.newest:
     case PolyPill.live:
     case PolyPill.mentions:
     case PolyPill.elections:
+    case PolyPill.art:
       return const [];
   }
+}
+
+/// [polySubsFor] cut into the site's groups ([polySubGroups]).
+List<PolySubGroup> polySubGroupsFor(WidgetRef ref, PolyPill pill) =>
+    polySubGroups(pill, polySubsFor(ref, pill));
+
+/// The divider between two groups of a drilled-in row: a hairline the
+/// height of the pill's text, in the border colour, with air on both sides
+/// (the row's own spacing stands either side of it).
+class PolySubGroupDivider extends StatelessWidget {
+  const PolySubGroupDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4.w),
+        child: Container(
+          key: const ValueKey('poly-sub-group-divider'),
+          width: 1,
+          height: 16.h,
+          color: context.colors.border,
+        ),
+      );
 }
 
 /// "More ›": the categories with their subcategories in one list, on the
@@ -548,6 +590,8 @@ class _PolyMoreSheet extends ConsumerWidget {
                         },
                       ),
                   ],
+                // The last rows scroll clear of the floating bar.
+                const KuteSheetBarSpace(),
               ],
             ),
           ),

@@ -61,3 +61,17 @@ a0ef181cccbd3174a88b08f9f381bc41d0c5550b:lib/services/sideswap/sideswap.dart:gen
 # Hive storage key name (pending_btc_purchases_v1), not a credential. Kute and kute-wallet commits.
 f571c52e551e8759ef18ae222412dd56884a4c7b:lib/services/one_balance/pending_bitcoin_purchase.dart:generic-api-key:116
 c1478714123210109b1ea7f4a43526f8a30e9fd5:lib/services/one_balance/pending_bitcoin_purchase.dart:generic-api-key:116
+
+# Branta's published SDK sample payment codes (address, branta_id, branta_secret from their docs), test vectors only.
+990b528d8b148e7cbe15625deffe88acb0624096:test/screens/pay/send_branta_test.dart:generic-api-key:40
+2b2f65f83fc5d32e6aae664be0e5c914df675913:test/services/branta/branta_sdk_vectors_test.dart:generic-api-key:22
+2b2f65f83fc5d32e6aae664be0e5c914df675913:test/services/branta/branta_sdk_vectors_test.dart:generic-api-key:37
+2b2f65f83fc5d32e6aae664be0e5c914df675913:test/services/branta/branta_sdk_vectors_test.dart:generic-api-key:42
+990b528d8b148e7cbe15625deffe88acb0624096:test/screens/usd/usd_send_branta_test.dart:generic-api-key:45
+
+# Polymarket py-sdk golden CreateProxy vector: the 0x0123... sample key and a well-known Hardhat test key, public test values.
+49c72f2dbd4372668658d90e319a75fac7d1b6a0:test/services/polymarket_perps/perps_session_test.dart:generic-api-key:12
+49c72f2dbd4372668658d90e319a75fac7d1b6a0:test/services/polymarket_perps/perps_session_test.dart:generic-api-key:13
+
+# Polygon USDC token contract address in a receipt fixture, public.
+244337f55e41e6456b29ee802064c2ce407a0280:test/screens/shared/receipt_share_test.dart:generic-api-key:410

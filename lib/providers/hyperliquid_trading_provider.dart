@@ -53,6 +53,7 @@ import 'package:hive_ce/hive.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -67,6 +68,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
+import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
@@ -86,6 +88,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show EthPrivateKey;
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// The selected cancel-all set could not be resolved completely; no request
 /// was sent and all local orders remain visible.
@@ -186,6 +189,51 @@ HlPerpPosition isolatedMarginTarget({
     throw StateError('Position changed. Review again.');
   }
   return current;
+}
+
+/// How long a perp closed in full stays off the account's positions while
+/// the venue's reads still show it at its size before the close
+/// ([hlPositionsAfterCloses]).
+const Duration kHlClosedInFullHold = Duration(seconds: 60);
+
+/// A perp closed in full, as the close's fill came back: its signed size
+/// before the close and when.
+typedef HlClosedInFull = ({double szi, DateTime at});
+
+/// The account's [positions] without the perps closed in full ([closed],
+/// by coin) that a read still shows at exactly their size before the
+/// close: a read from before the venue indexed the close (the poll in
+/// flight, or the account's previous answer given again while it
+/// refreshes). So a closed position leaves the Portfolio and the Overview
+/// the moment the close fills, not on the next poll (founder, 10 November
+/// 2026, on 2.2.0 (101): "after selling an investment ... it still shows
+/// up in the Overview for some seconds"). Also the closes still held: one
+/// is let go once a read shows its coin gone or at another size (the
+/// close indexed, or a new position opened), or after
+/// [kHlClosedInFullHold]. Pure for the tests.
+({List<HlPerpPosition> positions, Map<String, HlClosedInFull> held})
+    hlPositionsAfterCloses(
+  List<HlPerpPosition> positions,
+  Map<String, HlClosedInFull> closed, {
+  required DateTime now,
+}) {
+  if (closed.isEmpty) return (positions: positions, held: closed);
+  final held = <String, HlClosedInFull>{};
+  final kept = <HlPerpPosition>[];
+  for (final p in positions) {
+    final c = closed[p.coin];
+    if (c != null &&
+        now.difference(c.at) < kHlClosedInFullHold &&
+        (p.szi - c.szi).abs() <= 1e-9 * c.szi.abs()) {
+      held[p.coin] = c;
+      continue;
+    }
+    kept.add(p);
+  }
+  return (
+    positions: kept.length == positions.length ? positions : kept,
+    held: held,
+  );
 }
 
 /// The perp → spot transfer a spot buy of [usd] needs before it is placed,
@@ -411,6 +459,10 @@ class HyperliquidTradingNotifier
   /// that silently failed doesn't pin the card forever).
   final Map<String, ({double absSzi, DateTime at})> _closeBaselines = {};
 
+  /// The perps closed in full whose stale reads stay off the positions
+  /// ([hlPositionsAfterCloses]).
+  Map<String, HlClosedInFull> _closedInFull = const {};
+
   /// Safe state write — long-running async work can outlive this
   /// autoDispose notifier (user navigates away mid-order); writing to a
   /// disposed notifier throws. Same guard as PM's _setData.
@@ -502,7 +554,9 @@ class HyperliquidTradingNotifier
     _ordersTimer?.cancel();
     _ordersTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => _silentOrdersRefresh(),
+      (_) {
+        if (!OrderPollGate.paused) _silentOrdersRefresh();
+      },
     );
 
     return HyperliquidTradingState(
@@ -673,6 +727,12 @@ class HyperliquidTradingNotifier
 
     _orderDexes = _dexesFor(snap, current.openOrders);
 
+    // A perp closed in full stays gone while a read still shows it at its
+    // size before the close.
+    final afterCloses =
+        hlPositionsAfterCloses(snap.positions, _closedInFull, now: now);
+    _closedInFull = afterCloses.held;
+
     // Optimistic margin after a fill: keep the figures shown at the fill
     // until the venue's own margin moves off the pre-fill baseline (it
     // indexed the fill) or the hold's TTL passes; then the snapshot wins.
@@ -685,7 +745,7 @@ class HyperliquidTradingNotifier
       perpEquity: snap.accountValue,
       totalMarginUsed: keepHold ? hold.totalMarginUsed : snap.totalMarginUsed,
       withdrawable: keepHold ? hold.withdrawable : snap.withdrawable,
-      positions: snap.positions,
+      positions: afterCloses.positions,
       spotBalances: snap.spotBalances,
       pendingCloseCoins: pending,
       // A real snapshot: the figures are the venue's answer now (a build
@@ -697,6 +757,23 @@ class HyperliquidTradingNotifier
   }
 
   // ───────────────────── optimistic margin after a fill ─────────────────────
+
+  /// [position] closed in full: off the positions now, and kept off while
+  /// a read still shows it at its size ([hlPositionsAfterCloses]).
+  void _dropClosedInFull(HlPerpPosition position) {
+    final s = _current;
+    if (s == null) return;
+    _closedInFull = {
+      ..._closedInFull,
+      position.coin: (szi: position.szi, at: DateTime.now()),
+    };
+    _setData(s.copyWith(
+      positions: [
+        for (final p in s.positions)
+          if (p.coin != position.coin) p,
+      ],
+    ));
+  }
 
   HlOptimisticMargin? _optimisticMargin;
 
@@ -1016,6 +1093,15 @@ class HyperliquidTradingNotifier
       double slippagePct = 0,
       bool includeBuilderFee = true,
       bool tradingFee = true}) async {
+    // Moving Investing cash for an order holds it (InvestingCashLock), so
+    // a send out of Investing never moves the same cash the other way.
+    if (!InvestingCashLock.held) {
+      return InvestingCashLock.run(() => _fundPerpAction(market, marginUsd,
+          leverage: leverage,
+          slippagePct: slippagePct,
+          includeBuilderFee: includeBuilderFee,
+          tradingFee: tradingFee));
+    }
     final exchange = _exchange;
     final address = _address;
     if (exchange == null || address == null) {
@@ -1087,8 +1173,13 @@ class HyperliquidTradingNotifier
       await exchange.moveOwnUsdc(
           sourceDex: 'spot', destinationDex: market.dex, amount: fromSpot);
     }
+    // The money is in the dex; only its read lags. Nothing moves during
+    // the wait, so it is long enough for a slow builder dex: the first
+    // order on OPENAI used to give up after 8 s (and the second attempt,
+    // finding the cash there, went through).
     await waitForOwnDexCash(
       requiredUsd: requiredUsd,
+      maxWait: kOwnDexCreditWait,
       availableUsd: () async =>
           (await model.getDexClearinghouse(address, market.dex)).withdrawable,
     );
@@ -1148,72 +1239,90 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev = leverage.clamp(1, market.maxLeverage).toInt();
-      await _fundPerpAction(market, marginUsd,
-          leverage: lev, slippagePct: slippagePct);
+      HlBuilderFee? builder;
+      // Funding through placement holds the Investing cash
+      // (InvestingCashLock): a Swap or Send pulling Investing cash at the
+      // same moment waits for the order instead of moving the cash it is
+      // funding the order with back out of the builder dex.
+      final result = await InvestingCashLock.run(() async {
+        await _fundPerpAction(market, marginUsd,
+            leverage: lev, slippagePct: slippagePct);
 
-      // 1) Leverage + margin mode (writes only when the resting per-asset
-      //    setting differs; always writes when flat).
-      await _ensureLeverage(market, current, lev, isCross,
+        // 1) Leverage + margin mode (writes only when the resting per-asset
+        //    setting differs; always writes when flat).
+        await _ensureLeverage(market, current, lev, isCross,
             changeOpenPosition: changeOpenPosition);
 
-      // 2) Size from margin × leverage at the live reference price.
-      final refPx = _referencePx(market);
-      final size = sizeFromUsd(
-        usd: marginUsd * lev,
-        px: refPx,
-        szDecimals: market.szDecimals,
-      );
+        // 2) Size from margin × leverage at the live reference price.
+        final refPx = _referencePx(market);
+        final size = sizeFromUsd(
+          usd: marginUsd * lev,
+          px: refPx,
+          szDecimals: market.szDecimals,
+        );
 
-      // 3) IOC limit priced through the book. TP/SL rides in the SAME
-      //    'normalTpsl'-grouped action: the exchange sizes the triggers
-      //    to the actual fill, activates them on it, and OCO-cancels
-      //    them against each other — the old two-step attach could
-      //    silently fail and leave the user believing a stop-loss
-      //    existed that didn't.
-      final builder = await _builderFee();
-      final result = await ex.placeMarketOrder(
-        market: market,
-        isBuy: isLong,
-        size: size,
-        referencePx: refPx,
-        slippage: slippagePct / 100,
-        takeProfitPx: takeProfitPx,
-        stopLossPx: stopLossPx,
-        cloid: cloid ?? newHlCloid(),
-        builder: builder,
-      );
+        // 3) IOC limit priced through the book. TP/SL rides in the SAME
+        //    'normalTpsl'-grouped action: the exchange sizes the triggers
+        //    to the actual fill, activates them on it, and OCO-cancels
+        //    them against each other — the old two-step attach could
+        //    silently fail and leave the user believing a stop-loss
+        //    existed that didn't.
+        builder = await _builderFee();
+        final orderCloid = cloid ?? newHlCloid();
+        return _sendReconciled(
+          () => ex.placeMarketOrder(
+            market: market,
+            isBuy: isLong,
+            size: size,
+            referencePx: refPx,
+            slippage: slippagePct / 100,
+            takeProfitPx: takeProfitPx,
+            stopLossPx: stopLossPx,
+            cloid: orderCloid,
+            builder: builder,
+          ),
+          cloid: orderCloid,
+          market: market,
+          action: 'open',
+        );
+      });
 
-      final hasTp = takeProfitPx != null;
-      final hasSl = stopLossPx != null;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: marginUsd,
-        notionalUsd: marginUsd * lev,
-        source: source,
-        providerOrderId: result.oid?.toString(),
-        orderType: 'market',
-        isCross: (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
-        hasTp: hasTp,
-        hasSl: hasSl,
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        builderFeeApplied: builder != null,
-      );
-      _trackTpslLegFailure(market, result,
-          wantedTpsl: hasTp || hasSl, parentType: 'market');
-      if (result.isFilled) {
-        // Margin locked by the fill, shown now; the next account poll
-        // reconciles (see _applySnapshot).
-        final filledMargin = result.avgPx > 0
-            ? result.filledSz * result.avgPx / lev
-            : marginUsd;
-        _holdOptimisticOpen(filledMargin);
-      }
-      _afterAction();
+      // The exchange took the order: nothing below may turn that into a
+      // failure (it is bookkeeping, and a throw from it used to reach the
+      // slip as "failed").
+      _afterAccepted(() {
+        final hasTp = takeProfitPx != null;
+        final hasSl = stopLossPx != null;
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: marginUsd,
+          notionalUsd: marginUsd * lev,
+          source: source,
+          providerOrderId: result.oid?.toString(),
+          orderType: 'market',
+          isCross: (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
+          hasTp: hasTp,
+          hasSl: hasSl,
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          builderFeeApplied: builder != null,
+        );
+        _trackTpslLegFailure(market, result,
+            wantedTpsl: hasTp || hasSl, parentType: 'market');
+        if (result.isFilled) {
+          // Margin locked by the fill, shown now; the next account poll
+          // reconciles (see _applySnapshot).
+          final filledMargin = result.avgPx > 0
+              ? result.filledSz * result.avgPx / lev
+              : marginUsd;
+          _holdOptimisticOpen(filledMargin);
+        }
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -1315,40 +1424,50 @@ class HyperliquidTradingNotifier
       }
 
       final builder = await _builderFee();
-      final result = await ex.placeMarketOrder(
+      final orderCloid = cloid ?? newHlCloid();
+      final result = await _sendReconciled(
+        () => ex.placeMarketOrder(
+          market: market,
+          isBuy: isBuy,
+          size: size,
+          referencePx: refPx,
+          slippage: slippagePct / 100,
+          cloid: orderCloid,
+          builder: builder,
+        ),
+        cloid: orderCloid,
         market: market,
-        isBuy: isBuy,
-        size: size,
-        referencePx: refPx,
-        slippage: slippagePct / 100,
-        cloid: cloid ?? newHlCloid(),
-        builder: builder,
+        action: isBuy ? 'open' : 'close',
       );
 
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: 'spot',
-        isBuy: isBuy,
-        leverage: 1,
-        marginUsd: usd,
-        notionalUsd: usd,
-        source: source,
-        providerOrderId: result.oid?.toString(),
-        orderType: 'market',
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: 'spot',
-        builderFeeApplied: builder != null,
-      );
-      // Spot-sale proceeds land on the SPOT side, which nothing in the
-      // app can withdraw (the withdraw cap reads perp withdrawable
-      // only) — sweep them to perp so selling a holding is money the
-      // user can actually take out. Best-effort; a failure leaves the
-      // USDC in spot exactly as before, retried on the next sell.
-      if (!isBuy && result.isFilled) {
-        unawaited(_sweepSpotUsdcToPerp());
-      }
-      _afterAction();
+      // Taken by the exchange: bookkeeping only from here (never a
+      // failure).
+      _afterAccepted(() {
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: 'spot',
+          isBuy: isBuy,
+          leverage: 1,
+          marginUsd: usd,
+          notionalUsd: usd,
+          source: source,
+          providerOrderId: result.oid?.toString(),
+          orderType: 'market',
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: 'spot',
+          builderFeeApplied: builder != null,
+        );
+        // Spot-sale proceeds land on the SPOT side, which nothing in the
+        // app can withdraw (the withdraw cap reads perp withdrawable
+        // only) — sweep them to perp so selling a holding is money the
+        // user can actually take out. Best-effort; a failure leaves the
+        // USDC in spot exactly as before, retried on the next sell.
+        if (!isBuy && result.isFilled) {
+          unawaited(_sweepSpotUsdcToPerp());
+        }
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -1444,10 +1563,17 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       // Full closes send the exact exchange-reported size (already a
-      // multiple of the lot size); partials floor to szDecimals.
-      final size = clamped >= 0.999
-          ? pos.szi.abs()
-          : flooredSize(pos.szi.abs() * clamped, market.szDecimals);
+      // multiple of the lot size). A partial is sized the way the venue
+      // checks it ([hlPartialCloseSize]): one asked at the minimum or more
+      // goes out at the first step that clears it at the IOC's price, so
+      // a typed $10 close on a coarse-stepped market is not refused.
+      final refPx = _referencePx(market);
+      final size = hlMarketCloseSize(
+          position: pos,
+          fraction: clamped,
+          market: market,
+          referencePx: refPx,
+          slippagePct: slippagePct);
 
       _closeBaselines[coin] = (absSzi: pos.szi.abs(), at: DateTime.now());
       _setData(state0.copyWith(
@@ -1456,46 +1582,65 @@ class HyperliquidTradingNotifier
       marked = true;
 
       final builder = await _builderFee();
-      final refPx = _referencePx(market);
-      final result = await ex.placeMarketOrder(
+      final cloid = newHlCloid();
+      // No answer from the venue (a slow builder dex can take the close
+      // past the POST's budget): it may well have gone through. Found on
+      // the account, the close is done as it stands; nowhere for the
+      // whole window, not placed; unreadable, unconfirmed. Never sent
+      // again.
+      final result = await _sendReconciled(
+        () => ex.placeMarketOrder(
+          market: market,
+          isBuy: !pos.isLong,
+          size: size,
+          referencePx: refPx,
+          slippage: slippagePct / 100,
+          reduceOnly: true,
+          cloid: cloid,
+          builder: builder,
+        ),
+        cloid: cloid,
         market: market,
-        isBuy: !pos.isLong,
-        size: size,
-        referencePx: refPx,
-        slippage: slippagePct / 100,
-        reduceOnly: true,
-        cloid: newHlCloid(),
-        builder: builder,
+        action: 'close',
       );
 
-      TrackingService.hyperliquidPositionClosed(
-        coin: coin,
-        fractionPct: (clamped * 100).round().clamp(1, 100),
-        payoutUsd: result.filledSz * result.avgPx,
-        pnlUsd: pos.unrealizedPnl * clamped,
-        providerOrderId: result.oid?.toString(),
-        wasLong: pos.isLong,
-        leverage: pos.leverageValue,
-        walletKind: 'hot',
-        orderType: 'market',
-        notionalUsd: size * refPx,
-      );
-      if (result.isFilled && pos.szi.abs() > 0) {
-        // Margin released (and PnL realised) by the fill, shown now; the
-        // next account poll reconciles (see _applySnapshot).
-        final closedFraction =
-            (result.filledSz / pos.szi.abs()).clamp(0.0, 1.0).toDouble();
-        _holdOptimisticClose(
-          marginReleasedUsd: pos.marginUsed * closedFraction,
-          realizedPnlUsd: pos.unrealizedPnl * closedFraction,
+      _afterAccepted(() {
+        TrackingService.hyperliquidPositionClosed(
+          coin: coin,
+          fractionPct: (clamped * 100).round().clamp(1, 100),
+          payoutUsd: result.filledSz * result.avgPx,
+          pnlUsd: pos.unrealizedPnl * clamped,
+          providerOrderId: result.oid?.toString(),
+          wasLong: pos.isLong,
+          leverage: pos.leverageValue,
+          walletKind: 'hot',
+          orderType: 'market',
+          notionalUsd: size * refPx,
         );
-      }
-      _afterAction();
-      // The margin (and any profit) is idle venue cash now: the sweeper
-      // brings it home to Dollars at once instead of on its next pass.
-      if (result.isFilled) {
-        VenueCashReleased.emit(OneBalanceVenue.investing, 'close');
-      }
+        if (result.isFilled &&
+            pos.szi.abs() > 0 &&
+            result.filledSz >= pos.szi.abs() * (1 - 1e-9)) {
+          // Closed in full: the position leaves the lists now, not on the
+          // next account poll ([hlPositionsAfterCloses]).
+          _dropClosedInFull(pos);
+        }
+        if (result.isFilled && pos.szi.abs() > 0) {
+          // Margin released (and PnL realised) by the fill, shown now; the
+          // next account poll reconciles (see _applySnapshot).
+          final closedFraction =
+              (result.filledSz / pos.szi.abs()).clamp(0.0, 1.0).toDouble();
+          _holdOptimisticClose(
+            marginReleasedUsd: pos.marginUsed * closedFraction,
+            realizedPnlUsd: pos.unrealizedPnl * closedFraction,
+          );
+        }
+        _afterAction();
+        // The margin (and any profit) is idle venue cash now: the sweeper
+        // brings it home to Dollars at once instead of on its next pass.
+        if (result.isFilled) {
+          VenueCashReleased.emit(OneBalanceVenue.investing, 'close');
+        }
+      });
       return result;
     } catch (e, st) {
       if (marked) {
@@ -1516,6 +1661,42 @@ class HyperliquidTradingNotifier
           notionalUsd: pos == null ? null : pos.positionValue.abs() * clamped,
           leverage: pos?.leverageValue);
       rethrow;
+    }
+  }
+
+  /// [send] with its answer reconciled ([hlSendReconciled]): an order
+  /// whose send got no verdict is looked up by [cloid] on the account
+  /// before anything is said, with "Confirming with the exchange…" on the
+  /// slip meanwhile ([hlConfirmingOrdersProvider]).
+  Future<HlOrderResult> _sendReconciled(
+    Future<HlOrderResult> Function() send, {
+    required String cloid,
+    required HlMarket market,
+    required String action,
+  }) =>
+      hlSendReconciled(
+        send: send,
+        cloid: cloid,
+        market: market,
+        lookup: ref.read(hlSentOrderTraceProvider),
+        action: action,
+        onConfirming: (on) {
+          if (_disposed) return;
+          final confirming = ref.read(hlConfirmingOrdersProvider.notifier);
+          final now = {...confirming.state};
+          on ? now.add(cloid) : now.remove(cloid);
+          confirming.state = now;
+        },
+      );
+
+  /// Bookkeeping after the exchange took an order (analytics, the
+  /// optimistic margin, a refresh): never thrown out of, since the order
+  /// is placed whatever happens here.
+  void _afterAccepted(void Function() bookkeeping) {
+    try {
+      bookkeeping();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[hl] after-accept bookkeeping threw: $e');
     }
   }
 
@@ -1697,54 +1878,62 @@ class HyperliquidTradingNotifier
               (stopLossPx != null && stopLossPx > 0));
       // TP/SL rides in the SAME 'normalTpsl'-grouped action (see
       // placeMarketOrder): fill-sized, OCO, never silently missing.
-      final result = wantsTpsl
-          ? await ex.placeOrderWithTpsl(
-              market: market,
-              isBuy: isLong,
-              px: roundPrice(px,
-                  szDecimals: market.szDecimals, isSpot: market.isSpot),
-              sz: roundSize(coinSize, market.szDecimals),
-              tif: postOnly ? 'Alo' : tif,
-              takeProfitPx: takeProfitPx,
-              stopLossPx: stopLossPx,
-              cloid: cloid ?? newHlCloid(),
-              builder: builder,
-            )
-          : await ex.placeLimitOrder(
-              assetId: market.assetId,
-              isBuy: isLong,
-              px: roundPrice(px,
-                  szDecimals: market.szDecimals, isSpot: market.isSpot),
-              sz: roundSize(coinSize, market.szDecimals),
-              tif: postOnly ? 'Alo' : tif,
-              reduceOnly: reduceOnly,
-              cloid: cloid ?? newHlCloid(),
-              builder: builder,
-            );
-      final notional = coinSize * px;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: marginUsd ?? (lev > 0 ? notional / lev : notional),
-        notionalUsd: notional,
-        source: source,
-        providerOrderId: result.oid?.toString(),
-        orderType: 'limit',
-        reduceOnly: reduceOnly,
-        isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
-        hasTp: wantsTpsl && takeProfitPx != null && takeProfitPx > 0,
-        hasSl: wantsTpsl && stopLossPx != null && stopLossPx > 0,
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        builderFeeApplied: builder != null,
-        limitPrice: px,
+      final orderCloid = cloid ?? newHlCloid();
+      final result = await _sendReconciled(
+        () => wantsTpsl
+            ? ex.placeOrderWithTpsl(
+                market: market,
+                isBuy: isLong,
+                px: roundPrice(px,
+                    szDecimals: market.szDecimals, isSpot: market.isSpot),
+                sz: roundSize(coinSize, market.szDecimals),
+                tif: postOnly ? 'Alo' : tif,
+                takeProfitPx: takeProfitPx,
+                stopLossPx: stopLossPx,
+                cloid: orderCloid,
+                builder: builder,
+              )
+            : ex.placeLimitOrder(
+                assetId: market.assetId,
+                isBuy: isLong,
+                px: roundPrice(px,
+                    szDecimals: market.szDecimals, isSpot: market.isSpot),
+                sz: roundSize(coinSize, market.szDecimals),
+                tif: postOnly ? 'Alo' : tif,
+                reduceOnly: reduceOnly,
+                cloid: orderCloid,
+                builder: builder,
+              ),
+        cloid: orderCloid,
+        market: market,
+        action: reduceOnly ? 'close' : 'open',
       );
-      _trackTpslLegFailure(market, result,
-          wantedTpsl: wantsTpsl, parentType: 'limit');
-      _afterAction();
+      final notional = coinSize * px;
+      _afterAccepted(() {
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: marginUsd ?? (lev > 0 ? notional / lev : notional),
+          notionalUsd: notional,
+          source: source,
+          providerOrderId: result.oid?.toString(),
+          orderType: 'limit',
+          reduceOnly: reduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          hasTp: wantsTpsl && takeProfitPx != null && takeProfitPx > 0,
+          hasSl: wantsTpsl && stopLossPx != null && stopLossPx > 0,
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          builderFeeApplied: builder != null,
+          limitPrice: px,
+        );
+        _trackTpslLegFailure(market, result,
+            wantedTpsl: wantsTpsl, parentType: 'limit');
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2721,6 +2910,9 @@ class HyperliquidTradingNotifier
       );
       return;
     }
+    // The order went out and nobody has heard back: not a failure. The
+    // lookup reported it (hl_order_outcome_reconciled).
+    if (e is HyperliquidOrderUnconfirmedException) return;
     if (e is HyperliquidSignatureRejectedException) {
       // The exchange recovered a DIFFERENT address from our signature —
       // a signing bug on OUR side. Engineering alert via crash
@@ -2744,6 +2936,11 @@ class HyperliquidTradingNotifier
   /// Maps the exchange-service error taxonomy onto the canonical
   /// TrackingErrorReasons vocabulary.
   String _reasonFor(Object e) {
+    // Proven not placed after an unanswered send: named by what the send
+    // met (the timeout, the dropped connection, the gateway).
+    if (e is HyperliquidOrderNotPlacedException && e.cause != null) {
+      return _reasonFor(e.cause!);
+    }
     if (e is HyperliquidSignatureRejectedException) {
       return TrackingErrorReasons.signatureInvalid;
     }
@@ -2769,6 +2966,43 @@ class HyperliquidTradingNotifier
 
 /// Actions accepted by the order, close and leverage executors.
 const Set<SensitiveAction> _hlOrderActions = {SensitiveAction.hlOrder};
+
+/// The size a market close of [fraction] of [position] goes out with on
+/// [market]: the whole position exactly at (nearly) 100%, else
+/// [hlPartialCloseSize] at [referencePx] and the IOC's own price. A
+/// partial that still cannot clear the venue minimum (asked below it)
+/// throws [HyperliquidMinNotionalException] before anything is signed:
+/// the venue would refuse it with the same words.
+double hlMarketCloseSize({
+  required HlPerpPosition position,
+  required double fraction,
+  required HlMarket market,
+  required double referencePx,
+  double slippagePct = 1.0,
+}) {
+  final whole = position.szi.abs();
+  if (fraction >= 0.999) return whole;
+  final checkPx = hlMinCheckPx(
+      referencePx: referencePx,
+      isBuy: !position.isLong,
+      slippage: slippagePct / 100,
+      szDecimals: market.szDecimals,
+      isSpot: false);
+  final size = hlPartialCloseSize(
+      requestedSz: whole * fraction,
+      positionSz: whole,
+      referencePx: referencePx,
+      checkPx: checkPx,
+      szDecimals: market.szDecimals);
+  if (size < whole && !meetsMinNotional(px: checkPx, sz: size)) {
+    throw HyperliquidMinNotionalException(
+        'close notional \$${(size * checkPx).toStringAsFixed(2)} is below '
+        'the \$${HyperliquidConstants.minOrderNotionalUsd.toStringAsFixed(0)} '
+        'minimum',
+        minimumUsd: HyperliquidConstants.minOrderNotionalUsd);
+  }
+  return size;
+}
 
 final hyperliquidTradingProvider = AsyncNotifierProvider.autoDispose<
     HyperliquidTradingNotifier, HyperliquidTradingState>(

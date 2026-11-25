@@ -1,4 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:kute/theme/kute_motion.dart';
+
+/// How far above its baseline a digit's roll window reaches, as a share of
+/// the font size: the top of a digit (Inter's are 0.727 tall, with a hair
+/// of overshoot on the round ones).
+const double kRollingDigitTop = 0.74;
+
+/// How far under its baseline the roll window reaches: the round digits'
+/// overshoot and no more.
+const double kRollingDigitBottom = 0.02;
 
 /// Cash-register / odometer roll for a number string. Each digit
 /// position has its own little reel — when the digit changes the
@@ -19,8 +29,16 @@ import 'package:flutter/material.dart';
 ///     don't depend on tabular figures being available in the
 ///     selected font. Slightly more allocation than a tabular-
 ///     figure approach but fonts in this app aren't all tabular.
-///   - Direction: new digit comes from above (`-lineHeight` →
-///     `0`), old digit exits through below (`0` → `+lineHeight`).
+///   - Direction: new digit comes from above, old digit exits through
+///     below, one reel window apart.
+///   - The reel's window is the digit's own box, measured off its
+///     baseline ([kRollingDigitTop], [kRollingDigitBottom]), not the
+///     line box: a line is taller than its digits, and a reel as tall as
+///     the line showed the outgoing digit hanging under the neighbours'
+///     baseline and a fragment of the incoming one floating over their
+///     tops ("$75,73" with a stray 7 below it). Mid-roll nothing paints
+///     outside the window, at any font size, and the figure's baseline
+///     holds; a settled digit paints plainly, unclipped.
 class RollingNumberText extends StatelessWidget {
   final String text;
   final TextStyle style;
@@ -135,9 +153,10 @@ class _RollingDigitState extends State<_RollingDigit>
       value: 1.0, // start fully settled — first paint shows the
                   // current digit, not an in-flight roll
     );
+    // The app's settle easing (lib/theme/kute_motion.dart).
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: KuteMotion.settle,
     );
   }
 
@@ -185,7 +204,8 @@ class _RollingDigitState extends State<_RollingDigit>
   /// fallback font while the digit painted in Inter: wherever the two
   /// differ, every digit sat in a cell of the wrong width, and the
   /// figures read letter-spaced ("$4 2 .5 0").
-  Size _measureChar(String char, TextStyle style, TextScaler scaler) {
+  ({Size size, double baseline}) _measureChar(
+      String char, TextStyle style, TextScaler scaler) {
     final tp = TextPainter(
       text: TextSpan(text: char, style: style),
       textDirection: TextDirection.ltr,
@@ -195,8 +215,22 @@ class _RollingDigitState extends State<_RollingDigit>
         applyHeightToLastDescent: false,
       ),
     )..layout();
-    return tp.size;
+    final out = (
+      size: tp.size,
+      baseline: tp.computeDistanceToActualBaseline(TextBaseline.alphabetic),
+    );
+    tp.dispose();
+    return out;
   }
+
+  Widget _digit(String digit) => Text(
+        digit,
+        style: widget.style,
+        textHeightBehavior: const TextHeightBehavior(
+          applyHeightToFirstAscent: false,
+          applyHeightToLastDescent: false,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -204,74 +238,73 @@ class _RollingDigitState extends State<_RollingDigit>
     // doesn't visibly resize mid-roll on proportional fonts.
     final scaler = MediaQuery.textScalerOf(context);
     final style = DefaultTextStyle.of(context).style.merge(widget.style);
-    final currentSize = _measureChar(widget.digit, style, scaler);
-    final previousSize = _measureChar(_previous, style, scaler);
-    final width = currentSize.width > previousSize.width
-        ? currentSize.width
-        : previousSize.width;
-    final height = currentSize.height > previousSize.height
-        ? currentSize.height
-        : previousSize.height;
+    final current = _measureChar(widget.digit, style, scaler);
+    final previous = _measureChar(_previous, style, scaler);
+    final width = current.size.width > previous.size.width
+        ? current.size.width
+        : previous.size.width;
+    final height = current.size.height > previous.size.height
+        ? current.size.height
+        : previous.size.height;
+    // The reel's window, off the digit's baseline: the neighbours' tops and
+    // their baseline are its edges, however big the type and however tall
+    // its line. One window's height apart, the two digits never overlap.
+    final em = scaler.scale(style.fontSize ?? 14);
+    final windowTop = current.baseline - kRollingDigitTop * em;
+    final windowBottom = current.baseline + kRollingDigitBottom * em;
+    final travel = windowBottom - windowTop;
 
     return SizedBox(
       width: width,
       height: height,
-      // The clip exists for the vertical roll. Sideways it lets the glyph
-      // bleed a little: Android paints a glyph a hair wider than the
-      // measured cell, and a tight clip shaved the right edge off the
-      // last digit of every balance.
-      child: ClipRect(
-        clipper: const _RollClipper(),
-        child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, _) {
-            // t = 0 → previous fully visible, new sitting one cell above.
-            // t = 1 → previous one cell below, new fully visible.
-            final t = _animation.value;
+      child: AnimatedBuilder(
+        animation: _animation,
+        builder: (context, _) {
+          // t = 0 → previous fully visible, new one window above.
+          // t = 1 → previous one window below, new fully visible.
+          final t = _animation.value.clamp(0.0, 1.0);
+          if (t >= 1) {
+            // Settled: the digit as plain text, nothing to clip.
             return Stack(
               clipBehavior: Clip.none,
+              children: [Positioned(left: 0, top: 0, child: _digit(widget.digit))],
+            );
+          }
+          // The clip exists for the vertical roll. Sideways it lets the
+          // glyph bleed a little: Android paints a glyph a hair wider than
+          // the measured cell, and a tight clip shaved the right edge off
+          // the last digit of every balance.
+          return ClipRect(
+            clipper: _RollClipper(top: windowTop, bottom: windowBottom),
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
+                Positioned(left: 0, top: t * travel, child: _digit(_previous)),
                 Positioned(
                   left: 0,
-                  top: t * height,
-                  child: Text(
-                    _previous,
-                    style: widget.style,
-                    textHeightBehavior: const TextHeightBehavior(
-                      applyHeightToFirstAscent: false,
-                      applyHeightToLastDescent: false,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  top: -height + t * height,
-                  child: Text(
-                    widget.digit,
-                    style: widget.style,
-                    textHeightBehavior: const TextHeightBehavior(
-                      applyHeightToFirstAscent: false,
-                      applyHeightToLastDescent: false,
-                    ),
-                  ),
+                  top: (t - 1) * travel,
+                  child: _digit(widget.digit),
                 ),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-/// Clips only vertically to the cell; horizontally it allows a small
-/// bleed on both sides so glyph edges are never shaved.
+/// Clips vertically to the digit's roll window; horizontally it allows a
+/// small bleed on both sides so glyph edges are never shaved.
 class _RollClipper extends CustomClipper<Rect> {
-  const _RollClipper();
+  const _RollClipper({required this.top, required this.bottom});
+
+  final double top, bottom;
 
   @override
-  Rect getClip(Size size) => Rect.fromLTRB(-3, 0, size.width + 3, size.height);
+  Rect getClip(Size size) => Rect.fromLTRB(-3, top, size.width + 3, bottom);
 
   @override
-  bool shouldReclip(covariant CustomClipper<Rect> oldClipper) => false;
+  bool shouldReclip(covariant _RollClipper oldClipper) =>
+      oldClipper.top != top || oldClipper.bottom != bottom;
 }

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// The user's recent fills (newest-first from the exchange, capped at
 /// 2000 there). 60 s refresh — cost basis only shifts when the user
@@ -19,7 +20,7 @@ final hyperliquidUserFillsProvider =
   if (address == null) return const [];
 
   final timer = Timer.periodic(const Duration(seconds: 60), (_) {
-    ref.invalidateSelf();
+    if (!OrderPollGate.paused) ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
 

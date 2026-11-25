@@ -1,5 +1,6 @@
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/hyperliquid/components/builder_fee_consent.dart';
 // lib/screens/shared/portfolio_builder/portfolio_builder_screen.dart
 //
@@ -35,6 +36,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/market_display_title.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
@@ -65,7 +67,9 @@ import 'package:kute/services/success_feedback.dart'
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_market_card.dart';
@@ -81,6 +85,7 @@ import 'package:kute/services/polymarket/market_card_shape.dart'
     show polyCardChance;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/shared/message_display.dart';
 
 /// Polymarket green — the same tone the bet slip / deleted bucket CTA used.
 const Color _kPolyGreen = Color(0xFF1FA663);
@@ -286,7 +291,7 @@ class _PortfolioBuilderScreenState
           error.availability.status == ProviderAvailabilityStatus.restricted;
     } on CapabilityUnavailableException catch (error) {
       message = error.decision.message;
-      region = error.decision.regionRestricted;
+      region = error.decision.regionBlocked;
       capability = error.capability;
     } catch (_) {
       // A check that could not be made allows nothing.
@@ -355,7 +360,7 @@ class _PortfolioBuilderScreenState
       if (!decision.allowed || decision.comingSoon) {
         return (
           message: decision.message,
-          region: decision.regionRestricted,
+          region: decision.regionBlocked,
           capability: id,
         );
       }
@@ -372,7 +377,7 @@ class _PortfolioBuilderScreenState
       TrackingService.polymarketGeoblockedShown();
       final decision =
           ref.read(runtimeCapabilitiesProvider).decision(block.capability);
-      if (decision.regionRestricted) {
+      if (decision.regionBlocked) {
         TrackingService.capabilityRegionBlocked(block.capability,
             blockedBy: decision.blockedBy, surface: 'portfolio_builder');
       }
@@ -394,6 +399,23 @@ class _PortfolioBuilderScreenState
         for (final l in _readPredictionLegs())
           ...polymarketBetCapabilitiesFor([l.tokenId, l.conditionId, l.slug]),
       }.toList();
+  /// Every policy gate the draft's orders need: opening investments, plus
+  /// the stock-perp gate when a leg is a stock-linked perpetual (the list
+  /// the order ticket checks for one market, [hlOpenCapabilities]).
+  List<String> _tradeDraftCapabilities() => [
+        'hyperliquid.trade',
+        if (ref.read(builderTradeLegsProvider).any(_isStockPerpLeg))
+          'hyperliquid.stocks',
+      ];
+
+  static bool _isStockPerpLeg(TradeBuilderLeg leg) =>
+      !leg.isSpot &&
+      (leg.category == 'stocks' ||
+          kHlStockSymbols.contains(leg.coin.split(':').last.toUpperCase()));
+
+  static bool _isStockPerpHit(HlMarketSearchResult r) =>
+      r.isPerp && (r.category == 'stocks' || r.isStock);
+
   String get _poolLabel =>
       _isPredictions ? context.l10n.predictions : context.l10n.trading;
   String get _poolParam => _isPredictions ? 'predictions' : 'trading';
@@ -535,7 +557,7 @@ class _PortfolioBuilderScreenState
     if (e.isBinary || e.outcomes.isEmpty) {
       return PredictionBuilderLeg(
         slug: e.slug,
-        title: e.title,
+        title: e.displayTitle,
         imageUrl: e.imageUrl,
         conditionId: e.conditionId,
         marketEndAt: e.endDate,
@@ -550,7 +572,12 @@ class _PortfolioBuilderScreenState
     final isPlainYes = top.name.toLowerCase() == 'yes';
     return PredictionBuilderLeg(
       slug: e.slug,
-      title: isPlainYes ? e.title : '${e.title}: ${top.name}',
+      // The picked market's own question, never "by...?" or its bare
+      // name (polyMarketDisplayTitle).
+      title: isPlainYes
+          ? e.displayTitle
+          : polyMarketDisplayTitle(e.title,
+              question: top.question, itemTitle: top.name),
       imageUrl: top.imageUrl ?? e.imageUrl,
       conditionId: top.conditionId,
       marketEndAt: e.endDate,
@@ -688,18 +715,17 @@ class _PortfolioBuilderScreenState
                   ),
                 ),
                 SizedBox(height: 4.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: AppBottomSheetButton(
-                    text: context.l10n.builderSetAmount,
-                    onPressed: v > 0
-                        ? () {
-                            HapticFeedback.selectionClick();
-                            commit(v, spendAll);
-                            Navigator.of(ctx).pop();
-                          }
-                        : null,
-                  ),
+                // The sheet's Set amount is the bar too (see _bar), off
+                // until an amount is typed.
+                _bar(
+                  label: context.l10n.builderSetAmount,
+                  enabled: v > 0,
+                  disabledLabel: context.l10n.barNeedAmount,
+                  onPrimary: () {
+                    HapticFeedback.selectionClick();
+                    commit(v, spendAll);
+                    Navigator.of(ctx).pop();
+                  },
                 ),
                 SizedBox(height: 8.h + MediaQuery.of(ctx).padding.bottom),
               ],
@@ -806,7 +832,8 @@ class _PortfolioBuilderScreenState
     if (_isPredictions
         ? await checkPolymarketGeoblock(context,
             capabilities: _draftCapabilities())
-        : await checkHyperliquidGeoblock(context, ref)) {
+        : await checkHyperliquidGeoblock(context, ref,
+            capabilities: _tradeDraftCapabilities())) {
       return;
     }
     if (!mounted) return;
@@ -1159,7 +1186,7 @@ class _PortfolioBuilderScreenState
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showMessageSnackBarInfo(context: context, message: msg);
   }
 
   // ── Shell ───────────────────────────────────────────────────────────
@@ -1273,8 +1300,12 @@ class _PortfolioBuilderScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ExcludeSemantics(
-                    child: KuteDogNotHere(
-                        width: 220, ink: c.textPrimary, accent: c.accent),
+                    child: SalSprite(
+                      clip: 'body_sad',
+                      size: 220,
+                      fallback: KuteDogNotHere(
+                          width: 220, ink: c.textPrimary, accent: c.accent),
+                    ),
                   ),
                   SizedBox(height: 16.h),
                   Text(
@@ -1308,20 +1339,23 @@ class _PortfolioBuilderScreenState
           c,
           // A region block's one button asks again, never a dead one; the
           // back button still leaves.
+          // THE BAR IS THE BUTTON (kute_bar_context.dart): Check
+          // connection, or Close, is the floating Sal bar's primary
+          // action; the band keeps its taps.
           child: region
               ? RubberBandBusy(
                   busy: _checkingConnection,
                   expected: const Duration(seconds: 2),
-                  child: AppButton(
-                    key: const ValueKey('builder-check-connection'),
-                    text: l10n.checkConnection,
-                    isLoading: _checkingConnection,
-                    onPressed: _checkingConnection ? null : _checkConnection,
+                  child: _bar(
+                    label: l10n.checkConnection,
+                    onPrimary: _checkConnection,
+                    enabled: !_checkingConnection,
+                    busy: _checkingConnection,
                   ),
                 )
-              : AppButton(
-                  text: l10n.close,
-                  onPressed: () => Navigator.of(context).maybePop(),
+              : _bar(
+                  label: l10n.close,
+                  onPrimary: () => Navigator.of(context).maybePop(),
                 ),
         ),
       ],
@@ -1352,7 +1386,7 @@ class _PortfolioBuilderScreenState
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final pills = [
       for (final p in _pickCategories)
-        if (polyPillOffered(p, policy)) p,
+        if (polyPillBettable(p, policy)) p,
     ];
     final selected = pills.contains(_pill) ? _pill : PolyPill.breaking;
     return PolyAutoScrollRow(
@@ -1423,7 +1457,7 @@ class _PortfolioBuilderScreenState
   Widget _predictionPickList(AppColorsExtension c) {
     final q = _query.trim();
     final policy = ref.watch(runtimeCapabilitiesProvider);
-    final pill = polyPillOffered(_pill, policy) ? _pill : PolyPill.breaking;
+    final pill = polyPillBettable(_pill, policy) ? _pill : PolyPill.breaking;
     // The search sends only text the guard let through ([_searchQuery]):
     // while it checks, or for a phrase, key or address, nothing is asked.
     final async = q.isEmpty
@@ -1436,9 +1470,10 @@ class _PortfolioBuilderScreenState
     final legs = {for (final l in _watchPredictionLegs()) l.key: l};
     return async.when(
       data: (events) {
-        // The providers already leave out the categories the policy
-        // hides; filtered again here so no card of one can be picked.
-        final list = polymarketEventsOffered(events, policy)
+        // The feeds list every category (founder, 12 November 2026); a
+        // pick here is a bet, so a category the policy refuses here is
+        // not offered as one.
+        final list = polymarketEventsBettable(events, policy)
             .where((e) => e.outcomes.isNotEmpty && !e.closed)
             .toList();
         if (list.isEmpty) {
@@ -1487,8 +1522,15 @@ class _PortfolioBuilderScreenState
       return async.when(
         data: (universe) {
           // The idle state mirrors the Trading tab's browse universe
-          // (volume-sorted). Capped to keep the toggle list snappy.
-          final list = universe.take(100).toList();
+          // (volume-sorted). Capped to keep the toggle list snappy. A pick
+          // here is a buy, so a stock-linked perp the policy refuses here
+          // is not offered (browse still lists it: founder, 12 November
+          // 2026).
+          final policy = ref.watch(runtimeCapabilitiesProvider);
+          final list = [
+            for (final m in universe)
+              if (hlStockGateAllows(m, policy)) m
+          ].take(100).toList();
           if (list.isEmpty) {
             return _pickEmpty(c, context.l10n.builderNoMarketsNow);
           }
@@ -1537,8 +1579,16 @@ class _PortfolioBuilderScreenState
     }
 
     final async = ref.watch(hyperliquidMarketSearchProvider(q));
+    final stocksAllowed =
+        ref.watch(runtimeCapabilitiesProvider).allows('hyperliquid.stocks');
     return async.when(
-      data: (results) {
+      data: (found) {
+        // Search lists every market; a pick is a buy, so a stock-linked
+        // perp the policy refuses here is not offered as one.
+        final results = [
+          for (final r in found)
+            if (stocksAllowed || !_isStockPerpHit(r)) r
+        ];
         if (results.isEmpty) {
           return _pickEmpty(c, context.l10n.builderNoMarketsFound);
         }
@@ -1665,20 +1715,47 @@ class _PortfolioBuilderScreenState
     );
   }
 
+  /// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+  /// .dart): each stage's primary (Continue with the picks, Review
+  /// portfolio, Place, Done) is the floating Sal bar's primary action,
+  /// with the label and the enabled and busy states the drawn button had;
+  /// the bottom area keeps the notes and the clearance under them.
+  Widget _bar({
+    required String label,
+    required VoidCallback? onPrimary,
+    bool enabled = true,
+    bool busy = false,
+    String? disabledLabel,
+  }) =>
+      KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: label,
+          onPrimary: onPrimary,
+          enabled: enabled && onPrimary != null,
+          busy: busy,
+          category: _isPredictions
+              ? SearchCategory.predictions
+              : SearchCategory.perpetuals,
+          source: 'portfolio_builder',
+          disabledLabel: disabledLabel,
+        ),
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
+
   Widget _pickBottomBar(AppColorsExtension c) {
     final count = _selectedCount;
     return _bottomArea(
       c,
-      child: AppButton(
-        text: count == 0
+      child: _bar(
+        label: count == 0
             ? context.l10n.builderSelectMarkets
             : context.l10n.builderContinueSelected(count),
-        onPressed: count == 0
-            ? null
-            : () {
-                FocusScope.of(context).unfocus();
-                setState(() => _stage = 1);
-              },
+        enabled: count != 0,
+        disabledLabel: context.l10n.builderSelectMarkets,
+        onPrimary: () {
+          FocusScope.of(context).unfocus();
+          setState(() => _stage = 1);
+        },
       ),
     );
   }
@@ -1748,11 +1825,13 @@ class _PortfolioBuilderScreenState
                 ),
               ),
               SizedBox(height: 12.h),
-              AppButton(
-                text: context.l10n.builderReviewPortfolio,
-                onPressed: count > 0 && legsReady
-                    ? () => setState(() => _stage = 2)
-                    : null,
+              _bar(
+                label: context.l10n.builderReviewPortfolio,
+                enabled: count > 0 && legsReady,
+                disabledLabel: count == 0
+                    ? context.l10n.builderSelectMarkets
+                    : context.l10n.barNeedAmount,
+                onPrimary: () => setState(() => _stage = 2),
               ),
             ],
           ),
@@ -2150,8 +2229,8 @@ class _PortfolioBuilderScreenState
                   !_finished &&
                   ((insufficient && !_placing) || ledgerDepositLink))
                 CapabilityBlockNote(depositBlock),
-              AppButton(
-                text: ledgerPending || hotNeedsStatus
+              _bar(
+                label: ledgerPending || hotNeedsStatus
                     ? context.l10n.ledgerBetCheckStatus
                     : _finished
                         ? context.l10n.done
@@ -2160,11 +2239,8 @@ class _PortfolioBuilderScreenState
                             : _isPredictions
                                 ? context.l10n.builderPlacePredictions(count)
                                 : context.l10n.builderPlaceOrders(count),
-                variant: !_finished && !insufficient
-                    ? AppButtonVariant.moneyIn
-                    : AppButtonVariant.primary,
-                isLoading: _placing || _approving || _checking || ledgerLoading,
-                onPressed: _placing ||
+                busy: _placing || _approving || _checking || ledgerLoading,
+                onPrimary: _placing ||
                         _approving ||
                         _checking ||
                         ledgerLoading ||
@@ -2265,7 +2341,9 @@ class _PortfolioBuilderScreenState
             children: [
               if (tradeBlock != null && !placed) ...[
                 CapabilityBlockNote(tradeBlock),
-                AppButton(text: context.l10n.comboPlace, onPressed: null),
+                // Off, as the drawn button was: the bar reads the label
+                // under the note, taking no tap.
+                _bar(label: context.l10n.comboPlace, onPrimary: null),
               ] else
                 ComboReviewPanel(
                   legs: legs,

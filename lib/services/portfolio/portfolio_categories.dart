@@ -55,6 +55,7 @@ const List<PolyPill> kPolyCategoryOrder = [
   PolyPill.crypto,
   PolyPill.weather,
   PolyPill.mentions,
+  PolyPill.art,
   PolyPill.finance,
   PolyPill.economy,
   PolyPill.geopolitics,

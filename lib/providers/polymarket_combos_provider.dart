@@ -51,6 +51,7 @@ import 'package:kute/services/polymarket_backend_service.dart'
 import 'package:kute/services/polymarket_onboarding_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/polymarket/order_poll_gate.dart';
 
 /// Another combo from this wallet has not settled yet; nothing new is sent
 /// until its outcome is known.
@@ -192,7 +193,9 @@ class PolymarketCombosNotifier
     if (wallet == null || wallet.isEmpty) {
       return const PolymarketCombosState(loaded: true);
     }
-    _timer = Timer.periodic(_refreshEvery, (_) => unawaited(refresh()));
+    _timer = Timer.periodic(_refreshEvery, (_) {
+      if (!OrderPollGate.paused) unawaited(refresh());
+    });
     final data = await _load(wallet, previous: null);
     Future<void>(() => _afterRefresh());
     return data;

@@ -87,6 +87,8 @@ import 'package:kute/providers/polymarket_trading_provider.dart'
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
+import 'package:kute/services/one_balance/committed_funds.dart'
+    show committedFundsProvider, orderDollarsProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/background_sync_service.dart';
@@ -100,7 +102,7 @@ import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show venueCashSnapshotProvider;
 import 'package:kute/services/one_balance/money_steps.dart'
-    show MoneyStepGraph, MoneyStepStatus;
+    show MoneyPlace, MoneyStepGraph, MoneyStepStatus;
 import 'package:kute/services/one_balance/move_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -127,6 +129,11 @@ abstract final class VenueCashFor {
   static const String predictions = 'predictions';
   static const String investing = 'investing';
   static const String withdraw = 'withdraw';
+
+  /// Home to Dollars for a claimed gift's "Send now" (gift_funding.dart).
+  /// Not [send]: the payment to the friend is its own row, so this move
+  /// reads as what it is, money coming home to Dollars.
+  static const String shareLink = 'share_link';
 }
 
 /// The `purpose` every pull is recorded with by the venue rails (their
@@ -158,6 +165,12 @@ const Map<OneBalanceVenue, Duration> kVenuePullEta = {
 
 /// The longest an action waits on a pull before it stops honestly.
 const Duration kVenueCashMaxWait = Duration(minutes: 8);
+
+/// How long a pull that left a venue counts as on its way: the puller's
+/// Dollars count it for this long ([VenueCashPuller.pendingTtl]), and the
+/// venue's figure stays debited by it for no longer
+/// (`VenueCashSnapshot`), proof or not.
+const Duration kVenueCashPendingTtl = Duration(minutes: 20);
 
 /// The wait an action gives a plan: its ETA plus two minutes of slack,
 /// never more than [kVenueCashMaxWait].
@@ -886,11 +899,13 @@ class VenueCashPuller {
     void Function()? nudge,
     String? Function()? walletId,
     double? Function(OneBalanceVenue venue)? cachedAvailableUsd,
+    double Function(MoneyPlace from, OneBalanceVenue? exceptOrderOn)?
+        committedUsd,
     this.onCashMoved,
     this.onAmountTooSmall,
     this.pollEvery = const Duration(seconds: 3),
     this.nudgeEvery = const Duration(seconds: 20),
-    this.pendingTtl = const Duration(minutes: 20),
+    this.pendingTtl = kVenueCashPendingTtl,
   })  : _sources = sources,
         _readDollars = readDollars,
         _minimumUsd = minimumUsd,
@@ -898,7 +913,32 @@ class VenueCashPuller {
         _sleep = sleep ?? ((d) => Future<void>.delayed(d)),
         _nudge = nudge,
         _walletId = walletId,
-        _cachedAvailableUsd = cachedAvailableUsd;
+        _cachedAvailableUsd = cachedAvailableUsd,
+        _committedUsd = committedUsd;
+
+  /// What orders already accepted hold of Dollars or of a venue's cash,
+  /// not sent yet (`committed_funds.dart`), less the order on
+  /// `exceptOrderOn`'s own: a plan or a reach for an order never counts
+  /// what ANOTHER order took; its own share stays its own.
+  final double Function(MoneyPlace from, OneBalanceVenue? exceptOrderOn)?
+      _committedUsd;
+
+  double _committed(MoneyPlace from, OneBalanceVenue? exceptOrderOn) {
+    try {
+      final held = _committedUsd?.call(from, exceptOrderOn) ?? 0;
+      return held.isFinite && held > 0 ? held : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Dollars an order on [orderVenue] may plan on: the reading less what
+  /// other accepted orders hold.
+  double _dollarsFor(OneBalanceVenue? orderVenue) {
+    final read = _readDollars();
+    final held = _committed(MoneyPlace.dollars, orderVenue);
+    return held > 0 && read.isFinite ? math.max(0.0, read - held) : read;
+  }
 
   final List<VenueCashSource> _sources;
   final double Function() _readDollars;
@@ -957,14 +997,27 @@ class VenueCashPuller {
     return _pending.fold(0.0, (sum, p) => sum + p.usd);
   }
 
-  /// Every source's free cash and minimum, read in parallel.
+  /// Every source's free cash and minimum, read in parallel. [closed]
+  /// venues are not read at all (their cash may not leave now).
   Future<List<VenueCashCandidate>> candidates(
-      {OneBalanceVenue? exclude}) async {
+      {OneBalanceVenue? exclude,
+      Set<OneBalanceVenue> closed = const {},
+      OneBalanceVenue? orderVenue}) async {
     final reads = await Future.wait([
       for (final s in _sources)
-        if (s.venue != exclude)
+        if (s.venue != exclude && !closed.contains(s.venue))
           () async {
-            final available = await s.availableUsd();
+            final read = await s.availableUsd();
+            // Less what other accepted orders' legs are about to take
+            // from it.
+            final held = _committed(
+                switch (s.venue) {
+                  OneBalanceVenue.investing => MoneyPlace.investing,
+                  OneBalanceVenue.predictions => MoneyPlace.predictions,
+                },
+                orderVenue);
+            final available =
+                held > 0 && read.isFinite ? math.max(0.0, read - held) : read;
             double minimum;
             try {
               minimum = await _minimumUsd(s.venue);
@@ -992,18 +1045,24 @@ class VenueCashPuller {
   /// [kVenueCashOnwardMinimumUsd] are left alone when the venues can cover
   /// the whole amount, so the onward step is never too small to go.
   /// [useDollars] false plans the venues alone (a Retry of a remainder).
+  /// [closed] venues take no leg: the runtime policy withholds their
+  /// withdraw (`venueCashClosed`), so a leg would only be refused.
   Future<VenueCashPlan> plan({
     required double neededUsd,
     OneBalanceVenue? exclude,
     VenueCashDestination destination = VenueCashDestination.dollars,
     bool useDollars = true,
+    Set<OneBalanceVenue> closed = const {},
   }) async {
-    final dollars = useDollars ? _readDollars() + pendingUsd : 0.0;
+    // The order this plan is for (its own commitments stay its own).
+    final orderVenue = venueOfDestination(destination) ?? exclude;
+    final dollars = useDollars ? _dollarsFor(orderVenue) + pendingUsd : 0.0;
     if (dollars + 0.000001 >= _ceilCents(neededUsd)) {
       return planDollarsShortfall(
           neededUsd: neededUsd, dollarsUsd: dollars, sources: const []);
     }
-    final sources = await candidates(exclude: exclude);
+    final sources = await candidates(
+        exclude: exclude, closed: closed, orderVenue: orderVenue);
     if (destination != VenueCashDestination.dollars &&
         dollars > 0 &&
         dollars < kVenueCashOnwardMinimumUsd) {
@@ -1114,8 +1173,8 @@ class VenueCashPuller {
   /// cash net of the pull cost.
   Future<double> reachUsd({OneBalanceVenue? exclude}) async =>
       venueCashReachUsd(
-        dollarsUsd: _readDollars() + pendingUsd,
-        sources: await candidates(exclude: exclude),
+        dollarsUsd: _dollarsFor(exclude) + pendingUsd,
+        sources: await candidates(exclude: exclude, orderVenue: exclude),
         exclude: exclude,
       );
 
@@ -1750,7 +1809,17 @@ final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
     minimumUsd: minimums.minimumUsd,
     nudge: () => BackgroundSyncService().syncNow(),
     walletId: () => pickSpendingWallet(ref.read(settingsProvider))?.id,
-    onCashMoved: snapshot.cashMoved,
+    onCashMoved: (leg, before) {
+      snapshot.cashMoved(leg, before);
+      // The leg left its venue: the venue's read shows it from now.
+      try {
+        ref.read(committedFundsProvider.notifier).venueCashSent(leg.venue);
+      } catch (_) {}
+    },
+    // What other accepted orders hold (committed_funds.dart).
+    committedUsd: (from, exceptOrderOn) => ref
+        .read(committedFundsProvider.notifier)
+        .heldUsd(from, exceptHeldOn: exceptOrderOn),
     onAmountTooSmall: minimums.noteAmountTooSmall,
     cachedAvailableUsd: snapshot.availableUsd,
   );
@@ -1762,7 +1831,7 @@ final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
 /// (`OrderFundingEngine.decide`) reads as "the rest of Investments".
 final venueCashReachExcludingProvider = FutureProvider.autoDispose
     .family<double, OneBalanceVenue>((ref, exclude) async {
-  final dollars = ref.watch(usdBalanceProvider);
+  final dollars = ref.watch(orderDollarsProvider);
   try {
     return await ref.read(venueCashPullerProvider).reachUsd(exclude: exclude);
   } catch (_) {

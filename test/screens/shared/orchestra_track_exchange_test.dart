@@ -19,10 +19,12 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _quoteId = 'q_01a159a6-71d1-4c2b-9d1e-000000000001';
 const _orderId = 'ord_01a159a6-71d1-4c2b-9d1e-000000000002';
@@ -215,10 +217,12 @@ void main() {
       return store;
     }
 
+    // Track this exchange is the receipt's action: the bar's primary
+    // button (receipt_parts.dart), tapped through the context it declares.
     Future<void> tapTrack(WidgetTester tester) async {
-      await tester.ensureVisible(find.text('Track this exchange'));
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(find.text('Track this exchange'));
+      final bar = kuteBarPrimaryContext(tester);
+      expect(bar.label, 'Track this exchange');
+      bar.onPrimary!();
       // The read, the store writes and the Activity cache's write debounce.
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -271,6 +275,10 @@ void main() {
     testWidgets('an expired quote has no button', (tester) async {
       await openSheet(tester, _row(_quoteId, status: 'expired'));
       expect(find.text('Track this exchange'), findsNothing);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is KuteBarContextScope && w.barContext.isPrimary),
+          findsNothing);
     });
   });
 }

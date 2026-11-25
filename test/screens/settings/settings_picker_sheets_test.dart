@@ -96,7 +96,7 @@ void main() {
     await pumpSettings(tester, action: 'language');
 
     expect(find.byType(AppBottomSheetHeader), findsOneWidget);
-    expect(find.byTooltip('Close'), findsOneWidget);
+    expect(find.byType(AppBottomSheetCloseButton), findsOneWidget);
     expect(find.byType(AppBottomSheetListTile), findsWidgets);
     // Svenska is near the end of the list: the sheet opens on it.
     final selected =
@@ -136,7 +136,7 @@ void main() {
             .widget<AppBottomSheetListTile>(sheetTile(_l10n.accountSats))
             .isSelected,
         isTrue);
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byType(AppBottomSheetCloseButton));
     await tester.pumpAndSettle();
     expect(find.byType(AppBottomSheetHeader), findsNothing);
     expect(container.read(settingsProvider).btcFormat, 'sats');

@@ -195,7 +195,10 @@ final conversionToFiatProvider = Provider.autoDispose.family<String, int>((ref, 
   final btcMoney = Money.fromIntWithCurrency(amountInSats, AppCurrencies.btc);
 
   AppCurrencies.registerCustomCurrencies();
-  final targetCode = settings.currency;
+  // A currency whose rate has not arrived reads in dollars: its symbol on a
+  // dollar figure would be a wrong number, not a late one.
+  final targetCode =
+      currencyState.hasRate(settings.currency) ? settings.currency : 'USD';
   final targetCurrency = Currencies().find(targetCode) ?? AppCurrencies.usd;
 
   final fiatMoney = currencyState.convert(btcMoney, targetCurrency);
