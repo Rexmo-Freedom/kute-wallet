@@ -342,7 +342,7 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
     if (!mounted) return false;
     // A page kept mounted but not shown (another pill of an IndexedStack,
     // a route under the current one) has its tickers off.
-    if (!TickerMode.of(context)) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
     final box = context.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return false;
     final view = View.maybeOf(context);
