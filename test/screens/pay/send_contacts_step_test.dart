@@ -1099,6 +1099,11 @@ void main() {
               phone: '+351 914 444 444',
               lightningAddress: 'joana@paykute.com'),
         ];
+      // Side by side is measured in the app's own type: the grid stacks
+      // its squares when a one-line title does not fit, and in the test
+      // font "Joana Kute" does not. Loaded here, not left to an earlier
+      // test in the file (alone, or sharded, the squares stacked).
+      await tester.runAsync(_loadInter);
       await policy(tester);
       await _pump(tester);
       await type(tester, text);
