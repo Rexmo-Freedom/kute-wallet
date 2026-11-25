@@ -14546,4 +14546,13 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Randament din Dolari';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Punctul $current din $total: atinge graficul.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Atinge din nou ultimul punct pentru a termina.';
 }

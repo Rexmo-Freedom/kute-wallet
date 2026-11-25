@@ -14461,4 +14461,13 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Dollarite tootlus';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Punkt $current/$total: puuduta graafikut.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Lõpetamiseks puuduta viimast punkti uuesti.';
 }

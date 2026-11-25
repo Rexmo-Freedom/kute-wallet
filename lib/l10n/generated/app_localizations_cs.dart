@@ -14466,4 +14466,13 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Výnos z Dolarů';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Bod $current z $total: klepni do grafu.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Klepni znovu na poslední bod pro dokončení.';
 }

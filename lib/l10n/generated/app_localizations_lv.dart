@@ -14442,4 +14442,13 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Dolāru ienesīgums';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Punkts $current no $total: pieskaries grafikam.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Lai pabeigtu, vēlreiz pieskaries pēdējam punktam.';
 }

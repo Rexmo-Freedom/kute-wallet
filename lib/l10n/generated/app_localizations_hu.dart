@@ -14508,4 +14508,13 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Dollárhozam';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return '$current. pont (összesen $total): koppints a grafikonra.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'A befejezéshez koppints újra az utolsó pontra.';
 }

@@ -14492,4 +14492,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Доходност от Долари';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Точка $current от $total: докосни графиката.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Докосни последната точка отново, за да завършиш.';
 }

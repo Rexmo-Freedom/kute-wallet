@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Prisen gik til {price}. Tryk for at placere til den nye pris.",
   "standingStagePlacing": "Placerer",
   "standingStageApproval": "Kræver din godkendelse",
-  "activityDollarsYield": "Afkast på Dollars"
+  "activityDollarsYield": "Afkast på Dollars",
+  "chartHintPointOf": "Punkt {current} af {total}: tryk på grafen.",
+  "chartHintFinishShape": "Tryk på det sidste punkt igen for at afslutte."
 }

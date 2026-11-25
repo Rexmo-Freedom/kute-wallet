@@ -14520,4 +14520,12 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Donos od Dolarjev';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Točka $current od $total: tapnite graf.';
+  }
+
+  @override
+  String get chartHintFinishShape => 'Za konec znova tapnite zadnjo točko.';
 }

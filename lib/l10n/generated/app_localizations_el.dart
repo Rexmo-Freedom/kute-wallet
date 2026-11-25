@@ -14572,4 +14572,13 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Απόδοση Δολαρίων';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Σημείο $current από $total: πάτησε στο γράφημα.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Πάτησε ξανά το τελευταίο σημείο για να ολοκληρώσεις.';
 }

@@ -14501,4 +14501,13 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Prinos na Dolare';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Točka $current od $total: dodirni grafikon.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Ponovno dodirni zadnju točku za završetak.';
 }

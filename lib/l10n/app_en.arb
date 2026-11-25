@@ -12650,5 +12650,21 @@
   "activityDollarsYield": "Dollars yield",
   "@activityDollarsYield": {
     "description": "Activity row and receipt title for the daily reward paid on the Dollars balance (the person's dollar balance); the reward arrives as bitcoin in the Bitcoin activity. \"Yield\" is the interest or return paid on a balance, not a crop or giving way. Use this language's existing word for the Dollars balance. Short: one line on a 375 pt phone."
+  },
+  "chartHintPointOf": "Point {current} of {total}: tap the chart.",
+  "@chartHintPointOf": {
+    "description": "Hint line under the Advanced chart while a drawing with more than two points is placed (a parallel channel): {current} is the point the next tap puts down, {total} how many the drawing has. Short, one line.",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "chartHintFinishShape": "Tap the last point again to finish.",
+  "@chartHintFinishShape": {
+    "description": "Hint line under the Advanced chart while a free-form drawing (any number of points) is placed and has enough points: a second tap on the last point finishes it. Short, one line."
   }
 }

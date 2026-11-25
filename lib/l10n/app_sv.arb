@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Priset gick till {price}. Tryck för att lägga till det nya priset.",
   "standingStagePlacing": "Lägger",
   "standingStageApproval": "Behöver ditt godkännande",
-  "activityDollarsYield": "Avkastning på Dollar"
+  "activityDollarsYield": "Avkastning på Dollar",
+  "chartHintPointOf": "Punkt {current} av {total}: tryck på diagrammet.",
+  "chartHintFinishShape": "Tryck på sista punkten igen för att avsluta."
 }

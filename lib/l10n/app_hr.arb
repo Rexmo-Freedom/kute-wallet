@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Cijena je prešla na {price}. Dodirni za postavljanje po novoj cijeni.",
   "standingStagePlacing": "Postavljamo",
   "standingStageApproval": "Treba tvoje odobrenje",
-  "activityDollarsYield": "Prinos na Dolare"
+  "activityDollarsYield": "Prinos na Dolare",
+  "chartHintPointOf": "Točka {current} od {total}: dodirni grafikon.",
+  "chartHintFinishShape": "Ponovno dodirni zadnju točku za završetak."
 }

@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Cena mainījās uz {price}. Pieskaries, lai iesniegtu par jauno cenu.",
   "standingStagePlacing": "Iesniedzam",
   "standingStageApproval": "Vajag tavu apstiprinājumu",
-  "activityDollarsYield": "Dolāru ienesīgums"
+  "activityDollarsYield": "Dolāru ienesīgums",
+  "chartHintPointOf": "Punkts {current} no {total}: pieskaries grafikam.",
+  "chartHintFinishShape": "Lai pabeigtu, vēlreiz pieskaries pēdējam punktam."
 }

@@ -1049,6 +1049,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       _armedTool = ChartDrawingTool.priceLine;
       _toolSticky = false;
       _placementPending = false;
+      _placedPoints = 0;
       _selectedDrawingId = null;
     });
   }
@@ -1163,6 +1164,10 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   /// The first point of a two-point drawing is down (tap-tap placement);
   /// the hint asks for the second.
   bool _placementPending = false;
+
+  /// Anchors of the drawing being placed that are down (the chart's
+  /// placement, hl_drawing_placement.dart): the hint's "Point k of n".
+  int _placedPoints = 0;
 
   /// ARGB of the armed color; null = the neutral theme default.
   int? _armedColorValue;
@@ -1738,6 +1743,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         _toolSticky = false;
       }
       _placementPending = false;
+      _placedPoints = 0;
       _selectedDrawingId = null;
     });
   }
@@ -1750,6 +1756,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       _armedTool = null;
       _toolSticky = false;
       _placementPending = false;
+      _placedPoints = 0;
     });
   }
 
@@ -1843,7 +1850,19 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final tool = _armedTool;
     if (tool != null) {
       final label = _toolLook(tool);
-      if (_placementPending) return l10n.chartHintTapSecondPoint;
+      if (_placementPending) {
+        final spec = chartDrawingSpec(tool);
+        if (spec.openEnded) {
+          return _placedPoints >= spec.points
+              ? l10n.chartHintFinishShape
+              : l10n.chartHintPointOf(_placedPoints + 1, spec.points);
+        }
+        // Two anchors keep their words; longer tools count the points.
+        if (spec.taps > 2 && _placedPoints > 0) {
+          return l10n.chartHintPointOf(_placedPoints + 1, spec.taps);
+        }
+        return l10n.chartHintTapSecondPoint;
+      }
       if (_toolSticky) return l10n.chartHintToolKept(label);
       return chartDrawingPointCount(tool) == 1
           ? l10n.chartHintTapToPlace(label)
@@ -2821,6 +2840,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             onPlacementPendingChanged: (pending) {
               if (mounted && pending != _placementPending) {
                 setState(() => _placementPending = pending);
+              }
+            },
+            onPlacementPointsChanged: (placed) {
+              if (mounted && placed != _placedPoints) {
+                setState(() => _placedPoints = placed);
               }
             },
             onDrawingSelected: (id) {

@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Cena se je premaknila na {price}. Tapni za oddajo po novi ceni.",
   "standingStagePlacing": "Oddajamo",
   "standingStageApproval": "Potrebna je tvoja odobritev",
-  "activityDollarsYield": "Donos od Dolarjev"
+  "activityDollarsYield": "Donos od Dolarjev",
+  "chartHintPointOf": "Točka {current} od {total}: tapnite graf.",
+  "chartHintFinishShape": "Za konec znova tapnite zadnjo točko."
 }

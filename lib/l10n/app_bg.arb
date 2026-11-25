@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Цената стана {price}. Докосни, за да поставиш на новата цена.",
   "standingStagePlacing": "Поставяме",
   "standingStageApproval": "Нужно е твоето одобрение",
-  "activityDollarsYield": "Доходност от Долари"
+  "activityDollarsYield": "Доходност от Долари",
+  "chartHintPointOf": "Точка {current} от {total}: докосни графиката.",
+  "chartHintFinishShape": "Докосни последната точка отново, за да завършиш."
 }

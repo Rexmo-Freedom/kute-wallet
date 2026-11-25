@@ -14551,4 +14551,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Rendimiento de Dólares';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Punto $current de $total: toca el gráfico.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Toca de nuevo el último punto para terminar.';
 }

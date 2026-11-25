@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Cena zmieniła się na {price}. Dotknij, aby złożyć po nowej cenie.",
   "standingStagePlacing": "Składamy",
   "standingStageApproval": "Wymaga Twojej zgody",
-  "activityDollarsYield": "Zysk z Dolarów"
+  "activityDollarsYield": "Zysk z Dolarów",
+  "chartHintPointOf": "Punkt {current} z {total}: stuknij wykres.",
+  "chartHintFinishShape": "Stuknij ponownie ostatni punkt, aby zakończyć."
 }

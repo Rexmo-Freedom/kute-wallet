@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Il prezzo è passato a {price}. Tocca per piazzare al nuovo prezzo.",
   "standingStagePlacing": "Piazzamento",
   "standingStageApproval": "Serve la tua approvazione",
-  "activityDollarsYield": "Rendimento dei Dollari"
+  "activityDollarsYield": "Rendimento dei Dollari",
+  "chartHintPointOf": "Punto {current} di {total}: tocca il grafico.",
+  "chartHintFinishShape": "Tocca di nuovo l'ultimo punto per finire."
 }

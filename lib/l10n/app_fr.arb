@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Le prix est passé à {price}. Touchez pour placer au nouveau prix.",
   "standingStagePlacing": "Placement",
   "standingStageApproval": "Votre accord est requis",
-  "activityDollarsYield": "Rendement des Dollars"
+  "activityDollarsYield": "Rendement des Dollars",
+  "chartHintPointOf": "Point {current} sur {total} : touchez le graphique.",
+  "chartHintFinishShape": "Touchez à nouveau le dernier point pour terminer."
 }

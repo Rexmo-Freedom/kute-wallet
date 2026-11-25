@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "De prijs ging naar {price}. Tik om tegen de nieuwe prijs te plaatsen.",
   "standingStagePlacing": "Wordt geplaatst",
   "standingStageApproval": "Wacht op je goedkeuring",
-  "activityDollarsYield": "Rendement op Dollars"
+  "activityDollarsYield": "Rendement op Dollars",
+  "chartHintPointOf": "Punt {current} van {total}: tik op de grafiek.",
+  "chartHintFinishShape": "Tik nog eens op het laatste punt om af te ronden."
 }

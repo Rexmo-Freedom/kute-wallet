@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Prețul a ajuns la {price}. Atinge pentru a plasa la noul preț.",
   "standingStagePlacing": "Se plasează",
   "standingStageApproval": "Necesită aprobarea ta",
-  "activityDollarsYield": "Randament din Dolari"
+  "activityDollarsYield": "Randament din Dolari",
+  "chartHintPointOf": "Punctul {current} din {total}: atinge graficul.",
+  "chartHintFinishShape": "Atinge din nou ultimul punct pentru a termina."
 }

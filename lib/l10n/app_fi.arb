@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Hinta muuttui: {price}. Napauta asettaaksesi uuteen hintaan.",
   "standingStagePlacing": "Asetetaan",
   "standingStageApproval": "Vaatii hyväksyntäsi",
-  "activityDollarsYield": "Dollarien tuotto"
+  "activityDollarsYield": "Dollarien tuotto",
+  "chartHintPointOf": "Piste {current}/{total}: napauta kaaviota.",
+  "chartHintFinishShape": "Napauta viimeistä pistettä uudelleen lopettaaksesi."
 }

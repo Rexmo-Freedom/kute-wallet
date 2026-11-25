@@ -14013,4 +14013,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'ドルの利回り';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return '$total点中$current点目：チャートをタップしてください。';
+  }
+
+  @override
+  String get chartHintFinishShape => '終了するには最後の点をもう一度タップしてください。';
 }

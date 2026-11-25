@@ -14522,4 +14522,13 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Rendement op Dollars';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Punt $current van $total: tik op de grafiek.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Tik nog eens op het laatste punt om af te ronden.';
 }

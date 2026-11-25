@@ -24386,6 +24386,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dollars yield'**
   String get activityDollarsYield;
+
+  /// Hint line under the Advanced chart while a drawing with more than two points is placed (a parallel channel): {current} is the point the next tap puts down, {total} how many the drawing has. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Point {current} of {total}: tap the chart.'**
+  String chartHintPointOf(int current, int total);
+
+  /// Hint line under the Advanced chart while a free-form drawing (any number of points) is placed and has enough points: a second tap on the last point finishes it. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the last point again to finish.'**
+  String get chartHintFinishShape;
 }
 
 class _AppLocalizationsDelegate

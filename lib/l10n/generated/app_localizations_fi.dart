@@ -14500,4 +14500,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Dollarien tuotto';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Piste $current/$total: napauta kaaviota.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Napauta viimeistä pistettä uudelleen lopettaaksesi.';
 }

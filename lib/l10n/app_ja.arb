@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "価格が{price}に変わりました。タップすると新しい価格で発注します。",
   "standingStagePlacing": "発注中",
   "standingStageApproval": "承認が必要です",
-  "activityDollarsYield": "ドルの利回り"
+  "activityDollarsYield": "ドルの利回り",
+  "chartHintPointOf": "{total}点中{current}点目：チャートをタップしてください。",
+  "chartHintFinishShape": "終了するには最後の点をもう一度タップしてください。"
 }

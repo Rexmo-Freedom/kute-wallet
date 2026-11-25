@@ -14490,4 +14490,13 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Výnos z Dolárov';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Bod $current z $total: ťukni do grafu.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Ťukni znova na posledný bod na dokončenie.';
 }

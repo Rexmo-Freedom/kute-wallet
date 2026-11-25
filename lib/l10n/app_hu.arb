@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Az ár {price} lett. Koppints, hogy az új áron add le.",
   "standingStagePlacing": "Leadás",
   "standingStageApproval": "Jóváhagyásodra vár",
-  "activityDollarsYield": "Dollárhozam"
+  "activityDollarsYield": "Dollárhozam",
+  "chartHintPointOf": "{current}. pont (összesen {total}): koppints a grafikonra.",
+  "chartHintFinishShape": "A befejezéshez koppints újra az utolsó pontra."
 }

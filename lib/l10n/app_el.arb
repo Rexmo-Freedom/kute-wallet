@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Η τιμή πήγε στο {price}. Πάτησε για να τοποθετήσεις στη νέα τιμή.",
   "standingStagePlacing": "Τοποθετείται",
   "standingStageApproval": "Χρειάζεται την έγκρισή σου",
-  "activityDollarsYield": "Απόδοση Δολαρίων"
+  "activityDollarsYield": "Απόδοση Δολαρίων",
+  "chartHintPointOf": "Σημείο {current} από {total}: πάτησε στο γράφημα.",
+  "chartHintFinishShape": "Πάτησε ξανά το τελευταίο σημείο για να ολοκληρώσεις."
 }

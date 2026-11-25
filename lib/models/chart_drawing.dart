@@ -7,7 +7,37 @@
 // timeframe switches, live ticks and re-layouts and always lands on the
 // same market moment. Serialized as plain JSON maps (no Hive codegen);
 // persisted per market coin by ChartDrawingsNotifier.
+//
+// ───────────────────────── How to add a drawing tool ─────────────────────────
+//
+// This file owns the tool list ([ChartDrawingTool]) and each tool's spec
+// ([chartDrawingSpec]: how many anchors, how many the person taps, the
+// anchors derived from the taps). Placement is generic
+// (hl_drawing_placement.dart): a tool never needs gesture code of its own.
+//
+//  1. Here: an enum value, and its case in [chartDrawingSpec]. A tool the
+//     person places point by point is `ChartDrawingSpec(points: n)`; one
+//     with anchors it derives (a position's stop) sets `taps` below
+//     `points` and a `derive`; a free-form one (a path) is
+//     `ChartDrawingSpec.openEnded(min, max)` and finishes when the last
+//     point is tapped again. The hint "Point k of n" comes for free.
+//  2. Its painter and its hit test: a case in KuteChartDrawingsPainter's
+//     switch and in kuteDrawingHit (kute_chart_drawings.dart); its bounds
+//     in kuteDrawingBounds when not its anchors' box. The compiler lists
+//     every switch that needs the new case.
+//  3. Its place on the rail: its group and name in hl_drawing_rail.dart
+//     (kHlToolGroups, hlToolName) and its glyph in hl_drawing_tools.dart
+//     (HlRailGlyph, hlGlyphForTool).
+//  4. Its name (and any label it paints) in every lib/l10n/app_*.arb, with
+//     a translator description in app_en.arb; then `flutter gen-l10n`.
+//  5. Tests: a round trip (test/models/chart_drawing_test.dart), its hit
+//     and paint (chart_drawing_tools_test.dart), its placement
+//     (hl_drawing_placement_test.dart).
+//
+// Analytics need nothing new: drawing_created / drawing_edited already
+// carry the tool's name as `type`.
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart' show Color;
 
 /// The v1 drawing tools.
@@ -66,19 +96,66 @@ enum ChartDrawingTool {
   priceLine,
 }
 
-/// How many anchors a tool needs to be valid.
-int chartDrawingPointCount(ChartDrawingTool tool) {
+/// How a tool is placed and how many anchors it keeps.
+class ChartDrawingSpec {
+  /// [points] anchors, the first [taps] (all of them by default) placed by
+  /// the person, one tap (or the end of one drag) each; [derive] fills the
+  /// rest from them.
+  const ChartDrawingSpec({required this.points, int? taps, this.derive})
+      : taps = taps ?? points,
+        openEnded = false,
+        maxPoints = points;
+
+  /// A free-form tool: point after point, at least [min] and at most
+  /// [max]; tapping the last point again (a double tap) finishes it.
+  const ChartDrawingSpec.openEnded(int min, int max)
+      : points = min,
+        taps = min,
+        maxPoints = max,
+        openEnded = true,
+        derive = null;
+
+  /// The anchors a stored drawing has (the least, for [openEnded]).
+  final int points;
+
+  /// The anchors the person places; the rest come from [derive].
+  final int taps;
+
+  /// Placed until finished rather than at a fixed count.
+  final bool openEnded;
+
+  /// The most anchors an [openEnded] tool takes.
+  final int maxPoints;
+
+  /// Fills the anchors after the first [placed] (the ones the person put
+  /// down; the rest are copies of the last) for the preview while placing
+  /// and for the drawing that lands. Pure chart coordinates, no pixels.
+  final ChartDrawing Function(ChartDrawing draft, int placed)? derive;
+}
+
+/// Tests may give a tool another spec (a three-point tool, say) to drive
+/// the generic placement; null in the app.
+@visibleForTesting
+ChartDrawingSpec? Function(ChartDrawingTool tool)? debugChartDrawingSpecOverride;
+
+/// Each tool's spec. See "How to add a drawing tool" at the top.
+ChartDrawingSpec chartDrawingSpec(ChartDrawingTool tool) {
+  final override = debugChartDrawingSpecOverride?.call(tool);
+  if (override != null) return override;
   switch (tool) {
     case ChartDrawingTool.level:
     case ChartDrawingTool.text:
     case ChartDrawingTool.horizontalRay:
     case ChartDrawingTool.verticalLine:
     case ChartDrawingTool.priceLine:
-      return 1;
+      return const ChartDrawingSpec(points: 1);
     case ChartDrawingTool.parallelChannel:
+      // Base start, base end, then where the parallel rail runs.
+      return const ChartDrawingSpec(points: 3, derive: _channelRail);
     case ChartDrawingTool.longPosition:
     case ChartDrawingTool.shortPosition:
-      return 3;
+      // Entry and target; the stop starts at 1:1 and has its handle.
+      return const ChartDrawingSpec(points: 3, taps: 2, derive: _positionStop);
     case ChartDrawingTool.trendline:
     case ChartDrawingTool.ray:
     case ChartDrawingTool.rect:
@@ -87,8 +164,35 @@ int chartDrawingPointCount(ChartDrawingTool tool) {
     case ChartDrawingTool.priceRange:
     case ChartDrawingTool.dateRange:
     case ChartDrawingTool.dateAndPriceRange:
-      return 2;
+      return const ChartDrawingSpec(points: 2);
   }
+}
+
+/// How many anchors a tool needs to be valid.
+int chartDrawingPointCount(ChartDrawingTool tool) =>
+    chartDrawingSpec(tool).points;
+
+/// A channel's parallel rail before its third point is down: below the
+/// base by about a third of the base's own move (1% of price on a flat
+/// base), so the preview reads as a channel at once.
+ChartDrawing _channelRail(ChartDrawing draft, int placed) {
+  if (placed != 2 || draft.points.length < 3) return draft;
+  final a = draft.points[0], b = draft.points[1];
+  final move = (b.price - a.price).abs();
+  final offset = move > 0 ? move * 0.35 : a.price * 0.01;
+  return draft.withPoint(
+      2, ChartDrawingPoint(timeMs: b.timeMs, price: b.price - offset));
+}
+
+/// A position's stop: the target mirrored through the entry (1:1).
+ChartDrawing _positionStop(ChartDrawing draft, int placed) {
+  if (placed < 2 || draft.points.length < 3) return draft;
+  final a = draft.points[0], b = draft.points[1];
+  final stop = a.price - (b.price - a.price);
+  return draft.withPoint(
+      2,
+      ChartDrawingPoint(
+          timeMs: a.timeMs, price: stop > 0 ? stop : a.price * 0.5));
 }
 
 /// The tool stored under [name], or null when this build does not know

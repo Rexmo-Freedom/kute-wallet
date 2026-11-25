@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Kaina pasikeitė į {price}. Palieskite, kad pateiktumėte nauja kaina.",
   "standingStagePlacing": "Teikiame",
   "standingStageApproval": "Reikia tavo patvirtinimo",
-  "activityDollarsYield": "Dolerių grąža"
+  "activityDollarsYield": "Dolerių grąža",
+  "chartHintPointOf": "Taškas {current} iš {total}: bakstelėkite grafiką.",
+  "chartHintFinishShape": "Norėdami baigti, dar kartą bakstelėkite paskutinį tašką."
 }

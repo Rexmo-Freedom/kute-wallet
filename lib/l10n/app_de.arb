@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Der Preis ist auf {price} gegangen. Tippe, um zum neuen Preis zu platzieren.",
   "standingStagePlacing": "Wird platziert",
   "standingStageApproval": "Braucht deine Zustimmung",
-  "activityDollarsYield": "Dollar-Rendite"
+  "activityDollarsYield": "Dollar-Rendite",
+  "chartHintPointOf": "Punkt {current} von {total}: Tippe auf den Chart.",
+  "chartHintFinishShape": "Tippe erneut auf den letzten Punkt, um abzuschließen."
 }

@@ -4087,5 +4087,7 @@
   "standingPriceMoved": "Cena se změnila na {price}. Klepnutím zadáte za novou cenu.",
   "standingStagePlacing": "Zadáváme",
   "standingStageApproval": "Čeká na vaše schválení",
-  "activityDollarsYield": "Výnos z Dolarů"
+  "activityDollarsYield": "Výnos z Dolarů",
+  "chartHintPointOf": "Bod {current} z {total}: klepni do grafu.",
+  "chartHintFinishShape": "Klepni znovu na poslední bod pro dokončení."
 }

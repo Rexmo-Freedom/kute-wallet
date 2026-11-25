@@ -14532,4 +14532,13 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Dolerių grąža';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Taškas $current iš $total: bakstelėkite grafiką.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Norėdami baigti, dar kartą bakstelėkite paskutinį tašką.';
 }
