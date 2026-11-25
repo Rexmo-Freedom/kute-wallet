@@ -95,10 +95,19 @@ void hlPaintPriceLineMark(
 enum HlRailGlyph {
   cursor,
   trendline,
+  ray,
+  extendedLine,
   level,
+  horizontalRay,
+  verticalLine,
   priceLine,
+  channel,
   rect,
   fibonacci,
+  longPosition,
+  shortPosition,
+  priceRange,
+  dateRange,
   measure,
   text,
   solidLine,
@@ -106,37 +115,26 @@ enum HlRailGlyph {
   extendRight,
 }
 
-/// The rail glyph for a drawing tool (the tools off the rail borrow the
-/// nearest one, for the toolbar's hint only).
-HlRailGlyph hlGlyphForTool(ChartDrawingTool? tool) {
-  switch (tool) {
-    case null:
-      return HlRailGlyph.cursor;
-    case ChartDrawingTool.level:
-    case ChartDrawingTool.horizontalRay:
-      return HlRailGlyph.level;
-    case ChartDrawingTool.priceLine:
-      return HlRailGlyph.priceLine;
-    case ChartDrawingTool.rect:
-    case ChartDrawingTool.parallelChannel:
-      return HlRailGlyph.rect;
-    case ChartDrawingTool.fibonacci:
-      return HlRailGlyph.fibonacci;
-    case ChartDrawingTool.priceRange:
-    case ChartDrawingTool.dateRange:
-    case ChartDrawingTool.dateAndPriceRange:
-    case ChartDrawingTool.longPosition:
-    case ChartDrawingTool.shortPosition:
-      return HlRailGlyph.measure;
-    case ChartDrawingTool.text:
-      return HlRailGlyph.text;
-    case ChartDrawingTool.trendline:
-    case ChartDrawingTool.ray:
-    case ChartDrawingTool.extendedLine:
-    case ChartDrawingTool.verticalLine:
-      return HlRailGlyph.trendline;
-  }
-}
+/// The rail glyph for a drawing tool.
+HlRailGlyph hlGlyphForTool(ChartDrawingTool? tool) => switch (tool) {
+      null => HlRailGlyph.cursor,
+      ChartDrawingTool.trendline => HlRailGlyph.trendline,
+      ChartDrawingTool.ray => HlRailGlyph.ray,
+      ChartDrawingTool.extendedLine => HlRailGlyph.extendedLine,
+      ChartDrawingTool.level => HlRailGlyph.level,
+      ChartDrawingTool.horizontalRay => HlRailGlyph.horizontalRay,
+      ChartDrawingTool.verticalLine => HlRailGlyph.verticalLine,
+      ChartDrawingTool.priceLine => HlRailGlyph.priceLine,
+      ChartDrawingTool.parallelChannel => HlRailGlyph.channel,
+      ChartDrawingTool.rect => HlRailGlyph.rect,
+      ChartDrawingTool.fibonacci => HlRailGlyph.fibonacci,
+      ChartDrawingTool.longPosition => HlRailGlyph.longPosition,
+      ChartDrawingTool.shortPosition => HlRailGlyph.shortPosition,
+      ChartDrawingTool.priceRange => HlRailGlyph.priceRange,
+      ChartDrawingTool.dateRange => HlRailGlyph.dateRange,
+      ChartDrawingTool.dateAndPriceRange => HlRailGlyph.measure,
+      ChartDrawingTool.text => HlRailGlyph.text,
+    };
 
 /// A 20 x 20 line drawing of one tool, 1.5 px strokes with round caps.
 class HlGlyph extends StatelessWidget {
@@ -183,10 +181,76 @@ class _GlyphPainter extends CustomPainter {
         canvas.drawLine(const Offset(5, 15), const Offset(15, 5), line);
         dot(const Offset(4.5, 15.5));
         dot(const Offset(15.5, 4.5));
+      case HlRailGlyph.ray:
+        // From its first point through the second, on to the edge.
+        canvas.drawLine(const Offset(4, 15.5), const Offset(17.5, 4), line);
+        dot(const Offset(4, 15.5));
+        dot(const Offset(10.5, 10), 1.9);
+      case HlRailGlyph.extendedLine:
+        // Through both points, out to both edges.
+        canvas.drawLine(const Offset(2.5, 16.2), const Offset(17.5, 3.8), line);
+        dot(const Offset(7, 12.5), 1.9);
+        dot(const Offset(13, 7.5), 1.9);
       case HlRailGlyph.level:
         canvas.drawLine(const Offset(2.5, 10), const Offset(7.4, 10), line);
         canvas.drawLine(const Offset(12.6, 10), const Offset(17.5, 10), line);
         canvas.drawCircle(const Offset(10, 10), 2.4, line);
+      case HlRailGlyph.horizontalRay:
+        // The level's anchor, and the line from it to the right.
+        canvas.drawCircle(const Offset(5.5, 10), 2.4, line);
+        canvas.drawLine(const Offset(8.1, 10), const Offset(17.5, 10), line);
+      case HlRailGlyph.verticalLine:
+        canvas.drawLine(const Offset(10, 2.5), const Offset(10, 7.4), line);
+        canvas.drawLine(const Offset(10, 12.6), const Offset(10, 17.5), line);
+        canvas.drawCircle(const Offset(10, 10), 2.4, line);
+      case HlRailGlyph.channel:
+        // Two parallel rails, the band between them faint.
+        canvas.drawPath(
+            Path()
+              ..moveTo(3, 11.5)
+              ..lineTo(14.5, 4)
+              ..lineTo(17, 8.5)
+              ..lineTo(5.5, 16)
+              ..close(),
+            Paint()..color = color.withValues(alpha: 0.18));
+        canvas.drawLine(const Offset(3, 11.5), const Offset(14.5, 4), line);
+        canvas.drawLine(const Offset(5.5, 16), const Offset(17, 8.5), line);
+        dot(const Offset(3, 11.5), 1.8);
+        dot(const Offset(14.5, 4), 1.8);
+        dot(const Offset(17, 8.5), 1.8);
+      case HlRailGlyph.longPosition:
+      case HlRailGlyph.shortPosition:
+        // A box split at the entry; the target's side shaded, above the
+        // entry for a long, below it for a short.
+        final long = glyph == HlRailGlyph.longPosition;
+        const box = Rect.fromLTRB(4, 3.5, 16, 16.5);
+        final entryY = long ? 11.5 : 8.5;
+        canvas.drawRect(
+            long
+                ? Rect.fromLTRB(box.left, box.top, box.right, entryY)
+                : Rect.fromLTRB(box.left, entryY, box.right, box.bottom),
+            Paint()..color = color.withValues(alpha: 0.28));
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(box, const Radius.circular(1)), line);
+        canvas.drawLine(Offset(2.5, entryY), Offset(17.5, entryY), line);
+      case HlRailGlyph.priceRange:
+        // A vertical span between two levels.
+        canvas.drawLine(const Offset(5, 4), const Offset(15, 4), line);
+        canvas.drawLine(const Offset(5, 16), const Offset(15, 16), line);
+        canvas.drawLine(const Offset(10, 6), const Offset(10, 14), line);
+        canvas.drawLine(const Offset(10, 6), const Offset(7.8, 8.2), line);
+        canvas.drawLine(const Offset(10, 6), const Offset(12.2, 8.2), line);
+        canvas.drawLine(const Offset(10, 14), const Offset(7.8, 11.8), line);
+        canvas.drawLine(const Offset(10, 14), const Offset(12.2, 11.8), line);
+      case HlRailGlyph.dateRange:
+        // A horizontal span between two moments.
+        canvas.drawLine(const Offset(4, 5), const Offset(4, 15), line);
+        canvas.drawLine(const Offset(16, 5), const Offset(16, 15), line);
+        canvas.drawLine(const Offset(6, 10), const Offset(14, 10), line);
+        canvas.drawLine(const Offset(6, 10), const Offset(8.2, 7.8), line);
+        canvas.drawLine(const Offset(6, 10), const Offset(8.2, 12.2), line);
+        canvas.drawLine(const Offset(14, 10), const Offset(11.8, 7.8), line);
+        canvas.drawLine(const Offset(14, 10), const Offset(11.8, 12.2), line);
       case HlRailGlyph.priceLine:
         hlPaintPriceLineMark(canvas, const Offset(10, 7.5), 12,
             color: color, reached: false);

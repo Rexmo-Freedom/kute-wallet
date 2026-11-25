@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Täyttö",
   "chartDrawingLabels": "Tunnisteet",
   "chartTextSize": "Tekstin koko",
-  "chartFibLevels": "Tasot"
+  "chartFibLevels": "Tasot",
+  "chartPositionTarget": "Tavoite {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 kynttilä} other{{count} kynttilää}} · {duration}"
 }

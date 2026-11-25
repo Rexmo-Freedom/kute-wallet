@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Täide",
   "chartDrawingLabels": "Sildid",
   "chartTextSize": "Teksti suurus",
-  "chartFibLevels": "Tasemed"
+  "chartFibLevels": "Tasemed",
+  "chartPositionTarget": "Siht {price}  {change}",
+  "chartPositionStop": "Stopp {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}"
 }

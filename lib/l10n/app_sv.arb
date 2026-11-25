@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Fyllning",
   "chartDrawingLabels": "Etiketter",
   "chartTextSize": "Textstorlek",
-  "chartFibLevels": "Nivåer"
+  "chartFibLevels": "Nivåer",
+  "chartPositionTarget": "Mål {price}  {change}",
+  "chartPositionStop": "Stopp {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 stapel} other{{count} staplar}} · {duration}"
 }

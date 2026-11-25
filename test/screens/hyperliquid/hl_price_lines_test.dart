@@ -68,11 +68,12 @@ void main() {
         (tester) async {
       await _open(tester);
       await enterHlEdit(tester);
-      // In the Lines group, right after the horizontal line.
+      // In the Lines group, after the horizontal line and its relatives.
       final lines = hlGroupOf(ChartDrawingTool.priceLine)!;
       expect(lines.id, HlToolGroupId.lines);
+      expect(lines.tools.last, ChartDrawingTool.priceLine);
       expect(lines.tools.indexOf(ChartDrawingTool.priceLine),
-          lines.tools.indexOf(ChartDrawingTool.level) + 1);
+          greaterThan(lines.tools.indexOf(ChartDrawingTool.level)));
 
       // A first line mounts the layer the tap is measured against.
       _seed(tester, 65000);

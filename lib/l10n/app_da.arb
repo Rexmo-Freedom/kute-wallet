@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Fyld",
   "chartDrawingLabels": "Etiketter",
   "chartTextSize": "Tekststørrelse",
-  "chartFibLevels": "Niveauer"
+  "chartFibLevels": "Niveauer",
+  "chartPositionTarget": "Mål {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 lys} other{{count} lys}} · {duration}"
 }

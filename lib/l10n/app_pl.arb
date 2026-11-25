@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Wypełnienie",
   "chartDrawingLabels": "Etykiety",
   "chartTextSize": "Rozmiar tekstu",
-  "chartFibLevels": "Poziomy"
+  "chartFibLevels": "Poziomy",
+  "chartPositionTarget": "Cel {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}"
 }

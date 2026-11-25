@@ -256,6 +256,59 @@ String kuteFormatDrawingDuration(int ms) {
   return '${d.inMinutes}m';
 }
 
+/// Everything the drawings write on the chart, from the host: its number
+/// formats and its words, so labels follow the app's language and the
+/// chart's price format. The defaults (plain English, plain numbers) are
+/// for tests and hosts without localisations.
+class KuteDrawingWords {
+  const KuteDrawingWords({
+    this.price = kuteFormatDrawingPrice,
+    this.percent = kuteFormatDrawingPct,
+    this.duration = kuteFormatDrawingDuration,
+    this.ratio = _ratio,
+    this.fibLevel = _fibLevel,
+    this.target = _target,
+    this.stop = _stop,
+    this.long = _long,
+    this.short = _short,
+    this.bars = _bars,
+  });
+
+  /// A price or a price difference (never negative here).
+  final String Function(double price) price;
+
+  /// A signed change, as a fraction ("+2.00%").
+  final String Function(double fraction) percent;
+
+  /// A span of time ("1d 4h").
+  final String Function(int ms) duration;
+
+  /// A reward-to-risk ratio ("2.00").
+  final String Function(double ratio) ratio;
+
+  /// A Fibonacci level ("61.8%").
+  final String Function(double level) fibLevel;
+
+  /// A position's pills: target and stop (price, change), entry (price,
+  /// ratio).
+  final String Function(String price, String change) target;
+  final String Function(String price, String change) stop;
+  final String Function(String price, String ratio) long;
+  final String Function(String price, String ratio) short;
+
+  /// A time span's bars and duration.
+  final String Function(int count, String duration) bars;
+
+  static String _ratio(double r) => r.toStringAsFixed(2);
+  static String _fibLevel(double l) =>
+      '${(l * 100).toStringAsFixed(l == 0 || l == 1 ? 0 : 1)}%';
+  static String _target(String p, String c) => 'Target $p  $c';
+  static String _stop(String p, String c) => 'Stop $p  $c';
+  static String _long(String p, String r) => 'Long $p · R/R $r';
+  static String _short(String p, String r) => 'Short $p · R/R $r';
+  static String _bars(int n, String d) => '$n bars · $d';
+}
+
 /// Bars whose open time falls between two moments, inclusive.
 int kuteBarsBetween(KuteDrawingGeometry geom, int t0, int t1) {
   final lo = math.min(t0, t1), hi = math.max(t0, t1);
@@ -538,7 +591,11 @@ class KuteChartDrawingsPainter extends CustomPainter {
     required this.handleCore,
     required this.resolveGeometry,
     required this.repaintKey,
+    this.words = const KuteDrawingWords(),
   });
+
+  /// The labels' words and number formats (the host's language).
+  final KuteDrawingWords words;
 
   Color _colorOf(ChartDrawing d) => d.color ?? neutralColor;
 
@@ -716,7 +773,7 @@ class KuteChartDrawingsPainter extends CustomPainter {
               canvas,
               geom,
               Offset(r.center.dx - 50, r.bottom + 4),
-              '${kuteFormatDrawingPrice(hi - lo)} (${kuteFormatDrawingPct(lo > 0 ? (hi - lo) / lo : double.nan).replaceFirst('+', '')})',
+              '${words.price(hi - lo)} (${words.percent(lo > 0 ? (hi - lo) / lo : double.nan).replaceFirst('+', '')})',
               color,
               strong: true);
         }
@@ -734,8 +791,7 @@ class KuteChartDrawingsPainter extends CustomPainter {
           if (!labels) continue;
           final label = TextPainter(
             text: TextSpan(
-              text:
-                  '${(ratio * 100).toStringAsFixed(ratio == 0 || ratio == 1 ? 0 : 1)}%  ${price.toStringAsPrecision(6)}',
+              text: '${words.fibLevel(ratio)}  ${words.price(price)}',
               style: TextStyle(
                   fontFamily: kuteChartFontFamily,
                   color: color,
@@ -828,20 +884,26 @@ class KuteChartDrawingsPainter extends CustomPainter {
         _pill(
             canvas,
             geom,
-            Offset(left + 4, math.min(entry.dy, target.dy) + 4),
-            'Target ${kuteFormatDrawingPrice(targetPx)}  ${kuteFormatDrawingPct(sign * (targetPx - entryPx) / entryPx)}',
+            // Each pill inside its zone at the far edge (a short's target
+            // is below the entry, its stop above).
+            Offset(left + 4,
+                target.dy <= entry.dy ? target.dy + 4 : target.dy - 26),
+            words.target(words.price(targetPx),
+                words.percent(sign * (targetPx - entryPx) / entryPx)),
             up);
         _pill(
             canvas,
             geom,
-            Offset(left + 4, math.max(entry.dy, stopY) - 26),
-            'Stop ${kuteFormatDrawingPrice(stopPx)}  ${kuteFormatDrawingPct(sign * (stopPx - entryPx) / entryPx)}',
+            Offset(left + 4, stopY >= entry.dy ? stopY - 26 : stopY + 4),
+            words.stop(words.price(stopPx),
+                words.percent(sign * (stopPx - entryPx) / entryPx)),
             down);
         _pill(
             canvas,
             geom,
             Offset(right - 96, entry.dy - 11),
-            '${long ? 'Long' : 'Short'} ${kuteFormatDrawingPrice(entryPx)} · R/R ${rr.isFinite ? rr.toStringAsFixed(2) : '—'}',
+            (long ? words.long : words.short)(words.price(entryPx),
+                rr.isFinite ? words.ratio(rr) : '—'),
             color,
             strong: true);
         break;
@@ -876,11 +938,11 @@ class KuteChartDrawingsPainter extends CustomPainter {
         final parts = <String>[];
         if (measuresPrice) {
           parts.add(
-              '${p1 - p0 >= 0 ? '+' : '−'}${kuteFormatDrawingPrice((p1 - p0).abs())} (${kuteFormatDrawingPct(p0 != 0 ? (p1 - p0) / p0 : double.nan)})');
+              '${p1 - p0 >= 0 ? '+' : '−'}${words.price((p1 - p0).abs())} (${words.percent(p0 != 0 ? (p1 - p0) / p0 : double.nan)})');
         }
         if (measuresTime) {
           parts.add(
-              '${kuteBarsBetween(geom, t0, t1)} bars · ${kuteFormatDrawingDuration(t1 - t0)}');
+              words.bars(kuteBarsBetween(geom, t0, t1), words.duration(t1 - t0)));
         }
         if (labels) {
           _pill(canvas, geom, Offset(r.center.dx - 50, r.bottom + 4),

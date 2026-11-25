@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Füllung",
   "chartDrawingLabels": "Beschriftungen",
   "chartTextSize": "Textgröße",
-  "chartFibLevels": "Niveaus"
+  "chartFibLevels": "Niveaus",
+  "chartPositionTarget": "Ziel {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · CRV {ratio}",
+  "chartPositionShort": "Short {price} · CRV {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 Kerze} other{{count} Kerzen}} · {duration}"
 }

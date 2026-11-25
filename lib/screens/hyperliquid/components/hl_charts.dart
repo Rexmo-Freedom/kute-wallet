@@ -77,6 +77,8 @@ import 'package:kute/models/hyperliquid_market.dart' show HlFill, HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_placement.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_settings_sheet.dart'
+    show hlFibLevelText;
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_lines_chart.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
@@ -2059,6 +2061,50 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     }
   }
 
+  /// The drawings' labels in the app's language and the chart's price
+  /// format (the tag column's: [reference] is the price now).
+  KuteDrawingWords _drawingWords(AppLocalizations l, double reference) {
+    final pct = NumberFormat('#,##0.00');
+    String price(double v) {
+      if (!v.isFinite) return '—';
+      if (v <= 0) return NumberFormat('#,##0').format(0);
+      return formatHlPriceLike(v, reference, decimalCap: widget.decimalCap)
+          .replaceFirst(r'$', '');
+    }
+
+    String duration(int ms) {
+      final d = Duration(milliseconds: ms.abs());
+      if (d.inDays >= 1) {
+        final h = d.inHours % 24;
+        final days = l.coinMapAgeShortDays(d.inDays);
+        return h > 0 ? '$days ${l.coinMapAgeShortHours(h)}' : days;
+      }
+      if (d.inHours >= 1) {
+        final m = d.inMinutes % 60;
+        final hours = l.coinMapAgeShortHours(d.inHours);
+        return m > 0 ? '$hours ${l.durationShortMinutes(m)}' : hours;
+      }
+      return l.durationShortMinutes(d.inMinutes);
+    }
+
+    return KuteDrawingWords(
+      price: price,
+      percent: (f) {
+        if (!f.isFinite) return '—';
+        final v = f * 100;
+        return '${v > 0 ? '+' : v < 0 ? '−' : ''}${pct.format(v.abs())}%';
+      },
+      duration: duration,
+      ratio: (r) => NumberFormat('0.00').format(r),
+      fibLevel: hlFibLevelText,
+      target: (p, c) => l.chartPositionTarget(p, c),
+      stop: (p, c) => l.chartPositionStop(p, c),
+      long: (p, r) => l.chartPositionLong(p, r),
+      short: (p, r) => l.chartPositionShort(p, r),
+      bars: (n, d) => l.chartRangeBars(n, d),
+    );
+  }
+
   /// Two chart points apart, in pixels on [geom].
   static double Function(ChartDrawingPoint, ChartDrawingPoint) _pixelsOn(
           KuteDrawingGeometry geom) =>
@@ -3559,6 +3605,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         handleCore: isDark
                                             ? Colors.black
                                             : Colors.white,
+                                        words: _drawingWords(context.l10n,
+                                            candles.last.close),
                                         resolveGeometry: (size) =>
                                             _drawingGeometry(
                                           size,

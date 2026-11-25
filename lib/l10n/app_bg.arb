@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Запълване",
   "chartDrawingLabels": "Етикети",
   "chartTextSize": "Размер на текста",
-  "chartFibLevels": "Нива"
+  "chartFibLevels": "Нива",
+  "chartPositionTarget": "Цел {price}  {change}",
+  "chartPositionStop": "Стоп {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 свещ} other{{count} свещи}} · {duration}"
 }

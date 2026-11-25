@@ -12707,5 +12707,65 @@
   "chartFibLevels": "Levels",
   "@chartFibLevels": {
     "description": "A Fibonacci retracement's settings sheet on the Advanced chart: the title over its list of levels (23.6%, 38.2%, 61.8% …), each switched on or off. Short."
+  },
+  "chartPositionTarget": "Target {price}  {change}",
+  "@chartPositionTarget": {
+    "description": "Label on a long or short position drawing on the Advanced chart (a drawing only, no order): the take-profit level and its move from the entry, e.g. \"Target 68,000  +3.03%\". Keep it short; two spaces before {change}.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPositionStop": "Stop {price}  {change}",
+  "@chartPositionStop": {
+    "description": "Label on a long or short position drawing on the Advanced chart (a drawing only, no order): the stop-loss level and its move from the entry, e.g. \"Stop 64,000  −3.03%\". Use the word traders use for a stop-loss. Short.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "@chartPositionLong": {
+    "description": "Label at the entry of a long position drawing on the Advanced chart (a drawing only, no order, no leverage): the entry price and the reward-to-risk ratio, e.g. \"Long 66,000 · R/R 2.00\". Keep \"Long\" as traders in this language say it; R/R is the usual short form of risk/reward. Short.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "@chartPositionShort": {
+    "description": "Label at the entry of a short position drawing on the Advanced chart (a drawing only, no order, no leverage): the entry price and the reward-to-risk ratio, e.g. \"Short 66,000 · R/R 2.00\". Keep \"Short\" as traders in this language say it. Short.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "chartRangeBars": "{count, plural, =1{1 bar} other{{count} bars}} · {duration}",
+  "@chartRangeBars": {
+    "description": "Label on a date range or measure drawing on the Advanced chart: how many candles (bars) it spans and how long that is, e.g. \"24 bars · 1d\". {duration} is already formatted (e.g. \"1d 4h\"). Use the word traders use for one candle of a chart.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
   }
 }

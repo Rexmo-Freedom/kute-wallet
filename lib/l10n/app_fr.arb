@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Remplissage",
   "chartDrawingLabels": "Étiquettes",
   "chartTextSize": "Taille du texte",
-  "chartFibLevels": "Niveaux"
+  "chartFibLevels": "Niveaux",
+  "chartPositionTarget": "Objectif {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 bougie} other{{count} bougies}} · {duration}"
 }

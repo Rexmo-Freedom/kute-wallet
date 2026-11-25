@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Relleno",
   "chartDrawingLabels": "Etiquetas",
   "chartTextSize": "Tamaño del texto",
-  "chartFibLevels": "Niveles"
+  "chartFibLevels": "Niveles",
+  "chartPositionTarget": "Objetivo {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 vela} other{{count} velas}} · {duration}"
 }

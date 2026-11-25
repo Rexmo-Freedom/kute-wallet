@@ -4364,5 +4364,10 @@
   "chartFillOpacity": "Preenchimento",
   "chartDrawingLabels": "Etiquetas",
   "chartTextSize": "Tamanho do texto",
-  "chartFibLevels": "Níveis"
+  "chartFibLevels": "Níveis",
+  "chartPositionTarget": "Alvo {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 vela} other{{count} velas}} · {duration}"
 }

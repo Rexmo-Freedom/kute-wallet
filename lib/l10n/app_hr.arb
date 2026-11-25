@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Ispuna",
   "chartDrawingLabels": "Oznake",
   "chartTextSize": "Veličina teksta",
-  "chartFibLevels": "Razine"
+  "chartFibLevels": "Razine",
+  "chartPositionTarget": "Cilj {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 svijeća} few{{count} svijeće} other{{count} svijeća}} · {duration}"
 }

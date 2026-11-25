@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Užpildas",
   "chartDrawingLabels": "Žymės",
   "chartTextSize": "Teksto dydis",
-  "chartFibLevels": "Lygiai"
+  "chartFibLevels": "Lygiai",
+  "chartPositionTarget": "Tikslas {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 žvakė} few{{count} žvakės} other{{count} žvakių}} · {duration}"
 }

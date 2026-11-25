@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Γέμισμα",
   "chartDrawingLabels": "Ετικέτες",
   "chartTextSize": "Μέγεθος κειμένου",
-  "chartFibLevels": "Επίπεδα"
+  "chartFibLevels": "Επίπεδα",
+  "chartPositionTarget": "Στόχος {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 κερί} other{{count} κεριά}} · {duration}"
 }

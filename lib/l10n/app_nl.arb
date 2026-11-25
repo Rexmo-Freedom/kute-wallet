@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Vulling",
   "chartDrawingLabels": "Labels",
   "chartTextSize": "Tekstgrootte",
-  "chartFibLevels": "Niveaus"
+  "chartFibLevels": "Niveaus",
+  "chartPositionTarget": "Doel {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 candle} other{{count} candles}} · {duration}"
 }

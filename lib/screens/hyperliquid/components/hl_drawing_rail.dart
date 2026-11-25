@@ -9,14 +9,17 @@
 // fly-out. A group of one tool is a plain button, as the rail always
 // had.
 //
-// The fly-out is a compact sheet in the app's sheet style on a phone,
-// and a small panel beside the button where the window has room for it
-// (a tablet, a desktop browser), in the style of the rail's "…" menu.
+// The fly-out is a compact sheet in the app's sheet style on an upright
+// phone, and a small panel beside the button where the window has room
+// for it (a phone on its side, a tablet, a desktop browser), in the style
+// of the rail's "…" menu.
 //
 // To put a tool on the rail: add it to its group's list in
 // [kHlToolGroups], its name in [hlToolName], its glyph in
 // hl_drawing_tools.dart. See "How to add a drawing tool" at the top of
 // models/chart_drawing.dart for the rest.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -49,12 +52,27 @@ const List<HlToolGroup> kHlToolGroups = [
   HlToolGroup(HlToolGroupId.cursor, [null]),
   HlToolGroup(HlToolGroupId.lines, [
     ChartDrawingTool.trendline,
+    ChartDrawingTool.ray,
+    ChartDrawingTool.extendedLine,
     ChartDrawingTool.level,
+    ChartDrawingTool.horizontalRay,
+    ChartDrawingTool.verticalLine,
     ChartDrawingTool.priceLine,
   ]),
-  HlToolGroup(HlToolGroupId.channels, []),
+  HlToolGroup(HlToolGroupId.channels, [ChartDrawingTool.parallelChannel]),
   HlToolGroup(HlToolGroupId.fibonacci, [ChartDrawingTool.fibonacci]),
-  HlToolGroup(HlToolGroupId.positions, [ChartDrawingTool.dateAndPriceRange]),
+  // Drawings only: no order is placed from them, and never leverage.
+  HlToolGroup(
+    HlToolGroupId.positions,
+    [
+      ChartDrawingTool.longPosition,
+      ChartDrawingTool.shortPosition,
+      ChartDrawingTool.priceRange,
+      ChartDrawingTool.dateRange,
+      ChartDrawingTool.dateAndPriceRange,
+    ],
+    face: ChartDrawingTool.dateAndPriceRange,
+  ),
   HlToolGroup(HlToolGroupId.shapes, [ChartDrawingTool.rect]),
   HlToolGroup(HlToolGroupId.notes, [ChartDrawingTool.text]),
 ];
@@ -112,9 +130,10 @@ ChartDrawingTool? hlGroupFace(HlToolGroup group, Map<String, String> faces) {
 }
 
 /// Whether the fly-out opens as a panel beside the rail (a window with
-/// room for it) rather than as a sheet (a phone).
+/// room beside it: a tablet, a browser, a phone on its side, where a sheet
+/// would cover the short plot) rather than as a sheet (a phone upright).
 bool hlFlyoutAsPanel(BuildContext context) =>
-    MediaQuery.sizeOf(context).shortestSide >= 600;
+    MediaQuery.sizeOf(context).width >= 600;
 
 /// Opens [group]'s fly-out from its button ([anchor]) and returns the
 /// tool picked, or null when it was closed without one. [armed] is the
@@ -156,6 +175,9 @@ Future<ChartDrawingTool?> _showPanel(
     position: RelativeRect.fromRect(origin & Size.zero, Offset.zero & overlay.size),
     color: context.isDark ? c.surfaceElevated : Colors.white,
     elevation: 6,
+    // Room for a name on one line ("Horizontal ray"), never the screen.
+    constraints: BoxConstraints(
+        minWidth: 200, maxWidth: math.min(360, overlay.size.width - 24)),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14.r),
       side: BorderSide(color: c.borderSubtle, width: 0.5),
@@ -170,12 +192,15 @@ Future<ChartDrawingTool?> _showPanel(
             mainAxisSize: MainAxisSize.min,
             children: [
               HlGlyph(hlGlyphForTool(tool),
+                  size: 20.sp,
                   color: tool == armed ? c.textPrimary : c.textSecondary),
               SizedBox(width: 12.w),
               Flexible(
                 child: Text(
                   hlToolName(l10n, tool),
-                  maxLines: 2,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: c.textPrimary,
                     fontSize: 14.sp,

@@ -24452,6 +24452,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Levels'**
   String get chartFibLevels;
+
+  /// Label on a long or short position drawing on the Advanced chart (a drawing only, no order): the take-profit level and its move from the entry, e.g. "Target 68,000  +3.03%". Keep it short; two spaces before {change}.
+  ///
+  /// In en, this message translates to:
+  /// **'Target {price}  {change}'**
+  String chartPositionTarget(String price, String change);
+
+  /// Label on a long or short position drawing on the Advanced chart (a drawing only, no order): the stop-loss level and its move from the entry, e.g. "Stop 64,000  −3.03%". Use the word traders use for a stop-loss. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop {price}  {change}'**
+  String chartPositionStop(String price, String change);
+
+  /// Label at the entry of a long position drawing on the Advanced chart (a drawing only, no order, no leverage): the entry price and the reward-to-risk ratio, e.g. "Long 66,000 · R/R 2.00". Keep "Long" as traders in this language say it; R/R is the usual short form of risk/reward. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Long {price} · R/R {ratio}'**
+  String chartPositionLong(String price, String ratio);
+
+  /// Label at the entry of a short position drawing on the Advanced chart (a drawing only, no order, no leverage): the entry price and the reward-to-risk ratio, e.g. "Short 66,000 · R/R 2.00". Keep "Short" as traders in this language say it. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Short {price} · R/R {ratio}'**
+  String chartPositionShort(String price, String ratio);
+
+  /// Label on a date range or measure drawing on the Advanced chart: how many candles (bars) it spans and how long that is, e.g. "24 bars · 1d". {duration} is already formatted (e.g. "1d 4h"). Use the word traders use for one candle of a chart.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 bar} other{{count} bars}} · {duration}'**
+  String chartRangeBars(int count, String duration);
 }
 
 class _AppLocalizationsDelegate

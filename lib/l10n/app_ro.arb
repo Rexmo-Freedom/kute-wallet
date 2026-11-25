@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Umplere",
   "chartDrawingLabels": "Etichete",
   "chartTextSize": "Dimensiunea textului",
-  "chartFibLevels": "Niveluri"
+  "chartFibLevels": "Niveluri",
+  "chartPositionTarget": "Țintă {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 lumânare} few{{count} lumânări} other{{count} de lumânări}} · {duration}"
 }

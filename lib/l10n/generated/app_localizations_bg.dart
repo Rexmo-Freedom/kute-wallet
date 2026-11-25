@@ -14530,4 +14530,35 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get chartFibLevels => 'Нива';
+
+  @override
+  String chartPositionTarget(String price, String change) {
+    return 'Цел $price  $change';
+  }
+
+  @override
+  String chartPositionStop(String price, String change) {
+    return 'Стоп $price  $change';
+  }
+
+  @override
+  String chartPositionLong(String price, String ratio) {
+    return 'Long $price · R/R $ratio';
+  }
+
+  @override
+  String chartPositionShort(String price, String ratio) {
+    return 'Short $price · R/R $ratio';
+  }
+
+  @override
+  String chartRangeBars(int count, String duration) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count свещи',
+      one: '1 свещ',
+    );
+    return '$_temp0 · $duration';
+  }
 }

@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "塗りつぶし",
   "chartDrawingLabels": "ラベル",
   "chartTextSize": "文字サイズ",
-  "chartFibLevels": "レベル"
+  "chartFibLevels": "レベル",
+  "chartPositionTarget": "目標 {price}  {change}",
+  "chartPositionStop": "ストップ {price}  {change}",
+  "chartPositionLong": "ロング {price} · R/R {ratio}",
+  "chartPositionShort": "ショート {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, other{{count}本}} · {duration}"
 }

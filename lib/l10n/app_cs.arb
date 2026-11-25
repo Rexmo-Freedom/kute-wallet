@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Výplň",
   "chartDrawingLabels": "Popisky",
   "chartTextSize": "Velikost textu",
-  "chartFibLevels": "Úrovně"
+  "chartFibLevels": "Úrovně",
+  "chartPositionTarget": "Cíl {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 svíčka} few{{count} svíčky} other{{count} svíček}} · {duration}"
 }

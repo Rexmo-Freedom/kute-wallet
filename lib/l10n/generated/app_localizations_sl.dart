@@ -14557,4 +14557,37 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get chartFibLevels => 'Ravni';
+
+  @override
+  String chartPositionTarget(String price, String change) {
+    return 'Cilj $price  $change';
+  }
+
+  @override
+  String chartPositionStop(String price, String change) {
+    return 'Stop $price  $change';
+  }
+
+  @override
+  String chartPositionLong(String price, String ratio) {
+    return 'Long $price · R/R $ratio';
+  }
+
+  @override
+  String chartPositionShort(String price, String ratio) {
+    return 'Short $price · R/R $ratio';
+  }
+
+  @override
+  String chartRangeBars(int count, String duration) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sveč',
+      few: '$count sveče',
+      two: '2 sveči',
+      one: '1 sveča',
+    );
+    return '$_temp0 · $duration';
+  }
 }

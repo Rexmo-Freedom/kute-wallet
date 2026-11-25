@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Polnilo",
   "chartDrawingLabels": "Oznake",
   "chartTextSize": "Velikost besedila",
-  "chartFibLevels": "Ravni"
+  "chartFibLevels": "Ravni",
+  "chartPositionTarget": "Cilj {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 sveča} =2{2 sveči} few{{count} sveče} other{{count} sveč}} · {duration}"
 }

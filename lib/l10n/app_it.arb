@@ -4098,5 +4098,10 @@
   "chartFillOpacity": "Riempimento",
   "chartDrawingLabels": "Etichette",
   "chartTextSize": "Dimensione testo",
-  "chartFibLevels": "Livelli"
+  "chartFibLevels": "Livelli",
+  "chartPositionTarget": "Obiettivo {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 candela} other{{count} candele}} · {duration}"
 }
