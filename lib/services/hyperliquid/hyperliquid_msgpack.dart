@@ -140,6 +140,7 @@ void _packMapHeader(int len, BytesBuilder out) {
 
 /// Big-endian two's-complement truncation of [value] to [width] bytes.
 Uint8List _beBytes(int value, int width) {
+  if (width == 8) return int64BigEndianBytes(value);
   final bytes = Uint8List(width);
   var v = value;
   for (var i = width - 1; i >= 0; i--) {
@@ -148,3 +149,23 @@ Uint8List _beBytes(int value, int width) {
   }
   return bytes;
 }
+
+/// [value] as 8 big-endian bytes (two's complement), the same on the phone
+/// and in a browser.
+///
+/// Compiled to JavaScript, `int` is a double and the bit operators work on
+/// 32 bits: `v >> 8` on a value above 2^32 first drops its high half, so
+/// a shift loop writes zeros where a millisecond nonce or a large order id
+/// has its top bytes. The hash then differs from the exchange's and the
+/// signature recovers to another address. BigInt keeps every bit on both.
+Uint8List int64BigEndianBytes(int value) {
+  var v = BigInt.from(value).toUnsigned(64);
+  final bytes = Uint8List(8);
+  for (var i = 7; i >= 0; i--) {
+    bytes[i] = (v & _byteMask).toInt();
+    v = v >> 8;
+  }
+  return bytes;
+}
+
+final BigInt _byteMask = BigInt.from(0xff);

@@ -702,15 +702,8 @@ Uint8List _addressBytes(String address) {
   return bytes;
 }
 
-Uint8List _be8(int value) {
-  final bytes = Uint8List(8);
-  var v = value;
-  for (var i = 7; i >= 0; i--) {
-    bytes[i] = v & 0xff;
-    v >>= 8;
-  }
-  return bytes;
-}
+/// 8 big-endian bytes, exact on the web too (see int64BigEndianBytes).
+Uint8List _be8(int value) => int64BigEndianBytes(value);
 
 class Eip712Hashes {
   final Uint8List domain;
