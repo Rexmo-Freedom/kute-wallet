@@ -222,6 +222,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
+import 'package:kute/platform/kute_layout.dart' show KuteLayout;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
@@ -1510,6 +1511,10 @@ class _SheetHeader extends StatelessWidget {
 /// Crypto's 5 Min row, where the "5 minute markets" card leads.
 const PolySub _kFiveMinuteSub = PolySub('5m');
 
+/// Crypto's round lengths (5 Min, 15 Min, 1 Hour, 4 Hours): each is a
+/// round page (polymarket_screen.dart, polyCryptoPageMinutes).
+const Set<String> _kRoundLengthSubs = {'5m', '15m', '1h', '4h'};
+
 const double _kLogo = 22;
 const int _kLogos = 3;
 const double _kGlyphArt = 28;
@@ -2334,8 +2339,17 @@ class _InvestmentsCategoryChipsState
     final subs = p == PolyPill.trending || p == PolyPill.watchlist
         ? const <PolySub>[]
         : _polySubs(p);
+    // On a laptop without the left navigation (EXPANDED under
+    // kuteDeskNavMinWidth) a round page's lengths are picked with the
+    // row under its card (polymarket_screen.dart), so the row of chips
+    // leaves them out there: one way to pick a length.
+    final roundPage =
+        p == PolyPill.crypto && _kRoundLengthSubs.contains(sel.subOf(p));
+    final lengthsUnderCard =
+        !widget.tree && roundPage && KuteLayout.isExpanded(context);
     final second = <_Chip>[
       for (final s in subs)
+        if (!(lengthsUnderCard && _kRoundLengthSubs.contains(s.key)))
         (
           key: ValueKey('category-chip-sub-${s.key}'),
           label: s.key == p.defaultSub

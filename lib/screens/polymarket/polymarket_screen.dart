@@ -64,7 +64,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
-import 'package:kute/platform/kute_wide_frames.dart' show KuteWideMode;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show KuteWideMode, kuteDeskNavShown;
+import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart'
+    show HlBrowsePageHeading;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -834,6 +837,29 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                           // Under Crypto › 5 Min, with the other assets'
                           // card. Never on Trending any more (founder, 8
                           // November 2026): Crypto › 5 Min is its home.
+                          // On the Dollars page on EXPANDED a category
+                          // page carries its name, as Investing's do
+                          // (hyperliquid_screen.dart): the category for
+                          // its own list, else the subcategory, as the
+                          // left navigation names them; none on
+                          // Trending's default view or the Watchlist.
+                          if (embedded &&
+                              KuteLayout.isExpanded(context) &&
+                              !defaultView &&
+                              pill != PolyPill.watchlist)
+                            SliverToBoxAdapter(
+                              child: HlBrowsePageHeading(
+                                switch ([...subs, ...leagueSubs]
+                                    .where((s) =>
+                                        s.key == selection.sub &&
+                                        s.key != pill.defaultSub)
+                                    .firstOrNull) {
+                                  final PolySub sub => polySubLabel(l10n, sub),
+                                  null => polyPillLabel(l10n, pill),
+                                },
+                                key: const ValueKey('poly-page-heading'),
+                              ),
+                            ),
               if (roundMinutes != null) ..._roundPageSlivers(roundMinutes),
 
                           // No heading over the list: the selected pill
@@ -987,6 +1013,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       selected: minutes,
       onSelect: (sub) => _onSub(PolySub(sub)),
     );
+    // On a laptop with the Dollars page's left navigation the lengths are
+    // its Crypto items (5 Min, 15 Min, 1 Hour, 4 Hours), the same page
+    // state; the row under the card would be the same choice twice.
+    final lengthsInNav = widget.embedded && kuteDeskNavShown(context);
     final rows = _MoreCryptoMarketsCard(
       minutes: minutes,
       onDeposit: () {
@@ -1010,7 +1040,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [card, const SizedBox(height: 12), lengths],
+                        children: [
+                          card,
+                          if (!lengthsInNav) ...[
+                            const SizedBox(height: 12),
+                            lengths,
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(width: kMarketGridGutter),
@@ -1026,8 +1062,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         card,
-                        const SizedBox(height: 12),
-                        lengths,
+                        if (!lengthsInNav) ...[
+                          const SizedBox(height: 12),
+                          lengths,
+                        ],
                         const SizedBox(height: 10),
                         rows,
                       ],

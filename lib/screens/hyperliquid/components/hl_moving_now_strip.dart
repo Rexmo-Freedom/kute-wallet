@@ -378,6 +378,29 @@ double hlMovingNowCardHeight(BuildContext context) {
   return content > least ? content : least;
 }
 
+/// The least width a square's foot needs on EXPANDED to give its line
+/// the half beside the name and the price ([_HlMoverWideFoot]); a
+/// narrower foot draws the line across the square, under the logo row.
+const double _kWideFootLineMinWidth = 240;
+
+/// The room a square on EXPANDED gains when its line runs across it
+/// under the logo row ([_kWideFootLineMinWidth]).
+const double _kLineAcrossRoom = 44;
+
+/// A square's height on EXPANDED in a [width] wide slot: [height] (or
+/// [hlMovingNowCardHeight]), or, when its foot is too narrow for the line
+/// beside the name and the price, tall enough for the line across it
+/// ([_kLineAcrossRoom] over a phone square's height).
+double hlMovingNowCardHeightAt(BuildContext context, double width,
+    {double? height}) {
+  final least = hlMovingNowCardHeight(context);
+  final base = height ?? least;
+  if (!width.isFinite || width - 2 * _kPad.w >= _kWideFootLineMinWidth) {
+    return base;
+  }
+  return math.max(base, least + _kLineAcrossRoom);
+}
+
 /// How many of a Watchlist of [count] markets are squares (see the file
 /// header): full rows of two only, four at most; the rest are rows.
 int hlWatchlistSquareCount(int count) => count >= kHlMoverCardMax
@@ -509,26 +532,35 @@ class HlMovingNowStripSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final decoration = PremiumGroupContainer.decorationOf(context);
     final height = hlMovingNowCardHeight(context);
+    Widget square(double height) => Container(
+          height: height,
+          decoration: decoration,
+          padding: EdgeInsets.all(_kPad.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonCircle(kHlMoverCardIcon.w),
+              const Spacer(),
+              SkeletonBar(64.w, 12.h),
+              SizedBox(height: 8.h),
+              SkeletonBar(96.w, 20.h),
+            ],
+          ),
+        );
+    final expanded = KuteLayout.isExpanded(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
       child: KuteSkeleton(
         child: HlSquaresRow(children: [
           for (var i = 0; i < kHlMoverCardMax; i++)
-            Container(
-              height: height,
-              decoration: decoration,
-              padding: EdgeInsets.all(_kPad.w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SkeletonCircle(kHlMoverCardIcon.w),
-                  const Spacer(),
-                  SkeletonBar(64.w, 12.h),
-                  SizedBox(height: 8.h),
-                  SkeletonBar(96.w, 20.h),
-                ],
-              ),
-            ),
+            if (expanded)
+              // As tall as the square it stands for
+              // ([hlMovingNowCardHeightAt]).
+              LayoutBuilder(
+                  builder: (context, box) => square(
+                      hlMovingNowCardHeightAt(context, box.maxWidth)))
+            else
+              square(height),
         ]),
       ),
     );
@@ -629,9 +661,38 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
 
     final decoration = PremiumGroupContainer.decorationOf(context);
     final radius = decoration.borderRadius as BorderRadius?;
+    // On EXPANDED a square too narrow for its line beside the name and
+    // the price draws it across the square, the square that much taller
+    // ([hlMovingNowCardHeightAt]).
+    if (KuteLayout.isExpanded(context)) {
+      return LayoutBuilder(
+          builder: (context, box) => _square(
+              hlMovingNowCardHeightAt(context, box.maxWidth,
+                  height: widget.height),
+              decoration,
+              radius,
+              changeColor,
+              change,
+              figures,
+              price));
+    }
+    return _square(widget.height ?? hlMovingNowCardHeight(context),
+        decoration, radius, changeColor, change, figures, price);
+  }
+
+  Widget _square(
+      double height,
+      BoxDecoration decoration,
+      BorderRadius? radius,
+      Color changeColor,
+      double? change,
+      List<Widget> figures,
+      double price) {
+    final c = context.colors;
+    final m = widget.market;
     return KutePressable(
       child: Container(
-        height: widget.height ?? hlMovingNowCardHeight(context),
+        height: height,
         decoration: decoration,
         child: Material(
           color: Colors.transparent,
@@ -727,9 +788,6 @@ class _HlMoverWideFoot extends ConsumerWidget {
   /// The name over the price, as the phone's square draws them.
   final List<Widget> figures;
 
-  /// The least width the foot needs to give the line its half.
-  static const double _kWideFootLineMinWidth = 240;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final text = Column(
@@ -738,11 +796,35 @@ class _HlMoverWideFoot extends ConsumerWidget {
       children: figures,
     );
     return LayoutBuilder(builder: (context, box) {
-      if (box.maxWidth < _kWideFootLineMinWidth) return text;
       final series = ref.watch(hyperliquidSparklineProvider(market.wireCoin));
       final closes = series == null
           ? const <double>[]
           : hlSparklineWithLivePrice(series.closes, price);
+      // Too narrow to stand beside the name and the price: the line
+      // across the square between the logo row and them (the square
+      // made taller for it, [hlMovingNowCardHeightAt]).
+      if (box.maxWidth < _kWideFootLineMinWidth) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 10),
+                child: LayoutBuilder(
+                  builder: (context, line) => HlLineSparkline(
+                    closes: closes,
+                    width: line.maxWidth,
+                    height: line.maxHeight,
+                    strokeWidth: 1.6,
+                    baseline: false,
+                  ),
+                ),
+              ),
+            ),
+            ...figures,
+          ],
+        );
+      }
       const gap = 16.0;
       final textWidth = (box.maxWidth - gap) * 0.45;
       return Row(
