@@ -527,6 +527,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
         widget.ledgerWalletId == null &&
         widget.sendPick == null;
     final inPlace = desk && !_advancedChart;
+    // THE DESK at rest: the live book in the right column, the Stats and
+    // the recent trades under the chart (founder, 25 November 2026).
+    final deskBook = inPlace && _deskBookShown(m);
     _panel.duration =
         kuteReduceMotion(context) ? Duration.zero : KuteMotion.settleDuration;
     if (inPlace) {
@@ -604,7 +607,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                 Container(
                   alignment: Alignment.centerLeft,
                   padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-                  child: (Column(
+                  child: _withAdvancedPill(inPlace, Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Smaller rather than cut on a long price. The
@@ -781,13 +784,16 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                         // and the recent trades, the Advanced chart card
                         // over them.
                         if (inPlace)
-                          // The Stats are the right column's squares.
+                          // The book in the right column: the Stats and
+                          // the recent trades here. No book: the Stats are
+                          // the column's squares.
                           _HlAboutContent(
                             market: widget.market,
                             isStock: isStock,
                             position: position,
                             wide: true,
                             showStats: false,
+                            bookInColumn: deskBook,
                           )
                         else if (!_advancedChart)
                           KuteActionCardGrid(
@@ -849,7 +855,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
           column: column,
           editing: _advancedChart,
           rightColumn: inPlace
-              ? _deskColumn(m, isStock, position, spotHeld)
+              ? _deskColumn(m, position, spotHeld, bookShown: deskBook)
               : null,
           panel: () => _ticketPane(m, position, spotHeld, bar),
         ),
@@ -983,11 +989,29 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
     });
   }
 
-  /// THE DESK's right column at rest, two across as the position page's:
-  /// the trade buttons, what is held here, the Stats as squares, then the
-  /// option cards. It scrolls on its own, clear of the floating bar.
-  Widget _deskColumn(HlMarket m, bool isStock, HlPerpPosition? position,
-      double spotHeld) {
+  /// Whether the desk's right column holds the live order book (founder,
+  /// 25 November 2026: "the order book on the right would look better"):
+  /// while it first loads, and whenever it has a level on either side. A
+  /// market with no book (an error, both sides empty) keeps the Stats as
+  /// the column's squares instead of an empty box. A narrow select: only
+  /// that answer changing rebuilds the page, never a 250 ms depth tick.
+  bool _deskBookShown(HlMarket m) =>
+      ref.watch(hyperliquidOrderbookProvider(m.wireCoin).select((a) {
+        if (a.hasError) return false;
+        final book = a.valueOrNull;
+        if (book == null) return true;
+        return book.bids.isNotEmpty || book.asks.isNotEmpty;
+      }));
+
+  /// THE DESK's right column at rest: the trade buttons, what is held
+  /// here, then the live order book down to the bar's clearance at the
+  /// window's foot, as many levels a side as fit ([HlOrderBookSection.fill];
+  /// the Stats are under the chart). With no book ([bookShown] false) the
+  /// Stats are the column's squares, two across, as before. Advanced chart
+  /// is the pill on the price row and everything About opened is on the
+  /// page, so no option cards here.
+  Widget _deskColumn(HlMarket m, HlPerpPosition? position, double spotHeld,
+      {required bool bookShown}) {
     final l10n = context.l10n;
     final c = context.colors;
     HlSpotBalance? holding;
@@ -1007,6 +1031,59 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                     balance: holding),
               )
             : null;
+    final gap = SizedBox(height: kKuteActionCardGap.h);
+    final foot =
+        kuteBarScrollClearance.h + MediaQuery.viewPaddingOf(context).bottom;
+    final head = <Widget>[
+      KuteDeskTradeButtons(
+        key: const ValueKey('hl-desk-trades'),
+        trades: _deskTrades(m, spotHeld),
+      ),
+      if (held != null) ...[
+        gap,
+        PortfolioCardList(rows: [held]),
+      ],
+    ];
+    if (bookShown) {
+      return KuteBarPane(
+        child: LayoutBuilder(builder: (context, constraints) {
+          // A window too short for a book of five a side under the
+          // buttons: the column scrolls, the book at its five.
+          if (constraints.maxHeight < 520) {
+            return SingleChildScrollView(
+              primary: false,
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.only(bottom: foot),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...head,
+                  gap,
+                  HlOrderBookSection(
+                      key: const ValueKey('hl-desk-book'), market: m),
+                ],
+              ),
+            );
+          }
+          return Padding(
+            padding: EdgeInsets.only(bottom: foot),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...head,
+                SizedBox(height: 20.h),
+                Expanded(
+                  child: HlOrderBookSection(
+                      key: const ValueKey('hl-desk-book'),
+                      market: m,
+                      fill: true),
+                ),
+              ],
+            ),
+          );
+        }),
+      );
+    }
     final stats = hlAboutStats(ref, l10n, m);
     Widget tile(HlStat stat) => PositionStatTile(
           key: ValueKey('hl-desk-stat-${stat.label}'),
@@ -1014,25 +1091,15 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
           value: Text(stat.value,
               maxLines: 1, style: positionTileValueStyle(c)),
         );
-    final gap = SizedBox(height: kKuteActionCardGap.h);
     return KuteBarPane(
       child: SingleChildScrollView(
         primary: false,
         physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.only(
-            bottom: kuteBarScrollClearance.h +
-                MediaQuery.viewPaddingOf(context).bottom),
+        padding: EdgeInsets.only(bottom: foot),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            KuteDeskTradeButtons(
-              key: const ValueKey('hl-desk-trades'),
-              trades: _deskTrades(m, spotHeld),
-            ),
-            if (held != null) ...[
-              gap,
-              PortfolioCardList(rows: [held]),
-            ],
+            ...head,
             if (stats.isNotEmpty) ...[
               gap,
               // Arriving figures (a day's high and low, the spread) ease
@@ -1056,14 +1123,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                 ),
               ),
             ],
-            gap,
-            KuteActionCardGrid(
-              key: const ValueKey('hl-market-options'),
-              cards: [
-                _advancedCard(),
-                _aboutCard(m, isStock, position),
-              ],
-            ),
           ],
         ),
       ),
@@ -1216,6 +1275,71 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
     );
   }
 
+  /// EXPANDED (founder, 25 November 2026: "the Advanced chart button just
+  /// seems put there, should be more prominent"; again the same day: "the
+  /// Advanced chart button where it was before"): "Advanced chart" is a
+  /// pill on the price row, right-aligned, the app's amount-chip face with
+  /// the candles glyph, instead of a card. Elsewhere the price block as it
+  /// was (the card stays under the chart).
+  Widget _withAdvancedPill(bool inPlace, Widget price) {
+    if (!inPlace) return price;
+    final c = context.colors;
+    final label = context.l10n.hlAdvancedChart;
+    // Bigger (founder, 25 November 2026: "advanced chart button should be
+    // bigger here also"): the bar's pill size (48 high, fully round), the
+    // candles at 20 and the label at the body-strong size. Outlined on
+    // the page's surface rather than the dark filled pill: the ticket's
+    // primary in the panel is the screen's one dark pill, and two would
+    // argue over which is the action.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: price),
+        const SizedBox(width: 24),
+        Semantics(
+          button: true,
+          label: label,
+          excludeSemantics: true,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('hl-advanced-chart'),
+              onTap: () => HlCandleChart.openAdvanced(_chartHostKey),
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: c.border, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.candlestick_chart_rounded,
+                        size: 20, color: c.textPrimary),
+                    const SizedBox(width: 10),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// "Advanced chart": the chart's editing mode (drawing tools,
   /// indicators).
   KuteActionCard _advancedCard() => KuteActionCard.option(
@@ -1336,12 +1460,19 @@ class _HlAboutContent extends ConsumerWidget {
   /// column's squares).
   final bool showStats;
 
+  /// The desk's right column holds the order book (founder, 25 November
+  /// 2026: "the order book on the right would look better, instead of all
+  /// those numbers, and then those numbers at the bottom"): under what it
+  /// is, the Stats as squares beside the recent trades, no book here.
+  final bool bookInColumn;
+
   const _HlAboutContent({
     required this.market,
     required this.isStock,
     required this.position,
     this.wide = false,
     this.showStats = true,
+    this.bookInColumn = false,
   });
 
   @override
@@ -1494,6 +1625,43 @@ class _HlAboutContent extends ConsumerWidget {
         children: [...info, SizedBox(height: 16.h), ...book],
       );
     }
+    if (bookInColumn) {
+      return Column(
+        key: const ValueKey('hl-about-in-place'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...info,
+          SizedBox(height: 28.h),
+          LayoutBuilder(builder: (context, constraints) {
+            const gap = KuteLayout.paneGap;
+            final statsBlock = _HlDeskStats(
+                stats: hlAboutStats(ref, l10n, m),
+                title: l10n.investingStats);
+            // Two readable columns need about 300 each; narrower, stacked.
+            if (constraints.maxWidth < 2 * 300 + gap) {
+              return Column(
+                key: const ValueKey('hl-about-stats-stacked'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  statsBlock,
+                  SizedBox(height: 28.h),
+                  HlRecentTradesSection(market: m),
+                ],
+              );
+            }
+            return Row(
+              key: const ValueKey('hl-about-stats-row'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: statsBlock),
+                const SizedBox(width: gap),
+                Expanded(child: HlRecentTradesSection(market: m)),
+              ],
+            );
+          }),
+        ],
+      );
+    }
     return Column(
       key: const ValueKey('hl-about-in-place'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1524,6 +1692,77 @@ class _HlAboutContent extends ConsumerWidget {
             ],
           );
         }),
+      ],
+    );
+  }
+}
+
+/// The desk's Stats under the chart: titled as the recent trades beside
+/// them are, the stat squares the right column showed (moved, never
+/// twice), two across, four across where the half is wide and the count
+/// fills its rows; an odd last square takes the row's width, never a
+/// lone half.
+class _HlDeskStats extends StatelessWidget {
+  final List<HlStat> stats;
+  final String title;
+  const _HlDeskStats({required this.stats, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    if (stats.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
+    Widget tile(HlStat stat) => PositionStatTile(
+          key: ValueKey('hl-desk-stat-${stat.label}'),
+          label: stat.label,
+          value: Text(stat.value,
+              maxLines: 1, style: positionTileValueStyle(c)),
+        );
+    final gap = SizedBox(height: kKuteActionCardGap.h);
+    return Column(
+      key: const ValueKey('hl-desk-stats'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        SizedBox(height: 10.h),
+        // Arriving figures (a day's high and low, the spread) ease the
+        // squares to their new height.
+        AnimatedSize(
+          duration: kuteMotion(context, kArrivalDuration),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final perRow =
+                constraints.maxWidth >= 680 && stats.length % 4 == 0 ? 4 : 2;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < stats.length; i += perRow) ...[
+                  if (i > 0) gap,
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var j = i;
+                            j < math.min(i + perRow, stats.length);
+                            j++) ...[
+                          if (j > i) SizedBox(width: 10.w),
+                          Expanded(child: tile(stats[j])),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            );
+          }),
+        ),
       ],
     );
   }
@@ -3783,9 +4022,43 @@ class _CornerTickPainter extends CustomPainter {
 
 class HlOrderBookSection extends ConsumerWidget {
   final HlMarket market;
-  const HlOrderBookSection({super.key, required this.market});
+  const HlOrderBookSection({super.key, required this.market, this.fill = false});
 
   static const _levels = 5;
+
+  /// THE DESK's right column (EXPANDED; founder, 25 November 2026): the
+  /// section takes the height it is given, its card running to the foot,
+  /// and shows as many levels a side as fit there (never fewer than
+  /// five, never more than the feed sends), the spread line in the
+  /// middle. False: five a side at their own height.
+  final bool fill;
+
+  /// The height of one [_DepthRow] and of the [_BookSpreadRow] in this
+  /// context's text: how many levels [fill] fits.
+  static ({double row, double spread}) _rowHeights(BuildContext context) {
+    final base = DefaultTextStyle.of(context).style;
+    final scaler = MediaQuery.textScalerOf(context);
+    double line(double size) {
+      final tp = TextPainter(
+        text: TextSpan(
+            text: '0',
+            style: base.merge(TextStyle(
+                fontSize: size,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()]))),
+        textDirection: Directionality.of(context),
+        textScaler: scaler,
+      )..layout();
+      final h = tp.height;
+      tp.dispose();
+      return h;
+    }
+
+    return (
+      row: line(12.sp) + 9.h,
+      spread: math.max(line(11.5.sp), 12.sp) + 8.h,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -3795,7 +4068,10 @@ class HlOrderBookSection extends ConsumerWidget {
     return bookAsync.when(
       // Skeleton mimicking the two-column bid/ask ladder while the book
       // first loads: 6 bid bars (left) + 6 ask bars (right).
-      loading: () => SizedBox(
+      loading: () => Align(
+        alignment: Alignment.topCenter,
+        heightFactor: 1,
+        child: SizedBox(
         height: 180.h,
         child: KuteSkeleton(
           child: Column(
@@ -3845,6 +4121,7 @@ class HlOrderBookSection extends ConsumerWidget {
           ),
         ),
       ),
+      ),
       error: (_, __) => Container(
         height: 80.h,
         alignment: Alignment.center,
@@ -3854,18 +4131,127 @@ class HlOrderBookSection extends ConsumerWidget {
         ),
       ),
       data: (book) {
-        final bids = book.bids.take(_levels).toList();
-        final asks = book.asks.take(_levels).toList();
-        var maxSz = 0.0;
-        for (final l in bids) {
-          if (l.sz > maxSz) maxSz = l.sz;
+        Widget ladder(int levels) {
+          final bids = book.bids.take(levels).toList();
+          final asks = book.asks.take(levels).toList();
+          var maxSz = 0.0;
+          for (final l in bids) {
+            if (l.sz > maxSz) maxSz = l.sz;
+          }
+          for (final l in asks) {
+            if (l.sz > maxSz) maxSz = l.sz;
+          }
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Asks, worst at the top so the best ask touches
+              // the spread row.
+              for (final l in asks.reversed)
+                _DepthRow(
+                  level: l,
+                  maxSz: maxSz,
+                  isBid: false,
+                  decimalCap: market.pxDecimalCap,
+                ),
+              _BookSpreadRow(
+                bestBid: book.bestBid,
+                bestAsk: book.bestAsk,
+                spreadPct: book.spreadPct,
+                decimalCap: market.pxDecimalCap,
+              ),
+              for (final l in bids)
+                _DepthRow(
+                  level: l,
+                  maxSz: maxSz,
+                  isBid: true,
+                  decimalCap: market.pxDecimalCap,
+                ),
+            ],
+          );
         }
-        for (final l in asks) {
-          if (l.sz > maxSz) maxSz = l.sz;
-        }
+
+        final empty = book.bids.isEmpty && book.asks.isEmpty;
+        final priceSize = Padding(
+          padding: EdgeInsets.only(bottom: 6.h),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                context.l10n.hlBookPrice,
+                style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600),
+              ),
+              Text(
+                context.l10n.hlBookSize,
+                style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        );
+        final card = empty
+            ? Container(
+                height: 60.h,
+                alignment: Alignment.center,
+                child: Text(
+                  context.l10n.hlEmptyBook,
+                  style: TextStyle(color: c.textTertiary, fontSize: 13.sp),
+                ),
+              )
+            // Stacked depth view: asks above (best ask nearest the
+            // middle), a spread row, bids below — the exchange-native
+            // reading order. RepaintBoundary keeps the 250ms book
+            // ticks re-rastering this card only, never the sheet.
+            : RepaintBoundary(
+                child: Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: c.surface.withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                  child: !fill
+                      ? Column(children: [priceSize, ladder(_levels)])
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            priceSize,
+                            Expanded(
+                              child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                // As many a side as the card's height
+                                // holds, the ladder centred on the spread
+                                // (a feed with fewer leaves the room at
+                                // the card's ends); short of five, five
+                                // that scroll inside the card.
+                                final h = _rowHeights(context);
+                                final fit = ((constraints.maxHeight -
+                                            h.spread) /
+                                        (2 * h.row))
+                                    .floor();
+                                if (fit < _levels) {
+                                  return SingleChildScrollView(
+                                    primary: false,
+                                    child: ladder(_levels),
+                                  );
+                                }
+                                return ClipRect(
+                                  child: Center(child: ladder(fit)),
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                ),
+              );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -3905,78 +4291,7 @@ class HlOrderBookSection extends ConsumerWidget {
               ],
             ),
             SizedBox(height: 10.h),
-            if (bids.isEmpty && asks.isEmpty)
-              Container(
-                height: 60.h,
-                alignment: Alignment.center,
-                child: Text(
-                  context.l10n.hlEmptyBook,
-                  style: TextStyle(color: c.textTertiary, fontSize: 13.sp),
-                ),
-              )
-            else
-              // Stacked depth view: asks above (best ask nearest the
-              // middle), a spread row, bids below — the exchange-native
-              // reading order. RepaintBoundary keeps the 250ms book
-              // ticks re-rastering this card only, never the sheet.
-              RepaintBoundary(
-                child: Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                  decoration: BoxDecoration(
-                    color: c.surface.withValues(alpha: 0.96),
-                    borderRadius: BorderRadius.circular(14.r),
-                  ),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(bottom: 6.h),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              context.l10n.hlBookPrice,
-                              style: TextStyle(
-                                  color: c.textTertiary,
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              context.l10n.hlBookSize,
-                              style: TextStyle(
-                                  color: c.textTertiary,
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Asks, worst at the top so the best ask touches
-                      // the spread row.
-                      for (final l in asks.reversed)
-                        _DepthRow(
-                          level: l,
-                          maxSz: maxSz,
-                          isBid: false,
-                          decimalCap: market.pxDecimalCap,
-                        ),
-                      _BookSpreadRow(
-                        bestBid: book.bestBid,
-                        bestAsk: book.bestAsk,
-                        spreadPct: book.spreadPct,
-                        decimalCap: market.pxDecimalCap,
-                      ),
-                      for (final l in bids)
-                        _DepthRow(
-                          level: l,
-                          maxSz: maxSz,
-                          isBid: true,
-                          decimalCap: market.pxDecimalCap,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+            if (fill && !empty) Expanded(child: card) else card,
           ],
         );
       },

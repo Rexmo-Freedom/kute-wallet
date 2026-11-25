@@ -54,6 +54,8 @@ import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart'
 import 'package:kute/screens/shared/charts/kute_chart_drawings.dart'
     show KuteChartDrawingsPainter;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
     show HlTrade;
@@ -228,6 +230,7 @@ Future<void> _pump(WidgetTester tester,
     required bool dark,
     required HlMarket market,
     bool held = false,
+    bool noBook = false,
     Widget? home}) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -260,7 +263,9 @@ Future<void> _pump(WidgetTester tester,
       hyperliquidActiveAssetCtxProvider
           .overrideWith((ref, wire) => const Stream.empty()),
       hyperliquidOrderbookProvider
-          .overrideWith((ref, wire) => Stream.value(_book(66000))),
+          .overrideWith((ref, wire) => Stream.value(noBook
+              ? const HlOrderBookState(isConnected: true)
+              : _book(66000))),
       hyperliquidPerpPositionsProvider.overrideWith((_) => positions),
       hyperliquidSpotBalancesProvider.overrideWith((_) => spot),
       hyperliquidActivityFillsProvider.overrideWith((_) => const []),
@@ -361,9 +366,49 @@ void main() {
     expect(find.byType(HlOrderSlipSheet), findsNothing);
     expect(find.byKey(const ValueKey('kute-bar-trade-invest')), findsNothing);
     expect(find.byKey(const ValueKey('hl-desk-position-BTC')), findsOneWidget);
+    // The book in the column (founder, 25 November 2026: "the order book
+    // on the right would look better ... and then those numbers at the
+    // bottom"): the Stats under the chart, once; no squares, no option
+    // cards in the column.
+    final deskColumn = find.byKey(const ValueKey('hl-desk-column'));
+    expect(
+        find.descendant(
+            of: deskColumn,
+            matching: find.byKey(const ValueKey('hl-desk-book'))),
+        findsOneWidget);
+    expect(find.byType(HlOrderBookSection), findsOneWidget);
+    expect(find.byType(HlRecentTradesSection), findsOneWidget);
+    expect(
+        find.descendant(
+            of: deskColumn,
+            matching: find.byType(HlRecentTradesSection)),
+        findsNothing);
+    expect(
+        find.descendant(
+            of: deskColumn,
+            matching: find.byKey(const ValueKey('hl-desk-stats'))),
+        findsNothing);
     expect(find.byKey(const ValueKey('hl-desk-stats')), findsOneWidget);
-    // The Stats are the column's squares only, never twice.
     expect(find.byKey(const ValueKey('hl-stats-tiles')), findsNothing);
+    expect(find.byKey(const ValueKey('hl-about')), findsNothing);
+    expect(find.byKey(const ValueKey('hl-market-options')), findsNothing);
+    // The book runs to the bar's clearance at the window's foot, with
+    // more than five levels a side at 900 tall.
+    final book = tester.getRect(find.byKey(const ValueKey('hl-desk-book')));
+    expect(book.bottom, closeTo(900 - kuteBarScrollClearance.h, 1));
+    expect(book.width, closeTo(tester.getRect(deskColumn).width, 0.5));
+    // The Stats sit under the chart, on the left.
+    final stats = tester.getRect(find.byKey(const ValueKey('hl-desk-stats')));
+    expect(stats.top,
+        greaterThan(tester.getRect(find.byType(HlCandleChart)).bottom));
+    expect(stats.right, lessThan(tester.getRect(deskColumn).left));
+    // Advanced chart is the pill on the price row, at the left side's
+    // right end.
+    final pill = tester.getRect(find.byKey(const ValueKey('hl-advanced-chart')));
+    final priceRow =
+        tester.getRect(find.byKey(const ValueKey('hl-detail-price')));
+    expect(pill.top, lessThan(priceRow.bottom + 40));
+    expect(pill.right, lessThan(tester.getRect(deskColumn).left));
     final long = find.byKey(const ValueKey('kute-desk-trade-long'));
     final short = find.byKey(const ValueKey('kute-desk-trade-short'));
     expect(long, findsOneWidget);
@@ -428,6 +473,67 @@ void main() {
     expect(find.byType(HlOrderSlipSheet), findsNothing);
     expect(find.byType(HlMarketDetailSheet), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets('EXPANDED: the Advanced chart pill opens the editor',
+      (tester) async {
+    await _pump(tester,
+        size: const Size(1440, 900), dark: false, market: _btc);
+    await tester.tap(find.byKey(const ValueKey('hl-advanced-chart')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('hl-chart-edit-top-bar-wide')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-editor-trades')), findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-desk-column')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  // As many levels a side as the column's height holds: five at least,
+  // more on a taller window, never more than the feed sends (12 here).
+  for (final (size, atLeast) in const [
+    (Size(1000, 700), 5),
+    (Size(1280, 800), 6),
+    (Size(1440, 900), 8),
+    (Size(1920, 1080), 11),
+    (Size(2400, 1200), 12),
+  ]) {
+    testWidgets('the book fills the column at ${size.height.toInt()} tall',
+        (tester) async {
+      await _pump(tester, size: size, dark: false, market: _btc, held: true);
+      expect(tester.takeException(), isNull);
+      final rows = find.descendant(
+          of: find.byKey(const ValueKey('hl-desk-book')),
+          matching: find.text('Size'));
+      expect(rows, findsOneWidget);
+      // Asks above, bids below: the price texts in the side colours.
+      final prices = find.descendant(
+          of: find.byKey(const ValueKey('hl-desk-book')),
+          matching: find.textContaining(r'$'));
+      final perSide = (prices.evaluate().length - 1) ~/ 2;
+      expect(perSide, greaterThanOrEqualTo(atLeast));
+      expect(perSide, lessThanOrEqualTo(12));
+      await _unmount(tester);
+    });
+  }
+
+  testWidgets('a market with no book: the column keeps the stat squares',
+      (tester) async {
+    await _pump(tester,
+        size: const Size(1440, 900),
+        dark: false,
+        market: _btc,
+        noBook: true);
+    expect(tester.takeException(), isNull);
+    final deskColumn = find.byKey(const ValueKey('hl-desk-column'));
+    expect(
+        find.descendant(
+            of: deskColumn,
+            matching: find.byKey(const ValueKey('hl-desk-stats'))),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-desk-stats')), findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-desk-book')), findsNothing);
     await _unmount(tester);
   });
 
@@ -842,12 +948,17 @@ void main() {
         ('perp_held', _btc, true),
         ('spot', _hype, false),
         ('spot_held', _hype, true),
+        ('nobook', _btc, false),
       ]) {
         final mode = dark ? 'dark' : 'light';
         testWidgets('render: $label $mode $kind', skip: _dir == null,
             (tester) async {
           await _pump(tester,
-              size: size, dark: dark, market: market, held: held);
+              size: size,
+              dark: dark,
+              market: market,
+              held: held,
+              noBook: kind == 'nobook');
           expect(tester.takeException(), isNull);
           await _shoot(tester, 'hl_market_${label}_${mode}_$kind');
           // EXPANDED: the panel open on each side.
