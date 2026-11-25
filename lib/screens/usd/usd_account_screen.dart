@@ -230,7 +230,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
-    show DollarsActivityTab;
+    show DollarsActivityTab, dollarsOverviewSplits;
 import 'package:kute/screens/usd/dollars_desk_nav.dart' show DollarsDeskNav;
 import 'package:kute/screens/usd/investments_category_sheet.dart'
     show
@@ -877,9 +877,14 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                   ? InvestmentsCategoryChips(tab: selected)
                   : null,
               onRefresh: _refresh,
-              // The positions are the Overview's own, on the left: the
-              // right column does not repeat them there.
-              positionsAtRight: selected != InvestmentsTab.activity,
+              // The Overview's too where its hero stands beside them
+              // (dollarsOverviewSplits): the one column in one place
+              // under all three sections.
+              positionsAtRight: selected != InvestmentsTab.activity ||
+                  dollarsOverviewSplits(MediaQuery.sizeOf(context).width),
+              // Beside the Overview's hero, which is the Open profits card,
+              // the column is the positions alone.
+              positionsPnl: selected != InvestmentsTab.activity,
               notificationPredicate: (n) =>
                   n.depth == 0 && _fromVisiblePill(n),
               body: pillBody,
@@ -1001,6 +1006,7 @@ class _InvestmentsPanes extends ConsumerStatefulWidget {
     required this.chips,
     required this.onRefresh,
     required this.positionsAtRight,
+    this.positionsPnl = true,
     required this.notificationPredicate,
     required this.body,
   });
@@ -1017,6 +1023,9 @@ class _InvestmentsPanes extends ConsumerStatefulWidget {
   /// The open positions in a right column: under Investing and
   /// Predictions; never under Overview, which is them, on the left.
   final bool positionsAtRight;
+
+  /// Whether that column carries the Open profits card under them.
+  final bool positionsPnl;
   final RefreshCallback onRefresh;
   final ScrollNotificationPredicate notificationPredicate;
   final Widget body;
@@ -1138,6 +1147,7 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
             child: SizedBox(
               width: KuteLayout.paneWidth,
               child: _InvestmentsPositionsColumn(
+                pnl: widget.positionsPnl,
                 onHeld: (held) {
                   if (mounted && held != _held) {
                     setState(() => _held = held);
@@ -1190,9 +1200,10 @@ class _InFlightLines extends ConsumerWidget {
 /// open positions and Open profits, still; its own scroll only in a
 /// window too short for it.
 class _InvestmentsPositionsColumn extends StatelessWidget {
-  const _InvestmentsPositionsColumn({required this.onHeld});
+  const _InvestmentsPositionsColumn({required this.onHeld, this.pnl = true});
 
   final ValueChanged<bool> onHeld;
+  final bool pnl;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -1201,7 +1212,7 @@ class _InvestmentsPositionsColumn extends StatelessWidget {
         padding: EdgeInsets.only(
             top: 8.h,
             bottom: MediaQuery.viewPaddingOf(context).bottom + 16.h),
-        child: DollarsActivityTab(inPane: true, onHeld: onHeld),
+        child: DollarsActivityTab(inPane: true, onHeld: onHeld, pnl: pnl),
       );
 }
 

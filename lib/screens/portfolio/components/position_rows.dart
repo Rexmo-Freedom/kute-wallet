@@ -91,6 +91,8 @@
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,6 +106,8 @@ import 'package:kute/models/portfolio_performance.dart' show PredictionRecord;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_sparkline_provider.dart'
+    show hyperliquidSparklineProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidAccountMarketProvider, hyperliquidSpotMarketsProvider;
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
@@ -112,6 +116,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
+import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
+    show HlLineSparkline;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
@@ -127,7 +133,7 @@ import 'package:kute/screens/polymarket/components/game_time.dart'
     show polyMinuteTickProvider;
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart'
-    show PolyCardThumbnail;
+    show PolyCardThumbnail, polyCardWeekLine;
 import 'package:kute/screens/polymarket/components/poly_chart_tags.dart'
     show polyChartOutcomeName;
 import 'package:kute/screens/polymarket/components/position_awaiting.dart';
@@ -147,6 +153,8 @@ import 'package:kute/screens/shared/transactions_builder.dart'
     show kActivitySquareHeight;
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/polymarket/market_display_title.dart';
+import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
+    show hlSparklineWithLivePrice;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -343,7 +351,7 @@ class PortfolioRowStatusScope extends InheritedWidget {
 /// screen's Positions row ([position]: the name and its side chip, a
 /// quiet note under it where there is one, the value over the P&L since
 /// it was opened, "+$1.20 (+8.0%)").
-enum PortfolioRowLayout { list, market, square, wide, position }
+enum PortfolioRowLayout { list, market, square, wide, position, desk }
 
 /// The [PortfolioRowLayout] of the position rows under it; none above:
 /// [PortfolioRowLayout.list].
@@ -1154,7 +1162,13 @@ class PortfolioPositionRow extends StatelessWidget {
     this.valueColor,
     this.squareLine,
     this.hiddenSquareLine,
+    this.spark,
   });
+
+  /// The market's own small line for the desk card
+  /// ([PortfolioRowLayout.desk]), [width] by [height] logical pixels:
+  /// built only there, so no other shape asks for a series. Null: none.
+  final Widget Function(double width, double height)? spark;
 
   /// The line under the name on the Portfolio screen's Positions
   /// ([PortfolioPositionSquares.holdings]), where [subtitle] would lose
@@ -1211,7 +1225,7 @@ class PortfolioPositionRow extends StatelessWidget {
   /// Positions (see the file header): whole, and masked with balances
   /// hidden. The one place these shapes read the setting, so the rows
   /// elsewhere go on needing no provider above them.
-  Widget _holding({required bool square}) => Consumer(
+  Widget _holding({required bool square, bool desk = false}) => Consumer(
         builder: (context, ref, _) {
           final visible =
               ref.watch(settingsProvider.select((s) => s.balanceVisible));
@@ -1238,6 +1252,19 @@ class PortfolioPositionRow extends StatelessWidget {
               entry: visible ? entry : null,
               width: width);
           final inner = PortfolioRowLayoutScope.squareInnerWidthOf(context);
+          if (desk) {
+            return _PositionDesk(
+              leading: leading,
+              name: title,
+              subtitle: line,
+              value: shown,
+              change: change,
+              detail: detail,
+              onTap: onTap,
+              bar: held == null ? null : bar,
+              spark: spark,
+            );
+          }
           return square
               ? _PositionSquare(
                   leading: leading,
@@ -1288,6 +1315,8 @@ class PortfolioPositionRow extends StatelessWidget {
               change != null ? 'portfolio-row-pnl' : 'portfolio-row-detail'),
           onTap: onTap,
         );
+      case PortfolioRowLayout.desk:
+        return _holding(square: false, desk: true);
       case PortfolioRowLayout.square
           when PortfolioRowLayoutScope.holdingsOf(context):
         return _holding(square: true);
@@ -1955,6 +1984,248 @@ class _PositionWide extends StatelessWidget {
   }
 }
 
+/// THE DESK CARDS (founder, 25 November 2026, of the Overview on a laptop:
+/// "this must be better cards"): on EXPANDED the open positions, on the
+/// Overview and in the "Open positions" column of Investing and
+/// Predictions alike, are one card per line ([PortfolioRowLayout.desk]):
+/// the logo, the name over the line under it ("Short · 0.065 NVDA", an
+/// open prediction's chance bar under it), the market's own small line
+/// ([PortfolioPositionRow.spark]: the Investing cards' sparkline, the
+/// Predictions cards' week line; none without data), then the value over
+/// its P&L in money and %, in the result's colour. At least
+/// [kPortfolioDeskCardHeight] tall, so one card alone reads as meant; the
+/// row's own tap, its hover and the pointer. Masked as the holdings are.
+const double kPortfolioDeskCardHeight = 104;
+
+/// The gap between two desk cards.
+const double kPortfolioDeskCardGap = 10;
+
+/// The desk card's market line, and the least room inside a card that
+/// still shows it.
+const Size _kDeskSpark = Size(64, 30);
+const double _kDeskSparkMinWidth = 340;
+
+/// [rows] as desk cards, one per line ([PortfolioRowLayout.desk]).
+class PortfolioPositionDeskCards extends StatelessWidget {
+  const PortfolioPositionDeskCards({super.key, required this.rows});
+
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) => PortfolioRowLayoutScope(
+        layout: PortfolioRowLayout.desk,
+        holdings: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) const SizedBox(height: kPortfolioDeskCardGap),
+              rows[i],
+            ],
+          ],
+        ),
+      );
+}
+
+/// Two desk cards' shimmer while the positions are first read.
+class PortfolioDeskCardsSkeleton extends StatelessWidget {
+  const PortfolioDeskCardsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget card() => KuteSkeleton(
+          child: SkeletonBar(double.infinity, kPortfolioDeskCardHeight,
+              radius: PremiumGroupContainer.radius),
+        );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        card(),
+        const SizedBox(height: kPortfolioDeskCardGap),
+        card(),
+      ],
+    );
+  }
+}
+
+/// One desk card (see [kPortfolioDeskCardHeight]).
+class _PositionDesk extends StatelessWidget {
+  const _PositionDesk({
+    required this.leading,
+    required this.name,
+    required this.subtitle,
+    required this.value,
+    required this.change,
+    required this.detail,
+    required this.onTap,
+    this.bar,
+    this.spark,
+  });
+
+  final Widget leading;
+  final String name;
+  final String subtitle;
+  final String value;
+  final PortfolioCornerPnl? change;
+  final String? detail;
+  final VoidCallback? onTap;
+  final Widget Function(double width)? bar;
+  final Widget Function(double width, double height)? spark;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    final radius = decoration.borderRadius as BorderRadius?;
+    final bar = this.bar;
+    final spark = this.spark;
+    final change = this.change;
+    final corner = change?.percent ?? detail;
+    final amount = change?.amount;
+    final cornerStyle = TextStyle(
+      color: change?.color ?? c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.25,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return MouseRegion(
+      cursor:
+          onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
+      child: KutePressable(
+        enabled: onTap != null,
+        child: Container(
+          key: const ValueKey('portfolio-desk'),
+          decoration: decoration,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: radius,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: radius,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    minHeight: kPortfolioDeskCardHeight.h),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 18.w, vertical: 16.h),
+                  child: LayoutBuilder(builder: (context, box) {
+                    final withSpark =
+                        spark != null && box.maxWidth >= _kDeskSparkMinWidth;
+                    return Row(
+                      children: [
+                        SizedBox.square(
+                          dimension: kPortfolioSquareIcon.w,
+                          child: FittedBox(child: leading),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Whole, as the holdings: nothing cut.
+                              Text(name,
+                                  key: const ValueKey('portfolio-row-title'),
+                                  style: portfolioRowTitleStyle(context)
+                                      .copyWith(fontWeight: FontWeight.w600)),
+                              SizedBox(height: 3.h),
+                              Text(subtitle,
+                                  key: const ValueKey(
+                                      'portfolio-row-subtitle'),
+                                  style: portfolioRowSubStyle(context)),
+                              if (bar != null) ...[
+                                SizedBox(height: 8.h),
+                                LayoutBuilder(
+                                  builder: (context, column) =>
+                                      bar(math.min(column.maxWidth, 160.w)),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (withSpark) ...[
+                          SizedBox(width: 12.w),
+                          ExcludeSemantics(
+                            child: spark(_kDeskSpark.width, _kDeskSpark.height),
+                          ),
+                        ],
+                        SizedBox(width: 14.w),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                              maxWidth: box.maxWidth * 0.36),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                RollingFigure(
+                                  key: const ValueKey('portfolio-row-value'),
+                                  text: value,
+                                  style: TextStyle(
+                                    color: c.textPrimary,
+                                    fontSize: 17.sp,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.4,
+                                    height: 1.2,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
+                                  ),
+                                ),
+                                if (corner != null) ...[
+                                  SizedBox(height: 4.h),
+                                  RollingFigure(
+                                    key: ValueKey(change != null
+                                        ? 'portfolio-row-pnl'
+                                        : 'portfolio-row-detail'),
+                                    text: amount == null
+                                        ? corner
+                                        : '$amount · $corner',
+                                    style: cornerStyle,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An Investing market's line for the desk card: the browse cards' own
+/// sparkline ([hyperliquidSparklineProvider], ending on [live] where it is
+/// known), coloured by its own move; nothing until the series lands.
+Widget _hlDeskSpark(String? wire, double? live, double width, double height) {
+  if (wire == null || wire.isEmpty) return SizedBox(width: width, height: height);
+  return Consumer(builder: (context, ref, _) {
+    final series = ref.watch(hyperliquidSparklineProvider(wire));
+    final closes = series == null
+        ? const <double>[]
+        : hlSparklineWithLivePrice(series.closes, live ?? 0);
+    return HlLineSparkline(
+      closes: closes,
+      width: width,
+      height: height,
+      baseline: false,
+    );
+  });
+}
+
 /// A Predictions picture: the market's image in the row's circle.
 Widget _polyImage(String title, String? imageUrl, {String category = ''}) =>
     ClipOval(
@@ -2101,6 +2372,15 @@ class PolyPositionRow extends ConsumerWidget {
         squareLine: polyPositionSquareLine(names, p.outcome, status: status),
         chip: polyPositionRowChip(names, p.outcome),
         note: polyPositionRowNote(names, status: status),
+        // The Predictions cards' week line of the held outcome.
+        spark: p.isResolved || p.tokenId == null || p.tokenId!.isEmpty
+            ? null
+            : (w, h) => polyCardWeekLine(
+                token: p.tokenId!,
+                live: price,
+                color: context.colors.textPrimary,
+                width: w,
+                height: h),
         value: money(value),
         chance: p.isResolved ? null : price,
         entry: p.isResolved || !costKnown ? null : p.avgPrice,
@@ -2279,6 +2559,8 @@ class HlPositionRow extends ConsumerWidget {
       hiddenSquareLine:
           standing != null ? '$side · ${standing.status}' : side,
       chip: side,
+      spark: (w, h) =>
+          _hlDeskSpark(descriptor?.wireCoin ?? p.coin, mid, w, h),
       value: money(hlCloseValue(p, liveMid: mid)),
       pnl: portfolioPnlPill(pnl, percent: roe * 100),
       pnlAmount: money(pnl.abs()),
@@ -2331,6 +2613,7 @@ class HlSpotRow extends ConsumerWidget {
       hiddenSquareLine: standing != null
           ? '${l10n.investingSpot} · ${standing.status}'
           : l10n.investingSpot,
+      spark: (w, h) => _hlDeskSpark(market?.wireCoin, market?.midPx, w, h),
       value: value == null ? '—' : money(value),
       pnl: pnl == null
           ? null
