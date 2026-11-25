@@ -44,7 +44,7 @@ import '../../helpers/runtime_policy_fixture.dart';
 
 const _evm = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B';
 const _brantaId = '8rnGGWZcg%2Fg3He1OK6yZ6OLOEyusldwIDaoPImRzWjoUGgu';
-const _secret = '0515039f-2c31-4467-b62a-4e919079a44e';
+const _secret = '0515039f-2c31-4467-b62a-4e919079a44e'; // gitleaks:allow
 const _code = 'pol:$_evm?value=50&user=send&currency=USD'
     '&branta_id=$_brantaId&branta_secret=$_secret';
 const _tron = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';

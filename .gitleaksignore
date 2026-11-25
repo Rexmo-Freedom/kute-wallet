@@ -75,3 +75,13 @@ c1478714123210109b1ea7f4a43526f8a30e9fd5:lib/services/one_balance/pending_bitcoi
 
 # Polygon USDC token contract address in a receipt fixture, public.
 244337f55e41e6456b29ee802064c2ce407a0280:test/screens/shared/receipt_share_test.dart:generic-api-key:410
+
+# The same public test vectors as above (Branta's sample codes, the Polygon USDC
+# contract address), as the squash merge of #12 recorded them on main. The lines
+# now carry inline `gitleaks:allow` markers so a later squash does not flag them again.
+9333b97e0d27f75ebe80d32168fa063bd2aa80b1:test/screens/pay/send_branta_test.dart:generic-api-key:40
+9333b97e0d27f75ebe80d32168fa063bd2aa80b1:test/screens/shared/receipt_share_test.dart:generic-api-key:465
+9333b97e0d27f75ebe80d32168fa063bd2aa80b1:test/screens/usd/usd_send_branta_test.dart:generic-api-key:47
+9333b97e0d27f75ebe80d32168fa063bd2aa80b1:test/services/branta/branta_sdk_vectors_test.dart:generic-api-key:30
+9333b97e0d27f75ebe80d32168fa063bd2aa80b1:test/services/branta/branta_sdk_vectors_test.dart:generic-api-key:45
+9333b97e0d27f75ebe80d32168fa063bd2aa80b1:test/services/branta/branta_sdk_vectors_test.dart:generic-api-key:50

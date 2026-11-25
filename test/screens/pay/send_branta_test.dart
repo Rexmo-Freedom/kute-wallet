@@ -37,7 +37,7 @@ final _l10n = AppLocalizationsEn();
 
 const _addr = 'bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr';
 const _id = '6SpYCe23r79x0t8rNvmjWqhrg8hen4xz';
-const _secret = '05eb145d-b5cb-452a-9256-0bdfd9a15ffa';
+const _secret = '05eb145d-b5cb-452a-9256-0bdfd9a15ffa'; // gitleaks:allow
 const _code = 'bitcoin:$_addr?branta_id=$_id&branta_secret=$_secret';
 const _invoice =
     'lnbc10u1p4w23tzpp50uc6g4020tt3ffp5xfpp83k0lcv2spytpymuupqrnsj0eth8jqgsd'
