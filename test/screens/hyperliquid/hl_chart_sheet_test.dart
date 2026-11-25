@@ -138,6 +138,7 @@ void main() {
           'hl-chart-indicator-adx',
           'hl-chart-log-card',
           'hl-chart-your-trades-card',
+          'hl-chart-indicator-fund',
         ]) {
           for (final p in tester.renderObjectList<RenderParagraph>(
               find.descendant(
@@ -148,7 +149,7 @@ void main() {
                 reason: '$key: "${p.text.toPlainText()}" does not fit');
           }
         }
-        expect(checked, 10);
+        expect(checked, 12);
       });
     }
   });
@@ -176,8 +177,8 @@ void main() {
   });
 
   group('the curated indicators', () {
-    test('fifteen, grouped, with TradingView\'s defaults', () {
-      expect(kHlIndicatorCatalog, hasLength(15));
+    test('fifteen and Funding, grouped, with TradingView\'s defaults', () {
+      expect(kHlIndicatorCatalog, hasLength(16));
       final byGroup = {
         for (final g in HlIndGroup.values)
           g: [
@@ -201,7 +202,8 @@ void main() {
           'ADX 14 14',
         ],
         HlIndGroup.volatility: ['BB 20 2', 'ATR 14'],
-        HlIndGroup.volume: ['Vol', 'OBV', 'VP 24'],
+        // Funding: perps only (hl_chart_funding_test.dart).
+        HlIndGroup.volume: ['Vol', 'OBV', 'VP 24', 'Funding'],
       });
       expect(ChartPreferencesNotifier.shownIndicators,
           {...kHlIndicatorKeys, kHlLayerMyTradesOff});

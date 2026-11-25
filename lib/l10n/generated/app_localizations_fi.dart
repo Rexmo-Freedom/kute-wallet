@@ -9689,6 +9689,25 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Maksut pitkien ja lyhyiden välillä';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/h (≈ $annual vuodessa) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Kertynyt $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Ei rahoitusta näille päiville';
+
+  @override
+  String get chartFundingError => 'Rahoitusta ei voitu ladata';
+
+  @override
   String get hlWideSpreadAck =>
       'Ymmärrän, että tällä markkinalla on juuri nyt erittäin leveä hintaero.';
 
@@ -10476,13 +10495,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Poikkeuksellisen suuret kaupat sen jälkeen, kun avasit kaavion';
 
   @override
-  String get hlLayerFunding => 'Rahoituksen käännökset';
-
-  @override
-  String get hlLayerFundingNote =>
-      'Kohdat, joissa rahoituksen etumerkki vaihtui';
-
-  @override
   String get hlLayerOi => 'Avoimien positioiden signaali';
 
   @override
@@ -10513,12 +10525,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'Yhdysvaltain inflaatio';
-
-  @override
-  String get hlChartFundingPositive => 'Rahoitus +';
-
-  @override
-  String get hlChartFundingNegative => 'Rahoitus −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

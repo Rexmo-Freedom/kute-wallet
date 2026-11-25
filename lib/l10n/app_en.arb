@@ -6050,6 +6050,42 @@
       }
     }
   },
+  "chartIndFundingNote": "What longs and shorts pay each other",
+  "@chartIndFundingNote": {
+    "description": "Chart sheet (Investing Advanced chart, perps only): the one-line note under the 'Funding' indicator card, which adds a pane of the market's funding rate under the price. Funding is what holders of long and short positions pay each other every hour. Short, at most two lines on a phone."
+  },
+  "chartFundingNow": "{hourly}/hr (≈ {annual} annualized) · {countdown}",
+  "@chartFundingNow": {
+    "description": "Investing chart, Funding pane legend after the title 'Funding 1h': the market's current funding rate. {hourly} is the signed hourly rate such as +0.0013% (positive: longs pay shorts); {annual} is that rate over a year such as +11.4%; {countdown} is the time to the next hourly payment such as 'in 31m' (hlFundingIn). Match the wording of hlFundingRateLine. Keep short: it shares one line with the title on a phone.",
+    "placeholders": {
+      "hourly": {
+        "type": "String"
+      },
+      "annual": {
+        "type": "String"
+      },
+      "countdown": {
+        "type": "String"
+      }
+    }
+  },
+  "chartFundingCumulative": "Cumulative {value}",
+  "@chartFundingCumulative": {
+    "description": "Investing chart, Funding pane legend: the running total of funding from the first bar on screen to the latest (or to the bar under the crosshair), i.e. what a long position would have paid over that stretch. {value} is a signed percent such as +0.31%. One or two words.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "chartFundingEmpty": "No funding for these dates",
+  "@chartFundingEmpty": {
+    "description": "Investing chart, Funding pane: shown inside the pane when Hyperliquid has no funding history for the dates on screen (a new market, or scrolled further back than the history reaches). One short line."
+  },
+  "chartFundingError": "Couldn't load funding",
+  "@chartFundingError": {
+    "description": "Investing chart, Funding pane: shown inside the pane when the funding history could not be read from Hyperliquid. The price chart above still works. One short line."
+  },
   "hlWideSpreadAck": "I understand this market has a very wide spread right now.",
   "hlTwapOver": "TWAP · {size} over {minutes}m",
   "@hlTwapOver": {
@@ -6842,8 +6878,6 @@
   "hlLayerPressureNote": "Share bought and sold over the last 5 minutes",
   "hlLayerBigTrades": "Big trades",
   "hlLayerBigTradesNote": "Unusually large trades since you opened the chart",
-  "hlLayerFunding": "Funding flips",
-  "hlLayerFundingNote": "Where funding changed sign",
   "hlLayerOi": "Open interest signal",
   "hlLayerOiNote": "Shown after 10 minutes on the chart, when it moves sharply",
   "hlLayerCrowd": "Predictions levels",
@@ -6863,8 +6897,6 @@
   },
   "hlChartFedDecision": "Fed decision",
   "hlChartUsInflation": "US inflation",
-  "hlChartFundingPositive": "Funding +",
-  "hlChartFundingNegative": "Funding −",
   "hlChartOiRising": "Open interest rising: {percent} in {minutes} min",
   "@hlChartOiRising": {
     "placeholders": {

@@ -9678,6 +9678,25 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Platby mezi long a short';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/h (≈ $annual ročně) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Kumulativně $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Pro tato data není funding';
+
+  @override
+  String get chartFundingError => 'Funding se nepodařilo načíst';
+
+  @override
   String get hlWideSpreadAck =>
       'Rozumím, že tento trh má teď velmi široký spread.';
 
@@ -10462,12 +10481,6 @@ class AppLocalizationsCs extends AppLocalizations {
       'Neobvykle velké obchody od otevření grafu';
 
   @override
-  String get hlLayerFunding => 'Otočení fundingu';
-
-  @override
-  String get hlLayerFundingNote => 'Kde funding změnil znaménko';
-
-  @override
   String get hlLayerOi => 'Signál otevřeného zájmu';
 
   @override
@@ -10497,12 +10510,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'Inflace v USA';
-
-  @override
-  String get hlChartFundingPositive => 'Funding +';
-
-  @override
-  String get hlChartFundingNegative => 'Funding −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

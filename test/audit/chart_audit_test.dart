@@ -1293,7 +1293,6 @@ void main() {
     const layers = {
       'vol',
       kHlLayerBigTrades,
-      kHlLayerFunding,
       kHlLayerOi,
       kHlLayerCrowd,
       kHlLayerMacro,

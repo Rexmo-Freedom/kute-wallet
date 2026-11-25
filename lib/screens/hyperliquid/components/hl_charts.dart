@@ -79,6 +79,7 @@ import 'package:kute/helpers/hyperliquid_activity.dart'
         hlFillTone;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_advanced_layers.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_funding_pane.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_frame.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
@@ -1449,6 +1450,13 @@ class HlCandlestickChart extends StatefulWidget {
   /// their levels from. Stable identity between real changes.
   final List<HyperliquidCandle> dailyCandles;
 
+  /// The Funding pane's history (a perp's; null on a spot market, which
+  /// never draws it) and, while that pane is on, the open time (ms) of the
+  /// first bar on screen whenever it changes, so the host reads that far
+  /// back (hl_chart_funding_pane.dart).
+  final HlFundingFeed? funding;
+  final ValueChanged<int>? onFundingWanted;
+
   /// Advanced: the axes' corner shows a "Log" switch that calls this
   /// (the Chart sheet's Log scale card sets the same saved setting).
   final ValueChanged<bool>? onLogScaleChanged;
@@ -1536,6 +1544,8 @@ class HlCandlestickChart extends StatefulWidget {
     this.indicators = const {},
     this.indicatorParams = const {},
     this.dailyCandles = const [],
+    this.funding,
+    this.onFundingWanted,
     this.onLogScaleChanged,
     this.logScale = false,
     this.tradeLines = const [],
@@ -3564,6 +3574,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (_drawingCandles != null) return;
     _sliceIndicators(visible, _tapeStart);
     _askForWarmup();
+    _askForFunding(visible);
   }
 
   /// (Re)build the series for the active indicators over [candles] (the
@@ -3574,6 +3585,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       widget.indicators,
       widget.indicatorParams,
       widget.dailyCandles,
+      widget.funding?.points,
     );
     if (key == _indKey) return;
     _indKey = key;
@@ -3586,6 +3598,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
             up: AppColors.marketUp,
             down: AppColors.marketDown,
             daily: widget.dailyCandles,
+            funding: widget.funding?.points,
           );
     _indStamp++;
   }
@@ -3619,6 +3632,22 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
               math.min(end, real.length));
       _visProfile = hlVolumeProfile(bars, rows: rows);
     }
+  }
+
+  /// The Funding pane reads its history back to the first bar on screen.
+  /// Asked again once an hour (a new settlement), on the next rebuild.
+  Object? _fundingAsked;
+  void _askForFunding(List<HyperliquidCandle> visible) {
+    final ask = widget.onFundingWanted;
+    if (ask == null || visible.isEmpty) return;
+    if (!_indVis.panes.any((p) => p.key == kHlFundingKey)) return;
+    final from = visible.first.openTime.millisecondsSinceEpoch;
+    final asked = (from, DateTime.now().millisecondsSinceEpoch ~/ 3600000);
+    if (asked == _fundingAsked) return;
+    _fundingAsked = asked;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ask(from);
+    });
   }
 
   /// A long indicator (SMA 200, MACD) needs bars before the first one on
@@ -4646,6 +4675,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         if (_deskEditor && widget.showVolume) _volumePane(c, candles),
         // The oscillators, one pane each, in the order switched on.
         for (final pane in _indVis.panes)
+          if (pane.key == kHlFundingKey && widget.funding != null)
+            HlFundingPane(
+              series: pane,
+              feed: widget.funding!,
+              touchIndex: _touchIndex,
+              gutterFor: _gutterFor,
+              barMinutes: hlBarMinutes(candles),
+              hairlineColor: widget.drawingMode ? c.textTertiary : c.border,
+            )
+          else
           _pane(
             c,
             pane.title,

@@ -9701,6 +9701,25 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Плащания между long и short';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/ч (≈ $annual годишно) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Натрупано $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Няма финансиране за тези дати';
+
+  @override
+  String get chartFundingError => 'Финансирането не се зареди';
+
+  @override
   String get hlWideSpreadAck =>
       'Разбирам, че този пазар в момента има много голям спред.';
 
@@ -10486,12 +10505,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Необичайно големи сделки, откакто отвори графиката';
 
   @override
-  String get hlLayerFunding => 'Обрати на funding';
-
-  @override
-  String get hlLayerFundingNote => 'Където funding смени знака си';
-
-  @override
   String get hlLayerOi => 'Сигнал за отворен интерес';
 
   @override
@@ -10521,12 +10534,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'Инфлация в САЩ';
-
-  @override
-  String get hlChartFundingPositive => 'Funding +';
-
-  @override
-  String get hlChartFundingNegative => 'Funding −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

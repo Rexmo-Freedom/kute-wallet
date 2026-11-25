@@ -9301,6 +9301,25 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'ロングとショート間の支払い';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/時間（年換算 ≈ $annual）・$countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return '累計 $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'この期間のファンディングはありません';
+
+  @override
+  String get chartFundingError => 'ファンディングを読み込めませんでした';
+
+  @override
   String get hlWideSpreadAck => '現在このマーケットのスプレッドが非常に広いことを理解しました。';
 
   @override
@@ -10065,12 +10084,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlLayerBigTradesNote => 'チャートを開いてからの異常に大きな約定';
 
   @override
-  String get hlLayerFunding => 'ファンディングの反転';
-
-  @override
-  String get hlLayerFundingNote => 'ファンディングの符号が変わった箇所';
-
-  @override
   String get hlLayerOi => '建玉シグナル';
 
   @override
@@ -10098,12 +10111,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => '米国のインフレ';
-
-  @override
-  String get hlChartFundingPositive => 'ファンディング +';
-
-  @override
-  String get hlChartFundingNegative => 'ファンディング −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {
