@@ -80,6 +80,21 @@ PolymarketEvent _parse(Map<String, dynamic> raw) =>
 
 PolymarketEvent _fixture(String name) => _parse(_raw(name));
 
+/// The Shakhtar 1X2 event kicking off tomorrow at 17:45 on this machine's
+/// clock. The real fixture kicks off on 26 November 2026 and the header
+/// reads the kickoff against DateTime.now(), so its caption changed with
+/// the day the suite ran ("Tomorrow 17:45" only on 25 November, which CI
+/// caught cut). Pinned to tomorrow: the longest English caption, every day.
+PolymarketEvent _shakhtarTomorrow() {
+  final now = DateTime.now();
+  final at = DateTime(now.year, now.month, now.day + 1, 17, 45).toUtc();
+  final kickoff = at.toIso8601String();
+  final text = File('test/fixtures/polymarket_games/$_shakhtar.json')
+      .readAsStringSync()
+      .replaceAll('2026-11-26T17:45:00Z', kickoff);
+  return _parse(jsonDecode(text) as Map<String, dynamic>);
+}
+
 const _corners = 'ucl_sabah_barcelona_total_corners';
 const _shakhtar = 'ucl_shakhtar_fenerbahce';
 const _shakhtarCorners = 'ucl_shakhtar_fenerbahce_total_corners';
@@ -782,9 +797,10 @@ void main() {
         '($mode, 320 pt, text x1.5)', (tester) async {
       await http.runWithClient(() async {
         if (_renderOut.isNotEmpty) await tester.runAsync(loadRenderFonts);
-        final event = _fixture(_shakhtar);
+        final event = _shakhtarTomorrow();
         await _pump(tester, event, dark: dark);
         expect(find.text('WINNER'), findsOneWidget);
+        expect(find.textContaining('Tomorrow'), findsOneWidget);
         // Not a ladder: no stepper.
         expect(find.byType(PolyLineStepper), findsNothing);
         final buttons = tester
