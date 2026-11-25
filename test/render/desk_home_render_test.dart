@@ -339,13 +339,15 @@ Future<void> _settle(WidgetTester tester, [int frames = 20]) async {
 
 /// The left pane, its pill row and the right column (if any) on screen,
 /// for the frame comparison between the two homes.
-({Rect left, Rect pills, Rect? right})? _frame(WidgetTester tester) {
+({Rect left, Rect? pills, Rect? right})? _frame(WidgetTester tester) {
   final pane = find.byType(KuteBarPane);
   if (pane.evaluate().isEmpty) return null;
   final left = tester.getRect(pane.first);
-  final pills = tester.getRect(find
-      .descendant(of: pane.first, matching: find.byType(KutePillTabs))
-      .first);
+  // The Bitcoin home draws no pill on a laptop (founder, 25 November
+  // 2026: "no need on desktop").
+  final pill =
+      find.descendant(of: pane.first, matching: find.byType(KutePillTabs));
+  final pills = pill.evaluate().isEmpty ? null : tester.getRect(pill.first);
   final right = find.byWidgetPredicate((w) =>
       w.key == const ValueKey('investments-action-pane') ||
       w.key == const ValueKey('bitcoin-home-action-pane'));
@@ -359,7 +361,7 @@ Future<void> _settle(WidgetTester tester, [int frames = 20]) async {
   return (left: left, pills: pills, right: rightRect);
 }
 
-final _frames = <String, ({Rect left, Rect pills, Rect? right})>{};
+final _frames = <String, ({Rect left, Rect? pills, Rect? right})>{};
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -368,6 +370,7 @@ void main() {
     ('1440x900', const Size(1440, 900)),
     ('1180x820', const Size(1180, 820)),
     ('1920x1080', const Size(1920, 1080)),
+    ('2400x1200', const Size(2400, 1200)),
     ('1000x700', const Size(1000, 700)),
     ('1280x800', const Size(1280, 800)),
     ('820x1180', const Size(820, 1180)),
@@ -425,10 +428,10 @@ void main() {
           print('frame $label dollars $usd bitcoin $btc');
           if (btc != null && usd != null) {
             // The two tabs' panes stand exactly in the same place.
-            expect(btc.left.left, usd.left.left);
+            // The tops line up; the Dollars page's left navigation
+            // (dollars_desk_nav.dart) stands before its pane.
             expect(btc.left.top, usd.left.top);
-            expect(btc.pills.topLeft, usd.pills.topLeft);
-            expect(btc.pills.height, usd.pills.height);
+            expect(btc.pills, isNull);
           }
           await tester.pumpWidget(const SizedBox());
           await tester.pump(const Duration(seconds: 7));

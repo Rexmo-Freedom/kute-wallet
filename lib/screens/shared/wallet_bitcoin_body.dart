@@ -17,7 +17,11 @@ import 'package:intl/intl.dart';
 
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/screens/home/bitcoin_home_panes.dart'
-    show BitcoinActivityPane, BitcoinPanesFrame, BitcoinSideColumn;
+    show
+        BitcoinActivityPane,
+        BitcoinPanesFrame,
+        BitcoinSideColumn,
+        kBitcoinSideTop;
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/background_sync_provider.dart';
@@ -196,15 +200,16 @@ class _WideWallet extends ConsumerWidget {
         onRefresh: onRefresh,
         banners: [if (banner != null) banner!],
         empty: empty,
-        list: (_) => SliverToBoxAdapter(
-          child: TransactionList(walletIdOverride: wallet.id, showAll: true),
+        list: (_, columns) => SliverToBoxAdapter(
+          child: TransactionList(
+              walletIdOverride: wallet.id, showAll: true, columns: columns),
         ),
       ),
       right: empty
           ? null
           : BitcoinSideColumn(
               child: HomeAnalyticsWidget(
-                padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+                padding: EdgeInsets.only(top: kBitcoinSideTop, bottom: 24.h),
               ),
             ),
     );

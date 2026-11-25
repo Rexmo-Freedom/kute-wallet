@@ -18,7 +18,7 @@
 //
 // Every list card keeps its phone inset of 16 at both sides, so a page
 // pads its scroll view by the gutter less that inset ([deskListPadding])
-// and the cards stand 32 apart. Off EXPANDED none of this is used.
+// and the cards stand 32 apart, their outer edges on the page gutter. Off EXPANDED none of this is used.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -44,6 +44,29 @@ EdgeInsets deskListPadding() =>
 /// lays out: two to four.
 int deskListColumns(double width) =>
     kuteColumnsFor(width, min: kDeskListCellMin, gap: 0, max: 4);
+
+/// A list page's own column rule for the day cards under it
+/// ([ActivityDayColumns], [DeskFirstColumn]) in place of
+/// [deskListColumns]: the Bitcoin home's left pane, whose cards stay a
+/// comfortable width beside the goals (bitcoin_home_panes.dart).
+class DeskListColumnRule extends InheritedWidget {
+  const DeskListColumnRule(
+      {super.key, required this.columnsFor, required super.child});
+
+  /// How many columns a list [width] wide lays out.
+  final int Function(double width) columnsFor;
+
+  /// The rule [context] is under, else [deskListColumns].
+  static int Function(double width) of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<DeskListColumnRule>()
+          ?.columnsFor ??
+      deskListColumns;
+
+  @override
+  bool updateShouldNotify(DeskListColumnRule oldWidget) =>
+      columnsFor != oldWidget.columnsFor;
+}
 
 /// The back button on the page's left gutter, for an AppBar's `leading`
 /// on EXPANDED (with [kDeskLeadingWidth]).
@@ -71,7 +94,7 @@ class DeskFirstColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-        final n = deskListColumns(box.maxWidth);
+        final n = DeskListColumnRule.of(context)(box.maxWidth);
         return Align(
           alignment: Alignment.topLeft,
           child: SizedBox(width: box.maxWidth / n, child: child),
@@ -106,7 +129,7 @@ class ActivityDayColumns extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-        final n = deskListColumns(box.maxWidth);
+        final n = DeskListColumnRule.of(context)(box.maxWidth);
         final cell = box.maxWidth / n;
         final dealt = marketGridDeal<int>(
             [for (var i = 0; i < sections.length; i++) i], n,
