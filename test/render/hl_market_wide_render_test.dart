@@ -413,11 +413,13 @@ void main() {
     final short = find.byKey(const ValueKey('kute-desk-trade-short'));
     expect(long, findsOneWidget);
     expect(short, findsOneWidget);
-    // The column's first card on the price's line, at the right gutter.
+    // The column starts at the window's top, level with the header (not
+    // down on the price's line), at the right gutter.
     final column = tester.getRect(find.byKey(const ValueKey('hl-desk-column')));
     expect(column.right, 1440 - kuteDeskGutter);
     final price = tester.getRect(find.byKey(const ValueKey('hl-detail-price')));
-    expect((tester.getRect(long).top - price.top).abs(), lessThan(8));
+    expect(tester.getRect(long).top, kuteDeskColumnTop);
+    expect(tester.getRect(long).top, lessThan(price.top));
     final chart = tester.getRect(find.byType(HlCandleChart));
     expect(chart.right, lessThanOrEqualTo(column.left - kuteWideGap + 0.5));
 

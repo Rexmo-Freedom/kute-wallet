@@ -2734,8 +2734,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: EdgeInsets.only(
-                    top: _deskHeaderHeight + 14.h, bottom: kuteDeskGutter),
+                // From the window's top, on the header's own line
+                // (founder, 25 November 2026: "right bar must be more
+                // towards the top").
+                padding: const EdgeInsets.only(
+                    top: kuteDeskColumnTop, bottom: kuteDeskGutter),
                 sliver: SliverMainAxisGroup(slivers: [
                   SliverToBoxAdapter(
                     child: Column(
@@ -4397,8 +4400,8 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
         builder: (context, card, _) => SingleChildScrollView(
           key: const ValueKey('poly-desk-column'),
           primary: false,
-          padding: EdgeInsets.only(
-              top: _deskHeaderHeight + 8.h, bottom: kuteDeskGutter),
+          padding: const EdgeInsets.only(
+              top: kuteDeskColumnTop, bottom: kuteDeskGutter),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

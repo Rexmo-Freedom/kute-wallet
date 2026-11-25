@@ -964,7 +964,11 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
               if (rightColumn != null && t < 1)
                 Positioned(
                   key: const ValueKey('hl-desk-column'),
-                  top: _deskHeaderHeight + 12.h,
+                  // From the window's top, on the header's own line
+                  // (founder, 25 November 2026: "right bar must be more
+                  // towards the top"); the header ends where the column
+                  // starts, so nothing sits under it.
+                  top: kuteDeskColumnTop,
                   bottom: 0,
                   right: kuteDeskGutter,
                   width: colWidth,

@@ -1398,3 +1398,9 @@ const double kuteDeskNavGap = 12;
 /// the interval row ends a gutter over the window's foot; never under 420.
 double kuteDeskChartHeight(double windowHeight, {required double around}) =>
     math.max(420.0, windowHeight - around);
+
+/// Where a market page's right column starts on EXPANDED: at the window's
+/// top, level with the page header's back button (the header's own top
+/// inset), not under the header (founder, 25 November 2026: "right bar
+/// must be more towards the top").
+const double kuteDeskColumnTop = 8;
