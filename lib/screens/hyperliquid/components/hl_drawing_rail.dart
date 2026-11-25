@@ -188,6 +188,8 @@ Future<ChartDrawingTool?> _showPanel(
           key: ValueKey('hl-tool-flyout-${tool.name}'),
           value: tool,
           height: 46,
+          // The pointer over a row, as over the rail's buttons.
+          mouseCursor: SystemMouseCursors.click,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
