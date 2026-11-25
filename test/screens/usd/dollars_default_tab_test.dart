@@ -27,6 +27,8 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
+    show HlIconAvailability;
 import 'package:kute/screens/hyperliquid/components/hl_market_map.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
@@ -161,6 +163,16 @@ double _bodyOpacity(WidgetTester tester) => tester
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  // Investing's squares list only markets with a logo of their own, and
+  // which logos are known is process-wide state (HlIconAvailability): the
+  // first test to open Investing saw the squares' skeleton while the logos
+  // were asked, every later one the settled answer. CI's sharding
+  // (25 November 2026) ran a 2400 pt tall page first, and the skeleton,
+  // drawn for a phone's height, overflowed there. These tests are about the
+  // pills and Overview, not logos: every market has one, in every test,
+  // whatever ran before.
+  setUp(() => HlIconAvailability.debugEveryLogoKnown = true);
+  tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
 
   group('the pill the page opens on', () {
     // Pinned (founder, 25 November 2026): the order and the default
