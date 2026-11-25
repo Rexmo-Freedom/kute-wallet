@@ -12,7 +12,9 @@
 // never a query string (but version.json's cache buster), nothing else.
 //   - Navigations to the app, flutter_bootstrap.js and version.json: network
 //     first (with a short timeout), the cached copy only when the network
-//     fails.
+//     fails. "Network" means revalidated (cache: 'no-cache'): a host that
+//     sends no Cache-Control lets the HTTP cache call a stale copy fresh
+//     for minutes, and the page would never learn of a new build.
 //   - Everything else in the shell: the cache of this build first.
 // A new deploy is a new BUILD: the bootstrap registers sw.js?v=<BUILD>, this
 // worker installs (re-using unchanged files from the old cache by hash,
@@ -75,6 +77,14 @@ async function findInOldCaches(url, hash) {
 self.addEventListener('install', (event) => {
   if (!STAMPED) {
     self.skipWaiting();
+    return;
+  }
+  if (new URL(self.location.href).searchParams.get('v') !== BUILD) {
+    // The browser's own update check of an older sw.js?v=<old> URL got this
+    // build: the page registers sw.js?v=<this build> itself. A worker whose
+    // URL names another build would confuse the page (it tells builds apart
+    // by that URL), so this one does not install.
+    event.waitUntil(Promise.reject(new Error('sw.js?v= is not build ' + BUILD)));
     return;
   }
   event.waitUntil((async () => {
@@ -200,7 +210,13 @@ self.addEventListener('fetch', (event) => {
 // build installed); the cached copy when the network fails or stalls.
 async function networkFirst(request, key) {
   const cache = await caches.open(CACHE);
-  const network = fetch(request);
+  // Revalidated with the server, never the HTTP cache's guess. (A request
+  // cannot be copied from a navigation with new options, hence the URL.)
+  const network = fetch(request.url, {
+    cache: 'no-cache',
+    credentials: 'same-origin',
+    redirect: request.mode === 'navigate' ? 'manual' : 'follow',
+  });
   network.catch(() => {});
   let timer;
   const timeout = new Promise((resolve) => { timer = setTimeout(resolve, NETWORK_TIMEOUT_MS); });
