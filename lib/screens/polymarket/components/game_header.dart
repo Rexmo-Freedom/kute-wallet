@@ -579,13 +579,14 @@ class PolyGameTeamsHeader extends StatelessWidget {
       // Under the "vs", in the clock's caption style: the clock (or
       // "LIVE") of a game in play that has no score yet, else when the
       // game kicks off. A game over without a score keeps the plain "vs".
+      // Never cut: a long day word ("Tomorrow 17:45" at 320 pt and a large
+      // text size) shrinks to keep its two lines whole, as the team names.
       Widget caption(String text) => ConstrainedBox(
             constraints: BoxConstraints(maxWidth: 120.w),
-            child: Text(
+            child: FittedTitle(
               text,
               textAlign: TextAlign.center,
               maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: c.textTertiary,
                 fontSize: 12.sp,

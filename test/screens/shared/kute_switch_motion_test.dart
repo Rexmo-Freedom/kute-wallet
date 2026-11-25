@@ -41,6 +41,11 @@ double _shiftOf(WidgetTester tester, Finder of) {
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  // Inter in the engine before any layout (see loadAppFonts): the switch
+  // splits its row by the words' measured widths. Left to land mid-test,
+  // a test run first or alone laid the row out in the fallback font and
+  // then drew Inter in it (the longer context squeezed at its first frame).
+  setUpAll(loadAppFonts);
 
   group('SelectionFade (the Dollars page body)', () {
     Future<StateSetter> pump(WidgetTester tester,
