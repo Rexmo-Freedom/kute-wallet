@@ -96,6 +96,13 @@ abstract final class WebImageLoader {
     ]);
   }
 
+  /// Tests: [url] loaded, [width] by [height].
+  @visibleForTesting
+  static void debugSeedLoaded(String url, {int width = 64, int height = 64}) {
+    _failed.remove(url);
+    _loaded[url] = WebImageLoad(width: width, height: height);
+  }
+
   @visibleForTesting
   static void debugReset() {
     _loaded.clear();
@@ -320,10 +327,34 @@ class WebNetworkImage extends StatefulWidget {
 class _WebNetworkImageState extends State<WebNetworkImage> {
   bool? _ok;
 
+  /// Under a cover ([WebCovers]) at the last check: a cover change
+  /// rebuilds only the images whose answer it changed.
+  bool _covered = false;
+
+  /// Holds one of [WebImageViews]' live views.
+  bool _slot = false;
+
+  /// Gave its view to an image on screen; waits for one of its own.
+  bool _parked = false;
+
+  /// Whether this image is laid out inside the window.
+  bool _onScreen() {
+    if (!mounted) return false;
+    // A page kept mounted but not shown (another pill of an IndexedStack,
+    // a route under the current one) has its tickers off.
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return false;
+    final view = View.maybeOf(context);
+    if (view == null) return false;
+    final window = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+    return window.overlaps(box.localToGlobal(Offset.zero) & box.size);
+  }
+
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) {
+    if (_web) {
       WebCovers.changes.addListener(_coversChanged);
       // An image that appears while a panel is already up (a list that
       // loads under it).
@@ -335,25 +366,35 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
   @override
   void dispose() {
     WebCovers.changes.removeListener(_coversChanged);
+    WebImageViews._release(this);
     super.dispose();
   }
 
+  /// A cover or a panel came, went or moved. Hundreds of images listen:
+  /// each one rebuilds only when its own answer changes.
   void _coversChanged() {
     if (!mounted) return;
-    setState(() {});
+    final covered = WebCovers.covers(context);
+    if (covered != _covered) setState(() => _covered = covered);
     _checkPanels();
   }
 
   /// Under a panel's rectangle (see [WebPanels]): measured after layout,
   /// as it needs this image's own place on the screen.
   bool _underPanel = false;
+  bool _panelCheckPending = false;
 
   void _checkPanels() {
     if (WebPanels.isEmpty) {
       if (_underPanel) setState(() => _underPanel = false);
       return;
     }
+    // One measure per frame, however many changes the frame brought (a
+    // panel sliding in moves its rectangle every frame).
+    if (_panelCheckPending) return;
+    _panelCheckPending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _panelCheckPending = false;
       if (!mounted) return;
       var under = false;
       final box = context.findRenderObject();
@@ -393,25 +434,152 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
     });
   }
 
+  /// A slot came free for this image ([WebImageViews]).
+  void _granted() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final placeholder = widget.placeholder ??
         SizedBox(width: widget.width, height: widget.height);
     final error = widget.error ?? placeholder;
-    if (!kIsWeb || WebImagesOff.of(context)) return error;
+    if (!_web || WebImagesOff.of(context)) return error;
     final ok = _ok;
     if (ok == null) return placeholder;
     if (!ok) return error;
-    if (_underPanel || WebCovers.covers(context)) return placeholder;
-    Widget image = SizedBox(
+    _covered = WebCovers.covers(context);
+    if (_underPanel || _covered) {
+      WebImageViews._release(this);
+      return placeholder;
+    }
+    // Past the page's cap of live views: the stand-in (the row's letter
+    // tile) until a view comes free.
+    if (!WebImageViews._claim(this)) return error;
+    return SizedBox(
+      key: const ValueKey('web-network-img'),
       width: widget.width,
       height: widget.height,
-      child: impl.imgView(widget.url, widget.fit),
+      // The corners are the element's own (CSS border-radius), not a
+      // Flutter clip: a clip around a platform view is a clipping element
+      // the engine restyles on every frame, for every image.
+      child: impl.imgView(widget.url, widget.fit, widget.borderRadius),
     );
-    final radius = widget.borderRadius;
-    if (radius != null) {
-      image = ClipRRect(borderRadius: radius, child: image);
-    }
-    return image;
   }
 }
+
+/// Whether the `<img>` path is taken: the web, or a test that asks for it.
+bool get _web => kIsWeb || WebImageViews.debugForceWeb;
+
+/// The live `<img>` views, web only, at most [cap] at once.
+///
+/// Why (founder, 25 November 2026, the Investing list on a laptop in six
+/// columns: "extreme lag"): every `<img>` is a platform view, a DOM
+/// element the engine positions, clips and composites over its canvas,
+/// and a page that keeps hundreds of them slows every frame. A lazy list
+/// builds only the rows near the viewport, so its views follow the
+/// scroll; the cap bounds what is left (a very tall, very wide window, a
+/// list that builds more than it shows). Past it an image draws its
+/// stand-in (the row's letter tile) and waits; after each frame an image
+/// waiting on screen takes a free view, or the view of an image built
+/// off screen (a row in the list's cache, which nobody sees), so what is
+/// on screen always has its pictures, a frame after it scrolls in at
+/// worst.
+abstract final class WebImageViews {
+  /// The most `<img>` views alive at once.
+  static int cap = kWebImageViewCap;
+
+  static final Set<_WebNetworkImageState> _live = <_WebNetworkImageState>{};
+  static final List<_WebNetworkImageState> _waiting =
+      <_WebNetworkImageState>[];
+  static bool _checkScheduled = false;
+
+  /// How many views are alive now.
+  static int get live => _live.length;
+
+  /// How many images wait for a view.
+  static int get waiting => _waiting.length;
+
+  static bool _claim(_WebNetworkImageState image) {
+    if (image._slot) return true;
+    if (image._parked || _live.length >= cap) {
+      if (!_waiting.contains(image)) _waiting.add(image);
+      _scheduleCheck();
+      return false;
+    }
+    _waiting.remove(image);
+    _live.add(image);
+    image._slot = true;
+    return true;
+  }
+
+  static void _release(_WebNetworkImageState image) {
+    _waiting.remove(image);
+    if (!image._slot) return;
+    image._slot = false;
+    _live.remove(image);
+    _scheduleCheck();
+  }
+
+  /// After the next frame (a claim or a release happens while the tree is
+  /// built or torn down), and after every frame while images wait (a
+  /// scroll brings them on screen): [_check].
+  static void _scheduleCheck() {
+    if (_waiting.isEmpty || _checkScheduled) return;
+    _checkScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkScheduled = false;
+      _check();
+      _scheduleCheck();
+    });
+  }
+
+  /// Hands the free views to the images waiting on screen, then the views
+  /// of images off screen to the ones still waiting on screen. Images
+  /// waiting off screen keep waiting.
+  static void _check() {
+    _waiting.removeWhere((image) => !image.mounted);
+    if (_waiting.isEmpty) return;
+    var free = cap - _live.length;
+    List<_WebNetworkImageState>? offScreen;
+    for (final image in List.of(_waiting)) {
+      if (!image._onScreen()) continue;
+      if (free <= 0) {
+        offScreen ??= [
+          for (final held in _live)
+            if (!held._onScreen()) held
+        ];
+        if (offScreen.isEmpty) break;
+        final held = offScreen.removeLast();
+        held._parked = true;
+        _release(held);
+        held._granted();
+      } else {
+        free--;
+      }
+      _waiting.remove(image);
+      image._parked = false;
+      // Admitted ahead of anyone else building this frame.
+      _live.add(image);
+      image._slot = true;
+      image._granted();
+    }
+  }
+
+  /// Tests: take the `<img>` path off the web (the view is an empty box).
+  @visibleForTesting
+  static bool debugForceWeb = false;
+
+  @visibleForTesting
+  static void debugReset() {
+    cap = kWebImageViewCap;
+    _live.clear();
+    _waiting.clear();
+    _checkScheduled = false;
+    debugForceWeb = false;
+  }
+}
+
+/// [WebImageViews.cap]'s default. Measured on the Investing list on a
+/// 2000 px wide window: six columns of about twenty rows on screen.
+const int kWebImageViewCap = 160;

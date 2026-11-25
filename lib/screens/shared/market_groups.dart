@@ -291,26 +291,41 @@ List<Widget> _marketGroupColumnSlivers<T>(
     if (s > 0) {
       slivers.add(SliverToBoxAdapter(child: SizedBox(height: space)));
     }
-    final Widget body;
-    if (seg.grouped) {
-      final rows = seg.items;
-      body = DecoratedSliver(
-        decoration: PremiumGroupContainer.decorationOf(context),
+    if (!seg.grouped) {
+      // A run of cards of their own (a Predictions category is mostly
+      // these) is one lazy list, the same gap between its cards: only the
+      // cards near the viewport are built, as the grouped rows are.
+      var end = s + 1;
+      while (end < segments.length && !segments[end].grouped) {
+        end++;
+      }
+      final cards = [for (final c in segments.sublist(s, end)) c.items.single];
+      slivers.add(SliverPadding(
+        padding: inset,
         sliver: SliverList.separated(
-          itemCount: rows.length,
-          separatorBuilder: (context, _) => divider(context, dividerIndent),
-          // The first card's first rows arrive staggered on first paint.
-          itemBuilder: (_, i) => _clipped(
-              s == 0 && stagger
-                  ? KuteStaggerIn(index: i, child: build(rows[i], true))
-                  : build(rows[i], true),
-              first: i == 0,
-              last: i == rows.length - 1),
+          itemCount: cards.length,
+          separatorBuilder: (context, _) => SizedBox(height: space),
+          itemBuilder: (_, i) => build(cards[i], false),
         ),
-      );
-    } else {
-      body = SliverToBoxAdapter(child: build(seg.items.single, false));
+      ));
+      s = end - 1;
+      continue;
     }
+    final rows = seg.items;
+    final body = DecoratedSliver(
+      decoration: PremiumGroupContainer.decorationOf(context),
+      sliver: SliverList.separated(
+        itemCount: rows.length,
+        separatorBuilder: (context, _) => divider(context, dividerIndent),
+        // The first card's first rows arrive staggered on first paint.
+        itemBuilder: (_, i) => _clipped(
+            s == 0 && stagger
+                ? KuteStaggerIn(index: i, child: build(rows[i], true))
+                : build(rows[i], true),
+            first: i == 0,
+            last: i == rows.length - 1),
+      ),
+    );
     slivers.add(SliverPadding(padding: inset, sliver: body));
   }
   return slivers;

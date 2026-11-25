@@ -932,7 +932,14 @@ class HlCoinIcon extends StatefulWidget {
     this.category,
     this.size = 44,
     this.placeholder,
+    this.round = false,
   });
+
+  /// Cut round (the Investing rows' logo). On web a logo drawn by the
+  /// browser rounds its own corners: a Flutter clip around an `<img>`
+  /// view is a clipping element the engine restyles on every frame.
+  /// Off the web the icon is clipped by a [ClipOval].
+  final bool round;
 
   @override
   State<HlCoinIcon> createState() => _HlCoinIconState();
@@ -1005,6 +1012,45 @@ class _HlCoinIconState extends State<HlCoinIcon> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.round) return _icon(context);
+    final art = _art;
+    if (art?.webUrl == null) return ClipOval(child: _icon(context));
+    // Web, round: the round plate and the browser's round image, no clip
+    // around the view (the stand-in, a Flutter drawing, is clipped).
+    final size = widget.size.w;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: context.colors.surfaceLight,
+        shape: BoxShape.circle,
+      ),
+      child: WebNetworkImage(
+        url: art!.webUrl!,
+        width: size,
+        height: size,
+        fit: _fitFor(art),
+        borderRadius: BorderRadius.circular(size / 2),
+        error: ClipOval(child: _fallback(context)),
+      ),
+    );
+  }
+
+  /// A square mark covers, so it reaches every edge and reads at the same
+  /// size as a prediction crest beside it. A mark that is not square is
+  /// contained, because covering one crops it to a fragment.
+  static BoxFit _fitFor(HlIconArt art) {
+    final aspect = art.aspect;
+    return art.raster
+        ? (aspect != null && (aspect - 1).abs() > 0.2
+            ? BoxFit.contain
+            : BoxFit.cover)
+        : (aspect == null || (aspect - 1).abs() > 0.2
+            ? BoxFit.contain
+            : BoxFit.cover);
+  }
+
+  Widget _icon(BuildContext context) {
     final size = widget.size;
     final art = _art;
     if (art != null) {
