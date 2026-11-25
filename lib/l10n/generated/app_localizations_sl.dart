@@ -14527,4 +14527,74 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Donos od Dolarjev';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Točka $current od $total: tapnite graf.';
+  }
+
+  @override
+  String get chartHintFinishShape => 'Za konec znova tapnite zadnjo točko.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanali';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozicije in merjenje';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Vsa orodja: $group';
+  }
+
+  @override
+  String get chartLineWidth => 'Debelina črte';
+
+  @override
+  String get chartFillOpacity => 'Polnilo';
+
+  @override
+  String get chartDrawingLabels => 'Oznake';
+
+  @override
+  String get chartTextSize => 'Velikost besedila';
+
+  @override
+  String get chartFibLevels => 'Ravni';
+
+  @override
+  String chartPositionTarget(String price, String change) {
+    return 'Cilj $price  $change';
+  }
+
+  @override
+  String chartPositionStop(String price, String change) {
+    return 'Stop $price  $change';
+  }
+
+  @override
+  String chartPositionLong(String price, String ratio) {
+    return 'Long $price · R/R $ratio';
+  }
+
+  @override
+  String chartPositionShort(String price, String ratio) {
+    return 'Short $price · R/R $ratio';
+  }
+
+  @override
+  String chartRangeBars(int count, String duration) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sveč',
+      few: '$count sveče',
+      two: '2 sveči',
+      one: '1 sveča',
+    );
+    return '$_temp0 · $duration';
+  }
 }

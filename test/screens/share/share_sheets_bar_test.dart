@@ -62,7 +62,10 @@ void main() {
     expect(kuteBarPrimaryEnabled(tester), isTrue);
 
     await shareCardAndWait(tester, shared);
-    expect(shared.single, contains('https://web.test/m/will-it-rain'));
+    // The app's own link, never the market's address (founder, 25
+    // November 2026: no backend link in a share).
+    expect(shared.single, isNot(contains('web.test')));
+    expect(shared.single, contains('https://getkute.com'));
     expect(env.paramsOf('share_market_link_shared').single,
         containsPair('result', 'success'));
   });

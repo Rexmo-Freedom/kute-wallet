@@ -1307,10 +1307,9 @@ void main() {
       for (final key in [
         'cursor',
         'trendline',
-        'level',
-        'rect',
-        'dateAndPriceRange',
         'fibonacci',
+        'dateAndPriceRange',
+        'rect',
         'text',
         'more',
       ]) {

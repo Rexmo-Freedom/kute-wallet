@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "De prijs ging naar {price}. Tik om tegen de nieuwe prijs te plaatsen.",
   "standingStagePlacing": "Wordt geplaatst",
   "standingStageApproval": "Wacht op je goedkeuring",
-  "activityDollarsYield": "Rendement op Dollars"
+  "activityDollarsYield": "Rendement op Dollars",
+  "chartHintPointOf": "Punt {current} van {total}: tik op de grafiek.",
+  "chartHintFinishShape": "Tik nog eens op het laatste punt om af te ronden.",
+  "chartToolGroupChannels": "Kanalen",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Posities en meten",
+  "chartToolGroupShowAll": "Alle tools: {group}",
+  "chartLineWidth": "Lijndikte",
+  "chartFillOpacity": "Vulling",
+  "chartDrawingLabels": "Labels",
+  "chartTextSize": "Tekstgrootte",
+  "chartFibLevels": "Niveaus",
+  "chartPositionTarget": "Doel {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 candle} other{{count} candles}} · {duration}"
 }

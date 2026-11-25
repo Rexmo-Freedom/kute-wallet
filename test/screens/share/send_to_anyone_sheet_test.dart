@@ -15,6 +15,7 @@
 
 import 'dart:typed_data';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -717,15 +718,26 @@ void main() {
     expect(find.text('100%'), findsOneWidget);
   });
 
-  test('the market link carries the referral code as ref', () {
+  test('a share carries the sharer\'s AppsFlyer link, never the market\'s '
+      'backend address', () {
+    // No OneLink template (a test, an early start): the website.
     expect(
-        shareLinkWithReferral('https://kute.app/m/will-it-rain',
+        shareLinkWithReferral('https://backend.kutewallet.com/m/x',
             code: 'KUTE42'),
-        'https://kute.app/m/will-it-rain?ref=KUTE42');
+        'https://getkute.com');
+    dotenv.loadFromString(
+        envString: 'APPSFLYER_ONELINK_TEMPLATE=kute.onelink.me/abcd');
+    addTearDown(dotenv.clean);
+    // With a code: the sharer's own invite link.
     expect(
-        shareLinkWithReferral('https://kute.app/m/x?utm_source=a', code: 'K1'),
-        'https://kute.app/m/x?utm_source=a&ref=K1');
-    expect(shareLinkWithReferral('https://kute.app/m/x', code: null),
-        'https://kute.app/m/x');
+        shareLinkWithReferral('https://backend.kutewallet.com/m/x',
+            code: 'KUTE42'),
+        'https://kute.onelink.me/abcd?pid=affiliate&c=KUTE42'
+        '&deep_link_value=KUTE42&af_sub1=KUTE42');
+    // Without one: the app's OneLink alone.
+    expect(
+        shareLinkWithReferral('https://backend.kutewallet.com/m/x',
+            code: null),
+        'https://kute.onelink.me/abcd?pid=share');
   });
 }

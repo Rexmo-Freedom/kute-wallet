@@ -88,6 +88,9 @@ import 'package:kute/models/hl_price_line.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill, HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_placement.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_settings_sheet.dart'
+    show hlFibLevelText;
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_lines_chart.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
@@ -1435,6 +1438,10 @@ class HlCandlestickChart extends StatefulWidget {
   /// dropped.
   final ValueChanged<bool>? onPlacementPendingChanged;
 
+  /// How many anchors of the drawing being placed are down (0: none), for
+  /// the host's "Point k of n" hint (HlDrawingPlacement).
+  final ValueChanged<int>? onPlacementPointsChanged;
+
   /// Active indicator keys, in the order they were switched on (the
   /// curated catalog, hl_chart_indicator_catalog.dart). 'vol' is the
   /// host's [showVolume]. Computed over the whole tape and memoized per
@@ -1541,6 +1548,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.magnet = false,
     this.drawingToolbarBuilder,
     this.onPlacementPendingChanged,
+    this.onPlacementPointsChanged,
     this.indicators = const {},
     this.indicatorParams = const {},
     this.dailyCandles = const [],
@@ -1671,8 +1679,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   bool get _mouseDown => _downKind == PointerDeviceKind.mouse;
 
   /// A quick measure (Shift-drag with a mouse) is being dragged out: the
-  /// box is [_draft], dropped on release, never saved.
+  /// box is [_quickMeasure], dropped on release, never saved.
   bool _quickMeasuring = false;
+  ChartDrawing? _quickMeasure;
 
   /// The mouse is over the plot, showing the crosshair.
   bool _hovering = false;
@@ -1698,10 +1707,6 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         a != null &&
         (b == null || (b - a).distance < _kMouseClickSlop);
   }
-
-  /// A one-point tool's preview under the hovering mouse (a level, a
-  /// price line, a vertical line): drawn as the draft, never saved.
-  ChartDrawing? _hoverGhost;
 
   /// The plot's mouse cursor (drawing mode).
   MouseCursor _cursor = MouseCursor.defer;
@@ -1744,7 +1749,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (e.kind == PointerDeviceKind.mouse && widget.drawingMode) {
       // The keys (Escape, Delete) follow the click to the plot.
       if (!_plotFocus.hasFocus) _plotFocus.requestFocus();
-      if (_hoverGhost != null) setState(() => _hoverGhost = null);
+      _clearPlacementHover();
     }
     // A press ends the hover's crosshair: the drag that follows pans.
     if (_hovering && e.kind == PointerDeviceKind.mouse) {
@@ -1776,7 +1781,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   void _onHoverExit() {
     _setContextMenuOff(false);
-    if (_hoverGhost != null) setState(() => _hoverGhost = null);
+    _clearPlacementHover();
     if (!_hovering) return;
     _hovering = false;
     if (_touchIndex != null || _touchY != null) {
@@ -1788,41 +1793,40 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   }
 
   /// The mouse over the editor's plot: the cursor for what a press will
-  /// do, the second point of a two-point placing following it, and a
-  /// one-point tool's preview under it.
+  /// do, and the tool in hand fed the hover (HlDrawingPlacement.hover):
+  /// the anchors still to place follow the pointer between clicks, and a
+  /// one-point tool previews under it.
   void _onEditorHover(Offset pos, Size plotSize) {
     _setContextMenuOff(true);
     final geom = _drawingGeometry(plotSize);
     final tool = widget.armedTool;
     final inPlot = geom != null && pos.dy <= geom.priceH;
     final cursor = _cursorAt(pos, geom, plotSize.width);
-    ChartDrawing? ghost;
-    ChartDrawing? pending = _pendingDraft;
-    if (geom != null && tool != null && inPlot) {
-      final point = _pointAt(geom, pos);
-      if (pending != null && pending.tool == tool) {
-        pending = _seedThirdAnchor(pending.withPoint(1, point));
-      } else if (chartDrawingPointCount(tool) == 1 &&
-          tool != ChartDrawingTool.text) {
-        ghost = ChartDrawing(
-          id: 'hover-ghost',
-          tool: tool,
-          points: [point],
-          colorValue: widget.armedColorValue,
-        );
+    if (geom != null &&
+        tool != null &&
+        tool != ChartDrawingTool.text &&
+        inPlot) {
+      final placement = _placementFor(tool);
+      if (!placement.dragging) {
+        setState(() {
+          _cursor = cursor;
+          placement.hover(_pointAt(geom, pos));
+        });
+        return;
       }
+    } else {
+      _clearPlacementHover();
     }
-    final pendingChanged = !identical(pending, _pendingDraft);
-    if (cursor != _cursor ||
-        pendingChanged ||
-        ghost?.points.first != _hoverGhost?.points.first ||
-        (ghost == null) != (_hoverGhost == null)) {
-      setState(() {
-        _cursor = cursor;
-        _hoverGhost = ghost;
-        if (pendingChanged) _pendingDraft = pending;
-      });
-    }
+    if (cursor != _cursor) setState(() => _cursor = cursor);
+  }
+
+  /// The mouse left the plot or pressed: nothing follows it any more.
+  void _clearPlacementHover() {
+    final placement = _placement;
+    if (placement == null) return;
+    final before = (placement.preview, placement.ghost);
+    placement.clearHover();
+    if (before.$1 != null || before.$2 != null) setState(() {});
   }
 
   /// What the mouse cursor says over [pos] in the editor: the precise
@@ -1870,7 +1874,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (_mouseDown) {
       if (_panningView) return SystemMouseCursors.grabbing;
       if (_axisDragging) return SystemMouseCursors.resizeUpDown;
-      if (_draft != null || _quickMeasuring) {
+      if (_placement?.dragging == true || _quickMeasuring) {
         return SystemMouseCursors.precise;
       }
       if (_edited != null) {
@@ -1896,12 +1900,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       _endQuickMeasure();
       return KeyEventResult.handled;
     }
-    if (_draft != null || _edited != null) {
+    if (_placement?.dragging == true || _edited != null) {
       _cancelDrawingGesture();
       return KeyEventResult.handled;
     }
-    if (_pendingDraft != null) {
-      setState(() => _setPending(null));
+    if (_placement?.active == true) {
+      // The anchors already down (a click-click or a channel's clicks).
+      setState(_clearPlacement);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -1924,7 +1929,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         _axisStartDomain = null;
       });
     }
-    if (_draft != null || _edited != null || _dragGeometry != null) {
+    if (_placement?.dragging == true ||
+        _edited != null ||
+        _dragGeometry != null) {
       setState(_resetDrawingInteraction);
     }
     _onDrawTapUp(
@@ -2031,7 +2038,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       _drawingCandles = _tape;
       _dragStartPosition = pos;
       _touchIndex = null;
-      _draft = ChartDrawing(
+      _quickMeasure = ChartDrawing(
         id: 'quick-measure',
         tool: ChartDrawingTool.dateAndPriceRange,
         points: [point, point],
@@ -2041,16 +2048,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   void _onQuickMeasureUpdate(Offset pos) {
     final geom = _dragGeometry;
-    final draft = _draft;
+    final draft = _quickMeasure;
     if (geom == null || draft == null) return;
-    setState(() => _draft = draft.withPoint(1, _pointAt(geom, pos)));
+    setState(() => _quickMeasure = draft.withPoint(1, _pointAt(geom, pos)));
   }
 
   void _endQuickMeasure() {
     if (!_quickMeasuring) return;
     setState(() {
       _quickMeasuring = false;
-      _draft = null;
+      _quickMeasure = null;
       _dragGeometry = null;
       _drawingCandles = null;
       _dragStartPosition = null;
@@ -2453,8 +2460,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   bool _reduceMotion = false;
 
   // ── drawing-mode interaction state ────────────────────────────────
-  /// In-progress two-point placement (tap-drag). Committed on pan end.
-  ChartDrawing? _draft;
+  /// The drawing being placed, anchor by anchor, for the armed tool: the
+  /// placement state machine (hl_drawing_placement.dart). Every tap and
+  /// drag of a tool in hand goes through it; nothing here is per tool.
+  HlDrawingPlacement? _placement;
+
+  /// What the placement paints (its anchors so far), or null.
+  ChartDrawing? get _placingPreview => _placement?.preview;
 
   /// Live handle-drag copy of the selected drawing — rendered instead of
   /// the original; the host is notified ONCE on pan end so Hive isn't
@@ -2468,30 +2480,104 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   ChartDrawing? _draggedOriginal;
   bool _draggingBody = false;
 
-  /// Tap-tap placement: the first point of a two- or three-point tool is
-  /// down; the next tap (or a drag) places the second. Kept apart from
-  /// the per-pointer state above, which every gesture resets.
-  ChartDrawing? _pendingDraft;
 
   /// The exact point (plot pixels, after the magnet) under the finger
   /// while a point is placed or moved: the loupe's focus.
   Offset? _loupeAt;
 
-  void _setPending(ChartDrawing? draft, {bool deferNotify = false}) {
-    final was = _pendingDraft != null;
-    _pendingDraft = draft;
-    final now = draft != null;
-    if (was == now) return;
-    final notify = widget.onPlacementPendingChanged;
-    if (notify == null) return;
+  /// Anchors down as last told to the host.
+  int _notifiedPlaced = 0;
+
+  /// The armed tool's placement, made on its first touch.
+  HlDrawingPlacement _placementFor(ChartDrawingTool tool) {
+    final current = _placement;
+    if (current != null && current.tool == tool) return current;
+    return _placement = HlDrawingPlacement(
+      tool: tool,
+      newId: _newDrawingId,
+      colorValue: widget.armedColorValue,
+    );
+  }
+
+  /// Drops the drawing being placed (another tool, mode or market).
+  void _clearPlacement({bool deferNotify = false}) {
+    _placement = null;
+    _notifyPlacement(deferNotify: deferNotify);
+  }
+
+  /// Tells the host how many anchors are down when that changed (its
+  /// hint: "Now tap the second point", "Point 2 of 3").
+  void _notifyPlacement({bool deferNotify = false}) {
+    final placement = _placement;
+    // Mid-drag the hint stays as it was; the lift settles it.
+    if (placement != null && placement.dragging) return;
+    final placed = placement?.placed ?? 0;
+    if (placed == _notifiedPlaced) return;
+    final was = _notifiedPlaced > 0;
+    _notifiedPlaced = placed;
+    final pending = widget.onPlacementPendingChanged;
+    final points = widget.onPlacementPointsChanged;
+    void notify() {
+      if (!mounted) return;
+      if (pending != null && was != placed > 0) pending(placed > 0);
+      points?.call(placed);
+    }
+
     if (deferNotify) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) notify(now);
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => notify());
     } else {
-      notify(now);
+      notify();
     }
   }
+
+  /// The drawings' labels in the app's language and the chart's price
+  /// format (the tag column's: [reference] is the price now).
+  KuteDrawingWords _drawingWords(AppLocalizations l, double reference) {
+    final pct = NumberFormat('#,##0.00');
+    String price(double v) {
+      if (!v.isFinite) return '—';
+      if (v <= 0) return NumberFormat('#,##0').format(0);
+      return formatHlPriceLike(v, reference, decimalCap: widget.decimalCap)
+          .replaceFirst(r'$', '');
+    }
+
+    String duration(int ms) {
+      final d = Duration(milliseconds: ms.abs());
+      if (d.inDays >= 1) {
+        final h = d.inHours % 24;
+        final days = l.coinMapAgeShortDays(d.inDays);
+        return h > 0 ? '$days ${l.coinMapAgeShortHours(h)}' : days;
+      }
+      if (d.inHours >= 1) {
+        final m = d.inMinutes % 60;
+        final hours = l.coinMapAgeShortHours(d.inHours);
+        return m > 0 ? '$hours ${l.durationShortMinutes(m)}' : hours;
+      }
+      return l.durationShortMinutes(d.inMinutes);
+    }
+
+    return KuteDrawingWords(
+      price: price,
+      percent: (f) {
+        if (!f.isFinite) return '—';
+        final v = f * 100;
+        return '${v > 0 ? '+' : v < 0 ? '−' : ''}${pct.format(v.abs())}%';
+      },
+      duration: duration,
+      ratio: (r) => NumberFormat('0.00').format(r),
+      fibLevel: hlFibLevelText,
+      target: (p, c) => l.chartPositionTarget(p, c),
+      stop: (p, c) => l.chartPositionStop(p, c),
+      long: (p, r) => l.chartPositionLong(p, r),
+      short: (p, r) => l.chartPositionShort(p, r),
+      bars: (n, d) => l.chartRangeBars(n, d),
+    );
+  }
+
+  /// Two chart points apart, in pixels on [geom].
+  static double Function(ChartDrawingPoint, ChartDrawingPoint) _pixelsOn(
+          KuteDrawingGeometry geom) =>
+      (a, b) => (geom.offsetFor(a) - geom.offsetFor(b)).distance;
 
   // ── trade lines (position + working orders) ──────────────────────
   /// Tag rects from the last trade-lines paint, for drag hit-testing.
@@ -2892,8 +2978,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (!widget.drawingMode ||
         build == null ||
         _edited != null ||
-        _draft != null ||
-        _pendingDraft != null ||
+        _placement?.active == true ||
         widget.armedTool != null) {
       return const [];
     }
@@ -2915,11 +3000,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       anchor.bottom.clamp(plot.top, plot.bottom),
     );
     return [
+      // Over the plot and its tag column: a toolbar of seven buttons
+      // needs more than a phone's plot alone.
       Positioned(
         left: 0,
         top: 0,
         bottom: 0,
-        width: plotW,
+        right: 0,
         child: CustomSingleChildLayout(
           delegate: HlDrawingToolbarLayout(
               anchor: anchor, plotHeight: geom.priceH),
@@ -3090,8 +3177,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   }
 
   void _resetDrawingInteraction() {
-    _draft = null;
-    _hoverGhost = null;
+    // A drag that placed nothing yet is undone; anchors already down by
+    // earlier taps stay (they are the placement's, not this pointer's).
+    _placement?.cancelDrag();
+    _quickMeasure = null;
     _edited = null;
     _dragPointIndex = -1;
     _dragGeometry = null;
@@ -3111,7 +3200,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         _axisStartDomain = null;
       });
     }
-    if (_dragGeometry == null && _draft == null && _edited == null) return;
+    if (_dragGeometry == null &&
+        _placement?.dragging != true &&
+        _edited == null) {
+      return;
+    }
     setState(_resetDrawingInteraction);
   }
 
@@ -3152,47 +3245,20 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       widget.onTextRequested?.call(point);
       return;
     }
-    if (tool != null && chartDrawingPointCount(tool) == 1) {
-      final drawing = ChartDrawing(
-        id: _newDrawingId(),
-        tool: tool,
-        points: [point],
-        colorValue: widget.armedColorValue,
-      );
-      if (!drawing.isValid) return;
-      HapticFeedback.selectionClick();
-      widget.onDrawingPlaced?.call(drawing);
-      return;
-    }
     if (tool != null) {
-      // Tap-tap placement: the first tap puts the first point down, the
-      // second tap the second.
-      final pending = _pendingDraft;
-      if (pending == null || pending.tool != tool) {
-        final first = ChartDrawing(
-          id: _newDrawingId(),
-          tool: tool,
-          points: [
-            for (var i = 0; i < chartDrawingPointCount(tool); i++) point
-          ],
-          colorValue: widget.armedColorValue,
-        );
-        if (!first.isValid) return;
+      // Placement (hl_drawing_placement.dart): each tap puts the next
+      // anchor down; the last one lands the drawing.
+      final placement = _placementFor(tool);
+      final before = placement.placed;
+      final done = placement.tap(point, distance: _pixelsOn(geom));
+      if (done != null) {
         HapticFeedback.selectionClick();
-        setState(() => _setPending(first));
-        return;
+        setState(_notifyPlacement);
+        widget.onDrawingPlaced?.call(done);
+      } else if (placement.placed != before) {
+        HapticFeedback.selectionClick();
+        setState(_notifyPlacement);
       }
-      final drawing = _seedThirdAnchor(pending.withPoint(1, point));
-      // A second tap on the first point is not a drawing.
-      if ((geom.offsetFor(drawing.points[0]) - geom.offsetFor(point))
-              .distance <
-          8) {
-        return;
-      }
-      if (!drawing.isValid) return;
-      HapticFeedback.selectionClick();
-      setState(() => _setPending(null));
-      widget.onDrawingPlaced?.call(drawing);
       return;
     }
     // Select mode: a fill marker under the finger opens its tooltip
@@ -3231,30 +3297,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final tool = _toolForPointer;
     if (tool == ChartDrawingTool.text) return;
     if (tool != null) {
+      // Placement: the next anchor (the second, from a fresh start)
+      // follows the finger until it lifts.
       final point = _pointAt(geom, pos);
-      final pending = _pendingDraft;
-      if (pending != null && pending.tool == tool) {
-        // The first point is down (a tap): this drag places the second,
-        // which follows the finger until it lifts.
-        setState(() {
-          _draft = _seedThirdAnchor(pending.withPoint(1, point));
-          _loupeAt = geom.offsetFor(point);
-        });
-        return;
-      }
-      // One-anchor tools place on tap; a drag still previews them at the
-      // finger. Two- and three-anchor tools drag out their second anchor;
-      // the third (channel offset, stop level) is derived on release and
-      // adjusted by its handle afterwards.
-      final count = chartDrawingPointCount(tool);
-      setState(
-        () => _draft = ChartDrawing(
-          id: _newDrawingId(),
-          tool: tool,
-          points: [for (var i = 0; i < count; i++) point],
-          colorValue: widget.armedColorValue,
-        ),
-      );
+      setState(() {
+        _placementFor(tool).dragStart(point);
+        _loupeAt = geom.offsetFor(point);
+      });
       return;
     }
     // A locked drawing cannot be dragged: a drag on it moves the chart.
@@ -3338,12 +3387,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     }
     final geom = _dragGeometry;
     if (geom == null) return;
-    if (_draft != null) {
+    if (_placement?.dragging == true) {
       final point = _pointAt(geom, d.localPosition);
-      final draft = _draft!;
-      final index = chartDrawingPointCount(draft.tool) == 1 ? 0 : 1;
       setState(() {
-        _draft = _seedThirdAnchor(draft.withPoint(index, point));
+        _placement!.dragUpdate(point);
         _loupeAt = geom.offsetFor(point);
       });
     } else if (_edited != null && _draggingBody) {
@@ -3386,31 +3433,6 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     }
   }
 
-  /// The third anchor a drag cannot express, derived from the first two:
-  /// a channel's parallel rail sits below the base by a tenth of the
-  /// base's own move (or 1% of price on a flat base); a position's stop
-  /// mirrors the target through the entry, so it starts at 1:1.
-  ChartDrawing _seedThirdAnchor(ChartDrawing draft) {
-    if (chartDrawingPointCount(draft.tool) < 3) return draft;
-    final a = draft.points[0], b = draft.points[1];
-    switch (draft.tool) {
-      case ChartDrawingTool.parallelChannel:
-        final move = (b.price - a.price).abs();
-        final offset = move > 0 ? move * 0.35 : a.price * 0.01;
-        return draft.withPoint(
-            2, ChartDrawingPoint(timeMs: b.timeMs, price: b.price - offset));
-      case ChartDrawingTool.longPosition:
-      case ChartDrawingTool.shortPosition:
-        final stop = a.price - (b.price - a.price);
-        return draft.withPoint(
-            2,
-            ChartDrawingPoint(
-                timeMs: a.timeMs, price: stop > 0 ? stop : a.price * 0.5));
-      default:
-        return draft;
-    }
-  }
-
   void _onDrawPanEnd(Size size) {
     if (_axisDragging) {
       setState(() {
@@ -3423,21 +3445,25 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       _panningView = false;
       return;
     }
-    final draft = _draft;
+    final placement = _placement;
     final edited = _edited;
     final geom = _dragGeometry;
-    _cancelDrawingGesture();
-    if (draft != null) {
-      if (geom == null || !draft.isValid) return;
-      if (chartDrawingPointCount(draft.tool) >= 2) {
-        final a = geom.offsetFor(draft.points[0]);
-        final b = geom.offsetFor(draft.points[1]);
-        if ((a - b).distance < 8) return;
+    if (placement != null && placement.dragging) {
+      // The lift places the anchor the finger carried (or, on the anchor
+      // before it, nothing); the last one lands the drawing.
+      final done = geom == null
+          ? null
+          : placement.dragEnd(distance: _pixelsOn(geom));
+      _cancelDrawingGesture();
+      setState(_notifyPlacement);
+      if (done != null) {
+        HapticFeedback.selectionClick();
+        widget.onDrawingPlaced?.call(done);
       }
-      HapticFeedback.selectionClick();
-      if (_pendingDraft != null) setState(() => _setPending(null));
-      widget.onDrawingPlaced?.call(draft);
-    } else if (edited != null && edited.isValid) {
+      return;
+    }
+    _cancelDrawingGesture();
+    if (edited != null && edited.isValid) {
       widget.onDrawingUpdated?.call(edited);
     }
   }
@@ -3447,7 +3473,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     super.didUpdateWidget(old);
     if (widget.marketKey != old.marketKey) {
       _resetDrawingInteraction();
-      _setPending(null, deferNotify: true);
+      _clearPlacement(deferNotify: true);
       _fillTipTimer?.cancel();
       _fillTipTimer = null;
       _fillTip = const {};
@@ -3514,7 +3540,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         widget.height != old.height) {
       _touchIndex = null;
       _resetDrawingInteraction();
-      _setPending(null, deferNotify: true);
+      _clearPlacement(deferNotify: true);
     }
     if (widget.drawingMode) {
       _pendingMorphFrom = null;
@@ -4138,9 +4164,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // the common no-drawings case adds zero layers.
                             if (widget.drawings.isNotEmpty ||
                                 widget.priceLines.isNotEmpty ||
-                                _draft != null ||
-                                _pendingDraft != null ||
-                                _hoverGhost != null ||
+                                _placement?.active == true ||
+                                _placement?.ghost != null ||
+                                _quickMeasure != null ||
                                 _edited != null)
                               Positioned(
                                 left: 0,
@@ -4151,17 +4177,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   child: RepaintBoundary(
                                     child: CustomPaint(
                                       painter: KuteChartDrawingsPainter(
-                                        // The hover's one-point preview
+                                        // A mouse's one-point preview
                                         // paints whole (a draft of one
                                         // point is only its anchor).
-                                        drawings: _hoverGhost == null
+                                        drawings: _placement?.ghost == null
                                             ? _paintedDrawings(c.textTertiary)
                                             : [
                                                 ..._paintedDrawings(
                                                     c.textTertiary),
-                                                _hoverGhost!,
+                                                _placement!.ghost!,
                                               ],
-                                        draft: _draft ?? _pendingDraft,
+                                        draft:
+                                            _quickMeasure ?? _placingPreview,
                                         selectedId: widget.drawingMode
                                             ? widget.selectedDrawingId
                                             : null,
@@ -4169,6 +4196,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         handleCore: isDark
                                             ? Colors.black
                                             : Colors.white,
+                                        words: _drawingWords(context.l10n,
+                                            candles.last.close),
                                         resolveGeometry: (size) =>
                                             _drawingGeometry(
                                           size,

@@ -524,6 +524,31 @@ class AppsFlyerService {
     return '$base?pid=affiliate&c=$c&deep_link_value=$c&af_sub1=$c';
   }
 
+  /// The link a share's words carry (a market, a win, a position, a
+  /// receipt): the sharer's own AppsFlyer invite link ([shareLink], their
+  /// [code] on it), the app's OneLink alone without a code, and the
+  /// website when no OneLink template is configured. NEVER a backend
+  /// address (founder, 25 November 2026: "we are showing our literal
+  /// backend link. never do this. just share the own link from appsflyer
+  /// for now to recommend").
+  static String appShareLink({String? code}) {
+    const site = 'https://getkute.com';
+    try {
+      final c = code?.trim() ?? '';
+      if (c.isNotEmpty) {
+        final invite = shareLink(c);
+        if (invite != null) return invite;
+      }
+      final tpl = (dotenv.env['APPSFLYER_ONELINK_TEMPLATE'] ?? '').trim();
+      if (tpl.isEmpty) return site;
+      final base = tpl.startsWith('http') ? tpl : 'https://$tpl';
+      return '$base?pid=share';
+    } catch (_) {
+      // The template is not loaded (a test, an early start).
+      return site;
+    }
+  }
+
   /// Ask AppsFlyer to mint a BRANDED short OneLink (nicer to share than the
   /// long [shareLink]). Async + best-effort: returns null on any failure or
   /// after a short timeout, so callers render [shareLink] instantly and swap

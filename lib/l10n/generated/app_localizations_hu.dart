@@ -14515,4 +14515,72 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Dollárhozam';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return '$current. pont (összesen $total): koppints a grafikonra.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'A befejezéshez koppints újra az utolsó pontra.';
+
+  @override
+  String get chartToolGroupChannels => 'Csatornák';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozíciók és mérés';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Minden eszköz: $group';
+  }
+
+  @override
+  String get chartLineWidth => 'Vonalvastagság';
+
+  @override
+  String get chartFillOpacity => 'Kitöltés';
+
+  @override
+  String get chartDrawingLabels => 'Címkék';
+
+  @override
+  String get chartTextSize => 'Szövegméret';
+
+  @override
+  String get chartFibLevels => 'Szintek';
+
+  @override
+  String chartPositionTarget(String price, String change) {
+    return 'Cél $price  $change';
+  }
+
+  @override
+  String chartPositionStop(String price, String change) {
+    return 'Stop $price  $change';
+  }
+
+  @override
+  String chartPositionLong(String price, String ratio) {
+    return 'Long $price · R/R $ratio';
+  }
+
+  @override
+  String chartPositionShort(String price, String ratio) {
+    return 'Short $price · R/R $ratio';
+  }
+
+  @override
+  String chartRangeBars(int count, String duration) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count gyertya',
+    );
+    return '$_temp0 · $duration';
+  }
 }

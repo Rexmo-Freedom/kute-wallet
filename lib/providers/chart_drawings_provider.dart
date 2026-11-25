@@ -6,6 +6,10 @@
 // identity, no backend. Drawings are stored in chart coordinates (time ms,
 // price), so they re-anchor correctly on any timeframe.
 //
+// Forward compatibility: an entry whose tool this build does not know (a
+// newer build's tool) is kept as its raw JSON, never shown, and written
+// back unchanged, ahead of the known drawings, on every save.
+//
 // Mutations wait for the initial load, then persist captured snapshots in
 // order. Closing the editor never needs an explicit save. Undo/redo keeps
 // bounded local history for creations, edits and deletions.
@@ -13,6 +17,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -37,6 +42,10 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
   final List<List<ChartDrawing>> _undo = [];
   final List<List<ChartDrawing>> _redo = [];
   Future<void> _writes = Future.value();
+
+  /// Stored entries whose tool this build does not know, each the exact
+  /// JSON it was read as (see the file comment).
+  final List<String> _unknown = [];
 
   bool get canUndo => _undo.isNotEmpty || state.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
@@ -72,8 +81,14 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
       final loaded = <ChartDrawing>[];
+      _unknown.clear();
       for (final e in decoded) {
         if (e is! Map) continue;
+        if (chartDrawingToolFromName(e['tool']) == null) {
+          // A newer build's tool: kept, skipped, written back as it was.
+          _unknown.add(jsonEncode(e));
+          continue;
+        }
         try {
           final drawing = ChartDrawing.fromJson(Map<String, dynamic>.from(e));
           if (drawing.isValid) loaded.add(drawing);
@@ -88,10 +103,7 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
       state = merged.length > kMaxDrawingsPerMarket
           ? merged.sublist(merged.length - kMaxDrawingsPerMarket)
           : merged;
-      if (migrated) {
-        await box.put(marketKey,
-            jsonEncode([for (final drawing in state) drawing.toJson()]));
-      }
+      if (migrated) await box.put(marketKey, _encode());
     } catch (_) {/* local-only drawing storage must not block the chart */}
   }
 
@@ -158,9 +170,16 @@ class ChartDrawingsNotifier extends FamilyNotifier<List<ChartDrawing>, String> {
         _persist();
       });
 
+  /// The stored list: the unknown entries as they were read, then the
+  /// drawings. With no unknown entries it is exactly jsonEncode(list).
+  String _encode() => '[${[
+        ..._unknown,
+        for (final d in state) jsonEncode(d.toJson()),
+      ].join(',')}]';
+
   void _persist() {
     final key = arg;
-    final encoded = jsonEncode([for (final d in state) d.toJson()]);
+    final encoded = _encode();
     // Serialize captured snapshots: a slow earlier disk write cannot undo
     // a later edit. Already queued writes survive closing the chart.
     _writes = _writes.then((_) async {
@@ -394,3 +413,57 @@ class ChartPreferencesNotifier
 final hlChartPreferencesProvider =
     NotifierProvider.family<ChartPreferencesNotifier, ChartPreferences, String>(
         ChartPreferencesNotifier.new);
+
+/// The face of each tool group on the Advanced chart's rail: the tool
+/// last picked from that group's fly-out, by group id ('lines', …) and
+/// tool name. One global choice, like the chart layout, kept in the
+/// settings box with the editor's other chart choices; a name this build
+/// does not know is ignored (the group shows its first tool).
+class HlDrawingRailFacesNotifier extends Notifier<Map<String, String>> {
+  static const String _box = 'settings';
+  static const String _key = 'hlChartRailFaces';
+
+  @override
+  Map<String, String> build() {
+    // Synchronous, like the layout: the settings box opens at app start,
+    // so the rail never flashes its defaults.
+    try {
+      if (Hive.isBoxOpen(_box)) {
+        final raw = Hive.box(_box).get(_key);
+        if (raw is String) {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) {
+            return Map.unmodifiable({
+              for (final e in decoded.entries)
+                if (e.key is String &&
+                    e.value is String &&
+                    chartDrawingToolFromName(e.value) != null)
+                  e.key as String: e.value as String,
+            });
+          }
+        }
+      }
+    } catch (_) {/* the rail works with its defaults */}
+    return const {};
+  }
+
+  /// [tool] becomes [group]'s face.
+  void setFace(String group, ChartDrawingTool tool) {
+    if (state[group] == tool.name) return;
+    state = Map.unmodifiable({...state, group: tool.name});
+    final encoded = jsonEncode(state);
+    unawaited(() async {
+      try {
+        final box = await Hive.openBox(_box);
+        await box.put(_key, encoded);
+      } catch (_) {/* a face not saved is only a default next time */}
+    }());
+  }
+
+  @visibleForTesting
+  static const String debugStorageKey = _key;
+}
+
+final hlDrawingRailFacesProvider =
+    NotifierProvider<HlDrawingRailFacesNotifier, Map<String, String>>(
+        HlDrawingRailFacesNotifier.new);

@@ -444,10 +444,10 @@ void main() {
         marketShareLink(
             venue: kMarketLinkPredictions, slug: _slug, outcome: ''),
         'https://backend.kutewallet.com/m/predictions/$_slug');
-    // The referral code rides along, the outcome kept.
-    final shared =
-        Uri.parse(shareLinkWithReferral(one.toString(), code: 'ANA1'));
-    expect(shared.queryParameters, {'outcome': '↑ 76,000', 'ref': 'ANA1'});
+    // What a share's words carry is never that backend address (founder,
+    // 25 November 2026): the app's own link instead.
+    expect(shareLinkWithReferral(one.toString(), code: 'ANA1'),
+        isNot(contains('backend.kutewallet.com')));
   });
 
   group('send mode: no look-only link, the bar says what is happening', () {

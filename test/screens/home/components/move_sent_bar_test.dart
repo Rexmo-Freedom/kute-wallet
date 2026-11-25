@@ -77,19 +77,20 @@ Future<ProviderContainer> _pump(WidgetTester tester,
   return container;
 }
 
-/// Swap, an opaque page on the root navigator over the tab, its button the
-/// bar; settled, so the tab under it is parked.
+/// The Dollars home's Move (once Swap), an opaque page on the root
+/// navigator over the tab, its button the bar; settled, so the tab under
+/// it is parked.
 Future<void> _openSwap(WidgetTester tester) async {
   _root.currentState!.push(MaterialPageRoute<void>(
     fullscreenDialog: true,
     builder: (_) => KuteBarContextScope(
       barContext: KuteBarContext.primary(
-          label: 'Swap', onPrimary: () {}, disabledLabel: null),
+          label: 'Move', onPrimary: () {}, disabledLabel: null),
       child: const Scaffold(body: Text('swap screen')),
     ),
   ));
   await tester.pumpAndSettle();
-  expect(kuteBarPrimaryWithText('Swap'), findsOneWidget);
+  expect(kuteBarPrimaryWithText('Move'), findsOneWidget);
 }
 
 void main() {
@@ -125,7 +126,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-          find.text(swapped ? 'Swapped to Dollars' : 'Moved to Dollars'),
+          find.text('Moved to Dollars'),
           findsOneWidget);
       expect(kuteBarPrimaryWithText('Done'), findsOneWidget);
       expect(find.text(_tabLabel), findsNothing);
@@ -194,12 +195,12 @@ void main() {
       fullscreenDialog: true,
       builder: (_) => KuteBarContextScope(
         barContext: KuteBarContext.primary(
-            label: 'Swap', onPrimary: () {}, disabledLabel: null),
+            label: 'Move', onPrimary: () {}, disabledLabel: null),
         child: const Scaffold(body: Text('swap screen')),
       ),
     ));
     await tester.pumpAndSettle();
-    expect(kuteBarPrimaryWithText('Swap'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Move'), findsOneWidget);
 
     navigator.pop();
     pushMoveSentOverlay(

@@ -1494,7 +1494,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // is more common in crypto lingo. or just 'swap'"): the two-way screen
     // between Bitcoin and Dollars. The Portfolio's Move money, any
     // account to any other, keeps its name.
-    if (_ownMoneySwap) return context.l10n.swap;
+    // Since 25 November 2026 the Dollars home's button says "Move", so
+    // the screen it opens is titled the same.
+    if (_ownMoneySwap) return context.l10n.moveVerb;
     if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveTransfer;
     if (_destPredictions) return context.l10n.moveAddPredictions;
     if (_destHyperliquid) return context.l10n.moveAddInvesting;
@@ -1527,7 +1529,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // ends reach Predictions and Investing, where a swap is not what
     // happens; a verb that changed with the picked pair would not match
     // the title over it.
-    if (_ownMoneySwap) return context.l10n.swap;
+    // "Move" since 25 November 2026, the Dollars home button's word.
+    if (_ownMoneySwap) return context.l10n.moveVerb;
     // The person's own money moves ("Move $50"); only money from outside
     // is bought.
     if (_isMoneyMovement || _ownMoneyMove) return context.l10n.moveVerb;

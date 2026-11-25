@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Cena se je premaknila na {price}. Tapni za oddajo po novi ceni.",
   "standingStagePlacing": "Oddajamo",
   "standingStageApproval": "Potrebna je tvoja odobritev",
-  "activityDollarsYield": "Donos od Dolarjev"
+  "activityDollarsYield": "Donos od Dolarjev",
+  "chartHintPointOf": "Točka {current} od {total}: tapnite graf.",
+  "chartHintFinishShape": "Za konec znova tapnite zadnjo točko.",
+  "chartToolGroupChannels": "Kanali",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozicije in merjenje",
+  "chartToolGroupShowAll": "Vsa orodja: {group}",
+  "chartLineWidth": "Debelina črte",
+  "chartFillOpacity": "Polnilo",
+  "chartDrawingLabels": "Oznake",
+  "chartTextSize": "Velikost besedila",
+  "chartFibLevels": "Ravni",
+  "chartPositionTarget": "Cilj {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 sveča} =2{2 sveči} few{{count} sveče} other{{count} sveč}} · {duration}"
 }

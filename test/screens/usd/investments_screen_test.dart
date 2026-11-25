@@ -495,10 +495,11 @@ void main() {
     expect(find.byType(AppButton, skipOffstage: false), findsNothing);
     expect(find.text(l10n.dollarDeposit, skipOffstage: false), findsNothing);
 
-    // The action row under the hero: Buy dollars, Swap, Receive and Send,
+    // The action row under the hero: Buy dollars, Move, Receive and Send,
     // four equal squared buttons in the Bitcoin row's columns (founder, 4
     // November 2026: the Portfolio is no longer needed on the top buttons,
-    // the Activity pill's bar opens it; 7 November 2026: Swap), each once
+    // the Activity pill's bar opens it; 7 November 2026: Swap, called Move
+    // since 25 November 2026), each once
     // on the page; then the pills. The action keys stay `receive` and
     // `send` so the events read as before.
     final row = find.byType(UsdAccountActionRow);
@@ -506,7 +507,7 @@ void main() {
     expect(tester.getTopLeft(row).dy,
         greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
-    // Buy dollars leads the row, then Swap, Receive and Send.
+    // Buy dollars leads the row, then Move, Receive and Send.
     expect(actions.map((a) => a.label),
         [l10n.buyDollarsAction, l10n.moveVerb, l10n.receive, l10n.send]);
     expect(actions.map((a) => a.trackingId),

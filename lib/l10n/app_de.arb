@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Der Preis ist auf {price} gegangen. Tippe, um zum neuen Preis zu platzieren.",
   "standingStagePlacing": "Wird platziert",
   "standingStageApproval": "Braucht deine Zustimmung",
-  "activityDollarsYield": "Dollar-Rendite"
+  "activityDollarsYield": "Dollar-Rendite",
+  "chartHintPointOf": "Punkt {current} von {total}: Tippe auf den Chart.",
+  "chartHintFinishShape": "Tippe erneut auf den letzten Punkt, um abzuschließen.",
+  "chartToolGroupChannels": "Kanäle",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positionen und Messen",
+  "chartToolGroupShowAll": "Alle Werkzeuge: {group}",
+  "chartLineWidth": "Linienstärke",
+  "chartFillOpacity": "Füllung",
+  "chartDrawingLabels": "Beschriftungen",
+  "chartTextSize": "Textgröße",
+  "chartFibLevels": "Niveaus",
+  "chartPositionTarget": "Ziel {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · CRV {ratio}",
+  "chartPositionShort": "Short {price} · CRV {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 Kerze} other{{count} Kerzen}} · {duration}"
 }

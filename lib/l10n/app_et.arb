@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Hind liikus {price} peale. Puuduta, et panna uue hinnaga.",
   "standingStagePlacing": "Esitame",
   "standingStageApproval": "Vajab sinu kinnitust",
-  "activityDollarsYield": "Dollarite tootlus"
+  "activityDollarsYield": "Dollarite tootlus",
+  "chartHintPointOf": "Punkt {current}/{total}: puuduta graafikut.",
+  "chartHintFinishShape": "Lõpetamiseks puuduta viimast punkti uuesti.",
+  "chartToolGroupChannels": "Kanalid",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positsioonid ja mõõtmine",
+  "chartToolGroupShowAll": "Kõik tööriistad: {group}",
+  "chartLineWidth": "Joone paksus",
+  "chartFillOpacity": "Täide",
+  "chartDrawingLabels": "Sildid",
+  "chartTextSize": "Teksti suurus",
+  "chartFibLevels": "Tasemed",
+  "chartPositionTarget": "Siht {price}  {change}",
+  "chartPositionStop": "Stopp {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}"
 }

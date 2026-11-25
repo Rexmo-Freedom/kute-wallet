@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Cena sa zmenila na {price}. Ťuknutím zadáte za novú cenu.",
   "standingStagePlacing": "Zadávame",
   "standingStageApproval": "Čaká na vaše schválenie",
-  "activityDollarsYield": "Výnos z Dolárov"
+  "activityDollarsYield": "Výnos z Dolárov",
+  "chartHintPointOf": "Bod {current} z {total}: ťukni do grafu.",
+  "chartHintFinishShape": "Ťukni znova na posledný bod na dokončenie.",
+  "chartToolGroupChannels": "Kanály",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozície a meranie",
+  "chartToolGroupShowAll": "Všetky nástroje: {group}",
+  "chartLineWidth": "Hrúbka čiary",
+  "chartFillOpacity": "Výplň",
+  "chartDrawingLabels": "Popisy",
+  "chartTextSize": "Veľkosť textu",
+  "chartFibLevels": "Úrovne",
+  "chartPositionTarget": "Cieľ {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 sviečka} few{{count} sviečky} other{{count} sviečok}} · {duration}"
 }

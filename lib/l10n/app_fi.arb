@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Hinta muuttui: {price}. Napauta asettaaksesi uuteen hintaan.",
   "standingStagePlacing": "Asetetaan",
   "standingStageApproval": "Vaatii hyväksyntäsi",
-  "activityDollarsYield": "Dollarien tuotto"
+  "activityDollarsYield": "Dollarien tuotto",
+  "chartHintPointOf": "Piste {current}/{total}: napauta kaaviota.",
+  "chartHintFinishShape": "Napauta viimeistä pistettä uudelleen lopettaaksesi.",
+  "chartToolGroupChannels": "Kanavat",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positiot ja mittaus",
+  "chartToolGroupShowAll": "Kaikki työkalut: {group}",
+  "chartLineWidth": "Viivan paksuus",
+  "chartFillOpacity": "Täyttö",
+  "chartDrawingLabels": "Tunnisteet",
+  "chartTextSize": "Tekstin koko",
+  "chartFibLevels": "Tasot",
+  "chartPositionTarget": "Tavoite {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 kynttilä} other{{count} kynttilää}} · {duration}"
 }

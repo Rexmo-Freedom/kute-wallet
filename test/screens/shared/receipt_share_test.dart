@@ -627,8 +627,7 @@ void main() {
                 title: 'Will it rain?',
                 link: 'https://backend.kutewallet.com/m/predictions/rain',
                 referralCode: 'JOAO42')),
-        'Will it rain? on Kute '
-        'https://backend.kutewallet.com/m/predictions/rain?ref=JOAO42');
+        'Will it rain? on Kute https://getkute.com');
     expect(
         receiptShareText(
             l10n,

@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Kaina pasikeitė į {price}. Palieskite, kad pateiktumėte nauja kaina.",
   "standingStagePlacing": "Teikiame",
   "standingStageApproval": "Reikia tavo patvirtinimo",
-  "activityDollarsYield": "Dolerių grąža"
+  "activityDollarsYield": "Dolerių grąža",
+  "chartHintPointOf": "Taškas {current} iš {total}: bakstelėkite grafiką.",
+  "chartHintFinishShape": "Norėdami baigti, dar kartą bakstelėkite paskutinį tašką.",
+  "chartToolGroupChannels": "Kanalai",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozicijos ir matavimas",
+  "chartToolGroupShowAll": "Visi įrankiai: {group}",
+  "chartLineWidth": "Linijos storis",
+  "chartFillOpacity": "Užpildas",
+  "chartDrawingLabels": "Žymės",
+  "chartTextSize": "Teksto dydis",
+  "chartFibLevels": "Lygiai",
+  "chartPositionTarget": "Tikslas {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 žvakė} few{{count} žvakės} other{{count} žvakių}} · {duration}"
 }

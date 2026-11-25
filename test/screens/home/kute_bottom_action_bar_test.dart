@@ -335,7 +335,7 @@ void main() {
 
   testWidgets(
       'the Investments money verbs are one compact row, Buy dollars, '
-      'Swap, Receive and Send, and the dock is search alone; Receive '
+      'Move, Receive and Send, and the dock is search alone; Receive '
       'opens the Dollars receive screen, Buy dollars its own opener',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -363,12 +363,13 @@ void main() {
     expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
     expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     expect(find.byType(KuteDogMagnifier), findsNothing);
-    // The row: Buy dollars first, then Swap, then Receive and Send with
+    // The row: Buy dollars first, then Move, then Receive and Send with
     // the Bitcoin dock's arrows and action keys (founder, 2 November 2026:
     // "Send and Receive, not Add and Send"; "Buy dollars" in place of
     // Manage with AI; 4 November 2026: the Portfolio is no longer a top
     // button, the Activity pill's bar opens it; 7 November 2026: Swap, in
-    // the Bitcoin row's Scan column).
+    // the Bitcoin row's Scan column; 25 November 2026: "make sure swap
+    // button in dollars is called move").
     final actions = UsdAccountActionBar.moneyActions(
         tester.element(find.byType(UsdAccountActionRow)));
     expect(actions.map((a) => a.label),
@@ -439,8 +440,8 @@ void main() {
   });
 
   testWidgets(
-      'Swap (founder, 7 November 2026: "a move button ... Only on dollars"): '
-      'the Swap sheet on Bitcoin → Dollars, pinned to the two accounts, '
+      'Move (founder, 7 November 2026: "a move button ... Only on dollars"; '
+      'Move since 25 November 2026): the Move sheet on Bitcoin → Dollars, pinned to the two accounts, '
       'under its own entry source', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -467,7 +468,7 @@ void main() {
 
   group(
       'the Bitcoin home\'s row (founder, 10 November 2026: Scan back on the '
-      'Bitcoin home, Swap only on the Dollars home)', () {
+      'Bitcoin home, Move only on the Dollars home)', () {
     Widget bitcoinRow(WalletConfig wallet, void Function(List<KuteDockAction>) seen) =>
         Consumer(builder: (context, ref, _) {
           final actions =
@@ -478,7 +479,7 @@ void main() {
 
     testWidgets(
         'spending wallet: Purchase · Scan · Receive · Send, left to right, '
-        'the scanner\'s camera button, no Swap', (tester) async {
+        'the scanner\'s camera button, no Move', (tester) async {
       late List<KuteDockAction> actions;
       await _pump(tester,
           bitcoinRow(_settings().wallets.single, (a) => actions = a));
@@ -489,16 +490,18 @@ void main() {
           tester.getCenter(find.text(label)).dx,
       ];
       expect(lefts, [...lefts]..sort());
+      expect(find.text('Move'), findsNothing);
       expect(find.text('Swap'), findsNothing);
       expect(find.byIcon(Icons.swap_horiz_rounded), findsNothing);
       expect(find.byIcon(Icons.qr_code_scanner_rounded), findsOneWidget);
       expect(actions[1].solid, isFalse);
       expect(actions[1].onTap, isNotNull);
 
-      // Swap stays on the Dollars home alone, in the column Scan takes here.
+      // Move stays on the Dollars home alone, in the column Scan takes here.
       final dollars = UsdAccountActionBar.moneyActions(
           tester.element(find.byType(KuteCompactActions)))[1];
       expect(dollars.trackingId, 'swap');
+      expect(dollars.label, 'Move');
       expect(tester.takeException(), isNull);
     });
 
@@ -542,13 +545,14 @@ void main() {
     ]) {
       testWidgets(
           '$kind wallet: Purchase · Scan · Receive · Send, as the spending '
-          'wallet\'s, no Swap', (tester) async {
+          'wallet\'s, no Move', (tester) async {
         late List<KuteDockAction> actions;
         await _pump(tester, bitcoinRow(cold, (a) => actions = a),
             settings: _settings(extra: [cold]));
         expect(actions.map((a) => a.trackingId),
             ['purchase', 'scan', 'receive', 'send']);
         expect(find.text('Scan'), findsOneWidget);
+        expect(find.text('Move'), findsNothing);
         expect(find.text('Swap'), findsNothing);
         expect(find.byIcon(Icons.swap_horiz_rounded), findsNothing);
         expect(actions[1].onTap, isNotNull);

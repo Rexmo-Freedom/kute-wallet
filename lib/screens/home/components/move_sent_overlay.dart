@@ -59,9 +59,10 @@ class MoveSentOverlay extends StatelessWidget {
     return KuteConfirmation(
       // The person's own money moved between their accounts: "Moved to
       // Dollars", never "Bought" (founder, 7 November 2026).
-      message: swapped
-          ? l10n.confirmationSwappedToWallet(toWalletName)
-          : l10n.confirmationMovedToWallet(toWalletName),
+      // The two-way Bitcoin and Dollars screen is "Move" since 25 November
+      // 2026 (the Dollars button's word), so its confirmation says
+      // "Moved to Dollars" too, whatever [swapped] says.
+      message: l10n.confirmationMovedToWallet(toWalletName),
       amount: amount.isEmpty ? null : amount,
       rows: {l10n.from: fromWalletName},
       detail: note,
