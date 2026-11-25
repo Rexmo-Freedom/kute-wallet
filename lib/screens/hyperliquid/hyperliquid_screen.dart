@@ -11,7 +11,8 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
-import 'package:kute/platform/kute_wide_frames.dart' show kuteBrowseColumnsMax;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show kuteBrowseColumnsMax, kuteWindowIsExpanded;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -493,6 +494,16 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     ref.read(hlAdvisorSlipIntentProvider.notifier).state = null;
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
+      // THE DESK (EXPANDED): the market's page with the ticket open in
+      // its side panel on that side, counted as the same ticket.
+      if (kuteWindowIsExpanded(context)) {
+        HlMarketDetailSheet.show(context,
+            market: intent.market,
+            source: 'advisor',
+            initialSide: intent.isLong,
+            slipSource: 'advisor');
+        return;
+      }
       HlOrderSlipSheet.show(
         context,
         ref,

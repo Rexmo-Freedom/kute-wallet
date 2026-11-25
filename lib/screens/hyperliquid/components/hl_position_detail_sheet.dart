@@ -3,6 +3,11 @@ import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_detail_panes.dart';
+import 'package:kute/screens/shared/kute_desk_trade_buttons.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
+import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart'
+    show HlOrderSlipSheet;
+import 'package:kute/theme/kute_motion.dart' show KuteMotion;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/share/brag/brag_data.dart' show bragHlPosition;
@@ -284,11 +289,11 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
           title: context.l10n.hlMarginAdd,
           subtitle: context.l10n.optionAddMarginSub,
           // Removing is a mode of the same sheet.
-          onTap: () => HlAdjustMarginSheet.show(context,
+          onTap: () => _atSide(() => HlAdjustMarginSheet.show(context,
               position: pos,
               market: m!,
               add: true,
-              source: HlMarginSource.liquidationRow),
+              source: HlMarginSource.liquidationRow)),
         ),
       // The ticket's own protective orders (stop / take profit, the
       // trailing stop), one tap away. Needs the market to place them.
@@ -309,8 +314,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
               'wallet_kind': ledgerId != null ? 'ledger' : 'hot',
               'target': ledgerId == null ? 'stop_loss' : 'trailing_stop',
             });
-            HlClosePositionSheet.showProtect(context, ref,
-                position: pos, market: m, ledgerWalletId: ledgerId);
+            _atSide(() => HlClosePositionSheet.showProtect(context, ref,
+                position: pos, market: m, ledgerWalletId: ledgerId));
           },
         ),
     ];
@@ -373,8 +378,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                     // EXPANDED: the close on the page's left gutter, over
                     // the panes' edge (kute_detail_panes.dart).
                     padding: wide
-                        ? kuteWidePadding(context)
-                            .copyWith(top: 8.h, bottom: 4.h)
+                        ? EdgeInsets.fromLTRB(
+                            kuteDeskGutter, 8.h, kuteDeskGutter, 4.h)
                         : EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
                     child: Row(
                       children: [
@@ -412,15 +417,25 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                 // on the whole screen, with the entry, liquidation,
                 // take-profit and stop lines still on it.
                 Expanded(
-                  child: editing
-                      ? HlChartEditBody(chart: _chart(m, fillHeight: true))
+                  child: _reflow(wide, (panel) => editing
+                      // The editor: the whole window; beside a side panel
+                      // (its Long and Short open the ticket there) the
+                      // rest of it.
+                      ? Padding(
+                          padding: EdgeInsets.only(
+                              right: kuteSidePanelWidth * panel),
+                          child: HlChartEditBody(
+                              chart: _chart(m, fillHeight: true)),
+                        )
                       : SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
                           // The foot scrolls clear of the floating Close
                           // position (and of the home indicator: the page
                           // runs to the screen's foot on iOS).
+                          // EXPANDED: the desk's gutters; while a side panel
+                          // is up, the chart keeps the rest of the window.
                           padding: (wide
-                                  ? kuteWidePadding(context)
+                                  ? _deskPadding(context, panel)
                                   : EdgeInsets.symmetric(horizontal: 20.w))
                               .copyWith(
                                   top: 0,
@@ -428,6 +443,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                       MediaQuery.paddingOf(context).bottom),
                           child: _panes(
                             wide,
+                            heroOnly: panel > 0,
                             hero: [
                               SizedBox(height: 10.h),
                               // The hero is what the position is worth now
@@ -558,10 +574,19 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               // plot, and the entry, liquidation, take-profit and
                               // stop lines.
                               if (m != null)
-                                _chart(m, height: wide ? 460 : 380)
+                                _chart(m,
+                                    height: wide
+                                        ? kuteDeskChartHeight(
+                                            MediaQuery.sizeOf(context).height,
+                                            around: 262)
+                                        : 380)
                               else
                                 SkeletonLineChart(
-                                    height: wide ? 460 : 380,
+                                    height: wide
+                                        ? kuteDeskChartHeight(
+                                            MediaQuery.sizeOf(context).height,
+                                            around: 262)
+                                        : 380,
                                     padding: EdgeInsets.zero),
                             ],
                             // Then, under the chart (on EXPANDED, the right
@@ -655,7 +680,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             ],
                           ),
                         ),
-                ),
+                )),
 
                 // ── Close position: the floating bar's button ─────────
                 // THE BAR IS THE BUTTON (kute_bar_context.dart): the same
@@ -668,12 +693,12 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                   active: !editing,
                   barContext: KuteBarContext.primary(
                     label: context.l10n.hlClosePosition,
-                    onPrimary: () => HlClosePositionSheet.show(
-                      context,
-                      position: pos,
-                      market: m,
-                      ledgerWalletId: widget.ledgerWalletId,
-                    ),
+                    onPrimary: () => _atSide(() => HlClosePositionSheet.show(
+                          context,
+                          position: pos,
+                          market: m,
+                          ledgerWalletId: widget.ledgerWalletId,
+                        )),
                     enabled: !closed,
                     disabledLabel: context.l10n.investingPositionClosed,
                     style: KuteBarPrimaryStyle.destructive,
@@ -711,6 +736,35 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         positionView: true,
         ledgerWalletId: widget.ledgerWalletId,
         onAdvancedChanged: (on) => setState(() => _advancedChart = on),
+        // THE DESK: the editor's header carries the market's Long and
+        // Short (the phone's editor shows no position actions there), the
+        // ticket opening in the side panel beside the chart. The spending
+        // wallet only: a Ledger's ticket is signed on the device.
+        deskTradeButtons:
+            kuteWindowIsExpanded(context) && widget.ledgerWalletId == null
+                ? KuteDeskTradeButtons(
+                    key: const ValueKey('hl-position-editor-trades'),
+                    compact: true,
+                    trades: [
+                      for (final long in [true, false])
+                        KuteBarTrade(
+                          id: long ? 'long' : 'short',
+                          label: long
+                              ? context.l10n.longLabel
+                              : context.l10n.shortLabel,
+                          fill: long
+                              ? AppColors.marketUp
+                              : AppColors.marketDown,
+                          onTap: () => _atSide(() => HlOrderSlipSheet.show(
+                              context, ref,
+                              market: m,
+                              isLong: long,
+                              source: 'position_detail',
+                              entrySource: 'position_detail')),
+                        ),
+                    ],
+                  )
+                : null,
       );
 
   /// The scrolling body: [hero] (the figure, its result and the chart)
@@ -719,15 +773,68 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   /// across the left pane, the rest a phone column on the right with
   /// Close position under it.
   Widget _panes(bool wide,
-      {required List<Widget> hero, required List<Widget> details}) {
+      {required List<Widget> hero,
+      required List<Widget> details,
+      bool heroOnly = false}) {
     Widget column(List<Widget> children) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: children,
         );
     if (!wide) return column([...hero, SizedBox(height: 16.h), ...details]);
+    // A side panel over the right column: the chart alone, reflowed.
+    if (heroOnly) return column(hero);
     return KuteDetailPanes(
       hero: column(hero),
       details: column([SizedBox(height: 10.h), ...details]),
+    );
+  }
+
+  /// THE DESK (founder, 25 November 2026, of Close opened as a centred
+  /// card: "these ones also be side bars pls"): on EXPANDED every panel
+  /// the page opens (Close, Add margin, Protect it, Details, the ticket
+  /// from the editor) is the side panel at the window's right edge, and a
+  /// step opened from one stays in it (kute_wide_frames.dart,
+  /// KuteSideFlow). Elsewhere [open] as it was.
+  void _atSide(VoidCallback open) {
+    if (kuteWindowIsExpanded(context)) KuteSideFlow.arm();
+    open();
+  }
+
+  /// The scroll's padding on EXPANDED at [panel] (0 at rest, 1 with a
+  /// side panel up): the desk's gutters at rest, the panel's room and a
+  /// gutter beside it open, the right pane's room between.
+  EdgeInsets _deskPadding(BuildContext context, double panel) {
+    if (panel <= 0) {
+      return const EdgeInsets.symmetric(horizontal: kuteDeskGutter);
+    }
+    final width = MediaQuery.sizeOf(context).width;
+    final rest = kuteDetailPaneWidth(width - 2 * kuteDeskGutter) +
+        kuteWideGap +
+        kuteDeskGutter;
+    const open = kuteSidePanelWidth + kuteDeskGutter;
+    return EdgeInsets.only(
+        left: kuteDeskGutter, right: rest + (open - rest) * panel);
+  }
+
+  /// [build] at 0 at rest and 1 while a side panel this page opened is up
+  /// over it (EXPANDED; the panel takes the right column's place and the
+  /// chart reflows to the rest of the window), on the settle easing.
+  Widget _reflow(bool wide, Widget Function(double panel) build) {
+    if (!wide) return build(0);
+    return ValueListenableBuilder<int>(
+      valueListenable: kuteDialogsOpen,
+      builder: (context, _, __) {
+        final up = KuteSideFlow.anyOpen &&
+            ModalRoute.of(context)?.isCurrent == false;
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: up ? 1 : 0),
+          duration: kuteReduceMotion(context)
+              ? Duration.zero
+              : KuteMotion.settleDuration,
+          curve: KuteMotion.settle,
+          builder: (context, t, _) => build(t),
+        );
+      },
     );
   }
 
@@ -743,6 +850,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
       onTap: () {
         TrackingService.track('investing_position_details_opened',
             params: {'coin': pos.coin});
+        _atSide(() {});
         unawaited(OpenOnce.run(
             'hl-position-details:${widget.ledgerWalletId ?? 'hot'}:${pos.coin}',
             () => showAppBottomSheet<void>(

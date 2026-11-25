@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/kute_side_panel.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogSurfaceMark;
 
 import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
@@ -393,6 +394,10 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   final VoidCallback? onEmbeddedDone;
   final KuteBarShare? embeddedShare;
 
+  /// In place as the desk's side panel that opens on Long / Short: its
+  /// header's X closes the panel. Null: no X (nothing to close).
+  final VoidCallback? onEmbeddedClose;
+
   const HlOrderSlipSheet({
     super.key,
     required this.market,
@@ -406,6 +411,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     this.embedded = false,
     this.onEmbeddedDone,
     this.embeddedShare,
+    this.onEmbeddedClose,
   }) : assert(!embedded || (ledgerWalletId == null && sendPick == null));
 
   /// The ticket in place on a wide market page ([embedded]). Hot account
@@ -418,16 +424,52 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     required String entrySource,
     required VoidCallback onDone,
     KuteBarShare? share,
+    bool isLong = true,
+    double? initialUsd,
+    VoidCallback? onClose,
+    String source = 'market_detail',
   }) =>
       HlOrderSlipSheet(
         key: key,
         market: market,
-        source: 'market_detail',
+        initialIsLong: isLong,
+        initialUsd: initialUsd,
+        source: source,
         entrySource: entrySource,
         embedded: true,
         onEmbeddedDone: onDone,
         embeddedShare: share,
+        onEmbeddedClose: onClose,
       );
+
+  /// What [show] counts as the ticket opens: the flow, the screen and the
+  /// one slip-opened event. The desk's side panel counts the same when a
+  /// Long / Short opens it (market_detail_sheet.dart).
+  static void trackOpened({
+    required HlMarket market,
+    required bool isLong,
+    String? source,
+    String? entrySource,
+    String? ledgerWalletId,
+  }) {
+    VenueAnalytics.rememberHlMarkets([market]);
+    TrackingService.setFlowContext(
+        flow: 'hl_order',
+        step: 'amount',
+        venue: 'hyperliquid',
+        walletKind: ledgerWalletId != null ? 'ledger' : 'hot');
+    TrackingService.screenView('hyperliquid_order_slip');
+    TrackingService.hyperliquidOrderSlipOpened(
+      coin: market.coin,
+      kind: market.isSpot ? 'spot' : 'perp',
+      source: source,
+      walletKind: ledgerWalletId != null ? 'ledger' : 'hot',
+      extra: {
+        'entry_source': entrySource ?? source ?? 'unknown',
+        'side': isLong ? 'long' : 'short',
+      },
+    );
+  }
 
   /// Route name used to pop back down to the host after a fill — see
   /// [popAllSheetsDownToHost] (mirrors BetSlipSheet.routeName).
@@ -464,23 +506,12 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     if (!context.mounted) return;
 
     // Counted once the slip actually opens.
-    VenueAnalytics.rememberHlMarkets([market]);
-    TrackingService.setFlowContext(
-        flow: 'hl_order',
-        step: 'amount',
-        venue: 'hyperliquid',
-        walletKind: ledgerWalletId != null ? 'ledger' : 'hot');
-    TrackingService.screenView('hyperliquid_order_slip');
-    TrackingService.hyperliquidOrderSlipOpened(
-      coin: market.coin,
-      kind: market.isSpot ? 'spot' : 'perp',
-      source: source,
-      walletKind: ledgerWalletId != null ? 'ledger' : 'hot',
-      extra: {
-        'entry_source': entrySource ?? source ?? 'unknown',
-        'side': isLong ? 'long' : 'short',
-      },
-    );
+    trackOpened(
+        market: market,
+        isLong: isLong,
+        source: source,
+        entrySource: entrySource,
+        ledgerWalletId: ledgerWalletId);
     if (ledgerWalletId != null) {
       TrackingService.ledgerActionSheetOpened(action: 'hl_order');
     }
@@ -6109,6 +6140,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // Shared widgets inside the sheet read `context.colors`; handing
         // them the tinted palette keeps them legible without forking them.
         data: tintedTheme,
+        // A side panel on EXPANDED (the position page's editor opens the
+        // ticket there) wears the side's colour to its foot, the primary
+        // on it (kute_dialog.dart).
+        child: KuteDialogSurfaceMark(
+        color: widget.embedded ? null : sideColor,
         child: Container(
           padding: widget.embedded
               ? EdgeInsets.zero
@@ -6156,6 +6192,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     ),
                   ),
           ),
+        ),
         ),
       ),
       ),
@@ -7900,6 +7937,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           if (!widget.embedded) ...[
             SizedBox(width: 8.w),
             const KuteCloseButton(),
+          ] else if (widget.onEmbeddedClose case final close?) ...[
+            // The desk's side panel closes back to the page.
+            SizedBox(width: 8.w),
+            KuteCloseButton(
+                key: const ValueKey('order-slip-panel-close'),
+                onPressed: close),
           ],
         ],
       ),

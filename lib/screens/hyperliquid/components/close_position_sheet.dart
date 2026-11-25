@@ -19,6 +19,7 @@ import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 // the same reviewed submission path. Ledger approval stays wallet-scoped.
 
 import 'package:flutter/material.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogSurfaceMark;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -1553,7 +1554,11 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     // _popToHost), so the hand-off to the confirmation is never refused.
     return PopScope(
         canPop: !_isClosing,
-        child: SideTintedSubtree(side: AppColors.marketDown, child: sheet));
+        child: SideTintedSubtree(
+            side: AppColors.marketDown,
+            // A side panel on EXPANDED wears the sheet's colour to its
+            // foot, the primary on it (kute_dialog.dart).
+            child: KuteDialogSurfaceMark(color: AppColors.marketDown, child: sheet)));
   }
 
   String _ctaLabel() {

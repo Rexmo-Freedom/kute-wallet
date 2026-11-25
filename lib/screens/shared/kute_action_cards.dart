@@ -630,9 +630,45 @@ class KuteActionCard extends StatelessWidget {
                     onTap!();
                   }
                 : onTap,
-            child: card,
+            child: enabled ? _KuteCardHover(child: card) : card,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A mouse over an enabled card (a laptop): the pointer cursor and a
+/// whisper of ink over the card's surface. Nothing drawn without a mouse.
+class _KuteCardHover extends StatefulWidget {
+  const _KuteCardHover({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KuteCardHover> createState() => _KuteCardHoverState();
+}
+
+class _KuteCardHoverState extends State<_KuteCardHover> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = KuteActionCard.surfaceOf(context).borderRadius;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          color: _hover
+              ? context.colors.textPrimary
+                  .withValues(alpha: context.isDark ? 0.06 : 0.04)
+              : null,
+          borderRadius: radius,
+        ),
+        child: widget.child,
       ),
     );
   }
