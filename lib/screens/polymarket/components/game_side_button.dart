@@ -70,7 +70,12 @@ class PolyGameSideButton extends StatefulWidget {
     this.muted = false,
     this.semanticLabel,
     required this.onTap,
+    this.height,
   });
+
+  /// The button's height; the board's (or a dense row's) when null (a
+  /// game page's right column on a laptop draws them taller).
+  final double? height;
 
   @override
   State<PolyGameSideButton> createState() => _PolyGameSideButtonState();
@@ -109,12 +114,14 @@ class _PolyGameSideButtonState extends State<PolyGameSideButton> {
           HapticFeedback.mediumImpact();
           widget.onTap();
         },
-        child: AnimatedScale(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: AnimatedScale(
           scale: (_pressed && !reduceMotion) ? 0.97 : 1.0,
           duration: const Duration(milliseconds: 100),
           curve: Curves.easeInOut,
           child: Container(
-            height: (dense ? 46 : 62).h,
+            height: widget.height ?? (dense ? 46 : 62).h,
             padding: EdgeInsets.symmetric(horizontal: 6.w),
             decoration: fill == null
                 ? BoxDecoration(
@@ -203,6 +210,7 @@ class _PolyGameSideButtonState extends State<PolyGameSideButton> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

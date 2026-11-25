@@ -41,6 +41,8 @@ import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCloseButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
@@ -139,11 +141,13 @@ Object? _noImages(Object? json) => switch (json) {
       _ => json,
     };
 
-PolymarketEvent _game() => PolymarketModel().parseEventsRaw([
-      _noImages(jsonDecode(
-          File('test/fixtures/polymarket_games/leeds_man_united.json')
-              .readAsStringSync())) as Map<String, dynamic>,
+PolymarketEvent _game([String name = 'leeds_man_united']) =>
+    PolymarketModel().parseEventsRaw([
+      _noImages(jsonDecode(File('test/fixtures/polymarket_games/$name.json')
+          .readAsStringSync())) as Map<String, dynamic>,
     ]).single;
+
+PolymarketEvent _tennis() => _game('tennis_fils_fritz');
 
 const _alienPosition = PolymarketPosition(
   marketId: 'c-aliens',
@@ -230,13 +234,43 @@ ThemeData _theme(bool dark) {
 
 const _sizes = [
   ('1440x900', Size(1440, 900)),
+  ('1280x800', Size(1280, 800)),
   ('1180x820', Size(1180, 820)),
   ('1920x1080', Size(1920, 1080)),
-  ('2560x1300', Size(2560, 1300)),
+  ('2400x1200', Size(2400, 1200)),
   ('1000x700', Size(1000, 700)),
   ('820x1180', Size(820, 1180)),
   ('430x932', Size(430, 932)),
 ];
+
+/// The windows the open side panel is shot at too.
+const _openSizes = {'1440x900', '1000x700', '1920x1080'};
+
+/// Opens the slip on the page as a click would on EXPANDED: the right
+/// column's first button, else (an event) the first outcome row's Yes.
+Future<bool> _openPanel(WidgetTester tester) async {
+  final buttons = find.descendant(
+      of: find.byKey(const ValueKey('poly-desk-buttons')),
+      matching: find.byType(GestureDetector));
+  final round = find.descendant(
+      of: find.byKey(const ValueKey('crypto-round-desk-column')),
+      matching: find.byKey(const ValueKey('crypto-round-up')));
+  final Finder target;
+  if (buttons.evaluate().isNotEmpty) {
+    target = buttons.first;
+  } else if (round.evaluate().isNotEmpty) {
+    target = round;
+  } else {
+    final yes = find.textContaining('Yes');
+    if (yes.evaluate().isEmpty) return false;
+    target = yes.first;
+  }
+  await tester.tap(target, warnIfMissed: false);
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  return true;
+}
 
 Future<void> _pump(WidgetTester tester,
     {required Size size,
@@ -323,6 +357,7 @@ void main() {
     ('yesno_position', () => _aliens, const [_alienPosition]),
     ('event', () => _election, const []),
     ('football', _game, const []),
+    ('tennis', _tennis, const []),
   ];
 
   for (final (sizeName, size) in _sizes) {
@@ -359,6 +394,12 @@ void main() {
                   builder: (_) => MarketDetailSheet(event: e)));
           expect(tester.takeException(), isNull);
           await _shoot(tester, '${name}_${sizeName}_$mode', size);
+          if (size.width >= 900 && _openSizes.contains(sizeName)) {
+            if (await _openPanel(tester)) {
+              expect(tester.takeException(), isNull);
+              await _shoot(tester, '${name}_${sizeName}_${mode}_open', size);
+            }
+          }
           await release(tester);
         });
       }
@@ -397,6 +438,12 @@ void main() {
                 builder: (_) => FiveMinMarketDetailSheet(event: event)));
         expect(tester.takeException(), isNull);
         await _shoot(tester, 'round5m_${sizeName}_$mode', size);
+        if (size.width >= 900 && _openSizes.contains(sizeName)) {
+          if (await _openPanel(tester)) {
+            expect(tester.takeException(), isNull);
+            await _shoot(tester, 'round5m_${sizeName}_${mode}_open', size);
+          }
+        }
         await release(tester);
       });
     }
@@ -456,14 +503,70 @@ void main() {
     await release(tester);
   });
 
-  testWidgets('wide: the slip is the side panel, window edge to edge',
-      (tester) async {
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  final slipPanel = find.byKey(const ValueKey('bet-slip-in-place'));
+
+  BetSlipSheet slipOf(WidgetTester tester) =>
+      tester.widget<BetSlipSheet>(find.byType(BetSlipSheet));
+
+  testWidgets(
+      'wide: at rest no slip, the right column\'s buttons; Yes opens the '
+      'side panel, window edge to edge, on Yes', (tester) async {
     await pumpMarket(tester, const Size(1440, 900), _aliens);
+    expect(slipPanel, findsNothing);
+    expect(find.byType(BetSlipSheet), findsNothing);
+    final column = tester.getRect(find.byKey(const ValueKey('poly-desk-column')));
+    // The column at the window's right gutter.
+    expect(column.right, 1440 - 24);
+    await tester.tap(find.byKey(const ValueKey('kute-bar-trade-yes')));
+    await settle(tester);
     // The slip is the side panel: the window's right edge, top to bottom.
-    final slip = tester.getRect(find.byKey(const ValueKey('bet-slip-in-place')));
+    final slip = tester.getRect(slipPanel);
     expect(slip.bottom, 900);
     expect(slip.top, 0);
     expect(slip.right, 1440);
+    expect(slipOf(tester).initialOutcomeIndex, 0);
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
+
+  testWidgets('wide: No opens the panel on No; its X, Escape and the back '
+      'each close it', (tester) async {
+    await pumpMarket(tester, const Size(1440, 900), _aliens);
+    Future<void> open() async {
+      await tester.tap(find.byKey(const ValueKey('kute-bar-trade-no')));
+      await settle(tester);
+      expect(slipPanel, findsOneWidget);
+      expect(slipOf(tester).initialOutcomeIndex, 1);
+    }
+
+    await open();
+    // The X in the panel's header.
+    await tester.tap(find.descendant(
+        of: slipPanel, matching: find.byType(KuteCloseButton)));
+    await settle(tester);
+    expect(slipPanel, findsNothing);
+    expect(find.byType(MarketDetailSheet), findsOneWidget);
+    await open();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(slipPanel, findsNothing);
+    expect(find.byType(MarketDetailSheet), findsOneWidget);
+    await open();
+    // The browser's back (the route's own back): the panel first.
+    await AppRouter.rootNavigatorKey.currentState!.maybePop();
+    await settle(tester);
+    expect(slipPanel, findsNothing);
+    expect(find.byType(MarketDetailSheet), findsOneWidget);
+    // Then the page.
+    await AppRouter.rootNavigatorKey.currentState!.maybePop();
+    await settle(tester);
+    expect(find.byType(MarketDetailSheet), findsNothing);
     expect(tester.takeException(), isNull);
     await release(tester);
   });
@@ -473,6 +576,10 @@ void main() {
       'it and no trade row; a keyboard types the amount', (tester) async {
     await pumpMarket(tester, const Size(1440, 900), _aliens,
         positions: const [_alienPosition]);
+    // At rest the position is the column's row.
+    expect(find.byKey(const ValueKey('desk-position-y')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('kute-bar-trade-yes')));
+    await settle(tester);
     expect(find.byKey(const ValueKey('bet-slip-in-place')), findsOneWidget);
     expect(
         find.byKey(const ValueKey('poly-slip-cta-in-place')), findsOneWidget);
@@ -502,8 +609,10 @@ void main() {
   testWidgets('wide: a tap on an event\'s outcome picks it in the slip',
       (tester) async {
     await pumpMarket(tester, const Size(1440, 900), _election);
-    expect(find.text('Will J.D. Vance win the 2028 US Presidential Election?'),
-        findsOneWidget);
+    // At rest: no slip, and no pair of buttons for an event of many
+    // outcomes; the column starts with its figures.
+    expect(find.byType(BetSlipSheet), findsNothing);
+    expect(find.byKey(const ValueKey('poly-desk-buttons')), findsNothing);
     await tester.tap(find.text('Gavin Newsom').last);
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));

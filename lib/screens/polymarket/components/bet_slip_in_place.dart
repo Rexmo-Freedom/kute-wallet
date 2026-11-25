@@ -16,12 +16,17 @@
 // is the same [BetSlipSheet] with the same state, checks and button
 // (bet_slip_sheet.dart's header), drawn without its sheet.
 //
-// The pane opens on the market on screen the way its first button would
-// open it (Yes, Up): the page offers that door ([offerDefault]) and the
-// host opens it quietly, with no "slip opened" count and no notice (the
-// person did not tap anything). A timed round's slip moves to the next
-// round by itself once its round reaches its cutoff, as the round card's
-// buttons do, through the card's own door.
+// THE PANEL OPENS ON A CLICK (founder, 25 November 2026: "clicking Long
+// or Short this side bar appears"; "same thing for Polymarket"). At rest
+// the page holds no slip: its right column shows its outcome buttons and
+// its figures (kute_desk_market.dart). A click on an outcome (the
+// column's buttons, an outcome row's Yes / No, a game's sides, a round
+// card's Up / Down) hands the slip to the host, which opens the panel on
+// it; the panel's X, Escape and the browser's back close it
+// ([BetSlipInPlaceHostState.close]) and the column comes back. A timed
+// round's open slip moves to the next round by itself once its round
+// reaches its cutoff, as the round card's buttons do, through the card's
+// own door, quietly ([offerDefault]: no "slip opened" count, no notice).
 //
 // A slip that is placing is never replaced: a tap on another outcome then
 // does nothing, as the page under a slip sheet took no taps. One whose
@@ -30,6 +35,8 @@
 
 import 'dart:async';
 
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
 
 import 'package:kute/screens/shared/kute_bar_context.dart' show KuteBarShare;
@@ -41,6 +48,7 @@ import 'package:kute/services/polymarket/crypto_round.dart'
     show polyCryptoRoundOf, polyRoundBuyClosed;
 import 'package:kute/services/polymarket/fast_bet_window.dart'
     show polyIsFastBetRound;
+import 'package:kute/theme/kute_motion.dart';
 
 /// What a slip in the pane tells its host, and what it asks of it.
 class BetSlipInPlaceLink {
@@ -66,6 +74,9 @@ class BetSlipInPlaceLink {
   /// The slip is done (its order placed, or its OK): a fresh slip on the
   /// same market takes its place.
   void reset() => _host._reset(this);
+
+  /// The panel's X: the page back at rest ([BetSlipInPlaceHostState.close]).
+  void close() => _host.close();
 }
 
 class BetSlipInPlaceHost extends StatefulWidget {
@@ -84,8 +95,8 @@ class BetSlipInPlaceHost extends StatefulWidget {
   final bool active;
 
   /// The page's door onto its market as its first button opens it ([side]
-  /// 0: Yes, Up; 1: No, Down): opened quietly while the pane holds no
-  /// slip (see the file header).
+  /// 0: Yes, Up; 1: No, Down): a timed round's open slip rolls to the next
+  /// round through it, quietly (see the file header).
   final void Function(int side)? defaultOpener;
   final Widget child;
 
@@ -93,6 +104,14 @@ class BetSlipInPlaceHost extends StatefulWidget {
   static BetSlipInPlaceHostState? maybeOf(BuildContext context) {
     final host = context.getInheritedWidgetOfExactType<_HostScope>()?.state;
     return host != null && host.mounted && host.widget.active ? host : null;
+  }
+
+  /// Whether the host over [context] has its panel open now (a slip
+  /// handed to it and not closed). Rebuilds [context] when that changes.
+  static bool isOpenOf(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<_HostScope>();
+    final host = scope?.state;
+    return host != null && host.widget.active && host._open;
   }
 
   /// The link of the slip in the pane over [context]; null for a slip in
@@ -106,6 +125,11 @@ class BetSlipInPlaceHost extends StatefulWidget {
 
 class BetSlipInPlaceHostState extends State<BetSlipInPlaceHost> {
   BetSlipSheet? _slip;
+
+  /// The panel is open: a slip was handed in and not closed. The slip
+  /// stays a moment after a close, so it slides out whole.
+  bool _open = false;
+  Timer? _clear;
   int _generation = 0;
   BetSlipInPlaceLink? _link;
   bool _quiet = false;
@@ -119,7 +143,48 @@ class BetSlipInPlaceHostState extends State<BetSlipInPlaceHost> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
     _sync();
+  }
+
+  /// Escape closes the open panel, while this page is the one on top.
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape ||
+        !mounted ||
+        !widget.active ||
+        !_open) {
+      return false;
+    }
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+    close();
+    return true;
+  }
+
+  /// The panel closed: the page back at rest, its column in view. A slip
+  /// that is placing stays (false), as its sheet could not be closed
+  /// then; one whose standing order the person may leave is left first.
+  bool close() {
+    if (!mounted || !_open) return false;
+    final link = _link;
+    if (link != null && !link.canLeave) return false;
+    link?.leave?.call();
+    setState(() {
+      _open = false;
+      _generation++;
+    });
+    _clear?.cancel();
+    // After the slide out (kute_desk_market.dart).
+    _clear = Timer(KuteMotion.settleDuration + const Duration(milliseconds: 60),
+        () {
+      if (!mounted || _open) return;
+      setState(() {
+        _slip = null;
+        _link = null;
+        _generation++;
+      });
+    });
+    return true;
   }
 
   @override
@@ -128,15 +193,14 @@ class BetSlipInPlaceHostState extends State<BetSlipInPlaceHost> {
     _sync();
   }
 
-  /// While the host takes slips and has a door: the pane opens on it
-  /// when empty, and once a second the slip is looked at ([_onTick]).
+  /// While the host takes slips and has a door: once a second the open
+  /// slip is looked at ([_onTick]).
   void _sync() {
     if (_opener == null) {
       _tick?.cancel();
       _tick = null;
       return;
     }
-    if (_slip == null) _openDefault(_side);
     _tick ??= Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
   }
 
@@ -151,8 +215,10 @@ class BetSlipInPlaceHostState extends State<BetSlipInPlaceHost> {
     final link = _link;
     if (link != null && !link.canLeave) return true;
     link?.leave?.call();
+    _clear?.cancel();
     setState(() {
       _slip = slip;
+      _open = true;
       _generation++;
       _link = BetSlipInPlaceLink._(this, quiet: _quiet);
     });
@@ -165,7 +231,7 @@ class BetSlipInPlaceHostState extends State<BetSlipInPlaceHost> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       final opener = _opener;
-      if (!mounted || !widget.active || _slip != null || opener == null) {
+      if (!mounted || !widget.active || !_open || opener == null) {
         return;
       }
       _quiet = true;
@@ -185,18 +251,14 @@ class BetSlipInPlaceHostState extends State<BetSlipInPlaceHost> {
     });
   }
 
-  /// An empty pane tries its door again (a round with no prices yet gets
-  /// them), and a timed round's slip follows the round card past its
-  /// cutoff: once its round takes no more bets, the card's door opens the
-  /// next one, on the same side.
+  /// A timed round's open slip follows the round card past its cutoff:
+  /// once its round takes no more bets, the card's door opens the next
+  /// one, on the same side.
   void _onTick() {
-    if (!mounted || _opener == null) return;
+    if (!mounted || _opener == null || !_open) return;
     final slip = _slip;
     final link = _link;
-    if (slip == null) {
-      _openDefault(_side);
-      return;
-    }
+    if (slip == null) return;
     if (link == null || !link.canLeave) return;
     final slug = slip.marketSlug;
     if (slug == null ||
@@ -213,19 +275,33 @@ class BetSlipInPlaceHostState extends State<BetSlipInPlaceHost> {
     setState(() {
       _slip = null;
       _link = null;
+      _generation++;
     });
     _openDefault(_side);
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _tick?.cancel();
+    _clear?.cancel();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _HostScope(state: this, generation: _generation, child: widget.child);
+  Widget build(BuildContext context) => _HostScope(
+        state: this,
+        generation: _generation,
+        // The browser's back (and the page's own) closes the open panel
+        // first; the page is left with the next one.
+        child: PopScope(
+          canPop: !(widget.active && _open),
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) close();
+          },
+          child: widget.child,
+        ),
+      );
 }
 
 class _HostScope extends InheritedWidget {

@@ -7,6 +7,8 @@ import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_desk_market.dart'
+    show KuteDeskUnderPanel;
 import 'package:kute/screens/shared/kute_detail_panes.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
@@ -372,12 +374,32 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
     _sellAtTimer?.cancel();
     if (_limitSellBlocked()) return;
     _logWhatIf(sellTapped: true);
-    context.pop();
+    _leaveForSell();
     SellSheet.show(context,
         position: pos,
         source: 'position_whatif',
         startWithLimit: true,
         limitPrice: polyWhatIfSellPrice(at));
+  }
+
+  /// Before the sell ticket opens: on a phone and MEDIUM this screen
+  /// closes and the ticket opens over what was under it, as always. On a
+  /// laptop (EXPANDED) the page stays and the ticket opens as the side
+  /// panel at the window's right edge over its right pane, the dial
+  /// keeping the rest (founder, 25 November 2026: "these ones also be
+  /// side bars"; kute_wide_frames.dart, KuteSideFlow).
+  void _leaveForSell() {
+    if (kuteIsExpanded(context)) {
+      KuteSideFlow.arm();
+      return;
+    }
+    context.pop();
+  }
+
+  /// A sheet this page opens (Details, Closing conditions): on a laptop
+  /// the side panel too, as the sell ticket ([_leaveForSell]).
+  void _sidePanelOnLaptop() {
+    if (kuteIsExpanded(context)) KuteSideFlow.arm();
   }
 
   /// "View market": the event's sheet. When that sheet is already under
@@ -404,6 +426,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   /// ([rows]), the screen keeping only what is at risk. Once: a second tap
   /// while it opens or is open does nothing.
   void _showDetails(PolymarketPosition pos, List<PositionRow> rows) {
+    _sidePanelOnLaptop();
     unawaited(OpenOnce.run(
         'poly-position-details:${pos.tokenId ?? pos.marketId}',
         () => showAppBottomSheet<void>(
@@ -417,6 +440,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   /// Details.
   void _showClosingConditions(String description) {
     final pos = widget.position;
+    _sidePanelOnLaptop();
     unawaited(OpenOnce.run(
         'poly-position-closing:${pos.tokenId ?? pos.marketId}',
         () => showAppBottomSheet<void>(
@@ -1107,7 +1131,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                       'target': 'limit_sell',
                                     });
                                 if (_limitSellBlocked()) return;
-                                context.pop();
+                                _leaveForSell();
                                 SellSheet.show(context,
                                     position: pos,
                                     source: 'position_protect',
@@ -1259,7 +1283,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                     label: context.l10n.sell,
                     // The sell slip, as the pinned button opened it.
                     onPrimary: () {
-                      context.pop();
+                      _leaveForSell();
                       SellSheet.show(context, position: pos);
                     },
                     // Never off: an open position can always be sold.
@@ -1310,9 +1334,12 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         mainAxisSize: MainAxisSize.min,
         children: [...hero, SizedBox(height: 20.h), tiles],
       ),
-      details: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [SizedBox(height: 10.h), ...actions, ...rest],
+      // Under a side panel (Sell, Details) the pane fades away.
+      details: KuteDeskUnderPanel(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [SizedBox(height: 10.h), ...actions, ...rest],
+        ),
       ),
     );
   }

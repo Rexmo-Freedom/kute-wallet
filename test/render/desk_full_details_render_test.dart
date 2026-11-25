@@ -5,6 +5,8 @@
 // right at a readable width. Checked for stretch at every EXPANDED size;
 // shot when asked: DESK_FULL_RENDER=<dir>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +34,8 @@ import 'package:kute/providers/polymarket_sats_pnl_provider.dart'
     show predictionUsdCostProvider;
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteBarPrimaryButton;
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlCandleChart;
@@ -40,6 +44,7 @@ import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/services/polymarket/combos/combo_models.dart';
+import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/tracking_service.dart';
 
 import '../helpers/balance_privacy.dart';
@@ -271,6 +276,11 @@ class _Combos extends PolymarketCombosNotifier {
   @override
   Future<PolymarketCombosState> build() async =>
       PolymarketCombosState(positions: [_combo], loaded: true);
+
+  /// The close sheet's quote, never answered here (it shows its wait).
+  @override
+  Future<ComboQuote> quoteClose(ComboPosition position) =>
+      Completer<ComboQuote>().future;
 }
 
 List<Override> _comboOverrides() => [
@@ -312,6 +322,8 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
     TrackingService.setDisabled(true);
     PolyDialDragMemory.debugReset();
+    OpenOnce.reset();
+    KuteSideFlow.reset();
   });
 
   for (final (name, page, overrides) in _pages) {
@@ -348,6 +360,52 @@ void main() {
               mode: _mode,
               overrides: overrides());
           await deskFullShoot(tester, '${name}_${label}_$mode');
+          await deskFullEnd(tester);
+        });
+      }
+    }
+  }
+
+  // ON A LAPTOP EVERY ACTION OF A PREDICTIONS POSITION OR COMBO PAGE IS A
+  // SIDE PANEL (founder, 25 November 2026: "these ones also be side
+  // bars"): Sell, Details, Close combo open at the window's right edge,
+  // full height, over the page's right pane; the page stays under them.
+  final actions = <(String, int, Finder Function())>[
+    ('poly_position_sell', 0, () => find.byType(KuteBarPrimaryButton)),
+    ('poly_position_details', 0,
+        () => find.byKey(PositionDetailSheet.detailsRowKey)),
+    ('combo_close', 2, () => find.byType(KuteBarPrimaryButton)),
+  ];
+  for (final (name, index, target) in actions) {
+    final (_, page, overrides) = _pages[index];
+    for (final (label, size) in const [
+      ('1440x900', Size(1440, 900)),
+      ('1000x700', Size(1000, 700)),
+    ]) {
+      for (final dark in [false, true]) {
+        final mode = dark ? 'dark' : 'light';
+        testWidgets('$name $label $mode: a side panel over the page',
+            (tester) async {
+          await deskFullAssets(tester);
+          await pumpDeskPage(tester,
+              size: size,
+              dark: dark,
+              page: page(),
+              mode: _mode,
+              overrides: overrides());
+          await tester.tap(target().first, warnIfMissed: false);
+          await deskFullFrames(tester, 8);
+          expect(tester.takeException(), isNull);
+          final panel =
+              tester.getRect(find.byKey(const ValueKey('kute-dialog-card')));
+          expect(panel.right, size.width);
+          expect(panel.top, 0);
+          expect(panel.bottom, size.height);
+          expect(panel.width, kuteSidePanelWidth);
+          // The page is still there, under the panel.
+          expect(find.byType(page().runtimeType), findsOneWidget);
+          await deskFullShoot(tester, '${name}_${label}_$mode');
+          KuteSideFlow.reset();
           await deskFullEnd(tester);
         });
       }

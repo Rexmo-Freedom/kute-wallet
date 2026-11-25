@@ -78,7 +78,11 @@ class PolySlipHeader extends StatelessWidget {
     this.maxLines = 5,
     this.chip,
     this.closable = true,
+    this.onClose,
   });
+
+  /// The close X's action; null: the route's own back (maybePop).
+  final VoidCallback? onClose;
 
   final String marketQuestion;
   final String? marketImage;
@@ -95,8 +99,9 @@ class PolySlipHeader extends StatelessWidget {
   /// screens/share/send_pick_session.dart); null: none.
   final Widget? chip;
 
-  /// The close X at the row's end; false for a slip open in place on a
-  /// wide market page (bet_slip_in_place.dart), which has nothing to close.
+  /// The close X at the row's end; a slip open in a wide market page's
+  /// side panel (bet_slip_in_place.dart) closes the panel with it
+  /// ([onClose]).
   final bool closable;
 
   @override
@@ -154,7 +159,7 @@ class PolySlipHeader extends StatelessWidget {
             trailing!,
             SizedBox(width: 8.w),
           ],
-          if (closable) const KuteCloseButton(),
+          if (closable) KuteCloseButton(onPressed: onClose),
         ],
       ),
     );
