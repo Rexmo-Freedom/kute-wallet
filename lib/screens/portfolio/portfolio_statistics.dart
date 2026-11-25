@@ -349,11 +349,26 @@ class _PortfolioStatisticsOverviewState
               ];
               final n = kuteColumnsFor(constraints.crossAxisExtent,
                   min: kuteWideColumnMin + 32.w, gap: 0, max: 1 + lists.length);
+              // The balance's card and its Move money at a readable
+              // width at the figures' left, the chart under it across.
+              final figures = [
+                if (header != null)
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxWidth: kuteWideColumnMax),
+                      child: header,
+                    ),
+                  ),
+                ...top,
+              ];
               final columns = <List<Widget>>[
                 [
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
-                    sliver: SliverList(delegate: SliverChildListDelegate(all)),
+                    sliver:
+                        SliverList(delegate: SliverChildListDelegate(figures)),
                   ),
                 ],
                 if (n >= 3 || lists.length < 2)
@@ -364,10 +379,20 @@ class _PortfolioStatisticsOverviewState
               if (columns.length == 1) {
                 return SliverMainAxisGroup(slivers: columns.single);
               }
+              // Three columns: the lists keep a readable column each
+              // (their rows and cards never past it); the figures, the
+              // chart first, take the rest of the window (the page runs
+              // gutter to gutter). Two: halves, as before.
               return SliverCrossAxisGroup(slivers: [
-                for (final c in columns)
-                  SliverCrossAxisExpanded(
-                      flex: 1, sliver: SliverMainAxisGroup(slivers: c)),
+                for (final (i, c) in columns.indexed)
+                  if (i == 0 || columns.length < 3)
+                    SliverCrossAxisExpanded(
+                        flex: 1, sliver: SliverMainAxisGroup(slivers: c))
+                  else
+                    SliverConstrainedCrossAxis(
+                        maxExtent: kuteSideColumnWidthFor(
+                            MediaQuery.sizeOf(context).width),
+                        sliver: SliverMainAxisGroup(slivers: c)),
               ]);
             }),
           ),
