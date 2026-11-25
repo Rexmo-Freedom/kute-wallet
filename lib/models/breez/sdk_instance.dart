@@ -345,6 +345,25 @@ class BreezSdkSpark {
         result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
   }
 
+  /// Web: the wallet [walletId] is being removed ([disconnectAny]: every
+  /// wallet is). Disconnects it when it is the connected (or connecting)
+  /// one, waits for the shutdowns already queued, and answers whether no
+  /// SDK handle can still be writing to its storage: none is bound to it
+  /// and none is waiting to be confirmed down. Only then may its browser
+  /// databases be deleted. Never throws.
+  Future<bool> releaseWalletStorage(String walletId,
+      {bool disconnectAny = false}) async {
+    if (disconnectAny || _connectedWalletId == walletId) disconnect();
+    try {
+      await _lifecycle.timeout(teardownTimeout * 2);
+    } catch (_) {
+      return false;
+    }
+    if (_connectedWalletId == walletId) return false;
+    if (disconnectAny && _connectedWalletId != null) return false;
+    return _retiring.isEmpty;
+  }
+
   /// The wallet is going away: its balance readings and the arrivals
   /// waiting on it mean nothing for the next one.
   void _forgetWalletReadings() {

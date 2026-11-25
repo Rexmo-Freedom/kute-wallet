@@ -8,6 +8,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:kute/models/breez/claim_policy.dart';
+import 'package:kute/platform/breez_web_storage.dart';
 
 export 'package:kute/models/breez/claim_policy.dart'
     show kSparkAutoClaimMaxFeeSats;
@@ -43,6 +44,25 @@ Future<String> _walletStorageDir(String walletId) async {
   final dir = Directory('${appDir.path}/breez_$walletId');
   if (!await dir.exists()) await dir.create(recursive: true);
   return dir.path;
+}
+
+/// Web: deletes the SDK's browser databases for [walletId] (named from
+/// the same `breez_<walletId>` storage directory as [_walletStorageDir]),
+/// once no SDK handle can be writing to them. [disconnectAny] disconnects
+/// whichever wallet is connected (a device wipe). Answers whether they
+/// were deleted; a no-op answering false off the web. Never throws.
+Future<bool> deleteWalletWebStorage(String walletId,
+    {bool disconnectAny = false}) async {
+  if (!kIsWeb || walletId.isEmpty) return false;
+  try {
+    final released = await BreezSdkSpark()
+        .releaseWalletStorage(walletId, disconnectAny: disconnectAny);
+    if (!released) return false;
+    await deleteBreezWebStorage('breez_$walletId');
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<ConnectRequest> createConnectRequest(

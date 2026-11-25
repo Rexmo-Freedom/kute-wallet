@@ -8,6 +8,8 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
 import 'package:kute/helpers/pin_attempt_guard.dart';
@@ -2261,6 +2263,18 @@ class _CustomNodeModalContentState
   /// error later (now caught gracefully in BitcoinModel.sync), but
   /// 99% of bad inputs are typos / dead hosts that fail at this layer.
   Future<void> _probeReachability(String hostPort) async {
+    if (hostPort.startsWith('https://') && kIsWeb) {
+      // dart:io has no HttpClient in a browser. A plain GET with no
+      // headers is a CORS "simple" request, so no preflight is sent.
+      final uri = Uri.parse(
+          '${hostPort.replaceFirst(RegExp(r'/+$'), '')}/blocks/tip/height');
+      final response =
+          await http.get(uri).timeout(const Duration(seconds: 6));
+      if (response.statusCode != 200) {
+        throw const HttpException('Node unavailable');
+      }
+      return;
+    }
     if (hostPort.startsWith('https://')) {
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 6);
