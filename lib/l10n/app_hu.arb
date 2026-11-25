@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Az ár {price} lett. Koppints, hogy az új áron add le.",
   "standingStagePlacing": "Leadás",
   "standingStageApproval": "Jóváhagyásodra vár",
-  "activityDollarsYield": "Dollárhozam"
+  "activityDollarsYield": "Dollárhozam",
+  "chartHintPointOf": "{current}. pont (összesen {total}): koppints a grafikonra.",
+  "chartHintFinishShape": "A befejezéshez koppints újra az utolsó pontra.",
+  "chartToolGroupChannels": "Csatornák",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozíciók és mérés",
+  "chartToolGroupShowAll": "Minden eszköz: {group}",
+  "chartLineWidth": "Vonalvastagság",
+  "chartFillOpacity": "Kitöltés",
+  "chartDrawingLabels": "Címkék",
+  "chartTextSize": "Szövegméret",
+  "chartFibLevels": "Szintek",
+  "chartPositionTarget": "Cél {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, other{{count} gyertya}} · {duration}"
 }

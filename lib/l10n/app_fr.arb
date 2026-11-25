@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Le prix est passé à {price}. Touchez pour placer au nouveau prix.",
   "standingStagePlacing": "Placement",
   "standingStageApproval": "Votre accord est requis",
-  "activityDollarsYield": "Rendement des Dollars"
+  "activityDollarsYield": "Rendement des Dollars",
+  "chartHintPointOf": "Point {current} sur {total} : touchez le graphique.",
+  "chartHintFinishShape": "Touchez à nouveau le dernier point pour terminer.",
+  "chartToolGroupChannels": "Canaux",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positions et mesure",
+  "chartToolGroupShowAll": "Tous les outils : {group}",
+  "chartLineWidth": "Épaisseur du trait",
+  "chartFillOpacity": "Remplissage",
+  "chartDrawingLabels": "Étiquettes",
+  "chartTextSize": "Taille du texte",
+  "chartFibLevels": "Niveaux",
+  "chartPositionTarget": "Objectif {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 bougie} other{{count} bougies}} · {duration}"
 }

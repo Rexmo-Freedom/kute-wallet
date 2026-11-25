@@ -7,6 +7,7 @@
 // exact point under the finger while one is placed or moved.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
@@ -94,10 +95,19 @@ void hlPaintPriceLineMark(
 enum HlRailGlyph {
   cursor,
   trendline,
+  ray,
+  extendedLine,
   level,
+  horizontalRay,
+  verticalLine,
   priceLine,
+  channel,
   rect,
   fibonacci,
+  longPosition,
+  shortPosition,
+  priceRange,
+  dateRange,
   measure,
   text,
   solidLine,
@@ -105,37 +115,26 @@ enum HlRailGlyph {
   extendRight,
 }
 
-/// The rail glyph for a drawing tool (the tools off the rail borrow the
-/// nearest one, for the toolbar's hint only).
-HlRailGlyph hlGlyphForTool(ChartDrawingTool? tool) {
-  switch (tool) {
-    case null:
-      return HlRailGlyph.cursor;
-    case ChartDrawingTool.level:
-    case ChartDrawingTool.horizontalRay:
-      return HlRailGlyph.level;
-    case ChartDrawingTool.priceLine:
-      return HlRailGlyph.priceLine;
-    case ChartDrawingTool.rect:
-    case ChartDrawingTool.parallelChannel:
-      return HlRailGlyph.rect;
-    case ChartDrawingTool.fibonacci:
-      return HlRailGlyph.fibonacci;
-    case ChartDrawingTool.priceRange:
-    case ChartDrawingTool.dateRange:
-    case ChartDrawingTool.dateAndPriceRange:
-    case ChartDrawingTool.longPosition:
-    case ChartDrawingTool.shortPosition:
-      return HlRailGlyph.measure;
-    case ChartDrawingTool.text:
-      return HlRailGlyph.text;
-    case ChartDrawingTool.trendline:
-    case ChartDrawingTool.ray:
-    case ChartDrawingTool.extendedLine:
-    case ChartDrawingTool.verticalLine:
-      return HlRailGlyph.trendline;
-  }
-}
+/// The rail glyph for a drawing tool.
+HlRailGlyph hlGlyphForTool(ChartDrawingTool? tool) => switch (tool) {
+      null => HlRailGlyph.cursor,
+      ChartDrawingTool.trendline => HlRailGlyph.trendline,
+      ChartDrawingTool.ray => HlRailGlyph.ray,
+      ChartDrawingTool.extendedLine => HlRailGlyph.extendedLine,
+      ChartDrawingTool.level => HlRailGlyph.level,
+      ChartDrawingTool.horizontalRay => HlRailGlyph.horizontalRay,
+      ChartDrawingTool.verticalLine => HlRailGlyph.verticalLine,
+      ChartDrawingTool.priceLine => HlRailGlyph.priceLine,
+      ChartDrawingTool.parallelChannel => HlRailGlyph.channel,
+      ChartDrawingTool.rect => HlRailGlyph.rect,
+      ChartDrawingTool.fibonacci => HlRailGlyph.fibonacci,
+      ChartDrawingTool.longPosition => HlRailGlyph.longPosition,
+      ChartDrawingTool.shortPosition => HlRailGlyph.shortPosition,
+      ChartDrawingTool.priceRange => HlRailGlyph.priceRange,
+      ChartDrawingTool.dateRange => HlRailGlyph.dateRange,
+      ChartDrawingTool.dateAndPriceRange => HlRailGlyph.measure,
+      ChartDrawingTool.text => HlRailGlyph.text,
+    };
 
 /// A 20 x 20 line drawing of one tool, 1.5 px strokes with round caps.
 class HlGlyph extends StatelessWidget {
@@ -182,10 +181,76 @@ class _GlyphPainter extends CustomPainter {
         canvas.drawLine(const Offset(5, 15), const Offset(15, 5), line);
         dot(const Offset(4.5, 15.5));
         dot(const Offset(15.5, 4.5));
+      case HlRailGlyph.ray:
+        // From its first point through the second, on to the edge.
+        canvas.drawLine(const Offset(4, 15.5), const Offset(17.5, 4), line);
+        dot(const Offset(4, 15.5));
+        dot(const Offset(10.5, 10), 1.9);
+      case HlRailGlyph.extendedLine:
+        // Through both points, out to both edges.
+        canvas.drawLine(const Offset(2.5, 16.2), const Offset(17.5, 3.8), line);
+        dot(const Offset(7, 12.5), 1.9);
+        dot(const Offset(13, 7.5), 1.9);
       case HlRailGlyph.level:
         canvas.drawLine(const Offset(2.5, 10), const Offset(7.4, 10), line);
         canvas.drawLine(const Offset(12.6, 10), const Offset(17.5, 10), line);
         canvas.drawCircle(const Offset(10, 10), 2.4, line);
+      case HlRailGlyph.horizontalRay:
+        // The level's anchor, and the line from it to the right.
+        canvas.drawCircle(const Offset(5.5, 10), 2.4, line);
+        canvas.drawLine(const Offset(8.1, 10), const Offset(17.5, 10), line);
+      case HlRailGlyph.verticalLine:
+        canvas.drawLine(const Offset(10, 2.5), const Offset(10, 7.4), line);
+        canvas.drawLine(const Offset(10, 12.6), const Offset(10, 17.5), line);
+        canvas.drawCircle(const Offset(10, 10), 2.4, line);
+      case HlRailGlyph.channel:
+        // Two parallel rails, the band between them faint.
+        canvas.drawPath(
+            Path()
+              ..moveTo(3, 11.5)
+              ..lineTo(14.5, 4)
+              ..lineTo(17, 8.5)
+              ..lineTo(5.5, 16)
+              ..close(),
+            Paint()..color = color.withValues(alpha: 0.18));
+        canvas.drawLine(const Offset(3, 11.5), const Offset(14.5, 4), line);
+        canvas.drawLine(const Offset(5.5, 16), const Offset(17, 8.5), line);
+        dot(const Offset(3, 11.5), 1.8);
+        dot(const Offset(14.5, 4), 1.8);
+        dot(const Offset(17, 8.5), 1.8);
+      case HlRailGlyph.longPosition:
+      case HlRailGlyph.shortPosition:
+        // A box split at the entry; the target's side shaded, above the
+        // entry for a long, below it for a short.
+        final long = glyph == HlRailGlyph.longPosition;
+        const box = Rect.fromLTRB(4, 3.5, 16, 16.5);
+        final entryY = long ? 11.5 : 8.5;
+        canvas.drawRect(
+            long
+                ? Rect.fromLTRB(box.left, box.top, box.right, entryY)
+                : Rect.fromLTRB(box.left, entryY, box.right, box.bottom),
+            Paint()..color = color.withValues(alpha: 0.28));
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(box, const Radius.circular(1)), line);
+        canvas.drawLine(Offset(2.5, entryY), Offset(17.5, entryY), line);
+      case HlRailGlyph.priceRange:
+        // A vertical span between two levels.
+        canvas.drawLine(const Offset(5, 4), const Offset(15, 4), line);
+        canvas.drawLine(const Offset(5, 16), const Offset(15, 16), line);
+        canvas.drawLine(const Offset(10, 6), const Offset(10, 14), line);
+        canvas.drawLine(const Offset(10, 6), const Offset(7.8, 8.2), line);
+        canvas.drawLine(const Offset(10, 6), const Offset(12.2, 8.2), line);
+        canvas.drawLine(const Offset(10, 14), const Offset(7.8, 11.8), line);
+        canvas.drawLine(const Offset(10, 14), const Offset(12.2, 11.8), line);
+      case HlRailGlyph.dateRange:
+        // A horizontal span between two moments.
+        canvas.drawLine(const Offset(4, 5), const Offset(4, 15), line);
+        canvas.drawLine(const Offset(16, 5), const Offset(16, 15), line);
+        canvas.drawLine(const Offset(6, 10), const Offset(14, 10), line);
+        canvas.drawLine(const Offset(6, 10), const Offset(8.2, 7.8), line);
+        canvas.drawLine(const Offset(6, 10), const Offset(8.2, 12.2), line);
+        canvas.drawLine(const Offset(14, 10), const Offset(11.8, 7.8), line);
+        canvas.drawLine(const Offset(14, 10), const Offset(11.8, 12.2), line);
       case HlRailGlyph.priceLine:
         hlPaintPriceLineMark(canvas, const Offset(10, 7.5), 12,
             color: color, reached: false);
@@ -261,9 +326,35 @@ class _GlyphPainter extends CustomPainter {
 
 // ───────────────────────────── rail ─────────────────────────────
 
+/// The small corner triangle on a rail button whose group opens a
+/// fly-out (the "more tools here" mark).
+class HlCornerTickPainter extends CustomPainter {
+  const HlCornerTickPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(HlCornerTickPainter old) => old.color != color;
+}
+
 /// One tool on the rail: its glyph, its name on a long press, and the
 /// app's white pill while it is the tool in hand. [sticky] adds a small
 /// lock: the tool stays in hand after each drawing (a double tap).
+///
+/// A group's button ([onMore] set) wears the corner mark and opens the
+/// group's fly-out from a long press, a right click or a tap on the mark
+/// ([moreLabel] names that action for screen readers); its name is then
+/// in the fly-out, so the long press no longer shows it.
 class HlRailButton extends StatelessWidget {
   const HlRailButton({
     super.key,
@@ -273,6 +364,8 @@ class HlRailButton extends StatelessWidget {
     this.icon,
     this.selected = false,
     this.sticky = false,
+    this.onMore,
+    this.moreLabel,
   }) : assert(glyph != null || icon != null);
 
   final HlRailGlyph? glyph;
@@ -281,6 +374,17 @@ class HlRailButton extends StatelessWidget {
   final bool selected;
   final bool sticky;
   final VoidCallback? onTap;
+
+  /// Opens the group's fly-out; null for a button with one tool.
+  final VoidCallback? onMore;
+  final String? moreLabel;
+
+  static const double width = 44;
+  static const double height = 42;
+
+  /// The corner mark's touch area, bottom right: a tap there opens the
+  /// fly-out instead of taking the tool.
+  static const double cornerHit = 16;
 
   @override
   Widget build(BuildContext context) {
@@ -291,58 +395,86 @@ class HlRailButton extends StatelessWidget {
         : selected
             ? c.textPrimary
             : c.textSecondary;
+    final more = onMore;
+    final button = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: more == null ? onTap : null,
+      onTapUp: more == null
+          ? null
+          : (d) {
+              final p = d.localPosition;
+              if (p.dx >= width - cornerHit && p.dy >= height - cornerHit) {
+                more();
+              } else {
+                onTap?.call();
+              }
+            },
+      onLongPress: more,
+      onSecondaryTap: more,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Center(
+          child: AnimatedContainer(
+            duration:
+                reduce ? Duration.zero : const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            width: 38,
+            height: 34,
+            decoration: selected
+                ? hlSelectedPillDecoration(context, radius: 17)
+                : BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(17),
+                    border: Border.all(color: Colors.transparent, width: 1),
+                  ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (glyph != null)
+                  HlGlyph(glyph!, color: color)
+                else
+                  Icon(icon, size: 19, color: color),
+                if (sticky)
+                  Positioned(
+                    right: 1,
+                    bottom: 0,
+                    child: Icon(Icons.lock_rounded,
+                        key: const ValueKey('hl-rail-sticky'),
+                        size: 9,
+                        color: c.textPrimary),
+                  )
+                else if (more != null)
+                  Positioned(
+                    right: 5,
+                    bottom: 5,
+                    child: CustomPaint(
+                      key: const ValueKey('hl-rail-more-mark'),
+                      size: const Size(5, 5),
+                      painter: HlCornerTickPainter(color),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
     return Semantics(
       button: true,
       selected: selected,
       label: label,
       excludeSemantics: true,
+      customSemanticsActions: more == null || moreLabel == null
+          ? null
+          : {CustomSemanticsAction(label: moreLabel!): more},
       child: Tooltip(
         message: label,
-        triggerMode: TooltipTriggerMode.longPress,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: SizedBox(
-            width: 44,
-            height: 42,
-            child: Center(
-              child: AnimatedContainer(
-                duration: reduce
-                    ? Duration.zero
-                    : const Duration(milliseconds: 150),
-                curve: Curves.easeOut,
-                width: 38,
-                height: 34,
-                decoration: selected
-                    ? hlSelectedPillDecoration(context, radius: 17)
-                    : BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(17),
-                        border: Border.all(
-                            color: Colors.transparent, width: 1),
-                      ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (glyph != null)
-                      HlGlyph(glyph!, color: color)
-                    else
-                      Icon(icon, size: 19, color: color),
-                    if (sticky)
-                      Positioned(
-                        right: 1,
-                        bottom: 0,
-                        child: Icon(Icons.lock_rounded,
-                            key: const ValueKey('hl-rail-sticky'),
-                            size: 9,
-                            color: c.textPrimary),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+        // A group's long press opens its fly-out, which names its tools.
+        triggerMode: more == null
+            ? TooltipTriggerMode.longPress
+            : TooltipTriggerMode.manual,
+        child: button,
       ),
     );
   }
@@ -366,7 +498,8 @@ List<HlDrawingSwatch> hlDrawingSwatches(AppLocalizations l10n) => [
     ];
 
 /// The small toolbar floating over a selected drawing: its colour, solid
-/// or dashed, extend (trend lines), edit (notes), lock, duplicate and
+/// or dashed, extend (trend lines), edit (notes), its settings (the tools
+/// that have some: hl_drawing_settings_sheet.dart), lock, duplicate and
 /// delete. The colour button opens the five swatches in its place.
 class HlDrawingToolbar extends StatefulWidget {
   const HlDrawingToolbar({
@@ -381,6 +514,7 @@ class HlDrawingToolbar extends StatefulWidget {
     required this.onDelete,
     this.onToggleExtend,
     this.onEditNote,
+    this.onSettings,
   });
 
   final ChartDrawing drawing;
@@ -393,6 +527,9 @@ class HlDrawingToolbar extends StatefulWidget {
   final VoidCallback onDelete;
   final VoidCallback? onToggleExtend;
   final VoidCallback? onEditNote;
+
+  /// Opens the drawing's settings sheet; null for a tool without any.
+  final VoidCallback? onSettings;
 
   @override
   State<HlDrawingToolbar> createState() => _HlDrawingToolbarState();
@@ -410,6 +547,7 @@ class HlDrawingToolbarLabels {
     required this.duplicate,
     required this.delete,
     required this.editNote,
+    required this.settings,
   });
   final String color;
   final String solid;
@@ -420,6 +558,7 @@ class HlDrawingToolbarLabels {
   final String duplicate;
   final String delete;
   final String editNote;
+  final String settings;
 }
 
 class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
@@ -536,6 +675,13 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
                 onTap: widget.onEditNote!,
                 child: Icon(Icons.edit_outlined, size: 18, color: icon),
               ),
+            if (widget.onSettings != null)
+              _button(
+                key: const ValueKey('hl-drawing-toolbar-settings'),
+                tip: l.settings,
+                onTap: widget.onSettings!,
+                child: Icon(Icons.tune_rounded, size: 18, color: icon),
+              ),
             _button(
               key: const ValueKey('hl-drawing-toolbar-lock'),
               tip: d.locked ? l.unlock : l.lock,
@@ -560,11 +706,16 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
                   size: 19, color: AppColors.marketDown),
             ),
           ];
-    return Container(
-      key: const ValueKey('hl-drawing-toolbar'),
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-      decoration: hlSelectedPillDecoration(context, radius: 20),
-      child: Row(mainAxisSize: MainAxisSize.min, children: children),
+    // Never wider than the chart: on the narrowest phone it shrinks a hair
+    // rather than overflow.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Container(
+        key: const ValueKey('hl-drawing-toolbar'),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+        decoration: hlSelectedPillDecoration(context, radius: 20),
+        child: Row(mainAxisSize: MainAxisSize.min, children: children),
+      ),
     );
   }
 }

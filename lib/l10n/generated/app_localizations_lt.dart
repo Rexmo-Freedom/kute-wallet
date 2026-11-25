@@ -14539,4 +14539,74 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Dolerių grąža';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Taškas $current iš $total: bakstelėkite grafiką.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Norėdami baigti, dar kartą bakstelėkite paskutinį tašką.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanalai';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozicijos ir matavimas';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Visi įrankiai: $group';
+  }
+
+  @override
+  String get chartLineWidth => 'Linijos storis';
+
+  @override
+  String get chartFillOpacity => 'Užpildas';
+
+  @override
+  String get chartDrawingLabels => 'Žymės';
+
+  @override
+  String get chartTextSize => 'Teksto dydis';
+
+  @override
+  String get chartFibLevels => 'Lygiai';
+
+  @override
+  String chartPositionTarget(String price, String change) {
+    return 'Tikslas $price  $change';
+  }
+
+  @override
+  String chartPositionStop(String price, String change) {
+    return 'Stop $price  $change';
+  }
+
+  @override
+  String chartPositionLong(String price, String ratio) {
+    return 'Long $price · R/R $ratio';
+  }
+
+  @override
+  String chartPositionShort(String price, String ratio) {
+    return 'Short $price · R/R $ratio';
+  }
+
+  @override
+  String chartRangeBars(int count, String duration) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count žvakių',
+      few: '$count žvakės',
+      one: '1 žvakė',
+    );
+    return '$_temp0 · $duration';
+  }
 }

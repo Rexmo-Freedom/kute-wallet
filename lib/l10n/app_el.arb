@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Η τιμή πήγε στο {price}. Πάτησε για να τοποθετήσεις στη νέα τιμή.",
   "standingStagePlacing": "Τοποθετείται",
   "standingStageApproval": "Χρειάζεται την έγκρισή σου",
-  "activityDollarsYield": "Απόδοση Δολαρίων"
+  "activityDollarsYield": "Απόδοση Δολαρίων",
+  "chartHintPointOf": "Σημείο {current} από {total}: πάτησε στο γράφημα.",
+  "chartHintFinishShape": "Πάτησε ξανά το τελευταίο σημείο για να ολοκληρώσεις.",
+  "chartToolGroupChannels": "Κανάλια",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Θέσεις και μέτρηση",
+  "chartToolGroupShowAll": "Όλα τα εργαλεία: {group}",
+  "chartLineWidth": "Πάχος γραμμής",
+  "chartFillOpacity": "Γέμισμα",
+  "chartDrawingLabels": "Ετικέτες",
+  "chartTextSize": "Μέγεθος κειμένου",
+  "chartFibLevels": "Επίπεδα",
+  "chartPositionTarget": "Στόχος {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 κερί} other{{count} κεριά}} · {duration}"
 }

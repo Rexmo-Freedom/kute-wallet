@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Priset gick till {price}. Tryck för att lägga till det nya priset.",
   "standingStagePlacing": "Lägger",
   "standingStageApproval": "Behöver ditt godkännande",
-  "activityDollarsYield": "Avkastning på Dollar"
+  "activityDollarsYield": "Avkastning på Dollar",
+  "chartHintPointOf": "Punkt {current} av {total}: tryck på diagrammet.",
+  "chartHintFinishShape": "Tryck på sista punkten igen för att avsluta.",
+  "chartToolGroupChannels": "Kanaler",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positioner och mätning",
+  "chartToolGroupShowAll": "Alla verktyg: {group}",
+  "chartLineWidth": "Linjebredd",
+  "chartFillOpacity": "Fyllning",
+  "chartDrawingLabels": "Etiketter",
+  "chartTextSize": "Textstorlek",
+  "chartFibLevels": "Nivåer",
+  "chartPositionTarget": "Mål {price}  {change}",
+  "chartPositionStop": "Stopp {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 stapel} other{{count} staplar}} · {duration}"
 }

@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Цената стана {price}. Докосни, за да поставиш на новата цена.",
   "standingStagePlacing": "Поставяме",
   "standingStageApproval": "Нужно е твоето одобрение",
-  "activityDollarsYield": "Доходност от Долари"
+  "activityDollarsYield": "Доходност от Долари",
+  "chartHintPointOf": "Точка {current} от {total}: докосни графиката.",
+  "chartHintFinishShape": "Докосни последната точка отново, за да завършиш.",
+  "chartToolGroupChannels": "Канали",
+  "chartToolGroupFibonacci": "Фибоначи",
+  "chartToolGroupPositionsMeasure": "Позиции и измерване",
+  "chartToolGroupShowAll": "Всички инструменти: {group}",
+  "chartLineWidth": "Дебелина на линията",
+  "chartFillOpacity": "Запълване",
+  "chartDrawingLabels": "Етикети",
+  "chartTextSize": "Размер на текста",
+  "chartFibLevels": "Нива",
+  "chartPositionTarget": "Цел {price}  {change}",
+  "chartPositionStop": "Стоп {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 свещ} other{{count} свещи}} · {duration}"
 }

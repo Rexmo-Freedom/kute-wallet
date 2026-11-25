@@ -14558,4 +14558,73 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Rendimiento de Dólares';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Punto $current de $total: toca el gráfico.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Toca de nuevo el último punto para terminar.';
+
+  @override
+  String get chartToolGroupChannels => 'Canales';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Posiciones y medir';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Todas las herramientas: $group';
+  }
+
+  @override
+  String get chartLineWidth => 'Grosor de línea';
+
+  @override
+  String get chartFillOpacity => 'Relleno';
+
+  @override
+  String get chartDrawingLabels => 'Etiquetas';
+
+  @override
+  String get chartTextSize => 'Tamaño del texto';
+
+  @override
+  String get chartFibLevels => 'Niveles';
+
+  @override
+  String chartPositionTarget(String price, String change) {
+    return 'Objetivo $price  $change';
+  }
+
+  @override
+  String chartPositionStop(String price, String change) {
+    return 'Stop $price  $change';
+  }
+
+  @override
+  String chartPositionLong(String price, String ratio) {
+    return 'Long $price · R/R $ratio';
+  }
+
+  @override
+  String chartPositionShort(String price, String ratio) {
+    return 'Short $price · R/R $ratio';
+  }
+
+  @override
+  String chartRangeBars(int count, String duration) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count velas',
+      one: '1 vela',
+    );
+    return '$_temp0 · $duration';
+  }
 }

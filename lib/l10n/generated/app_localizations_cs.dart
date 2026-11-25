@@ -14473,4 +14473,74 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get activityDollarsYield => 'Výnos z Dolarů';
+
+  @override
+  String chartHintPointOf(int current, int total) {
+    return 'Bod $current z $total: klepni do grafu.';
+  }
+
+  @override
+  String get chartHintFinishShape =>
+      'Klepni znovu na poslední bod pro dokončení.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanály';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozice a měření';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Všechny nástroje: $group';
+  }
+
+  @override
+  String get chartLineWidth => 'Tloušťka čáry';
+
+  @override
+  String get chartFillOpacity => 'Výplň';
+
+  @override
+  String get chartDrawingLabels => 'Popisky';
+
+  @override
+  String get chartTextSize => 'Velikost textu';
+
+  @override
+  String get chartFibLevels => 'Úrovně';
+
+  @override
+  String chartPositionTarget(String price, String change) {
+    return 'Cíl $price  $change';
+  }
+
+  @override
+  String chartPositionStop(String price, String change) {
+    return 'Stop $price  $change';
+  }
+
+  @override
+  String chartPositionLong(String price, String ratio) {
+    return 'Long $price · R/R $ratio';
+  }
+
+  @override
+  String chartPositionShort(String price, String ratio) {
+    return 'Short $price · R/R $ratio';
+  }
+
+  @override
+  String chartRangeBars(int count, String duration) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count svíček',
+      few: '$count svíčky',
+      one: '1 svíčka',
+    );
+    return '$_temp0 · $duration';
+  }
 }

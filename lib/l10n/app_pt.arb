@@ -4354,5 +4354,21 @@
   "standingPriceMoved": "O preço passou para {price}. Toque para colocar ao novo preço.",
   "standingStagePlacing": "A colocar",
   "standingStageApproval": "Precisa da sua aprovação",
-  "activityDollarsYield": "Rendimento de Dólares"
+  "activityDollarsYield": "Rendimento de Dólares",
+  "chartHintPointOf": "Ponto {current} de {total}: toca no gráfico.",
+  "chartHintFinishShape": "Toca de novo no último ponto para terminar.",
+  "chartToolGroupChannels": "Canais",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Posições e medir",
+  "chartToolGroupShowAll": "Todas as ferramentas: {group}",
+  "chartLineWidth": "Espessura da linha",
+  "chartFillOpacity": "Preenchimento",
+  "chartDrawingLabels": "Etiquetas",
+  "chartTextSize": "Tamanho do texto",
+  "chartFibLevels": "Níveis",
+  "chartPositionTarget": "Alvo {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 vela} other{{count} velas}} · {duration}"
 }

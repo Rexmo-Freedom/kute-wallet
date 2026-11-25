@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Cijena je prešla na {price}. Dodirni za postavljanje po novoj cijeni.",
   "standingStagePlacing": "Postavljamo",
   "standingStageApproval": "Treba tvoje odobrenje",
-  "activityDollarsYield": "Prinos na Dolare"
+  "activityDollarsYield": "Prinos na Dolare",
+  "chartHintPointOf": "Točka {current} od {total}: dodirni grafikon.",
+  "chartHintFinishShape": "Ponovno dodirni zadnju točku za završetak.",
+  "chartToolGroupChannels": "Kanali",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozicije i mjerenje",
+  "chartToolGroupShowAll": "Svi alati: {group}",
+  "chartLineWidth": "Debljina linije",
+  "chartFillOpacity": "Ispuna",
+  "chartDrawingLabels": "Oznake",
+  "chartTextSize": "Veličina teksta",
+  "chartFibLevels": "Razine",
+  "chartPositionTarget": "Cilj {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 svijeća} few{{count} svijeće} other{{count} svijeća}} · {duration}"
 }

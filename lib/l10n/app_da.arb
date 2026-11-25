@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Prisen gik til {price}. Tryk for at placere til den nye pris.",
   "standingStagePlacing": "Placerer",
   "standingStageApproval": "Kræver din godkendelse",
-  "activityDollarsYield": "Afkast på Dollars"
+  "activityDollarsYield": "Afkast på Dollars",
+  "chartHintPointOf": "Punkt {current} af {total}: tryk på grafen.",
+  "chartHintFinishShape": "Tryk på det sidste punkt igen for at afslutte.",
+  "chartToolGroupChannels": "Kanaler",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positioner og mål",
+  "chartToolGroupShowAll": "Alle værktøjer: {group}",
+  "chartLineWidth": "Linjebredde",
+  "chartFillOpacity": "Fyld",
+  "chartDrawingLabels": "Etiketter",
+  "chartTextSize": "Tekststørrelse",
+  "chartFibLevels": "Niveauer",
+  "chartPositionTarget": "Mål {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 lys} other{{count} lys}} · {duration}"
 }

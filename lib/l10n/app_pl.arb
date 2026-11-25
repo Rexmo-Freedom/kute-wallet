@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "Cena zmieniła się na {price}. Dotknij, aby złożyć po nowej cenie.",
   "standingStagePlacing": "Składamy",
   "standingStageApproval": "Wymaga Twojej zgody",
-  "activityDollarsYield": "Zysk z Dolarów"
+  "activityDollarsYield": "Zysk z Dolarów",
+  "chartHintPointOf": "Punkt {current} z {total}: stuknij wykres.",
+  "chartHintFinishShape": "Stuknij ponownie ostatni punkt, aby zakończyć.",
+  "chartToolGroupChannels": "Kanały",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozycje i pomiar",
+  "chartToolGroupShowAll": "Wszystkie narzędzia: {group}",
+  "chartLineWidth": "Grubość linii",
+  "chartFillOpacity": "Wypełnienie",
+  "chartDrawingLabels": "Etykiety",
+  "chartTextSize": "Rozmiar tekstu",
+  "chartFibLevels": "Poziomy",
+  "chartPositionTarget": "Cel {price}  {change}",
+  "chartPositionStop": "Stop {price}  {change}",
+  "chartPositionLong": "Long {price} · R/R {ratio}",
+  "chartPositionShort": "Short {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}"
 }

@@ -18,6 +18,7 @@ import 'package:kute/models/hl_price_line.dart';
 import 'package:kute/providers/hl_price_lines_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_sheet.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_rail.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_line_cards.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_lines_chart.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_lines_host.dart';
@@ -67,18 +68,19 @@ void main() {
         (tester) async {
       await _open(tester);
       await enterHlEdit(tester);
-      final level =
-          tester.getTopLeft(find.byKey(const ValueKey('hl-chart-rail-level')));
-      final tool = find.byKey(const ValueKey('hl-chart-rail-priceLine'));
-      expect(tester.getTopLeft(tool).dy, greaterThan(level.dy));
-      expect(tester.getTopLeft(tool).dx, level.dx);
+      // In the Lines group, after the horizontal line and its relatives.
+      final lines = hlGroupOf(ChartDrawingTool.priceLine)!;
+      expect(lines.id, HlToolGroupId.lines);
+      expect(lines.tools.last, ChartDrawingTool.priceLine);
+      expect(lines.tools.indexOf(ChartDrawingTool.priceLine),
+          greaterThan(lines.tools.indexOf(ChartDrawingTool.level)));
 
       // A first line mounts the layer the tap is measured against.
       _seed(tester, 65000);
       await _settle(tester);
-      await tester.tap(tool);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      await armHlTool(tester, ChartDrawingTool.priceLine);
+      expect(find.byKey(const ValueKey('hl-chart-rail-priceLine')),
+          findsOneWidget);
       await tester.tapAt(_screenAt(tester, 64500));
       await tester.pump();
 

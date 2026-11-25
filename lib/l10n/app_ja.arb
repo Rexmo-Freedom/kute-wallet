@@ -4088,5 +4088,21 @@
   "standingPriceMoved": "価格が{price}に変わりました。タップすると新しい価格で発注します。",
   "standingStagePlacing": "発注中",
   "standingStageApproval": "承認が必要です",
-  "activityDollarsYield": "ドルの利回り"
+  "activityDollarsYield": "ドルの利回り",
+  "chartHintPointOf": "{total}点中{current}点目：チャートをタップしてください。",
+  "chartHintFinishShape": "終了するには最後の点をもう一度タップしてください。",
+  "chartToolGroupChannels": "チャネル",
+  "chartToolGroupFibonacci": "フィボナッチ",
+  "chartToolGroupPositionsMeasure": "ポジションと計測",
+  "chartToolGroupShowAll": "すべてのツール：{group}",
+  "chartLineWidth": "線の太さ",
+  "chartFillOpacity": "塗りつぶし",
+  "chartDrawingLabels": "ラベル",
+  "chartTextSize": "文字サイズ",
+  "chartFibLevels": "レベル",
+  "chartPositionTarget": "目標 {price}  {change}",
+  "chartPositionStop": "ストップ {price}  {change}",
+  "chartPositionLong": "ロング {price} · R/R {ratio}",
+  "chartPositionShort": "ショート {price} · R/R {ratio}",
+  "chartRangeBars": "{count, plural, other{{count}本}} · {duration}"
 }

@@ -24392,6 +24392,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dollars yield'**
   String get activityDollarsYield;
+
+  /// Hint line under the Advanced chart while a drawing with more than two points is placed (a parallel channel): {current} is the point the next tap puts down, {total} how many the drawing has. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Point {current} of {total}: tap the chart.'**
+  String chartHintPointOf(int current, int total);
+
+  /// Hint line under the Advanced chart while a free-form drawing (any number of points) is placed and has enough points: a second tap on the last point finishes it. Short, one line.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the last point again to finish.'**
+  String get chartHintFinishShape;
+
+  /// Advanced chart tool rail: the name of the group of channel drawings (parallel channel), shown as the title of its tool list. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get chartToolGroupChannels;
+
+  /// Advanced chart tool rail: the name of the group of Fibonacci drawing tools (retracement and, later, its relatives). Keep "Fibonacci" as traders in this language write it. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Fibonacci'**
+  String get chartToolGroupFibonacci;
+
+  /// Advanced chart tool rail: the name of the group holding the long and short position drawings and the measuring tools (price range, date range, measure). These are drawings only, no order is placed. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Positions and measure'**
+  String get chartToolGroupPositionsMeasure;
+
+  /// Screen-reader action on a tool group button of the Advanced chart rail: opens the list of every tool in that group. {group} is the group name, e.g. "Lines".
+  ///
+  /// In en, this message translates to:
+  /// **'All {group} tools'**
+  String chartToolGroupShowAll(String group);
+
+  /// A drawing's settings sheet on the Advanced chart: the row that sets how thick its lines are (1 to 4). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Line width'**
+  String get chartLineWidth;
+
+  /// A drawing's settings sheet on the Advanced chart: the row that sets how opaque a filled shape's inside is, shown as a percentage. Short, one word if possible.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill'**
+  String get chartFillOpacity;
+
+  /// A drawing's settings sheet on the Advanced chart: the switch that shows or hides the figures the drawing writes on the chart (ranges, levels, a position's target and stop). Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Labels'**
+  String get chartDrawingLabels;
+
+  /// A note's settings sheet on the Advanced chart: the row that sets the size of the note's text. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Text size'**
+  String get chartTextSize;
+
+  /// A Fibonacci retracement's settings sheet on the Advanced chart: the title over its list of levels (23.6%, 38.2%, 61.8% …), each switched on or off. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Levels'**
+  String get chartFibLevels;
+
+  /// Label on a long or short position drawing on the Advanced chart (a drawing only, no order): the take-profit level and its move from the entry, e.g. "Target 68,000  +3.03%". Keep it short; two spaces before {change}.
+  ///
+  /// In en, this message translates to:
+  /// **'Target {price}  {change}'**
+  String chartPositionTarget(String price, String change);
+
+  /// Label on a long or short position drawing on the Advanced chart (a drawing only, no order): the stop-loss level and its move from the entry, e.g. "Stop 64,000  −3.03%". Use the word traders use for a stop-loss. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop {price}  {change}'**
+  String chartPositionStop(String price, String change);
+
+  /// Label at the entry of a long position drawing on the Advanced chart (a drawing only, no order, no leverage): the entry price and the reward-to-risk ratio, e.g. "Long 66,000 · R/R 2.00". Keep "Long" as traders in this language say it; R/R is the usual short form of risk/reward. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Long {price} · R/R {ratio}'**
+  String chartPositionLong(String price, String ratio);
+
+  /// Label at the entry of a short position drawing on the Advanced chart (a drawing only, no order, no leverage): the entry price and the reward-to-risk ratio, e.g. "Short 66,000 · R/R 2.00". Keep "Short" as traders in this language say it. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Short {price} · R/R {ratio}'**
+  String chartPositionShort(String price, String ratio);
+
+  /// Label on a date range or measure drawing on the Advanced chart: how many candles (bars) it spans and how long that is, e.g. "24 bars · 1d". {duration} is already formatted (e.g. "1d 4h"). Use the word traders use for one candle of a chart.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 bar} other{{count} bars}} · {duration}'**
+  String chartRangeBars(int count, String duration);
 }
 
 class _AppLocalizationsDelegate
