@@ -1947,7 +1947,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   /// A desktop trackpad's pinch (its two-finger pan pans through the
   /// gesture detector, as a drag does).
-  void _onPanZoomStart(PointerPanZoomStartEvent e) => _panZoomScale = 1;
+  void _onPanZoomStart(PointerPanZoomStartEvent e) {
+    _panZoomScale = 1;
+    // Two fingers on a trackpad: never a click, never a drawing.
+    _downKind = PointerDeviceKind.trackpad;
+    _downShift = false;
+    _mouseDownAt = null;
+    _mouseDragAt = null;
+  }
 
   void _onPanZoomUpdate(PointerPanZoomUpdateEvent e, double plotW) {
     if (e.scale <= 0) return;
@@ -3192,6 +3199,19 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   void _onDrawPanStart(DragStartDetails d, Size size) {
     _dismissFillTip();
+    // A trackpad's two-finger scroll pans the chart, a tool in hand or
+    // not (a press of the pad, a click, is what draws).
+    if (d.kind == PointerDeviceKind.trackpad) {
+      setState(() {
+        _resetDrawingInteraction();
+        _panningView = true;
+        _panStartX = d.localPosition.dx;
+        _panStartOffset = _viewEndOffset;
+        _panBars = math.min(
+            _effectiveViewBars ?? widget.candles.length, widget.candles.length);
+      });
+      return;
+    }
     final geom = _dragGeometry;
     if (geom == null) return;
     // onPanStart normally arrives only after touch slop. Use the original
@@ -4581,7 +4601,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // nothing, so it has none.
                             if (widget.drawingMode &&
                                 _loupeAt != null &&
-                                !_mouseDown)
+                                !_mouseDown &&
+                                _downKind != PointerDeviceKind.trackpad)
                               Positioned(
                                 left: 0,
                                 top: 0,

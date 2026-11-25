@@ -346,6 +346,46 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets(
+        'a trackpad two-finger scroll with a tool in hand pans, never draws',
+        (tester) async {
+      final tape = _candles(count: 200);
+      final line = ChartDrawing(
+          id: 'line',
+          tool: ChartDrawingTool.level,
+          points: [
+            ChartDrawingPoint(
+                timeMs: tape[170].openTime.millisecondsSinceEpoch, price: 101)
+          ]);
+      final placed = <ChartDrawing>[];
+      final pending = <bool>[];
+      await tester.pumpWidget(_chart(
+          tool: ChartDrawingTool.trendline,
+          candles: tape,
+          drawings: [line],
+          onPlaced: placed.add,
+          onPending: pending.add));
+      await tester.pump();
+      final origin = tester.getTopLeft(_layer);
+      final before = _geom(tester).offsetFor(line.points.single).dx;
+      final g = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+      await g.panZoomStart(origin + const Offset(150, 100));
+      await tester.pump();
+      await g.panZoomUpdate(origin + const Offset(150, 100),
+          pan: const Offset(40, 0));
+      await tester.pump();
+      await g.panZoomUpdate(origin + const Offset(150, 100),
+          pan: const Offset(90, 0));
+      await tester.pump();
+      await g.panZoomEnd();
+      await tester.pump();
+      expect(placed, isEmpty);
+      expect(pending, isEmpty);
+      expect(_geom(tester).offsetFor(line.points.single).dx,
+          greaterThan(before + 40));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('a tool in hand: the precise cursor and a level preview',
         (tester) async {
       await tester.pumpWidget(_chart(tool: ChartDrawingTool.level));
