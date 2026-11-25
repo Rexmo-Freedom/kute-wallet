@@ -11,13 +11,21 @@
 // and 430x932 (a phone, as before), written only when asked:
 //   SIDE_PANEL_RENDER=<dir> flutter test test/render/side_panel_render_test.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/shared/kute_dialog.dart';
+import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart'
     show showRoutingScannerSheet;
@@ -50,13 +58,69 @@ Future<void> _shoot(WidgetTester tester, String name) async {
   await tester.pump();
 }
 
-/// [open] as a top bar action opens it: armed first.
+/// [open] as a top bar action opens it: in the action's side zone.
 Future<void> Function(BuildContext) _fromTopBar(
         Future<void> Function(BuildContext) open) =>
-    (context) {
-      KuteSideFlow.arm();
-      return open(context);
-    };
+    (context) => KuteSideFlow.run(() => open(context));
+
+/// A page that opens a panel as the router builds it (the way the
+/// scanner's hand-off reaches Send: `router.push`, the route built in the
+/// next frame).
+class _PanelPage extends Page<void> {
+  const _PanelPage({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Route<void> createRoute(BuildContext context) => KuteDialogRoute<void>(
+        settings: this,
+        builder: (_) => SizedBox(height: 300, child: Text(label)),
+      );
+}
+
+/// A laptop window with a router: `/` holds [home], `/next` is a panel
+/// page.
+Future<GoRouter> _pumpRouter(WidgetTester tester, Widget home) async {
+  tester.view.physicalSize = const Size(1440, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final router = GoRouter(routes: [
+    GoRoute(path: '/', builder: (_, __) => home),
+    GoRoute(
+        path: '/next',
+        pageBuilder: (_, state) =>
+            _PanelPage(key: state.pageKey, label: 'next panel')),
+  ]);
+  addTearDown(router.dispose);
+  await tester.pumpWidget(ProviderScope(
+    child: ScreenUtilInit(
+      designSize: KuteLayout.designSizeFor(const Size(1440, 900)),
+      builder: (_, __) => MaterialApp.router(
+        theme: buildLightTheme(),
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ),
+  ));
+  await tester.pump();
+  return router;
+}
+
+/// Opens a centred-or-side panel that says [label].
+Future<void> _panel(BuildContext context, String label,
+        {WidgetBuilder? builder}) =>
+    showKuteDialog<void>(
+      context: context,
+      builder: builder ?? (_) => SizedBox(height: 300, child: Text(label)),
+    );
+
+/// Whether the panel holding [label] sits at the window's right edge.
+bool _atSide(WidgetTester tester, String label) {
+  final card = find.ancestor(of: find.text(label), matching: find.byKey(_card));
+  final rect = tester.getRect(card.first);
+  return rect.right == 1440 && rect.top == 0 && rect.height == 900;
+}
 
 /// The panel sits at the window's right edge, full height.
 void _expectSide(WidgetTester tester, Size window, {int count = 1}) {
@@ -132,6 +196,127 @@ void main() {
     expect(find.byKey(const ValueKey('scanner-close')), findsOneWidget);
     expect(find.byKey(const ValueKey('kute-dialog-close')), findsNothing);
     await closeBitcoinReceive(tester);
+  });
+
+  group('arming is causal', () {
+    late BuildContext home;
+    Widget homePage() => Builder(builder: (context) {
+          home = context;
+          return const Scaffold(body: SizedBox.expand());
+        });
+
+    /// A panel's slide in or out, whole.
+    Future<void> opened(WidgetTester tester) async {
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+    }
+
+    Future<void> frames(WidgetTester tester, [int n = 3]) async {
+      for (var i = 0; i < n; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+    }
+
+    testWidgets('an action that opens nothing does not capture the next '
+        'unrelated panel', (tester) async {
+      await _pumpRouter(tester, homePage());
+      KuteSideFlow.run(() {});
+      await frames(tester);
+      unawaited(_panel(home, 'unrelated'));
+      await opened(tester);
+      expect(_atSide(tester, 'unrelated'), isFalse);
+    });
+
+    testWidgets('an action still awaiting does not capture a panel opened '
+        'elsewhere meanwhile; what it opens itself is at the side',
+        (tester) async {
+      await _pumpRouter(tester, homePage());
+      final policy = Completer<void>();
+      // Purchase: the policy first, then its panel.
+      KuteSideFlow.run(() async {
+        await policy.future;
+        await _panel(home, 'purchase');
+      });
+      await frames(tester);
+      unawaited(_panel(home, 'unrelated'));
+      await opened(tester);
+      expect(_atSide(tester, 'unrelated'), isFalse);
+      Navigator.of(home, rootNavigator: true).pop();
+      await opened(tester);
+      await frames(tester);
+
+      policy.complete();
+      await tester.pump();
+      await opened(tester);
+      expect(_atSide(tester, 'purchase'), isTrue);
+    });
+
+    testWidgets('a top bar action that pushes a route: the route built in '
+        'the next frame is at the side', (tester) async {
+      final router = await _pumpRouter(tester, homePage());
+      KuteSideFlow.run(() => router.push('/next'));
+      await tester.pump();
+      await opened(tester);
+      expect(_atSide(tester, 'next panel'), isTrue);
+    });
+
+    testWidgets('the scanner hands off to Send: closing its side panel and '
+        'pushing the next lands at the side', (tester) async {
+      final router = await _pumpRouter(tester, homePage());
+      KuteSideFlow.run(() => _panel(home, 'scanner',
+          builder: (context) => SizedBox(
+                height: 300,
+                child: TextButton(
+                  // _pushToConfirmSend: close, then push through the router.
+                  onPressed: () {
+                    final r = GoRouter.of(context);
+                    Navigator.of(context).pop();
+                    unawaited(r.push('/next'));
+                  },
+                  child: const Text('scanner'),
+                ),
+              )));
+      await tester.pump();
+      await opened(tester);
+      expect(_atSide(tester, 'scanner'), isTrue);
+      // Long after the action: only the hand-off can put it at the side.
+      await frames(tester, 10);
+      await tester.tap(find.text('scanner'));
+      await tester.pump();
+      await opened(tester);
+      expect(find.text('scanner'), findsNothing);
+      expect(_atSide(tester, 'next panel'), isTrue);
+      expect(router.state.uri.path, '/next');
+
+      // Once that flow is over, an unrelated panel is centred again.
+      Navigator.of(home, rootNavigator: true).pop();
+      await opened(tester);
+      await frames(tester);
+      unawaited(_panel(home, 'unrelated'));
+      await opened(tester);
+      expect(_atSide(tester, 'unrelated'), isFalse);
+    });
+
+    testWidgets('a panel opened from inside a side panel is at the side; '
+        'one closed long ago hands nothing off', (tester) async {
+      await _pumpRouter(tester, homePage());
+      KuteSideFlow.run(() => _panel(home, 'flow'));
+      await tester.pump();
+      await opened(tester);
+      await frames(tester, 10);
+      unawaited(_panel(home, 'step'));
+      await opened(tester);
+      expect(_atSide(tester, 'step'), isTrue);
+      Navigator.of(home, rootNavigator: true).pop();
+      await opened(tester);
+      Navigator.of(home, rootNavigator: true).pop();
+      await opened(tester);
+      await frames(tester);
+      unawaited(_panel(home, 'later'));
+      await opened(tester);
+      expect(_atSide(tester, 'later'), isFalse);
+    });
   });
 
   for (final dark in [false, true]) {

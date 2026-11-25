@@ -222,7 +222,17 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
     // Read before this panel counts itself.
     _depth;
     // Counted at once: a step opened in this very frame is at the side.
-    if (_side) KuteSideFlow.opened();
+    // It stops counting as its route starts closing (not when the closing
+    // slide ends): a panel opened after that is a hand-off only within a
+    // frame (KuteSideFlow.closing).
+    if (_side) {
+      KuteSideFlow.opened();
+      _counted = true;
+      final route = widget.route;
+      if (route is ModalRoute<dynamic>) {
+        _routeAnimation = route.animation?..addStatusListener(_onRouteStatus);
+      }
+    }
     // After the frame: the floating bar listens and rebuilds.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       kuteDialogsOpen.value = kuteDialogsOpen.value + 1;
@@ -230,9 +240,28 @@ class _KuteDialogCardState extends State<KuteDialogCard> {
     });
   }
 
+  /// This side panel holds the switch on ([KuteSideFlow.opened]).
+  bool _counted = false;
+  Animation<double>? _routeAnimation;
+
+  void _onRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.reverse ||
+        status == AnimationStatus.dismissed) {
+      _uncount();
+    }
+  }
+
+  void _uncount() {
+    if (!_counted) return;
+    _counted = false;
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
+    KuteSideFlow.closing();
+  }
+
   @override
   void dispose() {
-    if (_side) KuteSideFlow.closed();
+    _uncount();
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
     _slide?.dispose();
     // [_surface] is not disposed either, as [_closeMarks] (a mark may
     // report after this frame).

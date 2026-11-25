@@ -19,9 +19,11 @@
 // a widget that sizes itself from the screen (and [KuteLayout.of])
 // sees the phone column it is drawn in, never the window around it.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart' show BoxParentData;
+import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter/widgets.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -529,52 +531,145 @@ const double kuteSidePanelWidth = 448;
 // wide, sliding in from the right over a light dim, its primary pinned
 // in its foot. Everything else keeps the centred panel.
 //
-// [KuteSideFlow] is the one switch. A top bar action arms it as it fires
-// ([KuteSideFlow.arm]); a panel route created while it is on is a side
-// panel ([KuteSideFlow.decide], once per route); side panels count
-// themselves while they are up. It stays on while any side panel is up,
-// so a step opened from a step (a sheet, a pushed named route such as
-// Send) is at the side too; for a moment after the last one closes, so a
-// hand-off (the scanner closing, then Send opening) stays there; and,
-// armed with nothing open yet, for a short wait (Purchase asks the policy
-// first). Nothing else arms it, so a phone and MEDIUM never see it.
+// [KuteSideFlow] is the one switch, and it is CAUSAL: a panel is a side
+// panel only when
+//   * a top bar money action caused it: the action runs in
+//     [KuteSideFlow.run], a zone carrying the action's token through every
+//     await (Purchase asks the policy first), so a panel route created by
+//     the action's own code is a side panel; a route the action asked the
+//     router for is built in the frame after, so the token also holds
+//     until the end of the frame that follows the action's last turn (the
+//     one short fallback, a frame, not a clock);
+//   * or it was opened from inside a side panel: one is up and not
+//     closing ([KuteSideFlow.opened], [KuteSideFlow.closing]);
+//   * or it is a HAND-OFF: the last side panel began closing in this
+//     frame or the one before (the scanner closes, then Send opens
+//     through the router, built in the next frame).
+// Anything else, an action that opened nothing included, keeps the
+// centred panel. A flow's token is spent once the side panels it opened
+// have all closed. Nothing else arms it, so a phone and MEDIUM never see
+// it.
 
 /// The light dim behind a side panel: the page stays readable.
 const Color kuteSidePanelBarrier = Color(0x33000000);
 
+/// One top bar action's claim on the side ([KuteSideFlow.run]).
+class _KuteSideToken {
+  /// A side panel it caused came up.
+  bool used = false;
+
+  /// Its side panels have all closed: it causes nothing more.
+  bool spent = false;
+}
+
 abstract final class KuteSideFlow {
-  static DateTime? _armedAt;
-  static DateTime? _closedAt;
   static int _open = 0;
   static final Expando<bool> _side = Expando<bool>('kuteSide');
+  static final Object _zoneKey = Object();
 
-  /// How long an armed flow waits for its first panel.
-  static const Duration armedFor = Duration(seconds: 10);
+  /// The token whose action ran last, live until the end of the frame
+  /// after that turn (the router builds a pushed route then).
+  static _KuteSideToken? _pending;
 
-  /// How long after the last side panel closes a new one still opens at
-  /// the side (a hand-off).
-  static const Duration handOff = Duration(milliseconds: 1500);
+  /// The last side panel began closing; live until the end of the next
+  /// frame (a hand-off).
+  static bool _handOff = false;
 
-  /// A top bar money action fired.
-  static void arm() {
-    _armedAt = DateTime.now();
-    _closedAt = null;
+  /// Tokens that opened a side panel, spent when the last one closes.
+  static final List<_KuteSideToken> _used = [];
+
+  /// Runs a top bar money action: what it opens, now or after its awaits,
+  /// opens at the side (see the header above).
+  static T run<T>(T Function() action) {
+    final token = _KuteSideToken();
+    return runZoned(
+      () {
+        _touch(token);
+        return action();
+      },
+      zoneValues: {_zoneKey: token},
+      zoneSpecification: ZoneSpecification(
+        run: <R>(self, parent, zone, f) {
+          _touch(token);
+          return parent.run(zone, f);
+        },
+        runUnary: <R, A>(self, parent, zone, f, A a) {
+          _touch(token);
+          return parent.runUnary(zone, f, a);
+        },
+        runBinary: <R, A1, A2>(self, parent, zone, f, A1 a1, A2 a2) {
+          _touch(token);
+          return parent.runBinary(zone, f, a1, a2);
+        },
+      ),
+    );
+  }
+
+  /// Bumped by every turn of an action's zone.
+  static int _turn = 0;
+  static bool _queued = false;
+
+  /// [token]'s action ran: it stays pending through the next frame.
+  static void _touch(_KuteSideToken token) {
+    if (token.spent) return;
+    _pending = token;
+    _turn++;
+    if (!_queued) _queuePendingClear();
+  }
+
+  /// One clear queued at a time: a turn after it was queued queues it
+  /// again, for the frame after that turn.
+  static void _queuePendingClear() {
+    _queued = true;
+    final turn = _turn;
+    _untilNextFrameEnds(() {
+      _queued = false;
+      if (_turn != turn) return _queuePendingClear();
+      _pending = null;
+    });
+  }
+
+  /// Runs [clear] at the end of the first frame that STARTS after now (a
+  /// frame already under way does not count: the router builds a pushed
+  /// route in the frame after the push), and makes sure that frame comes.
+  static void _untilNextFrameEnds(VoidCallback clear) {
+    final binding = WidgetsBinding.instance;
+    final inFrame = binding.schedulerPhase == SchedulerPhase.persistentCallbacks ||
+        binding.schedulerPhase == SchedulerPhase.postFrameCallbacks ||
+        binding.schedulerPhase == SchedulerPhase.midFrameMicrotasks ||
+        binding.schedulerPhase == SchedulerPhase.transientCallbacks;
+    binding.addPostFrameCallback((_) {
+      if (!inFrame) return clear();
+      binding.addPostFrameCallback((_) => clear());
+      binding.ensureVisualUpdate();
+    });
+    binding.ensureVisualUpdate();
+  }
+
+  static _KuteSideToken? get _token {
+    final zoned = Zone.current[_zoneKey];
+    if (zoned is _KuteSideToken && !zoned.spent) return zoned;
+    final pending = _pending;
+    return pending != null && !pending.spent ? pending : null;
   }
 
   /// Whether a panel opened now opens at the side.
-  static bool get active {
-    if (_open > 0) return true;
-    final armed = _armedAt;
-    if (armed == null) return false;
-    final now = DateTime.now();
-    final closed = _closedAt;
-    if (closed == null) return now.difference(armed) < armedFor;
-    return now.difference(closed) < handOff;
-  }
+  static bool get active => _open > 0 || _handOff || _token != null;
 
   /// Whether [route] is a side panel: decided the first time it is asked
   /// (as the route is created), the same for the rest of its life.
-  static bool decide(Route<dynamic> route) => _side[route] ??= active;
+  static bool decide(Route<dynamic> route) {
+    final known = _side[route];
+    if (known != null) return known;
+    final side = active;
+    _side[route] = side;
+    final token = _token;
+    if (side && token != null && !token.used) {
+      token.used = true;
+      _used.add(token);
+    }
+    return side;
+  }
 
   /// Whether [route] was decided a side panel (false if never asked).
   static bool isSide(Route<dynamic>? route) =>
@@ -586,20 +681,32 @@ abstract final class KuteSideFlow {
   /// A side panel came up.
   static void opened() {
     _open++;
-    _closedAt = null;
   }
 
-  /// A side panel went away.
-  static void closed() {
+  /// A side panel began closing (its route popped) or went away
+  /// unannounced: it no longer holds the switch on. The last one hands
+  /// off for a frame and spends the tokens that opened the flow.
+  static void closing() {
     _open = math.max(0, _open - 1);
-    if (_open == 0) _closedAt = DateTime.now();
+    if (_open > 0) return;
+    for (final token in _used) {
+      token.spent = true;
+    }
+    _used.clear();
+    _pending = null;
+    _handOff = true;
+    _untilNextFrameEnds(() {
+      if (_open == 0) _handOff = false;
+    });
   }
 
   /// Off, for tests.
   @visibleForTesting
   static void reset() {
-    _armedAt = null;
-    _closedAt = null;
+    _pending = null;
+    _queued = false;
+    _handOff = false;
+    _used.clear();
     _open = 0;
   }
 }

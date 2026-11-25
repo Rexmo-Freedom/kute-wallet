@@ -1172,8 +1172,7 @@ class _TopBarAction extends StatelessWidget {
                             source: source);
                         // Its flow opens at the window's right edge
                         // (kute_wide_frames.dart, KuteSideFlow).
-                        KuteSideFlow.arm();
-                        action.onTap!();
+                        KuteSideFlow.run(action.onTap!);
                       },
                 child: pill,
               ),
