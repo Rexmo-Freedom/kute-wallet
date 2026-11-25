@@ -11,6 +11,9 @@
 //   Momentum    RSI 14 · MACD 12/26/9 · Stoch RSI 14/14/3/3 · ADX 14/14
 //   Volatility  Bollinger bands 20/2 · ATR 14
 //   Volume      Volume · OBV · Volume profile (visible range, 24 rows)
+//               · Funding (perps only: what longs and shorts pay each
+//               other, Hyperliquid's hourly rate fitted to the bars; a
+//               pane, hl_chart_funding_pane.dart)
 //
 // Lines on the price: at most [kHlMaxPriceIndicators]; panes below it:
 // at most [kHlMaxPanes] (Volume sits inside the price plot and counts as
@@ -76,6 +79,7 @@ class HlIndSpec {
     required this.short,
     required this.colors,
     this.params = const [],
+    this.perpsOnly = false,
   });
 
   /// The stored key (ChartPreferences.indicators).
@@ -89,6 +93,10 @@ class HlIndSpec {
   /// Its lines' colours, in the order it draws them.
   final List<Color> colors;
   final List<HlIndParam> params;
+
+  /// Only a perp has it (Funding): a spot market's sheet leaves it out
+  /// and its chart never draws it.
+  final bool perpsOnly;
 
   List<num> get defaults => [for (final p in params) p.defaultValue];
 }
@@ -253,7 +261,20 @@ const List<HlIndSpec> kHlIndicatorCatalog = [
     colors: [kHlIndAmber],
     params: [HlIndParam('rows', 24, 8, 60, step: 4)],
   ),
+  // Its columns are the market's up and down colours and its running sum
+  // the theme's text colour, given by the pane.
+  HlIndSpec(
+    key: kHlFundingKey,
+    group: HlIndGroup.volume,
+    place: HlIndPlace.pane,
+    short: 'Funding',
+    colors: [],
+    perpsOnly: true,
+  ),
 ];
+
+/// The Funding pane's key.
+const String kHlFundingKey = 'fund';
 
 /// Every indicator key the chart knows.
 final Set<String> kHlIndicatorKeys = {

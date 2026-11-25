@@ -9738,6 +9738,25 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Plăți între long și short';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/oră (≈ $annual anualizat) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Cumulat $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Nicio finanțare pentru aceste date';
+
+  @override
+  String get chartFundingError => 'Finanțarea nu s-a putut încărca';
+
+  @override
   String get hlWideSpreadAck =>
       'Înțeleg că această piață are acum un spread foarte mare.';
 
@@ -10524,12 +10543,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Tranzacții neobișnuit de mari de când ai deschis graficul';
 
   @override
-  String get hlLayerFunding => 'Schimbări de finanțare';
-
-  @override
-  String get hlLayerFundingNote => 'Unde finanțarea și-a schimbat semnul';
-
-  @override
   String get hlLayerOi => 'Semnal interes deschis';
 
   @override
@@ -10559,12 +10572,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'Inflație SUA';
-
-  @override
-  String get hlChartFundingPositive => 'Finanțare +';
-
-  @override
-  String get hlChartFundingNegative => 'Finanțare −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

@@ -26,6 +26,7 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart'
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
+import 'package:kute/providers/hyperliquid_funding_history_provider.dart';
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_pressure_strip.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart'
@@ -89,6 +90,10 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_funding_pane.dart'
+    show HlFundingFeed;
+import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart'
+    show kHlFundingKey;
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_line_cards.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
@@ -1251,8 +1256,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       _signalsKey = null;
       _signals = ChartSignals.none;
       _signalTargets = const {};
-      _flipsSource = null;
-      _flips = const [];
     }
   }
 
@@ -1510,10 +1513,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   // (ChartPreferencesNotifier.shownIndicators); the pressure strip, on
   // until switched off, stays on.
 
-  /// Funding flips, recomputed when a new history lands.
-  Object? _flipsSource;
-  List<HlFundingFlip> _flips = const [];
-
   /// The signals handed to the chart, rebuilt only when an input changes
   /// (the painter repaints on identity), and what a tapped tag opens.
   Object? _signalsKey;
@@ -1534,17 +1533,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             const <HlBigTrade>[]
         : const <HlBigTrade>[];
 
-    var flips = const <HlFundingFlip>[];
-    if (!m.isSpot && stored.contains(kHlLayerFunding)) {
-      final history =
-          ref.watch(hyperliquidFundingHistoryProvider(m.wireCoin)).valueOrNull;
-      if (!identical(history, _flipsSource)) {
-        _flipsSource = history;
-        _flips = history == null ? const [] : hlFundingFlips(history);
-      }
-      flips = _flips;
-    }
-
     // Open interest is sampled for as long as the sheet is open, so the
     // signal is ready when its layer is switched on.
     final oi = m.isSpot ? null : ref.watch(hyperliquidOiSignalProvider(m.wireCoin));
@@ -1559,7 +1547,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
 
     final key = (
       bigTrades,
-      flips,
       oiShown,
       crowd,
       wantCrowd,
@@ -1587,15 +1574,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         ));
       }
     }
-    final dates = <ChartSignalDate>[
-      for (final f in flips)
-        ChartSignalDate(
-          timeMs: f.timeMs,
-          label: f.longsPay
-              ? l10n.hlChartFundingPositive
-              : l10n.hlChartFundingNegative,
-        ),
-    ];
+    final dates = <ChartSignalDate>[];
     if (wantMacro) {
       for (var i = 0; i < crowd.dates.length; i++) {
         final d = crowd.dates[i];
@@ -2649,6 +2628,13 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       hlChartDrawingsProvider(hlChartDrawingMarketKey(widget.market)),
     );
     final indicators = preferences.indicators;
+    // The Funding pane: a perp's hourly history, read only while it is on
+    // and kept for the session (hyperliquid_funding_history_provider.dart).
+    final fundingOn =
+        !widget.market.isSpot && indicators.contains(kHlFundingKey);
+    final fundingHistory = fundingOn
+        ? ref.watch(hlFundingHistoryProvider(widget.market.wireCoin))
+        : null;
     // Pivots' real daily candles: read only while Pivots are on.
     final dailySource = indicators.contains('pp')
         ? ref
@@ -2778,6 +2764,20 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             indicators: indicators,
             indicatorParams: preferences.params,
             dailyCandles: _daily,
+            funding: fundingHistory == null
+                ? null
+                : HlFundingFeed(
+                    points: fundingHistory.points,
+                    load: fundingHistory.load,
+                    busy: fundingHistory.busy,
+                    hourlyNow: widget.market.funding,
+                  ),
+            onFundingWanted: fundingOn
+                ? (from) => ref
+                    .read(hlFundingHistoryProvider(widget.market.wireCoin)
+                        .notifier)
+                    .want(from)
+                : null,
             logScale: preferences.logScale,
             onLogScaleChanged: _drawingMode ? _setLogScale : null,
             // The Your trades layer: on until the sheet's square turns it

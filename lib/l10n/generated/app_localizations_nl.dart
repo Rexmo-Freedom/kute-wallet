@@ -9716,6 +9716,25 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Betalingen tussen longs en shorts';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/u (≈ $annual op jaarbasis) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Cumulatief $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Geen funding voor deze data';
+
+  @override
+  String get chartFundingError => 'Funding kon niet worden geladen';
+
+  @override
   String get hlWideSpreadAck =>
       'Ik begrijp dat deze markt nu een zeer grote spread heeft.';
 
@@ -10504,12 +10523,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Ongewoon grote transacties sinds je de grafiek opende';
 
   @override
-  String get hlLayerFunding => 'Fundingomslagen';
-
-  @override
-  String get hlLayerFundingNote => 'Waar de funding van teken wisselde';
-
-  @override
   String get hlLayerOi => 'Open-interestsignaal';
 
   @override
@@ -10540,12 +10553,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'VS-inflatie';
-
-  @override
-  String get hlChartFundingPositive => 'Funding +';
-
-  @override
-  String get hlChartFundingNegative => 'Funding −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

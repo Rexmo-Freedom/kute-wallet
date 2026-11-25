@@ -26,6 +26,8 @@
 //     Standard), daily: the previous UTC day's high, low and close from
 //     real daily candles, each day's levels drawn across that day's bars.
 //   * Heikin Ashi bars.
+//   * Funding fitted to the bars (Hyperliquid's hourly settlements; see
+//     [hlFundingPerBar]) and its running sum over the bars on screen.
 //
 // Every series is ALIGNED to the candles: index i is the value at bar i,
 // double.nan through the warm-up and wherever an input is missing, so a
@@ -781,6 +783,105 @@ List<HyperliquidCandle> hlHeikinAshi(List<HyperliquidCandle> candles) {
     ));
     prevOpen = open;
     prevClose = close;
+  }
+  return out;
+}
+
+// ───────────────────────────── funding ─────────────────────────────
+
+const int _kHourMs = 3600 * 1000;
+
+/// A bar's span in ms: its close less its open, to the minute (the
+/// venue's close is the open + interval − 1 ms); the gap to its
+/// neighbour when the close says nothing.
+int _barSpanMs(List<HyperliquidCandle> bars, int i) {
+  final k = bars[i];
+  final open = k.openTime.millisecondsSinceEpoch;
+  final raw = k.closeTime.millisecondsSinceEpoch - open;
+  final span = (raw / 60000).round() * 60000;
+  if (span > 0) return span;
+  if (i + 1 < bars.length) {
+    return bars[i + 1].openTime.millisecondsSinceEpoch - open;
+  }
+  if (i > 0) return open - bars[i - 1].openTime.millisecondsSinceEpoch;
+  return _kHourMs;
+}
+
+/// Hyperliquid's hourly funding fitted to [bars] (ascending).
+///
+/// [hourly] are `fundingHistory` settlements: `time` is the settlement, on
+/// the hour (a few ms after it), and `fundingRate` the fraction of the
+/// position's value paid for the hour that ends there, POSITIVE WHEN
+/// LONGS PAY SHORTS (negative: shorts pay longs), paid every hour:
+/// https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
+/// https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals
+///
+/// * [rate]: a bar of an hour or more is the SUM of the hours that end
+///   inside it (open, open + span], what a constant 1-dollar long paid
+///   over that bar; the docs define no average and an hourly payment is
+///   the unit, so the sum is the honest per-bar figure (the pane's title
+///   names the bar, "Funding 4h"). A bar under an hour holds its hour's
+///   rate (the hour it opens in), the same across that hour's bars.
+/// * [settled]: what settled inside each bar, for the running sum: a bar
+///   of an hour or more settles its [rate]; under an hour, the hour's
+///   rate on the bar where the hour ends, 0 on the others.
+///
+/// An hour with no settlement is left out (never counted as 0); a bar
+/// with none of its hours is nan in both, so the pane gaps there.
+({List<double> rate, List<double> settled}) hlFundingPerBar(
+  List<HyperliquidCandle> bars,
+  List<({int timeMs, double rate})> hourly,
+) {
+  final n = bars.length;
+  final rate = List<double>.filled(n, double.nan);
+  final settled = List<double>.filled(n, double.nan);
+  if (n == 0 || hourly.isEmpty) return (rate: rate, settled: settled);
+  // Each settlement by the end of its hour.
+  final byEnd = <int, double>{
+    for (final p in hourly)
+      (p.timeMs / _kHourMs).round() * _kHourMs: p.rate,
+  };
+  for (var i = 0; i < n; i++) {
+    final open = bars[i].openTime.millisecondsSinceEpoch;
+    final span = _barSpanMs(bars, i);
+    final close = open + span;
+    // The first hour end after the open.
+    final firstEnd = (open ~/ _kHourMs + 1) * _kHourMs;
+    if (span >= _kHourMs) {
+      var sum = 0.0;
+      var any = false;
+      for (var h = firstEnd; h <= close; h += _kHourMs) {
+        final r = byEnd[h];
+        if (r == null) continue;
+        sum += r;
+        any = true;
+      }
+      if (any) {
+        rate[i] = sum;
+        settled[i] = sum;
+      }
+    } else {
+      final r = byEnd[firstEnd];
+      if (r == null) continue;
+      rate[i] = r;
+      settled[i] = close >= firstEnd ? r : 0;
+    }
+  }
+  return (rate: rate, settled: settled);
+}
+
+/// The running sum of [settled] from its first bar: what a constant
+/// 1-dollar long paid from the first bar on screen to each bar (simple,
+/// not compounded). nan before the first settled bar and on a bar with
+/// nothing known (the sum carries over it).
+List<double> hlFundingCumulative(List<double> settled) {
+  final out = List<double>.filled(settled.length, double.nan);
+  var sum = 0.0;
+  for (var i = 0; i < settled.length; i++) {
+    final v = settled[i];
+    if (!v.isFinite) continue;
+    sum += v;
+    out[i] = sum;
   }
   return out;
 }

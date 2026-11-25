@@ -33,6 +33,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,6 +44,7 @@ import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/providers/hl_price_lines_provider.dart';
+import 'package:kute/providers/hyperliquid_funding_history_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_advanced_layers.dart'
     show hlPaintIchimokuCloud;
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_catalog.dart';
@@ -145,6 +147,7 @@ String hlIndicatorName(AppLocalizations l10n, String key) => switch (key) {
       'vol' => l10n.chartVolume,
       'bb' => l10n.chartIndBb,
       'vp' => l10n.chartIndVp,
+      kHlFundingKey => l10n.hlFunding,
       _ => hlIndSpec(key)?.short ?? key,
     };
 
@@ -164,6 +167,7 @@ String _note(AppLocalizations l10n, String key) => switch (key) {
       'vol' => l10n.chartIndVolumeNote,
       'obv' => l10n.chartIndObvNote,
       'vp' => l10n.chartIndVpNote,
+      kHlFundingKey => l10n.chartIndFundingNote,
       _ => '',
     };
 
@@ -227,6 +231,22 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
       _previews = _HlPreviews.build(widget.candles, params);
     }
     return _previews!;
+  }
+
+  /// The Funding card's columns: the market's newest hours when this
+  /// session has read them (the sheet reads nothing itself), else a
+  /// made-up swing through zero.
+  List<double> _fundingPreview() {
+    final read = ref
+        .read(hlFundingHistoryProvider(widget.market.wireCoin))
+        .points;
+    if (read.length >= 24) {
+      return [for (final p in read.skip(read.length - 48)) p.rate];
+    }
+    return [
+      for (var i = 0; i < 40; i++)
+        0.00001 * (0.6 + math.sin(i / 5) + 0.35 * math.cos(i / 1.7)),
+    ];
   }
 
   void _pickStyle(HlChartStyle style) {
@@ -447,12 +467,16 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
             key: ValueKey('hl-chart-group-${group.name}')),
         pairs([
           for (final spec in kHlIndicatorCatalog)
-            if (spec.group == group)
+            if (spec.group == group &&
+                !(spec.perpsOnly && widget.market.isSpot))
               _IndicatorCard(
                 spec: spec,
                 on: on.contains(spec.key),
                 params: hlIndParams(spec.key, prefs.params),
                 previews: previews,
+                fundingRates: spec.key == kHlFundingKey
+                    ? _fundingPreview()
+                    : const [],
                 onTap: () => _toggle(spec.key),
                 onSettings: () => unawaited(showHlIndicatorSettings(
                   context,
@@ -895,9 +919,11 @@ class _IndicatorCard extends StatelessWidget {
     required this.previews,
     required this.onTap,
     required this.onSettings,
+    this.fundingRates = const [],
   });
 
   final HlIndSpec spec;
+  final List<double> fundingRates;
   final bool on;
   final List<num> params;
   final _HlPreviews previews;
@@ -915,6 +941,7 @@ class _IndicatorCard extends StatelessWidget {
       painter: HlIndicatorPreviewPainter(
         keyName: spec.key,
         series: previews.series(spec.key),
+        fundingRates: fundingRates,
         tape: previews.tape,
         profile: previews.profile,
         on: on,
@@ -1086,10 +1113,14 @@ class HlIndicatorPreviewPainter extends CustomPainter {
     required this.muted,
     required this.up,
     required this.down,
+    this.fundingRates = const [],
   });
 
   final String keyName;
   final HlIndSeries? series;
+
+  /// Funding's card: hourly rates, drawn as the pane draws them.
+  final List<double> fundingRates;
   final List<HyperliquidCandle> tape;
   final HlVolumeProfile? profile;
   final bool on;
@@ -1123,6 +1154,11 @@ class HlIndicatorPreviewPainter extends CustomPainter {
                 .withValues(alpha: on ? 0.7 : 0.45),
         );
       }
+      return;
+    }
+
+    if (keyName == kHlFundingKey) {
+      _funding(canvas, size);
       return;
     }
 
@@ -1254,6 +1290,43 @@ class HlIndicatorPreviewPainter extends CustomPainter {
     }
   }
 
+  /// Columns about a zero line and their running sum, as the pane.
+  void _funding(Canvas canvas, Size size) {
+    final rates = fundingRates;
+    if (rates.length < 2) return;
+    final n = rates.length;
+    final slot = size.width / n;
+    var lo = 0.0, hi = 0.0;
+    for (final r in rates) {
+      lo = math.min(lo, r);
+      hi = math.max(hi, r);
+    }
+    if (hi <= lo) hi = lo + 1e-9;
+    double y(double v) => 1 + (size.height - 2) * (1 - (v - lo) / (hi - lo));
+    final zero = y(0);
+    final w = math.max(1.0, slot * 0.6);
+    for (var i = 0; i < n; i++) {
+      final v = rates[i];
+      canvas.drawRect(
+        Rect.fromLTRB((i + 0.5) * slot - w / 2, math.min(y(v), zero),
+            (i + 0.5) * slot + w / 2, math.max(y(v), zero)),
+        Paint()..color = _tone(v >= 0 ? up : down).withValues(alpha: 0.6),
+      );
+    }
+    final cum = <double>[];
+    var sum = 0.0;
+    for (final r in rates) {
+      sum += r;
+      cum.add(sum);
+    }
+    var cLo = cum.reduce(math.min), cHi = cum.reduce(math.max);
+    if (cHi <= cLo) cHi = cLo + 1e-9;
+    double cy(double v) =>
+        1 + (size.height - 2) * (1 - (v - cLo) / (cHi - cLo));
+    _line(canvas, cum, (i) => (i + 0.5) * slot, cy,
+        on ? muted.withValues(alpha: 0.95) : muted.withValues(alpha: 0.7), 1.4);
+  }
+
   /// Pivots' card draws one day's levels: their newest stretch.
   static List<double> _newestStretch(List<double> values) {
     var end = values.length - 1;
@@ -1305,6 +1378,7 @@ class HlIndicatorPreviewPainter extends CustomPainter {
   bool shouldRepaint(covariant HlIndicatorPreviewPainter old) =>
       old.keyName != keyName ||
       !identical(old.series, series) ||
+      !listEquals(old.fundingRates, fundingRates) ||
       !identical(old.tape, tape) ||
       !identical(old.profile, profile) ||
       old.on != on ||

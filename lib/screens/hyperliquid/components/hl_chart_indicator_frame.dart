@@ -19,6 +19,9 @@ import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.da
 import 'package:kute/screens/shared/charts/kute_chart_indicators.dart'
     show KuteIndicatorBand, KuteIndicatorOverlay;
 
+/// One hourly funding settlement (`fundingHistory`): its time and rate.
+typedef HlFundingHourly = ({int timeMs, double rate});
+
 /// One line an indicator draws, aligned to the bars (nan = no value).
 class HlIndLine {
   const HlIndLine(this.values, this.color, {this.label});
@@ -64,6 +67,7 @@ class HlIndSeries {
     this.range,
     this.cloud,
     this.legendLines,
+    this.settled,
   });
 
   final String key;
@@ -82,6 +86,10 @@ class HlIndSeries {
   /// the plot), Ichimoku its conversion and base lines.
   final int? legendLines;
 
+  /// Funding: what settled inside each bar ([hlFundingPerBar]); the pane
+  /// sums it over the bars on screen. Its per-bar rate is [histogram].
+  final List<double>? settled;
+
   /// The bars [start, end) of every series.
   HlIndSeries slice(int start, int end) {
     List<double> cut(List<double> v) {
@@ -92,6 +100,7 @@ class HlIndSeries {
 
     final b = band;
     final h = histogram;
+    final st = settled;
     return HlIndSeries(
       key: key,
       title: title,
@@ -115,6 +124,7 @@ class HlIndSeries {
               down: cloud!.down,
             ),
       legendLines: legendLines,
+      settled: st == null ? null : cut(st),
     );
   }
 
@@ -278,7 +288,9 @@ class HlIndicatorComputer {
   /// The series for [keys] (in order) over [candles] with [params] (the
   /// stored settings, [hlIndParams]). [up] / [down] colour Supertrend and
   /// Ichimoku's cloud. [daily] are the real daily candles Pivots read
-  /// (none yet: no levels).
+  /// (none yet: no levels). [funding] is the market's hourly funding
+  /// (oldest first) the Funding pane fits to the bars; null (a spot market,
+  /// or a chart that reads none) leaves Funding out.
   HlIndicatorFrame compute(
     List<HyperliquidCandle> candles,
     Iterable<String> keys,
@@ -286,6 +298,7 @@ class HlIndicatorComputer {
     required Color up,
     required Color down,
     List<HyperliquidCandle> daily = const [],
+    List<HlFundingHourly>? funding,
   }) {
     if (!identical(candles, _tape)) {
       _tape = candles;
@@ -299,6 +312,7 @@ class HlIndicatorComputer {
     for (final key in keys) {
       final spec = hlIndSpec(key);
       if (spec == null || spec.place == HlIndPlace.volumeBand) continue;
+      if (key == kHlFundingKey && funding == null) continue;
       final p = hlIndParams(key, params);
       final w = hlIndWarmup(key, p);
       if (w > warmup) warmup = w;
@@ -308,10 +322,11 @@ class HlIndicatorComputer {
       }
       if (candles.isEmpty) continue;
       final memoKey = '$key|${p.join(',')}|${up.toARGB32()}|${down.toARGB32()}'
-          '${key == 'pp' ? '|${identityHashCode(daily)}' : ''}';
+          '${key == 'pp' ? '|${identityHashCode(daily)}' : ''}'
+          '${key == kHlFundingKey ? '|${identityHashCode(funding)}' : ''}';
       used.add(memoKey);
-      final s = _memo.putIfAbsent(
-          memoKey, () => _build(spec, p, candles, up, down, daily));
+      final s = _memo.putIfAbsent(memoKey,
+          () => _build(spec, p, candles, up, down, daily, funding ?? const []));
       (spec.place == HlIndPlace.pane ? panes : price).add(s);
     }
     _memo.removeWhere((k, _) => !used.contains(k));
@@ -330,6 +345,7 @@ class HlIndicatorComputer {
     Color up,
     Color down,
     List<HyperliquidCandle> daily,
+    List<HlFundingHourly> funding,
   ) {
     final title = hlIndTitle(spec.key, p);
     int i(int at) => p[at].round();
@@ -460,6 +476,15 @@ class HlIndicatorComputer {
         return HlIndSeries(key: spec.key, title: title, lines: [
           HlIndLine(hlObv(candles), spec.colors[0]),
         ]);
+      case kHlFundingKey:
+        final f = hlFundingPerBar(candles, funding);
+        return HlIndSeries(
+          key: spec.key,
+          title: title,
+          lines: const [],
+          histogram: f.rate,
+          settled: f.settled,
+        );
     }
     return HlIndSeries(key: spec.key, title: title, lines: const []);
   }

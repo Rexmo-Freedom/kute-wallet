@@ -16594,6 +16594,36 @@ abstract class AppLocalizations {
   /// **'{payer} {hourly}/hr (≈ {annual} annualized)'**
   String hlFundingRateLine(String payer, String hourly, String annual);
 
+  /// Chart sheet (Investing Advanced chart, perps only): the one-line note under the 'Funding' indicator card, which adds a pane of the market's funding rate under the price. Funding is what holders of long and short positions pay each other every hour. Short, at most two lines on a phone.
+  ///
+  /// In en, this message translates to:
+  /// **'What longs and shorts pay each other'**
+  String get chartIndFundingNote;
+
+  /// Investing chart, Funding pane legend after the title 'Funding 1h': the market's current funding rate. {hourly} is the signed hourly rate such as +0.0013% (positive: longs pay shorts); {annual} is that rate over a year such as +11.4%; {countdown} is the time to the next hourly payment such as 'in 31m' (hlFundingIn). Match the wording of hlFundingRateLine. Keep short: it shares one line with the title on a phone.
+  ///
+  /// In en, this message translates to:
+  /// **'{hourly}/hr (≈ {annual} annualized) · {countdown}'**
+  String chartFundingNow(String hourly, String annual, String countdown);
+
+  /// Investing chart, Funding pane legend: the running total of funding from the first bar on screen to the latest (or to the bar under the crosshair), i.e. what a long position would have paid over that stretch. {value} is a signed percent such as +0.31%. One or two words.
+  ///
+  /// In en, this message translates to:
+  /// **'Cumulative {value}'**
+  String chartFundingCumulative(String value);
+
+  /// Investing chart, Funding pane: shown inside the pane when Hyperliquid has no funding history for the dates on screen (a new market, or scrolled further back than the history reaches). One short line.
+  ///
+  /// In en, this message translates to:
+  /// **'No funding for these dates'**
+  String get chartFundingEmpty;
+
+  /// Investing chart, Funding pane: shown inside the pane when the funding history could not be read from Hyperliquid. The price chart above still works. One short line.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load funding'**
+  String get chartFundingError;
+
   /// No description provided for @hlWideSpreadAck.
   ///
   /// In en, this message translates to:
@@ -17926,18 +17956,6 @@ abstract class AppLocalizations {
   /// **'Unusually large trades since you opened the chart'**
   String get hlLayerBigTradesNote;
 
-  /// No description provided for @hlLayerFunding.
-  ///
-  /// In en, this message translates to:
-  /// **'Funding flips'**
-  String get hlLayerFunding;
-
-  /// No description provided for @hlLayerFundingNote.
-  ///
-  /// In en, this message translates to:
-  /// **'Where funding changed sign'**
-  String get hlLayerFundingNote;
-
   /// No description provided for @hlLayerOi.
   ///
   /// In en, this message translates to:
@@ -17991,18 +18009,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'US inflation'**
   String get hlChartUsInflation;
-
-  /// No description provided for @hlChartFundingPositive.
-  ///
-  /// In en, this message translates to:
-  /// **'Funding +'**
-  String get hlChartFundingPositive;
-
-  /// No description provided for @hlChartFundingNegative.
-  ///
-  /// In en, this message translates to:
-  /// **'Funding −'**
-  String get hlChartFundingNegative;
 
   /// No description provided for @hlChartOiRising.
   ///

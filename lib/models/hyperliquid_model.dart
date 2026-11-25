@@ -406,36 +406,50 @@ class HyperliquidModel {
     }
   }
 
-  /// Hourly funding rates of one perp over the trailing [window], oldest
-  /// first (`fundingHistory`; the venue returns at most 500 entries, about
-  /// 20 days). Empty on any failure: the chart's funding markers are an
-  /// extra, never a reason to fail.
-  Future<List<({int timeMs, double rate})>> getFundingHistory({
+  /// One perp's hourly funding settlements with `time` in [startMs, endMs]
+  /// (both inclusive), oldest first: `fundingHistory`, the rate as a
+  /// fraction of the position's value, positive when longs pay shorts.
+  /// [coin] is the WIRE name, so a builder market asks with its prefix
+  /// ("xyz:XYZ100"), as the docs' HIP-3 example does.
+  ///
+  /// A time-range response holds at most 500 elements; the docs' way to
+  /// read more is to ask again from the last `time` received, which this
+  /// does until the range is read ([maxPages] at most, so a bad answer
+  /// can never loop). THROWS on a failed request: the funding pane tells
+  /// an error from an empty market.
+  /// https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals
+  /// https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
+  Future<List<({int timeMs, double rate})>> getFundingHistoryRange({
     required String coin,
-    Duration window = const Duration(days: 20),
+    required int startMs,
+    required int endMs,
+    int maxPages = 4,
   }) async {
-    try {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final resp = await _info({
+    final out = <({int timeMs, double rate})>[];
+    var from = startMs;
+    for (var page = 0; page < maxPages && from <= endMs; page++) {
+      final decoded = await _infoOrThrow({
         'type': 'fundingHistory',
         'coin': coin,
-        'startTime': now - window.inMilliseconds,
+        'startTime': from,
+        'endTime': endMs,
       });
-      if (resp.statusCode != 200) return const [];
-      final decoded = jsonDecode(resp.body);
-      if (decoded is! List) return const [];
-      final out = <({int timeMs, double rate})>[];
+      if (decoded is! List) {
+        throw HyperliquidInfoException('info fundingHistory: not a list');
+      }
+      var last = -1;
       for (final raw in decoded) {
-        if (raw is! Map<String, dynamic>) continue;
+        if (raw is! Map) continue;
         final time = (raw['time'] as num?)?.toInt();
         final rate = double.tryParse(raw['fundingRate']?.toString() ?? '');
-        if (time == null || rate == null) continue;
+        if (time == null || rate == null || !rate.isFinite) continue;
+        if (time > last) last = time;
         out.add((timeMs: time, rate: rate));
       }
-      return out;
-    } catch (_) {
-      return const [];
+      if (decoded.length < 500 || last < from) break;
+      from = last + 1;
     }
+    return out;
   }
 
   // ──────────────────── trading reads (throwing) ────────────────────

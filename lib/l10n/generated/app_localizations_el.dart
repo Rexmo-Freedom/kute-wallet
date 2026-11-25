@@ -9753,6 +9753,26 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Πληρωμές μεταξύ long και short';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/ώρα (≈ $annual ετησίως) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Σωρευτικά $value';
+  }
+
+  @override
+  String get chartFundingEmpty =>
+      'Δεν υπάρχει funding για αυτές τις ημερομηνίες';
+
+  @override
+  String get chartFundingError => 'Δεν ήταν δυνατή η φόρτωση του funding';
+
+  @override
   String get hlWideSpreadAck =>
       'Καταλαβαίνω ότι αυτή η αγορά έχει πολύ μεγάλο spread αυτή τη στιγμή.';
 
@@ -10539,12 +10559,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Ασυνήθιστα μεγάλες συναλλαγές από τότε που άνοιξες το γράφημα';
 
   @override
-  String get hlLayerFunding => 'Αλλαγές funding';
-
-  @override
-  String get hlLayerFundingNote => 'Όπου το funding άλλαξε πρόσημο';
-
-  @override
   String get hlLayerOi => 'Σήμα ανοιχτών θέσεων';
 
   @override
@@ -10575,12 +10589,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'Πληθωρισμός ΗΠΑ';
-
-  @override
-  String get hlChartFundingPositive => 'Funding +';
-
-  @override
-  String get hlChartFundingNegative => 'Funding −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

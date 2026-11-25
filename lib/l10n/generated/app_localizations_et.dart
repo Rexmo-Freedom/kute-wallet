@@ -9670,6 +9670,25 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Maksed pikkade ja lühikeste vahel';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/h (≈ $annual aastas) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Kokku $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Nende kuupäevade kohta rahastamist pole';
+
+  @override
+  String get chartFundingError => 'Rahastamist ei õnnestunud laadida';
+
+  @override
   String get hlWideSpreadAck =>
       'Saan aru, et sellel turul on praegu väga lai hinnavahe.';
 
@@ -10454,12 +10473,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'Tavatult suured tehingud alates graafiku avamisest';
 
   @override
-  String get hlLayerFunding => 'Rahastamise pöörded';
-
-  @override
-  String get hlLayerFundingNote => 'Kus rahastamise märk muutus';
-
-  @override
   String get hlLayerOi => 'Avatud positsioonide signaal';
 
   @override
@@ -10489,12 +10502,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'USA inflatsioon';
-
-  @override
-  String get hlChartFundingPositive => 'Rahastamine +';
-
-  @override
-  String get hlChartFundingNegative => 'Rahastamine −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

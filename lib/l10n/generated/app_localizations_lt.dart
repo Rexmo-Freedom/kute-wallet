@@ -9735,6 +9735,25 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Mokėjimai tarp long ir short';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/val. (≈ $annual per metus) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Sukaupta $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Šioms datoms finansavimo nėra';
+
+  @override
+  String get chartFundingError => 'Nepavyko įkelti finansavimo';
+
+  @override
   String get hlWideSpreadAck =>
       'Suprantu, kad šioje rinkoje šiuo metu labai didelis kainų skirtumas.';
 
@@ -10520,12 +10539,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Neįprastai dideli sandoriai nuo grafiko atidarymo';
 
   @override
-  String get hlLayerFunding => 'Finansavimo apsivertimai';
-
-  @override
-  String get hlLayerFundingNote => 'Kur finansavimas pakeitė ženklą';
-
-  @override
   String get hlLayerOi => 'Atvirųjų pozicijų signalas';
 
   @override
@@ -10555,12 +10568,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'JAV infliacija';
-
-  @override
-  String get hlChartFundingPositive => 'Finansavimas +';
-
-  @override
-  String get hlChartFundingNegative => 'Finansavimas −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

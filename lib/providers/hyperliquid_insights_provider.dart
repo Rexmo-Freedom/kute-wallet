@@ -14,7 +14,6 @@
 //     category gates like every other Polymarket list.
 //   * [hyperliquidTradeFlowProvider]: buy/sell pressure and big trades
 //     from the public `trades` stream, on its own small socket.
-//   * [hyperliquidFundingHistoryProvider]: hourly funding (`fundingHistory`).
 //   * [hyperliquidOiSignalProvider]: open interest sampled in-session from
 //     `activeAssetCtx` (the venue has no open-interest history).
 //
@@ -27,7 +26,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
-import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
 import 'package:kute/services/hyperliquid/insights/hl_crowd_match.dart';
 import 'package:kute/services/hyperliquid/insights/hl_flow_signals.dart';
@@ -118,15 +116,6 @@ final hlCrowdViewProvider =
     macroEvents: events.macro,
     now: DateTime.now(),
   );
-});
-
-/// Hourly funding of one perp, oldest first. Keyed by WIRE coin.
-final hyperliquidFundingHistoryProvider = FutureProvider.autoDispose
-    .family<List<HlFundingPoint>, String>((ref, wireCoin) async {
-  _cacheFor(ref, const Duration(minutes: 10));
-  return ref
-      .read(hyperliquidTradingModelProvider)
-      .getFundingHistory(coin: wireCoin);
 });
 
 /// Pressure and big trades of one market, as last computed.

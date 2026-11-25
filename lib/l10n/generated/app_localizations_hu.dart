@@ -9708,6 +9708,25 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Long és short közti fizetések';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/óra (≈ $annual évesítve) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Halmozott $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Nincs finanszírozás ezekre a napokra';
+
+  @override
+  String get chartFundingError => 'A finanszírozást nem sikerült betölteni';
+
+  @override
   String get hlWideSpreadAck =>
       'Tudomásul veszem, hogy ezen a piacon most nagyon széles az árrés.';
 
@@ -10491,12 +10510,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Szokatlanul nagy ügyletek a diagram megnyitása óta';
 
   @override
-  String get hlLayerFunding => 'Finanszírozási fordulók';
-
-  @override
-  String get hlLayerFundingNote => 'Ahol a finanszírozás előjelet váltott';
-
-  @override
   String get hlLayerOi => 'Nyitott kamat jelzés';
 
   @override
@@ -10527,12 +10540,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'Amerikai infláció';
-
-  @override
-  String get hlChartFundingPositive => 'Finanszírozás +';
-
-  @override
-  String get hlChartFundingNegative => 'Finanszírozás −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

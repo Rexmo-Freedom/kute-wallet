@@ -94,38 +94,6 @@ void main() {
   });
 
   group('funding', () {
-    List<HlFundingPoint> hours(List<double> rates) => [
-          for (var i = 0; i < rates.length; i++)
-            (timeMs: i * 3600000, rate: rates[i])
-        ];
-
-    test('a flip must hold three hours', () {
-      const p = 0.00001, n = -0.00001;
-      final flips = hlFundingFlips(hours([
-        p, p, p, p, // positive
-        n, p, p, // one negative hour: noise
-        n, n, n, n, // negative for good
-        p, p, p,
-      ]));
-      expect(flips.map((f) => (f.timeMs ~/ 3600000, f.longsPay)),
-          [(7, false), (11, true)]);
-    });
-
-    test('a steady sign has no flips; nor does an empty history', () {
-      expect(hlFundingFlips(hours(List.filled(48, 0.00001))), isEmpty);
-      expect(hlFundingFlips(const []), isEmpty);
-    });
-
-    test('at most the newest six', () {
-      final rates = <double>[];
-      for (var i = 0; i < 10; i++) {
-        rates.addAll(List.filled(3, i.isEven ? 0.00001 : -0.00001));
-      }
-      final flips = hlFundingFlips(hours(rates));
-      expect(flips, hasLength(kHlFundingFlipMax));
-      expect(flips.last.timeMs, 27 * 3600000);
-    });
-
     test('funding settles at the top of the next hour', () {
       expect(hlNextFundingTime(DateTime.utc(2026, 10, 4, 20, 37, 12)),
           DateTime.utc(2026, 10, 4, 21));

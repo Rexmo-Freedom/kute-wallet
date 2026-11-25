@@ -9705,6 +9705,25 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get chartIndFundingNote => 'Plaćanja između long i short';
+
+  @override
+  String chartFundingNow(String hourly, String annual, String countdown) {
+    return '$hourly/h (≈ $annual godišnje) · $countdown';
+  }
+
+  @override
+  String chartFundingCumulative(String value) {
+    return 'Kumulativno $value';
+  }
+
+  @override
+  String get chartFundingEmpty => 'Nema financiranja za ove datume';
+
+  @override
+  String get chartFundingError => 'Financiranje se nije moglo učitati';
+
+  @override
   String get hlWideSpreadAck =>
       'Razumijem da ovo tržište trenutačno ima vrlo velik raspon.';
 
@@ -10490,12 +10509,6 @@ class AppLocalizationsHr extends AppLocalizations {
       'Neobično velike transakcije otkad si otvorio grafikon';
 
   @override
-  String get hlLayerFunding => 'Promjene financiranja';
-
-  @override
-  String get hlLayerFundingNote => 'Gdje je financiranje promijenilo predznak';
-
-  @override
   String get hlLayerOi => 'Signal otvorenog interesa';
 
   @override
@@ -10525,12 +10538,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get hlChartUsInflation => 'Inflacija u SAD-u';
-
-  @override
-  String get hlChartFundingPositive => 'Financiranje +';
-
-  @override
-  String get hlChartFundingNegative => 'Financiranje −';
 
   @override
   String hlChartOiRising(String percent, int minutes) {

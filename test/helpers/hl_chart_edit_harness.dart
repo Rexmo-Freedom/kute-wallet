@@ -17,6 +17,7 @@ import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/providers/chart_drawings_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_candles_provider.dart';
+import 'package:kute/providers/hyperliquid_funding_history_provider.dart';
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -113,16 +114,23 @@ Future<void> pumpHlEditSheet(
   List<HyperliquidCandle> daily = const [],
   // The page opened from Send in send mode (send_pick_session.dart).
   SendPickSession? sendPick,
+  // The Funding pane's reads (none: an empty history, no network).
+  HlFundingFetch? fundingFetch,
+  // The market shown (a BTC perp unless given).
+  HlMarket market = hlEditBtc,
 }) async {
   tester.view.physicalSize = Size(width, height) * tester.view.devicePixelRatio;
   addTearDown(tester.view.resetPhysicalSize);
   final tape = candles ?? hlEditCandles();
-  final sheet = HlMarketDetailSheet(market: hlEditBtc, sendPick: sendPick);
+  final sheet = HlMarketDetailSheet(market: market, sendPick: sendPick);
   await tester.pumpWidget(ProviderScope(
     overrides: [
       hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
-      hyperliquidAccountMarketProvider('BTC').overrideWith((_) => hlEditBtc),
-      hyperliquidExactMarketProvider.overrideWith((ref, key) => hlEditBtc),
+      hyperliquidAccountMarketProvider(market.coin)
+          .overrideWith((_) => market),
+      hyperliquidExactMarketProvider.overrideWith((ref, key) => market),
+      hlFundingFetchProvider.overrideWithValue(
+          fundingFetch ?? (coin, start, end) async => const []),
       hyperliquidActiveAssetCtxProvider
           .overrideWith((ref, wire) => const Stream.empty()),
       hyperliquidOrderbookProvider

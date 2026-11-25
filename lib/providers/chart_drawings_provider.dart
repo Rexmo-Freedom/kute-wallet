@@ -237,7 +237,6 @@ class ChartPreferences {
 const String kHlLayerPressureOff = 'nopressure';
 const String kHlLayerMyTradesOff = 'nomytrades';
 const String kHlLayerBigTrades = 'bigtrades';
-const String kHlLayerFunding = 'fundflip';
 const String kHlLayerOi = 'oisignal';
 const String kHlLayerCrowd = 'crowd';
 const String kHlLayerMacro = 'macro';
@@ -253,7 +252,6 @@ class ChartPreferencesNotifier
     kHlLayerPressureOff,
     kHlLayerMyTradesOff,
     kHlLayerBigTrades,
-    kHlLayerFunding,
     kHlLayerOi,
     kHlLayerCrowd,
     kHlLayerMacro,
