@@ -48,7 +48,7 @@ void main() {
       final method =
           req.paymentMethod as ReceivePaymentMethod_BitcoinAddress;
       asked.add(method.newAddress);
-      if (sdkDown != null) throw sdkDown!;
+      if (sdkDown != null) throw sdkDown;
       if (method.newAddress == true) n++;
       final address =
           method.newAddress == true ? 'bc1q$n' : (sdkDrift ?? 'bc1q$n');

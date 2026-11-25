@@ -313,7 +313,9 @@ Future<void> _shot(WidgetTester tester, String name) async {
 }
 
 /// Two fingers spread on the plot (a zoom in), then a drag back in time:
-/// the Balance charts' time axis away from "Now".
+/// the Balance charts' time axis away from "Now". Kept for the next audit
+/// pass; no case uses it today.
+// ignore: unused_element
 Future<void> _pannedShot(
     WidgetTester tester, String name, Finder plot) async {
   final rect = tester.getRect(plot);
