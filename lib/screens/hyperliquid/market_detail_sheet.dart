@@ -2987,7 +2987,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             : c.textSecondary;
     return Tooltip(
       message: tip,
-      child: GestureDetector(
+      child: MouseRegion(
+        cursor: onTap == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
@@ -3016,6 +3020,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -3269,7 +3274,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   }
 
   /// The editor's keys (a hardware keyboard): Escape puts the tool in
-  /// hand down (or lets the selected drawing go), Delete / Backspace
+  /// hand down (or lets the selected drawing go, or leaves), Delete / Backspace
   /// removes the selected drawing (the toolbar's Delete), Cmd/Ctrl+Z
   /// undoes and Shift+Cmd/Ctrl+Z redoes.
   KeyEventResult _onEditKey(FocusNode node, KeyEvent event) {
@@ -3284,10 +3289,16 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.escape) {
+      // The plot drops a placing in hand first (hl_charts.dart); then the
+      // tool goes down, the selection goes, and last Escape leaves the
+      // editor, as Done does.
       if (_armedTool != null) {
         _toCursor();
       } else if (_selectedDrawingId != null) {
         setState(() => _selectedDrawingId = null);
+      } else if (_drawingMode && widget.deskPanelOpen != true) {
+        // (An open side panel takes this Escape: the page closes it.)
+        _toggleDrawingMode();
       } else {
         return KeyEventResult.ignored;
       }
@@ -3372,7 +3383,9 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
 
   /// Done: leaves the editor.
   Widget _editDoneButton(AppColorsExtension c, AppLocalizations l10n) =>
-      GestureDetector(
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
         key: const ValueKey('hl-chart-edit-done'),
         behavior: HitTestBehavior.opaque,
         onTap: _toggleDrawingMode,
@@ -3396,6 +3409,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             ),
           ),
         ),
+      ),
       );
 
   /// The left-edge tool rail: tuck away, Cursor, the tools, then the
@@ -4575,8 +4589,38 @@ class _ChartNoteSheet extends StatefulWidget {
 
 class _ChartNoteSheetState extends State<_ChartNoteSheet> {
   late final _text = TextEditingController(text: widget.initialText);
+
+  /// The note's field. Autofocus alone left a click-opened note without
+  /// the keyboard on the web (the field never took the browser's focus),
+  /// so the field asks for it once the sheet is up as well.
+  final FocusNode _focus = FocusNode(debugLabel: 'hl-chart-note');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final route = ModalRoute.of(context)?.animation;
+      void take() {
+        if (mounted && !_focus.hasPrimaryFocus) _focus.requestFocus();
+      }
+
+      if (route == null || route.isCompleted) {
+        take();
+        return;
+      }
+      void onStatus(AnimationStatus status) {
+        if (!status.isCompleted) return;
+        route.removeStatusListener(onStatus);
+        take();
+      }
+
+      route.addStatusListener(onStatus);
+    });
+  }
+
   @override
   void dispose() {
+    _focus.dispose();
     _text.dispose();
     super.dispose();
   }
@@ -4592,6 +4636,7 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
                 padding: EdgeInsets.symmetric(horizontal: 20.w),
                 child: TextField(
                   controller: _text,
+                  focusNode: _focus,
                   autofocus: true,
                   minLines: 2,
                   maxLines: 4,

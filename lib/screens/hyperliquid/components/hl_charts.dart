@@ -47,7 +47,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show PointMode;
 
-import 'package:flutter/foundation.dart' show listEquals, setEquals;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals, setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
     show
@@ -59,6 +59,7 @@ import 'package:flutter/gestures.dart'
         PointerScaleEvent,
         PointerScrollEvent,
         PointerSignalEvent,
+        TapUpDetails,
         kDoubleTapSlop,
         kDoubleTapTimeout;
 import 'package:flutter/services.dart';
@@ -1596,7 +1597,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   /// Whether the plot draws its volume band: at the desk the volume is a
   /// pane of its own instead ([_volumePane]).
-  bool get _plotVolume => widget.showVolume && !_deskEditor;
+  bool get _plotVolume => _plotsVolume(widget);
+
+  static bool _plotsVolume(HlCandlestickChart chart) =>
+      chart.showVolume && !(chart.desk && chart.drawingMode);
 
   /// A pane's height under the plot: 76 as designed; at the desk about
   /// an eighth of the window, 96 to 150.
@@ -1640,9 +1644,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   // with a mouse drew a grey measuring box) ─────────────────────────
   // The pointer's kind decides: a plain mouse drag pans, the wheel or a
   // trackpad pinch zooms, hovering shows the crosshair and the price, and
-  // the measuring box comes only from a Shift-drag with a mouse (a quick
-  // measure that goes on release) or, in Advanced, the Measure tool
-  // dragged with Shift (or placed click by click). Touch is as it was.
+  // a Shift-drag with a mouse is a quick measure that goes on release.
+  // In Advanced with a tool in hand the mouse draws by desktop rules
+  // (founder, 25 November 2026: "drawing tools not working properly ...
+  // on web"): press, drag, release places it, or click, move, click; the
+  // second point follows the pointer between the clicks; a click that
+  // wobbles a pixel or two is still a click; the cursor says what a press
+  // will do; Escape drops the placing in hand. Touch is as it was: every
+  // branch reads the pointer's kind, never the platform.
 
   /// The kind of the pointer that last went down on the plot, and
   /// whether Shift was held then.
@@ -1661,19 +1670,52 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// The trackpad pinch's last scale (desktop: pan-zoom events).
   double _panZoomScale = 1;
 
-  static bool _isMeasureTool(ChartDrawingTool tool) =>
-      tool == ChartDrawingTool.priceRange ||
-      tool == ChartDrawingTool.dateRange ||
-      tool == ChartDrawingTool.dateAndPriceRange;
+  /// The armed tool: with a mouse, as with a finger, a drag with a tool
+  /// in hand draws it (the Measure tool included).
+  ChartDrawingTool? get _toolForPointer => widget.armedTool;
 
-  /// The armed tool as this pointer uses it: a measuring tool dragged by
-  /// a plain mouse (no Shift) is the cursor, so the drag pans.
-  ChartDrawingTool? get _toolForPointer {
-    final tool = widget.armedTool;
-    if (tool != null && _isMeasureTool(tool) && _mouseDown && !_downShift) {
-      return null;
-    }
-    return tool;
+  /// Where the mouse went down and where its drag last was (plot
+  /// pixels): a press that moves less than [_kMouseClickSlop] is a click.
+  Offset? _mouseDownAt;
+  Offset? _mouseDragAt;
+  static const double _kMouseClickSlop = 4;
+
+  /// A mouse press that moved less than [_kMouseClickSlop] before it was
+  /// released (the drag recognizer took it after its 2 px slop).
+  bool get _mouseClickWobble {
+    final a = _mouseDownAt, b = _mouseDragAt;
+    return _mouseDown &&
+        a != null &&
+        (b == null || (b - a).distance < _kMouseClickSlop);
+  }
+
+  /// A one-point tool's preview under the hovering mouse (a level, a
+  /// price line, a vertical line): drawn as the draft, never saved.
+  ChartDrawing? _hoverGhost;
+
+  /// The plot's mouse cursor (drawing mode).
+  MouseCursor _cursor = MouseCursor.defer;
+
+  /// Hit radii with a mouse: a line, a handle (a finger's are wider).
+  static const double _kMouseLineTolerance = 8;
+  static const double _kMouseHandleTolerance = 10;
+
+  /// The editor's own keys on the plot (Escape drops the placing in hand
+  /// before the host puts the tool down); focused by a mouse press.
+  final FocusNode _plotFocus =
+      FocusNode(debugLabel: 'hl-chart-plot', skipTraversal: true);
+
+  /// The browser's context menu is off while the mouse is over the plot
+  /// in the editor (a right-click there does nothing).
+  bool _contextMenuOff = false;
+
+  void _setContextMenuOff(bool off) {
+    if (!kIsWeb || off == _contextMenuOff) return;
+    _contextMenuOff = off;
+    unawaited((off
+            ? BrowserContextMenu.disableContextMenu()
+            : BrowserContextMenu.enableContextMenu())
+        .catchError((Object _) {}));
   }
 
   /// A Shift-drag with a mouse that is not placing a tool: the quick
@@ -1687,6 +1729,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     _downKind = e.kind;
     _downShift = e.kind == PointerDeviceKind.mouse &&
         HardwareKeyboard.instance.isShiftPressed;
+    _mouseDownAt = e.kind == PointerDeviceKind.mouse ? e.localPosition : null;
+    _mouseDragAt = null;
+    if (e.kind == PointerDeviceKind.mouse && widget.drawingMode) {
+      // The keys (Escape, Delete) follow the click to the plot.
+      if (!_plotFocus.hasFocus) _plotFocus.requestFocus();
+      if (_hoverGhost != null) setState(() => _hoverGhost = null);
+    }
     // A press ends the hover's crosshair: the drag that follows pans.
     if (_hovering && e.kind == PointerDeviceKind.mouse) {
       _hovering = false;
@@ -1699,8 +1748,15 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     }
   }
 
-  void _onHover(PointerHoverEvent e, double plotW, int dataLen) {
+  void _onHover(PointerHoverEvent e, Size plotSize, int dataLen) {
     if (_pinching || e.kind != PointerDeviceKind.mouse) return;
+    final plotW = plotSize.width;
+    if (widget.drawingMode) {
+      _onEditorHover(e.localPosition, plotSize);
+    } else {
+      _setContextMenuOff(false);
+    }
+    // A tool in hand: the pointer is the tool, never the scrub.
     if (widget.drawingMode && widget.armedTool != null) return;
     _hovering = true;
     final y = e.localPosition.dy;
@@ -1709,6 +1765,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   }
 
   void _onHoverExit() {
+    _setContextMenuOff(false);
+    if (_hoverGhost != null) setState(() => _hoverGhost = null);
     if (!_hovering) return;
     _hovering = false;
     if (_touchIndex != null || _touchY != null) {
@@ -1717,6 +1775,152 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         _touchY = null;
       });
     }
+  }
+
+  /// The mouse over the editor's plot: the cursor for what a press will
+  /// do, the second point of a two-point placing following it, and a
+  /// one-point tool's preview under it.
+  void _onEditorHover(Offset pos, Size plotSize) {
+    _setContextMenuOff(true);
+    final geom = _drawingGeometry(plotSize);
+    final tool = widget.armedTool;
+    final inPlot = geom != null && pos.dy <= geom.priceH;
+    final cursor = _cursorAt(pos, geom, plotSize.width);
+    ChartDrawing? ghost;
+    ChartDrawing? pending = _pendingDraft;
+    if (geom != null && tool != null && inPlot) {
+      final point = _pointAt(geom, pos);
+      if (pending != null && pending.tool == tool) {
+        pending = _seedThirdAnchor(pending.withPoint(1, point));
+      } else if (chartDrawingPointCount(tool) == 1 &&
+          tool != ChartDrawingTool.text) {
+        ghost = ChartDrawing(
+          id: 'hover-ghost',
+          tool: tool,
+          points: [point],
+          colorValue: widget.armedColorValue,
+        );
+      }
+    }
+    final pendingChanged = !identical(pending, _pendingDraft);
+    if (cursor != _cursor ||
+        pendingChanged ||
+        ghost?.points.first != _hoverGhost?.points.first ||
+        (ghost == null) != (_hoverGhost == null)) {
+      setState(() {
+        _cursor = cursor;
+        _hoverGhost = ghost;
+        if (pendingChanged) _pendingDraft = pending;
+      });
+    }
+  }
+
+  /// What the mouse cursor says over [pos] in the editor: the precise
+  /// cross with a tool in hand, grab over empty plot (a drag pans), move
+  /// over a drawing, a resize arrow over the selected drawing's handles
+  /// and on the price axis.
+  MouseCursor _cursorAt(Offset pos, KuteDrawingGeometry? geom, double plotW) {
+    if (widget.armedTool != null) return SystemMouseCursors.precise;
+    if (geom == null) return SystemMouseCursors.basic;
+    if (pos.dy > geom.priceH) return SystemMouseCursors.basic;
+    final selected = _selectedDrawing();
+    if (selected != null && !selected.locked) {
+      final handle = kuteHitTestHandle(selected, geom, pos,
+          tolerance: _kMouseHandleTolerance);
+      if (handle != null) return _handleCursor(selected);
+    }
+    final hit = kuteHitTestDrawings(widget.drawings, geom, pos,
+        tolerance: _kMouseLineTolerance);
+    if (hit != null) {
+      final drawing = widget.drawings.firstWhere((d) => d.id == hit);
+      return drawing.locked
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.move;
+    }
+    if (_onAxisStrip(pos, plotW)) return SystemMouseCursors.resizeUpDown;
+    return SystemMouseCursors.grab;
+  }
+
+  static MouseCursor _handleCursor(ChartDrawing drawing) {
+    switch (drawing.tool) {
+      case ChartDrawingTool.level:
+      case ChartDrawingTool.priceLine:
+      case ChartDrawingTool.horizontalRay:
+        return SystemMouseCursors.resizeUpDown;
+      case ChartDrawingTool.verticalLine:
+        return SystemMouseCursors.resizeLeftRight;
+      default:
+        return SystemMouseCursors.resizeUpLeftDownRight;
+    }
+  }
+
+  /// The cursor while a mouse drag is under way, else the hover's.
+  MouseCursor get _plotCursor {
+    if (!widget.drawingMode) return MouseCursor.defer;
+    if (_mouseDown) {
+      if (_panningView) return SystemMouseCursors.grabbing;
+      if (_axisDragging) return SystemMouseCursors.resizeUpDown;
+      if (_draft != null || _quickMeasuring) {
+        return SystemMouseCursors.precise;
+      }
+      if (_edited != null) {
+        return _draggingBody
+            ? SystemMouseCursors.move
+            : _handleCursor(_edited!);
+      }
+    }
+    return _cursor;
+  }
+
+  /// The plot's keys in the editor: Escape drops what the mouse holds (a
+  /// drag in progress, then a first point waiting for its second);
+  /// anything else, and Escape with nothing in hand, goes on to the
+  /// editor's own keys (put the tool down, let the selection go, Delete).
+  KeyEventResult _onPlotKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape ||
+        !widget.drawingMode) {
+      return KeyEventResult.ignored;
+    }
+    if (_quickMeasuring) {
+      _endQuickMeasure();
+      return KeyEventResult.handled;
+    }
+    if (_draft != null || _edited != null) {
+      _cancelDrawingGesture();
+      return KeyEventResult.handled;
+    }
+    if (_pendingDraft != null) {
+      setState(() => _setPending(null));
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// A mouse press released within [_kMouseClickSlop] of where it went
+  /// down, which the drag recognizer took: undo what the wobble did and
+  /// read it as the click it was.
+  void _mouseWobbleAsTap(Size plotSize) {
+    final at = _mouseDownAt!;
+    if (_panningView) {
+      _panningView = false;
+      if (_viewEndOffset != _panStartOffset) {
+        setState(() => _viewEndOffset = _panStartOffset);
+      }
+    }
+    if (_axisDragging) {
+      setState(() {
+        _axisDragging = false;
+        _axisStartDomain = null;
+      });
+    }
+    if (_draft != null || _edited != null || _dragGeometry != null) {
+      setState(_resetDrawingInteraction);
+    }
+    _onDrawTapUp(
+      TapUpDetails(kind: PointerDeviceKind.mouse, localPosition: at),
+      plotSize,
+    );
   }
 
   /// The wheel zooms (down: out, up: in) around the pointer; a sideways
@@ -1743,7 +1947,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   /// A desktop trackpad's pinch (its two-finger pan pans through the
   /// gesture detector, as a drag does).
-  void _onPanZoomStart(PointerPanZoomStartEvent e) => _panZoomScale = 1;
+  void _onPanZoomStart(PointerPanZoomStartEvent e) {
+    _panZoomScale = 1;
+    // Two fingers on a trackpad: never a click, never a drawing.
+    _downKind = PointerDeviceKind.trackpad;
+    _downShift = false;
+    _mouseDownAt = null;
+    _mouseDragAt = null;
+  }
 
   void _onPanZoomUpdate(PointerPanZoomUpdateEvent e, double plotW) {
     if (e.scale <= 0) return;
@@ -2485,6 +2696,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   @override
   void dispose() {
+    _setContextMenuOff(false);
+    _plotFocus.dispose();
     _fillTipTimer?.cancel();
     _pulse.dispose();
     _morph.dispose();
@@ -2868,6 +3081,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   void _resetDrawingInteraction() {
     _draft = null;
+    _hoverGhost = null;
     _edited = null;
     _dragPointIndex = -1;
     _dragGeometry = null;
@@ -2975,7 +3189,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     // instead of (de)selecting drawings.
     if (_onFillMarkerTap(pos, size)) return;
     if (_onPriceLineTap(pos, size)) return;
-    final hit = kuteHitTestDrawings(widget.drawings, geom, pos);
+    final hit = kuteHitTestDrawings(widget.drawings, geom, pos,
+        tolerance: _mouseDown ? _kMouseLineTolerance : 12);
     if (hit != widget.selectedDrawingId) {
       if (hit != null) HapticFeedback.selectionClick();
       widget.onDrawingSelected?.call(hit);
@@ -2984,6 +3199,19 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
 
   void _onDrawPanStart(DragStartDetails d, Size size) {
     _dismissFillTip();
+    // A trackpad's two-finger scroll pans the chart, a tool in hand or
+    // not (a press of the pad, a click, is what draws).
+    if (d.kind == PointerDeviceKind.trackpad) {
+      setState(() {
+        _resetDrawingInteraction();
+        _panningView = true;
+        _panStartX = d.localPosition.dx;
+        _panStartOffset = _viewEndOffset;
+        _panBars = math.min(
+            _effectiveViewBars ?? widget.candles.length, widget.candles.length);
+      });
+      return;
+    }
     final geom = _dragGeometry;
     if (geom == null) return;
     // onPanStart normally arrives only after touch slop. Use the original
@@ -3026,10 +3254,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     ];
     var selected = _selectedDrawing();
     if (selected != null && selected.locked) selected = null;
-    var handle =
-        selected == null ? null : kuteHitTestHandle(selected, geom, pos);
+    final mouse = _mouseDown;
+    var handle = selected == null
+        ? null
+        : kuteHitTestHandle(selected, geom, pos,
+            tolerance: mouse ? _kMouseHandleTolerance : 28);
     if (handle == null) {
-      final hit = kuteHitTestDrawings(movable, geom, pos);
+      final hit = kuteHitTestDrawings(movable, geom, pos,
+          tolerance: mouse ? _kMouseLineTolerance : 12);
       if (hit == null && _onAxisStrip(pos, geom.width)) {
         // The price axis (the left strip, or the tag column with the
         // scale's labels): a vertical drag scales it by hand and turns
@@ -3063,7 +3295,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         return;
       }
       selected = widget.drawings.firstWhere((drawing) => drawing.id == hit);
-      handle = kuteHitTestHandle(selected, geom, pos);
+      handle = kuteHitTestHandle(selected, geom, pos,
+          tolerance: mouse ? _kMouseHandleTolerance : 28);
     }
     if (selected == null) return;
     final drawing = selected;
@@ -3224,6 +3457,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     }
     if (widget.logScale != old.logScale) _resetScale(jump: true);
     if (widget.drawingMode != old.drawingMode && !widget.drawingMode) {
+      _setContextMenuOff(false);
+      _cursor = MouseCursor.defer;
       // Leaving editing mode keeps the view the user panned to.
       _pointers.clear();
       _pinching = false;
@@ -3260,7 +3495,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         _asLine != _isLine(old) ||
         widget.style != old.style ||
         widget.logScale != old.logScale ||
-        _plotVolume != old.showVolume ||
+        // The plotted volume on both sides: at the desk the plot has none
+        // while showVolume is on, and comparing it with the old widget's
+        // raw showVolume read every live tick as a change and dropped the
+        // drawing in hand (a mouse could never finish one there).
+        _plotVolume != _plotsVolume(old) ||
         widget.magnet != old.magnet ||
         widget.height != old.height) {
       _touchIndex = null;
@@ -3556,7 +3795,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
               final plotSize = Size(plotW, constraints.maxHeight);
               final drawing = widget.drawingMode;
               final scrubAllowed = !drawing || widget.armedTool == null;
-              return Listener(
+              // The editor's plot keys (Escape first drops what the
+              // mouse holds); outside the editor it takes no focus.
+              return Focus(
+                focusNode: _plotFocus,
+                canRequestFocus: drawing,
+                onKeyEvent: _onPlotKey,
+                child: Listener(
                 // Flutter reports a canceled, already-accepted pan as onPanEnd.
                 // Discard first at the raw pointer boundary so it cannot commit.
                 onPointerCancel: (e) {
@@ -3574,10 +3819,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                 onPointerPanZoomStart: _onPanZoomStart,
                 onPointerPanZoomUpdate: (e) => _onPanZoomUpdate(e, plotW),
                 child: MouseRegion(
-                  // Hovering a mouse shows the crosshair and the price.
-                  onHover: !scrubAllowed
+                  // Hovering a mouse shows the crosshair and the price;
+                  // in the editor it also sets the cursor and previews
+                  // the tool in hand.
+                  cursor: _plotCursor,
+                  onHover: !scrubAllowed && !drawing
                       ? null
-                      : (e) => _onHover(e, plotW, candles.length),
+                      : (e) => _onHover(e, plotSize, candles.length),
                   onExit: (_) => _onHoverExit(),
                   child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -3611,6 +3859,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                   },
                   onPanUpdate: (d) {
                     if (_pinching) return;
+                    if (_mouseDownAt != null) _mouseDragAt = d.localPosition;
                     if (_quickMeasuring) {
                       _onQuickMeasureUpdate(d.localPosition);
                       return;
@@ -3623,6 +3872,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                     if (_pinching) return;
                     if (_quickMeasuring) {
                       _endQuickMeasure();
+                      return;
+                    }
+                    // A mouse click that wobbled past the drag's 2 px
+                    // slop: a click, as on a desktop.
+                    if (drawing && _mouseClickWobble) {
+                      _mouseWobbleAsTap(plotSize);
                       return;
                     }
                     drawing ? _onDrawPanEnd(plotSize) : _onNormalPanEnd();
@@ -3856,6 +4111,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 widget.priceLines.isNotEmpty ||
                                 _draft != null ||
                                 _pendingDraft != null ||
+                                _hoverGhost != null ||
                                 _edited != null)
                               Positioned(
                                 left: 0,
@@ -3866,8 +4122,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   child: RepaintBoundary(
                                     child: CustomPaint(
                                       painter: KuteChartDrawingsPainter(
-                                        drawings:
-                                            _paintedDrawings(c.textTertiary),
+                                        // The hover's one-point preview
+                                        // paints whole (a draft of one
+                                        // point is only its anchor).
+                                        drawings: _hoverGhost == null
+                                            ? _paintedDrawings(c.textTertiary)
+                                            : [
+                                                ..._paintedDrawings(
+                                                    c.textTertiary),
+                                                _hoverGhost!,
+                                              ],
                                         draft: _draft ?? _pendingDraft,
                                         selectedId: widget.drawingMode
                                             ? widget.selectedDrawingId
@@ -4333,7 +4597,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // ── Drawing: the loupe over the finger while
                             // a point is placed or moved, and the
                             // selected drawing's floating toolbar.
-                            if (widget.drawingMode && _loupeAt != null)
+                            // A finger's magnifier: a mouse pointer covers
+                            // nothing, so it has none.
+                            if (widget.drawingMode &&
+                                _loupeAt != null &&
+                                !_mouseDown &&
+                                _downKind != PointerDeviceKind.trackpad)
                               Positioned(
                                 left: 0,
                                 top: 0,
@@ -4360,6 +4629,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                   ),
                 ),
                 ),
+              ),
               );
             },
           ),

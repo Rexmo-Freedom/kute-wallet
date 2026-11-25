@@ -261,10 +261,11 @@ class _GlyphPainter extends CustomPainter {
 
 // ───────────────────────────── rail ─────────────────────────────
 
-/// One tool on the rail: its glyph, its name on a long press, and the
+/// One tool on the rail: its glyph, its name on a long press (on hover
+/// with a mouse, with the pointer cursor and a light wash), and the
 /// app's white pill while it is the tool in hand. [sticky] adds a small
 /// lock: the tool stays in hand after each drawing (a double tap).
-class HlRailButton extends StatelessWidget {
+class HlRailButton extends StatefulWidget {
   const HlRailButton({
     super.key,
     required this.label,
@@ -287,7 +288,22 @@ class HlRailButton extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<HlRailButton> createState() => _HlRailButtonState();
+}
+
+class _HlRailButtonState extends State<HlRailButton> {
+  /// A mouse is over the button.
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final glyph = widget.glyph;
+    final icon = widget.icon;
+    final label = widget.label;
+    final selected = widget.selected;
+    final sticky = widget.sticky;
+    final large = widget.large;
+    final onTap = widget.onTap;
     final c = context.colors;
     final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final color = onTap == null
@@ -305,7 +321,13 @@ class HlRailButton extends StatelessWidget {
         message: label,
         triggerMode: TooltipTriggerMode.longPress,
         waitDuration: const Duration(milliseconds: 300),
-        child: GestureDetector(
+        child: MouseRegion(
+          cursor: onTap == null
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: SizedBox(
@@ -322,7 +344,9 @@ class HlRailButton extends StatelessWidget {
                 decoration: selected
                     ? hlSelectedPillDecoration(context, radius: 17)
                     : BoxDecoration(
-                        color: Colors.transparent,
+                        color: _hover && onTap != null
+                            ? c.textPrimary.withValues(alpha: 0.06)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(17),
                         border: Border.all(
                             color: Colors.transparent, width: 1),
@@ -331,7 +355,7 @@ class HlRailButton extends StatelessWidget {
                   alignment: Alignment.center,
                   children: [
                     if (glyph != null)
-                      HlGlyph(glyph!, color: color)
+                      HlGlyph(glyph, color: color)
                     else
                       Icon(icon, size: 19, color: color),
                     if (sticky)
@@ -348,6 +372,7 @@ class HlRailButton extends StatelessWidget {
               ),
             ),
           ),
+        ),
         ),
       ),
     );
@@ -453,7 +478,9 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
       child: Tooltip(
         message: tip,
         triggerMode: TooltipTriggerMode.longPress,
-        child: GestureDetector(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
           key: key,
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -469,6 +496,7 @@ class _HlDrawingToolbarState extends State<HlDrawingToolbar> {
             ),
             child: child,
           ),
+        ),
         ),
       ),
     );
