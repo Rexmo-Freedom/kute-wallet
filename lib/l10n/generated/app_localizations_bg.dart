@@ -14501,4 +14501,18 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Докосни последната точка отново, за да завършиш.';
+
+  @override
+  String get chartToolGroupChannels => 'Канали';
+
+  @override
+  String get chartToolGroupFibonacci => 'Фибоначи';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Позиции и измерване';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Всички инструменти: $group';
+  }
 }

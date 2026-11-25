@@ -14531,4 +14531,18 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Tik nog eens op het laatste punt om af te ronden.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanalen';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Posities en meten';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Alle tools: $group';
+  }
 }

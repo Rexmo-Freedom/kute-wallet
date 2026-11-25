@@ -14451,4 +14451,18 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Lai pabeigtu, vēlreiz pieskaries pēdējam punktam.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanāli';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozīcijas un mērīšana';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Visi rīki: $group';
+  }
 }

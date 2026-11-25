@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Jóváhagyásodra vár",
   "activityDollarsYield": "Dollárhozam",
   "chartHintPointOf": "{current}. pont (összesen {total}): koppints a grafikonra.",
-  "chartHintFinishShape": "A befejezéshez koppints újra az utolsó pontra."
+  "chartHintFinishShape": "A befejezéshez koppints újra az utolsó pontra.",
+  "chartToolGroupChannels": "Csatornák",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozíciók és mérés",
+  "chartToolGroupShowAll": "Minden eszköz: {group}"
 }

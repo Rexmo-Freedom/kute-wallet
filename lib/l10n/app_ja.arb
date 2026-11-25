@@ -4089,5 +4089,9 @@
   "standingStageApproval": "承認が必要です",
   "activityDollarsYield": "ドルの利回り",
   "chartHintPointOf": "{total}点中{current}点目：チャートをタップしてください。",
-  "chartHintFinishShape": "終了するには最後の点をもう一度タップしてください。"
+  "chartHintFinishShape": "終了するには最後の点をもう一度タップしてください。",
+  "chartToolGroupChannels": "チャネル",
+  "chartToolGroupFibonacci": "フィボナッチ",
+  "chartToolGroupPositionsMeasure": "ポジションと計測",
+  "chartToolGroupShowAll": "すべてのツール：{group}"
 }

@@ -14499,4 +14499,18 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Ťukni znova na posledný bod na dokončenie.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanály';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozície a meranie';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Všetky nástroje: $group';
+  }
 }

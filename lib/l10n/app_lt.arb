@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Reikia tavo patvirtinimo",
   "activityDollarsYield": "Dolerių grąža",
   "chartHintPointOf": "Taškas {current} iš {total}: bakstelėkite grafiką.",
-  "chartHintFinishShape": "Norėdami baigti, dar kartą bakstelėkite paskutinį tašką."
+  "chartHintFinishShape": "Norėdami baigti, dar kartą bakstelėkite paskutinį tašką.",
+  "chartToolGroupChannels": "Kanalai",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozicijos ir matavimas",
+  "chartToolGroupShowAll": "Visi įrankiai: {group}"
 }

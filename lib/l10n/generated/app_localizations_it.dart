@@ -14549,4 +14549,18 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Tocca di nuovo l\'ultimo punto per finire.';
+
+  @override
+  String get chartToolGroupChannels => 'Canali';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Posizioni e misura';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Tutti gli strumenti: $group';
+  }
 }

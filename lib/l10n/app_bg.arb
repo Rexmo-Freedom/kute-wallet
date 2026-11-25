@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Нужно е твоето одобрение",
   "activityDollarsYield": "Доходност от Долари",
   "chartHintPointOf": "Точка {current} от {total}: докосни графиката.",
-  "chartHintFinishShape": "Докосни последната точка отново, за да завършиш."
+  "chartHintFinishShape": "Докосни последната точка отново, за да завършиш.",
+  "chartToolGroupChannels": "Канали",
+  "chartToolGroupFibonacci": "Фибоначи",
+  "chartToolGroupPositionsMeasure": "Позиции и измерване",
+  "chartToolGroupShowAll": "Всички инструменти: {group}"
 }

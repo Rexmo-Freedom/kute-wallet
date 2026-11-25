@@ -209,8 +209,9 @@ void main() {
       await open(tester, drawings: [trend]);
       expect(railSelected(tester, 'cursor'), isTrue);
 
-      await tester.tap(find.byKey(const ValueKey('hl-chart-rail-level')));
-      await tester.pump();
+      // The horizontal line is in the Lines group: picked from its
+      // fly-out, it becomes the group's face.
+      await armHlTool(tester, ChartDrawingTool.level);
       expect(railSelected(tester, 'level'), isTrue);
       expect(railSelected(tester, 'cursor'), isFalse);
       await _apart(tester);

@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Χρειάζεται την έγκρισή σου",
   "activityDollarsYield": "Απόδοση Δολαρίων",
   "chartHintPointOf": "Σημείο {current} από {total}: πάτησε στο γράφημα.",
-  "chartHintFinishShape": "Πάτησε ξανά το τελευταίο σημείο για να ολοκληρώσεις."
+  "chartHintFinishShape": "Πάτησε ξανά το τελευταίο σημείο για να ολοκληρώσεις.",
+  "chartToolGroupChannels": "Κανάλια",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Θέσεις και μέτρηση",
+  "chartToolGroupShowAll": "Όλα τα εργαλεία: {group}"
 }

@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Vaatii hyväksyntäsi",
   "activityDollarsYield": "Dollarien tuotto",
   "chartHintPointOf": "Piste {current}/{total}: napauta kaaviota.",
-  "chartHintFinishShape": "Napauta viimeistä pistettä uudelleen lopettaaksesi."
+  "chartHintFinishShape": "Napauta viimeistä pistettä uudelleen lopettaaksesi.",
+  "chartToolGroupChannels": "Kanavat",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positiot ja mittaus",
+  "chartToolGroupShowAll": "Kaikki työkalut: {group}"
 }

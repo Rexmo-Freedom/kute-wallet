@@ -7,6 +7,7 @@
 // exact point under the finger while one is placed or moved.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
@@ -261,9 +262,35 @@ class _GlyphPainter extends CustomPainter {
 
 // ───────────────────────────── rail ─────────────────────────────
 
+/// The small corner triangle on a rail button whose group opens a
+/// fly-out (the "more tools here" mark).
+class HlCornerTickPainter extends CustomPainter {
+  const HlCornerTickPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(HlCornerTickPainter old) => old.color != color;
+}
+
 /// One tool on the rail: its glyph, its name on a long press, and the
 /// app's white pill while it is the tool in hand. [sticky] adds a small
 /// lock: the tool stays in hand after each drawing (a double tap).
+///
+/// A group's button ([onMore] set) wears the corner mark and opens the
+/// group's fly-out from a long press, a right click or a tap on the mark
+/// ([moreLabel] names that action for screen readers); its name is then
+/// in the fly-out, so the long press no longer shows it.
 class HlRailButton extends StatelessWidget {
   const HlRailButton({
     super.key,
@@ -273,6 +300,8 @@ class HlRailButton extends StatelessWidget {
     this.icon,
     this.selected = false,
     this.sticky = false,
+    this.onMore,
+    this.moreLabel,
   }) : assert(glyph != null || icon != null);
 
   final HlRailGlyph? glyph;
@@ -281,6 +310,17 @@ class HlRailButton extends StatelessWidget {
   final bool selected;
   final bool sticky;
   final VoidCallback? onTap;
+
+  /// Opens the group's fly-out; null for a button with one tool.
+  final VoidCallback? onMore;
+  final String? moreLabel;
+
+  static const double width = 44;
+  static const double height = 42;
+
+  /// The corner mark's touch area, bottom right: a tap there opens the
+  /// fly-out instead of taking the tool.
+  static const double cornerHit = 16;
 
   @override
   Widget build(BuildContext context) {
@@ -291,58 +331,86 @@ class HlRailButton extends StatelessWidget {
         : selected
             ? c.textPrimary
             : c.textSecondary;
+    final more = onMore;
+    final button = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: more == null ? onTap : null,
+      onTapUp: more == null
+          ? null
+          : (d) {
+              final p = d.localPosition;
+              if (p.dx >= width - cornerHit && p.dy >= height - cornerHit) {
+                more();
+              } else {
+                onTap?.call();
+              }
+            },
+      onLongPress: more,
+      onSecondaryTap: more,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Center(
+          child: AnimatedContainer(
+            duration:
+                reduce ? Duration.zero : const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            width: 38,
+            height: 34,
+            decoration: selected
+                ? hlSelectedPillDecoration(context, radius: 17)
+                : BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(17),
+                    border: Border.all(color: Colors.transparent, width: 1),
+                  ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (glyph != null)
+                  HlGlyph(glyph!, color: color)
+                else
+                  Icon(icon, size: 19, color: color),
+                if (sticky)
+                  Positioned(
+                    right: 1,
+                    bottom: 0,
+                    child: Icon(Icons.lock_rounded,
+                        key: const ValueKey('hl-rail-sticky'),
+                        size: 9,
+                        color: c.textPrimary),
+                  )
+                else if (more != null)
+                  Positioned(
+                    right: 5,
+                    bottom: 5,
+                    child: CustomPaint(
+                      key: const ValueKey('hl-rail-more-mark'),
+                      size: const Size(5, 5),
+                      painter: HlCornerTickPainter(color),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
     return Semantics(
       button: true,
       selected: selected,
       label: label,
       excludeSemantics: true,
+      customSemanticsActions: more == null || moreLabel == null
+          ? null
+          : {CustomSemanticsAction(label: moreLabel!): more},
       child: Tooltip(
         message: label,
-        triggerMode: TooltipTriggerMode.longPress,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: SizedBox(
-            width: 44,
-            height: 42,
-            child: Center(
-              child: AnimatedContainer(
-                duration: reduce
-                    ? Duration.zero
-                    : const Duration(milliseconds: 150),
-                curve: Curves.easeOut,
-                width: 38,
-                height: 34,
-                decoration: selected
-                    ? hlSelectedPillDecoration(context, radius: 17)
-                    : BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(17),
-                        border: Border.all(
-                            color: Colors.transparent, width: 1),
-                      ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (glyph != null)
-                      HlGlyph(glyph!, color: color)
-                    else
-                      Icon(icon, size: 19, color: color),
-                    if (sticky)
-                      Positioned(
-                        right: 1,
-                        bottom: 0,
-                        child: Icon(Icons.lock_rounded,
-                            key: const ValueKey('hl-rail-sticky'),
-                            size: 9,
-                            color: c.textPrimary),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+        // A group's long press opens its fly-out, which names its tools.
+        triggerMode: more == null
+            ? TooltipTriggerMode.longPress
+            : TooltipTriggerMode.manual,
+        child: button,
       ),
     );
   }

@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Wymaga Twojej zgody",
   "activityDollarsYield": "Zysk z Dolarów",
   "chartHintPointOf": "Punkt {current} z {total}: stuknij wykres.",
-  "chartHintFinishShape": "Stuknij ponownie ostatni punkt, aby zakończyć."
+  "chartHintFinishShape": "Stuknij ponownie ostatni punkt, aby zakończyć.",
+  "chartToolGroupChannels": "Kanały",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozycje i pomiar",
+  "chartToolGroupShowAll": "Wszystkie narzędzia: {group}"
 }

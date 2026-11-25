@@ -12666,5 +12666,26 @@
   "chartHintFinishShape": "Tap the last point again to finish.",
   "@chartHintFinishShape": {
     "description": "Hint line under the Advanced chart while a free-form drawing (any number of points) is placed and has enough points: a second tap on the last point finishes it. Short, one line."
+  },
+  "chartToolGroupChannels": "Channels",
+  "@chartToolGroupChannels": {
+    "description": "Advanced chart tool rail: the name of the group of channel drawings (parallel channel), shown as the title of its tool list. Short."
+  },
+  "chartToolGroupFibonacci": "Fibonacci",
+  "@chartToolGroupFibonacci": {
+    "description": "Advanced chart tool rail: the name of the group of Fibonacci drawing tools (retracement and, later, its relatives). Keep \"Fibonacci\" as traders in this language write it. Short."
+  },
+  "chartToolGroupPositionsMeasure": "Positions and measure",
+  "@chartToolGroupPositionsMeasure": {
+    "description": "Advanced chart tool rail: the name of the group holding the long and short position drawings and the measuring tools (price range, date range, measure). These are drawings only, no order is placed. Short."
+  },
+  "chartToolGroupShowAll": "All {group} tools",
+  "@chartToolGroupShowAll": {
+    "description": "Screen-reader action on a tool group button of the Advanced chart rail: opens the list of every tool in that group. {group} is the group name, e.g. \"Lines\".",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      }
+    }
   }
 }

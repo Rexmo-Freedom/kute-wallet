@@ -4355,5 +4355,9 @@
   "standingStageApproval": "Precisa da sua aprovação",
   "activityDollarsYield": "Rendimento de Dólares",
   "chartHintPointOf": "Ponto {current} de {total}: toca no gráfico.",
-  "chartHintFinishShape": "Toca de novo no último ponto para terminar."
+  "chartHintFinishShape": "Toca de novo no último ponto para terminar.",
+  "chartToolGroupChannels": "Canais",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Posições e medir",
+  "chartToolGroupShowAll": "Todas as ferramentas: {group}"
 }

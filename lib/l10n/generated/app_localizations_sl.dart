@@ -14528,4 +14528,18 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get chartHintFinishShape => 'Za konec znova tapnite zadnjo točko.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanali';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozicije in merjenje';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Vsa orodja: $group';
+  }
 }

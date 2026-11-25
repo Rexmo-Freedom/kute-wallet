@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Braucht deine Zustimmung",
   "activityDollarsYield": "Dollar-Rendite",
   "chartHintPointOf": "Punkt {current} von {total}: Tippe auf den Chart.",
-  "chartHintFinishShape": "Tippe erneut auf den letzten Punkt, um abzuschließen."
+  "chartHintFinishShape": "Tippe erneut auf den letzten Punkt, um abzuschließen.",
+  "chartToolGroupChannels": "Kanäle",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positionen und Messen",
+  "chartToolGroupShowAll": "Alle Werkzeuge: {group}"
 }

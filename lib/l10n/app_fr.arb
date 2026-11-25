@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Votre accord est requis",
   "activityDollarsYield": "Rendement des Dollars",
   "chartHintPointOf": "Point {current} sur {total} : touchez le graphique.",
-  "chartHintFinishShape": "Touchez à nouveau le dernier point pour terminer."
+  "chartHintFinishShape": "Touchez à nouveau le dernier point pour terminer.",
+  "chartToolGroupChannels": "Canaux",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positions et mesure",
+  "chartToolGroupShowAll": "Tous les outils : {group}"
 }

@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Behöver ditt godkännande",
   "activityDollarsYield": "Avkastning på Dollar",
   "chartHintPointOf": "Punkt {current} av {total}: tryck på diagrammet.",
-  "chartHintFinishShape": "Tryck på sista punkten igen för att avsluta."
+  "chartHintFinishShape": "Tryck på sista punkten igen för att avsluta.",
+  "chartToolGroupChannels": "Kanaler",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positioner och mätning",
+  "chartToolGroupShowAll": "Alla verktyg: {group}"
 }

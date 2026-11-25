@@ -14541,4 +14541,18 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Norėdami baigti, dar kartą bakstelėkite paskutinį tašką.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanalai';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozicijos ir matavimas';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Visi įrankiai: $group';
+  }
 }

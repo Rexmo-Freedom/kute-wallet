@@ -24398,6 +24398,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tap the last point again to finish.'**
   String get chartHintFinishShape;
+
+  /// Advanced chart tool rail: the name of the group of channel drawings (parallel channel), shown as the title of its tool list. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get chartToolGroupChannels;
+
+  /// Advanced chart tool rail: the name of the group of Fibonacci drawing tools (retracement and, later, its relatives). Keep "Fibonacci" as traders in this language write it. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Fibonacci'**
+  String get chartToolGroupFibonacci;
+
+  /// Advanced chart tool rail: the name of the group holding the long and short position drawings and the measuring tools (price range, date range, measure). These are drawings only, no order is placed. Short.
+  ///
+  /// In en, this message translates to:
+  /// **'Positions and measure'**
+  String get chartToolGroupPositionsMeasure;
+
+  /// Screen-reader action on a tool group button of the Advanced chart rail: opens the list of every tool in that group. {group} is the group name, e.g. "Lines".
+  ///
+  /// In en, this message translates to:
+  /// **'All {group} tools'**
+  String chartToolGroupShowAll(String group);
 }
 
 class _AppLocalizationsDelegate

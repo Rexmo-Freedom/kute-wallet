@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Kræver din godkendelse",
   "activityDollarsYield": "Afkast på Dollars",
   "chartHintPointOf": "Punkt {current} af {total}: tryk på grafen.",
-  "chartHintFinishShape": "Tryk på det sidste punkt igen for at afslutte."
+  "chartHintFinishShape": "Tryk på det sidste punkt igen for at afslutte.",
+  "chartToolGroupChannels": "Kanaler",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positioner og mål",
+  "chartToolGroupShowAll": "Alle værktøjer: {group}"
 }

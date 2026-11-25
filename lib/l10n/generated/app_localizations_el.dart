@@ -14581,4 +14581,18 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Πάτησε ξανά το τελευταίο σημείο για να ολοκληρώσεις.';
+
+  @override
+  String get chartToolGroupChannels => 'Κανάλια';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Θέσεις και μέτρηση';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Όλα τα εργαλεία: $group';
+  }
 }

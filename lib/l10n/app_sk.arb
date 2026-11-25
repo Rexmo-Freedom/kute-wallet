@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Čaká na vaše schválenie",
   "activityDollarsYield": "Výnos z Dolárov",
   "chartHintPointOf": "Bod {current} z {total}: ťukni do grafu.",
-  "chartHintFinishShape": "Ťukni znova na posledný bod na dokončenie."
+  "chartHintFinishShape": "Ťukni znova na posledný bod na dokončenie.",
+  "chartToolGroupChannels": "Kanály",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozície a meranie",
+  "chartToolGroupShowAll": "Všetky nástroje: {group}"
 }

@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Vajab sinu kinnitust",
   "activityDollarsYield": "Dollarite tootlus",
   "chartHintPointOf": "Punkt {current}/{total}: puuduta graafikut.",
-  "chartHintFinishShape": "Lõpetamiseks puuduta viimast punkti uuesti."
+  "chartHintFinishShape": "Lõpetamiseks puuduta viimast punkti uuesti.",
+  "chartToolGroupChannels": "Kanalid",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Positsioonid ja mõõtmine",
+  "chartToolGroupShowAll": "Kõik tööriistad: {group}"
 }

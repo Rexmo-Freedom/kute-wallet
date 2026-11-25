@@ -14510,4 +14510,18 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'Ponovno dodirni zadnju točku za završetak.';
+
+  @override
+  String get chartToolGroupChannels => 'Kanali';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozicije i mjerenje';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Svi alati: $group';
+  }
 }

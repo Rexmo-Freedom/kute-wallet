@@ -89,6 +89,7 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_rail.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_price_line_cards.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
@@ -1760,6 +1761,48 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     });
   }
 
+  /// A group's button tapped (hl_drawing_rail.dart). A group of one tool
+  /// is a plain rail tool ([_armTool]). A group of more: a tap takes its
+  /// face; on the face already in hand a quick second tap keeps it
+  /// (sticky), a tap on a kept tool puts it down, and any other tap
+  /// opens the group's fly-out.
+  void _tapGroup(HlToolGroup group, ChartDrawingTool face, BuildContext anchor) {
+    if (!group.single && _armedTool == face && !_toolSticky) {
+      final second = _lastRailTool == face &&
+          DateTime.now().difference(_lastRailTapAt) <
+              const Duration(milliseconds: 350);
+      if (!second) {
+        unawaited(_openFlyout(group, anchor));
+        return;
+      }
+    }
+    _armTool(face);
+  }
+
+  /// [group]'s fly-out from its button: the tool picked is taken in hand
+  /// (for one drawing) and becomes the group's face.
+  Future<void> _openFlyout(HlToolGroup group, BuildContext anchor) async {
+    HapticFeedback.selectionClick();
+    final picked = await showHlToolFlyout(
+      context,
+      anchor: anchor,
+      group: group,
+      armed: _armedTool,
+    );
+    if (picked == null || !mounted) return;
+    HapticFeedback.selectionClick();
+    ref.read(hlDrawingRailFacesProvider.notifier).setFace(group.id.name, picked);
+    _lastRailTool = picked;
+    _lastRailTapAt = DateTime(0);
+    setState(() {
+      _armedTool = picked;
+      _toolSticky = false;
+      _placementPending = false;
+      _placedPoints = 0;
+      _selectedDrawingId = null;
+    });
+  }
+
   /// One undoable edit of a drawing from its toolbar.
   void _editDrawing(ChartDrawing next, String action) {
     HapticFeedback.selectionClick();
@@ -1793,56 +1836,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     }
   }
 
-  /// The rail's tools, one button each, TradingView's everyday set. The
-  /// other tools' saved drawings still show, select, edit and delete.
-  List<(ChartDrawingTool, HlRailGlyph, String)> get _railTools => [
-        (
-          ChartDrawingTool.trendline,
-          HlRailGlyph.trendline,
-          context.l10n.chartToolTrendLine,
-        ),
-        (
-          ChartDrawingTool.level,
-          HlRailGlyph.level,
-          context.l10n.chartToolHorizontalLine,
-        ),
-        (
-          ChartDrawingTool.priceLine,
-          HlRailGlyph.priceLine,
-          context.l10n.chartToolPriceLine,
-        ),
-        (
-          ChartDrawingTool.rect,
-          HlRailGlyph.rect,
-          context.l10n.chartToolRectangle,
-        ),
-        (
-          ChartDrawingTool.dateAndPriceRange,
-          HlRailGlyph.measure,
-          context.l10n.chartToolGroupMeasure,
-        ),
-        (
-          ChartDrawingTool.fibonacci,
-          HlRailGlyph.fibonacci,
-          context.l10n.chartToolFibonacci,
-        ),
-        (
-          ChartDrawingTool.text,
-          HlRailGlyph.text,
-          context.l10n.chartToolText,
-        ),
-      ];
-
-  /// A tool's name: its rail name, else its full name.
-  String _toolLook(ChartDrawingTool tool) {
-    for (final (t, _, label) in _railTools) {
-      if (t == tool) return label;
-    }
-    for (final (t, _, label) in _drawTools) {
-      if (t == tool) return label;
-    }
-    return tool.name;
-  }
+  /// A tool's name, as the rail and the hint say it.
+  String _toolLook(ChartDrawingTool tool) => hlToolName(context.l10n, tool);
 
   /// One line under the plot that says what the next touch does.
   String _toolbarHint(String? selectedId, List<ChartDrawing> drawings) {
@@ -1963,84 +1958,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     }
   }
 
-  List<(ChartDrawingTool, IconData, String)> get _drawTools => [
-        (
-          ChartDrawingTool.trendline,
-          Icons.timeline_rounded,
-          context.l10n.chartToolTrendLine,
-        ),
-        (
-          ChartDrawingTool.level,
-          Icons.horizontal_rule_rounded,
-          context.l10n.chartToolLevel,
-        ),
-        (
-          ChartDrawingTool.ray,
-          Icons.north_east_rounded,
-          context.l10n.chartToolRay
-        ),
-        (
-          ChartDrawingTool.rect,
-          Icons.crop_square_rounded,
-          context.l10n.chartToolRectangle,
-        ),
-        (
-          ChartDrawingTool.fibonacci,
-          Icons.stacked_line_chart_rounded,
-          context.l10n.chartToolFibonacci,
-        ),
-        (
-          ChartDrawingTool.text,
-          Icons.text_fields_rounded,
-          context.l10n.chartToolText,
-        ),
-        (
-          ChartDrawingTool.horizontalRay,
-          Icons.trending_flat_rounded,
-          context.l10n.chartToolHorizontalRay,
-        ),
-        (
-          ChartDrawingTool.verticalLine,
-          Icons.border_left_rounded,
-          context.l10n.chartToolVerticalLine,
-        ),
-        (
-          ChartDrawingTool.extendedLine,
-          Icons.line_axis_rounded,
-          context.l10n.chartToolExtendedLine,
-        ),
-        (
-          ChartDrawingTool.parallelChannel,
-          Icons.drag_handle_rounded,
-          context.l10n.chartToolParallelChannel,
-        ),
-        (
-          ChartDrawingTool.longPosition,
-          Icons.arrow_circle_up_rounded,
-          context.l10n.chartToolLongPosition,
-        ),
-        (
-          ChartDrawingTool.shortPosition,
-          Icons.arrow_circle_down_rounded,
-          context.l10n.chartToolShortPosition,
-        ),
-        (
-          ChartDrawingTool.priceRange,
-          Icons.height_rounded,
-          context.l10n.chartToolPriceRange,
-        ),
-        (
-          ChartDrawingTool.dateRange,
-          Icons.straighten_rounded,
-          context.l10n.chartToolDateRange,
-        ),
-        (
-          ChartDrawingTool.dateAndPriceRange,
-          Icons.select_all_rounded,
-          context.l10n.chartToolDateAndPriceRange,
-        ),
-      ];
-
   Future<void> _editNote(
     ChartDrawingPoint point, {
     ChartDrawing? existing,
@@ -2133,7 +2050,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                   bottom: 5,
                   child: CustomPaint(
                     size: const Size(5, 5),
-                    painter: _CornerTickPainter(color),
+                    painter: HlCornerTickPainter(color),
                   ),
                 ),
             ],
@@ -2321,15 +2238,42 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// The left-edge tool rail: tuck away, Cursor, the tools, then the
-  /// overflow (magnet, remove all). Scrolls if a short chart cannot fit
-  /// it.
+  /// One group's button: its face's glyph, the corner mark when it has
+  /// more tools. Keyed by its face's tool (as the flat rail was) inside
+  /// a key for the group.
+  Widget _railGroup(HlToolGroup group, Map<String, String> faces) {
+    final l10n = context.l10n;
+    final face = hlGroupFace(group, faces)!;
+    return KeyedSubtree(
+      key: ValueKey('hl-chart-rail-group-${group.id.name}'),
+      child: Builder(
+        builder: (anchor) => HlRailButton(
+          key: ValueKey('hl-chart-rail-${face.name}'),
+          glyph: hlGlyphForTool(face),
+          label: hlToolName(l10n, face),
+          selected: _armedTool == face,
+          sticky: _armedTool == face && _toolSticky,
+          onTap: () => _tapGroup(group, face, anchor),
+          onMore: group.single
+              ? null
+              : () => unawaited(_openFlyout(group, anchor)),
+          moreLabel: l10n
+              .chartToolGroupShowAll(hlToolGroupName(l10n, group.id)),
+        ),
+      ),
+    );
+  }
+
+  /// The left-edge tool rail: tuck away, Cursor, the tool groups, then
+  /// the overflow (magnet, remove all). Scrolls if a short chart cannot
+  /// fit it.
   Widget _toolRail(
     AppColorsExtension c,
     List<ChartDrawing> drawings,
     bool magnet,
   ) {
     final l10n = context.l10n;
+    final faces = ref.watch(hlDrawingRailFacesProvider);
     return Container(
       key: const ValueKey('hl-chart-tool-rail'),
       width: 44,
@@ -2358,15 +2302,10 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               selected: _armedTool == null,
               onTap: _toCursor,
             ),
-            for (final (tool, glyph, label) in _railTools)
-              HlRailButton(
-                key: ValueKey('hl-chart-rail-${tool.name}'),
-                glyph: glyph,
-                label: label,
-                selected: _armedTool == tool,
-                sticky: _armedTool == tool && _toolSticky,
-                onTap: () => _armTool(tool),
-              ),
+            // The groups (hl_drawing_rail.dart), each showing its face.
+            for (final group in kHlToolGroups)
+              if (group.id != HlToolGroupId.cursor && group.tools.isNotEmpty)
+                _railGroup(group, faces),
             Container(
               width: 24,
               height: 0.5,
@@ -2888,27 +2827,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       ],
     );
   }
-}
-
-/// The small corner triangle on a rail button whose group opens a
-/// flyout (TradingView's "more tools here" mark).
-class _CornerTickPainter extends CustomPainter {
-  const _CornerTickPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(_CornerTickPainter old) => old.color != color;
 }
 
 // ─────────────────────────── order book ───────────────────────────

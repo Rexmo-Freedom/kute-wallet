@@ -14517,4 +14517,18 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get chartHintFinishShape =>
       'A befejezéshez koppints újra az utolsó pontra.';
+
+  @override
+  String get chartToolGroupChannels => 'Csatornák';
+
+  @override
+  String get chartToolGroupFibonacci => 'Fibonacci';
+
+  @override
+  String get chartToolGroupPositionsMeasure => 'Pozíciók és mérés';
+
+  @override
+  String chartToolGroupShowAll(String group) {
+    return 'Minden eszköz: $group';
+  }
 }

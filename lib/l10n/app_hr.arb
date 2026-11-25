@@ -4089,5 +4089,9 @@
   "standingStageApproval": "Treba tvoje odobrenje",
   "activityDollarsYield": "Prinos na Dolare",
   "chartHintPointOf": "Točka {current} od {total}: dodirni grafikon.",
-  "chartHintFinishShape": "Ponovno dodirni zadnju točku za završetak."
+  "chartHintFinishShape": "Ponovno dodirni zadnju točku za završetak.",
+  "chartToolGroupChannels": "Kanali",
+  "chartToolGroupFibonacci": "Fibonacci",
+  "chartToolGroupPositionsMeasure": "Pozicije i mjerenje",
+  "chartToolGroupShowAll": "Svi alati: {group}"
 }
