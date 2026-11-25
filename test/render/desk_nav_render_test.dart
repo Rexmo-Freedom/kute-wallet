@@ -1,7 +1,9 @@
 // On demand: the Dollars page's left navigation on a laptop
 // (dollars_desk_nav.dart) and its category pages, at 1000x700, 1440x900,
-// 1920x1080 and 2400x1200, with the phone (430x932) and MEDIUM (820x1180)
-// as they were, light and dark.
+// 1920x1080 and 2400x1200, a short 1440x620 (the column's scroll and its
+// room at the foot), with the phone (430x932) and MEDIUM (820x1180) as
+// they were, light and dark. `sports` is Predictions › Sports with the
+// site's long list of leagues and sports.
 //
 //   flutter test test/render/desk_nav_render_test.dart \
 //     --dart-define=DESK_NAV_RENDER_OUT=<dir> [--dart-define=DESK_NAV_ONLY=<regex>]
@@ -11,7 +13,10 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+// ignore: depend_on_referenced_packages
+import 'package:file/file.dart' as fs;
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +36,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconAvailability;
+import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
+    show PolyCrestImage;
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab;
@@ -60,6 +67,17 @@ class _LivePrices extends HlLivePricesNotifier {
   void acquire() {}
   @override
   void release() {}
+}
+
+/// Offline artwork: every hosted image fails, so its stand-in shows.
+class _OfflineArtwork implements BaseCacheManager {
+  @override
+  Future<fs.File> getSingleFile(String url,
+          {String key = '', Map<String, String> headers = const {}}) =>
+      Future.error(const SocketException('offline'));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _Sports extends SportsLiveNotifier {
@@ -100,6 +118,33 @@ PolymarketEvent _multi(String id, String title, List<(String, double)> o) =>
               name: name, price: p, tokenId: 't-$id-$name', gammaMarketId: id),
       ],
     );
+
+/// Predictions › Sports' list as the site gives it: Live, Futures, the
+/// pinned leagues (their logos from Gamma `/sports`), then the sports.
+const _sportsSubs = [
+  PolySub('live'),
+  PolySub('futures'),
+  PolySub('series:10187', route: 'nfl', label: 'NFL',
+      imageUrl: 'https://polymarket-upload.s3.us-east-2.amazonaws.com/nfl.png'),
+  PolySub('series:10345', route: 'nba', label: 'NBA',
+      imageUrl: 'https://polymarket-upload.s3.us-east-2.amazonaws.com/nba.png'),
+  PolySub('series:10210', route: 'cfb', label: 'College Football',
+      imageUrl: 'https://polymarket-upload.s3.us-east-2.amazonaws.com/cfb.png'),
+  PolySub('series:10204', route: 'ucl', label: 'UEFA Champions League',
+      imageUrl: 'https://polymarket-upload.s3.us-east-2.amazonaws.com/ucl.png'),
+  PolySub('soccer'),
+  PolySub('tennis'),
+  PolySub('cricket'),
+  PolySub('basketball'),
+  PolySub('football'),
+  PolySub('hockey'),
+  PolySub('rugby'),
+  PolySub('table-tennis'),
+  PolySub('volleyball'),
+  PolySub('baseball'),
+  PolySub('golf'),
+  PolySub('mma'),
+];
 
 final _events = [
   _event('fed', 'Will the Fed cut rates in December?', 0.62),
@@ -179,6 +224,7 @@ Future<void> _render(WidgetTester tester, String name,
     bool dark = false,
     int positions = 4,
     bool scrolled = false,
+    bool navEnd = false,
     String? navTap,
     void Function(ProviderContainer container)? pick}) async {
   final now = DateTime.now();
@@ -246,6 +292,7 @@ Future<void> _render(WidgetTester tester, String name,
         hyperliquidSparklineStoreProvider.overrideWithValue(
             HlSparklineStore(fetch: (_) async => const [100, 101, 99, 102])),
         polyBrowseFeedProvider.overrideWith(_Feed.new),
+        polySportsSubsProvider.overrideWithValue(_sportsSubs),
         sportsLiveProvider.overrideWith(_Sports.new),
         if (positions > 0)
           hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
@@ -293,6 +340,16 @@ Future<void> _render(WidgetTester tester, String name,
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
+  if (navEnd) {
+    // The column scrolled to its end: the last item over its room.
+    final nav = find.byKey(const ValueKey('dollars-desk-nav'));
+    if (nav.evaluate().isNotEmpty) {
+      await tester.drag(nav, const Offset(0, -2000));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+  }
   if (scrolled) {
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -420));
     for (var i = 0; i < 10; i++) {
@@ -330,8 +387,14 @@ void main() {
     return;
   }
 
-  setUp(() => HlIconAvailability.debugEveryLogoKnown = true);
-  tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
+  setUp(() {
+    HlIconAvailability.debugEveryLogoKnown = true;
+    PolyCrestImage.debugCacheManager = _OfflineArtwork();
+  });
+  tearDown(() {
+    HlIconAvailability.debugEveryLogoKnown = false;
+    PolyCrestImage.debugCacheManager = null;
+  });
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -360,6 +423,7 @@ void main() {
     '1100x760': Size(1100, 760),
     '1280x800': Size(1280, 800),
     '1440x900': Size(1440, 900),
+    '1440x620': Size(1440, 620),
     '1920x1080': Size(1920, 1080),
     '2400x1200': Size(2400, 1200),
     '820x1180': Size(820, 1180),
@@ -410,6 +474,16 @@ void main() {
       pick: (c) => hl(c, HlBrowseTab.crypto)
     ),
     'predictions': (pill: 'predictions', positions: 0, pick: null),
+    'sports': (
+      pill: 'predictions',
+      positions: 0,
+      pick: (c) => poly(c, PolyPill.sports, 'live')
+    ),
+    'sports_tennis': (
+      pill: 'predictions',
+      positions: 0,
+      pick: (c) => poly(c, PolyPill.sports, 'tennis')
+    ),
     'politics': (pill: 'predictions', positions: 0, pick: politics),
     'politics_trump': (pill: 'predictions', positions: 0, pick: politics),
     'crypto_all': (
@@ -443,6 +517,19 @@ void main() {
                 positions: c.positions,
                 navTap: what == 'politics_trump' ? 'Trump' : null,
                 pick: c.pick));
+        if (what == 'sports') {
+          final end = '${tag}_sports_end_$mode';
+          if (only.isNotEmpty && !RegExp(only).hasMatch(end)) continue;
+          testWidgets(
+              end,
+              (tester) => _render(tester, end,
+                  size: size,
+                  pill: c.pill,
+                  dark: dark,
+                  positions: c.positions,
+                  navEnd: true,
+                  pick: c.pick));
+        }
       }
     }
   }

@@ -26,12 +26,21 @@
 // (the picked item brought into view), and stays put while the browse
 // scrolls. Narrower windows (900 to [kuteDeskNavMinWidth]) keep the pills
 // and the chips over the browse; MEDIUM and a phone are untouched.
+//
+// Every item leads with its icon (founder, 25 November 2026: "also why no
+// icons here?"; dollars_desk_nav_icons.dart), in one column so the words
+// of a list line up. The column scrolls with the wheel, the trackpad and
+// a mouse drag, and its end has room under the last item so it clears the
+// window's foot.
+
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize;
+import 'package:kute/screens/usd/dollars_desk_nav_icons.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 
@@ -61,15 +70,39 @@ class DollarsDeskNav extends StatelessWidget {
   /// line.
   final double top;
 
+  /// The room under the last item, so it clears the window's foot.
+  static const double bottomRoom = 48;
+
+  /// The section's [InvestmentsTab] key, read off its item's key
+  /// (`dollars-desk-nav-<key>`), for its icon.
+  static String? _sectionId(Key key) {
+    const prefix = 'dollars-desk-nav-';
+    return key is ValueKey<String> && key.value.startsWith(prefix)
+        ? key.value.substring(prefix.length)
+        : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      behavior: ScrollConfiguration.of(context).copyWith(
+        scrollbars: false,
+        // The wheel and the trackpad scroll any list; a mouse drag too.
+        dragDevices: const {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.invertedStylus,
+        },
+      ),
       child: SingleChildScrollView(
         key: const ValueKey('dollars-desk-nav'),
         // Never the page's primary scroll: the browse owns that.
         primary: false,
-        padding: EdgeInsets.only(top: top, bottom: 24),
+        padding: EdgeInsets.only(
+            top: top,
+            bottom: bottomRoom + MediaQuery.viewPaddingOf(context).bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -81,6 +114,10 @@ class DollarsDeskNav extends StatelessWidget {
                 selected: s.selected,
                 onTap: s.onTap,
                 level: 0,
+                leading: switch (_sectionId(s.key)) {
+                  final id? => deskNavSectionIcon(id),
+                  null => null,
+                },
                 // The open section's categories carry the surface.
                 ancestor: s.selected && categories != null,
               ),
@@ -100,8 +137,9 @@ class DollarsDeskNav extends StatelessWidget {
 /// One row of the left navigation, at [level] 0 (a section), 1 (a
 /// category) or 2 (a subcategory, indented under its category). Picked,
 /// the picked pill's surface and words; otherwise the chips' quiet words,
-/// a shade stronger under the pointer. [trailing] is a quiet action at
-/// the row's end (the Watchlist's Edit).
+/// a shade stronger under the pointer. [leading] is its icon, in its
+/// words' colour (the ambient [IconTheme]). [trailing] is a quiet action
+/// at the row's end (the Watchlist's Edit).
 class DollarsDeskNavItem extends StatefulWidget {
   const DollarsDeskNavItem({
     super.key,
@@ -111,6 +149,7 @@ class DollarsDeskNavItem extends StatefulWidget {
     this.level = 1,
     this.trailing,
     this.ancestor = false,
+    this.leading,
   });
 
   final String label;
@@ -118,6 +157,9 @@ class DollarsDeskNavItem extends StatefulWidget {
   final VoidCallback onTap;
   final int level;
   final ({Key key, String label, VoidCallback onTap})? trailing;
+
+  /// The icon before the words ([kDeskNavIconSlot] square).
+  final Widget? leading;
 
   /// Picked, with the pick going on under it (the open section, a
   /// category whose subcategory is picked): the picked words without the
@@ -190,6 +232,7 @@ class _DollarsDeskNavItemState extends State<DollarsDeskNavItem> {
           height: 1.2,
         ));
     final trailing = widget.trailing;
+    final leading = widget.leading;
     final row = AnimatedContainer(
       duration: duration,
       curve: reduce ? Curves.linear : KuteMotion.chip,
@@ -203,6 +246,14 @@ class _DollarsDeskNavItemState extends State<DollarsDeskNavItem> {
           KutePill.chrome(context, selected: selected && !widget.ancestor),
       child: Row(
         children: [
+          if (leading != null) ...[
+            IconTheme.merge(
+              data: IconThemeData(color: style.color, size: kDeskNavGlyph),
+              child: SizedBox.square(
+                  dimension: kDeskNavIconSlot, child: leading),
+            ),
+            const SizedBox(width: kDeskNavIconGap),
+          ],
           Expanded(
             child: Text(
               widget.label,
