@@ -13,6 +13,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -844,6 +845,13 @@ void main() {
     final en = lookupAppLocalizations(const Locale('en'));
     final de = lookupAppLocalizations(const Locale('de'));
     final now = DateTime(2026, 11, 10, 14, 30);
+
+    // The dates and hours are DateFormat's, whose locale data the app gets
+    // from its localizations delegates at start. These pure tests pump no
+    // app, so they load it themselves: before, they leaned on an earlier
+    // widget test in the file having loaded it, and failed when CI's
+    // sharding ran them without it (LocaleDataException, 25 November 2026).
+    setUpAll(initializeDateFormatting);
 
     test('under an hour: the countdown', () {
       expect(
