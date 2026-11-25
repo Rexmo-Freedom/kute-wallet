@@ -4,7 +4,7 @@ import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/kute_desk_market.dart';
 import 'package:kute/screens/shared/position_rows_card.dart'
-    show PositionStatTile, PositionStatTiles, positionTileValueStyle;
+    show PositionStatTile, positionTileValueStyle;
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart'
     show KuteBarTradePill;
 import 'package:kute/screens/shared/kute_page_route.dart';
@@ -772,6 +772,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                   builder: (context, countRef, _) =>
                                       _buildTweetCounter(countRef, c),
                                 ),
+                              // EXPANDED: the market's figures under the
+                              // chart, one row of stat squares (founder,
+                              // 25 November 2026: what is acted on in the
+                              // right column, the numbers under the chart).
+                              if (expanded) _buildDeskFigures(c),
                             ],
                           ),
                         ),
@@ -780,7 +785,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         // split by party, above its outcomes; nothing for
                         // any other event (special_event_section.dart).
                         // Send mode's bar brings the outcomes up to here.
-                        if (!event.isBinary)
+                        if (!event.isBinary && !expanded)
                           SliverToBoxAdapter(
                               child: SizedBox(key: _outcomesAnchor)),
                         if (!event.isBinary)
@@ -794,14 +799,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         // other event with many outcomes keeps the one
                         // outcome list. A Yes/No market has neither: its two
                         // buttons below carry both chances.
-                        if (!event.isBinary)
-                          capped(Consumer(
-                            builder: (context, priceRef, _) => _ladder != null
-                                ? _buildLadder(priceRef, c)
-                                : _showsGameLines
-                                    ? _buildGameMarkets(priceRef, c)
-                                    : _buildMultiOutcomeList(priceRef, c),
-                          )),
+                        // EXPANDED: they are the right column's
+                        // ([_buildDeskColumn]).
+                        if (!event.isBinary && !expanded) _outcomeSlivers(c),
                         // EXPANDED: Rules is a card of the right column
                         // ([_buildDeskColumn]).
                         if (!expanded)
@@ -1651,7 +1651,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// ([PolyGameMoreMarkets]). A market on the board is never listed
   /// again. Falls back to the plain outcome list when the game has no
   /// main line.
-  Widget _buildGameMarkets(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildGameMarkets(WidgetRef ref, AppColorsExtension c,
+      {bool desk = false}) {
     final l10n = context.l10n;
     final lines = polyGameLinesFor(ref, event);
     final teams = event.teams.isNotEmpty ? event.teams : _fetchedTeams;
@@ -1892,6 +1893,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       ));
     }
     if (rows.isEmpty) return _buildMultiOutcomeList(ref, c);
+    // EXPANDED: the Winner row is the right column's side buttons, over
+    // this board ([_deskGameSides]); the board shows the other lines.
+    final shown = desk && (wdl != null || moneyline != null || own != null)
+        ? rows.sublist(1)
+        : rows;
 
     // Everything the board does not show, in the event's order: "More
     // markets" sorts it into periods and kinds, and folds away the lines
@@ -1906,8 +1912,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     final head = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // The sheet's own gap between sections (as before "Details").
-        SizedBox(height: 24.h),
+        // The sheet's own gap between sections (as before "Details");
+        // none on the desk's column when its board has no row left.
+        if (shown.isNotEmpty) SizedBox(height: 24.h),
         LiveTokenScope(
           tokens: [
             for (final r in lines.rows) ...[
@@ -1918,13 +1925,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var i = 0; i < rows.length; i++) ...[
+              for (var i = 0; i < shown.length; i++) ...[
                 Padding(
                   // The list's group headings, to the letter.
                   padding: EdgeInsets.only(
                       top: i == 0 ? 0 : 16.h, bottom: 6.h, left: 4.w),
                   child: Text(
-                    rows[i].label.toUpperCase(),
+                    shown[i].label.toUpperCase(),
                     style: TextStyle(
                       color: c.textTertiary,
                       fontSize: 12.sp,
@@ -1933,7 +1940,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                     ),
                   ),
                 ),
-                Row(children: rows[i].buttons),
+                Row(children: shown[i].buttons),
               ],
             ],
           ),
@@ -2643,14 +2650,75 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
   // ── The market desk's right column (EXPANDED; kute_desk_market.dart) ──
 
+  /// An event's outcomes as slivers: its ladder, a game's board and "More
+  /// markets", or the outcome list. On a phone and MEDIUM under the chart;
+  /// on EXPANDED ([desk]) the right column's, at the column's width (a
+  /// game's Winner row is then the column's own side buttons, not twice).
+  Widget _outcomeSlivers(AppColorsExtension c, {bool desk = false}) =>
+      Consumer(
+        // Own Consumer, returning slivers: it rebuilds when the order of
+        // the outcomes changes; a price tick repaints the one row (or
+        // board button) it moved. A game shows its main lines as a board
+        // and the rest of its markets under "More markets"; any other
+        // event with many outcomes keeps the one outcome list. A Yes/No
+        // market has neither: its two buttons carry both chances.
+        builder: (context, priceRef, _) => _ladder != null
+            ? _buildLadder(priceRef, c)
+            : _showsGameLines
+                ? _buildGameMarkets(priceRef, c, desk: desk)
+                : _buildMultiOutcomeList(priceRef, c),
+      );
+
+  /// EXPANDED: the market's figures (24h volume, total volume, liquidity,
+  /// when it ends) under the chart as one row of the position page's stat
+  /// squares across the left side (founder, 25 November 2026: "the actual
+  /// predictions should be on the right side"; the numbers under the
+  /// chart, as on the Investing page). Each figure once: the Rules sheet
+  /// opened from the column leaves them out.
+  Widget _buildDeskFigures(AppColorsExtension c) => Consumer(
+        builder: (context, ref, _) {
+          final stats = polyMarketStats(
+            context.l10n,
+            volume24hr: event.volume24hr,
+            volume: event.volume,
+            liquidity: event.liquidity,
+            endDate: event.endDate,
+            ended: _isOverFor(ref),
+            money: (v) => _formatVolume(ref, v),
+            locale: Localizations.localeOf(context).toString(),
+          );
+          if (stats.isEmpty) return const SizedBox.shrink();
+          return Padding(
+            padding: EdgeInsets.only(top: 16.h, bottom: 8.h),
+            child: IntrinsicHeight(
+              key: const ValueKey('poly-desk-figures'),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < stats.length; i++) ...[
+                    if (i > 0) SizedBox(width: 10.w),
+                    Expanded(
+                      child: PositionStatTile(
+                        label: stats[i].label,
+                        value: Text(stats[i].value,
+                            maxLines: 1, style: positionTileValueStyle(c)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
   /// The right column at rest: the page's outcome buttons (the trade
-  /// row's pills, taller), what the person holds here (the Portfolio's
-  /// row, opening the position), the market's figures as the position
-  /// page's stat squares two across (the Rules sheet's figures, moved
-  /// here) and the Rules card. Its top on the line the figure under the
-  /// header starts on. An event of many outcomes has no pair of buttons:
-  /// the column starts with its figures, each outcome row on the left
-  /// keeping its own Yes / No.
+  /// row's pills, taller; a game's sides), what the person holds here
+  /// (the Portfolio's row, opening the position), then what is bet on:
+  /// an event's outcomes or a game's board and markets, each with its
+  /// own Yes / No ([_outcomeSlivers]), and last the Rules card. Its top on
+  /// the line the figure under the header starts on; it scrolls on its
+  /// own. The figures are under the chart ([_buildDeskFigures]).
   Widget _buildDeskColumn(AppColorsExtension c) => Consumer(
         builder: (context, ref, _) {
           final trades = _deskTrades(ref);
@@ -2659,79 +2727,75 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             for (final p in ref.watch(polymarketActivePositionsProvider))
               if (_holdsHere(p)) p,
           ];
-          final over = _isOverFor(ref);
-          final stats = polyMarketStats(
-            context.l10n,
-            volume24hr: event.volume24hr,
-            volume: event.volume,
-            liquidity: event.liquidity,
-            endDate: event.endDate,
-            ended: over,
-            money: (v) => _formatVolume(ref, v),
-            locale: Localizations.localeOf(context).toString(),
-          );
-          Widget tile(PolyStat s) => PositionStatTile(
-                label: s.label,
-                value: Text(s.value,
-                    maxLines: 1, style: positionTileValueStyle(c)),
-              );
           final gap = SizedBox(height: kKuteActionCardGap.h);
-          return SingleChildScrollView(
+          return CustomScrollView(
             key: const ValueKey('poly-desk-column'),
             primary: false,
-            padding: EdgeInsets.only(
-                top: _deskHeaderHeight + 14.h, bottom: kuteDeskGutter),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (trades.isNotEmpty) ...[
-                  Row(
-                    key: const ValueKey('poly-desk-buttons'),
-                    children: [
-                      for (var i = 0; i < trades.length; i++) ...[
-                        if (i > 0) SizedBox(width: kKuteActionCardGap.w),
-                        Expanded(
-                          flex: trades[i].flex,
-                          child: KuteBarTradePill(
-                              trade: trades[i], height: kuteDeskButtonHeight),
-                        ),
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.only(
+                    top: _deskHeaderHeight + 14.h, bottom: kuteDeskGutter),
+                sliver: SliverMainAxisGroup(slivers: [
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (trades.isNotEmpty) ...[
+                          Row(
+                            key: const ValueKey('poly-desk-buttons'),
+                            children: [
+                              for (var i = 0; i < trades.length; i++) ...[
+                                if (i > 0)
+                                  SizedBox(width: kKuteActionCardGap.w),
+                                Expanded(
+                                  flex: trades[i].flex,
+                                  child: KuteBarTradePill(
+                                      trade: trades[i],
+                                      height: kuteDeskButtonHeight),
+                                ),
+                              ],
+                            ],
+                          ),
+                          gap,
+                        ],
+                        if (sides.isNotEmpty) ...[
+                          Row(
+                            key: const ValueKey('poly-desk-buttons'),
+                            children: [
+                              for (var i = 0; i < sides.length; i++) ...[
+                                if (i > 0)
+                                  SizedBox(width: kKuteActionCardGap.w),
+                                Expanded(child: sides[i]),
+                              ],
+                            ],
+                          ),
+                          gap,
+                        ],
+                        if (held.isNotEmpty) ...[
+                          PortfolioCardList(rows: [
+                            for (final p in held)
+                              PolyPositionRow(
+                                  key: ValueKey('desk-position-${p.tokenId}'),
+                                  position: p),
+                          ]),
+                          gap,
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                  gap,
-                ],
-                if (sides.isNotEmpty) ...[
-                  Row(
-                    key: const ValueKey('poly-desk-buttons'),
-                    children: [
-                      for (var i = 0; i < sides.length; i++) ...[
-                        if (i > 0) SizedBox(width: kKuteActionCardGap.w),
-                        Expanded(child: sides[i]),
-                      ],
-                    ],
-                  ),
-                  gap,
-                ],
-                if (held.isNotEmpty) ...[
-                  PortfolioCardList(rows: [
-                    for (final p in held)
-                      PolyPositionRow(
-                          key: ValueKey('desk-position-${p.tokenId}'),
-                          position: p),
-                  ]),
-                  gap,
-                ],
-                for (var i = 0; i < stats.length; i += 2) ...[
-                  if (i + 1 < stats.length)
-                    PositionStatTiles(
-                        left: tile(stats[i]), right: tile(stats[i + 1]))
-                  else
-                    tile(stats[i]),
-                  gap,
-                ],
-                _buildRulesRow(desk: true),
-              ],
-            ),
+                  if (!event.isBinary) ...[
+                    // Send mode's bar brings the outcomes up to here.
+                    SliverToBoxAdapter(
+                        child: SizedBox(
+                            key: _outcomesAnchor, width: double.infinity)),
+                    _outcomeSlivers(c, desk: true),
+                    SliverToBoxAdapter(child: gap),
+                  ],
+                  SliverToBoxAdapter(child: _buildRulesRow(desk: true)),
+                ]),
+              ),
+            ],
           );
         },
       );

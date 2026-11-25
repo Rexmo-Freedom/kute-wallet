@@ -28,6 +28,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/polymarket/components/game_side_button.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart'
     show MarketChart;
 import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart'
@@ -128,6 +129,33 @@ final _election = PolymarketEvent(
       ),
   ],
 );
+
+/// An event of [n] dated outcomes ("… by <date>?"), as the founder's
+/// "out as CEO again?" page.
+PolymarketEvent _dated(int n) => PolymarketEvent(
+      id: 'dated$n',
+      slug: 'ceo-out-again-$n',
+      title: 'Jensen Huang out as NVIDIA CEO again?',
+      volume: 5300000,
+      volume24hr: 41000,
+      liquidity: 210000,
+      category: 'business',
+      tags: const [],
+      endDate: DateTime(2027, 12, 31),
+      conditionId: 'c-dated$n',
+      description: 'Resolves to Yes if he leaves the role by the date.',
+      outcomes: [
+        for (var i = 0; i < n; i++)
+          PolymarketOutcome(
+            name: 'Month ${i + 1}, 2027',
+            question: 'Out by month ${i + 1}, 2027?',
+            price: (0.04 + i * 0.02).clamp(0.01, 0.99).toDouble(),
+            tokenId: 'd$n-$i-y',
+            noTokenId: 'd$n-$i-n',
+            conditionId: 'c-d$n-$i',
+          ),
+      ],
+    );
 
 /// The fixture without its pictures (no image cache in a test): the
 /// crests fall back to their initials.
@@ -356,6 +384,8 @@ void main() {
     ('yesno', () => _aliens, const []),
     ('yesno_position', () => _aliens, const [_alienPosition]),
     ('event', () => _election, const []),
+    ('event3', () => _dated(3), const []),
+    ('event12', () => _dated(12), const []),
     ('football', _game, const []),
     ('tennis', _tennis, const []),
   ];
@@ -622,6 +652,87 @@ void main() {
         findsOneWidget);
     // Still one page: the outcome's own page was not pushed.
     expect(find.byType(MarketDetailSheet), findsOneWidget);
+    await release(tester);
+  });
+
+  // "The actual predictions should be on the right side" (founder, 25
+  // November 2026): what is bet on is the right column's, the figures are
+  // under the chart, once; every page keeps the window's left gutter.
+  final deskColumn = find.byKey(const ValueKey('poly-desk-column'));
+  final figures = find.byKey(const ValueKey('poly-desk-figures'));
+
+  void figuresUnderChart(WidgetTester tester) {
+    expect(figures, findsOneWidget);
+    expect(find.descendant(of: deskColumn, matching: figures), findsNothing);
+    expect(find.text('Liquidity'), findsOneWidget);
+    final chart = tester.getRect(find.byType(MarketChart).first);
+    expect(tester.getRect(figures).top, greaterThan(chart.bottom - 1));
+    expect(tester.getRect(figures).right,
+        lessThan(tester.getRect(deskColumn).left));
+    expect(chart.left, greaterThanOrEqualTo(24));
+  }
+
+  for (final n in [3, 12]) {
+    testWidgets('wide: an event of $n: its outcomes in the column, the '
+        'figures under the chart; a click opens the panel on it',
+        (tester) async {
+      await pumpMarket(tester, const Size(1440, 900), _dated(n));
+      expect(tester.takeException(), isNull);
+      figuresUnderChart(tester);
+      final row = find.text('Month 2, 2027');
+      expect(row, findsOneWidget);
+      expect(find.descendant(of: deskColumn, matching: row), findsOneWidget);
+      expect(
+          find.descendant(
+              of: deskColumn,
+              matching: find.byKey(const ValueKey('poly-market-options'))),
+          findsOneWidget);
+      // The header's title keeps the gutter.
+      expect(tester.getRect(find.text('Jensen Huang out as NVIDIA CEO again?'))
+          .left, greaterThanOrEqualTo(24));
+      await tester.tap(row);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(slipPanel, findsOneWidget);
+      expect(find.text('Out by month 2, 2027?'), findsOneWidget);
+      expect(find.byType(MarketDetailSheet), findsOneWidget);
+      await release(tester);
+    });
+  }
+
+  testWidgets('wide: a game: its markets in the column under the sides',
+      (tester) async {
+    await pumpMarket(tester, const Size(1440, 900), _tennis());
+    expect(tester.takeException(), isNull);
+    figuresUnderChart(tester);
+    expect(
+        find.descendant(
+            of: deskColumn,
+            matching: find.byKey(const ValueKey('poly-desk-buttons'))),
+        findsOneWidget);
+    expect(find.descendant(of: deskColumn, matching: find.text('More markets')),
+        findsOneWidget);
+    expect(find.text('More markets'), findsOneWidget);
+    // The Winner row is the column's sides, not twice.
+    final sideA = tester.widget<PolyGameSideButton>(
+        find.byKey(const ValueKey('poly-desk-side-a')));
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is PolyGameSideButton && w.label == sideA.label),
+        findsOneWidget);
+    await release(tester);
+  });
+
+  testWidgets('wide: a Yes / No market: its figures under the chart too',
+      (tester) async {
+    await pumpMarket(tester, const Size(1440, 900), _aliens,
+        positions: const [_alienPosition]);
+    figuresUnderChart(tester);
+    expect(find.descendant(
+            of: deskColumn,
+            matching: find.byKey(const ValueKey('desk-position-y'))),
+        findsOneWidget);
     await release(tester);
   });
 
