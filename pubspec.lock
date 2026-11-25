@@ -244,7 +244,7 @@ packages:
   breez_sdk_spark_flutter:
     dependency: "direct main"
     description:
-      path: "../../../../breez-sdk-spark-flutter-web"
+      path: "third_party/breez_sdk_spark_flutter"
       relative: true
     source: path
     version: "0.26.1"

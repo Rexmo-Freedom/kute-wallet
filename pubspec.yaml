@@ -195,12 +195,13 @@ dependencies:
 dependency_overrides:
   vector_math: 2.2.0
   pointycastle: ^4.0.0
-  # web branch only: local fork of breez-sdk-spark-flutter v0.26.1 (branch
-  # `web`) that runs the SDK on Flutter web through the official wasm build
-  # (npm @breeztech/breez-sdk-spark, vendored in web/breez_sdk_spark).
+  # web branch only: breez-sdk-spark-flutter v0.26.1 plus web support, which
+  # runs the SDK on Flutter web through the official wasm build (npm
+  # @breeztech/breez-sdk-spark, vendored in web/breez_sdk_spark). The package
+  # is vendored in third_party/ so CI resolves it (see VENDORED.md there).
   # iOS / Android keep the same generated FFI bindings.
   breez_sdk_spark_flutter:
-    path: ../../../../breez-sdk-spark-flutter-web
+    path: third_party/breez_sdk_spark_flutter
 
 dev_dependencies:
   integration_test:
