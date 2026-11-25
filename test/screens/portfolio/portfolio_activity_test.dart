@@ -19,13 +19,11 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
     show ActivityDaySection, assembleActivityRows, kActivityPreviewRows;
-import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/screens/shared/no_activity_state.dart';
