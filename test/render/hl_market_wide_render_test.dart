@@ -45,6 +45,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlCandlestickChart;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
@@ -226,7 +227,8 @@ Future<void> _pump(WidgetTester tester,
     {required Size size,
     required bool dark,
     required HlMarket market,
-    bool held = false}) async {
+    bool held = false,
+    Widget? home}) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
   addTearDown(tester.view.reset);
@@ -294,7 +296,7 @@ Future<void> _pump(WidgetTester tester,
         supportedLocales: AppLocalizations.supportedLocales,
         navigatorObservers: shellBarObservers(),
         builder: shellBarBuilder,
-        home: HlMarketDetailSheet(market: market),
+        home: home ?? HlMarketDetailSheet(market: market),
       ),
     ),
   ));
@@ -342,41 +344,228 @@ void main() {
   });
   tearDown(() => _rail.creditedController.close());
 
-  testWidgets('EXPANDED: the ticket in place, the bar away, keys type',
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  // THE DESK (founder, 25 November 2026): at rest the page is the
+  // position page's shape, no ticket; Long or Short opens it as the side
+  // panel at the window's right edge; its X, Escape and the back close it.
+  testWidgets('EXPANDED: at rest no ticket; Long and Short open the panel',
       (tester) async {
     await _pump(tester,
         size: const Size(1440, 900), dark: false, market: _btc, held: true);
     expect(tester.takeException(), isNull);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(find.byKey(const ValueKey('kute-bar-trade-invest')), findsNothing);
+    expect(find.byKey(const ValueKey('hl-desk-position-BTC')), findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-desk-stats')), findsOneWidget);
+    // The Stats are the column's squares only, never twice.
+    expect(find.byKey(const ValueKey('hl-stats-tiles')), findsNothing);
+    final long = find.byKey(const ValueKey('kute-desk-trade-long'));
+    final short = find.byKey(const ValueKey('kute-desk-trade-short'));
+    expect(long, findsOneWidget);
+    expect(short, findsOneWidget);
+    // The column's first card on the price's line, at the right gutter.
+    final column = tester.getRect(find.byKey(const ValueKey('hl-desk-column')));
+    expect(column.right, 1440 - kuteDeskGutter);
+    final price = tester.getRect(find.byKey(const ValueKey('hl-detail-price')));
+    expect((tester.getRect(long).top - price.top).abs(), lessThan(8));
+    final chart = tester.getRect(find.byType(HlCandleChart));
+    expect(chart.right, lessThanOrEqualTo(column.left - kuteWideGap + 0.5));
+
+    await tester.tap(long);
+    await settle(tester);
     final slip = find.byType(HlOrderSlipSheet);
     expect(slip, findsOneWidget);
     expect(tester.widget<HlOrderSlipSheet>(slip).embedded, isTrue);
-    expect(find.byKey(const ValueKey('order-slip-in-place-primary')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('kute-bar-trade-invest')), findsNothing);
-    expect(find.byKey(const ValueKey('hl-pane-position-BTC')), findsOneWidget);
-    // The ticket is the side panel: at the window's right edge, top to
-    // bottom, and the position sits in it.
+    expect(tester.widget<HlOrderSlipSheet>(slip).initialIsLong, isTrue);
     final pane = tester.getRect(find.byKey(const ValueKey('hl-ticket-pane')));
     expect(pane.width, kuteSidePanelWidth);
     expect(pane.right, 1440);
     expect(pane.top, 0);
     expect(pane.bottom, 900);
-    expect(
-        find.descendant(
-            of: find.byKey(const ValueKey('hl-ticket-pane')),
-            matching: find.byKey(const ValueKey('hl-pane-position-BTC'))),
-        findsOneWidget);
+    // The column is away; the chart reflowed to the rest.
+    expect(find.byKey(const ValueKey('hl-desk-column')), findsNothing);
+    expect(tester.getRect(find.byType(HlCandleChart)).right,
+        lessThanOrEqualTo(1440 - kuteSidePanelWidth));
+    expect(tester.getRect(find.byType(HlCandleChart)).width,
+        greaterThan(chart.width));
     // A hardware key types the amount, as the keypad would.
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
     await tester.pump();
-    final pad = tester.widget<AmountKeypad>(find.byType(AmountKeypad));
-    expect(pad.value, '12');
+    expect(tester.widget<AmountKeypad>(find.byType(AmountKeypad)).value, '12');
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
     expect(tester.widget<AmountKeypad>(find.byType(AmountKeypad)).value, '1');
+    // Escape closes it.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(find.byKey(const ValueKey('hl-desk-column')), findsOneWidget);
+
+    // Short opens it on Short; its X closes it.
+    await tester.tap(short);
+    await settle(tester);
+    expect(
+        tester
+            .widget<HlOrderSlipSheet>(find.byType(HlOrderSlipSheet))
+            .initialIsLong,
+        isFalse);
+    await tester.tap(find.byKey(const ValueKey('order-slip-panel-close')));
+    await settle(tester);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+
+    // The back closes the panel first, the page stays.
+    await tester.tap(long);
+    await settle(tester);
+    final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
+    await nav.maybePop();
+    await settle(tester);
+    expect(find.byType(HlOrderSlipSheet), findsNothing);
+    expect(find.byType(HlMarketDetailSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
+
+  testWidgets('EXPANDED: opened with a side chosen, the panel is up',
+      (tester) async {
+    await _pump(tester,
+        size: const Size(1440, 900),
+        dark: false,
+        market: _btc,
+        home: const HlMarketDetailSheet(
+            market: _btc,
+            initialSide: false,
+            initialUsd: 25,
+            slipSource: 'advisor'));
+    final slip = find.byType(HlOrderSlipSheet);
+    expect(slip, findsOneWidget);
+    expect(tester.widget<HlOrderSlipSheet>(slip).initialIsLong, isFalse);
+    expect(tester.widget<HlOrderSlipSheet>(slip).initialUsd, 25);
+    expect(tester.widget<HlOrderSlipSheet>(slip).source, 'advisor');
+    await _unmount(tester);
+  });
+
+  testWidgets('a spot token: Buy, and Sell where one is held',
+      (tester) async {
+    await _pump(tester,
+        size: const Size(1440, 900), dark: false, market: _hype);
+    expect(find.byKey(const ValueKey('kute-desk-trade-buy')), findsOneWidget);
+    expect(find.byKey(const ValueKey('kute-desk-trade-sell')), findsNothing);
+    await _unmount(tester);
+    await _pump(tester,
+        size: const Size(1440, 900), dark: false, market: _hype, held: true);
+    expect(find.byKey(const ValueKey('kute-desk-trade-sell')), findsOneWidget);
+    await _unmount(tester);
+  });
+
+  testWidgets('MEDIUM and the phone keep the floating trade row',
+      (tester) async {
+    for (final size in const [Size(820, 1180), Size(430, 932)]) {
+      await _pump(tester, size: size, dark: false, market: _btc);
+      expect(find.byKey(const ValueKey('hl-desk-trades')), findsNothing);
+      expect(find.byType(HlOrderSlipSheet), findsNothing);
+      expect(find.byKey(const ValueKey('kute-bar-trade-invest')), findsOneWidget);
+      await _unmount(tester);
+    }
+  });
+
+  // THE POSITION PAGE on the desk: the window's two gutters, the chart
+  // the hero, and every panel it opens at the window's right edge, the
+  // right column under it and the chart keeping the rest.
+  Future<void> pumpPosition(WidgetTester tester, Size size, bool dark) =>
+      _pump(tester,
+          size: size,
+          dark: dark,
+          market: _btc,
+          held: true,
+          home: const HlPositionDetailSheet(position: _held, market: _btc));
+
+  Future<void> waitPanel(WidgetTester tester) async {
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  testWidgets('position page: Add margin and Close open at the side',
+      (tester) async {
+    await pumpPosition(tester, const Size(1440, 900), false);
+    expect(tester.takeException(), isNull);
+    final chartAtRest = tester.getRect(find.byType(HlCandleChart));
+    expect(chartAtRest.left, kuteDeskGutter);
+    await tester.tap(find.byKey(const ValueKey('hl-add-margin')));
+    await waitPanel(tester);
+    final card = tester.getRect(find.byKey(const ValueKey('kute-dialog-card')));
+    expect(card.right, 1440);
+    expect(card.top, 0);
+    expect(card.bottom, 900);
+    expect(card.width, kuteSidePanelWidth);
+    expect(tester.getRect(find.byType(HlCandleChart)).right,
+        lessThanOrEqualTo(1440 - kuteSidePanelWidth));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await waitPanel(tester);
+    expect(find.byKey(const ValueKey('kute-dialog-card')), findsNothing);
+    expect(tester.getRect(find.byType(HlCandleChart)), chartAtRest);
+    await tester.tap(find.text('Close position').last);
+    await waitPanel(tester);
+    expect(tester.getRect(find.byKey(const ValueKey('kute-dialog-card'))).right,
+        1440);
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  for (final (label, size) in [
+    ('1000x700', const Size(1000, 700)),
+    ('1280x800', const Size(1280, 800)),
+    ('1440x900', const Size(1440, 900)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('2400x1200', const Size(2400, 1200)),
+    ('820x1180', const Size(820, 1180)),
+    ('430x932', const Size(430, 932)),
+  ]) {
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('render: position $label $mode', skip: _dir == null,
+          (tester) async {
+        await pumpPosition(tester, size, dark);
+        expect(tester.takeException(), isNull);
+        await _shoot(tester, 'hl_position_${label}_$mode');
+        if (size.width < 900 ||
+            !(size.width == 1440 || size.width == 1000)) {
+          await _unmount(tester);
+          return;
+        }
+        for (final (name, open) in [
+          ('margin', find.byKey(const ValueKey('hl-add-margin'))),
+          ('protect', find.byKey(const ValueKey('hl-position-protect'))),
+          ('close', find.text('Close position').last),
+          ('details', find.byKey(const ValueKey('hl-position-details'))),
+        ]) {
+          await tester.tap(open);
+          await waitPanel(tester);
+          expect(tester.takeException(), isNull);
+          await _shoot(tester, 'hl_position_${label}_${mode}_$name');
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await waitPanel(tester);
+        }
+        // The editor: the whole window, no panel; its Short opens one.
+        await tester.tap(find.byKey(const ValueKey('hl-advanced-chart')));
+        await waitPanel(tester);
+        await _shoot(tester, 'hl_position_${label}_${mode}_editor');
+        await tester.tap(find.descendant(
+            of: find.byKey(const ValueKey('hl-position-editor-trades')),
+            matching: find.byKey(const ValueKey('kute-desk-trade-short'))));
+        await waitPanel(tester);
+        expect(tester.takeException(), isNull);
+        await _shoot(tester, 'hl_position_${label}_${mode}_editor_short');
+        await _unmount(tester);
+      });
+    }
+  }
 
   // THE POINTER KIND DECIDES (founder, 25 November 2026: a plain mouse
   // drag drew a grey measuring box): a plain drag pans with any pointer,
@@ -484,7 +673,7 @@ void main() {
     testWidgets('no stat label cut at ${size.width.toInt()}x${size.height.toInt()}',
         (tester) async {
       await _pump(tester, size: size, dark: false, market: _btc, held: true);
-      final tiles = find.byKey(const ValueKey('hl-stats-tiles'));
+      final tiles = find.byKey(const ValueKey('hl-desk-stats'));
       expect(tiles, findsOneWidget);
       final texts = find.descendant(of: tiles, matching: find.byType(RichText));
       expect(texts, findsWidgets);
@@ -560,16 +749,24 @@ void main() {
     final rail = tester.getRect(find.byKey(const ValueKey('hl-chart-tool-rail')));
     expect(rail.width, 52);
     expect(rail.left, lessThan(40));
-    // The ticket's side panel beside the editor (1280+), the volume in a
-    // pane of its own; the header's control folds the panel away.
-    expect(find.byKey(const ValueKey('hl-ticket-pane')), findsOneWidget);
-    expect(find.byKey(const ValueKey('hl-chart-volume-pane')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('hl-chart-edit-panel-toggle')));
-    await tester.pump(const Duration(milliseconds: 200));
+    // The editor opens with no panel; its Long opens one beside the
+    // chart, Escape closes it; the volume in a pane of its own.
     expect(find.byKey(const ValueKey('hl-ticket-pane')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('hl-chart-edit-panel-toggle')));
-    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byKey(const ValueKey('hl-chart-volume-pane')), findsOneWidget);
+    final editorTrades = find.byKey(const ValueKey('hl-editor-trades'));
+    expect(editorTrades, findsOneWidget);
+    await tester.tap(find.descendant(
+        of: editorTrades,
+        matching: find.byKey(const ValueKey('kute-desk-trade-long'))));
+    await settle(tester);
     expect(find.byKey(const ValueKey('hl-ticket-pane')), findsOneWidget);
+    expect(tester.getRect(find.byKey(const ValueKey('hl-ticket-pane'))).right,
+        1440);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(find.byKey(const ValueKey('hl-ticket-pane')), findsNothing);
+    expect(find.byKey(const ValueKey('hl-chart-edit-top-bar-wide')),
+        findsOneWidget);
     // The hint never shows below the window's bottom edge.
     final hint = find.byKey(const ValueKey('hl-chart-edit-hint'));
     if (hint.evaluate().isNotEmpty) {
@@ -604,11 +801,11 @@ void main() {
   });
 
   for (final (label, size) in [
+    ('1000x700', const Size(1000, 700)),
+    ('1280x800', const Size(1280, 800)),
     ('1440x900', const Size(1440, 900)),
     ('1920x1080', const Size(1920, 1080)),
-    ('2560x1300', const Size(2560, 1300)),
-    ('1180x820', const Size(1180, 820)),
-    ('1000x700', const Size(1000, 700)),
+    ('2400x1200', const Size(2400, 1200)),
   ]) {
     for (final dark in [false, true]) {
       final mode = dark ? 'dark' : 'light';
@@ -616,30 +813,26 @@ void main() {
           (tester) async {
         await openEditor(tester, size, dark);
         expect(tester.takeException(), isNull);
-        final open =
-            find.byKey(const ValueKey('hl-ticket-pane')).evaluate().isNotEmpty;
-        await _shoot(tester,
-            'hl_editor_${label}_${mode}_${open ? 'panel' : 'folded'}');
-        // The other state, from the header's control.
-        await tester
-            .tap(find.byKey(const ValueKey('hl-chart-edit-panel-toggle')));
-        for (var i = 0; i < 6; i++) {
-          await tester.pump(const Duration(milliseconds: 100));
-        }
+        expect(find.byKey(const ValueKey('hl-ticket-pane')), findsNothing);
+        await _shoot(tester, 'hl_editor_${label}_${mode}_closed');
+        // Short, from the header.
+        await tester.tap(find.descendant(
+            of: find.byKey(const ValueKey('hl-editor-trades')),
+            matching: find.byKey(const ValueKey('kute-desk-trade-short'))));
+        await settle(tester);
         expect(tester.takeException(), isNull);
-        await _shoot(tester,
-            'hl_editor_${label}_${mode}_${open ? 'folded' : 'panel'}');
+        await _shoot(tester, 'hl_editor_${label}_${mode}_panel');
         await _unmount(tester);
       });
     }
   }
 
   for (final (label, size) in [
-    ('1440x900', const Size(1440, 900)),
-    ('1180x820', const Size(1180, 820)),
-    ('1920x1080', const Size(1920, 1080)),
-    ('2560x1300', const Size(2560, 1300)),
     ('1000x700', const Size(1000, 700)),
+    ('1280x800', const Size(1280, 800)),
+    ('1440x900', const Size(1440, 900)),
+    ('1920x1080', const Size(1920, 1080)),
+    ('2400x1200', const Size(2400, 1200)),
     ('820x1180', const Size(820, 1180)),
     ('430x932', const Size(430, 932)),
   ]) {
@@ -657,6 +850,22 @@ void main() {
               size: size, dark: dark, market: market, held: held);
           expect(tester.takeException(), isNull);
           await _shoot(tester, 'hl_market_${label}_${mode}_$kind');
+          // EXPANDED: the panel open on each side.
+          final trades = find.byKey(const ValueKey('hl-desk-trades'));
+          if (trades.evaluate().isNotEmpty) {
+            for (final side in ['long', 'short', 'buy', 'sell']) {
+              final b = find.descendant(
+                  of: trades,
+                  matching: find.byKey(ValueKey('kute-desk-trade-$side')));
+              if (b.evaluate().isEmpty) continue;
+              await tester.tap(b);
+              await settle(tester);
+              expect(tester.takeException(), isNull);
+              await _shoot(tester, 'hl_market_${label}_${mode}_${kind}_$side');
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await settle(tester);
+            }
+          }
           // EXPANDED: the area under the chart (stats, book, trades),
           // scrolled down.
           final about = find.byKey(const ValueKey('hl-about-in-place'));

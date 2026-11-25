@@ -1339,3 +1339,13 @@ double kuteDeskNavWidthFor(double width) =>
 /// closes it, and between the hairline and the browse's edge (the lists'
 /// own [kuteBrowseListInset] then inside the browse).
 const double kuteDeskNavGap = 12;
+
+// ── Round four: the desk's two pages, one shape (founder, 25 November
+// 2026: the market page "more similar with the open bet") ───────────────
+
+/// The chart's plot on a market page and a position page on EXPANDED: the
+/// window's height less [around] (the page's header and figure over the
+/// plot, the strip and interval row under it and the bottom gutter), so
+/// the interval row ends a gutter over the window's foot; never under 420.
+double kuteDeskChartHeight(double windowHeight, {required double around}) =>
+    math.max(420.0, windowHeight - around);

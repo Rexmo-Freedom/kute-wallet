@@ -12,7 +12,14 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart'
     show kKuteMarketChartHeight;
-import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show KuteStillWhenCovered, kuteReduceMotion, kuteMotion, kArrivalDuration;
+import 'package:kute/screens/shared/kute_detail_panes.dart'
+    show kuteDetailPaneWidth;
+import 'package:kute/screens/shared/kute_desk_trade_buttons.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show PositionStatTile, PositionStatTiles, positionTileValueStyle;
+import 'package:kute/theme/kute_motion.dart' show KuteMotion;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart';
@@ -143,12 +150,23 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
   /// ordinary page.
   final SendPickSession? sendPick;
 
+  /// THE DESK (EXPANDED): the page opens with the order ticket already in
+  /// its side panel on this side (true Long / Buy, false Short / Sell),
+  /// [initialUsd] typed in, counted as a ticket opened from [slipSource]
+  /// (Sal's prefill, a claimed pick). Null: the page at rest.
+  final bool? initialSide;
+  final double? initialUsd;
+  final String? slipSource;
+
   const HlMarketDetailSheet(
       {super.key,
       required this.market,
       this.ledgerWalletId,
       this.source = 'market_list',
-      this.sendPick});
+      this.sendPick,
+      this.initialSide,
+      this.initialUsd,
+      this.slipSource});
 
   static const routeName = 'hyperliquid-market-detail-sheet';
 
@@ -156,16 +174,23 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
       {required HlMarket market,
       String? ledgerWalletId,
       String source = 'market_list',
-      SendPickSession? sendPick}) {
+      SendPickSession? sendPick,
+      bool? initialSide,
+      double? initialUsd,
+      String? slipSource}) {
     VenueAnalytics.rememberHlMarkets([market]);
-    TrackingService.hyperliquidMarketViewed(
-      coin: market.coin,
-      kind: market.isSpot ? 'spot' : 'perp',
-      extra: {
-        'entry_source': source,
-        'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
-      },
-    );
+    // A ticket opened on the desk's page (Sal's prefill, a claimed pick)
+    // counts as the ticket it was, not as a market viewed.
+    if (slipSource == null) {
+      TrackingService.hyperliquidMarketViewed(
+        coin: market.coin,
+        kind: market.isSpot ? 'spot' : 'perp',
+        extra: {
+          'entry_source': source,
+          'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
+        },
+      );
+    }
     // Drop active focus (search field) so closing the sheet doesn't
     // re-summon the keyboard — same fix as the PM detail sheet.
     FocusManager.instance.primaryFocus?.unfocus();
@@ -184,7 +209,10 @@ class HlMarketDetailSheet extends ConsumerStatefulWidget {
               market: market,
               ledgerWalletId: ledgerWalletId,
               source: source,
-              sendPick: ledgerWalletId == null ? sendPick : null),
+              sendPick: ledgerWalletId == null ? sendPick : null,
+              initialSide: initialSide,
+              initialUsd: initialUsd,
+              slipSource: slipSource),
         ),
       ),
     );
@@ -256,7 +284,8 @@ HlMarket hlSheetMarket(WidgetRef ref, HlMarket row) {
   return hlMarketWithLiveCtx(live, ctx);
 }
 
-class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
+class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
+    with SingleTickerProviderStateMixin {
   /// Consolidated "Details" expander gates the dense secondary sections
   /// (stats strip, funding line, stock disclaimer, order book). Closed by
   /// default so the primary view stays focused on the header + chart +
@@ -279,9 +308,120 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// the shell's Trading-tab pause must not freeze the header price.
   HlLivePricesNotifier? _livePrices;
 
+  // ── THE DESK'S SIDE PANEL (EXPANDED; founder, 25 November 2026: "have
+  // a button like Long and Short ... Then clicking Long or Short this
+  // side bar appears") ──────────────────────────────────────────────────
+  //
+  // At rest the page is the position page's shape: the market on the
+  // left, a right column of the trade buttons, the Stats as squares and
+  // the option cards. Long or Short opens the order ticket as the side
+  // panel at the window's right edge, top to bottom, on that side; it
+  // takes the column's place and the market reflows to the rest of the
+  // window. Its X, Escape and the browser's back close it. The Advanced
+  // chart editor does the same from the Long and Short in its header,
+  // closed by default.
+
+  /// The side the panel is open on (true Long / Buy), null while closed.
+  bool? _panelSide;
+
+  /// The side it last opened on, drawn while it slides away.
+  bool _panelShownSide = true;
+
+  /// The amount the panel's ticket opens with (an entry's prefill).
+  double? _panelUsd;
+
+  /// Where the panel's ticket was opened from (analytics: the slip's
+  /// source).
+  String _panelSource = 'market_detail';
+
+  /// 0 at rest, 1 open, on the settle easing.
+  late final AnimationController _panel = AnimationController(
+      vsync: this, duration: KuteMotion.settleDuration);
+  late final CurvedAnimation _panelCurve = CurvedAnimation(
+      parent: _panel, curve: KuteMotion.settle, reverseCurve: KuteMotion.settle);
+
+  /// The right column's top, on the price's line: the header's height
+  /// (measured) plus the price block's top gutter.
+  final GlobalKey _deskHeaderKey = GlobalKey();
+  double _deskHeaderHeight = 48;
+
+  /// Opens the panel on [isLong] (a second click on the side it is open
+  /// on does nothing; the other side opens a ticket on it). Counted as the
+  /// trade row's tap and the ticket's opening are on a phone.
+  void _openPanel(bool isLong) {
+    final m = market;
+    TrackingService.track('hl_invest_cta_tapped', params: {
+      'source': 'market_detail',
+      'kind': m.isSpot ? 'spot' : 'perp',
+      'side': isLong ? 'buy' : 'sell',
+      'signer': 'hot',
+    });
+    if (_panelSide == isLong) return;
+    HlOrderSlipSheet.trackOpened(
+        market: m,
+        isLong: isLong,
+        source: 'market_detail',
+        entrySource: widget.source);
+    setState(() {
+      _panelSource = 'market_detail';
+      _panelUsd = null;
+      _panelSide = isLong;
+      _panelShownSide = isLong;
+      _ticketGeneration++;
+    });
+    unawaited(_panel.forward());
+  }
+
+  /// Closes the panel back to the page at rest ([instant]: no slide).
+  void _closePanel({bool instant = false}) {
+    if (_panelSide == null) return;
+    setState(() => _panelSide = null);
+    if (instant) {
+      _panel.value = 0;
+    } else {
+      unawaited(_panel.reverse());
+    }
+  }
+
+  /// Escape closes the panel (the editor's own Escape first: a tool in
+  /// hand, a drawing selected; a field typing keeps its keys).
+  bool _onDeskKey(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape) {
+      return false;
+    }
+    if (!mounted || _panelSide == null) return false;
+    if (ModalRoute.of(context)?.isCurrent != true) return false;
+    final focused = FocusManager.instance.primaryFocus?.context?.widget;
+    if (focused is EditableText) return false;
+    if (_advancedChart && HlCandleChart.editorBusy(_chartHostKey)) {
+      return false;
+    }
+    _closePanel();
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_onDeskKey);
+    final side = widget.initialSide;
+    if (side != null &&
+        widget.ledgerWalletId == null &&
+        widget.sendPick == null) {
+      // Opened with a side chosen: the panel is up from the first frame,
+      // counted as the ticket it is.
+      _panelSide = side;
+      _panelShownSide = side;
+      _panelUsd = widget.initialUsd;
+      _panelSource = widget.slipSource ?? 'market_detail';
+      _panel.value = 1;
+      HlOrderSlipSheet.trackOpened(
+          market: widget.market,
+          isLong: side,
+          source: _panelSource,
+          entrySource: widget.source);
+    }
     // acquire() BEFORE watchCoins so the coin subscribes on the revived
     // socket even when the shell already paused the feed.
     _livePrices = ref.read(hyperliquidLivePricesProvider.notifier);
@@ -304,6 +444,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onDeskKey);
+    _panelCurve.dispose();
+    _panel.dispose();
     _livePrices?.unfocus(widget.market.coin);
     _livePrices?.release();
     _livePrices = null;
@@ -384,15 +527,26 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
         widget.ledgerWalletId == null &&
         widget.sendPick == null;
     final inPlace = desk && !_advancedChart;
-    final editorPanelOpen = _editorPanelChoice ??
-        MediaQuery.sizeOf(context).width >= kuteEditorPanelOpensAt;
-    final editorPanel = desk && _advancedChart && editorPanelOpen;
+    _panel.duration =
+        kuteReduceMotion(context) ? Duration.zero : KuteMotion.settleDuration;
+    if (inPlace) {
+      // The right column starts on the price's line, under the header.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final box =
+            _deskHeaderKey.currentContext?.findRenderObject() as RenderBox?;
+        if (!mounted || box == null || !box.hasSize) return;
+        if ((box.size.height - _deskHeaderHeight).abs() > 0.5) {
+          setState(() => _deskHeaderHeight = box.size.height);
+        }
+      });
+    }
     final pageChildren = <Widget>[
               // ── Header ────────────────────────────────────────────
               // Edit mode hides it: the chart's own slim top bar names
               // the market there, and Done brings the header back.
               if (!_advancedChart)
                 Padding(
+                  key: inPlace ? _deskHeaderKey : null,
                   padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
                   child: Row(
                     children: [
@@ -450,7 +604,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                 Container(
                   alignment: Alignment.centerLeft,
                   padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-                  child: _withAdvancedPill(inPlace, Column(
+                  child: (Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Smaller rather than cut on a long price. The
@@ -540,12 +694,15 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           fillHeight: true,
                           showSignals: true,
                           ledgerWalletId: widget.ledgerWalletId,
-                          onAdvancedChanged: (on) =>
-                              setState(() => _advancedChart = on),
-                          deskPanelOpen: desk ? editorPanelOpen : null,
-                          onToggleDeskPanel: desk
-                              ? () => setState(() =>
-                                  _editorPanelChoice = !editorPanelOpen)
+                          onAdvancedChanged: _onAdvancedChanged,
+                          deskPanelOpen: desk ? _panelSide != null : null,
+                          // THE DESK: the editor's own Long and Short, at
+                          // its header's right, opening the side panel.
+                          deskTradeButtons: desk
+                              ? KuteDeskTradeButtons(
+                                  key: const ValueKey('hl-editor-trades'),
+                                  compact: true,
+                                  trades: _deskTrades(m, spotHeld))
                               : null,
                         ),
                       ),
@@ -558,8 +715,11 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                   // On MEDIUM (a tall portrait tablet) it takes 40% of
                   // the height, never less than the phone's.
                   final windowHeight = MediaQuery.sizeOf(context).height;
+                  // The plot: the window less the header and the price
+                  // over it, the pressure strip and interval row under it
+                  // and the bottom gutter (the position page's own rule).
                   final chartHeight = inPlace
-                      ? math.max(420.0, windowHeight - 330)
+                      ? kuteDeskChartHeight(windowHeight, around: 230)
                       : formFactor == KuteFormFactor.compact
                           ? kKuteMarketChartHeight
                           : math.max(kKuteMarketChartHeight,
@@ -599,8 +759,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           // No change / LIVE row under the pills here.
                           showSummary: false,
                           ledgerWalletId: widget.ledgerWalletId,
-                          onAdvancedChanged: (on) =>
-                              setState(() => _advancedChart = on),
+                          onAdvancedChanged: _onAdvancedChanged,
                         ),
                         SizedBox(height: 20.h),
                         // No "Your investment" card here (founder,
@@ -622,11 +781,13 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // and the recent trades, the Advanced chart card
                         // over them.
                         if (inPlace)
+                          // The Stats are the right column's squares.
                           _HlAboutContent(
                             market: widget.market,
                             isStock: isStock,
                             position: position,
                             wide: true,
+                            showStats: false,
                           )
                         else if (!_advancedChart)
                           KuteActionCardGrid(
@@ -656,10 +817,22 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
               // above) and Done brings them back.
               // In place (EXPANDED) the ticket in the right pane does the
               // trade row's job: the bar is away.
+              // THE DESK at rest: the trade buttons head the right
+              // column, so the bar keeps only the round Sal button, under
+              // that column (KuteBarPane); with the panel open its ticket
+              // holds the button and the bar is away.
               KuteBarContextScope(
                 active: !_advancedChart,
                 barContext: inPlace
-                    ? const KuteBarContext.hidden()
+                    ? (_panelSide == null
+                        ? KuteBarContext.trade(
+                            trades: const [],
+                            share: KuteBarShare(barContext: bar),
+                            category: SearchCategory.perpetuals,
+                            searchHint: context.l10n.searchInvestmentsHint,
+                            source: 'trading',
+                          )
+                        : const KuteBarContext.hidden())
                     : _tradeBar(m, spotHeld, bar),
                 child: const SizedBox.shrink(),
               ),
@@ -672,14 +845,13 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       // ticket as the side panel at the right edge, top to bottom. The
       // editor keeps the same panel in the same place (the same ticket,
       // so what is typed survives the switch), its chart to the edge.
-      _ when inPlace || editorPanel => kuteDeskPanes(
-          left: Padding(
-            padding: EdgeInsets.only(
-                left: inPlace ? kuteDeskGutter - 20 : 0,
-                right: inPlace ? 4 : 0),
-            child: column,
-          ),
-          panel: _ticketPane(m, position, spotHeld, bar),
+      _ when desk => _desk(
+          column: column,
+          editing: _advancedChart,
+          rightColumn: inPlace
+              ? _deskColumn(m, isStock, position, spotHeld)
+              : null,
+          panel: () => _ticketPane(m, position, spotHeld, bar),
         ),
       // MEDIUM (and a Ledger or send-mode page on EXPANDED): one centred
       // column; the chart editor takes the page's width.
@@ -696,11 +868,204 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
           ),
         ),
     };
-    return Scaffold(
-      backgroundColor: context.isDark ? c.gradientBottom : c.background,
-      body: Container(
-        decoration: AppDecorations.screenGradient(context),
-        child: PlatformSafeArea(child: page),
+    return PopScope(
+      // The browser's back (and the header's) closes the desk's side
+      // panel first.
+      canPop: _panelSide == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _panelSide != null) _closePanel();
+      },
+      child: Scaffold(
+        backgroundColor: context.isDark ? c.gradientBottom : c.background,
+        body: Container(
+          decoration: AppDecorations.screenGradient(context),
+          child: PlatformSafeArea(child: page),
+        ),
+      ),
+    );
+  }
+
+  /// The chart's editor opened or closed: the desk's panel is closed by
+  /// default inside it, and leaving it returns the page as it was.
+  void _onAdvancedChanged(bool on) {
+    _closePanel(instant: true);
+    setState(() => _advancedChart = on);
+  }
+
+  /// THE DESK's trade doors (kute_desk_trade_buttons.dart): Long | Short
+  /// on a perp, Buy | Sell on a spot token (Sell where one is held, as the
+  /// phone's row offers it), in the up and down colours.
+  List<KuteBarTrade> _deskTrades(HlMarket m, double spotHeld) {
+    final l10n = context.l10n;
+    return [
+      KuteBarTrade(
+        id: m.isSpot ? 'buy' : 'long',
+        label: m.isSpot ? l10n.buy : l10n.longLabel,
+        fill: AppColors.marketUp,
+        onTap: () => _openPanel(true),
+      ),
+      if (!m.isSpot || spotHeld > 0)
+        KuteBarTrade(
+          id: m.isSpot ? 'sell' : 'short',
+          label: m.isSpot ? l10n.sell : l10n.shortLabel,
+          fill: AppColors.marketDown,
+          onTap: () => _openPanel(false),
+        ),
+    ];
+  }
+
+  /// THE DESK on EXPANDED: [column] (the market: the page, or the editor
+  /// when [editing]) from the window's left edge, [rightColumn] (the page
+  /// at rest) at the right gutter, and the order ticket's side panel
+  /// ([panel]) sliding in from the right edge over the column's place
+  /// while open, the market reflowing to the rest.
+  Widget _desk({
+    required Widget column,
+    required bool editing,
+    required Widget? rightColumn,
+    required Widget Function() panel,
+  }) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final colWidth = kuteDetailPaneWidth(width - 2 * kuteDeskGutter);
+      // How much of the window's right the market leaves: the column and
+      // its gutters at rest, the panel and a gutter beside it open. The
+      // page's own 20 gutters are inside it (the editor has its own).
+      final restReserve =
+          editing ? 0.0 : colWidth + kuteWideGap + kuteDeskGutter;
+      final openReserve =
+          kuteSidePanelWidth + (editing ? 0.0 : kuteDeskGutter);
+      final inner = editing ? 0.0 : 20.0;
+      return AnimatedBuilder(
+        animation: _panelCurve,
+        builder: (context, _) {
+          final t = _panelCurve.value;
+          final reserve = restReserve + (openReserve - restReserve) * t;
+          return Stack(
+            children: [
+              Positioned(
+                left: editing ? 0 : kuteDeskGutter - inner,
+                top: 0,
+                bottom: 0,
+                right: math.max(0.0, reserve - inner),
+                child: column,
+              ),
+              if (rightColumn != null && t < 1)
+                Positioned(
+                  key: const ValueKey('hl-desk-column'),
+                  top: _deskHeaderHeight + 12.h,
+                  bottom: 0,
+                  right: kuteDeskGutter,
+                  width: colWidth,
+                  child: IgnorePointer(
+                    ignoring: t > 0,
+                    child: Opacity(
+                      opacity: (1 - t * 2).clamp(0.0, 1.0),
+                      child: rightColumn,
+                    ),
+                  ),
+                ),
+              if (t > 0)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  width: math.min(width, kuteSidePanelWidth),
+                  child: FractionalTranslation(
+                    translation: Offset(1 - t, 0),
+                    child: panel(),
+                  ),
+                ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
+  /// THE DESK's right column at rest, two across as the position page's:
+  /// the trade buttons, what is held here, the Stats as squares, then the
+  /// option cards. It scrolls on its own, clear of the floating bar.
+  Widget _deskColumn(HlMarket m, bool isStock, HlPerpPosition? position,
+      double spotHeld) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    HlSpotBalance? holding;
+    if (m.isSpot && spotHeld > 0) {
+      for (final b in ref.watch(hyperliquidSpotBalancesProvider)) {
+        if (b.coin == m.coin) holding = b;
+      }
+    }
+    final Widget? held = position != null
+        ? HlPositionRow(
+            key: ValueKey('hl-desk-position-${position.coin}'),
+            position: position)
+        : holding != null
+            ? IgnorePointer(
+                child: HlSpotRow(
+                    key: ValueKey('hl-desk-holding-${holding.coin}'),
+                    balance: holding),
+              )
+            : null;
+    final stats = hlAboutStats(ref, l10n, m);
+    Widget tile(HlStat stat) => PositionStatTile(
+          key: ValueKey('hl-desk-stat-${stat.label}'),
+          label: stat.label,
+          value: Text(stat.value,
+              maxLines: 1, style: positionTileValueStyle(c)),
+        );
+    final gap = SizedBox(height: kKuteActionCardGap.h);
+    return KuteBarPane(
+      child: SingleChildScrollView(
+        primary: false,
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.only(
+            bottom: kuteBarScrollClearance.h +
+                MediaQuery.viewPaddingOf(context).bottom),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            KuteDeskTradeButtons(
+              key: const ValueKey('hl-desk-trades'),
+              trades: _deskTrades(m, spotHeld),
+            ),
+            if (held != null) ...[
+              gap,
+              PortfolioCardList(rows: [held]),
+            ],
+            if (stats.isNotEmpty) ...[
+              gap,
+              // Arriving figures (a day's high and low, the spread) ease
+              // the squares to their new height.
+              AnimatedSize(
+                duration: kuteMotion(context, kArrivalDuration),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: Column(
+                  key: const ValueKey('hl-desk-stats'),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < stats.length; i += 2) ...[
+                      if (i > 0) gap,
+                      i + 1 < stats.length
+                          ? PositionStatTiles(
+                              left: tile(stats[i]), right: tile(stats[i + 1]))
+                          : tile(stats[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            gap,
+            KuteActionCardGrid(
+              key: const ValueKey('hl-market-options'),
+              cards: [
+                _advancedCard(),
+                _aboutCard(m, isStock, position),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -708,10 +1073,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// Bumped after a placed order (or the "OK" of one on its way) in the
   /// in-place ticket: a fresh ticket takes its place.
   int _ticketGeneration = 0;
-
-  /// The editor's side panel, opened or folded from its header; null
-  /// until the person chooses: open from [kuteEditorPanelOpensAt] wide.
-  bool? _editorPanelChoice;
 
   /// EXPANDED's right pane: the order ticket open in place
   /// ([HlOrderSlipSheet.embedded], the trade row's Invest: the buy side,
@@ -757,9 +1118,17 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
           key: ValueKey('hl-ticket-in-place-$_ticketGeneration'),
           market: m,
           entrySource: widget.source,
+          source: _panelSource,
+          isLong: _panelShownSide,
+          initialUsd: _panelUsd,
           share: KuteBarShare(barContext: bar),
+          onClose: _closePanel,
+          // Placed (or the "OK" of an order on its way): back to the page,
+          // where what is now held shows.
           onDone: () {
-            if (mounted) setState(() => _ticketGeneration++);
+            if (!mounted) return;
+            _closePanel();
+            setState(() => _ticketGeneration++);
           },
         ),
       ),
@@ -847,70 +1216,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     );
   }
 
-  /// EXPANDED (founder, 25 November 2026: "the Advanced chart button just
-  /// seems put there, should be more prominent"): "Advanced chart" is a
-  /// pill on the price row, right-aligned, the app's amount-chip face with
-  /// the candles glyph, instead of a card under the chart. Elsewhere the
-  /// price block as it was (the card stays under the chart).
-  Widget _withAdvancedPill(bool inPlace, Widget price) {
-    if (!inPlace) return price;
-    final c = context.colors;
-    final label = context.l10n.hlAdvancedChart;
-    // Bigger (founder, 25 November 2026: "advanced chart button should be
-    // bigger here also"): the bar's pill size (48 high, fully round), the
-    // candles at 20 and the label at the body-strong size. Outlined on
-    // the page's surface rather than the dark filled pill: the ticket's
-    // primary in the panel is the screen's one dark pill, and two would
-    // argue over which is the action.
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(child: price),
-        const SizedBox(width: 24),
-        Semantics(
-          button: true,
-          label: label,
-          excludeSemantics: true,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: const ValueKey('hl-advanced-chart'),
-              onTap: () => HlCandleChart.openAdvanced(_chartHostKey),
-              borderRadius: BorderRadius.circular(24),
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: c.border, width: 1),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.candlestick_chart_rounded,
-                        size: 20, color: c.textPrimary),
-                    const SizedBox(width: 10),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   /// "Advanced chart": the chart's editing mode (drawing tools,
   /// indicators).
   KuteActionCard _advancedCard() => KuteActionCard.option(
@@ -935,6 +1240,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       onTap: () {
         // The descriptions table is read while the sheet slides in.
         ref.read(hlMarketDescriptionsProvider);
+        // THE DESK: at the window's right edge, as every panel the page
+        // opens (kute_wide_frames.dart, KuteSideFlow).
+        if (kuteWindowIsExpanded(context)) KuteSideFlow.arm();
         // Once: a second tap while it slides in does not stack another.
         unawaited(OpenOnce.run(
             'hl-about:${m.wireCoin}',
@@ -952,49 +1260,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   }
 }
 
-/// The sheet behind the "About (name)" row: first what the market is (its
-/// description, [hlMarketDescription], over the venue and kind), then its
-/// Stats (label / value pairs in two columns: 24h volume, open interest,
-/// funding, maximum leverage, mark, 24h high and low, spread), then how it
-/// trades right now: the position rows, the funding payer line and
-/// countdown, the stock notice, the order book and the recent trades. Its
-/// requests (the 24h candles, the book, the trades) only run while it is
-/// open. It scrolls clear of the floating bar.
-class _HlAboutContent extends ConsumerWidget {
-  /// The row snapshot the market sheet was opened on.
-  final HlMarket market;
-  final bool isStock;
-  final HlPerpPosition? position;
-
-  /// The page's own About (EXPANDED, in place; founder, 25 November
-  /// 2026: "data here seems too compressed"): what the market is across
-  /// the pane's full width, the Stats as one band of tiles under it, the
-  /// funding line and the notice at full width, then the order book and
-  /// the recent trades side by side (stacked when the pane is too narrow
-  /// for two readable columns). False: the sheet's one column.
-  final bool wide;
-
-  const _HlAboutContent({
-    required this.market,
-    required this.isStock,
-    required this.position,
-    this.wide = false,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final m = hlSheetMarket(ref, market);
-    final position = this.position;
-    final l10n = context.l10n;
-    // Null for the moment the bundled table is still being read: the
-    // description waits rather than flashing the template first.
-    final descriptions = ref.watch(hlMarketDescriptionsProvider);
-    final description = descriptions.isLoading && !descriptions.hasValue
-        ? null
-        : hlMarketDescription(
-            l10n, m, descriptions.valueOrNull ?? const <String, String>{});
-
+/// A market's Stats as the About sheet lists them: [hlMarketStats], then
+/// the day's high and low (from the 1h x 24h candles) and the spread, as
+/// they land. Shared by the About sheet and the desk's squares.
+List<HlStat> hlAboutStats(WidgetRef ref, AppLocalizations l10n, HlMarket m) {
     // 24h high/low from the fixed 1h × 24h candle window. Spot-pair
     // candles arrive in raw pair units: rescaled onto display units like
     // the chart does.
@@ -1025,7 +1294,7 @@ class _HlAboutContent extends ConsumerWidget {
     // every 250 ms depth tick) rebuilds the sheet.
     final spreadPct = ref.watch(hyperliquidOrderbookProvider(m.wireCoin)
         .select((a) => a.valueOrNull?.spreadPct));
-    final stats = [
+    return [
       ...hlMarketStats(l10n, m),
       if (hi24 != null)
         HlStat(l10n.hl24hHigh, formatHlPrice(hi24, decimalCap: m.pxDecimalCap)),
@@ -1035,6 +1304,57 @@ class _HlAboutContent extends ConsumerWidget {
         HlStat(l10n.hlSpread,
             '${spreadPct.toStringAsFixed(spreadPct >= 0.1 ? 2 : 3)}%'),
     ];
+}
+
+/// The sheet behind the "About (name)" row: first what the market is (its
+/// description, [hlMarketDescription], over the venue and kind), then its
+/// Stats (label / value pairs in two columns: 24h volume, open interest,
+/// funding, maximum leverage, mark, 24h high and low, spread), then how it
+/// trades right now: the position rows, the funding payer line and
+/// countdown, the stock notice, the order book and the recent trades. Its
+/// requests (the 24h candles, the book, the trades) only run while it is
+/// open. It scrolls clear of the floating bar.
+class _HlAboutContent extends ConsumerWidget {
+  /// The row snapshot the market sheet was opened on.
+  final HlMarket market;
+  final bool isStock;
+  final HlPerpPosition? position;
+
+  /// The page's own About (EXPANDED, in place; founder, 25 November
+  /// 2026: "data here seems too compressed"): what the market is across
+  /// the pane's full width, the Stats as one band of tiles under it, the
+  /// funding line and the notice at full width, then the order book and
+  /// the recent trades side by side (stacked when the pane is too narrow
+  /// for two readable columns). False: the sheet's one column.
+  final bool wide;
+
+  /// False leaves the Stats out (the desk shows them as the right
+  /// column's squares).
+  final bool showStats;
+
+  const _HlAboutContent({
+    required this.market,
+    required this.isStock,
+    required this.position,
+    this.wide = false,
+    this.showStats = true,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final m = hlSheetMarket(ref, market);
+    final position = this.position;
+    final l10n = context.l10n;
+    // Null for the moment the bundled table is still being read: the
+    // description waits rather than flashing the template first.
+    final descriptions = ref.watch(hlMarketDescriptionsProvider);
+    final description = descriptions.isLoading && !descriptions.hasValue
+        ? null
+        : hlMarketDescription(
+            l10n, m, descriptions.valueOrNull ?? const <String, String>{});
+
+    final stats = showStats ? hlAboutStats(ref, l10n, m) : const <HlStat>[];
     final info = <Widget>[
                       // What it is: the description, then the venue and
                       // the kind (Perp / Spot) on one quiet line.
@@ -1071,11 +1391,13 @@ class _HlAboutContent extends ConsumerWidget {
                         ],
                       ),
                       ),
-                      SizedBox(height: wide ? 28.h : 20.h),
-                      HlStatsSection(
-                          title: l10n.investingStats,
-                          stats: stats,
-                          tiles: wide),
+                      if (showStats) ...[
+                        SizedBox(height: wide ? 28.h : 20.h),
+                        HlStatsSection(
+                            title: l10n.investingStats,
+                            stats: stats,
+                            tiles: wide),
+                      ],
                       SizedBox(height: 12.h),
                       if (position != null)
                         // Wide: the rows at a readable width, never
@@ -1305,15 +1627,25 @@ class HlCandleChart extends ConsumerStatefulWidget {
     this.showSummary = true,
     this.positionView = false,
     this.deskPanelOpen,
-    this.onToggleDeskPanel,
+    this.deskTradeButtons,
   });
 
   /// The editor on an EXPANDED window with the order ticket's side panel
-  /// beside it: whether the panel is open now, and the header's control
-  /// that opens or folds it (the chart then takes the whole width). Null:
-  /// no panel here (a Ledger's page, the position's screen).
+  /// beside it: whether the panel is open now (the back then closes the
+  /// panel, not the editor), and the Long and Short at the header's right
+  /// that open it (kute_desk_trade_buttons.dart). Null: no panel here (a
+  /// Ledger's page).
   final bool? deskPanelOpen;
-  final VoidCallback? onToggleDeskPanel;
+  final Widget? deskTradeButtons;
+
+  /// Whether the editor under [key] holds Escape itself now (a tool in
+  /// hand, a drawing selected).
+  static bool editorBusy(GlobalKey key) {
+    final state = key.currentState;
+    return state is _HlCandleChartState &&
+        state._drawingMode &&
+        (state._armedTool != null || state._selectedDrawingId != null);
+  }
 
   /// Opens the chart under [key] in Advanced (editing) mode, as its old
   /// pencil did: the host screen's "Advanced chart" row. Nothing while it
@@ -2611,22 +2943,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             const SizedBox(width: 10),
             _undoButton(c, l10n),
             _redoButton(c, l10n),
-            // The order ticket's side panel: open beside the chart, or
-            // folded so the chart takes the whole width.
-            if (widget.onToggleDeskPanel case final toggle?) ...[
-              const SizedBox(width: 6),
-              KeyedSubtree(
-                key: const ValueKey('hl-chart-edit-panel-toggle'),
-                child: _editIconButton(
-                  c,
-                  icon: widget.deskPanelOpen == true
-                      ? Icons.view_sidebar_rounded
-                      : Icons.view_sidebar_outlined,
-                  tip: l10n.betOrder,
-                  active: widget.deskPanelOpen == true,
-                  onTap: toggle,
-                ),
-              ),
+            // THE DESK: Long and Short, opening the order ticket's side
+            // panel beside the chart.
+            if (widget.deskTradeButtons case final trades?) ...[
+              const SizedBox(width: 12),
+              trades,
             ],
           ],
         );
@@ -3013,7 +3334,10 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _drawingMode) _toggleDrawingMode();
+        // The desk's side panel open: the back closes it, not the editor.
+        if (!didPop && _drawingMode && widget.deskPanelOpen != true) {
+          _toggleDrawingMode();
+        }
       },
       // The editor's keys (Escape, Delete, Cmd/Ctrl+Z); focused on open.
       child: Focus(
