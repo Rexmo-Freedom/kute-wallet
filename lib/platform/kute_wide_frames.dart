@@ -625,8 +625,8 @@ const double kuteDeskListMaxWidth = 960;
 // window: "lots of screens are vertical only. It must be all occupying
 // full screen when we can." Round one's rule (every pushed page a centred
 // [KuteFormColumn]) holds on MEDIUM only. On EXPANDED a page spans the
-// window: page gutters of [kuteWideGutter], at most
-// [KuteLayout.pageMaxWidth] for a reading page, its content arranged in
+// window: page gutters of [kuteWideGutter] (the top bar's), no width cap
+// ([kuteWideMaxWidth]; a readable measure inside it), its content arranged in
 // COLUMNS ([KuteColumns]) and GRIDS ([KuteGrid], [SliverKuteGrid]) of the
 // existing cards and rows, so no row, card or button is stretched and no
 // half of the window is empty. A rows card stays about 360-560 wide, prose
@@ -662,8 +662,18 @@ enum KuteWideMode {
   own,
 }
 
-/// A full page's side gutter on EXPANDED.
-const double kuteWideGutter = 32;
+/// A full page's side gutter on EXPANDED: the desktop top bar's
+/// ([kuteDeskGutter]), so a page's back button and its last column stand
+/// on the bar's logo and its last button (founder, 25 November 2026:
+/// "make it full screen also").
+const double kuteWideGutter = kuteDeskGutter;
+
+/// A full page's content width on EXPANDED: no cap, the window between
+/// its gutters at any width (founder, 25 November 2026, of pages centred
+/// at [KuteLayout.pageMaxWidth] on a 2000 window: "why is this one not
+/// full screen also?"). A page with a readable measure (a form, prose, a
+/// pair of rows cards) passes its own `maxWidth`.
+const double kuteWideMaxWidth = double.infinity;
 
 /// The least width of a column of rows or cards on EXPANDED: three
 /// columns from a window of about 1200, two under it.
@@ -684,25 +694,27 @@ bool kuteIsExpanded(BuildContext context) =>
 /// The horizontal padding that centres a full page's content at
 /// [maxWidth] with at least [kuteWideGutter] at its sides, for a scroll
 /// view's own padding (the whole window scrolls, the content stays in the
-/// page). [width] is the page's width.
+/// page). [width] is the page's width. By default the content runs from
+/// gutter to gutter ([kuteWideMaxWidth]).
 EdgeInsets kuteWidePaddingFor(double width,
-    {double maxWidth = KuteLayout.pageMaxWidth}) {
+    {double maxWidth = kuteWideMaxWidth}) {
   final side = math.max(kuteWideGutter, (width - maxWidth) / 2);
   return EdgeInsets.symmetric(horizontal: side);
 }
 
 /// [kuteWidePaddingFor] for [context]'s width.
 EdgeInsets kuteWidePadding(BuildContext context,
-        {double maxWidth = KuteLayout.pageMaxWidth}) =>
+        {double maxWidth = kuteWideMaxWidth}) =>
     kuteWidePaddingFor(MediaQuery.sizeOf(context).width, maxWidth: maxWidth);
 
-/// A full page's content on EXPANDED: centred at [maxWidth] inside the
-/// page gutters ([kuteWidePadding]). Elsewhere [child] as it is.
+/// A full page's content on EXPANDED: inside the page gutters
+/// ([kuteWidePadding]), centred at [maxWidth] when it has one. Elsewhere
+/// [child] as it is.
 class KuteWidePage extends StatelessWidget {
   const KuteWidePage({
     super.key,
     required this.child,
-    this.maxWidth = KuteLayout.pageMaxWidth,
+    this.maxWidth = kuteWideMaxWidth,
   });
 
   final Widget child;

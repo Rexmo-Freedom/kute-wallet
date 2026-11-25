@@ -20,9 +20,12 @@ import 'package:kute/platform/kute_wide_frames.dart';
 
 /// The right pane's width for a page's content of [width]: about 42% of
 /// it, between 400 and 480 (a rows card stays readable, the left pane
-/// keeps the larger share).
-double kuteDetailPaneWidth(double width) =>
-    ((width - kuteWideGap) * 0.42).clamp(400.0, 480.0).toDouble();
+/// keeps the larger share); on a window past about 1800 (the page runs
+/// gutter to gutter, kuteWideMaxWidth) it grows a little with the window,
+/// to 520, the hero taking the rest.
+double kuteDetailPaneWidth(double width) => math.max(
+    ((width - kuteWideGap) * 0.42).clamp(400.0, 480.0).toDouble(),
+    math.min(520.0, width * 0.27));
 
 /// [hero] on the left, [details] on the right (see the file header), top
 /// aligned. [heroMaxWidth]: the hero centred at that width in its pane (a
