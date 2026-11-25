@@ -194,6 +194,9 @@ class _KuteDesktopTopBar extends StatelessWidget {
   /// tooltips (never a second row).
   static const double _labelsMinWidth = 1280;
 
+  /// The same on Dollars, whose row has a fifth pill (Portfolio).
+  static const double _labelsMinWidthDollars = 1400;
+
   @override
   Widget build(BuildContext context) {
     final window = kuteWindowWidth(context);
@@ -256,7 +259,10 @@ class _KuteDesktopTopBar extends StatelessWidget {
                       children: [
                         KuteDesktopMoney.actions(
                             activeTab: activeTab,
-                            labels: window >= _labelsMinWidth),
+                            labels: window >=
+                                (activeTab == ActiveNavTab.usd
+                                    ? _labelsMinWidthDollars
+                                    : _labelsMinWidth)),
                         const SizedBox(width: 16),
                         _FinancialHubButton(activeTab: activeTab),
                       ],

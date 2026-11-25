@@ -15,11 +15,12 @@
 //
 //   * Dollars: the one-balance total ([InvestmentBalanceHeader.
 //     oneBalanceFigure]: rolling, dimmed with the stale sweep while saved,
-//     dots with balances hidden) with the Portfolio arrow after it, and
-//     under it on one small line what the phone's hero writes there
-//     ([OneBalancePnlAvailableLine]: "▲ $3.00 (+1.5%) · Available $25.00").
-//     A tap opens the Portfolio, as the hero's does. Its actions: Buy
-//     dollars · Move · Receive · Send ([UsdAccountActionBar.moneyActions]).
+//     dots with balances hidden) and under it on one small line what the
+//     phone's hero writes there ([OneBalancePnlAvailableLine]:
+//     "▲ $3.00 (+1.5%) · Available $25.00"). The figure is not a button
+//     (founder, 25 November 2026: "not in number clicking"). Its actions:
+//     Portfolio · Buy dollars · Move · Receive · Send (the Portfolio's
+//     door beside Buy dollars, then [UsdAccountActionBar.moneyActions]).
 //   * Bitcoin: the ₿ balance with its fiat line under it, as the hero
 //     draws them (the shimmer while the wallet wakes up, dots with balances
 //     hidden); a tap cycles the balances' privacy, as the hero's does. Its
@@ -60,9 +61,7 @@ import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
     show bitcoinHomeDockActions;
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show KutePressScale;
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/portfolio_arrow_glyph.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
@@ -109,7 +108,13 @@ class KuteDesktopMoney extends ConsumerWidget {
           'usd',
           _actions
               ? KuteTopBarActions(
-                  actions: UsdAccountActionBar.moneyActions(context),
+                  // The Portfolio's door stands beside Buy dollars
+                  // (founder, 25 November 2026: "on web put the portfolio
+                  // button next to buy dollars"), then the phone's four.
+                  actions: [
+                    UsdAccountActionBar.portfolioAction(context),
+                    ...UsdAccountActionBar.moneyActions(context),
+                  ],
                   source: kUsdSurfaceSource,
                   labels: labels)
               : const _DollarsTopBalance(),
@@ -165,48 +170,38 @@ class _DollarsTopBalance extends ConsumerWidget {
     String amount(double value) => visible ? formatDollars(value) : '••••••';
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
     final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
-    return Semantics(
-      button: true,
-      child: KutePressScale(
-        key: const ValueKey('top-bar-dollars-balance'),
-        onTap: () => UsdAccountActionBar.openPortfolioFromBalance(context),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                StaleShimmer(
-                  stale: figure.stale,
-                  child: RollingNumberText(
-                    text: figure.text,
-                    style: TextStyle(
-                      fontSize: _kFigure,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                      height: 1.0,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      color: figure.stale ? c.textSecondary : c.textPrimary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                PortfolioArrowGlyph(color: c.textTertiary, size: 22),
-              ],
+    // The figure is read, not pressed: the Portfolio opens from its own
+    // button beside Buy dollars (founder, 25 November 2026: "and not in
+    // number clicking").
+    return Column(
+      key: const ValueKey('top-bar-dollars-balance'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StaleShimmer(
+          stale: figure.stale,
+          child: RollingNumberText(
+            text: figure.text,
+            style: TextStyle(
+              fontSize: _kFigure,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+              height: 1.0,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              color: figure.stale ? c.textSecondary : c.textPrimary,
             ),
-            const SizedBox(height: 3),
-            SizedBox(
-              width: _kDollarsLineWidth,
-              child: OneBalancePnlAvailableLine(
-                available: amount(split.availableUsd),
-                availableLabel: context.l10n.available,
-                stale: split.stale,
-                fontSize: _kLine,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 3),
+        SizedBox(
+          width: _kDollarsLineWidth,
+          child: OneBalancePnlAvailableLine(
+            available: amount(split.availableUsd),
+            availableLabel: context.l10n.available,
+            stale: split.stale,
+            fontSize: _kLine,
+          ),
+        ),
+      ],
     );
   }
 }

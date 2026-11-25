@@ -215,7 +215,8 @@ import 'package:kute/platform/kute_wide_frames.dart'
         kuteDeskNavGap,
         kuteDeskNavMinWidth,
         kuteDeskNavWidthFor,
-        kuteTopBarHeight;
+        kuteTopBarHeight,
+        kuteWindowIsExpanded;
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
@@ -1747,7 +1748,9 @@ class UsdAccountActionBar extends ConsumerWidget {
   static KuteBarContext barContext(BuildContext context, InvestmentsTab tab) {
     final l10n = context.l10n;
     final target = searchTarget(tab);
-    if (tab == InvestmentsTab.activity) {
+    // A laptop's top bar carries the Portfolio's own button beside Buy
+    // dollars ([portfolioAction]), so the bar is the search pill there.
+    if (tab == InvestmentsTab.activity && !kuteWindowIsExpanded(context)) {
       return KuteBarContext.primary(
         label: l10n.seeFullPortfolioAndActivity,
         onPrimary: () {
@@ -1794,6 +1797,17 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// keys `receive` and `send`, so the events read as before: Receive is
   /// money into Dollars (from Bitcoin or another wallet), Send is Dollars
   /// out, to Bitcoin or sent on as a coin to another wallet.
+  /// The Portfolio's door for the laptop's top bar, beside Buy dollars
+  /// (founder, 25 November 2026): the bar's own "See full portfolio and
+  /// activity" as a pill, the same `quick_action_tapped` `portfolio` the
+  /// bar sends (the pill reports [portfolioActionId] from its source).
+  static KuteDockAction portfolioAction(BuildContext context) => KuteDockAction(
+        icon: Icons.pie_chart_outline_rounded,
+        label: context.l10n.walletPortfolioAction,
+        trackingId: portfolioActionId,
+        onTap: () => openPortfolioScreen(context),
+      );
+
   static List<KuteDockAction> moneyActions(BuildContext context) => [
         // First, the solid square (founder, 2 November 2026: Buy dollars
         // black).

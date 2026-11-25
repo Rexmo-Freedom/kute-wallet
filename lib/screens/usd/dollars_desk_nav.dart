@@ -55,7 +55,13 @@ typedef DollarsDeskNavSection = ({
 /// The left navigation: the [sections], and under the picked one its
 /// [categories] (the tree of [InvestmentsCategoryChips], or null for a
 /// section with none, the Overview).
-class DollarsDeskNav extends StatelessWidget {
+///
+/// The open section can be CLOSED again (founder, 25 November 2026: "allow
+/// to close things like Investing please. We need to be able to close"): a
+/// click on it folds its categories away and a second click brings them
+/// back, a chevron at the row's end saying which; picking another section
+/// opens that one. What is picked does not change by closing.
+class DollarsDeskNav extends StatefulWidget {
   const DollarsDeskNav({
     super.key,
     required this.sections,
@@ -83,6 +89,28 @@ class DollarsDeskNav extends StatelessWidget {
   }
 
   @override
+  State<DollarsDeskNav> createState() => _DollarsDeskNavState();
+}
+
+class _DollarsDeskNavState extends State<DollarsDeskNav> {
+  /// The section folded shut, by its item's key; null, the picked one is
+  /// open.
+  Key? _closed;
+
+  List<DollarsDeskNavSection> get sections => widget.sections;
+  Widget? get categories => widget.categories;
+  double get top => widget.top;
+
+  void _tap(DollarsDeskNavSection s) {
+    if (s.selected && categories != null) {
+      setState(() => _closed = _closed == s.key ? null : s.key);
+      return;
+    }
+    if (_closed != null) setState(() => _closed = null);
+    s.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(
@@ -102,7 +130,8 @@ class DollarsDeskNav extends StatelessWidget {
         primary: false,
         padding: EdgeInsets.only(
             top: top,
-            bottom: bottomRoom + MediaQuery.viewPaddingOf(context).bottom),
+            bottom: DollarsDeskNav.bottomRoom +
+                MediaQuery.viewPaddingOf(context).bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -112,16 +141,21 @@ class DollarsDeskNav extends StatelessWidget {
                 key: s.key,
                 label: s.label,
                 selected: s.selected,
-                onTap: s.onTap,
+                onTap: () => _tap(s),
                 level: 0,
-                leading: switch (_sectionId(s.key)) {
+                open: s.selected && categories != null
+                    ? _closed != s.key
+                    : null,
+                leading: switch (DollarsDeskNav._sectionId(s.key)) {
                   final id? => deskNavSectionIcon(id),
                   null => null,
                 },
-                // The open section's categories carry the surface.
-                ancestor: s.selected && categories != null,
+                // The open section's categories carry the surface; shut,
+                // the section wears it itself.
+                ancestor:
+                    s.selected && categories != null && _closed != s.key,
               ),
-              if (s.selected && categories != null)
+              if (s.selected && categories != null && _closed != s.key)
                 Padding(
                   padding: const EdgeInsets.only(top: 4, bottom: 8),
                   child: categories,
@@ -150,7 +184,13 @@ class DollarsDeskNavItem extends StatefulWidget {
     this.trailing,
     this.ancestor = false,
     this.leading,
+    this.open,
   });
+
+  /// A row that folds what is under it: true, open (a chevron down at
+  /// its end); false, shut (a chevron to the side); null, nothing to
+  /// fold.
+  final bool? open;
 
   final String label;
   final bool selected;
@@ -263,6 +303,17 @@ class _DollarsDeskNavItemState extends State<DollarsDeskNavItem> {
               style: style,
             ),
           ),
+          if (widget.open != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Icon(
+                widget.open!
+                    ? Icons.expand_more_rounded
+                    : Icons.chevron_right_rounded,
+                size: 18,
+                color: style.color,
+              ),
+            ),
           if (trailing != null)
             MouseRegion(
               cursor: SystemMouseCursors.click,

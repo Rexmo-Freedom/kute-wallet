@@ -2407,6 +2407,9 @@ class _InvestmentsCategoryChipsState
     );
   }
 
+  /// The category folded shut in the tree, by its chip's key.
+  Key? _closedParent;
+
   /// The chips as the left navigation's tree (see [tree]): the second
   /// row under the category it opens (the picked Investing category, the
   /// picked Predictions topic), indented.
@@ -2421,14 +2424,24 @@ class _InvestmentsCategoryChipsState
     final rows = [for (final c in top) if (c.key != editKey) c];
     var hung = false;
     final subPicked = second.any((c) => c.selected);
+    // The open category folds shut on a second click and opens on the
+    // next (as the section over it does, dollars_desk_nav.dart); what is
+    // picked stays picked.
+    final shut = second.isNotEmpty && _closedParent == parent;
+    bool folds(_Chip c, int level) =>
+        level == 1 && c.key == parent && second.isNotEmpty;
     DollarsDeskNavItem item(_Chip c, int level) => DollarsDeskNavItem(
           key: c.key,
           label: c.label,
           selected: c.selected,
-          onTap: c.onTap,
+          onTap: folds(c, level)
+              ? () => setState(
+                  () => _closedParent = shut ? null : parent)
+              : c.onTap,
           level: level,
           leading: c.lead,
-          ancestor: level == 1 && c.key == parent && subPicked,
+          open: folds(c, level) ? !shut : null,
+          ancestor: level == 1 && c.key == parent && subPicked && !shut,
           trailing: edit != null &&
                   c.key == const ValueKey('category-chip-watchlist')
               ? (key: edit.key, label: edit.label, onTap: edit.onTap)
@@ -2439,8 +2452,10 @@ class _InvestmentsCategoryChipsState
       children.add(item(c, 1));
       if (c.key == parent && second.isNotEmpty) {
         hung = true;
-        for (final s in second) {
-          children.add(item(s, 2));
+        if (!shut) {
+          for (final s in second) {
+            children.add(item(s, 2));
+          }
         }
       }
     }
