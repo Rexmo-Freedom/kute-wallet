@@ -114,7 +114,8 @@ const Map<String, DeskNavMark> kDeskNavMarks = {
   'poly:sports': DeskNavMark.glyph('$_kTags/sports.svg'),
   'poly:crypto': DeskNavMark.glyph('$_kTags/crypto.svg'),
   'poly:esports': DeskNavMark.glyph('$_kTags/esports.svg'),
-  'poly:finance': DeskNavMark.glyph('$_kTags/finance.svg'),
+  // Polymarket's Finance glyph is its Politics building again.
+  'poly:finance': DeskNavMark.icon(Icons.paid_outlined),
   'poly:geopolitics': DeskNavMark.glyph('$_kTags/geopolitics.svg'),
   'poly:tech': DeskNavMark.glyph('$_kTags/tech.svg'),
   'poly:elections': DeskNavMark.glyph('$_kTags/elections.svg'),
