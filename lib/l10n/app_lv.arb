@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Atcelts. Nauda paliek Investēšanā, pieejama.",
   "standingPriceMoved": "Cena mainījās uz {price}. Pieskaries, lai iesniegtu par jauno cenu.",
   "standingStagePlacing": "Iesniedzam",
-  "standingStageApproval": "Vajag tavu apstiprinājumu"
+  "standingStageApproval": "Vajag tavu apstiprinājumu",
+  "activityDollarsYield": "Dolāru ienesīgums"
 }

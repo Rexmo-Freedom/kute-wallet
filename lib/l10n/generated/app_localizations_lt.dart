@@ -14529,4 +14529,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Reikia tavo patvirtinimo';
+
+  @override
+  String get activityDollarsYield => 'Dolerių grąža';
 }

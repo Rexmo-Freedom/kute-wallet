@@ -806,6 +806,10 @@ class SettingsModel extends StateNotifier<Settings> {
       if (Hive.isBoxOpen('wallet_transaction_cache')) {
         await Hive.box<String>('wallet_transaction_cache').delete(walletId);
       }
+      // The wallet's Dollars yield payouts go with its activity.
+      if (Hive.isBoxOpen('dollars_yield_ledger')) {
+        await Hive.box<String>('dollars_yield_ledger').delete(walletId);
+      }
     } catch (_) {}
   }
 

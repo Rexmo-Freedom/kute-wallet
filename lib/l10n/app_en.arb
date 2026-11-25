@@ -12646,5 +12646,9 @@
   "standingStageApproval": "Needs your approval",
   "@standingStageApproval": {
     "description": "Overview card line for a prediction or order stopped because the price moved past what was approved; it waits for the person. Short."
+  },
+  "activityDollarsYield": "Dollars yield",
+  "@activityDollarsYield": {
+    "description": "Activity row and receipt title for the daily reward paid on the Dollars balance (the person's dollar balance); the reward arrives as bitcoin in the Bitcoin activity. \"Yield\" is the interest or return paid on a balance, not a crop or giving way. Use this language's existing word for the Dollars balance. Short: one line on a 375 pt phone."
   }
 }

@@ -14471,4 +14471,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Kræver din godkendelse';
+
+  @override
+  String get activityDollarsYield => 'Afkast på Dollars';
 }

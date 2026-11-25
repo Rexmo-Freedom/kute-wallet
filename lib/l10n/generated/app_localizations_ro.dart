@@ -14543,4 +14543,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Necesită aprobarea ta';
+
+  @override
+  String get activityDollarsYield => 'Randament din Dolari';
 }

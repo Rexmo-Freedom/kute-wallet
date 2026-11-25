@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Cancelado. El dinero se queda en Inversión, disponible.",
   "standingPriceMoved": "El precio pasó a {price}. Toca para colocar al nuevo precio.",
   "standingStagePlacing": "Colocando",
-  "standingStageApproval": "Necesita tu aprobación"
+  "standingStageApproval": "Necesita tu aprobación",
+  "activityDollarsYield": "Rendimiento de Dólares"
 }

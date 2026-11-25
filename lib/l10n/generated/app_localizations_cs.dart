@@ -14463,4 +14463,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Čeká na vaše schválení';
+
+  @override
+  String get activityDollarsYield => 'Výnos z Dolarů';
 }

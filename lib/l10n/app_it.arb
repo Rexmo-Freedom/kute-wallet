@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Annullato. I soldi restano in Investimenti, disponibili.",
   "standingPriceMoved": "Il prezzo è passato a {price}. Tocca per piazzare al nuovo prezzo.",
   "standingStagePlacing": "Piazzamento",
-  "standingStageApproval": "Serve la tua approvazione"
+  "standingStageApproval": "Serve la tua approvazione",
+  "activityDollarsYield": "Rendimento dei Dollari"
 }

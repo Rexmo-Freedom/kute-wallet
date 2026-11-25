@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Ακυρώθηκε. Τα χρήματα μένουν στις Επενδύσεις, διαθέσιμα.",
   "standingPriceMoved": "Η τιμή πήγε στο {price}. Πάτησε για να τοποθετήσεις στη νέα τιμή.",
   "standingStagePlacing": "Τοποθετείται",
-  "standingStageApproval": "Χρειάζεται την έγκρισή σου"
+  "standingStageApproval": "Χρειάζεται την έγκρισή σου",
+  "activityDollarsYield": "Απόδοση Δολαρίων"
 }

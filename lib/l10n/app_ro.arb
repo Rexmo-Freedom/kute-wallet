@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Anulat. Banii rămân în Investiții, disponibili.",
   "standingPriceMoved": "Prețul a ajuns la {price}. Atinge pentru a plasa la noul preț.",
   "standingStagePlacing": "Se plasează",
-  "standingStageApproval": "Necesită aprobarea ta"
+  "standingStageApproval": "Necesită aprobarea ta",
+  "activityDollarsYield": "Randament din Dolari"
 }

@@ -14528,4 +14528,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Precisa da sua aprovação';
+
+  @override
+  String get activityDollarsYield => 'Rendimento de Dólares';
 }

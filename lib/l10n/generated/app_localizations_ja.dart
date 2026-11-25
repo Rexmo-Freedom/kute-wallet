@@ -14010,4 +14010,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get standingStageApproval => '承認が必要です';
+
+  @override
+  String get activityDollarsYield => 'ドルの利回り';
 }

@@ -14458,4 +14458,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Vajab sinu kinnitust';
+
+  @override
+  String get activityDollarsYield => 'Dollarite tootlus';
 }

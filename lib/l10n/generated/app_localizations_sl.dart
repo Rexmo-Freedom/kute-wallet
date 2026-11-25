@@ -14517,4 +14517,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Potrebna je tvoja odobritev';
+
+  @override
+  String get activityDollarsYield => 'Donos od Dolarjev';
 }

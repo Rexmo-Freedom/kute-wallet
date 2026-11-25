@@ -14505,4 +14505,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Jóváhagyásodra vár';
+
+  @override
+  String get activityDollarsYield => 'Dollárhozam';
 }

@@ -5,6 +5,8 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
+import 'package:kute/providers/dollars_yield_provider.dart'
+    show dollarsYieldSyncProvider;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
@@ -455,6 +457,9 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     // soon as they turn redeemable (user decision: auto-claim is back,
     // the Claim tap is no longer required).
     ref.read(claimAutoFireProvider);
+    // Names the Dollars yield payouts in the Bitcoin activity: reads the
+    // spending wallet's payout ledger when its activity changes.
+    ref.read(dollarsYieldSyncProvider);
     // The venue sweeper — reads and classifies venue cash on close,
     // claim, cancel, resume and heartbeat so the Portfolio follows it;
     // nothing moves on its own (cash comes home only from Rebalance,

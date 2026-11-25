@@ -12,6 +12,8 @@ import 'package:kute/providers/hyperliquid_watchlist_provider.dart'
     show HlWatchlistNotifier;
 import 'package:kute/services/branta/branta_payee_records.dart';
 import 'package:kute/services/device_currency.dart';
+import 'package:kute/services/dollars_yield.dart'
+    show DollarsYieldLedgerStore;
 import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -73,6 +75,9 @@ Future<void> openStartupHiveBoxes(
   //  * branta_payees_v1 — the payee Branta verified for a send, by the
   //    payment's ids (name, logo URL, when, rail), read synchronously by
   //    the activity rows (branta_payee_records.dart).
+  //  * dollars_yield_ledger — the paid Dollars yield payouts per wallet,
+  //    read synchronously so the activity labels them at launch
+  //    (dollars_yield.dart).
   //  * settings — pre-opened here (was opened lazily by
   //    initialSettingsProvider on the splash critical path; opening it
   //    in this parallel batch removes that sequential cost — openBox
@@ -112,6 +117,7 @@ Future<void> openStartupHiveBoxes(
     _openHiveBoxSafe<String>(ShareLinksStore.boxName),
     _openHiveBoxSafe<String>(HiveRuntimePolicySnapshotStore.boxName),
     _openHiveBoxSafe<String>(BrantaPayeeRecordStore.boxName),
+    _openHiveBoxSafe<String>(DollarsYieldLedgerStore.boxName),
     // Settings box: plain open, NOT _openHiveBoxSafe — the safe variant
     // deletes a corrupt box from disk, which is right for cache-tier
     // boxes but would silently wipe the WALLET LIST here. A failed open

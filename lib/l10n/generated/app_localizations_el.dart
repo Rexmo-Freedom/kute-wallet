@@ -14569,4 +14569,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Χρειάζεται την έγκρισή σου';
+
+  @override
+  String get activityDollarsYield => 'Απόδοση Δολαρίων';
 }

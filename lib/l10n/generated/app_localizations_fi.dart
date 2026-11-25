@@ -14497,4 +14497,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Vaatii hyväksyntäsi';
+
+  @override
+  String get activityDollarsYield => 'Dollarien tuotto';
 }

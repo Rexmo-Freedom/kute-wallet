@@ -14427,4 +14427,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Needs your approval';
+
+  @override
+  String get activityDollarsYield => 'Dollars yield';
 }

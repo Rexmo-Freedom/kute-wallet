@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "キャンセルしました。資金は投資に残り、利用できます。",
   "standingPriceMoved": "価格が{price}に変わりました。タップすると新しい価格で発注します。",
   "standingStagePlacing": "発注中",
-  "standingStageApproval": "承認が必要です"
+  "standingStageApproval": "承認が必要です",
+  "activityDollarsYield": "ドルの利回り"
 }

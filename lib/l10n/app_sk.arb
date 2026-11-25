@@ -4086,5 +4086,6 @@
   "standingOrderCancelled": "Zrušené. Peniaze zostávajú v Investovaní, k dispozícii.",
   "standingPriceMoved": "Cena sa zmenila na {price}. Ťuknutím zadáte za novú cenu.",
   "standingStagePlacing": "Zadávame",
-  "standingStageApproval": "Čaká na vaše schválenie"
+  "standingStageApproval": "Čaká na vaše schválenie",
+  "activityDollarsYield": "Výnos z Dolárov"
 }

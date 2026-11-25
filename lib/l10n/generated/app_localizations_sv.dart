@@ -14465,4 +14465,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Behöver ditt godkännande';
+
+  @override
+  String get activityDollarsYield => 'Avkastning på Dollar';
 }

@@ -14489,4 +14489,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get standingStageApproval => 'Нужно е твоето одобрение';
+
+  @override
+  String get activityDollarsYield => 'Доходност от Долари';
 }

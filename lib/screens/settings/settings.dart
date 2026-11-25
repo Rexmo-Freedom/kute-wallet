@@ -17,6 +17,8 @@ import 'package:kute/helpers/session_auth.dart';
 import 'package:kute/helpers/auth_grant.dart' show SensitiveAction;
 import 'package:kute/helpers/require_fresh_auth.dart'
     show approveLocalAction, biometricsToggleIntent;
+import 'package:kute/providers/dollars_yield_provider.dart'
+    show dollarsYieldPaymentIdsProvider;
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/constants/feature_flags.dart' show showAnalyticsOptOut;
 import 'package:kute/services/secure/biometric_pin_policy.dart';
@@ -1224,6 +1226,8 @@ class _SettingsState extends ConsumerState<Settings> {
       }
 
       final (periodStart, periodEnd) = _resolveExportPeriod(period);
+      // The rows the activity titles "Dollars yield" read so in the file.
+      final dollarsYieldIds = ref.read(dollarsYieldPaymentIdsProvider);
 
       // Build the report
       statusNotifier.value = l10n.exportBuildingReport;
@@ -1240,6 +1244,7 @@ class _SettingsState extends ConsumerState<Settings> {
           periodStart: periodStart,
           periodEnd: periodEnd,
           l10n: l10n,
+          dollarsYieldIds: dollarsYieldIds,
         );
       } else {
         await TransactionPdfExport.exportCsv(
@@ -1250,6 +1255,7 @@ class _SettingsState extends ConsumerState<Settings> {
           hlFills: hlFills,
           periodStart: periodStart,
           periodEnd: periodEnd,
+          dollarsYieldIds: dollarsYieldIds,
         );
       }
 
