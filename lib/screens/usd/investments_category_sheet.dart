@@ -255,6 +255,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, kutePillRowHeight;
 import 'package:kute/screens/usd/dollars_desk_nav.dart'
     show DollarsDeskNavItem;
+import 'package:kute/screens/usd/dollars_desk_nav_icons.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -2211,7 +2212,15 @@ class InvestmentsCategoryChips extends ConsumerStatefulWidget {
       _InvestmentsCategoryChipsState();
 }
 
-typedef _Chip = ({Key key, String label, bool selected, VoidCallback onTap});
+/// One chip; [lead] is its icon in the left navigation's tree
+/// (dollars_desk_nav_icons.dart), which the chip rows never draw.
+typedef _Chip = ({
+  Key key,
+  String label,
+  bool selected,
+  VoidCallback onTap,
+  Widget? lead,
+});
 
 class _InvestmentsCategoryChipsState
     extends ConsumerState<InvestmentsCategoryChips>
@@ -2242,6 +2251,7 @@ class _InvestmentsCategoryChipsState
           label: label,
           selected: sel.tab == t,
           onTap: () => _tap((c) => _writeHl(c, t, HlBrowseSub.all)),
+          lead: deskNavHlTabIcon(t),
         );
     final top = <_Chip>[
       if (onOffer.contains(HlBrowseTab.trending))
@@ -2254,6 +2264,7 @@ class _InvestmentsCategoryChipsState
             label: l10n.edit,
             selected: false,
             onTap: () => unawaited(_watchlist()),
+            lead: null,
           ),
       ] else if (onOffer.isNotEmpty)
         (
@@ -2261,6 +2272,7 @@ class _InvestmentsCategoryChipsState
           label: l10n.hlWatchlistCreate,
           selected: false,
           onTap: () => unawaited(_watchlist()),
+          lead: const DeskNavIcon('hl:watchlist-create'),
         ),
       for (final t in onOffer)
         if (t != HlBrowseTab.trending && t != HlBrowseTab.watchlist)
@@ -2276,6 +2288,7 @@ class _InvestmentsCategoryChipsState
           label: l10n.categoryAllOf(sel.tab.localizedLabel(l10n)),
           selected: sel.sub == HlBrowseSub.all,
           onTap: () => _tap((c) => _writeHl(c, sel.tab, HlBrowseSub.all)),
+          lead: deskNavHlSubIcon(HlBrowseSub.all),
         ),
         for (final s in subs)
           (
@@ -2283,6 +2296,7 @@ class _InvestmentsCategoryChipsState
             label: s.localizedLabel(l10n),
             selected: sel.sub == s,
             onTap: () => _tap((c) => _writeHl(c, sel.tab, s)),
+            lead: deskNavHlSubIcon(s),
           ),
       ],
     ];
@@ -2306,6 +2320,7 @@ class _InvestmentsCategoryChipsState
           selected: selected ?? sel.pill == p,
           onTap: () =>
               _tap((c) => _writePoly(c, p, PolySub(p.defaultSub))),
+          lead: deskNavPolyPillIcon(p),
         );
     final top = <_Chip>[
       pill(PolyPill.trending,
@@ -2319,6 +2334,7 @@ class _InvestmentsCategoryChipsState
           onTap: () => _tap((c) => _writePoly(
               c, PolyPill.crypto, _kFiveMinuteSub,
               surface: 'five_minute_card', also: _fiveMinuteWindow)),
+          lead: const DeskNavIcon('poly:five-minute'),
         ),
       if (pills.contains(PolyPill.watchlist)) pill(PolyPill.watchlist),
       for (final p in pills)
@@ -2333,6 +2349,8 @@ class _InvestmentsCategoryChipsState
             selected:
                 sel.pill == PolyPill.trending && sel.sub == s.key,
             onTap: () => _tap((c) => _writePoly(c, PolyPill.trending, s)),
+            lead: deskNavPolySubIcon(
+                PolyPill.trending, s, polySubLabel(l10n, s)),
           ),
     ];
     final p = sel.pill;
@@ -2357,6 +2375,7 @@ class _InvestmentsCategoryChipsState
               : polySubLabel(l10n, s),
           selected: sel.subOf(p) == s.key,
           onTap: () => _tap((c) => _writePoly(c, p, s)),
+          lead: deskNavPolySubIcon(p, s, polySubLabel(l10n, s)),
         ),
     ];
     return (top, second);
@@ -2408,6 +2427,7 @@ class _InvestmentsCategoryChipsState
           selected: c.selected,
           onTap: c.onTap,
           level: level,
+          leading: c.lead,
           ancestor: level == 1 && c.key == parent && subPicked,
           trailing: edit != null &&
                   c.key == const ValueKey('category-chip-watchlist')
