@@ -71,9 +71,43 @@ import '../../helpers/shell_bar_harness.dart';
 
 const _renderOut = String.fromEnvironment('LADDER_RENDER_OUT');
 
-Map<String, dynamic> _raw(String name) => jsonDecode(
-        File('test/fixtures/polymarket_games/$name.json').readAsStringSync())
-    as Map<String, dynamic>;
+/// The fixtures read before their games (on 12 November 2026, kicking off
+/// on 25 and 26 November). Their pages are a game still to come: the
+/// rules card says when it ends. Read against the real clock they turned
+/// into a game under way once those days passed (the rules card then says
+/// "How it resolves"), so they are moved to today as if read today, their
+/// own dates the same distance apart. The fixtures read after their games
+/// (Liversedge, Dynamo in August) are pages of a game past and stay put.
+const _readBeforeTheGame = {
+  'ucl_sabah_barcelona_total_corners',
+  'ucl_shakhtar_fenerbahce',
+  'ucl_shakhtar_fenerbahce_total_corners',
+};
+final _readOn = DateTime.utc(2026, 11, 12);
+
+/// [json]'s dates ("2026-11-25T17:45:00Z", "2026-11-25 17:45:00+00") moved
+/// by whole days so that 12 November 2026 is today: times of day kept.
+String _asIfReadToday(String json) {
+  final now = DateTime.now().toUtc();
+  final days = DateTime.utc(now.year, now.month, now.day)
+      .difference(_readOn)
+      .inDays;
+  return json.replaceAllMapped(
+      RegExp(r'(\d{4}-\d{2}-\d{2})([T ])(\d{2}:\d{2}:\d{2})(Z|\+00)'),
+      (m) {
+    final at = DateTime.parse('${m[1]}T${m[3]}Z').add(Duration(days: days));
+    final day = at.toIso8601String().substring(0, 10);
+    return '$day${m[2]}${m[3]}${m[4]}';
+  });
+}
+
+Map<String, dynamic> _raw(String name) {
+  final json =
+      File('test/fixtures/polymarket_games/$name.json').readAsStringSync();
+  return jsonDecode(
+          _readBeforeTheGame.contains(name) ? _asIfReadToday(json) : json)
+      as Map<String, dynamic>;
+}
 
 PolymarketEvent _parse(Map<String, dynamic> raw) =>
     PolymarketModel().parseEventsRaw([raw]).single;
