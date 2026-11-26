@@ -6,7 +6,8 @@
 // [hiveBoxesKeptOnWipe]; test/services/hive_wipe_test.dart scans lib for
 // box names and fails on one that is in neither.
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kIsWeb, visibleForTesting;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/hive_boot.dart';
@@ -125,10 +126,33 @@ const List<String> hiveBoxesWipedOnWipe = [
 /// box open for the process are told to forget it, and the startup boxes
 /// are opened again (empty) so code that expects them open keeps working
 /// until the process restarts.
-Future<void> wipeHiveBoxes() async {
+///
+/// Web: a box's IndexedDB database cannot be deleted while any connection
+/// to it is open; the delete then waits, and Hive waits with it for good.
+/// So on the web an open box is emptied first (its data is gone even if
+/// the delete has to wait) and each delete is given [webDeleteTimeout],
+/// then the wipe moves on to the next box. The phones are unchanged.
+Future<void> wipeHiveBoxes({
+  @visibleForTesting Future<void> Function(String name)? deleteBox,
+  @visibleForTesting bool? web,
+  @visibleForTesting Duration webDeleteTimeout = const Duration(seconds: 5),
+}) async {
+  final delete = deleteBox ?? (name) => Hive.deleteBoxFromDisk(name);
+  final bounded = web ?? kIsWeb;
   for (final name in hiveBoxesWipedOnWipe) {
     try {
-      await Hive.deleteBoxFromDisk(name);
+      if (bounded) {
+        if (Hive.isBoxOpen(name)) {
+          try {
+            await Hive.box<dynamic>(name).clear();
+          } catch (_) {
+            // A typed or lazy box: its delete below still runs.
+          }
+        }
+        await delete(name).timeout(webDeleteTimeout);
+      } else {
+        await delete(name);
+      }
     } catch (e) {
       debugPrint('[wipe] hive box $name: ${e.runtimeType}');
     }

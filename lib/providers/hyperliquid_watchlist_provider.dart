@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/platform/hive_box_exists.dart';
 
 /// The Investing markets starred on this device, newest first, as their
 /// public market keys (nothing about the person or their positions). Kept
@@ -64,7 +65,7 @@ class HlWatchlistNotifier extends Notifier<List<String>> {
           : await Hive.openBox<String>(boxName);
       var stored = _read(box);
       // Stars made as Favourites, once: the old box is emptied after.
-      if (await Hive.boxExists(legacyBoxName)) {
+      if (await hiveBoxExists(legacyBoxName)) {
         final legacy = await Hive.openBox<String>(legacyBoxName);
         final old = _read(legacy);
         if (old.isNotEmpty) {

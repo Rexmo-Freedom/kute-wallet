@@ -3,6 +3,7 @@
 // startup set), the kept boxes keep their data, and a source scan keeps
 // the list honest: every box name lib opens is wiped or listed as kept.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -99,6 +100,41 @@ void main() {
     expect(settings.keys, ['currency']);
   });
 
+  test(
+      'web: a delete that never completes (a connection still open on the '
+      'database) neither stops the wipe nor keeps the wallet list', () async {
+    // The browser case: Hive's IndexedDB delete waits for good while any
+    // connection to the database is open (the boot's first-install check
+    // used to leak one on `settings`). The keys were gone, the wallet list
+    // stayed, and the PIN screen came back.
+    final settings = await Hive.openBox<dynamic>('settings');
+    await settings.put('wallets', [
+      {'id': 'w1'}
+    ]);
+    final cache = await Hive.openBox<dynamic>('polymarket_feed_cache_v1');
+    await cache.put('k', 'v');
+    final deleted = <String>[];
+
+    await wipeHiveBoxes(
+      web: true,
+      webDeleteTimeout: const Duration(milliseconds: 50),
+      deleteBox: (name) {
+        if (name == 'settings') return Completer<void>().future;
+        deleted.add(name);
+        return Hive.deleteBoxFromDisk(name);
+      },
+    );
+
+    // Every box after `settings` in the list was still deleted.
+    expect(deleted, [
+      for (final n in hiveBoxesWipedOnWipe)
+        if (n != 'settings') n
+    ]);
+    expect(await holdsData('polymarket_feed_cache_v1'), isFalse);
+    // The blocked box was emptied before its delete: no wallet list.
+    expect(Hive.box<dynamic>('settings').get('wallets'), isNull);
+  });
+
   test('the orphaned refund-reports box is deleted at start and on wipe',
       () async {
     expect(hiveBoxesWipedOnWipe, contains('arbitrum_refund_reports'));
@@ -125,7 +161,7 @@ void main() {
   test('every box name lib opens is wiped or listed as kept', () {
     final known = {...hiveBoxesWipedOnWipe, ...hiveBoxesKeptOnWipe};
     final calls = RegExp(
-        r"(?:Hive\.(?:openBox|openLazyBox|box|lazyBox|isBoxOpen|deleteBoxFromDisk|boxExists)|_openHiveBoxSafe)(?:<[^>]*>)?\(\s*'([^']+)'");
+        r"(?:Hive\.(?:openBox|openLazyBox|box|lazyBox|isBoxOpen|deleteBoxFromDisk|boxExists)|hiveBoxExists|_openHiveBoxSafe)(?:<[^>]*>)?\(\s*'([^']+)'");
     final consts = RegExp(
         r"\b[A-Za-z_][A-Za-z0-9_]*(?:Box|BoxName|_box)\s*=\s*'([^']+)'");
     final found = <String, Set<String>>{};

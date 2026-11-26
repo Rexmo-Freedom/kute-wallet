@@ -32,6 +32,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/hive_box_exists.dart';
 
 /// The key in the settings box, shared with `SettingsModel.setCurrency` and
 /// `initialSettingsProvider`.
@@ -97,7 +98,7 @@ Future<String?> deviceRegion() async {
 /// USD, the wrong answer that costs least.
 Future<bool> isFirstSettingsOpen() async {
   try {
-    return !await Hive.boxExists('settings');
+    return !await hiveBoxExists('settings');
   } catch (_) {
     return false;
   }
