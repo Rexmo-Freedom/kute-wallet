@@ -113,6 +113,7 @@ import 'package:kute/screens/shared/kute_motion.dart'
 import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/screens/shared/sal_moments.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSprite;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_bar_surface.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -396,8 +397,18 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     final desktopQuiet = expanded &&
         (kuteDialogsOpen.value > 0 ||
             kuteInPlaceRoutes.value.any(KuteBarRouteObserver.onTop));
+    // EXPANDED web, a home tab whose pane draws the search field at its
+    // top (KuteBarPane.top, KuteTopSearchField): the search pill stays
+    // away (founder, 26 November 2026, on a laptop: "put it on the top on
+    // desktop"). Other contexts (a primary action, a market's) still show.
+    final paneNow = kuteBarPane.value;
+    final topSearch = expanded &&
+        paneNow != null &&
+        paneNow.topSearch &&
+        (paneNow.route == null || KuteBarRouteObserver.onTop(paneNow.route!));
     final show = top != null &&
         !desktopQuiet &&
+        !(topSearch && !morphed && top.kind == KuteBarKind.search) &&
         (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));
     // The lift follows what is shown: a bar sliding away, or one back on
     // a page without an action row, sits at the foot again (a kept lift
@@ -1435,4 +1446,152 @@ class _Shimmer extends StatelessWidget {
           );
         },
       );
+}
+
+
+/// EXPANDED web: the home tabs' search, a field pinned at the top of the
+/// content column in place of the floating pill (founder, 26 November
+/// 2026, on a laptop: "it is better to look more searchable ... put it on
+/// the top on desktop"). It reads as the app's text field (AppTextField's
+/// fill, border and radius), with the pill's own words as its
+/// placeholder and Sal's mark at its end. For this pass it is a button
+/// styled as an input: a click, or "/" with no field focused, opens the
+/// same search sheet the pill opens (its composer takes the typing); the
+/// sheet's Escape closes it as before. Built only through
+/// [KuteBarPane.top]; the phones keep the pill.
+class KuteTopSearchField extends ConsumerStatefulWidget {
+  const KuteTopSearchField({super.key});
+
+  /// The field's widest (logical px).
+  static const double maxWidth = 640;
+
+  @override
+  ConsumerState<KuteTopSearchField> createState() => _KuteTopSearchFieldState();
+}
+
+class _KuteTopSearchFieldState extends ConsumerState<KuteTopSearchField> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  /// The context the pill would show here: the tab's own words.
+  KuteBarContext _context() {
+    final top = kuteBarTop(ref.read(kuteBarContextProvider));
+    if (top != null && top.current && top.kind == KuteBarKind.search) {
+      return top;
+    }
+    return KuteBarContext(label: context.l10n.searchOrManageAi);
+  }
+
+  void _open([BuildContext? source]) {
+    final ctx = _context();
+    final direct = ctx.directAction;
+    if (direct != null) {
+      HapticFeedback.lightImpact();
+      direct();
+      return;
+    }
+    openKuteBarSheet(ctx, source: source);
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (!mounted || event is! KeyDownEvent) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return false;
+    if (kuteDialogsOpen.value > 0) return false;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    final command = keyboard.isMetaPressed || keyboard.isControlPressed;
+    final slash =
+        !command && !keyboard.isAltPressed && event.character == '/';
+    final k = command && event.logicalKey == LogicalKeyboardKey.keyK;
+    if (!slash && !k) return false;
+    _open();
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    // The tab's words, as the pill shows them.
+    final stack = ref.watch(kuteBarContextProvider);
+    final top = kuteBarTop(stack);
+    final label = top != null && top.current && top.kind == KuteBarKind.search
+        ? top.label
+        : context.l10n.searchOrManageAi;
+    final radius = BorderRadius.circular(AppRadius.lg);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints:
+              const BoxConstraints(maxWidth: KuteTopSearchField.maxWidth),
+          child: Builder(
+            builder: (fieldContext) => Semantics(
+              button: true,
+              textField: true,
+              label: label,
+              child: Material(
+                key: const ValueKey('kute-top-search-field'),
+                color: c.surfaceLight,
+                shape: RoundedRectangleBorder(
+                    borderRadius: radius,
+                    side: BorderSide(color: c.border)),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _open(fieldContext),
+                  child: SizedBox(
+                    height: 48,
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 14),
+                        Icon(Icons.search_rounded,
+                            size: 22, color: c.textTertiary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: c.textTertiary, fontSize: 16),
+                          ),
+                        ),
+                        // Sal's mark: the way into the AI, as on the pill.
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: SalSprite(
+                            key: const ValueKey('kute-top-search-sal'),
+                            clip: top?.clip ?? 'idle',
+                            size: 32,
+                            fallback: Icon(Icons.auto_awesome_rounded,
+                                size: 20, color: c.textTertiary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

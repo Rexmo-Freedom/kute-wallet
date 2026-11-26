@@ -24,6 +24,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart' show BoxParentData;
 import 'package:flutter/scheduler.dart' show SchedulerPhase;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/widgets.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -194,12 +195,17 @@ class KuteBarPaneSpan {
       {required this.owner,
       required this.route,
       required this.left,
-      required this.width});
+      required this.width,
+      this.topSearch = false});
 
   final Object owner;
   final Route<dynamic>? route;
   final double left;
   final double width;
+
+  /// The pane draws the search field at its top ([KuteBarPane.top]): the
+  /// floating search pill stays away while it is on screen.
+  final bool topSearch;
 
   /// The bar's own span within this pane: centred, at most a phone's
   /// width ([KuteLayout.paneWidth]) and the pane's less 32.
@@ -214,10 +220,12 @@ class KuteBarPaneSpan {
       identical(other.owner, owner) &&
       other.route == route &&
       other.left == left &&
-      other.width == width;
+      other.width == width &&
+      other.topSearch == topSearch;
 
   @override
-  int get hashCode => Object.hash(identityHashCode(owner), route, left, width);
+  int get hashCode =>
+      Object.hash(identityHashCode(owner), route, left, width, topSearch);
 }
 
 /// The pane the bar sits under now, reported by a [KuteBarPane]; null on
@@ -233,9 +241,19 @@ final ValueNotifier<KuteBarPaneSpan?> kuteBarPane =
 /// nothing reported, the bar is as it was. The pane's own scroll keeps its
 /// last rows clear of the bar as on a phone (the bar's room is the same).
 class KuteBarPane extends StatefulWidget {
-  const KuteBarPane({super.key, required this.child});
+  const KuteBarPane({super.key, required this.child, this.top});
 
   final Widget child;
+
+  /// EXPANDED web only: drawn above [child], pinned while [child] scrolls
+  /// (the home tabs' search field, kute_shell_bar.dart's
+  /// KuteTopSearchField). The floating search pill then stays away.
+  /// Elsewhere (phones, MEDIUM, the native apps) it is not built.
+  final Widget? top;
+
+  /// Tests: build [top] off the web.
+  @visibleForTesting
+  static bool debugWeb = false;
 
   @override
   State<KuteBarPane> createState() => _KuteBarPaneState();
@@ -264,7 +282,11 @@ class _KuteBarPaneState extends State<KuteBarPane> {
       node = node.parent;
     }
     final span = KuteBarPaneSpan(
-        owner: this, route: route, left: left, width: box.size.width);
+        owner: this,
+        route: route,
+        left: left,
+        width: box.size.width,
+        topSearch: _topShown);
     if (kuteBarPane.value != span) kuteBarPane.value = span;
   }
 
@@ -288,12 +310,24 @@ class _KuteBarPaneState extends State<KuteBarPane> {
     final shown = TickerMode.valuesOf(context).enabled;
     final route = ModalRoute.of(context);
     final active = expanded && shown;
+    final top = widget.top;
+    _topShown = (kIsWeb || KuteBarPane.debugWeb) && expanded && top != null;
     return LayoutBuilder(builder: (context, constraints) {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _report(active, route));
-      return KeyedSubtree(key: _key, child: widget.child);
+      return KeyedSubtree(
+        key: _key,
+        child: _topShown
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [top!, Expanded(child: widget.child)],
+              )
+            : widget.child,
+      );
     });
   }
+
+  bool _topShown = false;
 }
 
 // ── Round two: the desktop chrome (wide_design_2.md, A to C) ──────────────

@@ -44,6 +44,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteTopSearchField;
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
@@ -154,7 +156,11 @@ class BitcoinPanesFrame extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: KuteBarPane(child: left)),
+          // Wide web: the search field pinned above the column, in
+          // place of the floating pill (KuteTopSearchField).
+          Expanded(
+              child: KuteBarPane(
+                  top: const KuteTopSearchField(), child: left)),
           if (right != null)
             SizedBox(
               width: side,

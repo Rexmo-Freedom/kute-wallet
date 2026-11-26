@@ -207,6 +207,8 @@ import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteTopSearchField;
 import 'package:kute/platform/kute_wide_frames.dart'
     show
         KuteBarPane,
@@ -1155,7 +1157,11 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
           ],
           // The floating Sal bar sits under the browse
           // (kute_wide_frames.dart, KuteBarPane).
-          Expanded(child: KuteBarPane(child: left)),
+          // Wide web: the search field pinned above the column, in
+          // place of the floating pill (KuteTopSearchField).
+          Expanded(
+              child: KuteBarPane(
+                  top: const KuteTopSearchField(), child: left)),
           if (column) const SizedBox(width: KuteLayout.paneGap),
           // Always mounted (its order timers run on, and it says
           // whether it holds anything); drawn only as the column.
