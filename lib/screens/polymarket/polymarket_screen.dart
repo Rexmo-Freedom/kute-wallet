@@ -36,6 +36,7 @@ import 'package:kute/screens/polymarket/components/crypto_asset_logo.dart';
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/services/polymarket/crypto_next_round.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/polymarket/components/poly_wide_card.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
@@ -62,6 +63,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/btc_predict_chart.dart';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart'
@@ -1430,7 +1432,12 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         rowOf, {
     String source = 'feed_card',
   }) =>
-      marketGroupSlivers<PolymarketEvent>(
+      // Wide web, the Dollars page (founder, 26 November 2026: "on desktop
+      // this looks too much"): a uniform grid of the calm card
+      // (PolyWideCard). The phones and the phone layout keep the list.
+      kIsWeb && widget.embedded && KuteLayout.isExpanded(context)
+          ? _wideGridSlivers(events, rowOf, source: source)
+          : marketGroupSlivers<PolymarketEvent>(
         context,
         items: events,
         groups: (e) => polyCardGroups(e.title, e.outcomes),
@@ -1451,6 +1458,48 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           );
         },
       );
+
+  /// [events] as the wide web grid: every card the same height, rows
+  /// aligned, [kPolyWideCardMin] at the narrowest, [kPolyWideCardGap]
+  /// between, the list's 16 at its sides.
+  List<Widget> _wideGridSlivers(
+    List<PolymarketEvent> events,
+    ({bool isSportsCategory, List<PolymarketEvent> siblings}) Function(
+            PolymarketEvent market)
+        rowOf, {
+    required String source,
+  }) =>
+      [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverLayoutBuilder(builder: (context, constraints) {
+            final columns = polyWideColumns(constraints.crossAxisExtent);
+            return SliverGrid(
+              key: const ValueKey('poly-wide-grid'),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisSpacing: kPolyWideCardGap,
+                crossAxisSpacing: kPolyWideCardGap,
+                mainAxisExtent: kPolyWideCardHeight,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, i) {
+                  final market = events[i];
+                  final row = rowOf(market);
+                  return _PolyFeedCard(
+                    market: market,
+                    isSportsCategory: row.isSportsCategory,
+                    matchSiblings: row.siblings,
+                    source: source,
+                    wide: true,
+                  );
+                },
+                childCount: events.length,
+              ),
+            );
+          }),
+        ),
+      ];
 
   Future<void> _onRefresh() {
     PolymarketScreen.refreshBrowse(ref);
@@ -1509,7 +1558,12 @@ class _PolyFeedCard extends ConsumerWidget {
     this.matchSiblings = const <PolymarketEvent>[],
     this.inGroup = false,
     this.source = 'feed_card',
+    this.wide = false,
   });
+
+  /// The wide web grid's calm card ([PolyWideCard]) in place of the
+  /// phone's card; the same tap.
+  final bool wide;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1557,6 +1611,36 @@ class _PolyFeedCard extends ConsumerWidget {
     final round = polyCryptoRoundOf(market.slug, endDate: market.endDate);
     final roundAsset =
         round == null ? null : polyCryptoRoundAssetName(market.title);
+
+    void openMarket() {
+      HapticFeedback.mediumImpact();
+      MarketDetailSheet.show(
+        context,
+        event: market,
+        onDeposit: () async {
+          if (context.mounted) openPredictionsDeposit(context, ref);
+        },
+        source: source,
+      );
+    }
+
+    if (wide) {
+      return LiveTokenScope(
+        tokens: outcomeTokenIds,
+        child: RepaintBoundary(
+          child: PolyWideCard(
+            title: roundAsset == null
+                ? market.displayTitle
+                : '$roundAsset · '
+                    '${polyRoundWindowLabel(context.l10n, round!.window)}',
+            outcomes: market.outcomes,
+            livePrices: cardLivePrices,
+            onTapDown: () => MarketDetailSheet.prefetch(market),
+            onTap: openMarket,
+          ),
+        ),
+      );
+    }
 
     return LiveTokenScope(
       tokens: outcomeTokenIds,
