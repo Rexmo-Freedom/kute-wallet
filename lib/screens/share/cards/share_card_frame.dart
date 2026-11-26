@@ -387,14 +387,15 @@ abstract final class ShareCardSal {
   /// The decoded named still ([loadStill]), or null until it has finished.
   static SalClip? still(String clip) => _stills[clip];
 
-  /// Decodes one still by its clip's name, at @3x (once: a card that draws
-  /// a Sal of its own, read synchronously after, as the poses are). Only
+  /// Decodes one still by its clip's name, at @3x (@2x on the web), once:
+  /// a card that draws a Sal of its own, read synchronously after, as the
+  /// poses are. Only
   /// the one a card asks for: nothing else pays for them. False when it
   /// cannot be read.
   static Future<bool> loadStill(String clip) async {
     if (_stills.containsKey(clip)) return true;
     try {
-      final c = await SalSpriteCache.clip(clip, 3);
+      final c = await SalSpriteCache.clip(clip, SalSpriteCache.fullDensity);
       if (c == null) return false;
       _stills[clip] = c;
       return true;
@@ -411,8 +412,8 @@ abstract final class ShareCardSal {
       return Future.value(done);
     }
     return _loading ??= Future.wait([
-      SalSpriteCache.clip(clip, 3),
-      for (final p in ShareCardPose.values) SalSpriteCache.clip(p.clip, 3),
+      SalSpriteCache.clip(clip, SalSpriteCache.fullDensity),
+      for (final p in ShareCardPose.values) SalSpriteCache.clip(p.clip, SalSpriteCache.fullDensity),
     ]).then((clips) {
       _face = clips.first;
       for (var i = 0; i < ShareCardPose.values.length; i++) {

@@ -78,7 +78,8 @@ class _SplashState extends ConsumerState<Splash>
     if (_salChecked) return;
     _salChecked = true;
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
-    final density = dpr >= 2.5 ? 3 : 2;
+    // The cache's own rule (@3x from 2.5 up; always @2x on the web).
+    final density = SalSpriteCache.densityFor(dpr);
     final read = SalSpriteCache.clip('body_idle', density);
     _salRead = read;
     unawaited(read.then((c) {
