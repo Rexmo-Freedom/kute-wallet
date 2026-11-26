@@ -1,3 +1,4 @@
+import 'package:kute/platform/web_image.dart' show WebImagesOn;
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
@@ -569,12 +570,16 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                         onPressed: () => Navigator.of(context).maybePop(),
                       ),
                       SizedBox(width: 8.w),
-                      HlCoinIcon(
-                        coin: m.coin,
-                        wireCoin: m.wireCoin,
-                        category: m.category,
-                        iconUrl: m.iconUrl,
-                        size: 32,
+                      // Web: the one remote logo drawn as an `<img>`, the
+                      // opened market's own (web_image.dart, WebImagesOn).
+                      WebImagesOn(
+                        child: HlCoinIcon(
+                          coin: m.coin,
+                          wireCoin: m.wireCoin,
+                          category: m.category,
+                          iconUrl: m.iconUrl,
+                          size: 32,
+                        ),
                       ),
                       SizedBox(width: 8.w),
                       Expanded(

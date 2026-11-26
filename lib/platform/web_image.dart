@@ -295,6 +295,28 @@ class WebImagesOff extends InheritedWidget {
   bool updateShouldNotify(WebImagesOff oldWidget) => false;
 }
 
+/// Marks the one place a remote logo may be drawn as an `<img>` on the
+/// web: the header of a single market's own screen, once it is open.
+/// Everywhere else (lists, grids, cards, rows, pickers, search) a
+/// [WebNetworkImage] draws its error widget, the call site's own stand-in
+/// (the bundled icon or the monogram circle), and loads nothing.
+///
+/// Why (founder, 26 November 2026: "only show logos when opening the
+/// screen, so we only show 1 at the time"): on Safari every `<img>` view
+/// costs Flutter one more full-screen WebGL canvas, and seven logos on the
+/// Dollars home held five canvases and nine WebGL contexts, a memory
+/// footprint that kept growing while the page was open until the phone's
+/// browser reloaded it. One view at a time keeps it to one overlay.
+class WebImagesOn extends InheritedWidget {
+  const WebImagesOn({super.key, required super.child});
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<WebImagesOn>() != null;
+
+  @override
+  bool updateShouldNotify(WebImagesOn oldWidget) => false;
+}
+
 /// A network image drawn by the browser's `<img>` element (web only; see the
 /// library comment). [width] and [height] are the box it fills, [fit] is
 /// applied as the element's object-fit. [placeholder] shows while it loads
@@ -351,6 +373,11 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
     return window.overlaps(box.localToGlobal(Offset.zero) & box.size);
   }
 
+  /// Inside a [WebImagesOn] (a market's own screen): the only place the
+  /// `<img>` is drawn on the web. Read in [didChangeDependencies].
+  bool _allowed = false;
+  bool _started = false;
+
   @override
   void initState() {
     super.initState();
@@ -360,7 +387,17 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
       // loads under it).
       if (!WebPanels.isEmpty) _checkPanels();
     }
-    _start();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _allowed = WebImagesOn.of(context);
+    // Nothing is loaded for an image that only ever shows its stand-in.
+    if (_allowed && !_started) {
+      _started = true;
+      _start();
+    }
   }
 
   @override
@@ -414,7 +451,7 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
   @override
   void didUpdateWidget(covariant WebNetworkImage old) {
     super.didUpdateWidget(old);
-    if (old.url != widget.url) _start();
+    if (old.url != widget.url && _started) _start();
   }
 
   void _start() {
@@ -444,7 +481,7 @@ class _WebNetworkImageState extends State<WebNetworkImage> {
     final placeholder = widget.placeholder ??
         SizedBox(width: widget.width, height: widget.height);
     final error = widget.error ?? placeholder;
-    if (!_web || WebImagesOff.of(context)) return error;
+    if (!_web || WebImagesOff.of(context) || !_allowed) return error;
     final ok = _ok;
     if (ok == null) return placeholder;
     if (!ok) return error;

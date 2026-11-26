@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:kute/platform/web_image.dart' show WebImagesOn;
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/kute_desk_market.dart';
@@ -1052,11 +1053,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             if (iconUrl == null || iconUrl.isEmpty) {
               return _buildFallbackIcon(c, 32.w);
             }
-            return PolyCrestImage(
-              url: iconUrl,
-              size: 32.w,
-              radius: 8.w,
-              fallback: _buildFallbackIcon(c, 32.w),
+            // Web: the one remote logo drawn as an `<img>`, the opened
+            // market's own (web_image.dart, WebImagesOn).
+            return WebImagesOn(
+              child: PolyCrestImage(
+                url: iconUrl,
+                size: 32.w,
+                radius: 8.w,
+                fallback: _buildFallbackIcon(c, 32.w),
+              ),
             );
           }),
           SizedBox(width: 8.w),

@@ -31,7 +31,10 @@ void main() {
     final controller = ScrollController();
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        body: ListView.builder(
+        // The cap's own mechanics, inside the one scope that draws
+        // `<img>` views (a market's own screen); lists outside it draw
+        // none (web_image_single_logo_test.dart).
+        body: WebImagesOn(child: ListView.builder(
           controller: controller,
           itemCount: count,
           itemExtent: rowHeight,
@@ -44,7 +47,7 @@ void main() {
               error: Text('tile $i'),
             ),
           ]),
-        ),
+        )),
       ),
     ));
     await tester.pump();
