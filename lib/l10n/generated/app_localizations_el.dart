@@ -11900,6 +11900,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Εξερεύνησε τις Επενδύσεις';
 
   @override
+  String get dollarsStartInvesting => 'Ξεκίνα να επενδύεις';
+
+  @override
   String get activityFilterTrades => 'Συναλλαγές';
 
   @override

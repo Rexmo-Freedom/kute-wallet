@@ -211,8 +211,10 @@ import 'package:kute/screens/shared/standing_order_slips.dart'
 import 'package:kute/screens/shared/standing_orders_section.dart'
     show StandingOrderRow, standingOrderStageLine;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
+import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show openInvestmentsPortfolio;
+    show InvestmentsTab, investmentsTabProvider, openInvestmentsPortfolio;
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The open positions drawn as squares, at most.
@@ -792,15 +794,37 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
         : Padding(
             key: const ValueKey('dollars-activity-empty'),
             padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
-            child: NoActivityState(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              title: l10n.portfolioNoOpenPositions,
-              cycles: 3,
-              salSize: 140,
-              titleSize: 22,
-              titleWeight: FontWeight.w600,
-              subtitleSize: 15,
-              subtitleColor: context.colors.textSecondary,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NoActivityState(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
+                  title: l10n.portfolioNoOpenPositions,
+                  cycles: 3,
+                  salSize: 140,
+                  titleSize: 22,
+                  titleWeight: FontWeight.w600,
+                  subtitleSize: 15,
+                  subtitleColor: context.colors.textSecondary,
+                ),
+                // Founder, 26 November 2026: the page opens on Overview,
+                // and with nothing open it leads to Investing (as a tap
+                // on its pill, or its sidebar item on a laptop).
+                SizedBox(height: 16.h),
+                Center(
+                  child: AppButton(
+                    key: const ValueKey('dollars-start-investing'),
+                    text: l10n.dollarsStartInvesting,
+                    compact: true,
+                    onPressed: () {
+                      TrackingService.quickAction('start_investing',
+                          source: 'overview_empty');
+                      ref.read(investmentsTabProvider.notifier).state =
+                          InvestmentsTab.investing;
+                    },
+                  ),
+                ),
+              ],
             ),
           );
 

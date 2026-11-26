@@ -3380,6 +3380,7 @@
   "portfolioPnlByProduct": "商品別",
   "portfolioClosedPositions": "決済済みポジション",
   "portfolioBrowseInvesting": "投資を見る",
+  "dollarsStartInvesting": "投資を始める",
   "activityFilterTrades": "取引",
   "activityFilterPayouts": "払い戻し",
   "activityFilterTransfers": "振替",

@@ -11881,6 +11881,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Explorează investițiile';
 
   @override
+  String get dollarsStartInvesting => 'Începe să investești';
+
+  @override
   String get activityFilterTrades => 'Tranzacții';
 
   @override

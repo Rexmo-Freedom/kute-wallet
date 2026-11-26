@@ -11866,6 +11866,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Przeglądaj inwestycje';
 
   @override
+  String get dollarsStartInvesting => 'Zacznij inwestować';
+
+  @override
   String get activityFilterTrades => 'Transakcje';
 
   @override

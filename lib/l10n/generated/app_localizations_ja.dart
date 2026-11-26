@@ -11393,6 +11393,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioBrowseInvesting => '投資を見る';
 
   @override
+  String get dollarsStartInvesting => '投資を始める';
+
+  @override
   String get activityFilterTrades => '取引';
 
   @override

@@ -11840,6 +11840,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Разгледай Инвестиране';
 
   @override
+  String get dollarsStartInvesting => 'Започни да инвестираш';
+
+  @override
   String get activityFilterTrades => 'Сделки';
 
   @override

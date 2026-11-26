@@ -11837,6 +11837,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Prehliadať investovanie';
 
   @override
+  String get dollarsStartInvesting => 'Začať investovať';
+
+  @override
   String get activityFilterTrades => 'Obchody';
 
   @override

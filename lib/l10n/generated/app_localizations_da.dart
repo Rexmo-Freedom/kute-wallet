@@ -11819,6 +11819,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Udforsk Investering';
 
   @override
+  String get dollarsStartInvesting => 'Begynd at investere';
+
+  @override
   String get activityFilterTrades => 'Handler';
 
   @override

@@ -11806,6 +11806,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Sirvi investeerimist';
 
   @override
+  String get dollarsStartInvesting => 'Alusta investeerimist';
+
+  @override
   String get activityFilterTrades => 'Tehingud';
 
   @override

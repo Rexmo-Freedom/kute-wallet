@@ -195,6 +195,11 @@ List<Override> _investingOverrides([List<HlMarket>? universe]) => [
 /// words in the theme's Inter, so the picked pill keeps its context).
 const Widget _page = Scaffold(body: UsdAccountScreen());
 
+/// The page opened on Investing (it opens on Overview since 26 November
+/// 2026; these tests are about Investing's categories).
+const Widget _investingPage =
+    Scaffold(body: UsdAccountScreen(initialTab: InvestmentsTab.investing));
+
 Future<void> _frames8(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -485,11 +490,11 @@ void main() {
         browseInvesting: true,
         overrides: _investingOverrides(),
         child: _page);
-    // The page opens on Investing, at rest (founder, 25 November 2026).
+    // The page opens on Overview, at rest (founder, 26 November 2026).
     expect(_body(tester), (1.0, 0.0));
 
-    // Investing → Overview (to the right, the last pill): from the right.
-    await tester.tap(investmentsPill(_l10n.overview));
+    // Overview → Investing (to the right): from the right.
+    await tester.tap(investmentsPill(_l10n.trading));
     await tester.pump();
     expect(_body(tester), (0.0, KuteMotion.switchSlide));
     await tester.pump(const Duration(milliseconds: 60));
@@ -500,8 +505,8 @@ void main() {
     expect(_body(tester).$1, 1);
     expect(_body(tester).$2, closeTo(0, 0.01));
 
-    // Overview → Investing (to the left, the first pill): from the left.
-    await tester.tap(investmentsPill(_l10n.trading));
+    // Investing → Overview (to the left, the first pill): from the left.
+    await tester.tap(investmentsPill(_l10n.overview));
     await tester.pump();
     expect(_body(tester), (0.0, -KuteMotion.switchSlide));
     await _frames8(tester);
@@ -519,10 +524,10 @@ void main() {
     await pumpInvestments(tester,
         browseInvesting: true,
         overrides: _investingOverrides(),
-        child: _page);
+        child: _investingPage);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(UsdAccountScreen)));
-    // The page opens on Investing (founder, 25 November 2026).
+    // Opened on Investing (a link naming it).
     expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
     await _frames8(tester);
     final filter = '${_l10n.trading} · ${_l10n.categoryFilterPrompt}';
@@ -615,10 +620,10 @@ void main() {
     await pumpInvestments(tester,
         browseInvesting: true,
         overrides: _investingOverrides(),
-        child: _page);
+        child: _investingPage);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(UsdAccountScreen)));
-    // The page opens on Investing (founder, 25 November 2026), at rest;
+    // Opened on Investing (a link naming it), at rest;
     // under Reduce Motion a pill switch arrives at rest too.
     expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
     expect(_body(tester), (1.0, 0.0));

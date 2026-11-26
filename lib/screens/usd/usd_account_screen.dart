@@ -126,7 +126,7 @@
 //
 // 25 NOVEMBER 2026 (founder): "make sure investing is first please". THE
 // ORDER IS INVESTING · PREDICTIONS · OVERVIEW ([kInvestmentsPills]) AND THE
-// PAGE OPENS ON INVESTING ([kInvestmentsDefaultTab]), on the same ways in as
+// PAGE OPENS ON OVERVIEW ([kInvestmentsDefaultTab]), on the same ways in as
 // above; keys, links and analytics values are unchanged.
 //
 // 13 NOVEMBER 2026 (founder): "on the main balance, if we click on it, on
@@ -356,14 +356,15 @@ void openInvestmentsOrders(BuildContext context,
   openInvestmentsPortfolio(context, PortfolioSection.charts);
 }
 
-/// The pill the Dollars page opens on (founder, 25 November 2026:
-/// "make sure investing is first please"): Investing, on its Trending list
-/// (its Watchlist once that holds a market, [enterInvestingOnDefault]); it
-/// was Overview from 8 November. It is always there, so no policy changes
-/// it. The web sidebar reads it too. A link that names a pill
+/// The pill the Dollars page opens on: Overview, the first pill (founder,
+/// 26 November 2026: "open in Overview with a button saying Start
+/// investing which brings us to Investing", on the phones and the web; it
+/// was Investing from 25 November, Overview from 8 November). Its empty
+/// state's "Start investing" switches to Investing. It is always there,
+/// so no policy changes it. The web sidebar reads it too. A link that names a pill
 /// (`/usd?tab=predictions`, the venue routes' redirects) opens that pill
 /// instead ([UsdAccountScreen.initialTab]).
-const InvestmentsTab kInvestmentsDefaultTab = InvestmentsTab.investing;
+const InvestmentsTab kInvestmentsDefaultTab = InvestmentsTab.activity;
 
 /// The pill on screen. Shared so a deep link, a placed bet or Sal can
 /// open a pill from outside the screen; the screen writes it on a tap.
@@ -430,16 +431,16 @@ void enterInvestingOnDefault(WidgetRef ref) {
 final _investmentsQuietPillProvider =
     StateProvider<InvestmentsTab?>((_) => null);
 
-/// The sections of the Dollars page in display order (founder, 25 November
-/// 2026): Investing first, the pill the page opens on
-/// ([kInvestmentsDefaultTab]), then Predictions, then Overview. The one
+/// The sections of the Dollars page in display order (founder, 26 November
+/// 2026, phones and web): Overview first, the pill the page opens on
+/// ([kInvestmentsDefaultTab]), then Investing, then Predictions. The one
 /// ordered list the pills, the swipe between sections and the web sidebar
-/// read; the enum's order and keys stay as they were. The Portfolio is its
-/// own screen.
+/// read; the enum's order and keys (`activity` is Overview) stay as they
+/// were. The Portfolio is its own screen.
 const List<InvestmentsTab> kInvestmentsPills = [
+  InvestmentsTab.activity,
   InvestmentsTab.investing,
   InvestmentsTab.predictions,
-  InvestmentsTab.activity,
 ];
 
 /// The `/usd` location that opens on [tab]: what the venue routes

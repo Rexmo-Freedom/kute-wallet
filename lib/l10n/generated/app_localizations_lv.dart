@@ -11792,6 +11792,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Pārlūkot investēšanu';
 
   @override
+  String get dollarsStartInvesting => 'Sākt investēt';
+
+  @override
   String get activityFilterTrades => 'Darījumi';
 
   @override

@@ -3380,6 +3380,7 @@
   "portfolioPnlByProduct": "Tuotteittain",
   "portfolioClosedPositions": "Suljetut positiot",
   "portfolioBrowseInvesting": "Selaa sijoituskohteita",
+  "dollarsStartInvesting": "Aloita sijoittaminen",
   "activityFilterTrades": "Kaupat",
   "activityFilterPayouts": "Voitonmaksut",
   "activityFilterTransfers": "Siirrot",

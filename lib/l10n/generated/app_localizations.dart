@@ -19832,6 +19832,12 @@ abstract class AppLocalizations {
   /// **'Browse Investing'**
   String get portfolioBrowseInvesting;
 
+  /// Dollars page, Overview with no open positions: the button under 'No open positions' that switches to the Investing tab. 'Investing' is the name of the app's investing tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Start investing'**
+  String get dollarsStartInvesting;
+
   /// Portfolio screen, Activity tab: filter chip listing the trades only (Investing opens and closes, predictions placed or sold).
   ///
   /// In en, this message translates to:

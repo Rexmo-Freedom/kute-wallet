@@ -11864,6 +11864,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Prebrskaj naložbe';
 
   @override
+  String get dollarsStartInvesting => 'Začni z investiranjem';
+
+  @override
   String get activityFilterTrades => 'Posli';
 
   @override

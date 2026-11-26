@@ -11858,6 +11858,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Bekijk Beleggen';
 
   @override
+  String get dollarsStartInvesting => 'Begin met beleggen';
+
+  @override
   String get activityFilterTrades => 'Trades';
 
   @override

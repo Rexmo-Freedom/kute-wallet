@@ -11821,6 +11821,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Procházet Investování';
 
   @override
+  String get dollarsStartInvesting => 'Začít investovat';
+
+  @override
   String get activityFilterTrades => 'Obchody';
 
   @override

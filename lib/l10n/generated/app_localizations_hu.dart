@@ -11847,6 +11847,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Befektetések böngészése';
 
   @override
+  String get dollarsStartInvesting => 'Kezdj befektetni';
+
+  @override
   String get activityFilterTrades => 'Ügyletek';
 
   @override

@@ -11817,6 +11817,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Utforska investeringar';
 
   @override
+  String get dollarsStartInvesting => 'Börja investera';
+
+  @override
   String get activityFilterTrades => 'Affärer';
 
   @override

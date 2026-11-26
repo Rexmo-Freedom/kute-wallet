@@ -3380,6 +3380,7 @@
   "portfolioPnlByProduct": "Toote järgi",
   "portfolioClosedPositions": "Suletud positsioonid",
   "portfolioBrowseInvesting": "Sirvi investeerimist",
+  "dollarsStartInvesting": "Alusta investeerimist",
   "activityFilterTrades": "Tehingud",
   "activityFilterPayouts": "Väljamaksed",
   "activityFilterTransfers": "Ülekanded",

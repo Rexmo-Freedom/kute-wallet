@@ -11833,6 +11833,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Selaa sijoituskohteita';
 
   @override
+  String get dollarsStartInvesting => 'Aloita sijoittaminen';
+
+  @override
   String get activityFilterTrades => 'Kaupat';
 
   @override

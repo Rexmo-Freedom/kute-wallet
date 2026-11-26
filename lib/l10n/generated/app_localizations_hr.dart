@@ -11850,6 +11850,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioBrowseInvesting => 'Pregledaj ulaganja';
 
   @override
+  String get dollarsStartInvesting => 'Započni ulaganje';
+
+  @override
   String get activityFilterTrades => 'Trgovanja';
 
   @override
