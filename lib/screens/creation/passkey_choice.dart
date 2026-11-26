@@ -140,14 +140,21 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     bool available = false;
     var hasFace = false;
     var hasFingerprint = false;
+    // Web: why the passkey option is off (a code, nothing else).
+    String? webReason;
     try {
       if (PlatformCaps.isWeb) {
         // Web: a passkey wallet lives on Kute's own RP only, so it is
         // offered only on a page served from kutewallet.com or one of its
         // subdomains (never on localhost or any other host), and only when
         // the browser can produce the PRF output. No local_auth on web.
-        available = PasskeyHomes.webPageOnKuteHome &&
-            await PasskeyService.kute.isAvailable();
+        if (!PasskeyHomes.webPageOnKuteHome) {
+          webReason = 'not_kute_host';
+        } else {
+          final check = await PasskeyService.kute.availability();
+          available = check.available;
+          webReason = check.reason;
+        }
       } else {
         if (!PlatformCaps.hasBiometrics) throw UnsupportedError('local_auth');
         final supported = await auth.isDeviceSupported();
@@ -157,7 +164,9 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
         hasFace = types.contains(BiometricType.face);
         hasFingerprint = types.contains(BiometricType.fingerprint);
       }
-    } catch (_) {}
+    } catch (e) {
+      if (PlatformCaps.isWeb) webReason = 'error_${e.runtimeType}';
+    }
     if (!mounted) return;
     setState(() {
       _biometricsAvailable = available;
@@ -166,7 +175,8 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
       if (!available) _useBiometrics = false;
     });
     if (!available) {
-      TrackingService.track('passkey_unsupported_device');
+      TrackingService.track('passkey_unsupported_device',
+          params: PlatformCaps.isWeb ? {'reason': webReason ?? 'unknown'} : null);
     }
   }
 

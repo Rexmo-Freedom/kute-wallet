@@ -956,14 +956,52 @@ class PasskeyHomeService {
 
   /// Check if passkey PRF is supported (and the app is RP-associated) on
   /// this device for this home. False on the web for the Breez home.
-  Future<bool> isAvailable() async {
+  Future<bool> isAvailable() async => (await availability()).available;
+
+  /// [isAvailable] with, when it is false, a short reason code for
+  /// analytics: an availability kind or an error class, never ids, keys,
+  /// labels or anything typed.
+  ///
+  /// Web: the SDK's wasm client answers `skipped` ("Provider does not
+  /// verify domain association") on every browser whose platform
+  /// authenticator is there: its web provider has no association probe,
+  /// and the browser enforces the RP id itself at ceremony time (the page
+  /// is on Kute's own host, PasskeyHomes.webPageOnKuteHome). So on the web
+  /// `skipped` counts as available; only an unsupported authenticator
+  /// (`prfUnsupported`) or an error does not. The wasm module is loaded
+  /// first: the client cannot be built before it is (the SDK throws),
+  /// which a create screen opened early in a page load would otherwise
+  /// read as "not available". The phones are unchanged: `available` only.
+  Future<({bool available, String? reason})> availability() async {
     try {
       _assertCeremonyAllowed();
-      final availability = await _getClient().checkAvailability();
-      return availability is PasskeyAvailability_Available;
-    } catch (_) {
-      return false;
+      if (kIsWeb) await BreezSdkSparkLib.init();
+      return readAvailability(await _getClient().checkAvailability(),
+          web: kIsWeb);
+    } catch (e) {
+      return (available: false, reason: 'error_${e.runtimeType}');
     }
+  }
+
+  /// The SDK's answer read as [availability] reads it ([web]: `skipped`
+  /// counts as available).
+  @visibleForTesting
+  static ({bool available, String? reason}) readAvailability(
+      PasskeyAvailability availability,
+      {required bool web}) {
+    if (availability is PasskeyAvailability_Available ||
+        (web && availability is PasskeyAvailability_Skipped)) {
+      return (available: true, reason: null);
+    }
+    return (
+      available: false,
+      reason: switch (availability) {
+        PasskeyAvailability_PrfUnsupported() => 'prf_unsupported',
+        PasskeyAvailability_NotAssociated() => 'not_associated',
+        PasskeyAvailability_Skipped() => 'skipped',
+        _ => 'unknown',
+      },
+    );
   }
 
   /// Whether the platform states, BEFORE any ceremony, that this app is
