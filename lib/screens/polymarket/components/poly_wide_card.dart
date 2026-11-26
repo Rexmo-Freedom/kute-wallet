@@ -56,7 +56,11 @@ class PolyWideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final top = polyCardTopOutcomes(outcomes, live: livePrices, count: 2);
+    // A market of two sides (Yes / No, two teams) keeps its own order;
+    // more outcomes show their two leaders.
+    final top = outcomes.length == 2
+        ? outcomes
+        : polyCardTopOutcomes(outcomes, live: livePrices, count: 2);
     final more =
         polyRealOutcomes(outcomes, live: livePrices).length - top.length;
     final twoSided = outcomes.length == 2 && top.length == 2;

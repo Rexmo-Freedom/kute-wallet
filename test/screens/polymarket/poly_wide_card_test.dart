@@ -64,12 +64,14 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('Yes / No: its two sides, adding up to 100, no "more"',
+  testWidgets('Yes / No: its two sides in order, adding up to 100, no "more"',
       (tester) async {
     await pump(tester, const [
-      PolymarketOutcome(name: 'Yes', price: 0.62),
-      PolymarketOutcome(name: 'No', price: 0.38),
+      PolymarketOutcome(name: 'Yes', price: 0.38),
+      PolymarketOutcome(name: 'No', price: 0.62),
     ]);
+    expect(tester.getTopLeft(find.text('Yes')).dy,
+        lessThan(tester.getTopLeft(find.text('No')).dy));
     expect(outcomeLines(), findsNWidgets(2));
     expect(find.text('62%'), findsOneWidget);
     expect(find.text('38%'), findsOneWidget);

@@ -63,7 +63,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/btc_predict_chart.dart';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart'
@@ -137,6 +137,10 @@ const String _kLiveStreams = 'streams';
 typedef _LiveGroup = ({PolySub sub, List<PolymarketEvent> games});
 
 class PolymarketScreen extends ConsumerStatefulWidget {
+  /// Tests and renders: the wide web grid (PolyWideCard) off the web.
+  @visibleForTesting
+  static bool debugWideWeb = false;
+
   final bool autoShowDeposit;
   final bool autoShowWithdraw;
 
@@ -1435,7 +1439,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // Wide web, the Dollars page (founder, 26 November 2026: "on desktop
       // this looks too much"): a uniform grid of the calm card
       // (PolyWideCard). The phones and the phone layout keep the list.
-      kIsWeb && widget.embedded && KuteLayout.isExpanded(context)
+      (kIsWeb || PolymarketScreen.debugWideWeb) &&
+              widget.embedded &&
+              KuteLayout.isExpanded(context)
           ? _wideGridSlivers(events, rowOf, source: source)
           : marketGroupSlivers<PolymarketEvent>(
         context,

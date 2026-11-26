@@ -22,6 +22,9 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/hyperliquid_model.dart' show HyperliquidCandle;
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
+import 'package:kute/screens/polymarket/polymarket_screen.dart'
+    show PolymarketScreen;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
@@ -249,7 +252,14 @@ Future<void> _render(WidgetTester tester, String name,
     await tester.pump(const Duration(milliseconds: 100));
   }
   if (pill != 'Overview') {
-    await tapPill(tester, pill);
+    // The page opens on Overview; the pill is picked through the state the
+    // pills and the wide sidebar share (the sidebar has no pill to tap).
+    ProviderScope.containerOf(tester.element(find.byType(UsdAccountScreen)),
+            listen: false)
+        .read(investmentsTabProvider.notifier)
+        .state = pill == 'Investing'
+        ? InvestmentsTab.investing
+        : InvestmentsTab.predictions;
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -302,6 +312,20 @@ void main() {
   // Every logo known, so the squares draw (no logo is fetched here).
   setUp(() => HlIconAvailability.debugEveryLogoKnown = true);
   tearDown(() => HlIconAvailability.debugEveryLogoKnown = false);
+
+  // --dart-define=WIDE_DOLLARS_RENDER_WEB=true: the web's wide layout (the
+  // top search field, the Predictions grid), which the VM never is.
+  const web = bool.fromEnvironment('WIDE_DOLLARS_RENDER_WEB');
+  if (web) {
+    setUp(() {
+      KuteBarPane.debugWeb = true;
+      PolymarketScreen.debugWideWeb = true;
+    });
+    tearDown(() {
+      KuteBarPane.debugWeb = false;
+      PolymarketScreen.debugWideWeb = false;
+    });
+  }
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
