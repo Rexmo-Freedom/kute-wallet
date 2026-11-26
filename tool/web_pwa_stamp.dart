@@ -13,6 +13,13 @@
 //     and font manifests, splash and icons. Other assets (images, sounds)
 //     are cached as the app loads them.
 // A build that is not stamped ships a kill-switch worker (see web/sw.js).
+//
+// Before stamping, the font manifest loses the package icon fonts the
+// compiled app never names (pruneUnusedPackageFonts): Flutter web fetches
+// and registers every family in assets/FontManifest.json at start, and
+// icons_plus alone lists fifteen icon fonts (4.6 MB) the app does not use
+// (it uses that package's flag images only). The files stay in the build;
+// only the start-up load goes.
 
 import 'dart:convert';
 import 'dart:io';
@@ -38,6 +45,12 @@ void main(List<String> args) {
     stderr.writeln('${root.path} is already stamped (or the templates '
         'changed): rebuild before stamping.');
     exit(2);
+  }
+
+  final pruned = pruneUnusedPackageFonts(root);
+  if (pruned.isNotEmpty) {
+    stdout.writeln('Font manifest: dropped ${pruned.length} package fonts '
+        'the app never names (${pruned.join(', ')}).');
   }
 
   String rel(File f) =>
@@ -126,4 +139,40 @@ void main(List<String> args) {
   stdout.writeln('Stamped ${root.path}: build $build, '
       '${precache.length} shell files '
       '(${(bytes / 1024 / 1024).toStringAsFixed(1)} MB) precached.');
+}
+
+/// Removes from `assets/FontManifest.json` every package font family
+/// (`packages/<package>/<Family>`) whose family name the compiled app
+/// never names: a widget that draws with a family carries its name as a
+/// string literal ("Iconsax") in main.dart.js (or a deferred part). The
+/// app's own families (no `packages/` prefix) and MaterialIcons are always
+/// kept. Returns the families removed; a build without main.dart.js (a
+/// wasm-only build) or without a manifest is left as it is.
+List<String> pruneUnusedPackageFonts(Directory root) {
+  final manifest = File('${root.path}/assets/FontManifest.json');
+  final scripts = root
+      .listSync()
+      .whereType<File>()
+      .where((f) => RegExp(r'[/\\]main\.dart\.js(_\d+\.part\.js)?$')
+          .hasMatch(f.path))
+      .toList();
+  if (!manifest.existsSync() || scripts.isEmpty) return const [];
+  final code = scripts.map((f) => f.readAsStringSync()).join('\n');
+  final families = jsonDecode(manifest.readAsStringSync()) as List;
+  final kept = <Object?>[];
+  final pruned = <String>[];
+  for (final entry in families) {
+    final family = (entry as Map)['family'] as String;
+    final parts = family.split('/');
+    final isPackageFont = parts.length == 3 && parts.first == 'packages';
+    if (isPackageFont &&
+        !code.contains('"${parts.last}"') &&
+        !code.contains("'${parts.last}'")) {
+      pruned.add(family);
+    } else {
+      kept.add(entry);
+    }
+  }
+  if (pruned.isNotEmpty) manifest.writeAsStringSync(jsonEncode(kept));
+  return pruned;
 }
