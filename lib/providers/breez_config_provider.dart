@@ -127,8 +127,28 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
     // 'passkey_cached_label' fallback (getCachedLabel). Same order for
     // both vintages so a legacy wallet resolves the exact PRF salt it
     // was created with.
+    // Routed on the marker first: an unknown one throws before anything
+    // is read or derived.
+    final route = PasskeyHomes.routeFor(spendingPasskeyVintage);
+    if (route == PasskeyRoute.kute) {
+      // 'kute-1' vintage: the PasskeyClient on Kute's own RP. Such a
+      // wallet always carries its label; the device-wide cached label is
+      // a Breez / legacy value and is never used for it.
+      final kuteLabel = spendingPasskeyLabel;
+      if (kuteLabel == null || kuteLabel.isEmpty) {
+        throw StateError('A Kute passkey wallet must carry its label.');
+      }
+      final wallet = await PasskeyService.kute.getWallet(label: kuteLabel);
+      await initializeSDKWithSeed(wallet.seed, spendingId,
+          reconnectRequest: () async {
+        if (!unlocked()) return null;
+        final again = await PasskeyService.kute.getWallet(label: kuteLabel);
+        return createConnectRequestWithSeed(again.seed, spendingId);
+      });
+      return wrapper;
+    }
     final label = spendingPasskeyLabel ?? await PasskeyService.getCachedLabel();
-    if (spendingPasskeyVintage == null) {
+    if (route == PasskeyRoute.legacy) {
       // LEGACY (pre-2.x) vintage: reconstruct through the app's own
       // 0.15.1 PRF pipeline (pinned credential + secure-storage cache).
       // FAIL CLOSED — if this throws, the error propagates and the SDK

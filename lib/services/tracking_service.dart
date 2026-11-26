@@ -1759,11 +1759,13 @@ class TrackingService {
     String? hardwareDevice, // 'ledger', 'jade', 'keystone', etc.
     String?
         authMode, // 'passkey', 'mnemonic', 'imported', 'signer', 'watch_only'
+    String? passkeyHome, // passkey wallets: 'breez' | 'kute' (the RP used)
   }) {
     track('wallet_created', params: {
       'type': type,
       if (hardwareDevice != null) 'hardware_device': hardwareDevice,
       if (authMode != null) 'auth_mode': authMode,
+      if (passkeyHome != null) 'passkey_home': passkeyHome,
     });
     // AppsFlyer registration milestone (once per device, gated inside).
     AppsFlyerService.completeRegistration(method: type);
@@ -6144,6 +6146,7 @@ class TrackingService {
     String? scriptType, // native_segwit | taproot | nested_segwit | legacy
     String? network, // bitcoin | testnet | signet | spark
     String? source, // onboarding | add_wallet
+    String? passkeyHome, // passkey wallets: breez | kute (the RP used)
   }) =>
       track('wallet_added', params: {
         'wallet_kind': walletKind,
@@ -6152,6 +6155,7 @@ class TrackingService {
         if (scriptType != null) 'script_type': scriptType,
         if (network != null) 'network': network,
         if (source != null) 'source': source,
+        if (passkeyHome != null) 'passkey_home': passkeyHome,
       });
 
   // ─── Wallet guards ───────────────────────────────────────────────

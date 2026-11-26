@@ -403,13 +403,20 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
     TrackingService.seedRestoreStarted(method: 'passkey');
     TrackingService.setFlowStep('passkey');
     _setBusy(wallet.id, true);
-    final loader = widget.loadPasskeyMnemonic ?? PasskeyService.getMnemonic;
+    final loader = widget.loadPasskeyMnemonic;
     String? mnemonic;
     try {
-      mnemonic = await loader(
-        label: wallet.passkeyLabel,
-        legacy: wallet.passkeyProvider == null,
-      );
+      // Routed on the wallet's marker (legacy / Breez home / Kute's home);
+      // an unknown marker yields nothing.
+      mnemonic = loader != null
+          ? await loader(
+              label: wallet.passkeyLabel,
+              legacy: wallet.passkeyProvider == null,
+            )
+          : await PasskeyService.getMnemonicFor(
+              label: wallet.passkeyLabel,
+              provider: wallet.passkeyProvider,
+            );
     } catch (_) {}
     final stored = wallet.recoveryCheckAddress;
     var restored = mnemonic != null;

@@ -5,6 +5,7 @@ import 'package:kute/services/evm_derivation_policy.dart';
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -118,7 +119,12 @@ class RecoverChoiceScreen extends ConsumerStatefulWidget {
     super.key,
     @visibleForTesting this.rescue,
     @visibleForTesting this.chooseEvmFormat,
+    @visibleForTesting this.passkeyHomes,
   });
+
+  /// The passkey homes the lookup asks, in order. Null: Breez then Kute on
+  /// iOS / Android, Kute only on the web ([PasskeyHomes.restoreOrder]).
+  final List<PasskeyHome>? passkeyHomes;
 
   /// Finds wallet copies an older build left on this phone under the
   /// legacy Keychain accessibility. iOS only by default.
@@ -168,9 +174,18 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         entrySource: firstWallet ? 'onboarding' : 'add_wallet');
     _legacyLookup = _lookUpLegacyCopies();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _handlePasskeyChoice(trigger: 'auto');
+      if (mounted && _passkeyOffered) _handlePasskeyChoice(trigger: 'auto');
     });
   }
+
+  /// Passkey restore exists on iOS / Android, and on the web only on a page
+  /// served from Kute's RP (kutewallet.com or a subdomain): no other web
+  /// host can reach a Kute wallet's passkey, and Breez-home and legacy
+  /// passkeys never work on the web.
+  bool get _passkeyOffered => !kIsWeb || PasskeyHomes.webPageOnKuteHome;
+
+  List<PasskeyHome> get _passkeyHomes =>
+      widget.passkeyHomes ?? PasskeyHomes.restoreOrder(web: kIsWeb);
 
   Future<void> _lookUpLegacyCopies() async {
     final rescue = _rescue;
@@ -239,51 +254,89 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       //    CREATE flow never consults it, so gating recovery on it was the
       //    bug that made "no passkey available" appear for wallets that
       //    plainly exist.
-      PasskeyDiscovery? discovery;
-      try {
-        // The discovery sign-in raises the native passkey sheet.
-        TrackingService.passkeyRestorePromptShown();
-        discovery = await PasskeyService.discoverWallets();
-      } catch (e) {
-        // A cancelled ceremony is the user backing out — stop here rather
-        // than fall through and prompt them a second time. Copies from an
-        // older version still get their list: they need no ceremony.
-        if (PasskeyService.isUserCancelledError(e)) {
-          _trackPasskeyRestoreCancelled('lookup');
-          await _legacyLookup;
-          if (mounted && _legacyCopies.isNotEmpty) {
-            _showLabelPicker(const [], null, legacy: _legacyCopies);
+      //    TWO HOMES (iOS / Android): Breez's RP first, exactly the call
+      //    it always was (the SDK's native default already prefers
+      //    immediately available credentials), then Kute's RP asked
+      //    quietly (`preferImmediatelyAvailable: true`), so a device with
+      //    no Kute passkey fails fast instead of showing an error sheet.
+      //    Every wallet either home lists is offered, each tagged with its
+      //    home and credential. The web asks Kute's RP only, with the
+      //    browser's own sheet.
+      final found = <_FoundPasskeyWallet>[];
+      var promptShown = false;
+      for (final home in _passkeyHomes) {
+        PasskeyDiscovery? discovery;
+        try {
+          // The discovery sign-in raises the native passkey sheet.
+          if (!promptShown) {
+            promptShown = true;
+            TrackingService.passkeyRestorePromptShown();
           }
-          return;
+          discovery = home == PasskeyHome.breez
+              ? await PasskeyService.discoverWallets()
+              : await PasskeyService.home(home).discoverWallets(
+                  preferImmediatelyAvailable: kIsWeb ? null : true);
+        } catch (e) {
+          // A cancelled ceremony is the user backing out — stop here rather
+          // than fall through and prompt them a second time. Copies from an
+          // older version still get their list: they need no ceremony, and
+          // so do wallets an earlier home already listed.
+          if (PasskeyService.isUserCancelledError(e)) {
+            _trackPasskeyRestoreCancelled('lookup');
+            await _legacyLookup;
+            if (mounted && (found.isNotEmpty || _legacyCopies.isNotEmpty)) {
+              _showLabelPicker(found, legacy: _legacyCopies);
+            }
+            return;
+          }
+          // The passkey that answered lives in a password manager that
+          // returns no PRF key: nothing can be read from it, and the legacy
+          // probe would only ask again. Say so (after the lookup) and offer
+          // the recovery phrase. Nothing is stored or wiped. (Wallets an
+          // earlier home already listed are offered instead.)
+          if (PasskeyService.isPrfUnsupportedError(e) && found.isEmpty) {
+            _trackPasskeyRestoreFailed('lookup', e);
+            _prfMissingStage = 'restore_lookup';
+            return;
+          }
+          // Any other failure (no passkey on this home, the platform
+          // refusing the RP) is non-fatal: the next home, then legacy.
         }
-        // The passkey that answered lives in a password manager that
-        // returns no PRF key: nothing can be read from it, and the legacy
-        // probe would only ask again. Say so (after the lookup) and offer
-        // the recovery phrase. Nothing is stored or wiped.
-        if (PasskeyService.isPrfUnsupportedError(e)) {
-          _trackPasskeyRestoreFailed('lookup', e);
-          _prfMissingStage = 'restore_lookup';
-          return;
+        if (!mounted) return;
+        for (final label in discovery?.labels ?? const <String>[]) {
+          found.add(_FoundPasskeyWallet(
+            label: label,
+            home: home,
+            credentialId: discovery!.credentialId,
+          ));
         }
-        // Any other new-SDK failure is non-fatal: fall through to legacy.
       }
       if (!mounted) return;
       await _legacyLookup;
       if (!mounted) return;
-      final labels = discovery?.labels ?? const <String>[];
       final legacy = _legacyCopies;
-      if (labels.length == 1 && legacy.isEmpty) {
+      if (found.length == 1 && legacy.isEmpty) {
         // One wallet: nothing to choose, restore it straight away. The
         // confirmation ceremony is pinned to the discovered credential.
-        await _restoreFromPasskeys(labels,
-            credentialId: discovery!.credentialId, trigger: 'auto');
+        await _restoreFromPasskeys(found, trigger: 'auto');
         return;
       }
-      if (labels.isNotEmpty || legacy.isNotEmpty) {
-        _showLabelPicker(labels, discovery?.credentialId, legacy: legacy);
+      if (found.isNotEmpty || legacy.isNotEmpty) {
+        _showLabelPicker(found, legacy: legacy);
         return;
       }
       if (!mounted) return;
+      if (kIsWeb) {
+        // No legacy (pre-2.x) passkey can be reached from a browser.
+        TrackingService.track('passkey_restore_failed',
+            params: {'stage': 'no_wallet_found'});
+        showMessageSnackBar(
+          context: context,
+          message: context.l10n.recoverChoiceNoPasskeyWallet,
+          error: false,
+        );
+        return;
+      }
       // 2) LEGACY (pre-2.x) recovery. Pre-2.x builds published their
       //    Nostr label only best-effort, under whatever credential their
       //    ceremony resolved, so discovery cannot be relied on to list it
@@ -336,7 +389,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   /// Everything the sheet shows is captured here, before it opens: the
   /// sheet outlives this screen when a restore navigates away, and the
   /// builder must never read the screen's own context then.
-  void _showLabelPicker(List<String> labels, Uint8List? credentialId,
+  void _showLabelPicker(List<_FoundPasskeyWallet> labels,
       {List<LegacyWalletCopy> legacy = const []}) {
     final c = context.colors;
     final l10n = context.l10n;
@@ -348,14 +401,14 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     final total = labels.length + legacy.length;
     final title = total == 1 ? l10n.recoverPickWalletOne : l10n.recoverPickWalletMany;
     final rows = <_PickerRow>[
-      for (final label in labels)
+      for (final found in labels)
         _PickerRow(
-          title: PasskeyService.displayNameForLabel(label),
-          subtitle: PasskeyService.creationDateForLabel(label).isEmpty
+          title: PasskeyService.displayNameForLabel(found.label),
+          subtitle: PasskeyService.creationDateForLabel(found.label).isEmpty
               ? null
               : l10n.recoverPasskeyCreated(
-                  PasskeyService.creationDateForLabel(label)),
-          onTap: () => _restoreFromPasskeys([label], credentialId: credentialId),
+                  PasskeyService.creationDateForLabel(found.label)),
+          onTap: () => _restoreFromPasskeys([found]),
         ),
     ];
     final legacyRows = <_PickerRow>[
@@ -678,15 +731,18 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   /// discovery sign-in resolved: the confirmation ceremony is pinned to it
   /// so a different passkey can never answer for this wallet. [trigger] is
   /// 'auto' when discovery found a single wallet and no one tapped.
-  Future<void> _restoreFromPasskeys(List<String> labels,
-      {Uint8List? credentialId, String trigger = 'tap'}) async {
+  Future<void> _restoreFromPasskeys(List<_FoundPasskeyWallet> wallets,
+      {String trigger = 'tap'}) async {
     if (!mounted) return;
     setState(() => _restoringPasskey = true);
     // True once any wallet record was written: from then on a failure
     // ends the flow as a success (the wallet is listed and works).
     var savedAny = false;
+    final homes = <PasskeyHome>{};
     try {
-      for (final label in labels) {
+      for (final found in wallets) {
+        final label = found.label;
+        final home = found.home;
         RestoreFlowAnalytics.step('passkey_confirm',
             method: 'passkey', trigger: trigger);
         if (mounted) setState(() => _confirmingLabel = label);
@@ -694,10 +750,15 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         // sign-in (Nostr), so this restore is by definition the new-SDK
         // path, including any label a pre-2.x build happened to publish.
         // Legacy wallets are found by the legacy copies and probe, which
-        // read no relay.
-        final pkWallet = await PasskeyService.getWallet(
-            label: label, legacy: false, credentialId: credentialId);
-        await PasskeyService.cacheLabel(label);
+        // read no relay. Each wallet re-derives on the home whose
+        // discovery listed it, pinned to that home's credential.
+        final pkWallet = home == PasskeyHome.breez
+            ? await PasskeyService.getWallet(
+                label: label, legacy: false, credentialId: found.credentialId)
+            : await PasskeyService.home(home)
+                .getWallet(label: label, credentialId: found.credentialId);
+        // The device-wide cached label is a Breez / legacy value.
+        if (home == PasskeyHome.breez) await PasskeyService.cacheLabel(label);
         final walletId =
             '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1000)}';
         final name = PasskeyService.displayNameForLabel(label);
@@ -717,8 +778,9 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
           // (getWallet above), so seed resolution stays on the new SDK
           // path. Stamped ONLY on this new-SDK restore — a legacy
           // (pre-2.x) wallet restored any other way must keep null and
-          // route through PasskeyService.getLegacySeed.
-          passkeyProvider: 'breez-0.17',
+          // route through PasskeyService.getLegacySeed. The marker names
+          // the home that derived it: 'breez-0.17' or 'kute-1'.
+          passkeyProvider: PasskeyHomes.markerFor(home),
           evmDerivationVersion: passkeyEvmDerivationVersion(label),
         );
         // addWallet returns the existing record when this label is
@@ -726,6 +788,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         final stored =
             await ref.read(settingsProvider.notifier).addWallet(config);
         savedAny = true;
+        homes.add(home);
         // Past the save, nothing may fail the restore: the wallet is
         // listed and works. Each step is reported by kind only.
         _postSave('rebuild', () => _rebuildPredictions());
@@ -738,6 +801,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                   source: ref.read(settingsProvider).wallets.length == 1
                       ? 'onboarding'
                       : 'add_wallet',
+                  passkeyHome: home.analyticsValue,
                 ));
         // Every passkey wallet is a spending wallet now, so provision
         // Polymarket for the restored wallet (matches creation). The REAL
@@ -764,13 +828,13 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
           });
         }
       }
-      _finishPasskeyRestore();
+      _finishPasskeyRestore(homes);
     } catch (e) {
       if (savedAny) {
         // A later label (or a step after a save) failed: the wallets
         // saved so far are listed and work, so finish as a success.
         _trackPostSaveFailed('later_label', e);
-        _finishPasskeyRestore();
+        _finishPasskeyRestore(homes);
         return;
       }
       if (PasskeyService.isPrfUnsupportedError(e)) {
@@ -791,8 +855,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         if (!mounted) return;
         switch (action) {
           case PasskeyPrfSheetAction.tryAgain:
-            await _restoreFromPasskeys(labels,
-                credentialId: credentialId, trigger: 'prf_retry');
+            await _restoreFromPasskeys(wallets, trigger: 'prf_retry');
           case PasskeyPrfSheetAction.restoreWithPhrase:
             _handleSeedChoice();
           case PasskeyPrfSheetAction.useDefaultManager:
@@ -821,10 +884,16 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     }
   }
 
-  /// The end of a passkey restore that saved at least one wallet.
-  void _finishPasskeyRestore() {
+  /// The end of a passkey restore that saved at least one wallet. [homes]
+  /// are the passkey homes the saved wallets came from (the event carries
+  /// the home when it is a single one).
+  void _finishPasskeyRestore(Set<PasskeyHome> homes) {
     _postSave('completed', () {
-      TrackingService.walletCreated(type: 'imported', authMode: 'passkey');
+      TrackingService.walletCreated(
+          type: 'imported',
+          authMode: 'passkey',
+          passkeyHome:
+              homes.length == 1 ? homes.single.analyticsValue : null);
       RestoreFlowAnalytics.completed();
       if (ref.read(settingsProvider).wallets.length == 1) {
         TrackingService.onboardingCompletedOnce(authMode: 'recovered');
@@ -1216,6 +1285,9 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                                           context, accountLabel)));
                               return Column(
                                 children: [
+                                  // Web off Kute's own host: no passkey
+                                  // can be reached, so no account pill.
+                                  if (_passkeyOffered)
                                   Center(
                                     child: KuteBarSecondaryPill(
                                       label: accountLabel,
@@ -1264,6 +1336,20 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       ),
     );
   }
+}
+
+/// A wallet a passkey home's discovery listed: its label, the home it
+/// lives on and the credential that owns it there. Never sent anywhere.
+class _FoundPasskeyWallet {
+  const _FoundPasskeyWallet({
+    required this.label,
+    required this.home,
+    required this.credentialId,
+  });
+
+  final String label;
+  final PasskeyHome home;
+  final Uint8List? credentialId;
 }
 
 /// One row of the restore picker, captured before the sheet opens.

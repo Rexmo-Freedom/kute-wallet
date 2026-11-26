@@ -74,7 +74,7 @@ void markSessionUnlocked(
   // A passkey label still waiting to be published goes out now if a
   // ceremony earlier in this process primed the identity (no prompt);
   // otherwise this is a no-op and the next ceremony retries it.
-  unawaited(PasskeyService.retryPendingLabels());
+  unawaited(PasskeyService.retryPendingLabelsAllHomes());
 }
 
 /// Ends the session, for flows that leave onboarding before a wallet exists.

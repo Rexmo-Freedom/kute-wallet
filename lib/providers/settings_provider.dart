@@ -6,7 +6,8 @@ import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainE
 import 'package:kute/models/settings_model.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/device_currency.dart' show kSettingsCurrencyKey;
-import 'package:kute/services/passkey_service.dart' show PasskeyService;
+import 'package:kute/services/passkey_service.dart'
+    show PasskeyHome, PasskeyService;
 import 'package:kute/services/secure_storage.dart' as ss;
 import 'package:kute/services/tracking_service.dart';
 
@@ -289,11 +290,19 @@ final settingsProvider = StateNotifierProvider<SettingsModel, Settings>((ref) {
   // A passkey wallet is backed up once its label is on the relay: the
   // publish loop reports here when a label landed and its pending flag
   // cleared, and the model flips that wallet's `backedUp`.
+  // Each passkey home reports its own labels and marks only its own
+  // wallets (the Breez home's handler is the model method as before).
   PasskeyService.labelPublishedHandler = model.markPasskeyLabelPublished;
+  Future<void> kuteHandler(String label) =>
+      model.markPasskeyLabelPublished(label, home: PasskeyHome.kute);
+  PasskeyService.kute.labelPublishedHandler = kuteHandler;
   ref.onDispose(() {
     if (PasskeyService.labelPublishedHandler ==
         model.markPasskeyLabelPublished) {
       PasskeyService.labelPublishedHandler = null;
+    }
+    if (PasskeyService.kute.labelPublishedHandler == kuteHandler) {
+      PasskeyService.kute.labelPublishedHandler = null;
     }
   });
   return model;

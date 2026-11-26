@@ -468,9 +468,12 @@ Future<({String? mnemonic})?> _revealMnemonic(
       // different credential and show words that don't control the
       // funds. Pass the wallet's own label so a multi-wallet user sees
       // THIS wallet's phrase, not the last-cached one's.
-      mnemonic = await PasskeyService.getMnemonic(
+      // getMnemonicFor routes on the marker: legacy and Breez-home
+      // wallets run getMnemonic exactly as before, Kute-home wallets
+      // derive on Kute's RP; an unknown marker yields nothing.
+      mnemonic = await PasskeyService.getMnemonicFor(
         label: w.passkeyLabel,
-        legacy: w.passkeyProvider == null,
+        provider: w.passkeyProvider,
       );
     } else {
       final read = await readStoredSeedInteractive(context, ref, w.id,

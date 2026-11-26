@@ -169,17 +169,17 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
         // one) so a multi-wallet user always sees the seed of the wallet they
         // opened — never a sibling wallet's. Cached label is only a fallback
         // for legacy wallets that predate stored per-wallet labels.
-        final label =
-            wallet.passkeyLabel ?? await PasskeyService.getCachedLabel();
         // VINTAGE ROUTING — absolute rule on a mnemonic-reveal surface:
         // a legacy (passkeyProvider == null) wallet reconstructs ONLY
         // via the 0.15.1 PRF pipeline (getLegacySeed). The new SDK's
         // signIn could resolve a different credential on the shared RP
-        // and display words that don't control the user's funds.
-        final breez.Seed seed = wallet.passkeyProvider == null
-            ? await PasskeyService.getLegacySeed(label: label)
-            : (await PasskeyService.getWallet(label: label, legacy: false))
-                .seed;
+        // and display words that don't control the user's funds. seedFor
+        // routes on the marker (legacy / Breez home / Kute's home) and
+        // throws on an unknown one.
+        final breez.Seed seed = await PasskeyService.seedFor(
+          passkeyLabel: wallet.passkeyLabel,
+          provider: wallet.passkeyProvider,
+        );
         mnemonicData = await _seedToMnemonic(seed);
       } else {
         final read = await readStoredSeedInteractive(context, ref, wallet.id,

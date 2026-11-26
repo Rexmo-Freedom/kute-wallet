@@ -62,17 +62,18 @@ final bitcoinConfigForWalletProvider =
     // Resolution order replicates 0.15.1: the wallet's own stored
     // label first, then the cached-label fallback — so a legacy wallet
     // resolves the exact PRF salt it was created with.
-    final label =
-        wallet.passkeyLabel ?? await PasskeyService.getCachedLabel();
     // VINTAGE ROUTING (funds safety): `passkeyProvider == null` marks a
     // pre-2.x wallet whose seed only reconstructs via the app's own PRF
     // pipeline. Routing it through the new SDK's signIn could resolve a
     // DIFFERENT credential on the shared RP and derive descriptors for
     // a wallet that isn't the user's. FAIL CLOSED: a legacy-path error
-    // propagates — never fall through to the new derivation.
-    final spark.Seed seed = wallet.passkeyProvider == null
-        ? await PasskeyService.getLegacySeed(label: label)
-        : (await PasskeyService.getWallet(label: label, legacy: false)).seed;
+    // propagates — never fall through to the new derivation. seedFor
+    // routes on the marker (legacy, Breez home 'breez-0.17', Kute's home
+    // 'kute-1'); an unknown marker throws.
+    final spark.Seed seed = await PasskeyService.seedFor(
+      passkeyLabel: wallet.passkeyLabel,
+      provider: wallet.passkeyProvider,
+    );
     mnemonic = switch (seed) {
       spark.Seed_Mnemonic(:final mnemonic) => mnemonic,
       // Passkey PRF-derived wallets ship as `Seed_Entropy(bytes)`.

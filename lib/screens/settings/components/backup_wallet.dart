@@ -192,17 +192,17 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
       try {
         // Use the target wallet's own label so we show ITS seed, not the
         // last-cached wallet's. Cached label is a legacy-only fallback.
-        final label =
-            targetWallet.passkeyLabel ?? await PasskeyService.getCachedLabel();
         // VINTAGE ROUTING — absolute rule on a mnemonic-reveal surface:
         // a legacy (passkeyProvider == null) wallet reconstructs ONLY
         // via the 0.15.1 PRF pipeline. Deriving via the new SDK could
         // resolve a different credential and show the user words that
         // don't control their funds — a paper backup of the wrong seed.
-        final breez.Seed seed = targetWallet.passkeyProvider == null
-            ? await PasskeyService.getLegacySeed(label: label)
-            : (await PasskeyService.getWallet(label: label, legacy: false))
-                .seed;
+        // seedFor routes on the marker (legacy / Breez home / Kute's
+        // home) and throws on an unknown one.
+        final breez.Seed seed = await PasskeyService.seedFor(
+          passkeyLabel: targetWallet.passkeyLabel,
+          provider: targetWallet.passkeyProvider,
+        );
         mnemonic = await _seedToMnemonic(seed);
       } catch (_) {
         mnemonic = null;

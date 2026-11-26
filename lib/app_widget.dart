@@ -499,7 +499,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
           // if a ceremony this process already primed the identity (no
           // prompt); a no-op otherwise. The unlock path covers the
           // relock branch above.
-          unawaited(PasskeyService.retryPendingLabels());
+          unawaited(PasskeyService.retryPendingLabelsAllHomes());
           // Share links claimed while the app was away: ask to pay them.
           _shareLinksWhenBack('resume');
         });
