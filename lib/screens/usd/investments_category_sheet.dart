@@ -211,6 +211,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
     show GestureBinding, PointerDeviceKind, PointerScrollEvent;
@@ -591,8 +592,13 @@ mixin _CategoryData<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   }
 
   /// The venue's own logos of a category's top markets, for its tile.
+  /// Web: only the markets whose logo shipped with the build
+  /// ([hlLogoShown]); none at all leaves the tile its own glyph.
   List<Widget> _hlLogos(List<HlMarket> markets) => [
-        for (final m in markets.take(_kLogos))
+        for (final m in markets
+            .where((m) =>
+                hlLogoShown(m.coin, m.wireCoin, m.iconUrl, m.category))
+            .take(_kLogos))
           HlCoinIcon(
               coin: m.coin,
               wireCoin: m.wireCoin,
@@ -670,7 +676,11 @@ mixin _CategoryData<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// The top markets' images for a Predictions tile, each on its
   /// category's soft tint (Investing's letter discs) while it loads, and
   /// the market's initials there if it fails: never a blank ring.
+  ///
+  /// Web: none (the pictures' host cannot be read by the page); the tile
+  /// shows its own glyph.
   List<Widget> _polyLogos(List<PolymarketEvent> events) {
+    if (kIsWeb) return const [];
     final fallback = Theme.of(context).colorScheme.onSurfaceVariant;
     return [
       for (final e in events)

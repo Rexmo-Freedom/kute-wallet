@@ -113,17 +113,22 @@ class HlPortfolioCard extends StatelessWidget {
               children: [
                 // The REAL coin/token logo (category glyph or letter badge
                 // on a miss), cut round as on the list card.
-                leading ??
-                    ClipOval(
-                      child: HlCoinIcon(
-                        coin: coin,
-                        wireCoin: wireCoin,
-                        iconUrl: iconUrl,
-                        category: category,
-                        size: 36,
+                // Web: no icon when the build shipped no logo (the name
+                // closes up).
+                if (leading != null ||
+                    hlLogoShown(coin, wireCoin, iconUrl, category)) ...[
+                  leading ??
+                      ClipOval(
+                        child: HlCoinIcon(
+                          coin: coin,
+                          wireCoin: wireCoin,
+                          iconUrl: iconUrl,
+                          category: category,
+                          size: 36,
+                        ),
                       ),
-                    ),
-                SizedBox(width: 12.w),
+                  SizedBox(width: 12.w),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

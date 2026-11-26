@@ -409,14 +409,18 @@ class PolyPositionCard extends ConsumerWidget {
       final tone = leads ? c.textPrimary : c.textSecondary;
       return Row(
         children: [
-          PolyCardThumbnail(
-            title: name,
-            imageUrl: PolymarketEvent.logoFromTeams(event.teams, name),
-            category: event.category,
-            size: 28.w,
-            radius: 8.r,
-          ),
-          SizedBox(width: 12.w),
+          // Web: no picture (its host cannot be read by the page);
+          // the name closes up.
+          if (kPolyThumbsShown) ...[
+            PolyCardThumbnail(
+              title: name,
+              imageUrl: PolymarketEvent.logoFromTeams(event.teams, name),
+              category: event.category,
+              size: 28.w,
+              radius: 8.r,
+            ),
+            SizedBox(width: 12.w),
+          ],
           Expanded(
             child: PolyCardTeamName(
               name: name,
@@ -477,14 +481,18 @@ class PolyPositionCard extends ConsumerWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PolyCardThumbnail(
-          title: question,
-          imageUrl: image,
-          category: event?.category ?? '',
-          size: _kThumb.w,
-          radius: 10.r,
-        ),
-        SizedBox(width: _kThumbGap.w),
+        // Web: no picture (its host cannot be read by the page);
+        // the name closes up.
+        if (kPolyThumbsShown) ...[
+          PolyCardThumbnail(
+            title: question,
+            imageUrl: image,
+            category: event?.category ?? '',
+            size: _kThumb.w,
+            radius: 10.r,
+          ),
+          SizedBox(width: _kThumbGap.w),
+        ],
         Expanded(
           child: reserve == null
               ? Text(question, style: style)
@@ -638,14 +646,18 @@ class PolyTitledCard extends StatelessWidget {
             builder: (context, box) => Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PolyCardThumbnail(
-                  title: title,
-                  imageUrl: imageUrl,
-                  category: '',
-                  size: 40.w,
-                  radius: 10.r,
-                ),
-                SizedBox(width: 10.w),
+                // Web: no picture (its host cannot be read by the page);
+                // the name closes up.
+                if (kPolyThumbsShown) ...[
+                  PolyCardThumbnail(
+                    title: title,
+                    imageUrl: imageUrl,
+                    category: '',
+                    size: 40.w,
+                    radius: 10.r,
+                  ),
+                  SizedBox(width: 10.w),
+                ],
                 Expanded(
                   child: Text(
                     title,

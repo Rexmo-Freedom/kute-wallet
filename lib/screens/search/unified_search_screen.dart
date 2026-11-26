@@ -2602,11 +2602,14 @@ class _RecentRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final image = entry.image;
-    final Widget logo = switch (entry.kind) {
+    final Widget? logo = switch (entry.kind) {
       SearchRecentKind.query =>
         Icon(Icons.search_rounded, size: 22, color: c.textTertiary),
-      SearchRecentKind.investing =>
-        HlCoinIcon(coin: entry.id, iconUrl: image, size: kSearchRowLogo),
+      SearchRecentKind.investing => hlLogoOrNull(
+          () =>
+              HlCoinIcon(coin: entry.id, iconUrl: image, size: kSearchRowLogo),
+          coin: entry.id,
+          iconUrl: image),
       SearchRecentKind.prediction => searchEventLogo(context, image),
     };
     return SearchListRow(
@@ -2643,10 +2646,17 @@ const double kContextPreviewPickShare = 0.4;
 /// Investing market's logo through HlCoinIcon (the wire coin a
 /// builder-dex market trades under, its category and logo URL, the same
 /// fallbacks), a prediction's event image.
-Widget contextPreviewLogo(BuildContext context, KuteBarPreview preview,
+///
+/// Web: null when there is nothing to draw (no shipped logo, a prediction's
+/// picture); the name closes up.
+Widget? contextPreviewLogo(BuildContext context, KuteBarPreview preview,
     {double size = kSearchRowLogo}) {
   final coin = preview.coin;
   if (coin != null && coin.isNotEmpty) {
+    if (!hlLogoShown(coin, preview.wireCoin ?? coin, preview.coinIconUrl,
+        preview.coinCategory)) {
+      return null;
+    }
     return HlCoinIcon(
       coin: coin,
       wireCoin: preview.wireCoin ?? coin,
@@ -2716,8 +2726,10 @@ class _ContextPreviewRow extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: kSearchRowHeight),
       child: Row(
         children: [
-          contextPreviewLogo(context, preview),
-          SizedBox(width: 12.w),
+          if (contextPreviewLogo(context, preview) case final logo?) ...[
+            logo,
+            SizedBox(width: 12.w),
+          ],
           Expanded(
             child: LayoutBuilder(builder: (context, constraints) {
               final pickMax = constraints.maxWidth * kContextPreviewPickShare;
@@ -2843,7 +2855,10 @@ KuteActionCard _contextActionCard(
         clipBehavior: Clip.none,
         children: [
           Positioned(
-              left: 0, top: 8, child: contextPreviewLogo(context, p, size: 40)),
+              left: 0,
+              top: 8,
+              child: contextPreviewLogo(context, p, size: 40) ??
+                  const SizedBox.shrink()),
           Positioned(
             left: 26,
             top: 34,

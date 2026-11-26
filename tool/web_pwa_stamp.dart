@@ -2,6 +2,7 @@
 // is deployed:
 //
 //   flutter build web --release
+//   dart run tool/web_hl_logos.dart             # the shipped logos
 //   dart run tool/web_pwa_stamp.dart            # or: ... build/web
 //
 // Writes into build/web:

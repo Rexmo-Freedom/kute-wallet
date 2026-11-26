@@ -40,6 +40,7 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -321,8 +322,14 @@ class SearchListRow extends StatelessWidget {
 }
 
 /// An event's picture at a row's size, or a blank square.
-Widget searchEventLogo(BuildContext context, String? imageUrl,
+///
+/// Web: null. The picture's host cannot be read by the page and an `<img>`
+/// per row cost a WebGL canvas each, so a row there shows its name alone
+/// (founder, 26 November 2026: "dont show the icons when not loading the
+/// icons, just the name").
+Widget? searchEventLogo(BuildContext context, String? imageUrl,
     {double size = kSearchRowLogo}) {
+  if (kIsWeb) return null;
   if (imageUrl != null && imageUrl.isNotEmpty) {
     return PolyCrestImage(url: imageUrl, size: size, radius: size / 4);
   }
@@ -535,12 +542,17 @@ class SearchInvestingRow extends ConsumerWidget {
         ? const <double>[]
         : hlSparklineWithLivePrice(series.closes, r.markPx);
     return SearchListRow(
-      leading: HlCoinIcon(
+      leading: hlLogoOrNull(
+          () => HlCoinIcon(
+              coin: r.coin,
+              wireCoin: r.wireCoin,
+              iconUrl: r.iconUrl,
+              category: r.category,
+              size: kSearchRowLogo),
           coin: r.coin,
           wireCoin: r.wireCoin,
           iconUrl: r.iconUrl,
-          category: r.category,
-          size: kSearchRowLogo),
+          category: r.category),
       title: name,
       titleLines: 1,
       subtitle: ticker.isEmpty ? null : ticker,
@@ -688,13 +700,18 @@ class SearchMoverRow extends StatelessWidget {
     return SearchListRow(
       // A blank plate, never the letter tile or a glyph, until the logo
       // paints (only markets with a logo are listed here).
-      leading: HlCoinIcon(
+      leading: hlLogoOrNull(
+          () => HlCoinIcon(
+              coin: market.coin,
+              wireCoin: market.wireCoin,
+              iconUrl: market.iconUrl,
+              category: market.category,
+              size: kSearchRowLogo,
+              placeholder: searchEventLogo(context, null)),
           coin: market.coin,
           wireCoin: market.wireCoin,
           iconUrl: market.iconUrl,
-          category: market.category,
-          size: kSearchRowLogo,
-          placeholder: searchEventLogo(context, null)),
+          category: market.category),
       title: market.coin,
       titleLines: 1,
       trailing: Text(

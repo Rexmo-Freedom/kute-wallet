@@ -147,17 +147,25 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
       onTap: _openDetail,
       // The REAL coin/token logo (category glyph or letter badge on a
       // miss), cut round for this row.
-      leading: HlVenueBadged(
-        monogram: shared ? HlDexNames.monogramOf(m) : null,
-        ring: c.surface,
-        child: HlCoinIcon(
-          coin: m.coin,
-          wireCoin: m.wireCoin,
-          category: m.category,
-          iconUrl: m.iconUrl,
-          size: kHlMarketRowIcon,
-          round: true,
+      // Web: none when the build shipped no logo for it (hlLogoOrNull),
+      // and the venue's corner monogram goes with it.
+      leading: hlLogoOrNull(
+        () => HlVenueBadged(
+          monogram: shared ? HlDexNames.monogramOf(m) : null,
+          ring: c.surface,
+          child: HlCoinIcon(
+            coin: m.coin,
+            wireCoin: m.wireCoin,
+            category: m.category,
+            iconUrl: m.iconUrl,
+            size: kHlMarketRowIcon,
+            round: true,
+          ),
         ),
+        coin: m.coin,
+        wireCoin: m.wireCoin,
+        iconUrl: m.iconUrl,
+        category: m.category,
       ),
       name: name,
       // A price tick rebuilds the figures alone, never the row, its logo
@@ -217,7 +225,7 @@ class _HlLiveFigures extends ConsumerWidget {
 class HlListRow extends StatelessWidget {
   const HlListRow({
     super.key,
-    required this.leading,
+    this.leading,
     required this.name,
     this.figure = '',
     this.figures,
@@ -235,7 +243,7 @@ class HlListRow extends StatelessWidget {
   /// At the row's end, after the figure ([HlMarketCard.trailing]).
   final Widget? trailing;
 
-  final Widget leading;
+  final Widget? leading;
   final String name;
   final String figure;
 
@@ -275,8 +283,11 @@ class HlListRow extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  leading,
-                  SizedBox(width: 12.w),
+                  // Web: no logo shipped, no icon; the name closes up.
+                  if (leading != null) ...[
+                    leading!,
+                    SizedBox(width: 12.w),
+                  ],
                   Expanded(
                     child: Text(
                       name,

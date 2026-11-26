@@ -93,6 +93,7 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1145,7 +1146,7 @@ class _CaretPainter extends CustomPainter {
 class PortfolioPositionRow extends StatelessWidget {
   const PortfolioPositionRow({
     super.key,
-    required this.leading,
+    this.leading,
     required this.title,
     required this.subtitle,
     required this.value,
@@ -1183,7 +1184,7 @@ class PortfolioPositionRow extends StatelessWidget {
   /// result in its colour); null: the text colour.
   final Color? valueColor;
 
-  final Widget leading;
+  final Widget? leading;
   final String title;
 
   /// The side held, as a small chip after the name on the Portfolio
@@ -1303,8 +1304,10 @@ class PortfolioPositionRow extends StatelessWidget {
             : portfolioArrowPnl(context, under, amount: pnlAmount);
         return HlListRow(
           inGroup: true,
-          leading: SizedBox.square(
-              dimension: kPortfolioRowImage.w, child: leading),
+          leading: leading == null
+              ? null
+              : SizedBox.square(
+                  dimension: kPortfolioRowImage.w, child: leading),
           name: listName ?? title,
           nameKey: const ValueKey('portfolio-row-title'),
           figure: value,
@@ -1386,9 +1389,11 @@ class PortfolioPositionRow extends StatelessWidget {
                     .clamp(0.0, double.infinity);
             return Row(
               children: [
-                SizedBox.square(
-                    dimension: kPortfolioRowImage.w, child: leading),
-                SizedBox(width: kPortfolioRowGap.w),
+                if (leading != null) ...[
+                  SizedBox.square(
+                      dimension: kPortfolioRowImage.w, child: leading),
+                  SizedBox(width: kPortfolioRowGap.w),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1489,7 +1494,7 @@ String portfolioSignedPnl(
 /// ink.
 class _PositionLine extends StatelessWidget {
   const _PositionLine({
-    required this.leading,
+    this.leading,
     required this.name,
     required this.chip,
     required this.note,
@@ -1501,7 +1506,7 @@ class _PositionLine extends StatelessWidget {
     this.valueColor,
   });
 
-  final Widget leading;
+  final Widget? leading;
   final String name;
   final String? chip;
   final String? note;
@@ -1529,9 +1534,11 @@ class _PositionLine extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, box) => Row(
               children: [
-                SizedBox.square(
-                    dimension: kPortfolioRowImage.w, child: leading),
-                SizedBox(width: kPortfolioRowGap.w),
+                if (leading != null) ...[
+                  SizedBox.square(
+                      dimension: kPortfolioRowImage.w, child: leading),
+                  SizedBox(width: kPortfolioRowGap.w),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1634,7 +1641,7 @@ Widget _figureFit(Widget figure) => FittedBox(
 /// and [bar], the chance bar, between the line and the value.
 class _PositionSquare extends StatelessWidget {
   const _PositionSquare({
-    required this.leading,
+    this.leading,
     required this.name,
     required this.subtitle,
     required this.value,
@@ -1648,7 +1655,7 @@ class _PositionSquare extends StatelessWidget {
   final bool whole;
   final Widget? bar;
 
-  final Widget leading;
+  final Widget? leading;
   final String name;
   final String subtitle;
   final String value;
@@ -1706,12 +1713,16 @@ class _PositionSquare extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // The row's picture, drawn at the square's size.
-                      SizedBox.square(
-                        dimension: icon,
-                        child: FittedBox(child: leading),
-                      ),
-                      SizedBox(width: 8.w),
+                      // The row's picture, drawn at the square's size
+                      // (web: none when there is no logo; the name
+                      // closes up).
+                      if (leading != null) ...[
+                        SizedBox.square(
+                          dimension: icon,
+                          child: FittedBox(child: leading),
+                        ),
+                        SizedBox(width: 8.w),
+                      ],
                       if (corner != null)
                         Expanded(
                           child: Align(
@@ -1814,7 +1825,7 @@ class _PositionSquare extends StatelessWidget {
 /// long as the Predictions list row's.
 class _PositionWide extends StatelessWidget {
   const _PositionWide({
-    required this.leading,
+    this.leading,
     required this.name,
     required this.subtitle,
     required this.value,
@@ -1828,7 +1839,7 @@ class _PositionWide extends StatelessWidget {
   final bool whole;
   final Widget Function(double width)? bar;
 
-  final Widget leading;
+  final Widget? leading;
   final String name;
   final String subtitle;
   final String value;
@@ -1869,12 +1880,15 @@ class _PositionWide extends StatelessWidget {
               child: LayoutBuilder(builder: (context, box) {
                 return Row(
                   children: [
-                    // The row's picture, drawn at the square's size.
-                    SizedBox.square(
-                      dimension: kPortfolioSquareIcon.w,
-                      child: FittedBox(child: leading),
-                    ),
-                    SizedBox(width: kPortfolioRowGap.w),
+                    // The row's picture, drawn at the square's size
+                    // (web: none when there is no logo).
+                    if (leading != null) ...[
+                      SizedBox.square(
+                        dimension: kPortfolioSquareIcon.w,
+                        child: FittedBox(child: leading),
+                      ),
+                      SizedBox(width: kPortfolioRowGap.w),
+                    ],
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2053,7 +2067,7 @@ class PortfolioDeskCardsSkeleton extends StatelessWidget {
 /// One desk card (see [kPortfolioDeskCardHeight]).
 class _PositionDesk extends StatelessWidget {
   const _PositionDesk({
-    required this.leading,
+    this.leading,
     required this.name,
     required this.subtitle,
     required this.value,
@@ -2064,7 +2078,7 @@ class _PositionDesk extends StatelessWidget {
     this.spark,
   });
 
-  final Widget leading;
+  final Widget? leading;
   final String name;
   final String subtitle;
   final String value;
@@ -2117,11 +2131,13 @@ class _PositionDesk extends StatelessWidget {
                         spark != null && box.maxWidth >= _kDeskSparkMinWidth;
                     return Row(
                       children: [
-                        SizedBox.square(
-                          dimension: kPortfolioSquareIcon.w,
-                          child: FittedBox(child: leading),
-                        ),
-                        SizedBox(width: 12.w),
+                        if (leading != null) ...[
+                          SizedBox.square(
+                            dimension: kPortfolioSquareIcon.w,
+                            child: FittedBox(child: leading),
+                          ),
+                          SizedBox(width: 12.w),
+                        ],
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2227,8 +2243,10 @@ Widget _hlDeskSpark(String? wire, double? live, double width, double height) {
 }
 
 /// A Predictions picture: the market's image in the row's circle.
-Widget _polyImage(String title, String? imageUrl, {String category = ''}) =>
-    ClipOval(
+/// Web: none (the picture's host is not readable by the page, and an
+/// `<img>` per row cost a canvas each; the name closes up).
+Widget? _polyImage(String title, String? imageUrl, {String category = ''}) =>
+    kIsWeb ? null : ClipOval(
       key: const ValueKey('portfolio-row-image-circle'),
       child: PolyCardThumbnail(
         title: title,
@@ -2499,13 +2517,14 @@ class PlacingBetRow extends ConsumerWidget {
   }
 }
 
-/// An Investing logo, round, at the row's size.
-Widget _hlImage(
+/// An Investing logo, round, at the row's size; web: none when the build
+/// shipped no logo for it ([hlLogoShown]).
+Widget? _hlImage(
         {required String coin,
         String? wireCoin,
         String? iconUrl,
         String? category}) =>
-    ClipOval(
+    !hlLogoShown(coin, wireCoin, iconUrl, category) ? null : ClipOval(
       child: HlCoinIcon(
         coin: coin,
         wireCoin: wireCoin,
@@ -2676,7 +2695,7 @@ class PortfolioClosedRow extends ConsumerWidget {
             ? AppColors.marketUp
             : AppColors.marketDown;
     final day = _rowDate(context)(at.toLocal());
-    final Widget leading;
+    final Widget? leading;
     final String title;
     final String? chip;
     final p = prediction;

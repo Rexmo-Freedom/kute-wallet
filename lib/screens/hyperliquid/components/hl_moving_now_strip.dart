@@ -708,27 +708,33 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ClipOval(
-                        // A blank plate until the logo paints, never the
-                        // letter tile or a glyph (only markets with a
-                        // logo are on the strip); the Watchlist's keep
-                        // the logo's usual fallback.
-                        child: HlCoinIcon(
-                          coin: m.coin,
-                          wireCoin: m.wireCoin,
-                          category: m.category,
-                          iconUrl: m.iconUrl,
-                          size: kHlMoverCardIcon,
-                          placeholder: widget.blankUntilLogo
-                              ? Container(
-                                  width: kHlMoverCardIcon.w,
-                                  height: kHlMoverCardIcon.w,
-                                  color: c.surfaceElevated,
-                                )
-                              : null,
+                      // Web: no icon when the build shipped no logo for
+                      // the market (hlLogoShown): the card keeps its
+                      // name and figures, nothing stands in for the logo.
+                      if (hlLogoShown(
+                          m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
+                        ClipOval(
+                          // A blank plate until the logo paints, never the
+                          // letter tile or a glyph (only markets with a
+                          // logo are on the strip); the Watchlist's keep
+                          // the logo's usual fallback.
+                          child: HlCoinIcon(
+                            coin: m.coin,
+                            wireCoin: m.wireCoin,
+                            category: m.category,
+                            iconUrl: m.iconUrl,
+                            size: kHlMoverCardIcon,
+                            placeholder: widget.blankUntilLogo
+                                ? Container(
+                                    width: kHlMoverCardIcon.w,
+                                    height: kHlMoverCardIcon.w,
+                                    color: c.surfaceElevated,
+                                  )
+                                : null,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 8.w),
+                        SizedBox(width: 8.w),
+                      ],
                       Expanded(
                         child: Align(
                           alignment: Alignment.topRight,

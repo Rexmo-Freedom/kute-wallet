@@ -40,14 +40,14 @@
 // coin no host knows costs its three requests once per miss TTL, not once
 // per list build; the letter tile shows until an image lands.
 //
-// On web the browser draws the logo, not flutter_svg: the hosts send no
-// CORS headers, so the bytes cannot be read. A candidate is tried by
-// loading it in an `<img>` ([WebImageLoader]: onload is a hit, onerror —
-// a 404, the venue's HTML catch-all — a miss) and a hit draws through
-// [WebNetworkImage]. The browser paints the pattern-wrapped rasters and
-// nested SVGs flutter_svg cannot, so neither repair is needed there; a
-// white-only mark is not detected (its pixels are unreadable) and draws
-// as it is. There is no disk cache on web; the memory caches work the same.
+// On web the logo hosts send no CORS headers, so the page cannot read their
+// bytes. The web build ships a copy of every logo these candidates can name
+// (tool/web_hl_logos.dart, build/web/logos/hl/), and a candidate is read
+// from that same-origin copy instead (hl_web_logos.dart), repaired and
+// drawn in the canvas exactly as on the phones: no `<img>` view, which on
+// Safari cost a full-screen WebGL canvas each. A candidate the build did
+// not ship is a miss for the session. There is no disk cache on web; the
+// memory caches work the same.
 
 import 'dart:async';
 import 'dart:convert';
@@ -67,6 +67,7 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
 import 'package:kute/theme/app_theme.dart';
 
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/hyperliquid/components/hl_web_logos.dart';
 
 /// Base coin used to build the HL coin-logo CDN URL: strips any `dex:`
 /// builder-dex prefix ('unit:WHEAT' → 'WHEAT') and '/…' pair suffix
@@ -224,6 +225,27 @@ List<String> hlCoinIconCandidates(
   }
   return urls;
 }
+
+/// Whether [HlCoinIcon] has a logo to draw for this market. Web: one of
+/// its candidates was shipped with the build (hl_web_logos.dart); a
+/// market without one shows no icon at all there, and its row closes up
+/// (founder, 26 November 2026: "dont show the icons when not loading the
+/// icons, just the name"). Always true on the phones, which keep their
+/// glyph and letter fallbacks.
+bool hlLogoShown(
+    String coin, String? wireCoin, String? iconUrl, String? category) {
+  if (!kIsWeb) return true;
+  return HlWebLogos.hasAny(hlIconUrlsFor(coin, wireCoin, iconUrl, category));
+}
+
+/// [HlCoinIcon] for this market, or null on the web when it has no logo
+/// to draw ([hlLogoShown]), for a row whose leading slot is optional.
+Widget? hlLogoOrNull(Widget Function() icon,
+        {required String coin,
+        String? wireCoin,
+        String? iconUrl,
+        String? category}) =>
+    hlLogoShown(coin, wireCoin, iconUrl, category) ? icon() : null;
 
 /// The other markets on the same asset whose logo [coin] may show, from
 /// the markets loaded so far: see [hlCoinIconCandidates].
@@ -457,10 +479,18 @@ bool hlLooksLikePng(Uint8List bytes) {
 }
 
 Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
-  if (kIsWeb) return _probeHlWeb(url);
+  var from = url;
+  if (kIsWeb) {
+    // Web: the copy shipped with the build, on the page's own origin, so
+    // it is read and drawn in the canvas like a downloaded logo on the
+    // phones (hl_web_logos.dart). None shipped: this session's miss.
+    final local = await HlWebLogos.localUrlFor(url);
+    if (local == null) return (_HlFetch.failed, null);
+    from = local;
+  }
   try {
     IconLoadStats.network++;
-    final resp = await SharedHttpClient.get(Uri.parse(url),
+    final resp = await SharedHttpClient.get(Uri.parse(from),
         kind: HttpCallKind.backgroundRead,
         timeout: const Duration(seconds: 8));
     final ct = (resp.headers['content-type'] ?? '').toLowerCase();
@@ -493,21 +523,6 @@ Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
   } catch (_) {
     return (_HlFetch.failed, null);
   }
-}
-
-/// Web: [url] loaded in an `<img>`. A load is a hit; an error or a timeout
-/// is remembered for the session only (there is no disk cache on web).
-Future<(_HlFetch, HlIconArt?)> _probeHlWeb(String url) async {
-  IconLoadStats.network++;
-  final load =
-      await WebImageLoader.load(url, timeout: const Duration(seconds: 8));
-  if (load == null) return (_HlFetch.failed, null);
-  final svg = Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') ?? false;
-  return (
-    _HlFetch.hit,
-    HlIconArt(
-        bytes: Uint8List(0), raster: !svg, aspect: load.aspect, webUrl: url)
-  );
 }
 
 Future<HlIconArt?> _loadHlSvg(String url) {
@@ -1012,6 +1027,15 @@ class _HlCoinIconState extends State<HlCoinIcon> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      // Web: the shipped logo or nothing (no glyph, no letter tile); a
+      // logo still loading keeps its place, blank (hlLogoShown).
+      if (!hlLogoShown(widget.coin, widget.wireCoin, widget.iconUrl,
+          widget.category)) {
+        return const SizedBox.shrink();
+      }
+      if (_art == null) return SizedBox(width: widget.size.w, height: widget.size.w);
+    }
     if (!widget.round) return _icon(context);
     final art = _art;
     if (art?.webUrl == null) return ClipOval(child: _icon(context));

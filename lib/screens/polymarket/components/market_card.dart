@@ -30,6 +30,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:math' show pi;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -794,14 +795,18 @@ class MarketCard extends ConsumerWidget {
       final tone = leads ? c.textPrimary : c.textSecondary;
       return Row(
         children: [
-          _MarketThumbnail(
-            title: name,
-            imageUrl: crest,
-            category: category,
-            size: 28.w,
-            radius: 8.r,
-          ),
-          SizedBox(width: 12.w),
+          // Web: no picture (its host cannot be read by the page);
+          // the name closes up.
+          if (kPolyThumbsShown) ...[
+            _MarketThumbnail(
+              title: name,
+              imageUrl: crest,
+              category: category,
+              size: 28.w,
+              radius: 8.r,
+            ),
+            SizedBox(width: 12.w),
+          ],
           Expanded(
             child: _TeamName(
               name: name,
@@ -922,14 +927,18 @@ class MarketCard extends ConsumerWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _MarketThumbnail(
-          title: this.title,
-          imageUrl: image,
-          category: category,
-          size: kPolyCardImage.w,
-          radius: 10.r,
-        ),
-        SizedBox(width: kPolyCardImageGap.w),
+        // Web: no picture (its host cannot be read by the page);
+        // the name closes up.
+        if (kPolyThumbsShown) ...[
+          _MarketThumbnail(
+            title: this.title,
+            imageUrl: image,
+            category: category,
+            size: kPolyCardImage.w,
+            radius: 10.r,
+          ),
+          SizedBox(width: kPolyCardImageGap.w),
+        ],
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1374,6 +1383,13 @@ String polyRoundTimes(DateTime start, DateTime end, AppLocalizations l10n,
 /// fallback, a team's name that gives way to its abbreviation, the big
 /// right-hand figure and the caption line.
 typedef PolyCardThumbnail = _MarketThumbnail;
+
+/// Whether market pictures are drawn in lists: not on the web, where
+/// their host cannot be read by the page and an `<img>` per card cost a
+/// WebGL canvas each; a card there shows its name alone (founder,
+/// 26 November 2026: "dont show the icons when not loading the icons,
+/// just the name"). The phones are unchanged.
+bool get kPolyThumbsShown => !kIsWeb;
 typedef PolyCardTeamName = _TeamName;
 
 TextStyle polyCardTitleStyle(AppColorsExtension c) => MarketCard._title(c);
@@ -1814,6 +1830,8 @@ class _MarketThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Web: no picture and no stand-in ([kPolyThumbsShown]).
+    if (!kPolyThumbsShown) return const SizedBox.shrink();
     final c = context.colors;
     final size = this.size ?? 56.w;
     final radius = this.radius ?? 14.r;

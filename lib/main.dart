@@ -2,6 +2,7 @@ import 'package:kute/screens/shared/wallet_icon.dart' show BrandMark;
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:async';
+import 'package:kute/screens/hyperliquid/components/hl_web_logos.dart';
 import 'package:kute/app_widget.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/restart_widget.dart';
@@ -259,6 +260,13 @@ Future<void> _initializeApp() async {
   // no third-party script in the page), installed before anything calls
   // `Posthog()`. lib/services/analytics/web_posthog/. No-op on the phones.
   if (kIsWeb) WebPosthog.install();
+  // Web only: the index of the Investing logos shipped with the build
+  // (hl_web_logos.dart), read before the first list builds so a row knows
+  // at once whether it has a logo. Same origin, a few kilobytes; bounded.
+  final webLogos = kIsWeb
+      ? HlWebLogos.preload()
+          .timeout(const Duration(seconds: 2), onTimeout: () {})
+      : null;
   // Boot fan-out. Each leg is wrapped in its own try-catch so a single
   // failure (no internet, missing `.env`, Hive corruption, Firebase
   // outage) can't sink the whole boot. Without this, `Future.wait`
@@ -410,6 +418,7 @@ Future<void> _initializeApp() async {
   // didn't complete in time, downstream Spark-reading providers fall
   // through to their cached/empty branches and the SDK will retry
   // when the screen that needs it actually mounts.
+  if (webLogos != null) await webLogos;
   final sparkSw = Stopwatch()..start();
   try {
     await BreezSdkSparkLib.init().timeout(const Duration(seconds: 6));
