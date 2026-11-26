@@ -894,7 +894,23 @@ class _SettingsState extends ConsumerState<Settings> {
       return;
     }
     _biometricsToggleInFlight = true;
+    // Web, turning it on: the platform check runs first, straight from
+    // this tap (Safari needs the tap's user activation for WebAuthn, and a
+    // PIN step-up outlasts it); nothing is stored until the change is
+    // approved below. A cancel leaves it off.
+    WebBiometricEnrolment? enrolment;
     try {
+      if (PlatformCaps.isWeb && enable) {
+        enrolment = await WebBiometrics.begin();
+        if (enrolment == null) {
+          TrackingService.track('biometrics_toggle_cancelled',
+              params: {'enable': enable});
+          return;
+        }
+      }
+      if (!mounted) {
+        return;
+      }
       final approved = await approveLocalAction(
         context,
         ref,
@@ -912,11 +928,13 @@ class _SettingsState extends ConsumerState<Settings> {
         return;
       }
       if (PlatformCaps.isWeb) {
-        // Web: turning it on creates this browser's credential (one
-        // platform check); a cancel leaves it off. Turning it off drops
-        // the stored id. Needs PRF; see web_biometrics.dart.
+        // Web: turning it on stores the credential made above (wraps the
+        // vault's key under its PRF output). Turning it off drops the
+        // stored id. Needs PRF; see web_biometrics.dart.
         if (enable) {
-          if (!await WebBiometrics.enrol()) {
+          final pending = enrolment;
+          enrolment = null;
+          if (pending == null || !await WebBiometrics.commit(pending)) {
             TrackingService.track('biometrics_toggle_cancelled',
                 params: {'enable': enable});
             return;
@@ -936,6 +954,9 @@ class _SettingsState extends ConsumerState<Settings> {
           previousValue: (!enable).toString());
       TrackingService.track('biometrics_toggled', params: {'enabled': enable});
     } finally {
+      // Declined, unmounted or failed before the commit: the PRF output
+      // goes.
+      enrolment?.discard();
       _biometricsToggleInFlight = false;
     }
   }

@@ -19,6 +19,8 @@
 /// using `local_auth`.
 library;
 
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:hive_ce/hive.dart';
 
@@ -68,15 +70,25 @@ abstract final class WebBiometrics {
   /// Creates this browser's credential with the PRF extension (the user
   /// passes the platform check once, twice when the browser returns PRF
   /// only on an assertion) and wraps the open vault's key under it. Needs
-  /// an unlocked vault (the settings toggle runs a step-up first). False
-  /// when unavailable, cancelled, refused or without PRF; nothing is stored
-  /// then.
+  /// an unlocked vault. False when unavailable, cancelled, refused or
+  /// without PRF; nothing is stored then. [begin] then [commit].
   static Future<bool> enrol() async {
+    final pending = await begin();
+    return pending != null && await commit(pending);
+  }
+
+  /// The platform-check half of [enrol]: creates the credential and reads
+  /// its PRF output, storing nothing. Call it straight from the user's tap:
+  /// Safari runs a WebAuthn ceremony only while the page still has the
+  /// tap's user activation, which is long gone after a PIN step-up (the
+  /// PIN's own key derivation takes seconds). Null when unavailable,
+  /// cancelled, refused or without PRF.
+  static Future<WebBiometricEnrolment?> begin() async {
     final web = WebVault.instance;
-    if (!_available || web == null || !web.vault.isOpen) return false;
+    if (!_available || web == null || !web.vault.isOpen) return null;
     final input = web.vault.crypto.randomBytes(32);
     final created = await impl.createPlatformCredential(input);
-    if (created == null) return false;
+    if (created == null) return null;
     var output = created.prf;
     if (output == null && created.prfEnabled) {
       final assertion = await impl.getPlatformAssertion(created.id, input);
@@ -85,18 +97,29 @@ abstract final class WebBiometrics {
     if (output == null) {
       debugPrint('Web biometrics: no PRF from this authenticator; the PIN '
           'stays the only unlock.');
-      return false;
+      return null;
     }
+    return WebBiometricEnrolment._(created.id, input, output);
+  }
+
+  /// The storing half of [enrol], once the change is approved: wraps the
+  /// open vault's key under [pending]'s PRF output and keeps the
+  /// credential id. Always clears [pending]'s secret.
+  static Future<bool> commit(WebBiometricEnrolment pending) async {
+    final web = WebVault.instance;
     try {
-      await web.vault.enrolPrf(created.id, input, output);
+      if (web == null || !web.vault.isOpen || pending._output.isEmpty) {
+        return false;
+      }
+      await web.vault.enrolPrf(pending.id, pending._input, pending._output);
       final box = await Hive.openBox(_box);
-      await box.put(_key, created.id);
+      await box.put(_key, pending.id);
     } catch (_) {
       return false;
     } finally {
-      output.fillRange(0, output.length, 0);
+      pending.discard();
     }
-    _credentialId = created.id;
+    _credentialId = pending.id;
     return true;
   }
 
@@ -138,5 +161,22 @@ abstract final class WebBiometrics {
       final box = await Hive.openBox(_box);
       await box.delete(_key);
     } catch (_) {}
+  }
+}
+
+/// A credential created by [WebBiometrics.begin] and not yet stored: its id,
+/// its PRF input and, in memory only, its PRF output.
+class WebBiometricEnrolment {
+  WebBiometricEnrolment._(this.id, this._input, this._output);
+
+  final String id;
+  final Uint8List _input;
+  Uint8List _output;
+
+  /// Drops the PRF output (zeroed). The credential stays in the browser's
+  /// authenticator, unused, as after [WebBiometrics.forget].
+  void discard() {
+    _output.fillRange(0, _output.length, 0);
+    _output = Uint8List(0);
   }
 }
