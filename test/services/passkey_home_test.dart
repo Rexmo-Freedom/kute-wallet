@@ -207,8 +207,8 @@ void main() {
           'passkey017_seed_v1__${sha256.convert(utf8.encode('L · 1|010203'))}');
       expect(
           PasskeyService.kute.credentialIdKey, 'passkey_kute1_credential_id');
-      expect(
-          PasskeyService.kute.pendingLabelsKey, 'passkey_kute1_pending_labels');
+      expect(PasskeyService.kute.pendingLabelsKey,
+          'passkey_kute1_pending_labels'); // gitleaks:allow
       expect(PasskeyService.kute.seedCacheKey('L · 1', cred),
           startsWith('passkey_kute1_seed_v1__'));
       expect(PasskeyService.kute.seedCacheKey('L · 1', cred),

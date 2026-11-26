@@ -75,3 +75,6 @@ c1478714123210109b1ea7f4a43526f8a30e9fd5:lib/services/one_balance/pending_bitcoi
 
 # Polygon USDC token contract address in a receipt fixture, public.
 244337f55e41e6456b29ee802064c2ce407a0280:test/screens/shared/receipt_share_test.dart:generic-api-key:410
+# Kute passkey home: the pending-labels storage key's name (not a secret)
+82b40998c5eeaadb6e777af604165475afaf4547:test/services/passkey_home_test.dart:generic-api-key:211
+82b40998c5eeaadb6e777af604165475afaf4547:lib/services/passkey_service.dart:generic-api-key:806

@@ -803,7 +803,8 @@ class PasskeyHomeService {
         },
         _pendingLabelsKey = switch (home) {
           PasskeyHome.breez => 'passkey_pending_labels',
-          PasskeyHome.kute => 'passkey_kute1_pending_labels',
+          // A storage key's name, not a secret.
+          PasskeyHome.kute => 'passkey_kute1_pending_labels', // gitleaks:allow
         };
 
   /// The RP this service derives on.
