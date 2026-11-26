@@ -6,8 +6,6 @@ import 'dart:math';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' show Wallet;
 import 'package:flutter/foundation.dart'
     show
-        TargetPlatform,
-        defaultTargetPlatform,
         kDebugMode,
         kIsWeb,
         visibleForTesting;
@@ -43,6 +41,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/platform/platform_caps.dart';
+import 'package:kute/platform/webauthn_immediate.dart';
 
 /// Post-PIN screen presented when the user is creating a NEW wallet
 /// (not when restoring from seed). Toggle defaults ON when the
@@ -526,6 +525,9 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
   /// term and never says biometrics or passkey.
   String _methodName(BuildContext context) {
     final l10n = context.l10n;
+    // Web on an Apple device: Face ID (iPhone, iPad) or Touch ID (Mac).
+    final web = webBiometricMethodName(context);
+    if (web != null) return web;
     if (PlatformOs.isIOS) {
       return _hasFace || !_hasFingerprint
           ? l10n.biometricFaceId
@@ -708,13 +710,11 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
                                   // wallet, so the user picks it up front
                                   // (a third-party one without PRF can't).
                                   if (_biometricsAvailable == true &&
-                                      _useBiometrics) ...[
+                                      _useBiometrics &&
+                                      passkeyWorksWith(context) != null) ...[
                                     SizedBox(height: 4.h),
                                     Text(
-                                      defaultTargetPlatform ==
-                                              TargetPlatform.iOS
-                                          ? l10n.passkeyChoiceWorksWithApple
-                                          : l10n.passkeyChoiceWorksWithGoogle,
+                                      passkeyWorksWith(context)!,
                                       style: AppTextStyles.bodySmall(context)
                                           .copyWith(
                                               height: 1.4,
@@ -1071,7 +1071,21 @@ class PasskeyHomeCeremonies {
     this.markPending,
     this.publishLabel,
     this.breezFallback = !kIsWeb,
+    this.web = kIsWeb,
+    this.immediateMediation,
   });
+
+  /// The web's create order (see [PasskeyWalletCreation]): no sign-in
+  /// sheet before the create unless it can be silent or a credential is
+  /// already known on this browser.
+  final bool web;
+
+  /// The browser's silent sign-in support ([webauthnImmediateMediation]).
+  final Future<bool> Function()? immediateMediation;
+
+  Future<bool> immediateMediationOrDefault() => immediateMediation != null
+      ? immediateMediation!()
+      : webauthnImmediateMediation();
 
   /// The platform's pre-ceremony verdict that this app is not associated
   /// with Kute's RP (iOS AASA probe; never true on Android or the web).
@@ -1381,7 +1395,23 @@ class PasskeyWalletCreation {
       }
     }
 
-    if (skipSignIn) {
+    // Web: the "quiet" sign-in that lets an existing Kute passkey derive
+    // the new label cannot be quiet in a browser without immediate
+    // mediation: it showed the browser's sign-in sheet ("no passkeys
+    // saved for this website") before the create sheet. There, with no
+    // credential known on this browser, the create runs straight away (a
+    // web create mints with a fresh random user id, so it never replaces
+    // a passkey). A known credential keeps the pinned sign-in, so one
+    // passkey keeps serving every wallet. The phones are unchanged.
+    final webCreateFirst = !skipSignIn &&
+        kute.web &&
+        !await kute.hasKnownCredentialOrDefault() &&
+        !await kute.immediateMediationOrDefault();
+    if (webCreateFirst) {
+      wallet = await register(total);
+      createMs = total.elapsedMilliseconds;
+      path = 'create';
+    } else if (skipSignIn) {
       wallet = await register(total);
       createMs = total.elapsedMilliseconds;
       path = 'create_after_cancel';

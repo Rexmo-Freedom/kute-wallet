@@ -40,6 +40,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/helpers/passkey_account_name.dart';
 import 'package:kute/platform/platform_caps.dart';
 
 /// Analytics for the wallet restore funnel: `restore_started` (this
@@ -120,7 +121,12 @@ class RecoverChoiceScreen extends ConsumerStatefulWidget {
     @visibleForTesting this.rescue,
     @visibleForTesting this.chooseEvmFormat,
     @visibleForTesting this.passkeyHomes,
+    @visibleForTesting this.autoLookup,
   });
+
+  /// Whether the passkey lookup runs by itself on entry: on iOS / Android,
+  /// never on the web (see initState). Null: by platform.
+  final bool? autoLookup;
 
   /// The passkey homes the lookup asks, in order. Null: Breez then Kute on
   /// iOS / Android, Kute only on the web ([PasskeyHomes.restoreOrder]).
@@ -173,9 +179,17 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     RestoreFlowAnalytics.start(
         entrySource: firstWallet ? 'onboarding' : 'add_wallet');
     _legacyLookup = _lookUpLegacyCopies();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _passkeyOffered) _handlePasskeyChoice(trigger: 'auto');
-    });
+    // The phones look up passkey wallets quietly on entry. The web does
+    // not: a browser's sign-in sheet cannot be quiet, and one opened
+    // without a tap is refused or confusing. There the two choices wait
+    // for the user, and the passkey pill opens the browser's own sheet
+    // from its tap (the browser offers this device, a phone by QR code or
+    // a security key; nothing narrows it).
+    if (widget.autoLookup ?? !kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _passkeyOffered) _handlePasskeyChoice(trigger: 'auto');
+      });
+    }
   }
 
   /// Passkey restore exists on iOS / Android, and on the web only on a page
@@ -1271,9 +1285,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                             // their two widths, centred.
                             Builder(builder: (context) {
                               final accountLabel = l10n.recoverWithAccount(
-                                  PlatformOs.isIOS
-                                      ? l10n.passkeyChoiceAppleAccount
-                                      : l10n.passkeyChoiceGoogleAccount);
+                                  passkeyAccountName(context));
                               // At most the page's own width (its 24
                               // gutters), so the two stay equal.
                               final width = math.min(
@@ -1291,7 +1303,8 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                                   Center(
                                     child: KuteBarSecondaryPill(
                                       label: accountLabel,
-                                      leading: PlatformOs.isIOS
+                                      leading: passkeyKeeper() ==
+                                              PasskeyKeeper.apple
                                           ? Icons.apple
                                           : Icons.fingerprint_rounded,
                                       width: width,
