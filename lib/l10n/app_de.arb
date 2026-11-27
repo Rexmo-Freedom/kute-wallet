@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Preis pro Anteil",
   "betOrderDuration": "Laufzeit",
   "betUntilCanceled": "Bis zur Stornierung",
+  "advancedFillsNow": "Sofort ausgeführt",
+  "advancedRests": "Wartet im Orderbuch",
   "betLimitOrderFilled": "Limit-Order ausgeführt",
   "betLimitBoughtShares": "{shares} Anteile {outcome} zu {price} gekauft",
   "betLimitPriceSteps": "Wähle einen Preis in Schritten von {step}.",

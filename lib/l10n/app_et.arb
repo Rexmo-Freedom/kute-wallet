@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Osaku hind",
   "betOrderDuration": "Kestus",
   "betUntilCanceled": "Kuni tühistamiseni",
+  "advancedFillsNow": "Täitub kohe",
+  "advancedRests": "Ootab raamatus",
   "betLimitOrderFilled": "Limiitorder täidetud",
   "betLimitBoughtShares": "Ostetud {shares} osakut {outcome} hinnaga {price}",
   "betLimitPriceSteps": "Vali hind sammuga {step}.",

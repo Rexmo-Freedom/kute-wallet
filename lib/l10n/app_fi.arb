@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Hinta per osuus",
   "betOrderDuration": "Kesto",
   "betUntilCanceled": "Kunnes peruttu",
+  "advancedFillsNow": "Toteutuu heti",
+  "advancedRests": "Odottaa kirjassa",
   "betLimitOrderFilled": "Rajahintatoimeksianto toteutui",
   "betLimitBoughtShares": "Ostettu {shares} osuutta {outcome} hintaan {price}",
   "betLimitPriceSteps": "Valitse hinta {step} askelin.",

@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Цена на дял",
   "betOrderDuration": "Продължителност",
   "betUntilCanceled": "До отмяна",
+  "advancedFillsNow": "Изпълнява се сега",
+  "advancedRests": "Чака в книгата",
   "betLimitOrderFilled": "Лимитната поръчка е изпълнена",
   "betLimitBoughtShares": "Купени {shares} дяла от {outcome} на {price}",
   "betLimitPriceSteps": "Изберете цена на стъпки от {step}.",

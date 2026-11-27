@@ -7125,6 +7125,12 @@ class AppLocalizationsSk extends AppLocalizations {
   String get betUntilCanceled => 'Do zrušenia';
 
   @override
+  String get advancedFillsNow => 'Vyplní sa hneď';
+
+  @override
+  String get advancedRests => 'Čaká v knihe';
+
+  @override
   String get betLimitOrderFilled => 'Limitný príkaz vyplnený';
 
   @override

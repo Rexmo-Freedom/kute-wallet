@@ -41,9 +41,15 @@ import 'dart:async';
 
 import 'package:kute/screens/polymarket/components/round_window_label.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
+import 'package:kute/screens/shared/advanced_ticket.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
+import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
+    show PolyPictureLead;
+import 'package:kute/services/polymarket_clob_websocket.dart'
+    show PolymarketLiveBooks;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
     show polymarketFeeTermsProvider;
-import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/slip_stat_tiles.dart'
     show SlipFigure, SlipFigures, slipZeroFigure;
@@ -2615,54 +2621,31 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
     );
   }
 
+  /// Spot or Limit as the Advanced page's type tiles (advanced_ticket
+  /// .dart), in the sale's red.
   Widget _orderTypeToggle(AppColorsExtension c) {
-    Widget seg(String label, bool isLimit) {
-      final selected = _isLimitMode == isLimit;
-      return Expanded(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (_isLimitMode == isLimit) return;
-            HapticFeedback.selectionClick();
-            setState(() {
-              _isLimitMode = isLimit;
-              if (isLimit && _limitPrice <= 0) {
-                _limitPrice = _seed(widget.currentPrice);
-              }
-            });
-          },
-          child: Container(
-            height: 38.h,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? c.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(9.r),
-              border: selected ? Border.all(color: c.border) : null,
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                color: selected ? c.textPrimary : c.textTertiary,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: EdgeInsets.all(3.w),
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: c.border),
-      ),
-      child: Row(children: [
-        seg(context.l10n.betOrderTypeSpot, false),
-        seg(context.l10n.betOrderTypeLimit, true),
-      ]),
+    return AdvancedTypeTiles(
+      key: const ValueKey('sell-advanced-order-type'),
+      options: [
+        AdvancedTypeOption(
+            label: context.l10n.betOrderTypeSpot,
+            glyph: AdvancedTypeGlyph.market),
+        AdvancedTypeOption(
+            label: context.l10n.betOrderTypeLimit,
+            glyph: AdvancedTypeGlyph.limit),
+      ],
+      selected: _isLimitMode ? 1 : 0,
+      sideColor: _kPolyRed,
+      onSelected: (i) {
+        final isLimit = i == 1;
+        if (_isLimitMode == isLimit) return;
+        setState(() {
+          _isLimitMode = isLimit;
+          if (isLimit && _limitPrice <= 0) {
+            _limitPrice = _seed(widget.currentPrice);
+          }
+        });
+      },
     );
   }
 
@@ -2677,83 +2660,52 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
       });
     }
 
-    Widget step(IconData icon, VoidCallback onTap) => GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: 42.sp,
-            height: 36.sp,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(color: c.border),
-            ),
-            child: Icon(icon, size: 18.sp, color: c.textPrimary),
-          ),
-        );
-
+    // The book on the feed, when known: a sale at or under the best bid
+    // sells at once.
+    final token = pos.tokenId;
+    final book = token == null || token.isEmpty
+        ? null
+        : PolymarketLiveBooks.instance
+            .snapshot(token, maxAge: const Duration(seconds: 30));
+    final bid = book?.bestBid;
+    final fillsNow = bid != null && _limitPrice <= bid + 1e-9;
+    final market =
+        '${(widget.currentPrice * 100).toStringAsFixed(1)}¢';
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Text(
-              context.l10n.betSellAt,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textSecondary,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () =>
-                  setState(() => _limitPrice = _seed(widget.currentPrice)),
-              behavior: HitTestBehavior.opaque,
-              child: Text(
-                context.l10n.betMarketPrice(
-                    '${(widget.currentPrice * 100).toStringAsFixed(1)}¢'),
-                style: TextStyle(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: c.textPrimary,
-                    decoration: TextDecoration.underline,
-                    decorationColor: c.textPrimary),
-              ),
-            ),
-          ],
+        AdvancedOddsTrack(
+          price: _limitPrice,
+          market: widget.currentPrice.clamp(0.0, 1.0).toDouble(),
+          tick: _tick,
+          sideColor: _kPolyRed,
+          buy: false,
+          marketLabel: context.l10n.betMarketPrice(market),
+          bestBid: bid,
+          bestAsk: book?.bestAsk,
+          fillsFrom: bid,
+          thumbLabel: bid == null
+              ? null
+              : fillsNow
+                  ? context.l10n.advancedFillsNow
+                  : context.l10n.advancedRests,
+          onChanged: (p) => setState(() {
+            _limitPrice = p;
+            _limitEdited = true;
+          }),
+        ),
+        SizedBox(height: 10.h),
+        AdvancedStepper(
+          label: context.l10n.betSellAt,
+          value: polymarketLimitCentsLabel(_limitPrice),
+          valueKey: const ValueKey('sell-advanced-limit-price'),
+          onStep: bump,
+          trailing: context.l10n.betMarketPrice(market),
+          onTrailing: () =>
+              setState(() => _limitPrice = _seed(widget.currentPrice)),
         ),
         SizedBox(height: 8.h),
-        Container(
-          decoration: BoxDecoration(
-            color: c.surfaceLight,
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: c.border),
-          ),
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
-          child: Row(
-            children: [
-              step(Icons.remove_rounded, () => bump(-1)),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    polymarketLimitCentsLabel(_limitPrice),
-                    key: const ValueKey('sell-advanced-limit-price'),
-                    style: TextStyle(
-                      fontSize: 22.sp,
-                      fontWeight: FontWeight.w700,
-                      color: c.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-              step(Icons.add_rounded, () => bump(1)),
-            ],
-          ),
-        ),
-        SizedBox(height: 6.h),
         Text(
           context.l10n.betLimitRestsOnBook,
           style: TextStyle(fontSize: 12.sp, color: c.textTertiary, height: 1.3),
@@ -2801,6 +2753,16 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
     final locked = _lockedShares;
     final issue = _issue(l10n);
 
+    final proceeds = switch (pos.tokenId) {
+      final token? when token.isNotEmpty => ref
+              .watch(polymarketFeeTermsProvider(token))
+              .whenOrNull(
+                  data: (fees) => formatDollars(
+                      fees.sellProceeds(_sharesToSell, orderPrice))) ??
+          '—',
+      _ => '—',
+    };
+
     return PopScope(
       // The page always answers with its edited values, including on a
       // swipe back or the system back button.
@@ -2809,191 +2771,150 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
         if (!didPop) Navigator.of(context).pop(_result(submit: false));
       },
       child: KeyboardDismissOnTap(
-        child: PolySlipAdvancedScaffold(
+        // The Advanced page (advanced_ticket.dart): the form scrolls under
+        // the one primary, floating over a fade, never in a bar.
+        child: AdvancedTicketFrame(
           title: l10n.betAdvancedSale,
           onBack: _close,
-          body: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  key: const ValueKey('prediction-advanced-sale-scroll'),
-                  physics: const ClampingScrollPhysics(),
-                  primary: false,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(height: 12.h),
-                        Text(
-                            polyShownQuestion(
-                                context, pos.marketQuestion, pos.eventSlug),
-                            style: TextStyle(
-                                fontSize: 20.sp,
-                                fontWeight: FontWeight.w700,
-                                color: c.textPrimary)),
-                        SizedBox(height: 20.h),
-                        PolySlipSection(
-                          title: l10n.betYourPosition,
-                          children: [_positionBlock(c)],
-                        ),
-                        SizedBox(height: 14.h),
-                        PolySlipSection(
-                          title: l10n.amount,
-                          // What is free to sell, worth it at the price in
-                          // force; what resting sells hold, said under the
-                          // figure.
-                          trailing: Text(
-                            '${l10n.available} ${formatDollars(_freeShares * _sizingPrice)}',
-                            textAlign: TextAlign.end,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: 14.sp, color: c.textSecondary),
-                          ),
-                          children: [
-                            PolySlipAmountField(
-                              controller: _amountController,
-                              prefix: r'$',
-                              inputFormatters: const [
-                                DecimalInputFormatter(fractionDigits: 2)
-                              ],
-                            ),
-                            if (locked > 0) ...[
-                              SizedBox(height: 10.h),
-                              Text(
-                                l10n.betSharesInOpenOrders(
-                                    locked.toStringAsFixed(2)),
-                                key: const ValueKey('sell-advanced-locked'),
-                                style: TextStyle(
-                                    fontSize: 14.sp, color: c.textSecondary),
-                              ),
-                            ],
-                            if (_sharesToSell > 0) ...[
-                              SizedBox(height: 10.h),
-                              Text(
-                                sellingAll
-                                    ? l10n.betAdvancedSaleSellingAll
-                                    : '≈ ${l10n.betSharesCount(_sharesToSell.toStringAsFixed(2))}',
-                                style: TextStyle(
-                                    fontSize: 14.sp, color: c.textSecondary),
-                              ),
-                            ],
-                            // More than is free, under the minimum, a
-                            // price off the tick: in red, the button shut.
-                            if (issue != null) ...[
-                              SizedBox(height: 10.h),
-                              Text(
-                                issue,
-                                key: const ValueKey('sell-advanced-issue'),
-                                style: TextStyle(
-                                    fontSize: 14.sp, color: AppColors.error),
-                              ),
-                            ],
-                          ],
-                        ),
-                        SizedBox(height: 14.h),
-                        PolySlipSection(
-                          title: l10n.portfolioTabOrders,
-                          children: [
-                            _orderTypeToggle(c),
-                            SizedBox(height: 16.h),
-                            if (_isLimitMode)
-                              _limitPriceInput(c)
-                            else
-                              _slippageRow(c),
-                          ],
-                        ),
-                        SizedBox(height: 14.h),
-                        PolySlipSection(
-                          children: [
-                            PolymarketFeeSummary(
-                              tokenId: pos.tokenId,
-                              shares: _sharesToSell,
-                              price: orderPrice,
-                              bitcoinFirst: false,
-                              limit: _isLimitMode,
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 14.h),
-                        PolySlipDetailsGroup(
-                          // Opens the rows in a bottom sheet; the event hears it open
-                          // and close.
-                          onToggle: (open) => TrackingService.track(
-                              'sell_sheet_advanced_details_toggled',
-                              params: {'open': open}),
-                          rows: [
-                            PolySlipDetailRow(
-                                label: l10n.betSharesToSell,
-                                value: _sharesToSell.toStringAsFixed(2)),
-                            SizedBox(height: 12.h),
-                            PolySlipDetailRow(
-                                label: l10n.betPricePerShare,
-                                value: formatDollars(orderPrice)),
-                            if (_isLimitMode) ...[
-                              SizedBox(height: 12.h),
-                              PolySlipDetailRow(
-                                  label: l10n.betOrderTypeRow,
-                                  value: l10n.betOrderTypeLimit),
-                              SizedBox(height: 12.h),
-                              PolySlipDetailRow(
-                                  label: l10n.betOrderDuration,
-                                  value: l10n.betUntilCanceled),
-                            ],
-                            SizedBox(height: 12.h),
-                            // What lands, net of the same fees the
-                            // estimate above shows (taken from the sale).
-                            PolySlipDetailRow(
-                                label: l10n.betProceedsToPredictions,
-                                value: switch (pos.tokenId) {
-                                  final token? when token.isNotEmpty => ref
-                                          .watch(
-                                              polymarketFeeTermsProvider(token))
-                                          .whenOrNull(
-                                              data: (fees) => formatDollars(fees.sellProceeds(
-                                                      _sharesToSell,
-                                                      orderPrice))) ??
-                                      '—',
-                                  _ => '—',
-                                }),
-                          ],
-                        ),
-                        SizedBox(height: 16.h),
-                      ],
-                    ),
-                  ),
-                ),
+          scrollKey: const ValueKey('prediction-advanced-sale-scroll'),
+          primaryHeight: kuteBarScrollClearance.h + 24.h,
+          primary: Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (_advancedBlock case final reason?)
+                CapabilityBlockNote(reason),
+              PolySlipCta(
+                color: _kPolyRed,
+                isBusy: false,
+                enabled: _canSell && _advancedBlock == null,
+                onTap: _sell,
+                label: _isLimitMode
+                    ? (_canSell
+                        ? l10n.betPlaceLimitAtPrice(
+                            polymarketLimitCentsLabel(_limitPrice))
+                        : l10n.betPlaceLimit)
+                    : (_canSell ? '${l10n.sellNow} · $amountStr' : l10n.sell),
+                disabledLabel:
+                    _canSell || issue != null ? null : l10n.barNeedAmount,
               ),
-              KuteStickyActionBar(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    if (_advancedBlock case final reason?)
-                      CapabilityBlockNote(reason),
-                    PolySlipCta(
-                      color: _kPolyRed,
-                      isBusy: false,
-                      enabled: _canSell && _advancedBlock == null,
-                      onTap: _sell,
-                      label: _isLimitMode
-                          ? (_canSell
-                              ? l10n.betPlaceLimitAtPrice(
-                                  polymarketLimitCentsLabel(_limitPrice))
-                              : l10n.betPlaceLimit)
-                          : (_canSell
-                              ? '${l10n.sellNow} · $amountStr'
-                              : l10n.sell),
-                      disabledLabel: _canSell || issue != null
-                          ? null
-                          : l10n.barNeedAmount,
-                    ),
-                  ]),
-                ),
-              ),
-            ],
+            ]),
           ),
+          children: [
+            SizedBox(height: 4.h),
+            // What is sold: the market's picture beside its question.
+            Row(
+              children: [
+                if ((pos.marketImage ?? '').isNotEmpty &&
+                    PolyPictureLead.shown(pos.marketImage))
+                  PolyPictureLead(
+                    url: pos.marketImage!,
+                    size: 40.sp,
+                    radius: 12.r,
+                    gap: 12.w,
+                    fallback: Container(
+                        width: 40.sp, height: 40.sp, color: c.surfaceLight),
+                  ),
+                Expanded(
+                  child: Text(
+                      polyShownQuestion(
+                          context, pos.marketQuestion, pos.eventSlug),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          color: c.textPrimary)),
+                ),
+              ],
+            ),
+            SizedBox(height: 16.h),
+            // The position, in one card.
+            Container(
+              key: const ValueKey('sell-advanced-position'),
+              padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
+              decoration: AppDecorations.card(context),
+              child: _positionBlock(c),
+            ),
+            SizedBox(height: 22.h),
+            // The amount, the page's hero; what is free to sell under it,
+            // what resting sells hold, the shares and any issue in red.
+            AdvancedHeroAmount(
+              controller: _amountController,
+              caption:
+                  '${l10n.available} ${formatDollars(_freeShares * _sizingPrice)}',
+              inputFormatters: const [DecimalInputFormatter(fractionDigits: 2)],
+              below: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (locked > 0)
+                    Text(
+                      l10n.betSharesInOpenOrders(locked.toStringAsFixed(2)),
+                      key: const ValueKey('sell-advanced-locked'),
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 14.sp, color: c.textSecondary),
+                    ),
+                  if (_sharesToSell > 0)
+                    Text(
+                      sellingAll
+                          ? l10n.betAdvancedSaleSellingAll
+                          : '≈ ${l10n.betSharesCount(_sharesToSell.toStringAsFixed(2))}',
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 14.sp, color: c.textSecondary),
+                    ),
+                  // More than is free, under the minimum, a price off the
+                  // tick: in red, the button shut.
+                  if (issue != null)
+                    Padding(
+                      padding: EdgeInsets.only(top: 6.h),
+                      child: Text(
+                        issue,
+                        key: const ValueKey('sell-advanced-issue'),
+                        textAlign: TextAlign.center,
+                        style:
+                            TextStyle(fontSize: 14.sp, color: AppColors.error),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(height: 22.h),
+            _orderTypeToggle(c),
+            SizedBox(height: 14.h),
+            if (_isLimitMode) _limitPriceInput(c) else _slippageRow(c),
+            SizedBox(height: 16.h),
+            // What it comes to: what lands in Predictions first.
+            AdvancedSummaryCard(
+              key: const ValueKey('sell-advanced-summary'),
+              headline:
+                  AdvancedSummaryRow(l10n.betProceedsToPredictions, proceeds),
+              headlineColor: AppColors.marketUp,
+              rows: [
+                AdvancedSummaryRow(
+                    l10n.betSharesToSell, _sharesToSell.toStringAsFixed(2)),
+                AdvancedSummaryRow(
+                    l10n.betPricePerShare, formatDollars(orderPrice)),
+                if (_isLimitMode) ...[
+                  AdvancedSummaryRow(
+                      l10n.betOrderTypeRow, l10n.betOrderTypeLimit),
+                  AdvancedSummaryRow(
+                      l10n.betOrderDuration, l10n.betUntilCanceled),
+                ],
+              ],
+              footer: [
+                SizedBox(height: 8.h),
+                PolymarketFeeSummary(
+                  tokenId: pos.tokenId,
+                  shares: _sharesToSell,
+                  price: orderPrice,
+                  bitcoinFirst: false,
+                  limit: _isLimitMode,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

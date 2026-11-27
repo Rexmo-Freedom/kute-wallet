@@ -7135,6 +7135,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get betUntilCanceled => 'Visszavonásig';
 
   @override
+  String get advancedFillsNow => 'Azonnal teljesül';
+
+  @override
+  String get advancedRests => 'Vár a könyvben';
+
+  @override
   String get betLimitOrderFilled => 'Limitáras megbízás teljesült';
 
   @override

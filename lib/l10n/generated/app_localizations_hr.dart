@@ -7135,6 +7135,12 @@ class AppLocalizationsHr extends AppLocalizations {
   String get betUntilCanceled => 'Do otkazivanja';
 
   @override
+  String get advancedFillsNow => 'Izvršava se odmah';
+
+  @override
+  String get advancedRests => 'Čeka u knjizi';
+
+  @override
   String get betLimitOrderFilled => 'Limitni nalog izvršen';
 
   @override

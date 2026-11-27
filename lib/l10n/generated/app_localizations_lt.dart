@@ -7155,6 +7155,12 @@ class AppLocalizationsLt extends AppLocalizations {
   String get betUntilCanceled => 'Kol bus atšauktas';
 
   @override
+  String get advancedFillsNow => 'Įvykdoma iškart';
+
+  @override
+  String get advancedRests => 'Laukia knygoje';
+
+  @override
   String get betLimitOrderFilled => 'Ribotas pavedimas įvykdytas';
 
   @override

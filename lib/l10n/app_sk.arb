@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Cena za podiel",
   "betOrderDuration": "Trvanie",
   "betUntilCanceled": "Do zrušenia",
+  "advancedFillsNow": "Vyplní sa hneď",
+  "advancedRests": "Čaká v knihe",
   "betLimitOrderFilled": "Limitný príkaz vyplnený",
   "betLimitBoughtShares": "Kúpených {shares} podielov {outcome} za {price}",
   "betLimitPriceSteps": "Zvoľte cenu v krokoch po {step}.",

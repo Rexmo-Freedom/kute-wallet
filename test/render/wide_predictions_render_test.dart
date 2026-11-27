@@ -51,6 +51,8 @@ import 'package:kute/screens/polymarket/components/sell_sheet.dart'
     show SellSheet;
 import 'package:kute/platform/kute_wide_frames.dart' show KuteSideFlow;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
+import 'package:kute/services/polymarket_clob_websocket.dart'
+    show PolymarketBookMessage, PolymarketLiveBooks, PolymarketOrderSummary;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
@@ -71,6 +73,13 @@ final _dir = Platform.environment['WIDE_PREDICTIONS_RENDER'];
 ///   ADVANCED_LIMIT_RENDER=<dir> flutter test \
 ///     test/render/wide_predictions_render_test.dart
 final _apDir = Platform.environment['ADVANCED_LIMIT_RENDER'];
+
+/// The redesigned Advanced pages' captures (Spot, Limit resting, Limit
+/// filling at once, a validation line; phones, a small phone and the wide
+/// panel; light and dark), written only when asked:
+///   ADVANCED_UI_RENDER=<dir> flutter test \
+///     test/render/wide_predictions_render_test.dart --plain-name "render: ui"
+final _uiDir = Platform.environment['ADVANCED_UI_RENDER'];
 
 /// The placement engine, faked at its edges: the intent as prepared, an
 /// approval bound to it, and a venue that answers that the limit rests.
@@ -1004,6 +1013,117 @@ void main() {
         }
         await _shoot(tester, 'ap_sell_advanced_${form}_$mode', size,
             dir: _apDir);
+        expect(tester.takeException(), isNull);
+        await release(tester);
+      });
+    }
+  }
+
+  // ── The redesigned Advanced pages (advanced_ticket.dart) ─────────────
+
+  /// The aliens market's Yes book on the feed: bid 5¢, ask 7¢.
+  void seedYesBook() =>
+      PolymarketLiveBooks.instance.debugSeed(PolymarketBookMessage(
+        assetId: 'y',
+        market: 'm',
+        timestamp: 0,
+        hash: '',
+        bids: [PolymarketOrderSummary(price: 0.05, size: 500)],
+        asks: [PolymarketOrderSummary(price: 0.07, size: 500)],
+      ));
+
+  Future<void> openAdvancedPage(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('kute-bar-trade-yes')));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')).first);
+    await settle(tester);
+  }
+
+  Future<void> typeAmount(WidgetTester tester, String amount) async {
+    await tester.enterText(find.byType(TextField).last, amount);
+    await settle(tester);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(tester);
+  }
+
+  Future<void> chooseLimit(WidgetTester tester) async {
+    final limit = find.text('Limit').last;
+    await tester.ensureVisible(limit);
+    await tester.tap(limit);
+    await settle(tester);
+  }
+
+  Future<void> scrollTo(WidgetTester tester, Key key) async {
+    final f = find.byKey(key);
+    if (f.evaluate().isEmpty) return;
+    await tester.ensureVisible(f);
+    await settle(tester);
+  }
+
+  const uiSizes = [
+    ('phone', Size(402, 874), [false, true]),
+    ('small', Size(375, 667), [false]),
+    ('wide', Size(1440, 900), [false, true]),
+  ];
+  for (final (form, size, modes) in uiSizes) {
+    for (final dark in modes) {
+      final mode = dark ? 'dark' : 'light';
+      final tag = '${form}_$mode';
+      testWidgets('render: ui buy empty and spot $tag', skip: _uiDir == null,
+          (tester) async {
+        seedYesBook();
+        await pumpMarket(tester, size, _aliens, dark: dark);
+        await openAdvancedPage(tester);
+        await _shoot(tester, 'buy_empty_$tag', size, dir: _uiDir);
+        await typeAmount(tester, '25');
+        await _shoot(tester, 'buy_spot_$tag', size, dir: _uiDir);
+        await scrollTo(tester, const ValueKey('bet-slip-advanced-summary'));
+        await _shoot(tester, 'buy_spot_summary_$tag', size, dir: _uiDir);
+        expect(tester.takeException(), isNull);
+        await release(tester);
+      });
+
+      testWidgets('render: ui buy limit $tag', skip: _uiDir == null,
+          (tester) async {
+        seedYesBook();
+        await pumpMarket(tester, size, _aliens, dark: dark);
+        await openAdvancedPage(tester);
+        await typeAmount(tester, '25');
+        await chooseLimit(tester);
+        // Resting: the seed (6¢) is under the 7¢ ask.
+        await scrollTo(tester, const ValueKey('advanced-odds-track'));
+        await _shoot(tester, 'buy_limit_resting_$tag', size, dir: _uiDir);
+        // Filling at once: one step up, to the ask.
+        await tester.tap(find.byKey(const ValueKey('advanced-stepper-plus')));
+        await settle(tester);
+        await _shoot(tester, 'buy_limit_fills_now_$tag', size, dir: _uiDir);
+        await scrollTo(tester, const ValueKey('bet-slip-advanced-summary'));
+        await _shoot(tester, 'buy_limit_summary_$tag', size, dir: _uiDir);
+        // A validation line: under the market's minimum.
+        await typeAmount(tester, '0.20');
+        await tester.ensureVisible(find.byKey(const ValueKey('advanced-hero-amount')));
+        await settle(tester);
+        await _shoot(tester, 'buy_limit_validation_$tag', size, dir: _uiDir);
+        expect(tester.takeException(), isNull);
+        await release(tester);
+      });
+
+      testWidgets('render: ui sell limit $tag', skip: _uiDir == null,
+          (tester) async {
+        seedYesBook();
+        await pumpMarket(tester, size, _aliens,
+            positions: const [_alienPosition], dark: dark);
+        final nav = AppRouter.rootNavigatorKey.currentState!;
+        if (size.width >= 900) KuteSideFlow.arm();
+        SellSheet.show(nav.context,
+            position: _alienPosition, startWithLimit: true);
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await typeAmount(tester, '3');
+        await _shoot(tester, 'sell_limit_$tag', size, dir: _uiDir);
+        await scrollTo(tester, const ValueKey('sell-advanced-summary'));
+        await _shoot(tester, 'sell_limit_summary_$tag', size, dir: _uiDir);
         expect(tester.takeException(), isNull);
         await release(tester);
       });

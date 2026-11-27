@@ -2292,6 +2292,8 @@
   "betPricePerShare": "Preço por unidade",
   "betOrderDuration": "Duração",
   "betUntilCanceled": "Até cancelar",
+  "advancedFillsNow": "Executa já",
+  "advancedRests": "Aguarda no livro",
   "betLimitOrderFilled": "Ordem limite executada",
   "betLimitBoughtShares": "Compradas {shares} ações de {outcome} a {price}",
   "betLimitPriceSteps": "Escolha um preço em passos de {step}.",

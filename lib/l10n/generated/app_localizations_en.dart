@@ -7096,6 +7096,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get betUntilCanceled => 'Until canceled';
 
   @override
+  String get advancedFillsNow => 'Fills now';
+
+  @override
+  String get advancedRests => 'Rests on the book';
+
+  @override
   String get betLimitOrderFilled => 'Limit order filled';
 
   @override

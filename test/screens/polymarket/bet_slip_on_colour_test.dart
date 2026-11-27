@@ -45,6 +45,7 @@ import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart'
     show kGameSideColors;
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
+import 'package:kute/screens/shared/advanced_ticket.dart' show AdvancedTicketFrame;
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, AmountMaxChip, BigAmountDisplay;
@@ -652,7 +653,7 @@ void main() {
         await _pump(tester, _matchSlip(1), dark: dark);
         await tester.tap(find.byType(SlipAdvancedButton));
         await _frames(tester);
-        final advanced = find.byType(PolySlipAdvancedScaffold);
+        final advanced = find.byType(AdvancedTicketFrame);
         expect(advanced, findsOneWidget);
         // The page itself is the app's own, not a sheet of the side.
         expect(

@@ -12376,6 +12376,18 @@ abstract class AppLocalizations {
   /// **'Until canceled'**
   String get betUntilCanceled;
 
+  /// Short label over the limit price on the Advanced page's odds rail: at this price the order buys at once from sellers already there.
+  ///
+  /// In en, this message translates to:
+  /// **'Fills now'**
+  String get advancedFillsNow;
+
+  /// Short label over the limit price on the odds rail: at this price the order waits on the order book until the market reaches it.
+  ///
+  /// In en, this message translates to:
+  /// **'Rests on the book'**
+  String get advancedRests;
+
   /// Sal toast title when a resting Predictions limit order fills (all or part) while the app is open.
   ///
   /// In en, this message translates to:
