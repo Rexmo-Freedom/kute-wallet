@@ -9,6 +9,109 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'ストップロスは現在の価格より下に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'ストップロスは現在の価格より上に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'テイクプロフィットは現在の価格より上に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'テイクプロフィットは現在の価格より下に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger => '指値はトリガー価格以下に設定してください。';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger => '指値はトリガー価格以上に設定してください。';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'このストップは清算価格を超えています。発動する前にポジションが清算されます。';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'この価格は市場価格を超えています。すぐに約定し、高いテイカー手数料がかかります。';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return '全額決済すると、このポジションのストップ注文とテイクプロフィット注文($count件)も取り消されます。';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => '取り消した保護注文';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => '未取消の保護注文';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'ストップ注文とテイクプロフィット注文を取り消せませんでした。新しいポジションを決済しないよう、注文画面で取り消してください。';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      '新しいストップロスは発注されましたが、古いものを取り消せませんでした。注文画面で取り消してください。';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'このポジションには$priceのストップロスがすでにあります。置き換える場合、古い注文は新しい注文の発注後に取り消されます。';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'このポジションにはストップロスがすでに$count件あります。置き換える場合、古い注文は新しい注文の発注後に取り消されます。';
+  }
+
+  @override
+  String get hlProtectReplaceStop => '置き換える';
+
+  @override
+  String get hlProtectAddStop => 'もう1つ追加';
+
+  @override
+  String get hlProtectCancelAllTitle => 'すべての注文を取り消しますか？';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return '未約定の注文がすべて取り消されます($count件)。';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return '未約定の注文がすべて取り消されます($count件、うちポジションを保護する注文$stops件)。';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo => 'Predictionsの注文も取り消されます。';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '残り$left / $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent%約定';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'このマーケットでの直近のトレーリングストップはまだ確認されていません。未約定の注文を確認してください。2つ目の注文は送信されていません。';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'ストップ $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'この注文を取り消しますか？';
+
+  @override
   String get totalBalance => '総残高';
 
   @override

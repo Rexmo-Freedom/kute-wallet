@@ -9,6 +9,112 @@ class AppLocalizationsSl extends AppLocalizations {
   AppLocalizationsSl([String locale = 'sl']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Stop loss nastavite pod trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Stop loss nastavite nad trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Take profit nastavite nad trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Take profit nastavite pod trenutno ceno, sicer pozicijo takoj zapre.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Limitno ceno nastavite na sprožilno ceno ali pod njo.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Limitno ceno nastavite na sprožilno ceno ali nad njo.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ta stop je onkraj likvidacijske cene: pozicija bi bila likvidirana, preden se sproži.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ta cena je onkraj tržne cene: izvede se takoj, z višjo provizijo takerja.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Zaprtje celotne pozicije prekliče tudi njena naročila stop in take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Preklicana zaščitna naročila';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => 'Še odprta zaščitna naročila';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Njenih naročil stop in take profit ni bilo mogoče preklicati. Prekličite jih v Naročilih, da ne zaprejo nove pozicije.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Novi stop loss je oddan, starega pa ni bilo mogoče preklicati. Prekličite ga v Naročilih.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ta pozicija že ima stop loss pri $price. Ob zamenjavi se stari prekliče šele, ko je novi oddan.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ta pozicija že ima toliko stop lossov: $count. Ob zamenjavi se stari prekličejo šele, ko je novi oddan.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Zamenjaj';
+
+  @override
+  String get hlProtectAddStop => 'Dodaj še enega';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Prekličem vsa naročila?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'S tem prekličete vsa odprta naročila ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'S tem prekličete vsa odprta naročila ($count), od tega zaščitnih: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Preklicana bodo tudi vaša naročila v Predictions.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Ostane $left od $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Izvršeno $percent %';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Vaš zadnji trailing stop na tem trgu še ni potrjen. Preverite odprta naročila. Drugo naročilo ni bilo poslano.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop pri $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Prekličem to naročilo?';
+
+  @override
   String get totalBalance => 'Skupno stanje';
 
   @override

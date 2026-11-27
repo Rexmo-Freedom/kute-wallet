@@ -9,6 +9,113 @@ class AppLocalizationsLt extends AppLocalizations {
   AppLocalizationsLt([String locale = 'lt']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Nustatykite stop loss žemiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Nustatykite stop loss aukščiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Nustatykite take profit aukščiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Nustatykite take profit žemiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Nustatykite limito kainą lygią aktyvavimo kainai arba žemesnę.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Nustatykite limito kainą lygią aktyvavimo kainai arba aukštesnę.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Šis stop yra už likvidavimo kainos: pozicija būtų likviduota anksčiau, nei jis suveiktų.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ši kaina yra už rinkos kainos: pavedimas įvykdomas iškart, su didesniu taker mokesčiu.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Uždarius visą poziciją, atšaukiami ir jos stop bei take profit pavedimai ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Atšaukti apsauginiai pavedimai';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Vis dar atviri apsauginiai pavedimai';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Jos stop ir take profit pavedimų atšaukti nepavyko. Atšaukite juos skiltyje Pavedimai, kad jie neuždarytų naujos pozicijos.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Naujas stop loss pateiktas, bet senojo atšaukti nepavyko. Atšaukite jį skiltyje Pavedimai.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ši pozicija jau turi stop loss ties $price. Pakeičiant senasis atšaukiamas tik pateikus naująjį.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ši pozicija jau turi stop loss pavedimų: $count. Pakeičiant senieji atšaukiami tik pateikus naująjį.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Pakeisti';
+
+  @override
+  String get hlProtectAddStop => 'Pridėti dar vieną';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Atšaukti visus pavedimus?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Taip atšauksite visus atvirus pavedimus ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Taip atšauksite visus atvirus pavedimus ($count), iš jų poziciją saugančių: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Jūsų Predictions pavedimai taip pat atšaukiami.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Liko $left iš $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Įvykdyta $percent %';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Jūsų paskutinis trailing stop šioje rinkoje dar nepatvirtintas. Patikrinkite atvirus pavedimus. Antras pavedimas nebuvo išsiųstas.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop ties $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Atšaukti šį pavedimą?';
+
+  @override
   String get totalBalance => 'Bendras likutis';
 
   @override

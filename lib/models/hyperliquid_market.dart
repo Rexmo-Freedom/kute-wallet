@@ -922,7 +922,16 @@ class HlOpenOrder {
     required this.triggerPx,
     this.tif = 'Gtc',
     this.isPositionTpsl = false,
+    this.detailsKnown = true,
   });
+
+  /// False for a row first seen over the WebSocket: `orderUpdates` carries
+  /// only the basic order (coin, side, limitPx, sz, oid, timestamp, origSz,
+  /// cloid), never its type, trigger price or time in force, so a stop
+  /// would read as a limit at its 5% guard price. Such a row is listed but
+  /// never drawn as a movable line nor modified until the REST
+  /// `frontendOpenOrders` read confirms what it is.
+  final bool detailsKnown;
 
   /// Time in force as the venue reports it ('Gtc', 'Alo', 'Ioc'); a
   /// modify re-sends it so a post-only order stays post-only.

@@ -9,6 +9,112 @@ class AppLocalizationsEt extends AppLocalizations {
   AppLocalizationsEt([String locale = 'et']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Seadke stop loss praegusest hinnast allapoole, muidu sulgeb see positsiooni kohe.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Seadke stop loss praegusest hinnast ülespoole, muidu sulgeb see positsiooni kohe.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Seadke take profit praegusest hinnast ülespoole, muidu sulgeb see positsiooni kohe.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Seadke take profit praegusest hinnast allapoole, muidu sulgeb see positsiooni kohe.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Seadke limiithind päästikhinnale või sellest allapoole.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Seadke limiithind päästikhinnale või sellest ülespoole.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'See stop on likvideerimishinnast kaugemal: positsioon likvideeritaks enne, kui see käivitub.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'See hind on turuhinnast kaugemal: see täidetakse kohe, kõrgema taker-tasuga.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Kogu positsiooni sulgemine tühistab ka selle stop- ja take profit-orderid ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Tühistatud kaitseorderid';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => 'Endiselt avatud kaitseorderid';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Selle stop- ja take profit-ordereid ei õnnestunud tühistada. Tühistage need Orderite all, et need ei sulgeks uut positsiooni.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Uus stop loss on esitatud, kuid vana ei õnnestunud tühistada. Tühistage see Orderite all.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Sellel positsioonil on juba stop loss hinnaga $price. Asendamisel tühistatakse vana alles siis, kui uus on esitatud.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Sellel positsioonil on juba stop lossi: $count. Asendamisel tühistatakse vanad alles siis, kui uus on esitatud.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Asenda';
+
+  @override
+  String get hlProtectAddStop => 'Lisa veel üks';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Kas tühistada kõik orderid?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'See tühistab kõik avatud orderid ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'See tühistab kõik avatud orderid ($count), sealhulgas positsiooni kaitsvad: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Tühistatakse ka teie Predictionsi orderid.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Alles $left / $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Täidetud $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Teie viimane trailing stop sellel turul pole veel kinnitatud. Kontrollige avatud ordereid. Teist orderit ei saadetud.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop hinnaga $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Kas tühistada see order?';
+
+  @override
   String get totalBalance => 'Kogusaldo';
 
   @override

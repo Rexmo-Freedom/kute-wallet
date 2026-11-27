@@ -9,6 +9,112 @@ class AppLocalizationsDa extends AppLocalizations {
   AppLocalizationsDa([String locale = 'da']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Sæt stop loss under den aktuelle pris, ellers lukker den positionen med det samme.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Sæt stop loss over den aktuelle pris, ellers lukker den positionen med det samme.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Sæt take profit over den aktuelle pris, ellers lukker den positionen med det samme.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Sæt take profit under den aktuelle pris, ellers lukker den positionen med det samme.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Sæt limitprisen på eller under udløserprisen.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Sæt limitprisen på eller over udløserprisen.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Dette stop ligger forbi likvidationsprisen: positionen ville blive likvideret, før det udløses.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Denne pris ligger forbi markedsprisen: den udføres nu, med det højere taker-gebyr.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Lukker du det hele, annulleres også dens stop- og take profit-ordrer ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Beskyttende ordrer annulleret';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => 'Beskyttende ordrer stadig åbne';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Dens stop- og take profit-ordrer kunne ikke annulleres. Annuller dem under Ordrer, så de ikke lukker en ny position.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Dit nye stop loss er lagt, men det gamle kunne ikke annulleres. Annuller det under Ordrer.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Denne position har allerede et stop loss på $price. Erstatter du det, annulleres det gamle først, når det nye er lagt.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Denne position har allerede $count stop loss. Erstatter du dem, annulleres de gamle først, når det nye er lagt.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Erstat det';
+
+  @override
+  String get hlProtectAddStop => 'Tilføj et til';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Annuller alle ordrer?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Det annullerer alle åbne ordrer ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Det annullerer alle åbne ordrer ($count), heraf $stops, der beskytter en position.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Dine Predictions-ordrer annulleres også.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left af $total tilbage';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent % udført';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Dit seneste trailing stop i dette marked er ikke bekræftet endnu. Tjek dine åbne ordrer. Der blev ikke sendt en ordre mere.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop på $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Annuller denne ordre?';
+
+  @override
   String get totalBalance => 'Samlet saldo';
 
   @override

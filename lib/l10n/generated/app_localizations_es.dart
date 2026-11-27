@@ -9,6 +9,113 @@ class AppLocalizationsEs extends AppLocalizations {
   AppLocalizationsEs([String locale = 'es']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Pon el stop loss por debajo del precio actual o cerrará la posición al instante.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Pon el stop loss por encima del precio actual o cerrará la posición al instante.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Pon el take profit por encima del precio actual o cerrará la posición al instante.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Pon el take profit por debajo del precio actual o cerrará la posición al instante.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Pon el precio límite igual o por debajo del precio de activación.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Pon el precio límite igual o por encima del precio de activación.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Este stop está más allá del precio de liquidación: la posición se liquidaría antes de que se active.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Este precio está más allá del precio de mercado: se ejecuta ya, con la comisión taker más alta.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Cerrarla entera también cancela sus órdenes stop y take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Órdenes de protección canceladas';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Órdenes de protección aún abiertas';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'No se pudieron cancelar sus órdenes stop y take profit. Cancélalas en Órdenes para que no cierren una posición nueva.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Tu nuevo stop loss está colocado, pero no se pudo cancelar el anterior. Cancélalo en Órdenes.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Esta posición ya tiene un stop loss en $price. Al reemplazarlo, el anterior solo se cancela cuando el nuevo está colocado.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Esta posición ya tiene $count stop loss. Al reemplazarlos, los anteriores solo se cancelan cuando el nuevo está colocado.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Reemplazarlo';
+
+  @override
+  String get hlProtectAddStop => 'Añadir otro';
+
+  @override
+  String get hlProtectCancelAllTitle => '¿Cancelar todas las órdenes?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Esto cancela todas las órdenes abiertas ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Esto cancela todas las órdenes abiertas ($count), incluidas $stops que protegen una posición.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Tus órdenes de Predictions también se cancelan.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Quedan $left de $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent % ejecutado';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Tu último trailing stop en este mercado aún no está confirmado. Revisa tus órdenes abiertas. No se envió una segunda orden.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop en $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => '¿Cancelar esta orden?';
+
+  @override
   String get totalBalance => 'Saldo total';
 
   @override

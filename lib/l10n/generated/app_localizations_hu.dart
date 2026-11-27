@@ -9,6 +9,112 @@ class AppLocalizationsHu extends AppLocalizations {
   AppLocalizationsHu([String locale = 'hu']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'A stop losst az aktuális ár alá állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'A stop losst az aktuális ár fölé állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'A take profitot az aktuális ár fölé állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'A take profitot az aktuális ár alá állítsa, különben azonnal lezárja a pozíciót.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'A limitárat a trigger árra vagy az alá állítsa.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'A limitárat a trigger árra vagy a fölé állítsa.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ez a stop a likvidációs áron túl van: a pozíciót likvidálnák, mielőtt aktiválódna.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ez az ár a piaci áron túl van: azonnal teljesül, a magasabb taker díjjal.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'A teljes zárás a stop és take profit megbízásait is törli ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Törölt védő megbízások';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => 'Még nyitott védő megbízások';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'A stop és take profit megbízásait nem sikerült törölni. Törölje őket a Megbízásokban, hogy ne zárjanak le egy új pozíciót.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Az új stop loss elhelyezve, de a régit nem sikerült törölni. Törölje a Megbízásokban.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ennek a pozíciónak már van stop lossa ennél az árnál: $price. Cserénél a régit csak az új elhelyezése után töröljük.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ennek a pozíciónak már van ennyi stop lossa: $count. Cserénél a régieket csak az új elhelyezése után töröljük.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Csere';
+
+  @override
+  String get hlProtectAddStop => 'Még egy hozzáadása';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Minden megbízás törlése?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Ez minden nyitott megbízást töröl ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Ez minden nyitott megbízást töröl ($count), köztük pozíciót védőt: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'A Predictions megbízásai is törlődnek.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left / $total maradt';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent% teljesült';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Az utolsó trailing stopja ezen a piacon még nincs megerősítve. Ellenőrizze a nyitott megbízásait. Második megbízás nem lett elküldve.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop: $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Törli ezt a megbízást?';
+
+  @override
   String get totalBalance => 'Teljes egyenleg';
 
   @override

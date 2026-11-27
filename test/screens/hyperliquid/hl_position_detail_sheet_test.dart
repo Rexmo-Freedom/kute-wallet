@@ -14,6 +14,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart' show KuteLayout;
+import 'package:kute/platform/kute_wide_frames.dart'
+    show KuteSideFlow, kuteSidePanelWidth;
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/advisor_provider.dart'
     show aiEnabledProvider;
@@ -510,6 +513,8 @@ void main() {
         bool dark = false,
         bool bar = false,
         StateProvider<List<HlPerpPosition>>? held,
+        List<HlOpenOrder> orders = const [],
+        Size designSize = const Size(430, 932),
         List<Override> extra = const []}) async {
       // [bar]: the shell's floating bar over the page, as in the app
       // (Close position is the bar's button).
@@ -532,7 +537,7 @@ void main() {
               held == null ? [position] : ref.watch(held)),
           hyperliquidSpotBalancesProvider.overrideWith((_) => const []),
           hyperliquidActivityFillsProvider.overrideWith((_) => const []),
-          hyperliquidTradingProvider.overrideWith(_Trading.new),
+          hyperliquidTradingProvider.overrideWith(() => _Trading(orders)),
           hyperliquidLiveCandlesProvider.overrideWith((ref, key) =>
               Stream.value(HlLiveCandlesState(candles: candles))),
           hyperliquidTradeFlowProvider.overrideWith(
@@ -541,7 +546,7 @@ void main() {
           ...extra,
         ],
         child: ScreenUtilInit(
-          designSize: const Size(430, 932),
+          designSize: designSize,
           builder: (_, __) => MaterialApp(
             theme: ThemeData(
               brightness: dark ? Brightness.dark : Brightness.light,
@@ -1347,6 +1352,147 @@ void main() {
           isTrue);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('its stop loss and take profit as rows under the tiles, '
+        'Protect it naming the stop price; a row offers the cancel behind '
+        'the confirm sheet; a socket-only stop is neither listed nor drawn',
+        (tester) async {
+      OpenOnce.reset();
+      addTearDown(OpenOnce.reset);
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          orders: _protectiveOrders);
+      final rows = find.byKey(const ValueKey('hl-position-protection'));
+      await tester.ensureVisible(rows);
+      expect(find.descendant(of: rows, matching: find.text('Stop loss')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: rows, matching: find.text('\$60,000 · 0.5 BTC')),
+          findsOneWidget);
+      expect(find.descendant(of: rows, matching: find.text('Take profit')),
+          findsOneWidget);
+      // The socket-only row: kind unknown, not a protection row.
+      expect(find.byKey(const ValueKey('hl-protection-23')), findsNothing);
+      // Under the tiles.
+      expect(tester.getRect(rows).top,
+          greaterThan(tester
+              .getRect(find.byKey(const ValueKey('hl-position-margin')))
+              .bottom));
+      final protect = find.byKey(const ValueKey('hl-position-protect'));
+      expect(find.descendant(of: protect, matching: find.text('Stop at \$60,000')),
+          findsOneWidget);
+      // The chart draws the known stop and take, never the socket-only
+      // row (it would sit at its guard price as a movable limit).
+      final lines = tester
+          .widget<HlCandlestickChart>(find.byType(HlCandlestickChart))
+          .tradeLines;
+      expect(lines.map((l) => l.id), containsAll(['order:21', 'order:22']));
+      expect(lines.map((l) => l.id), isNot(contains('order:23')));
+
+      await tester.tap(find.byKey(const ValueKey('hl-protection-21')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Cancel this order?'), findsOneWidget);
+      // Nothing is cancelled without the tap: Cancel closes it.
+      await tester.tap(find.descendant(
+          of: find.byType(AppBottomSheetTextButton),
+          matching: find.text('Cancel')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('Cancel this order?'), findsNothing);
+      expect(find.byKey(const ValueKey('hl-protection-21')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('a stop dragged over the price on a long is refused before '
+        'the confirm sheet; with Advanced withheld a drag opens nothing but '
+        'the policy sheet', (tester) async {
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          orders: _protectiveOrders,
+          extra: [runtimeCapabilitiesProvider.overrideWithValue(_Allowed())]);
+      var chart = tester
+          .widget<HlCandlestickChart>(find.byType(HlCandlestickChart));
+      expect(chart.onTradeLineMoved, isNotNull);
+      chart.onTradeLineMoved!('order:21', 67000);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Move order'), findsNothing);
+      expect(
+          find.text('Set the stop loss below the current price, or it '
+              'closes the position at once.'),
+          findsOneWidget);
+      // A take dropped under the price, the same.
+      chart.onTradeLineMoved!('order:22', 65000);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Move order'), findsNothing);
+      // The right side reaches the confirm sheet (Cancel: nothing moves).
+      chart.onTradeLineMoved!('order:21', 59000);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Move order'), findsWidgets);
+      await tester.tap(find.text('Cancel').last);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpWidget(const SizedBox.shrink());
+
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          orders: _protectiveOrders,
+          extra: [runtimeCapabilitiesProvider.overrideWithValue(_Withheld())]);
+      chart = tester
+          .widget<HlCandlestickChart>(find.byType(HlCandlestickChart));
+      chart.onTradeLineMoved!('order:21', 59000);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Move order'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('EXPANDED (the web): the protection rows on the page, and '
+        'Protect it opens the close Advanced page as the side panel',
+        (tester) async {
+      OpenOnce.reset();
+      addTearDown(OpenOnce.reset);
+      KuteSideFlow.reset();
+      addTearDown(KuteSideFlow.reset);
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          width: 1440,
+          height: 900,
+          designSize: KuteLayout.designSizeFor(const Size(1440, 900)),
+          orders: _protectiveOrders,
+          extra: [
+            runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
+            hyperliquidAddressProvider.overrideWith((_) async => null),
+          ]);
+      final rows = find.byKey(const ValueKey('hl-position-protection'));
+      expect(rows, findsOneWidget);
+      final protect = find.byKey(const ValueKey('hl-position-protect'));
+      await tester.ensureVisible(protect);
+      await tester.pump();
+      await tester.tap(protect);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(HlClosePositionSheet), findsOneWidget);
+      final card = find.ancestor(
+          of: find.byType(HlClosePositionSheet),
+          matching: find.byKey(const ValueKey('kute-dialog-card')));
+      expect(card, findsOneWidget);
+      final rect = tester.getRect(card);
+      expect(rect.right, 1440);
+      expect(rect.top, 0);
+      expect(rect.height, 900);
+      expect(rect.width, kuteSidePanelWidth);
+      // It opens on the stop, with the existing one said.
+      expect(find.byKey(const ValueKey('hl-protect-existing-stop')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   });
 }
 
@@ -1359,9 +1505,69 @@ class _Allowed extends Fake implements RuntimeCapabilitiesService {
 }
 
 class _Trading extends HyperliquidTradingNotifier {
+  _Trading([this.orders = const []]);
+  final List<HlOpenOrder> orders;
   @override
   Future<HyperliquidTradingState> build() async =>
-      const HyperliquidTradingState(isInitialized: true);
+      HyperliquidTradingState(isInitialized: true, openOrders: orders);
+}
+
+/// The position's stop loss and take profit, and a stop only the socket
+/// has seen (no kind yet: never drawn, never listed).
+const _protectiveOrders = [
+  HlOpenOrder(
+    coin: 'BTC',
+    oid: 21,
+    isBuy: false,
+    limitPx: 57000,
+    sz: 0.5,
+    origSz: 0.5,
+    timestamp: 3,
+    cloid: null,
+    reduceOnly: true,
+    orderType: 'Stop Market',
+    isTrigger: true,
+    triggerPx: 60000,
+  ),
+  HlOpenOrder(
+    coin: 'BTC',
+    oid: 22,
+    isBuy: false,
+    limitPx: 66500,
+    sz: 0.5,
+    origSz: 0.5,
+    timestamp: 2,
+    cloid: null,
+    reduceOnly: true,
+    orderType: 'Take Profit Market',
+    isTrigger: true,
+    triggerPx: 70000,
+  ),
+  HlOpenOrder(
+    coin: 'BTC',
+    oid: 23,
+    isBuy: false,
+    limitPx: 57500,
+    sz: 0.5,
+    origSz: 0.5,
+    timestamp: 1,
+    cloid: null,
+    reduceOnly: true,
+    orderType: '',
+    isTrigger: false,
+    triggerPx: null,
+    detailsKnown: false,
+  ),
+];
+
+/// Advanced withheld by the policy.
+class _Withheld extends Fake implements RuntimeCapabilitiesService {
+  @override
+  CapabilityDecision decision(String id) => CapabilityDecision(
+      allowed: id != 'trading.advanced', reason: 'Not available right now.');
+  @override
+  String? blockReason(String id) =>
+      id == 'trading.advanced' ? 'Not available right now.' : null;
 }
 
 /// The mids socket, driven by the test.

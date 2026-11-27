@@ -264,6 +264,7 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
     this.rows = const {},
     this.detail,
     this.notices = const [],
+    this.note,
   });
 
   final String coin;
@@ -284,6 +285,10 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
   /// before the line.
   final List<String> notices;
 
+  /// A line in place of the pending-fill detail: what else happened with
+  /// the order (an old stop loss that could not be cancelled).
+  final String? note;
+
   @override
   Widget build(BuildContext context) => KuteConfirmation(
         tone: KuteConfirmationTone.pending,
@@ -295,7 +300,7 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
         rows: rows,
         detail: [
           ...notices,
-          detail ?? context.l10n.investingOrderPendingFill,
+          note ?? detail ?? context.l10n.investingOrderPendingFill,
         ].join(' '),
         onDone: () => Navigator.of(context).pop(),
         secondaryButtonText:

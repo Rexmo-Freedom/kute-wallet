@@ -69,6 +69,7 @@ import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/pin_gate_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -130,6 +131,131 @@ class _Trading extends HyperliquidTradingNotifier {
   }) async {
     exchange.closes++;
     return Completer<HlOrderResult>().future;
+  }
+}
+
+/// A close that fills the whole position at once, over left-over
+/// protective orders; [cancelFails] makes their cancel fail.
+class _LeftoverTrading extends HyperliquidTradingNotifier {
+  _LeftoverTrading(this.exchange, {this.cancelFails = false});
+  final _Exchange exchange;
+  final bool cancelFails;
+  final cancelled = <List<int>>[];
+
+  static const stop = HlOpenOrder(
+    coin: 'BTC',
+    oid: 31,
+    isBuy: false,
+    limitPx: 57000,
+    sz: 0.5,
+    origSz: 0.5,
+    timestamp: 2,
+    cloid: null,
+    reduceOnly: true,
+    orderType: 'Stop Market',
+    isTrigger: true,
+    triggerPx: 60000,
+  );
+  static const take = HlOpenOrder(
+    coin: 'BTC',
+    oid: 32,
+    isBuy: false,
+    limitPx: 69000,
+    sz: 0.5,
+    origSz: 0.5,
+    timestamp: 1,
+    cloid: null,
+    reduceOnly: true,
+    orderType: 'Take Profit Market',
+    isTrigger: true,
+    triggerPx: 70000,
+  );
+
+  @override
+  Future<HyperliquidTradingState> build() async => const HyperliquidTradingState(
+      isInitialized: true, withdrawable: 100, openOrders: [stop, take]);
+
+  @override
+  Future<HlOrderResult> closePosition({
+    required String coin,
+    double fraction = 1.0,
+    double slippagePct = 1.0,
+    required AuthGrant grant,
+  }) async {
+    exchange.closes++;
+    return const HlOrderResult(
+        kind: HlOrderResultKind.filled, filledSz: 0.5, avgPx: 66000);
+  }
+
+  @override
+  Future<int> cancelOrdersList(List<HlOpenOrder> orders,
+      {String reason = 'after_close'}) async {
+    cancelled.add([for (final o in orders) o.oid]);
+    if (cancelFails) throw StateError('cancel refused');
+    return orders.length;
+  }
+}
+
+/// A limit close that fills in full at once.
+class _FilledLimitTrading extends _Trading {
+  _FilledLimitTrading(super.exchange);
+
+  @override
+  Future<HlOrderResult> placeLimit({
+    required HlMarket market,
+    required bool isLong,
+    double? marginUsd,
+    double? size,
+    int leverage = 1,
+    bool? isCross,
+    required double px,
+    String tif = 'Gtc',
+    bool postOnly = false,
+    bool reduceOnly = false,
+    double? takeProfitPx,
+    double? stopLossPx,
+    String? source,
+    String? cloid,
+    required AuthGrant grant,
+  }) async {
+    exchange.closes++;
+    return HlOrderResult(
+        kind: HlOrderResultKind.filled, filledSz: size ?? 0, avgPx: px);
+  }
+}
+
+/// A new stop loss accepted (resting) over an existing one; records the
+/// order of events.
+class _ReplaceStopTrading extends _LeftoverTrading {
+  _ReplaceStopTrading(super.exchange, {this.placeFails = false});
+  final bool placeFails;
+  final events = <String>[];
+
+  @override
+  Future<HlOrderResult> placeTrigger({
+    required HlMarket market,
+    required bool isLong,
+    required double size,
+    required double triggerPx,
+    required bool isMarket,
+    required String tpsl,
+    double? limitPx,
+    bool reduceOnly = true,
+    String? source,
+    String? cloid,
+    required AuthGrant grant,
+  }) async {
+    exchange.closes++;
+    events.add('place $tpsl $triggerPx');
+    if (placeFails) throw const HyperliquidRejectedException('rejected');
+    return const HlOrderResult(kind: HlOrderResultKind.resting, oid: 99);
+  }
+
+  @override
+  Future<int> cancelOrdersList(List<HlOpenOrder> orders,
+      {String reason = 'after_close'}) async {
+    events.add('cancel ${[for (final o in orders) o.oid]} $reason');
+    return orders.length;
   }
 }
 
@@ -204,7 +330,8 @@ Future<void> _frames(WidgetTester tester, int n) async {
 
 /// The close ticket under [policy], Max picked; returns the exchange.
 Future<_Exchange> _pumpClose(WidgetTester tester, FakeKeychain keychain,
-    RuntimeCapabilitiesService policy) async {
+    RuntimeCapabilitiesService policy,
+    {HyperliquidTradingNotifier Function(_Exchange)? trading}) async {
   tester.view.physicalSize = const Size(430, 932) * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -218,7 +345,8 @@ Future<_Exchange> _pumpClose(WidgetTester tester, FakeKeychain keychain,
   final container = ProviderContainer(overrides: [
     authModelProvider.overrideWith((ref) => _QuickAuth(keychain)),
     settingsProvider.overrideWith((ref) => SettingsModel(_settings())),
-    hyperliquidTradingProvider.overrideWith(() => _Trading(exchange)),
+    hyperliquidTradingProvider.overrideWith(
+        () => trading?.call(exchange) ?? _Trading(exchange)),
     hyperliquidLivePricesProvider.overrideWith(_HlPrices.new),
     hyperliquidPerpPositionsProvider.overrideWith((_) => const [_hlPosition]),
     hyperliquidAddressProvider.overrideWith((_) async => null),
@@ -229,6 +357,10 @@ Future<_Exchange> _pumpClose(WidgetTester tester, FakeKeychain keychain,
   addTearDown(container.dispose);
   container.read(sessionAuthProvider.notifier).state =
       SessionAuth(method: UnlockMethod.pin, unlockedAt: DateTime(2026));
+  // Alive, as on the position page the close opens from.
+  container.listen(hyperliquidTradingProvider, (_, __) {});
+  await tester.runAsync(
+      () => container.read(hyperliquidTradingProvider.future));
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
     child: ScreenUtilInit(
@@ -588,6 +720,162 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       policy.dispose();
     });
+  });
+
+  group('a whole-position close and its left-over stops', () {
+    for (final fails in [false, true]) {
+      testWidgets(
+          fails
+              ? 'a cancel that fails after the close is said on the receipt, '
+                  'never silently'
+              : 'listed before the close, cancelled once it filled in full, '
+                  'counted on the receipt', (tester) async {
+        final policy = _withheld['swap country block (cascade)']!();
+        expect(await policy.refresh(), isTrue);
+        RuntimeCapabilitiesService.debugInstance = policy;
+        late _LeftoverTrading notifier;
+        final exchange = await _pumpClose(tester, keychain, policy,
+            trading: (e) =>
+                notifier = _LeftoverTrading(e, cancelFails: fails));
+        // Said on the ticket before anything is sent.
+        expect(find.byKey(const ValueKey('hl-close-leftovers-note')),
+            findsOneWidget);
+        await _closeAndApprove(tester, exchange);
+        expect(exchange.closes, 1);
+        await _frames(tester, 30);
+        expect(notifier.cancelled, [
+          [31, 32]
+        ]);
+        expect(find.byType(KuteConfirmation), findsOneWidget);
+        if (fails) {
+          expect(find.text('Protective orders still open'), findsOneWidget);
+          expect(
+              find.text('Its stop and take-profit orders could not be '
+                  'cancelled. Cancel them in Orders so they cannot close a '
+                  'new position.'),
+              findsOneWidget);
+        } else {
+          expect(find.text('Protective orders cancelled'), findsOneWidget);
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 5));
+        policy.dispose();
+      });
+    }
+  });
+
+  testWidgets('a half close by limit that filled in full says nothing '
+      'rests: no "remaining close order" note, half still open',
+      (tester) async {
+    final policy = _withheld['swap country block (cascade)']!();
+    expect(await policy.refresh(), isTrue);
+    RuntimeCapabilitiesService.debugInstance = policy;
+    final exchange = await _pumpClose(tester, keychain, policy,
+        trading: _FilledLimitTrading.new);
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
+    await _frames(tester, 12);
+    await tester.tap(find.text('Limit'));
+    await _frames(tester, 6);
+    final amount = find.descendant(
+        of: find.ancestor(of: find.text('Amount'), matching: find.byType(Column))
+            .first,
+        matching: find.byType(TextField));
+    await tester.enterText(amount.first, '0.25');
+    await _frames(tester, 6);
+    await tester.tap(find.byType(KuteBackButton).first);
+    await _frames(tester, 12);
+    expect(barPrimaryLabel(tester), 'Place limit close');
+    await tapBarPrimary(tester, settle: false);
+    for (var i = 0;
+        i < 40 && find.byType(PinGateSheet).evaluate().isEmpty;
+        i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await _frames(tester, 16);
+    for (final d in '111111'.split('')) {
+      await tester.tap(find.descendant(
+          of: find.byType(PinGateSheet), matching: find.text(d)));
+      await tester.pump();
+    }
+    for (var i = 0; i < 40 && exchange.closes == 0; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(exchange.closes, 1);
+    await _frames(tester, 30);
+    expect(find.text('Partially closed'), findsOneWidget);
+    expect(find.text('Still open'), findsOneWidget);
+    expect(find.text('Your balance will update in a moment.'), findsOneWidget);
+    expect(
+        find.text('Your balance will update in a moment. Check open orders '
+            'for any remaining close order.'),
+        findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 5));
+    policy.dispose();
+  });
+
+  group('a replacing stop loss', () {
+    Future<void> placeStop(WidgetTester tester, _Exchange exchange) async {
+      await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
+      await _frames(tester, 12);
+      await tester.tap(find.text('More options'));
+      await _frames(tester, 12);
+      await tester.tap(find.text('Stop market').last);
+      await _frames(tester, 12);
+      expect(find.byKey(const ValueKey('hl-protect-existing-stop')),
+          findsOneWidget);
+      final trigger = find.descendant(
+          of: find
+              .ancestor(
+                  of: find.text('Trigger price'), matching: find.byType(Column))
+              .first,
+          matching: find.byType(TextField));
+      await tester.enterText(trigger.first, '61000');
+      await _frames(tester, 6);
+      await tester.tap(find.byType(KuteBackButton).first);
+      await _frames(tester, 12);
+      await tapBarPrimary(tester, settle: false);
+      for (var i = 0;
+          i < 40 && find.byType(PinGateSheet).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await _frames(tester, 16);
+      for (final d in '111111'.split('')) {
+        await tester.tap(find.descendant(
+            of: find.byType(PinGateSheet), matching: find.text(d)));
+        await tester.pump();
+      }
+      for (var i = 0; i < 40 && exchange.closes == 0; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await _frames(tester, 30);
+    }
+
+    for (final fails in [false, true]) {
+      testWidgets(
+          fails
+              ? 'a new stop the venue refuses never cancels the old one'
+              : 'the old stop is cancelled only after the new one is '
+                  'accepted', (tester) async {
+        final policy = _withheld['swap country block (cascade)']!();
+        expect(await policy.refresh(), isTrue);
+        RuntimeCapabilitiesService.debugInstance = policy;
+        late _ReplaceStopTrading notifier;
+        final exchange = await _pumpClose(tester, keychain, policy,
+            trading: (e) =>
+                notifier = _ReplaceStopTrading(e, placeFails: fails));
+        await placeStop(tester, exchange);
+        expect(
+            notifier.events,
+            fails
+                ? ['place sl 61000.0']
+                : ['place sl 61000.0', 'cancel [31] replace_stop']);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 5));
+        policy.dispose();
+      });
+    }
   });
 
   group('the Predictions position: Sell and Clear stay open', () {

@@ -9,6 +9,112 @@ class AppLocalizationsHr extends AppLocalizations {
   AppLocalizationsHr([String locale = 'hr']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Postavite stop loss ispod trenutne cijene, inače odmah zatvara poziciju.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Postavite stop loss iznad trenutne cijene, inače odmah zatvara poziciju.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Postavite take profit iznad trenutne cijene, inače odmah zatvara poziciju.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Postavite take profit ispod trenutne cijene, inače odmah zatvara poziciju.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Postavite limitnu cijenu na cijenu okidanja ili ispod nje.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Postavite limitnu cijenu na cijenu okidanja ili iznad nje.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ovaj stop je iza cijene likvidacije: pozicija bi bila likvidirana prije nego što se okine.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ova cijena je iza tržišne cijene: izvršava se odmah, uz višu taker naknadu.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Zatvaranje cijele pozicije otkazuje i njezine stop i take profit naloge ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Otkazani zaštitni nalozi';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => 'Zaštitni nalozi još otvoreni';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Njezine stop i take profit naloge nije bilo moguće otkazati. Otkažite ih u Nalozima da ne zatvore novu poziciju.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Novi stop loss je postavljen, ali stari nije bilo moguće otkazati. Otkažite ga u Nalozima.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ova pozicija već ima stop loss na $price. Pri zamjeni stari se otkazuje tek kad je novi postavljen.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ova pozicija već ima stop lossova: $count. Pri zamjeni stari se otkazuju tek kad je novi postavljen.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Zamijeni';
+
+  @override
+  String get hlProtectAddStop => 'Dodaj još jedan';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Otkazati sve naloge?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Time otkazujete sve otvorene naloge ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Time otkazujete sve otvorene naloge ($count), od toga zaštitnih: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Otkazuju se i vaši nalozi u Predictions.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Preostalo $left od $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Izvršeno $percent %';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Vaš zadnji trailing stop na ovom tržištu još nije potvrđen. Provjerite otvorene naloge. Drugi nalog nije poslan.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop na $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Otkazati ovaj nalog?';
+
+  @override
   String get totalBalance => 'Ukupni saldo';
 
   @override
