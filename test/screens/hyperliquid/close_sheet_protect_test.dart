@@ -194,11 +194,17 @@ Future<void> _openProtect(WidgetTester tester) async {
 bool _ctaEnabled(WidgetTester tester) =>
     tester.widget<PolySlipCta>(find.byType(PolySlipCta)).enabled;
 
-/// The HlNumericField labelled [label] (its Column holds the label and
-/// the field).
-Finder _field(String label) => find.descendant(
-    of: find.ancestor(of: find.text(label), matching: find.byType(Column)).first,
-    matching: find.byType(TextField));
+/// The field behind [label]: the hero amount's, or a stepper's own
+/// (HlStepField).
+Finder _field(String label) => label == 'Amount'
+    ? find.descendant(
+        of: find.byKey(const ValueKey('hl-close-adv-amount')),
+        matching: find.byType(TextField))
+    : find.byKey(ValueKey(switch (label) {
+        'Trigger price' => 'hl-close-field-trigger',
+        'Limit price' => 'hl-close-field-limit',
+        _ => 'hl-close-field-twap',
+      }));
 
 Future<void> _type(WidgetTester tester, String label, String value) async {
   await tester.enterText(_field(label).first, value);

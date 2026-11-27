@@ -18,12 +18,13 @@ import 'package:kute/services/standing_orders/standing_orders_provider.dart'
         standingOrdersProvider;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
-import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/hyperliquid/components/builder_fee_consent.dart';
 import 'package:kute/screens/hyperliquid/components/hl_error_copy.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
+import 'package:kute/screens/shared/advanced_ticket.dart';
 // lib/screens/hyperliquid/components/order_slip_sheet.dart
 //
 // Order slip bottom sheet — a full Hyperliquid trading ticket mirroring
@@ -151,7 +152,6 @@ import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart'
     show MoneyFeeFigure, MoneyFeeLeg, fundingLegFeeLabel;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
-import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/market_side_toggle.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
@@ -835,6 +835,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   // ── Ticket structure ───────────────────────────────────────────────
   _OrderMode _mode = _OrderMode.market;
   _ProType _proType = _ProType.scale;
+
+  /// The Advanced page's floating primary, as last measured (its notes
+  /// and steps over the button): the form's foot clears it.
+  double _advancedPrimaryHeight = 120;
 
   /// The full-screen editor shares this ticket's draft and live-price hold.
   bool _advancedRouteOpen = false;
@@ -2334,6 +2338,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             _attachTpSl &&
             (_parsePx(_tpController) != null ||
                 _parsePx(_slController) != null));
+    _sentMarketAttached = attached;
     _sentMarketSize = attached ? 0 : size;
     if (plan.isExit) {
       if (size <= 0) {
@@ -2343,6 +2348,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       await _confirmExit(plan);
       return;
     }
+    // An open or add is sized again by the notifier after funding, at the
+    // live price: the stream closes on the size it actually sends
+    // ([_onMarketSent]), never on this ticket's own estimate.
+    if (!isSpot) _sentMarketSize = 0;
     // The FLOORED size decides it, not the amount typed: those differ
     // by up to one step, which on BTC is most of a dollar. And it is
     // valued where the venue values it: a sell or short at its slippage
@@ -2550,6 +2559,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// ticket on its whole fill before the answer ([hlStreamReceipt]); 0
   /// when something rides on it whose fate only the answer says.
   double _sentMarketSize = 0;
+
+  /// The market order sent has a take-profit / stop-loss leg or a trailing
+  /// stop riding on it: the stream never closes it before the answer.
+  bool _sentMarketAttached = false;
+
+  /// The notifier's word of the size it is sending ([HyperliquidTrading
+  /// Notifier.openPosition]'s onSent): what the stream close compares the
+  /// ticket's own fills against.
+  void _onMarketSent(double size) {
+    if (!mounted) return;
+    _sentMarketSize = _sentMarketAttached ? 0 : size;
+    _settleFromStream();
+  }
 
   /// Closes the ticket on its order's own fills from the stream, totalled
   /// ([hlOwnFillsTotal]), once they come to the whole size asked for
@@ -5102,6 +5124,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         stopLossPx: stopLossPx,
         source: source,
         cloid: cloid,
+        onSent: _onMarketSent,
         grant: grant,
       ),
     );
@@ -5168,6 +5191,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               // A send again after a margin refusal goes under a fresh
               // cloid (HlResendCloids), never this one twice.
               cloid: HlResendCloids.current(cloid),
+              onSent: _onMarketSent,
               grant: grant,
             ),
           );
@@ -6180,7 +6204,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // the screen they were already reading. This does the same, so the
     // two venues behave alike at the one moment that matters most.
     final form = Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      // The Advanced frame pads its own content (AdvancedTicketFrame).
+      padding: EdgeInsets.symmetric(horizontal: advanced ? 0 : 20.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -6567,18 +6592,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final standingOk = widget.sendPick == null &&
         !(funded?.failed ?? false) &&
         _standingOnItsWay();
-    final action = Padding(
-      padding: EdgeInsets.fromLTRB(
-        20.w,
-        8.h,
-        20.w,
-        advanced ? 16.h : math.max(16.h, MediaQuery.of(context).padding.bottom),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // One note per distinct reason: a region block that shuts both
-          // the trade and the deposit says so once.
+    // One note per distinct reason: a region block that shuts both the
+    // trade and the deposit says so once.
+    final actionNotes = <Widget>[
           if (openBlock != null) CapabilityBlockNote(openBlock),
           if (advancedBlock != null &&
               !primaryNeutral &&
@@ -6623,6 +6639,47 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ),
               ),
             ),
+    ];
+    // On the Advanced page the button floats over the scrolling form
+    // (AdvancedTicketFrame): a note over it, and the steps growing in
+    // above it, sit on the page's own ground so the form scrolling under
+    // them never shows through. The ground fades in above them; no bar.
+    Widget onGround(Widget child) => advanced
+        ? ColoredBox(
+            color: base.background,
+            child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: child))
+        : child;
+    final grounded =
+        advanced && (actionNotes.isNotEmpty || fundedJourney != null);
+    final action = Padding(
+      padding: EdgeInsets.fromLTRB(
+        advanced ? 0 : 20.w,
+        advanced ? 0 : 8.h,
+        advanced ? 0 : 20.w,
+        advanced ? 16.h : math.max(16.h, MediaQuery.of(context).padding.bottom),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (grounded)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    base.background.withValues(alpha: 0),
+                    base.background,
+                  ],
+                ),
+              ),
+              child: SizedBox(height: 28.h, width: double.infinity),
+            ),
+          if (actionNotes.isNotEmpty)
+            onGround(Column(
+                mainAxisSize: MainAxisSize.min, children: actionNotes)),
           // Deposit branch wears the canonical dark primary
           // tier (navigational door — green stays reserved
           // for the actual trade confirm, user decision);
@@ -6649,7 +6706,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // (founder, 11 November 2026: "don't have the add more button in
           // the sheet of investing, makes no sense there").
           StepsReveal(
-            child: advanced && fundedJourney != null ? fundedJourney : null,
+            child: advanced && fundedJourney != null
+                ? onGround(fundedJourney)
+                : null,
           ),
           ArrivalSwitcher(
             state: primaryKind,
@@ -6784,24 +6843,47 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _preparing ||
         _followingStanding();
     if (!advanced) _keypadTakesKeys = !ledgerLocked && !lockedShown;
-    final ticket = advanced
-        ? Column(
+    if (advanced) {
+      // The Advanced page: the form scrolls under its one primary, which
+      // floats at the foot (no bar, only the page's own ground fading in
+      // behind it; AdvancedTicketFrame). The room it takes is measured, so
+      // the last card always scrolls clear of it.
+      return PopScope(
+        // Locked while it places; once the accept made a standing order
+        // of it, the person may step back (the order goes on). Back from
+        // this page lands on the ticket, still open and still following
+        // the order to its receipt: leaving is the ticket's own pop
+        // ([_onLeave]), never this page's.
+        canPop: _standingAccepted || !_isPlacing,
+        child: KeyboardDismissOnTap(
+          child: AdvancedTicketFrame(
+            title: context.l10n.slipAdvancedTitle(_sideWord(), market.coin),
+            onBack: () => Navigator.of(context).maybePop(),
+            scrollKey: const ValueKey('hl-advanced-form-scroll'),
+            primaryHeight: _advancedPrimaryHeight,
+            primary: HlReportSize(
+              onSize: (size) {
+                if (!mounted ||
+                    (size.height - _advancedPrimaryHeight).abs() < 0.5) {
+                  return;
+                }
+                _advancedPrimaryHeight = size.height;
+                _draftChanges.value++;
+              },
+              child: action,
+            ),
             children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  key: const ValueKey('hl-advanced-form-scroll'),
-                  physics: const ClampingScrollPhysics(),
-                  primary: false,
-                  // No manual keyboard padding here: the page is a Scaffold
-                  // and already resizes for the inset, so adding it again
-                  // would leave dead space under the form.
-                  child: IgnorePointer(ignoring: ledgerLocked, child: form),
-                ),
+              // The page's switches as Settings draws them.
+              hlAdvancedSwitchTheme(
+                context,
+                child: IgnorePointer(ignoring: ledgerLocked, child: form),
               ),
-              KuteStickyActionBar(child: action),
             ],
-          )
-        : Column(
+          ),
+        ),
+      );
+    }
+    final ticket = Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(c),
@@ -6840,39 +6922,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               action,
             ],
           );
-    if (advanced) {
-      return PopScope(
-        // Locked while it places; once the accept made a standing order
-        // of it, the person may step back (the order goes on). Back from
-        // this page lands on the ticket, still open and still following
-        // the order to its receipt: leaving is the ticket's own pop
-        // ([_onLeave]), never this page's.
-        canPop: _standingAccepted || !_isPlacing,
-        child: Scaffold(
-          backgroundColor: base.background,
-          appBar: AppBar(
-            backgroundColor: base.background,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            surfaceTintColor: Colors.transparent,
-            centerTitle: true,
-            leading: KuteBackButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-            title: Text(
-              context.l10n.slipAdvancedTitle(_sideWord(), market.coin),
-              style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w600),
-            ),
-          ),
-          body: KeyboardDismissOnTap(
-            child: SafeArea(top: false, child: ticket),
-          ),
-        ),
-      );
-    }
     return PopScope(
       // The ticket's own lock is the tap-outside's (see the file header);
       // this only hears it go.
@@ -7185,263 +7234,686 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     required bool hasFunds,
   }) {
     final l = context.l10n;
+    final levels = mid > 0
+        ? _priceMapLevels(mid, entry > 0 ? entry : mid)
+        : const <AdvancedPriceLevel>[];
+    final protect = (!_isLedger && _isOpening) || _trailingAvailable;
     // Ledger supports the reviewed market flow and a separate native
     // trailing-stop ticket. Other hot-only order controls stay hidden.
     return [
-      if (!_isLedger)
-        _advancedSection(
-          c,
-          l.investingOrderType,
-          [
-            _buildOrderTypeControl(c),
-            // Per-type price inputs (limit price / trigger / scale range /
-            // TWAP duration) — revealed when a non-Market type is picked.
-            _buildPriceInputs(c, mid),
-            // What the chosen type does, in one sentence, right where it
-            // is chosen rather than at the bottom of the sheet.
-            SizedBox(height: 10.h),
-            Text(
-              _orderExplanation(),
-              style: TextStyle(
-                  fontSize: 13.sp, color: c.textSecondary, height: 1.4),
-            ),
-          ],
+      if (!_isLedger) ...[
+        _advancedHeading(c, l.investingOrderType),
+        _buildOrderTypeTiles(c),
+        // The chosen type's own numbers, each a stepper.
+        ..._buildPriceInputs(c, mid),
+      ],
+
+      // Where every level sits against the price now: the limit, the
+      // ladder, the take profit and the stop, the trailing stop's start.
+      if (levels.isNotEmpty) ...[
+        SizedBox(height: 16.h),
+        AdvancedPriceMap(
+          now: mid,
+          entry: entry > 0 ? entry : mid,
+          levels: levels,
+          nowLabel: l.betNow,
+          formatPrice: (p) => formatHlPrice(p, decimalCap: market.pxDecimalCap),
         ),
+      ],
 
       // The two attach options together, under the one question they
       // answer, so protecting the position is not buried among the
       // switches most tickets never touch.
-      if ((!_isLedger && _isOpening) || _trailingAvailable)
-        _advancedSection(
-          c,
-          context.l10n.slipProtectPosition,
-          [
-            // TP/SL attach (opening orders only).
-            if (!_isLedger && _isOpening) _buildTpSlAttach(c, entry),
-            // Trailing stop attach: set here, placed by the one button
-            // once the opening market order fills (perps only).
-            if (_trailingAvailable) _buildTrailingAttach(c),
-          ],
-        ),
+      if (protect) ...[
+        SizedBox(height: 24.h),
+        _advancedHeading(c, l.slipProtectPosition),
+        // TP/SL attach (opening orders only).
+        if (!_isLedger && _isOpening) _buildTpSlAttach(c, entry > 0 ? entry : mid),
+        // Trailing stop attach: set here, placed by the one button once
+        // the opening market order fills (perps only).
+        if (_trailingAvailable) ...[
+          if (!_isLedger && _isOpening) SizedBox(height: 10.h),
+          _buildTrailingAttach(c, mid),
+        ],
+      ],
 
       // Time in force, post-only, reduce-only and slippage: closed by
       // default, opened by the few who know what they are looking for.
-      if (!_isLedger || _mode == _OrderMode.market)
-        _advancedSection(
-          c,
-          context.l10n.slipExpertSettings,
-          [
-            if (!_isLedger) _buildOptions(c),
-            if (_mode == _OrderMode.market) ...[
-              if (!_isLedger) SizedBox(height: 14.h),
-              _buildSlippage(c),
-            ],
-          ],
-          collapsible: true,
-          expanded: _advancedOptionsExpanded,
-          onToggle: () => _updateDraft(
-              () => _advancedOptionsOpen = !_advancedOptionsExpanded),
-        ),
+      if (!_isLedger || _mode == _OrderMode.market) ...[
+        SizedBox(height: 24.h),
+        _buildExpertSettings(c),
+      ],
 
-      _advancedSection(
-        c,
-        l.details,
-        [
-          _buildEssentialSummary(
-            c,
-            notional,
-            transferFromPerp,
-            hasFunds: hasFunds,
-            // The sentence now sits under the order type picker.
-            explain: false,
-            entry: entry,
-            size: size,
-          ),
-          SizedBox(height: 12.h),
-          _buildOrderDetails(c, mid, notional, size, scaleCount),
-        ],
-      ),
+      SizedBox(height: 24.h),
+      _advancedHeading(c, l.details),
+      _buildAdvancedSummary(c, mid, notional, size, scaleCount,
+          transferFromPerp,
+          hasFunds: hasFunds, entry: entry),
     ];
   }
 
-  /// A titled neutral group on the tinted page: hairline border, 16
-  /// radius, generous padding, and an optional chevron that collapses the
-  /// rare controls.
-  Widget _advancedSection(
-          AppColorsExtension c, String title, List<Widget> children,
-          {bool collapsible = false,
-          bool expanded = true,
-          VoidCallback? onToggle}) =>
-      HlAdvancedSection(
-          title: title,
-          collapsible: collapsible,
-          expanded: expanded,
-          onToggle: onToggle,
-          children: children);
-
-  Widget _sectionLabel(AppColorsExtension c, String text) => Text(
-        text,
-        style: TextStyle(
-          color: c.textSecondary,
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w600,
+  /// A group's quiet heading on the Advanced page.
+  Widget _advancedHeading(AppColorsExtension c, String text) => Padding(
+        padding: EdgeInsets.only(bottom: 10.h),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 17.sp,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+          ),
         ),
       );
 
-  /// The house segmented track: a hairline rail, one filled pill for the
-  /// selection. Shared by the order type, time in force and slippage so
-  /// the page has one control language instead of rows of small chips.
-  Widget _segmentTrack(AppColorsExtension c, List<Widget> segments) =>
-      HlSegmentTrack(segments: segments);
-
-  Widget _trackSegment(AppColorsExtension c,
-          {required String label,
-          required bool selected,
-          required VoidCallback onTap,
-          bool chevron = false}) =>
-      HlTrackSegment(
-          label: label, selected: selected, onTap: onTap, chevron: chevron);
-
-  /// One order-type control. Market and Limit are the two people actually
-  /// pick; the six rarer types live BEHIND the third segment instead of
-  /// sitting beside it as a grid of chips, and that segment reads back
-  /// whichever of them is armed.
-  Widget _buildOrderTypeControl(AppColorsExtension c) {
-    final isPro = _mode == _OrderMode.pro;
-    return Padding(
-      padding: EdgeInsets.only(top: 4.h),
-      child: _segmentTrack(c, [
-        _trackSegment(
-          c,
-          label: context.l10n.ledgerOrderMarketPrice,
-          selected: _mode == _OrderMode.market,
-          onTap: () => _onSelectMode(_OrderMode.market),
+  /// The order types as tiles: Market, Limit, and on a perp Scale and
+  /// TWAP (the venue documents neither for spot). The same handlers the
+  /// segmented control used, so every default, prefill, analytics event
+  /// and revalidation is unchanged.
+  Widget _buildOrderTypeTiles(AppColorsExtension c) {
+    final l = context.l10n;
+    final options = <(AdvancedTypeOption, VoidCallback)>[
+      (
+        AdvancedTypeOption(
+            label: l.ledgerOrderMarketPrice,
+            glyph: AdvancedTypeGlyph.market,
+            key: const ValueKey('hl-adv-type-market')),
+        () => _onSelectMode(_OrderMode.market),
+      ),
+      (
+        AdvancedTypeOption(
+            label: l.betOrderTypeLimit,
+            glyph: AdvancedTypeGlyph.limit,
+            key: const ValueKey('hl-adv-type-limit')),
+        () => _onSelectMode(_OrderMode.limit),
+      ),
+      if (!isSpot) ...[
+        (
+          AdvancedTypeOption(
+              label: _strings.slipScale,
+              glyph: AdvancedTypeGlyph.scale,
+              key: const ValueKey('hl-adv-type-scale')),
+          () => _selectProType(_ProType.scale),
         ),
-        _trackSegment(
-          c,
-          label: context.l10n.betOrderTypeLimit,
-          selected: _mode == _OrderMode.limit,
-          onTap: () => _onSelectMode(_OrderMode.limit),
+        (
+          const AdvancedTypeOption(
+              label: 'TWAP',
+              glyph: AdvancedTypeGlyph.twap,
+              key: ValueKey('hl-adv-type-twap')),
+          () => _selectProType(_ProType.twap),
         ),
-        // Scale and TWAP are perp-only here: the venue documents neither
-        // for spot, so a spot ticket offers Market and Limit alone.
-        if (!isSpot)
-          _trackSegment(
-            c,
-            label:
-                isPro ? _proTypeShortLabel() : context.l10n.receiveMoreOptions,
-            selected: isPro,
-            chevron: true,
-            onTap: _openProTypeSheet,
-          ),
-      ]),
+      ],
+    ];
+    final selected = switch (_mode) {
+      _OrderMode.market => 0,
+      _OrderMode.limit => 1,
+      _OrderMode.pro => _proType == _ProType.scale ? 2 : 3,
+    };
+    return AdvancedTypeTiles(
+      options: [for (final o in options) o.$1],
+      selected: selected,
+      onSelected: (i) => options[i].$2(),
+      // Selection is the app's neutral pill, never the side's colour: the
+      // colour is the shared tiles' API only and no longer paints.
+      sideColor: c.textPrimary,
+      // A small phone takes the shorter tiles.
+      tileHeight: MediaQuery.sizeOf(context).height < 700 ? 68 : 76,
+      // What the chosen type does, in one sentence, right where it is
+      // chosen rather than at the bottom of the page.
+      explanation: _orderExplanation(typeOnly: true),
     );
   }
 
-  String _proTypeShortLabel() {
-    switch (_proType) {
-      case _ProType.scale:
-        return _strings.slipScale;
-      case _ProType.twap:
-        return 'TWAP';
+  /// Scale or TWAP picked: Pro mode through the same two handlers the
+  /// type sheet used.
+  void _selectProType(_ProType t) {
+    if (_mode == _OrderMode.pro && _proType == t) return;
+    if (_mode != _OrderMode.pro) _onSelectMode(_OrderMode.pro);
+    _onSelectProType(t);
+  }
+
+  // ── Steppers ─────────────────────────────────────────────────────────
+
+  double _priceTick(double px) =>
+      hlPriceTick(px, szDecimals: market.szDecimals, isSpot: isSpot);
+
+  /// Writes [px] into a price [field] as the wire sends it.
+  void _setPrice(_NumField field, double px) {
+    if (!(px > 0) || !px.isFinite) return;
+    final String text;
+    try {
+      text = roundPrice(px, szDecimals: market.szDecimals, isSpot: isSpot);
+    } catch (_) {
+      return;
+    }
+    _controllerFor(field).text = text;
+    _updateDraft(() {});
+  }
+
+  /// One tick up or down from the typed price (or from [base] when the
+  /// field is empty).
+  void _stepPrice(_NumField field, int dir, double base) {
+    final cur = _parse(_controllerFor(field)) ?? base;
+    if (!(cur > 0)) return;
+    // Stepping down from a round figure takes the finer step under it.
+    final tick = _priceTick(dir < 0 ? cur * (1 - 1e-9) : cur);
+    _setPrice(field, cur + dir * tick);
+  }
+
+  /// A whole-number field stepped by [step], never under [min].
+  void _stepInt(_NumField field, int dir, {int step = 1, int min = 1}) {
+    final controller = _controllerFor(field);
+    final cur = _parseInt(controller) ?? min;
+    final next = math.max(min, cur + dir * step);
+    controller.text = '$next';
+    _updateDraft(() {});
+  }
+
+  /// The preset whose price the field holds now, if any.
+  int? _presetIndex(_NumField field, List<double> prices) {
+    final now = _parsePx(_controllerFor(field));
+    if (now == null) return null;
+    for (var i = 0; i < prices.length; i++) {
+      if (_wirePx(prices[i]) == now) return i;
+    }
+    return null;
+  }
+
+  /// "−2%" / "+5%" for a chip.
+  static String _pctChip(double pct) =>
+      '${pct < 0 ? '−' : '+'}${_trimZeros(pct.abs().toStringAsFixed(1))}%';
+
+  /// Distance presets from [from] (signed percents) as chips under a
+  /// price stepper: a chip only writes the field, the rules judge it.
+  Widget _priceChips(_NumField field, double from, List<double> pcts) {
+    final prices = [for (final p in pcts) from * (1 + p / 100)];
+    return Padding(
+      padding: EdgeInsets.only(top: 8.h),
+      child: AdvancedChips(
+        key: ValueKey('hl-adv-chips-${field.name}'),
+        labels: [for (final p in pcts) _pctChip(p)],
+        selected: _presetIndex(field, prices),
+        onSelected: (i) => _setPrice(field, prices[i]),
+      ),
+    );
+  }
+
+  /// One number on the Advanced page as a stepper ([HlStepField]): its
+  /// own field, focus node (the wire rounding on leaving) and formatter.
+  Widget _stepField(
+    AppColorsExtension c,
+    _NumField field,
+    String label, {
+    required ValueChanged<int> onStep,
+    bool price = false,
+    String suffix = '',
+    String? trailing,
+    VoidCallback? onTrailing,
+    bool framed = true,
+  }) =>
+      HlStepField(
+        framed: framed,
+        key: ValueKey('hl-adv-stepper-${field.name}'),
+        fieldKey: ValueKey('hl-adv-field-${field.name}'),
+        controller: _controllerFor(field),
+        focusNode: _focusNodeFor(field),
+        label: label,
+        prefix: price ? r'$' : '',
+        suffix: suffix,
+        formatPrice: price
+            ? (v) => formatHlPrice(v, decimalCap: market.pxDecimalCap)
+            : null,
+        inputFormatters: [
+          DecimalInputFormatter(fractionDigits: _decimalsFor(field))
+        ],
+        decimal: _decimalsFor(field) > 0,
+        onChanged: (_) => _updateDraft(() {}),
+        onStep: onStep,
+        trailing: trailing,
+        onTrailing: onTrailing,
+      );
+
+  /// A price stepper with the snap to the market and, under it, the
+  /// distance presets on [pcts] from the market.
+  List<Widget> _priceStepper(AppColorsExtension c, _NumField field,
+      String label, double mid, List<double> pcts) {
+    return [
+      _stepField(
+        c,
+        field,
+        label,
+        price: true,
+        onStep: (dir) => _stepPrice(field, dir, mid),
+        trailing: mid > 0
+            ? '${context.l10n.ledgerOrderMarketPrice} '
+                '${formatHlPrice(mid, decimalCap: market.pxDecimalCap)}'
+            : null,
+        onTrailing: () => _setPrice(field, mid),
+      ),
+      if (mid > 0) _priceChips(field, mid, pcts),
+    ];
+  }
+
+  /// The resting side's presets: under the market for a buy, over it for
+  /// a sell.
+  List<double> _restingPcts(List<double> magnitudes) =>
+      [for (final m in magnitudes) _isLong ? -m : m];
+
+  List<Widget> _buildPriceInputs(AppColorsExtension c, double mid) {
+    final l = context.l10n;
+    switch (_mode) {
+      case _OrderMode.market:
+        return const [];
+      case _OrderMode.limit:
+        return [
+          SizedBox(height: 12.h),
+          ..._priceStepper(c, _NumField.limitPrice, l.betLimitPrice, mid,
+              _restingPcts(const [1, 2, 5])),
+        ];
+      case _OrderMode.pro:
+        switch (_proType) {
+          case _ProType.scale:
+            return [
+              SizedBox(height: 12.h),
+              ..._priceStepper(c, _NumField.scaleStart, l.slipStartPrice,
+                  mid, _restingPcts(const [1, 2, 5])),
+              SizedBox(height: 10.h),
+              ..._priceStepper(c, _NumField.scaleEnd, l.slipEndPrice, mid,
+                  _restingPcts(const [5, 10, 20])),
+              SizedBox(height: 10.h),
+              _stepField(c, _NumField.scaleCount, l.slipNumberOfOrders,
+                  onStep: (dir) => _stepInt(_NumField.scaleCount, dir)),
+            ];
+          case _ProType.twap:
+            return [
+              SizedBox(height: 12.h),
+              _stepField(c, _NumField.twapMinutes, l.slipTwapMinutes,
+                  onStep: (dir) => _stepInt(_NumField.twapMinutes, dir,
+                      step: 5, min: 5)),
+              SizedBox(height: 10.h),
+              _switchRow(
+                c,
+                l.slipRandomizeTiming,
+                _randomizeTwap,
+                (v) {
+                  _settingChanged('twap_randomized', v);
+                  _updateDraft(() => _randomizeTwap = v);
+                },
+                card: true,
+              ),
+            ];
+        }
     }
   }
 
-  /// The rarer order types, one full-width row each. Picking one arms the
-  /// Pro mode through the same handlers the old chip grid used, so every
-  /// default, prefill and revalidation is unchanged.
-  Future<void> _openProTypeSheet() async {
-    HapticFeedback.selectionClick();
-    final items = <(_ProType, String)>[
-      (_ProType.scale, _strings.slipScale),
-      (_ProType.twap, 'TWAP'),
-    ];
-    final picked = await showHlOrderTypePicker<_ProType>(context,
-        items: items, selected: _mode == _OrderMode.pro ? _proType : null);
-    if (picked == null || !mounted) return;
-    if (_mode != _OrderMode.pro) _onSelectMode(_OrderMode.pro);
-    _onSelectProType(picked);
+  /// The levels the price map draws for the ticket as it stands, each at
+  /// the price the order would carry. Distance in % only: the page works
+  /// out no profit or loss at a level. The limit and the scale legs are
+  /// measured from now; the take profit, the stop and the trailing stop
+  /// from [entry] (the limit price on a limit order, now on a market
+  /// order), as their presets set them and as their profit or loss is.
+  List<AdvancedPriceLevel> _priceMapLevels(double mid, double entry) {
+    final l = _strings;
+    final levels = <AdvancedPriceLevel>[];
+    if (_mode == _OrderMode.limit) {
+      final p = _parsePx(_priceController);
+      if (p != null) {
+        levels.add(AdvancedPriceLevel(
+            price: p, kind: AdvancedLevelKind.limit, label: l.betOrderTypeLimit));
+      }
+    } else if (_isScale) {
+      final s = _parsePx(_startPxController);
+      final e = _parsePx(_endPxController);
+      final n = _parseInt(_countController);
+      if (s != null && e != null && n != null && n >= 2 && n <= 8 && s != e) {
+        // Every leg at the price it is sent at ([hlScaleLegs]: evenly
+        // spaced from start to end, wire-rounded), while a few.
+        final step = (e - s) / (n - 1);
+        for (var i = 0; i < n; i++) {
+          final px = _wirePx(s + step * i);
+          if (px != null) {
+            levels.add(AdvancedPriceLevel(
+                price: px, kind: AdvancedLevelKind.scaleLeg));
+          }
+        }
+      } else {
+        for (final p in [s, e]) {
+          if (p != null) {
+            levels.add(AdvancedPriceLevel(
+                price: p, kind: AdvancedLevelKind.scaleLeg));
+          }
+        }
+      }
+    }
+    if (!_isLedger && _isOpening && _attachTpSl) {
+      final tp = _parsePx(_tpController);
+      final sl = _parsePx(_slController);
+      if (tp != null) {
+        levels.add(AdvancedPriceLevel(
+            price: tp,
+            kind: AdvancedLevelKind.takeProfit,
+            label: l.hlTakeProfit,
+            from: entry));
+      }
+      if (sl != null) {
+        levels.add(AdvancedPriceLevel(
+            price: sl,
+            kind: AdvancedLevelKind.stopLoss,
+            label: l.hlStopLoss,
+            from: entry));
+      }
+    }
+    if (_trailingAvailable && _attachTrailing) {
+      final d = _parse(_trailDistanceController);
+      if (d != null && (!_trailPercent || d < 100)) {
+        final away = _trailPercent ? mid * d / 100 : d;
+        final px = _isLong ? mid - away : mid + away;
+        if (px > 0) {
+          levels.add(AdvancedPriceLevel(
+              price: px,
+              kind: AdvancedLevelKind.trailing,
+              label: l.investingTrailingStop,
+              from: entry));
+        }
+      }
+    }
+    return levels;
   }
 
-  /// The trailing stop attach, in the same fields as the rest of More
-  /// options: a checkbox, the distance, and an optional activation price.
-  Widget _buildTrailingAttach(AppColorsExtension c) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _switchRow(AppColorsExtension c, String label, bool value,
+          ValueChanged<bool> onChanged,
+          {bool card = false}) =>
+      HlSwitchRow(
+          label: label, value: value, onChanged: onChanged, card: card);
+
+  /// Take profit / stop loss: one switch, and while it is on a stepper for
+  /// each with its distance presets from the entry.
+  Widget _buildTpSlAttach(AppColorsExtension c, double entry) {
+    final l = context.l10n;
+    final up = const [2.0, 5.0, 10.0];
+    return AdvancedToggleRow(
+      key: const ValueKey('order-slip-tpsl-row'),
+      icon: Icons.shield_outlined,
+      title: l.slipTakeProfitStopLoss,
+      value: _attachTpSl,
+      switchKey: const ValueKey('order-slip-tpsl-switch'),
+      onChanged: (v) {
+        _settingChanged('tp_sl', v);
+        _updateDraft(() => _attachTpSl = v);
+      },
       children: [
+        // One border for the group: the two steppers unframed, a hairline
+        // between them.
+        _stepField(c, _NumField.takeProfit, l.slipTakeProfitPrice,
+            price: true,
+            framed: false,
+            onStep: (dir) => _stepPrice(_NumField.takeProfit, dir, entry)),
+        if (entry > 0)
+          _priceChips(_NumField.takeProfit, entry,
+              [for (final p in up) _isLong ? p : -p]),
         SizedBox(height: 14.h),
-        _buildCheckbox(
-          c,
-          context.l10n.slipAttachTrailing,
-          _attachTrailing,
-          (v) {
-            _settingChanged('trailing', v);
-            _updateDraft(() => _attachTrailing = v);
-          },
-        ),
-        if (_attachTrailing) ...[
-          SizedBox(height: 8.h),
+        Divider(height: 1, thickness: 0.5, color: c.borderSubtle),
+        SizedBox(height: 14.h),
+        _stepField(c, _NumField.stopLoss, l.slipStopLossPrice,
+            price: true,
+            framed: false,
+            onStep: (dir) => _stepPrice(_NumField.stopLoss, dir, entry)),
+        if (entry > 0)
+          _priceChips(_NumField.stopLoss, entry,
+              [for (final p in up) _isLong ? -p : p]),
+        // The same quiet warning line as the open-interest cap's.
+        if (_slPastLiquidation) ...[
+          SizedBox(height: 10.h),
           Text(
-            _isLong
-                ? context.l10n.slipTrailingExplainLong
-                : context.l10n.slipTrailingExplainShort,
+            l.hlAdvSlPastLiquidation,
+            key: const ValueKey('order-slip-sl-past-liquidation'),
             style:
-                TextStyle(fontSize: 13.sp, color: c.textSecondary, height: 1.4),
-          ),
-          SizedBox(height: 12.h),
-          _segmentTrack(c, [
-            _trackSegment(
-              c,
-              label: context.l10n.slipPercent,
-              selected: _trailPercent,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _updateDraft(() => _trailPercent = true);
-              },
-            ),
-            _trackSegment(
-              c,
-              label: context.l10n.price2,
-              selected: !_trailPercent,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _updateDraft(() => _trailPercent = false);
-              },
-            ),
-          ]),
-          SizedBox(height: 12.h),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _trailPercent
-                    ? _numField(c, _NumField.trailDistance,
-                        context.l10n.slipDistancePercent,
-                        prefix: '%')
-                    : _priceField(
-                        c, _NumField.trailDistance, context.l10n.slipDistance),
-              ),
-              if (_trailActivate) ...[
-                SizedBox(width: 10.w),
-                Expanded(
-                  child: _priceField(
-                      c, _NumField.trailActivation,
-                      context.l10n.slipActivationPrice),
-                ),
-              ],
-            ],
-          ),
-          SizedBox(height: 8.h),
-          _buildCheckbox(
-            c,
-            context.l10n.slipStartFollowingAtPrice,
-            _trailActivate,
-            (v) => _updateDraft(() => _trailActivate = v),
+                TextStyle(color: c.textSecondary, fontSize: 13.sp, height: 1.4),
           ),
         ],
       ],
     );
   }
+
+  /// The trailing stop attach: one switch, and while it is on the
+  /// distance (in % or in dollars), its presets, and an optional
+  /// activation price.
+  Widget _buildTrailingAttach(AppColorsExtension c, double mid) {
+    final l = context.l10n;
+    final pcts = const [1.0, 2.0, 5.0];
+    final distance = _parse(_trailDistanceController);
+    int? pctSelected;
+    if (_trailPercent && distance != null) {
+      final i = pcts.indexWhere((p) => (p - distance).abs() < 1e-9);
+      pctSelected = i < 0 ? null : i;
+    }
+    return AdvancedToggleRow(
+      key: const ValueKey('order-slip-trailing-row'),
+      icon: _isLong ? Icons.trending_down_rounded : Icons.trending_up_rounded,
+      title: l.investingTrailingStop,
+      value: _attachTrailing,
+      switchKey: const ValueKey('order-slip-trailing-switch'),
+      onChanged: (v) {
+        _settingChanged('trailing', v);
+        _updateDraft(() => _attachTrailing = v);
+      },
+      children: [
+        Text(
+          _isLong ? l.slipTrailingExplainLong : l.slipTrailingExplainShort,
+          style:
+              TextStyle(fontSize: 13.sp, color: c.textSecondary, height: 1.4),
+        ),
+        SizedBox(height: 10.h),
+        AdvancedChips(
+          key: const ValueKey('order-slip-trailing-unit'),
+          labels: [l.slipPercent, l.price2],
+          selected: _trailPercent ? 0 : 1,
+          onSelected: (i) => _updateDraft(() => _trailPercent = i == 0),
+        ),
+        SizedBox(height: 10.h),
+        _stepField(
+          c,
+          _NumField.trailDistance,
+          _trailPercent ? l.slipDistancePercent : l.slipDistance,
+          price: !_trailPercent,
+          suffix: _trailPercent ? '%' : '',
+          framed: false,
+          onStep: (dir) {
+            if (_trailPercent) {
+              final cur = _parse(_trailDistanceController) ?? 1;
+              final next = math.max(0.1, ((cur + dir * 0.1) * 10).round() / 10);
+              _trailDistanceController.text =
+                  _trimZeros(next.toStringAsFixed(1));
+              _updateDraft(() {});
+            } else {
+              final cur = _parse(_trailDistanceController) ?? 0;
+              final tick = mid > 0 ? _priceTick(mid) : 1.0;
+              final next = math.max(tick, cur + dir * tick);
+              _trailDistanceController.text =
+                  _trimZeros(next.toStringAsFixed(6));
+              _updateDraft(() {});
+            }
+          },
+        ),
+        if (_trailPercent)
+          Padding(
+            padding: EdgeInsets.only(top: 8.h),
+            child: AdvancedChips(
+              key: const ValueKey('hl-adv-chips-trailDistance'),
+              labels: [for (final p in pcts) '${_trimZeros(p.toString())}%'],
+              selected: pctSelected,
+              onSelected: (i) {
+                _trailDistanceController.text = _trimZeros(pcts[i].toString());
+                _updateDraft(() {});
+              },
+            ),
+          ),
+        SizedBox(height: 14.h),
+        Divider(height: 1, thickness: 0.5, color: c.borderSubtle),
+        SizedBox(height: 8.h),
+        _switchRow(
+          c,
+          l.slipStartFollowingAtPrice,
+          _trailActivate,
+          (v) => _updateDraft(() => _trailActivate = v),
+        ),
+        if (_trailActivate) ...[
+          SizedBox(height: 8.h),
+          _stepField(c, _NumField.trailActivation, l.slipActivationPrice,
+              price: true,
+              framed: false,
+              onStep: (dir) =>
+                  _stepPrice(_NumField.trailActivation, dir, mid),
+              trailing: mid > 0
+                  ? '${l.ledgerOrderMarketPrice} '
+                      '${formatHlPrice(mid, decimalCap: market.pxDecimalCap)}'
+                  : null,
+              onTrailing: () => _setPrice(_NumField.trailActivation, mid)),
+        ],
+      ],
+    );
+  }
+
+  /// Expert settings, one collapsed card: time in force and post-only on
+  /// a limit, reduce-only on a perp's non-market order, slippage on a
+  /// market order.
+  Widget _buildExpertSettings(AppColorsExtension c) {
+    final l = context.l10n;
+    final expanded = _advancedOptionsExpanded;
+    final rows = <Widget>[];
+    void gap() {
+      if (rows.isNotEmpty) rows.add(SizedBox(height: 12.h));
+    }
+
+    if (!_isLedger && _mode == _OrderMode.limit) {
+      gap();
+      rows.add(_expertLabel(c, l.slipTimeInForce));
+      rows.add(AdvancedChips(
+        key: const ValueKey('order-slip-tif'),
+        labels: [for (final t in _tifOptions) t.toUpperCase()],
+        selected: _tifOptions.contains(_tif) ? _tifOptions.indexOf(_tif) : null,
+        onSelected: (i) {
+          final t = _tifOptions[i];
+          _settingChanged('tif', t.toLowerCase());
+          _updateDraft(() {
+            _tif = t;
+            _postOnly = t == 'Alo';
+          });
+        },
+      ));
+      gap();
+      rows.add(_switchRow(c, l.slipPostOnlyOption, _postOnly, (v) {
+        _settingChanged('post_only', v);
+        _updateDraft(() {
+          _postOnly = v;
+          _tif = v ? 'Alo' : (_tif == 'Alo' ? 'Gtc' : _tif);
+        });
+      }));
+    }
+    // Reduce-only — relevant for every non-market type on a perp. A spot
+    // sell is already an exit; there is no position to reduce.
+    if (!_isLedger && _mode != _OrderMode.market && !isSpot) {
+      gap();
+      rows.add(_switchRow(c, l.slipReduceOnlyOption, _reduceOnly, (v) {
+        _settingChanged('reduce_only', v);
+        _updateDraft(() => _reduceOnly = v);
+      }));
+    }
+    if (_mode == _OrderMode.market) {
+      gap();
+      rows.add(_expertLabel(c, l.maxSlippage));
+      final i = _slippageOptions.indexOf(_slippagePct);
+      rows.add(AdvancedChips(
+        key: const ValueKey('order-slip-slippage'),
+        labels: [
+          for (final opt in _slippageOptions)
+            '${opt.toStringAsFixed(opt == opt.roundToDouble() ? 0 : 1)}%'
+        ],
+        selected: i < 0 ? null : i,
+        onSelected: (k) {
+          final opt = _slippageOptions[k];
+          _settingChanged('slippage_bps', VenueAnalytics.bps(opt));
+          _updateDraft(() => _slippagePct = opt);
+        },
+      ));
+    }
+
+    return Container(
+      key: const ValueKey('order-slip-expert-settings'),
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 12.w, expanded ? 16.h : 4.h),
+      decoration: AppDecorations.card(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            button: true,
+            expanded: expanded,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _updateDraft(
+                    () => _advancedOptionsOpen = !_advancedOptionsExpanded);
+              },
+              child: SizedBox(
+                height: 48.h,
+                child: Row(
+                  children: [
+                    Icon(Icons.tune_rounded, size: 20, color: c.textSecondary),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Text(
+                        l.slipExpertSettings,
+                        style: TextStyle(
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w600,
+                            color: c.textPrimary),
+                      ),
+                    ),
+                    Icon(
+                      expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 22,
+                      color: c.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: expanded && rows.isNotEmpty
+                ? Padding(
+                    padding: EdgeInsets.only(top: 4.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: rows,
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _expertLabel(AppColorsExtension c, String text) => Padding(
+        padding: EdgeInsets.only(bottom: 8.h),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: c.textSecondary,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
 
   HlTrailingStop? _trailingDraft() {
     final distance = _parse(_trailDistanceController);
@@ -7642,20 +8114,32 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ),
       );
     }
-    // Advanced: the same field treatment as every other number on that
-    // page, so one pinned keypad serves all of them.
-    return _numField(
-      c,
-      _NumField.size,
-      _amountLabel(),
-      prefix: r'$',
-      hint: '0.00',
-      valueFontSize: 28.sp,
-      footer: [
-        SizedBox(height: 8.h),
-        Text(
-          availLabel,
-          style: TextStyle(fontSize: 14.sp, color: c.textSecondary),
+    // Advanced: the amount is the page's hero, the same controller and
+    // its formatter under it (AdvancedHeroAmount), what it is for over it
+    // (the total margin of a scale or TWAP) and what is available under.
+    // No "Amount" over it (the figure says what it is); a scale or a TWAP
+    // keeps "Total margin", which says what the figure is split into.
+    final label = _amountLabel();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != _strings.amount) ...[
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                color: c.textSecondary),
+          ),
+          SizedBox(height: 4.h),
+        ],
+        AdvancedHeroAmount(
+          key: const ValueKey('hl-advanced-amount'),
+          controller: _amountController,
+          caption: availLabel,
+          inputFormatters: [DecimalInputFormatter(fractionDigits: 2)],
         ),
       ],
     );
@@ -7685,211 +8169,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
-  Widget _buildPriceInputs(AppColorsExtension c, double mid) {
-    switch (_mode) {
-      case _OrderMode.market:
-        return const SizedBox.shrink();
-      case _OrderMode.limit:
-        return Padding(
-          padding: EdgeInsets.only(top: 16.h),
-          child: _priceField(
-              c, _NumField.limitPrice, context.l10n.betLimitPrice),
-        );
-      case _OrderMode.pro:
-        switch (_proType) {
-          case _ProType.scale:
-            return Padding(
-              padding: EdgeInsets.only(top: 16.h),
-              child: Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child:
-                            _priceField(
-                                c, _NumField.scaleStart, context.l10n.slipStartPrice),
-                      ),
-                      SizedBox(width: 10.w),
-                      Expanded(
-                        child: _priceField(
-                            c, _NumField.scaleEnd, context.l10n.slipEndPrice),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12.h),
-                  _intField(
-                      c, _NumField.scaleCount, context.l10n.slipNumberOfOrders),
-                ],
-              ),
-            );
-          case _ProType.twap:
-            return Padding(
-              padding: EdgeInsets.only(top: 16.h),
-              child: Column(
-                children: [
-                  _intField(
-                      c, _NumField.twapMinutes, context.l10n.slipTwapMinutes),
-                  SizedBox(height: 12.h),
-                  _buildCheckbox(
-                    c,
-                    context.l10n.slipRandomizeTiming,
-                    _randomizeTwap,
-                    (v) {
-                      _settingChanged('twap_randomized', v);
-                      _updateDraft(() => _randomizeTwap = v);
-                    },
-                  ),
-                ],
-              ),
-            );
-        }
-    }
-  }
-
-  Widget _buildOptions(AppColorsExtension c) {
-    final children = <Widget>[];
-
-    if (_mode == _OrderMode.limit) {
-      children.add(SizedBox(height: 16.h));
-      children.add(_buildTifSelector(c));
-      children.add(SizedBox(height: 12.h));
-      children.add(_buildCheckbox(
-        c,
-        context.l10n.slipPostOnlyOption,
-        _postOnly,
-        (v) {
-          _settingChanged('post_only', v);
-          _updateDraft(() {
-            _postOnly = v;
-            _tif = v ? 'Alo' : (_tif == 'Alo' ? 'Gtc' : _tif);
-          });
-        },
-      ));
-    }
-
-    // Reduce-only — relevant for every non-market type on a perp. A spot
-    // sell is already an exit; there is no position to reduce.
-    if (_mode != _OrderMode.market && !isSpot) {
-      children.add(SizedBox(height: 12.h));
-      children.add(_buildCheckbox(
-        c,
-        context.l10n.slipReduceOnlyOption,
-        _reduceOnly,
-        (v) {
-          _settingChanged('reduce_only', v);
-          _updateDraft(() => _reduceOnly = v);
-        },
-      ));
-    }
-
-    if (children.isEmpty) return const SizedBox.shrink();
-    return Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: children);
-  }
-
-  Widget _buildTifSelector(AppColorsExtension c) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionLabel(c, context.l10n.slipTimeInForce),
-        SizedBox(height: 8.h),
-        _segmentTrack(c, [
-          for (final t in _tifOptions)
-            _trackSegment(
-              c,
-              label: t.toUpperCase(),
-              selected: _tif == t,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _settingChanged('tif', t.toLowerCase());
-                _updateDraft(() {
-                  _tif = t;
-                  _postOnly = t == 'Alo';
-                });
-              },
-            ),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildTpSlAttach(AppColorsExtension c, double entry) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(height: 14.h),
-        _buildCheckbox(
-          c,
-          context.l10n.slipAttachTpSl,
-          _attachTpSl,
-          (v) {
-            _settingChanged('tp_sl', v);
-            _updateDraft(() => _attachTpSl = v);
-          },
-        ),
-        if (_attachTpSl) ...[
-          SizedBox(height: 12.h),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child:
-                    _priceField(c, _NumField.takeProfit,
-                        context.l10n.slipTakeProfitPrice),
-              ),
-              SizedBox(width: 10.w),
-              Expanded(
-                child: _priceField(
-                    c, _NumField.stopLoss, context.l10n.slipStopLossPrice),
-              ),
-            ],
-          ),
-          // The same quiet warning line as the open-interest cap's.
-          if (_slPastLiquidation) ...[
-            SizedBox(height: 10.h),
-            Text(
-              context.l10n.hlAdvSlPastLiquidation,
-              key: const ValueKey('order-slip-sl-past-liquidation'),
-              style: TextStyle(
-                  color: c.textSecondary, fontSize: 13.sp, height: 1.4),
-            ),
-          ],
-        ],
-      ],
-    );
-  }
-
-  Widget _buildSlippage(AppColorsExtension c) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionLabel(c, context.l10n.maxSlippage),
-        SizedBox(height: 8.h),
-        _segmentTrack(c, [
-          for (final opt in _slippageOptions)
-            _trackSegment(
-              c,
-              label:
-                  '${opt.toStringAsFixed(opt == opt.roundToDouble() ? 0 : 1)}%',
-              selected: _slippagePct == opt,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _settingChanged('slippage_bps', VenueAnalytics.bps(opt));
-                _updateDraft(() => _slippagePct = opt);
-              },
-            ),
-        ]),
-      ],
-    );
-  }
-
   /// The summary every ticket carries, simple or Advanced. It opens by
   /// saying, in plain words, WHAT this order leaves the person with: a
   /// holding they own outright, or a geared position with a margin mode
   /// and a daily cost to carry.
-  /// A plain sentence describing the order the ticket will place.
-  String _orderExplanation() {
+  /// A plain sentence describing the order the ticket will place. With
+  /// [typeOnly], only what the TYPE does (the sentence under the tiles,
+  /// two lines at most): no leverage (the Details card says it), no time
+  /// in force, reduce-only or protection (their own controls say them).
+  String _orderExplanation({bool typeOnly = false}) {
     final l = _strings;
     final coin = market.coin;
     final verb = isSpot
@@ -7905,7 +8193,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // On a market with a position the order trades at the position's own
     // leverage and margin mode (never rewritten): said as it is.
     final heldPos = _heldPositionNow().position;
-    final leverage = isSpot
+    final leverage = isSpot || typeOnly
         ? ''
         : heldPos != null
             ? l.slipLeverageSuffix(
@@ -7916,8 +8204,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 _isCross && !market.onlyIsolated
                     ? l.slipMarginCross
                     : l.slipMarginIsolated);
-    final reduce = _reduceOnly ? l.slipReduceSentence : '';
-    final tpsl = _attachTpSl && _isOpening ? l.slipTpSlSentence : '';
+    final reduce = _reduceOnly && !typeOnly ? l.slipReduceSentence : '';
+    final tpsl =
+        _attachTpSl && _isOpening && !typeOnly ? l.slipTpSlSentence : '';
     final action = l.slipAction(verb, coin, leverage);
     switch (_mode) {
       case _OrderMode.market:
@@ -7929,8 +8218,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           'Alo' => l.slipTifAlo,
           _ => l.slipTifGtc,
         };
-        return l.slipExplainLimit(
-            px(_priceController), action, '$tif$reduce$tpsl');
+        return l.slipExplainLimit(px(_priceController), action,
+            typeOnly ? '' : '$tif$reduce$tpsl');
       case _OrderMode.pro:
         switch (_proType) {
           case _ProType.scale:
@@ -7953,89 +8242,111 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       ? (_isLong ? _strings.buy : _strings.sell)
       : (_isLong ? _strings.longLabel : _strings.shortLabel);
 
-  Widget _buildEssentialSummary(
+  /// The Advanced page's details in one card: what the order buys as its
+  /// headline, then the price it works at, what backs it (leverage and
+  /// margin mode, small: a held position's own), where it would be
+  /// liquidated, and the fee with its breakdown. The figures the page
+  /// already worked out; nothing new.
+  Widget _buildAdvancedSummary(
     AppColorsExtension c,
+    double mid,
     double notional,
+    double size,
+    int? scaleCount,
     double transferFromPerp, {
     required bool hasFunds,
-    // The order sentence belongs to Advanced, where the type is chosen;
-    // the plain ticket stays plain (owner decision).
-    bool explain = false,
-    // Entry price and size of the order, for the liquidation estimate.
-    double entry = 0,
-    double size = 0,
+    required double entry,
   }) {
+    final l = _strings;
+    final cap = market.pxDecimalCap;
+    final rows = <AdvancedSummaryRow>[];
+    if (!isSpot) rows.add(AdvancedSummaryRow(l.slipNotional, formatHlUsd(notional)));
+
+    // Price context per order type.
+    if (_mode == _OrderMode.market) {
+      rows.add(AdvancedSummaryRow(
+          l.slipEstEntry, formatHlPrice(mid, decimalCap: cap)));
+    } else if (_mode == _OrderMode.limit) {
+      final p = _parse(_priceController);
+      rows.add(AdvancedSummaryRow(l.betLimitPrice,
+          p != null ? formatHlPrice(p, decimalCap: cap) : '—'));
+    } else if (_isScale) {
+      final s = _parse(_startPxController);
+      final e = _parse(_endPxController);
+      rows.add(AdvancedSummaryRow(
+        l.slipRange,
+        (s != null && e != null)
+            ? '${formatHlPrice(s, decimalCap: cap)} → ${formatHlPrice(e, decimalCap: cap)}'
+            : '—',
+      ));
+      rows.add(AdvancedSummaryRow(
+          l.investingOrderCount, l.slipLegsCount(scaleCount ?? 0)));
+    } else if (_isTwap) {
+      final m = _parseInt(_twapMinutesController);
+      rows.add(AdvancedSummaryRow(
+          l.slipOver, m != null ? l.slipMinutesValue(m) : '—'));
+    }
+
     final holdingCost = _holdingCostLine(notional);
-    final heldPos = isSpot ? null : _heldPositionNow().position;
-    final liq = !isSpot && _isOpening && entry > 0 && _marginUsd > 0
-        ? _liquidationEstimate(entry, size)
-        : (price: null, blocker: null);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Nothing is said about a spot buy. "You end up owning QQQ, it
-        // is yours to hold or sell" tells someone who has already
-        // chosen to buy a thing they already know, in the sheet where
-        // they are about to commit money. The leveraged side below says
-        // what it says because leverage, margin mode and a daily
-        // carrying cost are facts the order does not otherwise show.
-        if (!isSpot) ...[
-          // Leverage AND margin mode, on every ticket: which balance backs
-          // this position is not an Advanced detail. A position already
-          // held (opened elsewhere, say at 5x cross) keeps its own setting,
-          // which the order trades at: its real figures, never "1x".
-          _previewRow(
-            c,
-            context.l10n.chartLeverage,
-            '${heldPos?.leverageValue ?? _leverage}× · ${(heldPos?.isCross ?? _isCross) ? context.l10n.investingCrossMargin : context.l10n.investingIsolatedMargin}',
-          ),
-          if (_leverage > 1) ...[
-            SizedBox(height: 10.h),
-            _previewRow(
-                c, context.l10n.slipPositionValue, formatHlUsd(notional)),
-          ],
-          // Where this position would be liquidated, before anything is
-          // placed: the one number a leveraged ticket must show up front.
-          // Only a real price (a 1x long has none worth saying: $0.0).
-          if (liq.blocker != null ||
-              (liq.price != null && liq.price!.isFinite && liq.price! > 0)) ...[
-            SizedBox(height: 10.h),
-            _previewRow(
-              c,
-              context.l10n.slipEstLiquidation,
-              liq.blocker ??
-                  formatHlPrice(liq.price!, decimalCap: market.pxDecimalCap),
-            ),
-          ],
-          if (holdingCost != null) ...[
-            SizedBox(height: 10.h),
-            Text(
-              holdingCost,
-              style: TextStyle(
-                  fontSize: 13.sp, color: c.textSecondary, height: 1.4),
-            ),
-          ],
-          SizedBox(height: 12.h),
-        ],
+    if (!isSpot) {
+      final heldPos = _heldPositionNow().position;
+      final liq = _isOpening && entry > 0 && _marginUsd > 0
+          ? _liquidationEstimate(entry, size)
+          : (price: null, blocker: null);
+      if (_leverage > 1) {
+        rows.add(AdvancedSummaryRow(l.slipPositionValue, formatHlUsd(notional)));
+      }
+      // Where this position would be liquidated, before anything is
+      // placed. Only a real price (a 1x long has none worth saying).
+      if (liq.blocker != null ||
+          (liq.price != null && liq.price!.isFinite && liq.price! > 0)) {
+        rows.add(AdvancedSummaryRow(
+          l.slipEstLiquidation,
+          liq.blocker ?? formatHlPrice(liq.price!, decimalCap: cap),
+        ));
+      }
+      // Leverage AND margin mode, on every ticket: which balance backs
+      // this position. A position already held (opened elsewhere, say at
+      // 5x cross) keeps its own setting, which the order trades at: its
+      // real figures, never "1x". A detail, never the headline.
+      rows.add(AdvancedSummaryRow(
+        l.chartLeverage,
+        '${heldPos?.leverageValue ?? _leverage}× · ${(heldPos?.isCross ?? _isCross) ? l.investingCrossMargin : l.investingIsolatedMargin}',
+        key: const ValueKey('order-slip-adv-leverage'),
+      ));
+    }
+
+    TextStyle note(double size) =>
+        TextStyle(fontSize: size, color: c.textSecondary, height: 1.4);
+    return AdvancedSummaryCard(
+      key: const ValueKey('order-slip-adv-summary'),
+      headline: AdvancedSummaryRow(
+        l.ledgerSummarySize,
+        '${_marginUsd > 0 && size > 0 ? formatHlSize(size) : '0'} ${market.coin}',
+        key: const ValueKey('order-slip-adv-size'),
+      ),
+      rows: rows,
+      footer: [
+        SizedBox(height: 6.h),
+        Divider(height: 1, thickness: 0.5, color: c.borderSubtle),
+        SizedBox(height: 10.h),
         _feeSummary(notional, hasFunds: hasFunds),
-        // What this order will actually do, in one plain sentence, so the
-        // type picked in Advanced is never a mystery at the button.
-        if (explain) ...[
+        if (!isSpot && holdingCost != null) ...[
           SizedBox(height: 10.h),
+          Text(holdingCost, style: note(13.sp)),
+        ],
+        // How the liquidation figure is estimated.
+        if (!isSpot && _isOpening && entry > 0 && _marginUsd > 0) ...[
+          SizedBox(height: 8.h),
           Text(
-            _orderExplanation(),
-            style:
-                TextStyle(fontSize: 13.sp, color: c.textSecondary, height: 1.4),
+            _isCross ? context.l10n.slipLiqNoteCross : context.l10n.slipLiqNoteIsolated,
+            style: note(12.sp),
           ),
         ],
         if (transferFromPerp > 0) ...[
           SizedBox(height: 10.h),
-          Text(
-            context.l10n
-                .investingFundingFromBalance(formatHlUsd(transferFromPerp)),
-            style:
-                TextStyle(fontSize: 14.sp, color: c.textSecondary, height: 1.4),
-          ),
+          Text(l.investingFundingFromBalance(formatHlUsd(transferFromPerp)),
+              style: note(13.sp)),
         ],
       ],
     );
@@ -8163,67 +8474,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildOrderDetails(
-    AppColorsExtension c,
-    double mid,
-    double notional,
-    double size,
-    int? scaleCount,
-  ) {
-    final rows = <Widget>[];
-    void add(String label, String value, {String? sub}) {
-      if (rows.isNotEmpty) rows.add(SizedBox(height: 8.h));
-      rows.add(_previewRow(c, label, value, sub: sub));
-    }
-
-    if (!isSpot) add(_strings.slipNotional, formatHlUsd(notional));
-    add(_strings.ledgerSummarySize, '${formatHlSize(size)} ${market.coin}');
-
-    // Price context per order type.
-    if (_mode == _OrderMode.market) {
-      add(_strings.slipEstEntry,
-          formatHlPrice(mid, decimalCap: market.pxDecimalCap));
-    } else if (_mode == _OrderMode.limit) {
-      final p = _parse(_priceController);
-      add(_strings.betLimitPrice,
-          p != null ? formatHlPrice(p, decimalCap: market.pxDecimalCap) : '—');
-    } else if (_isScale) {
-      final s = _parse(_startPxController);
-      final e = _parse(_endPxController);
-      add(
-        _strings.slipRange,
-        (s != null && e != null)
-            ? '${formatHlPrice(s, decimalCap: market.pxDecimalCap)} → ${formatHlPrice(e, decimalCap: market.pxDecimalCap)}'
-            : '—',
-      );
-      add(_strings.investingOrderCount, _strings.slipLegsCount(scaleCount ?? 0));
-    } else if (_isTwap) {
-      final m = _parseInt(_twapMinutesController);
-      add(_strings.slipOver, m != null ? _strings.slipMinutesValue(m) : '—');
-    }
-
-    final entry = _entryPx(mid);
-    // The figure itself is on the summary above; only the note on how it
-    // is estimated lives here.
-    if (_isOpening && entry > 0 && _marginUsd > 0) {
-      rows.add(Padding(
-        padding: EdgeInsets.only(top: 8.h),
-        child: Text(
-          _isCross
-              ? context.l10n.slipLiqNoteCross
-              : context.l10n.slipLiqNoteIsolated,
-          style:
-              TextStyle(fontSize: 13.sp, color: c.textSecondary, height: 1.4),
-        ),
-      ));
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: rows,
     );
   }
 
@@ -8385,76 +8635,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
   }
 
-  // ── Small field builders ────────────────────────────────────────────
-
-  Widget _priceField(AppColorsExtension c, _NumField field, String label) =>
-      _numField(c, field, label, prefix: r'$');
-
-  Widget _intField(AppColorsExtension c, _NumField field, String label) =>
-      _numField(c, field, label);
-
-  /// One numeric field on the Advanced page: an ordinary text input that
-  /// raises the keyboard, the way the Predictions advanced page works.
-  /// Focus still drives the accent hairline and promotes the label.
-  Widget _numField(AppColorsExtension c, _NumField field, String label,
-          {String? prefix,
-          String hint = '0',
-          double? valueFontSize,
-          List<Widget> footer = const []}) =>
-      HlNumericField(
-        controller: _controllerFor(field),
-        label: label,
-        prefix: prefix,
-        hint: hint,
-        focusNode: _focusNodeFor(field),
-        valueFontSize: valueFontSize,
-        inputFormatters: [
-          DecimalInputFormatter(fractionDigits: _decimalsFor(field))
-        ],
-        decimal: _decimalsFor(field) > 0,
-        onChanged: (_) => _updateDraft(() {}),
-        footer: footer,
-      );
-
-  Widget _buildCheckbox(
-    AppColorsExtension c,
-    String label,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onChanged(!value);
-      },
-      child: Row(
-        children: [
-          Icon(
-            value
-                ? Icons.check_box_rounded
-                : Icons.check_box_outline_blank_rounded,
-            // The HL teal disappears into a green fill, so the tick
-            // takes the palette's contrasting ink.
-            color: value ? c.accent : c.textTertiary,
-            size: 20.sp,
-          ),
-          SizedBox(width: 8.w),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: c.textSecondary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // Header identity with public-market educational help and close control.
   Widget _buildHeader(AppColorsExtension c) {
     // Built in its own context, under the slip's [SlipFit].
@@ -8527,44 +8707,5 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
-  Widget _previewRow(AppColorsExtension c, String label, String value,
-      {String? sub}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(color: c.textSecondary, fontSize: 15.sp)),
-        SizedBox(width: 12.w),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                value,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (sub != null) ...[
-                SizedBox(height: 2.h),
-                Text(
-                  sub,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
 

@@ -1606,6 +1606,10 @@ class HyperliquidTradingNotifier
     double? stopLossPx,
     String? source,
     String? cloid,
+    // Told the size actually sent, just before it is sent (the slip's
+    // stream close compares its own fills against it). Not part of the
+    // grant: it changes nothing that is signed.
+    void Function(double size)? onSent,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance
@@ -1689,23 +1693,46 @@ class HyperliquidTradingNotifier
         //    existed that didn't.
         builder = await _builderFee();
         final orderCloid = cloid ?? newHlCloid();
-        return _sendReconciled(
-          () => ex.placeMarketOrder(
-            market: market,
-            isBuy: isLong,
-            size: size,
-            referencePx: refPx,
-            slippage: slippagePct / 100,
-            reduceOnly: reduceOnly,
-            takeProfitPx: takeProfitPx,
-            stopLossPx: stopLossPx,
+        // The size actually sent (sized here, after funding, at the live
+        // price): the slip closes from its own fills against it.
+        onSent?.call(size);
+        try {
+          return await _sendReconciled(
+            () => ex.placeMarketOrder(
+              market: market,
+              isBuy: isLong,
+              size: size,
+              referencePx: refPx,
+              slippage: slippagePct / 100,
+              reduceOnly: reduceOnly,
+              takeProfitPx: takeProfitPx,
+              stopLossPx: stopLossPx,
+              cloid: orderCloid,
+              builder: builder,
+            ),
             cloid: orderCloid,
-            builder: builder,
-          ),
-          cloid: orderCloid,
-          market: market,
-          action: reduceOnly ? 'close' : 'open',
-        );
+            market: market,
+            action: reduceOnly ? 'close' : 'open',
+          );
+        } on HyperliquidOrderUnconfirmedException {
+          // The answer was unclear and the lookup could not settle it, but
+          // the account's own fills of THIS send already total its whole
+          // size: it filled. Accepted like any fill (one placed event, the
+          // margin hold, the refresh), never reported as a failure. A part
+          // stays unconfirmed. An order with a take-profit / stop-loss leg
+          // stays unconfirmed too: only the answer says whether those legs
+          // were placed.
+          final filled = takeProfitPx == null && stopLossPx == null
+              ? hlFilledByOwnFills(
+                  market: market,
+                  cloid: orderCloid,
+                  sentSize: size,
+                  fills: _current?.recentFills ?? const [],
+                )
+              : null;
+          if (filled == null) rethrow;
+          return filled;
+        }
       });
 
       // The exchange took the order: nothing below may turn that into a

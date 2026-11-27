@@ -29,6 +29,7 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show EthPrivateKey;
 
@@ -191,8 +192,12 @@ class _Venue extends HyperliquidModel {
 class _Account extends HlAccountNotifier {
   _Account(this.snapshot);
   final HlAccountSnapshot? Function() snapshot;
+
+  /// Account reads (builds), to see the refresh an accepted order asks for.
+  static int builds = 0;
   @override
   Future<HlAccountSnapshot> build() async {
+    builds++;
     final s = snapshot();
     if (s == null) throw http.ClientException('account read failed');
     return s;
@@ -243,6 +248,7 @@ Future<HyperliquidTradingNotifier> _notifierOn(
   _Venue venue,
   List<Map<String, dynamic>> posted, {
   HlAccountSnapshot? Function()? account,
+  Object? orderThrows,
 }) async {
   final key = EthPrivateKey.fromHex(
       '0x0123456789012345678901234567890101234567890123456789012345678901');
@@ -253,6 +259,7 @@ Future<HyperliquidTradingNotifier> _notifierOn(
       final action = (jsonDecode(request.body)
           as Map<String, dynamic>)['action'] as Map<String, dynamic>;
       posted.add(action);
+      if (action['type'] == 'order' && orderThrows != null) throw orderThrows;
       if (action['type'] == 'order') {
         final o = (action['orders'] as List).first as Map<String, dynamic>;
         return http.Response(
@@ -859,5 +866,96 @@ void main() {
         .readAsStringSync();
     expect(builder, contains('trading.openPosition('));
     expect(builder, contains('on HlExposureRefusedException'));
+  });
+
+  group('an unclear answer to a market order its own fills already filled',
+      () {
+    late List<(String, Map<String, Object>?)> events;
+    setUp(() {
+      events = [];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      RuntimeCapabilitiesService.debugInstance = _Policy(advanced: false);
+    });
+    tearDown(() {
+      TrackingService.debugTrackObserver = null;
+      RuntimeCapabilitiesService.debugInstance = null;
+    });
+
+    HlFill fill(String cloid, double sz, {int time = 1}) => HlFill(
+          coin: 'BTC',
+          px: 60000,
+          sz: sz,
+          side: 'B',
+          time: time,
+          closedPnl: 0,
+          fee: 0,
+          feeToken: 'USDC',
+          oid: 7,
+          hash: '0x$time',
+          dir: 'Open Long',
+          cloid: cloid,
+          tradeId: 't$time',
+        );
+
+    // $600 at 60,000: 0.01 BTC sent.
+    const cloid = '0x00000000000000000000000000000abc';
+
+    Future<Object?> buyWithFills(List<HlFill> fills) async {
+      final venue = _Venue(const []);
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted,
+          orderThrows: const HyperliquidOrderUnconfirmedException());
+      n.recordFills(fills);
+      _Account.builds = 0;
+      double? sent;
+      try {
+        await n.openPosition(
+          market: btc,
+          isLong: true,
+          marginUsd: 600,
+          leverage: 1,
+          cloid: cloid,
+          onSent: (size) => sent = size,
+          grant: _grantFor(HlIntents.openPosition(
+            walletId: _walletId,
+            market: btc,
+            isLong: true,
+            marginUsd: 600,
+            leverage: 1,
+            slippagePct: 1.0,
+          )),
+        );
+        expect(sent, closeTo(0.01, 1e-9));
+        return null;
+      } catch (e) {
+        return e;
+      }
+    }
+
+    int count(String event) => events.where((e) => e.$1 == event).length;
+
+    test('own fills totalling the size: accepted, one placed event, no failure,'
+        ' the account read again', () async {
+      final error = await buyWithFills(
+          [fill(cloid, 0.006, time: 1), fill(cloid, 0.004, time: 2)]);
+      expect(error, isNull);
+      expect(count('hyperliquid_order_placed'), 1);
+      expect(count('hyperliquid_order_failed'), 0);
+      await Future<void>.delayed(Duration.zero);
+      expect(_Account.builds, greaterThan(0));
+    });
+
+    test('no own fills: still unconfirmed, reported as before', () async {
+      final error = await buyWithFills(
+          [fill('0x00000000000000000000000000000def', 0.01)]);
+      expect(error, isA<HyperliquidOrderUnconfirmedException>());
+      expect(count('hyperliquid_order_placed'), 0);
+    });
+
+    test('own fills of a part: still unconfirmed', () async {
+      final error = await buyWithFills([fill(cloid, 0.005)]);
+      expect(error, isA<HyperliquidOrderUnconfirmedException>());
+      expect(count('hyperliquid_order_placed'), 0);
+    });
   });
 }

@@ -923,23 +923,29 @@ class AdvancedSummaryCard extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 5.h),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(r.label,
-                      style:
-                          TextStyle(fontSize: 14.sp, color: c.textSecondary)),
-                ),
+                Text(r.label,
+                    style: TextStyle(fontSize: 14.sp, color: c.textSecondary)),
                 SizedBox(width: 12.w),
-                Text(r.value,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                        color: c.textPrimary,
-                        decoration:
-                            r.onTap != null ? TextDecoration.underline : null,
-                        decorationColor: c.textTertiary,
-                        fontFeatures: const [FontFeature.tabularFigures()])),
+                // A long value ("Depends on your open position", a
+                // translation) wraps on the right edge instead of
+                // overflowing.
+                Expanded(
+                  child: Text(r.value,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary,
+                          decoration: r.onTap != null
+                              ? TextDecoration.underline
+                              : null,
+                          decorationColor: c.textTertiary,
+                          fontFeatures: const [
+                            FontFeature.tabularFigures()
+                          ])),
+                ),
               ],
             ),
           ),
@@ -1021,14 +1027,20 @@ enum AdvancedLevelKind { limit, takeProfit, stopLoss, trailing, scaleLeg }
 
 /// One level on [AdvancedPriceMap]: its [price], [kind], its pill's
 /// [label] (e.g. "TP") and an optional second line ([detail], e.g. an
-/// estimated P&L).
+/// estimated P&L). Its pill's % is measured from [from] (a take profit or
+/// a stop from the entry), from now when null.
 class AdvancedPriceLevel {
   const AdvancedPriceLevel(
-      {required this.price, required this.kind, this.label, this.detail});
+      {required this.price,
+      required this.kind,
+      this.label,
+      this.detail,
+      this.from});
   final double price;
   final AdvancedLevelKind kind;
   final String? label;
   final String? detail;
+  final double? from;
 }
 
 /// The Investing ticket's price map: a full-width card (about 132 high)
@@ -1057,6 +1069,18 @@ class AdvancedPriceMap extends StatelessWidget {
 
   /// The smallest vertical gap between two pills' centres.
   static const double minGap = 22;
+
+  /// Half a pill's height (pills are [pillHalf] * 2 high).
+  static const double pillHalf = 11;
+
+  /// The room between a pill and the card's top or bottom edge.
+  static const double edge = 14;
+
+  /// The card's height for [count] pills (now included): [height] at
+  /// least, taller when the pills pushed apart need it, so every pill
+  /// sits [edge] inside the card.
+  static double heightFor(int count, {double height = 132}) => math.max(
+      height, 2 * (edge + pillHalf) + math.max(0, count - 1) * minGap);
 
   /// The pills' centres for [prices] (top = highest) in a box [height]
   /// high with [pad] at both ends: by price, then pushed apart so no two
@@ -1109,14 +1133,17 @@ class AdvancedPriceMap extends StatelessWidget {
     final c = context.colors;
     final prices = [now, ...levels.map((l) => l.price)];
     // The lines sit at their true price; only the pills are pushed apart.
+    // Every pill (its centre [pad] in) clears the card's edges by [edge].
     final hi = prices.reduce(math.max), lo = prices.reduce(math.min);
-    const pad = 14.0;
+    const pad = edge + pillHalf;
+    final height = heightFor(prices.length, height: this.height);
     double yOf(double p) =>
         hi - lo <= 0 ? height / 2 : pad + (hi - p) / (hi - lo) * (height - 2 * pad);
-    final pillYs = layout(prices, height);
-    String pct(double p) {
-      if (now == 0) return '';
-      final d = (p - now) / now * 100;
+    final pillYs = layout(prices, height, pad: pad);
+    String pct(double p, double? from) {
+      final ref = from ?? now;
+      if (ref == 0) return '';
+      final d = (p - ref) / ref * 100;
       return '${d >= 0 ? '+' : ''}${d.toStringAsFixed(d.abs() < 10 ? 2 : 1)}%';
     }
 
@@ -1162,13 +1189,13 @@ class AdvancedPriceMap extends StatelessWidget {
             for (var i = 0; i < prices.length; i++)
               Positioned(
                 right: 10,
-                top: pillYs[i] - 10,
+                top: pillYs[i] - pillHalf,
                 child: _PricePill(
                   color: _colorOf(context, i == 0 ? null : levels[i - 1].kind),
                   title: i == 0
                       ? '$nowLabel ${formatPrice(now)}'
                       : '${levels[i - 1].label ?? ''}${levels[i - 1].label == null ? '' : ' '}'
-                          '${formatPrice(levels[i - 1].price)} · ${pct(levels[i - 1].price)}',
+                          '${formatPrice(levels[i - 1].price)} · ${pct(levels[i - 1].price, levels[i - 1].from)}',
                   detail: i == 0 ? null : levels[i - 1].detail,
                 ),
               ),
@@ -1189,7 +1216,11 @@ class _PricePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      // Its height fixed ([AdvancedPriceMap.pillHalf]), so the map can
+      // keep every pill inside the card.
+      height: AdvancedPriceMap.pillHalf * 2,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(AppRadius.pill),

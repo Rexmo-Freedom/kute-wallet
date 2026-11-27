@@ -174,11 +174,10 @@ Future<void> _openAdvanced(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _pickMoreOption(WidgetTester tester, String type) async {
-  await tester.ensureVisible(find.text('More options'));
-  await tester.tap(find.text('More options'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(type).last);
+Future<void> _pickType(WidgetTester tester, String type) async {
+  final tile = find.byKey(ValueKey('hl-adv-type-${type.toLowerCase()}'));
+  await tester.ensureVisible(tile);
+  await tester.tap(tile);
   await tester.pumpAndSettle();
 }
 
@@ -202,15 +201,15 @@ Future<void> _enter(WidgetTester tester, int i, String text) async {
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('More options offers Scale and TWAP only: no stop or take',
-      (tester) async {
+  testWidgets(
+      'the order types are four tiles, Market, Limit, Scale and TWAP: no '
+      'stop or take', (tester) async {
     await _pump(tester);
     await _openAdvanced(tester);
-    await tester.ensureVisible(find.text('More options'));
-    await tester.tap(find.text('More options'));
-    await tester.pumpAndSettle();
-    expect(find.text('Scale'), findsWidgets);
-    expect(find.text('TWAP'), findsWidgets);
+    for (final type in ['market', 'limit', 'scale', 'twap']) {
+      expect(find.byKey(ValueKey('hl-adv-type-$type')), findsOneWidget);
+    }
+    expect(find.text('More options'), findsNothing);
     for (final gone in [
       'Stop market',
       'Stop limit',
@@ -227,13 +226,13 @@ void main() {
       (tester) async {
     await _pump(tester);
     await _openAdvanced(tester);
-    await _pickMoreOption(tester, 'Scale');
+    await _pickType(tester, 'Scale');
     // Amount, start, end, count.
     expect(_text(tester, 3), '5');
     await _enter(tester, 3, '9');
     await _back(tester);
     await _openAdvanced(tester);
-    await _pickMoreOption(tester, 'Scale');
+    await _pickType(tester, 'Scale');
     expect(_text(tester, 3), '5');
     expect(find.text('Scale takes 2 to 50 orders.'), findsNothing);
     expect(find.text('Enter start and end prices.'), findsNothing);
@@ -242,7 +241,7 @@ void main() {
         findsNothing);
     await _back(tester);
     await _openAdvanced(tester);
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     expect(_text(tester, 1), '30');
     expect(find.text('Duration must be between 5 minutes and 7 days.'),
         findsNothing);
@@ -253,7 +252,7 @@ void main() {
     testWidgets('2..50 orders, inline, the button off', (tester) async {
       await _pump(tester, available: 5000);
       await _openAdvanced(tester);
-      await _pickMoreOption(tester, 'Scale');
+      await _pickType(tester, 'Scale');
       // Enough that every leg clears the minimum, 51 of them included.
       await _enter(tester, 0, '2000');
       expect(scopeEnabled(tester), isTrue);
@@ -270,7 +269,7 @@ void main() {
         (tester) async {
       await _pump(tester);
       await _openAdvanced(tester);
-      await _pickMoreOption(tester, 'Scale');
+      await _pickType(tester, 'Scale');
       await _enter(tester, 0, '200');
       await _enter(tester, 1, '58000');
       await _enter(tester, 2, '58000');
@@ -290,7 +289,7 @@ void main() {
     testWidgets('a sell ladder rests above the price', (tester) async {
       await _pump(tester, isLong: false);
       await _openAdvanced(tester);
-      await _pickMoreOption(tester, 'Scale');
+      await _pickType(tester, 'Scale');
       await _enter(tester, 0, '200');
       expect(scopeEnabled(tester), isTrue);
       await _enter(tester, 1, '59000');
@@ -304,7 +303,7 @@ void main() {
         '(at the mid it would have passed)', (tester) async {
       await _pump(tester);
       await _openAdvanced(tester);
-      await _pickMoreOption(tester, 'Scale');
+      await _pickType(tester, 'Scale');
       // \$52 over 5 legs is \$10.40 a leg at the mid, but the size is
       // worked at the range's middle and the 30,000 leg is worth \$6.90.
       await _enter(tester, 0, '52');
@@ -325,7 +324,7 @@ void main() {
       'never a one-tap jump', (tester) async {
     await _pump(tester);
     await _openAdvanced(tester);
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     await _enter(tester, 0, '50');
     // The venue's \$100 total, as the size is floored and with the price's
     // headroom: \$101.31 at 60,000 on a 0.00001 BTC step.
@@ -348,7 +347,8 @@ void main() {
       (tester) async {
     await _pump(tester, market: _hypeSpot);
     await _openAdvanced(tester);
-    expect(find.text('More options'), findsNothing);
+    expect(find.byKey(const ValueKey('hl-adv-type-scale')), findsNothing);
+    expect(find.byKey(const ValueKey('hl-adv-type-twap')), findsNothing);
     await tester.ensureVisible(find.text('Limit'));
     await tester.tap(find.text('Limit'));
     await tester.pumpAndSettle();
@@ -365,7 +365,7 @@ void main() {
     await _pump(tester, isLong: false);
     await _openAdvanced(tester);
     await _enter(tester, 0, '100');
-    final attach = find.text('Attach take-profit / stop-loss');
+    final attach = find.byKey(const ValueKey('order-slip-tpsl-switch'));
     await tester.ensureVisible(attach);
     await tester.tap(attach);
     await tester.pumpAndSettle();
@@ -430,7 +430,7 @@ void main() {
     // The form panel (kute_form_panel_route.dart), never a page or a
     // sheet across the window.
     expect(ModalRoute.of(tester.element(title)), isA<KuteDialogRoute>());
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     await _enter(tester, 0, '50');
     expect(find.text(r'A TWAP order needs at least $101.31.'), findsOneWidget);
     expect(scopeEnabled(tester), isFalse);

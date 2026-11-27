@@ -8,12 +8,15 @@
 // same rules the ticket shows while typing.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart'
+    show hlFillsCoverSize;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
     show
         HlOrderResult,
@@ -272,6 +275,73 @@ void main() {
           hlTpSlEntryIssue(l,
               isLong: false, entry: 66000, takeProfit: 67000),
           l.slipTpBelowEntry);
+    });
+  });
+
+  group('the stream closes on the size the notifier SENT, not the slip\'s',
+      () {
+    // The slip estimated 0.010 BTC; the price fell during funding and the
+    // notifier sent 0.012 (it sizes after funding, at the live price).
+    const sent = 0.012;
+    const step = 0.00001;
+    List<HlFill> own(List<double> sizes) => [
+          for (final sz in sizes) _fill(cloid: cloid, sz: sz, px: 60000),
+        ];
+
+    test('fills reaching only the slip\'s estimate do not close it', () {
+      expect(
+          hlStreamReceipt(
+              unconfirmed: false,
+              market: true,
+              own: own([0.006, 0.004]),
+              requestedSize: sent,
+              sizeStep: step),
+          isNull);
+    });
+
+    test('fills reaching the sent size close it, totalled', () {
+      final r = hlStreamReceipt(
+          unconfirmed: false,
+          market: true,
+          own: own([0.006, 0.004, 0.002]),
+          requestedSize: sent,
+          sizeStep: step);
+      expect(r, isNotNull);
+      expect(r!.size, closeTo(sent, 1e-12));
+      expect(r.avgPx, 60000);
+      // The notifier's unclear-answer rule is the same rule.
+      expect(hlFillsCoverSize(0.012, sent, 5), isTrue);
+      expect(hlFillsCoverSize(0.010, sent, 5), isFalse);
+    });
+
+    test('nothing closes before the notifier says what it sent', () {
+      expect(
+          hlStreamReceipt(
+              unconfirmed: false,
+              market: true,
+              own: own([0.012]),
+              requestedSize: 0,
+              sizeStep: step),
+          isNull);
+    });
+
+    test('a perp open takes the size from the notifier on both its paths', () {
+      final src = File(
+              'lib/screens/hyperliquid/components/order_slip_sheet.dart')
+          .readAsStringSync();
+      // Zeroed for an open after the exit branch, set again by onSent.
+      expect(src, contains('if (!isSpot) _sentMarketSize = 0;'));
+      expect(src, contains('_sentMarketSize = _sentMarketAttached ? 0 : size;'));
+      // The direct ticket and the funded auto-fire both hand it over.
+      expect('onSent: _onMarketSent'.allMatches(src).length, 2);
+      final provider =
+          File('lib/providers/hyperliquid_trading_provider.dart')
+              .readAsStringSync();
+      final open = provider.indexOf('Future<HlOrderResult> openPosition(');
+      final told = provider.indexOf('onSent?.call(size);', open);
+      final send = provider.indexOf('ex.placeMarketOrder(', open);
+      expect(told, greaterThan(open));
+      expect(told, lessThan(send));
     });
   });
 }
