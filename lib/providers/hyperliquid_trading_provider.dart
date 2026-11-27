@@ -1606,6 +1606,10 @@ class HyperliquidTradingNotifier
     double? stopLossPx,
     String? source,
     String? cloid,
+    // Told the size actually sent, just before it is sent (the slip's
+    // stream close compares its own fills against it). Not part of the
+    // grant: it changes nothing that is signed.
+    void Function(double size)? onSent,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance
@@ -1689,6 +1693,9 @@ class HyperliquidTradingNotifier
         //    existed that didn't.
         builder = await _builderFee();
         final orderCloid = cloid ?? newHlCloid();
+        // The size actually sent (sized here, after funding, at the live
+        // price): the slip closes from its own fills against it.
+        onSent?.call(size);
         try {
           return await _sendReconciled(
             () => ex.placeMarketOrder(

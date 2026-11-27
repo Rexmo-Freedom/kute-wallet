@@ -2334,6 +2334,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             _attachTpSl &&
             (_parsePx(_tpController) != null ||
                 _parsePx(_slController) != null));
+    _sentMarketAttached = attached;
     _sentMarketSize = attached ? 0 : size;
     if (plan.isExit) {
       if (size <= 0) {
@@ -2343,6 +2344,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       await _confirmExit(plan);
       return;
     }
+    // An open or add is sized again by the notifier after funding, at the
+    // live price: the stream closes on the size it actually sends
+    // ([_onMarketSent]), never on this ticket's own estimate.
+    if (!isSpot) _sentMarketSize = 0;
     // The FLOORED size decides it, not the amount typed: those differ
     // by up to one step, which on BTC is most of a dollar. And it is
     // valued where the venue values it: a sell or short at its slippage
@@ -2550,6 +2555,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// ticket on its whole fill before the answer ([hlStreamReceipt]); 0
   /// when something rides on it whose fate only the answer says.
   double _sentMarketSize = 0;
+
+  /// The market order sent has a take-profit / stop-loss leg or a trailing
+  /// stop riding on it: the stream never closes it before the answer.
+  bool _sentMarketAttached = false;
+
+  /// The notifier's word of the size it is sending ([HyperliquidTrading
+  /// Notifier.openPosition]'s onSent): what the stream close compares the
+  /// ticket's own fills against.
+  void _onMarketSent(double size) {
+    if (!mounted) return;
+    _sentMarketSize = _sentMarketAttached ? 0 : size;
+    _settleFromStream();
+  }
 
   /// Closes the ticket on its order's own fills from the stream, totalled
   /// ([hlOwnFillsTotal]), once they come to the whole size asked for
@@ -5102,6 +5120,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         stopLossPx: stopLossPx,
         source: source,
         cloid: cloid,
+        onSent: _onMarketSent,
         grant: grant,
       ),
     );
@@ -5168,6 +5187,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               // A send again after a margin refusal goes under a fresh
               // cloid (HlResendCloids), never this one twice.
               cloid: HlResendCloids.current(cloid),
+              onSent: _onMarketSent,
               grant: grant,
             ),
           );

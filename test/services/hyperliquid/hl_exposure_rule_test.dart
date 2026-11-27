@@ -907,6 +907,7 @@ void main() {
           orderThrows: const HyperliquidOrderUnconfirmedException());
       n.recordFills(fills);
       _Account.builds = 0;
+      double? sent;
       try {
         await n.openPosition(
           market: btc,
@@ -914,6 +915,7 @@ void main() {
           marginUsd: 600,
           leverage: 1,
           cloid: cloid,
+          onSent: (size) => sent = size,
           grant: _grantFor(HlIntents.openPosition(
             walletId: _walletId,
             market: btc,
@@ -923,6 +925,7 @@ void main() {
             slippagePct: 1.0,
           )),
         );
+        expect(sent, closeTo(0.01, 1e-9));
         return null;
       } catch (e) {
         return e;
