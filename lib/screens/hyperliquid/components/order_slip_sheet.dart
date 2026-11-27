@@ -342,17 +342,49 @@ String? hlTpSlEntryIssue(AppLocalizations l,
 
 /// What a market ticket closes on from the fill stream: its own fills
 /// ([own], already matched by [hlFillOfOrder]) totalled, once the venue's
-/// answer was unclear ([unconfirmed]); null while that answer is still
-/// awaited (it says what filled, all of it) or for a limit, Scale or TWAP
-/// order, whose stream never closes it on a total (a limit closes on its
-/// whole size alone, a part being said with what still rests).
+/// answer was unclear ([unconfirmed]), or, while that answer is still
+/// awaited, once they come to the whole size the ticket asked for
+/// ([requestedSize], to within half a [sizeStep], as the limit path): a
+/// slow answer (a builder dex's POST running to its 15 s timeout) never
+/// holds back the receipt of an order filled in a second. Never on a part
+/// while the answer is awaited (the answer says what filled), never with
+/// [requestedSize] 0 (an order with a take-profit, stop-loss or trailing
+/// stop attached, whose answer says whether those were placed), and never
+/// for a limit, Scale or TWAP order, whose stream never closes it on a
+/// total (a limit closes on its whole size alone, a part being said with
+/// what still rests).
 @visibleForTesting
 ({double size, double avgPx})? hlStreamReceipt(
     {required bool unconfirmed,
     required bool market,
-    required Iterable<HlFill> own}) {
-  if (!unconfirmed || !market) return null;
-  return hlOwnFillsTotal(own);
+    required Iterable<HlFill> own,
+    double requestedSize = 0,
+    double sizeStep = 0}) {
+  if (!market) return null;
+  final total = hlOwnFillsTotal(own);
+  if (total == null || unconfirmed) return total;
+  if (requestedSize <= 0) return null;
+  return total.size >= requestedSize - sizeStep / 2 ? total : null;
+}
+
+/// The venue's [answer] to a market order the ticket sent, unless the
+/// ticket already [closed] on that order's own fills from the stream
+/// ([hlStreamReceipt]): then the fills said it was placed, and the answer,
+/// whatever it is (a success, an error, a timeout or an unconfirmed
+/// lookup), only calls [onClosed] (the placing tile marked placed) and
+/// comes back null, never rethrown. No second receipt, no error, no lock.
+@visibleForTesting
+Future<HlOrderResult?> hlMarketAnswer(Future<HlOrderResult> answer,
+    {required bool Function() closed,
+    required void Function() onClosed}) async {
+  try {
+    final result = await answer;
+    if (!closed()) return result;
+  } catch (_) {
+    if (!closed()) rethrow;
+  }
+  onClosed();
+  return null;
 }
 
 /// How long the ticket gathers its order's fills from the stream before it
@@ -1193,6 +1225,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       ])
         if (inputs[k] != null) k: inputs[k]!,
     });
+    _stagedOwn = VenueAnalytics.staged('hl', market.coin);
     TrackingService.track('hyperliquid_order_submitted', params: {
       ...inputs,
       // What the order does to the position held here (perps only):
@@ -1485,7 +1518,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _ownSparkWarm = null;
     _fundPlanTimer?.cancel();
     TrackingService.clearFlowContext('hl_order');
-    VenueAnalytics.unstage('hl', market.coin);
+    // A market order still waiting for its answer keeps its staged
+    // settings for its placed / failed event ([_answerPending]).
+    if (!_answerPending) VenueAnalytics.unstage('hl', market.coin);
     VenueAnalytics.resetSettings(_settingsScope);
     // Release the live-feed hold exactly once (nulled to guard a double
     // dispose from decrementing another surface's hold).
@@ -2271,6 +2306,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _sentPlan = plan.effect == HlPositionEffect.open ? null : plan;
     _orderFills.clear();
     _sentMarket = true;
+    // The stream closes the ticket on the order's whole size before the
+    // venue answers, unless something rides on it whose fate only the
+    // answer says (a take-profit / stop-loss leg, a trailing stop placed
+    // after the fill).
+    final attached = (_trailingAvailable && _attachTrailing) ||
+        (!isSpot &&
+            _attachTpSl &&
+            (_parsePx(_tpController) != null ||
+                _parsePx(_slController) != null));
+    _sentMarketSize = attached ? 0 : size;
     if (plan.isExit) {
       if (size <= 0) {
         _trackBlocked('below_min');
@@ -2374,9 +2419,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // with no cloid or another's.
       if (!hlFillOfOrder(market, cloid, f)) return;
       _orderFills.add(f);
-      // The venue's answer closes the ticket with the order's whole fill
-      // (a market order fills in several pieces); the stream only does
-      // once that answer was unclear ([_settleFromStream]).
+      // The stream closes the ticket once these fills come to the whole
+      // size asked for, or once the answer was unclear; a part waits for
+      // the answer, which says what filled ([_settleFromStream]).
       _settleFromStream();
     });
 
@@ -2393,7 +2438,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // ReauthRequired before it signs.
       _submitted = true;
       _trackSubmitted();
-      final result = await _marketOrder(walletId, cloid).place(grant);
+      _answerPending = true;
+      // Closed on the order's own fills meanwhile: the answer, whatever
+      // it is, only marks the tile placed ([hlMarketAnswer]).
+      final result = await hlMarketAnswer(
+          _marketOrder(walletId, cloid).place(grant),
+          closed: () => _completed,
+          onClosed: () => placing.markSucceeded(placementId));
+      if (result == null) return;
       placing.markSucceeded(placementId);
       if (result.filledSz > 0) {
         final trailNote = await _placeAttachedTrailing(result.filledSz);
@@ -2449,31 +2501,58 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // Fills of it the stream already brought end on the receipt.
         if (e is HyperliquidOrderUnconfirmedException) _settleFromStream();
       }
+    } finally {
+      _answerPending = false;
+      // Closed on the stream before the answer: the settings staged for
+      // the order's placed / failed event stayed for it until now.
+      if (!mounted) _unstageOwn();
     }
   }
 
+  /// A market order this ticket sent is still waiting for the venue's
+  /// answer: the ticket may close on its fills first, and the settings
+  /// staged for its placed / failed event ([_trackSubmitted]) stay until
+  /// the answer is in.
+  bool _answerPending = false;
+
+  /// The settings this ticket staged for its order's event, to unstage
+  /// them only while they are still this ticket's.
+  Map<String, Object>? _stagedOwn;
+
+  void _unstageOwn() {
+    final own = _stagedOwn;
+    if (own == null ||
+        identical(VenueAnalytics.staged('hl', market.coin), own)) {
+      VenueAnalytics.unstage('hl', market.coin);
+    }
+  }
+
+  /// The size the market order sent asks for, for the stream to close the
+  /// ticket on its whole fill before the answer ([hlStreamReceipt]); 0
+  /// when something rides on it whose fate only the answer says.
+  double _sentMarketSize = 0;
+
   /// Closes the ticket on its order's own fills from the stream, totalled
-  /// ([hlOwnFillsTotal]), once the venue's answer was unclear
-  /// ([_unconfirmedLock]): until then the answer says what filled. The
-  /// fills of one match are gathered a moment ([kHlStreamFillsSettle])
-  /// first, so a multi-fill order is never said as its first fill.
+  /// ([hlOwnFillsTotal]), once they come to the whole size asked for
+  /// ([_sentMarketSize]) or once the venue's answer was unclear
+  /// ([_unconfirmedLock]); a part waits for the answer, which says what
+  /// filled. The fills of one match are gathered a moment
+  /// ([kHlStreamFillsSettle]) first, so a multi-fill order is never said
+  /// as its first fill.
   void _settleFromStream() {
     if (_completed) return;
-    bool closes() =>
-        hlStreamReceipt(
-            unconfirmed: _unconfirmedLock,
-            market: _sentMarket,
-            own: _orderFills) !=
-        null;
-    if (!closes()) return;
+    ({double size, double avgPx})? receipt() => hlStreamReceipt(
+        unconfirmed: _unconfirmedLock,
+        market: _sentMarket,
+        own: _orderFills,
+        requestedSize: _sentMarketSize,
+        sizeStep: _sizeStep);
+    if (receipt() == null) return;
     _streamSettle?.cancel();
     _streamSettle = Timer(kHlStreamFillsSettle, () {
       _streamSettle = null;
       if (!mounted || _completed) return;
-      final total = hlStreamReceipt(
-          unconfirmed: _unconfirmedLock,
-          market: _sentMarket,
-          own: _orderFills);
+      final total = receipt();
       if (total == null) return;
       _onFilled(
           sizeFilled: total.size,
@@ -2756,8 +2835,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// A fill on the stream while a funded order ([cloid]) goes out. Only
   /// the order's own cloid-tagged fills count (a stop's, a TWAP's or
   /// another order's never). A market order's receipt comes from the
-  /// queued order's answer with its whole fill, or from the stream once
-  /// that answer was unclear ([_settleFromStream]); a limit closes the
+  /// queued order's answer with its whole fill, or from the stream on its
+  /// whole size or once that answer was unclear ([_settleFromStream]),
+  /// whichever comes first ([_completed]); a limit closes the
   /// ticket from the stream on its whole size only: a part is said with
   /// what still rests by the venue's answer ([_onLimitAnswered]).
   void _onFundedFill(HlFill f, String cloid) {
@@ -2768,7 +2848,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _orderFills.add(f);
     if (!advanced) {
       // A market order: the queued order's answer closes the ticket with
-      // its whole fill; the stream only once that answer was unclear.
+      // its whole fill; the stream once its fills come to the whole size
+      // asked for, or once that answer was unclear.
       _settleFromStream();
       return;
     }

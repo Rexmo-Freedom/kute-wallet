@@ -159,7 +159,9 @@ bool hlMarketConfirming(Map<String, String> confirming, String wireCoin) =>
 /// [onConfirming] is told when the lookup starts (true) and ends (false).
 /// An action carrying several orders (a scale order's legs) passes every
 /// leg's id as [cloids]: it went out as one signed action, so any one of
-/// them found means the venue took it.
+/// them found means the venue took it. A scale order also passes its leg
+/// count ([scaleLegs]): found, it is said "N of M" as its answer would
+/// ([hlScaleLegsFound]).
 Future<HlOrderResult> hlSendReconciled({
   required Future<HlOrderResult> Function() send,
   required String cloid,
@@ -171,6 +173,7 @@ Future<HlOrderResult> hlSendReconciled({
   Duration window = kHlReconcileWindow,
   Duration every = kHlReconcileEvery,
   List<String>? cloids,
+  int? scaleLegs,
 }) async {
   try {
     return await send();
@@ -209,7 +212,14 @@ Future<HlOrderResult> hlSendReconciled({
         'ms': clock.elapsedMilliseconds,
       });
     } catch (_) {}
-    if (found != null) return found;
+    if (found != null) {
+      return scaleLegs == null
+          ? found
+          : hlScaleLegsFound(found,
+              matched: trace.matched,
+              cloids: cloids ?? [cloid],
+              legs: scaleLegs);
+    }
     if (trace.known) throw HyperliquidOrderNotPlacedException(cause: e);
     throw HyperliquidOrderUnconfirmedException(cause: e);
   }
@@ -235,14 +245,55 @@ String hlUnknownCause(Object e) {
 class HlSentOrderTrace {
   const HlSentOrderTrace.none()
       : known = true,
-        found = null;
-  const HlSentOrderTrace.found(HlOrderResult this.found) : known = true;
+        found = null,
+        matched = const <String>{};
+  const HlSentOrderTrace.found(HlOrderResult this.found,
+      {this.matched = const <String>{}})
+      : known = true;
   const HlSentOrderTrace.unknown()
       : known = false,
-        found = null;
+        found = null,
+        matched = const <String>{};
 
   final bool known;
   final HlOrderResult? found;
+
+  /// The cloids looked up that the account shows (filled or resting),
+  /// lower-cased ([hlTraceOf]): a scale order's legs are counted on them
+  /// ([hlScaleLegsFound]).
+  final Set<String> matched;
+}
+
+/// [found], a scale order of [legs] legs looked up by [cloids] (each
+/// send's leg ids in order, [hlScaleLegCloids]), said as the venue's own
+/// answer says it ([HyperliquidExchangeService.placeScaleOrder]): how many
+/// of the legs the account shows, filled or resting ([matched]), of how
+/// many sent. One leg found alone used to stand for the whole ladder, and
+/// the receipt never said "Only 3 of 5 orders were placed". The filled
+/// size and its price stay [found]'s: every leg's fills, totalled.
+HlOrderResult hlScaleLegsFound(HlOrderResult found,
+    {required Set<String> matched,
+    required List<String> cloids,
+    required int legs}) {
+  if (legs < 2) return found;
+  final placed = <int>{
+    for (var i = 0; i < cloids.length; i++)
+      if (matched.contains(cloids[i].toLowerCase())) i % legs,
+  };
+  // Found without the ids that matched: nothing to count the legs on.
+  if (placed.isEmpty) return found;
+  return HlOrderResult(
+    kind: found.kind,
+    oid: found.oid,
+    cloid: found.cloid,
+    filledSz: found.filledSz,
+    avgPx: found.avgPx,
+    error: found.error,
+    legsPlaced: placed.length,
+    legsTotal: legs,
+    takeProfitRejected: found.takeProfitRejected,
+    stopLossRejected: found.stopLossRejected,
+  );
 }
 
 /// Looks [cloids] up on [market]: the account's open orders and its fills.
@@ -351,6 +402,11 @@ HlSentOrderTrace hlTraceOf(List<String> cloids,
   bool mine(String? cloid) =>
       cloid != null && ids.contains(cloid.toLowerCase());
   final filled = fills.where((f) => mine(f.cloid)).toList();
+  final resting = open.where((o) => mine(o.cloid)).toList();
+  final matched = {
+    for (final f in filled) f.cloid!.toLowerCase(),
+    for (final o in resting) o.cloid!.toLowerCase(),
+  };
   if (filled.isNotEmpty) {
     final size = filled.fold<double>(0, (a, f) => a + f.sz);
     final notional = filled.fold<double>(0, (a, f) => a + f.sz * f.px);
@@ -360,14 +416,15 @@ HlSentOrderTrace hlTraceOf(List<String> cloids,
       cloid: filled.first.cloid,
       filledSz: size,
       avgPx: size > 0 ? notional / size : 0,
-    ));
+    ), matched: matched);
   }
-  final resting = open.where((o) => mine(o.cloid)).toList();
   if (resting.isNotEmpty) {
-    return HlSentOrderTrace.found(HlOrderResult(
-        kind: HlOrderResultKind.resting,
-        oid: resting.first.oid,
-        cloid: resting.first.cloid));
+    return HlSentOrderTrace.found(
+        HlOrderResult(
+            kind: HlOrderResultKind.resting,
+            oid: resting.first.oid,
+            cloid: resting.first.cloid),
+        matched: matched);
   }
   return const HlSentOrderTrace.none();
 }

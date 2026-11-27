@@ -1,14 +1,25 @@
 // The ticket closes on its own order's fills only (its cloid, and a send
 // again's), totalled; a same-coin fill with no cloid or another's (a stop
 // that triggered, a TWAP slice, another client's order) never closes it.
+// A market ticket closes on them before the venue answers once they come to
+// the whole size asked for (never on a part), and the answer arriving after
+// that changes nothing on the ticket.
 // The ticket's prices are re-checked against the price at submit with the
 // same rules the ticket shows while typing.
+
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show
+        HlOrderResult,
+        HlOrderResultKind,
+        HyperliquidOrderNotPlacedException,
+        HyperliquidOrderUnconfirmedException;
 
 const _btc = HlMarket(
   coin: 'BTC',
@@ -85,8 +96,9 @@ void main() {
       expect(hlOwnFillsTotal(const []), isNull);
     });
 
-    test('the stream never closes a market ticket while its answer is '
-        'awaited; after an unclear answer it closes on the total', () {
+    test('with no size asked, the stream never closes a market ticket '
+        'while its answer is awaited; after an unclear answer it closes on '
+        'the total', () {
       final own = [
         _fill(cloid: cloid, px: 66000, sz: 0.001),
         _fill(cloid: cloid, px: 66100, sz: 0.001),
@@ -102,6 +114,112 @@ void main() {
       expect(
           hlStreamReceipt(unconfirmed: true, market: true, own: const []),
           isNull);
+    });
+
+    test('own-cloid fills coming to the whole size close a market ticket '
+        'before its answer; a part never does', () {
+      const step = 0.00001; // BTC, 5 size decimals
+      final whole = [
+        _fill(cloid: cloid, px: 66000, sz: 0.001),
+        _fill(cloid: cloid, px: 66200, sz: 0.001),
+      ];
+      final r = hlStreamReceipt(
+          unconfirmed: false,
+          market: true,
+          own: whole,
+          requestedSize: 0.002,
+          sizeStep: step)!;
+      expect(r.size, closeTo(0.002, 1e-12));
+      expect(r.avgPx, closeTo(66100, 1e-6));
+      // Half of it: the answer says what filled.
+      expect(
+          hlStreamReceipt(
+              unconfirmed: false,
+              market: true,
+              own: whole.take(1),
+              requestedSize: 0.002,
+              sizeStep: step),
+          isNull);
+      // One step short is a part too.
+      expect(
+          hlStreamReceipt(
+              unconfirmed: false,
+              market: true,
+              own: [_fill(cloid: cloid, sz: 0.00199)],
+              requestedSize: 0.002,
+              sizeStep: step),
+          isNull);
+      // A take-profit, stop-loss or trailing stop rides on it (asked size
+      // 0): only the answer says whether those were placed.
+      expect(
+          hlStreamReceipt(
+              unconfirmed: false, market: true, own: whole, sizeStep: step),
+          isNull);
+      // A limit never closes on a stream total.
+      expect(
+          hlStreamReceipt(
+              unconfirmed: false,
+              market: false,
+              own: whole,
+              requestedSize: 0.002,
+              sizeStep: step),
+          isNull);
+    });
+
+    group('the answer after the ticket closed on the stream', () {
+      const filled = HlOrderResult(
+          kind: HlOrderResultKind.filled, oid: 1, filledSz: 0.002, avgPx: 1);
+
+      test('a late success: no second receipt, the tile marked placed',
+          () async {
+        var placed = 0;
+        final r = await hlMarketAnswer(Future.value(filled),
+            closed: () => true, onClosed: () => placed++);
+        expect(r, isNull);
+        expect(placed, 1);
+      });
+
+      test('a late timeout / unconfirmed or error: no error, no lock',
+          () async {
+        for (final e in <Object>[
+          const HyperliquidOrderUnconfirmedException(),
+          TimeoutException('15 s'),
+          const HyperliquidOrderNotPlacedException(),
+        ]) {
+          var placed = 0;
+          final r = await hlMarketAnswer(Future<HlOrderResult>.error(e),
+              closed: () => true, onClosed: () => placed++);
+          expect(r, isNull);
+          expect(placed, 1);
+        }
+      });
+
+      test('not closed yet: the answer is the ticket\'s, as it is', () async {
+        var placed = 0;
+        expect(
+            await hlMarketAnswer(Future.value(filled),
+                closed: () => false, onClosed: () => placed++),
+            same(filled));
+        await expectLater(
+            hlMarketAnswer(
+                Future<HlOrderResult>.error(
+                    const HyperliquidOrderUnconfirmedException()),
+                closed: () => false,
+                onClosed: () => placed++),
+            throwsA(isA<HyperliquidOrderUnconfirmedException>()));
+        expect(placed, 0);
+      });
+
+      test('closed while the answer was in the air counts at its arrival',
+          () async {
+        var closed = false;
+        final answer = Completer<HlOrderResult>();
+        final r = hlMarketAnswer(answer.future,
+            closed: () => closed, onClosed: () {});
+        closed = true; // the stream closed the ticket first
+        answer.complete(filled);
+        expect(await r, isNull);
+      });
     });
 
     test('only the ticket\'s fills reach the total', () {

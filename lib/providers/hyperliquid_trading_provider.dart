@@ -1981,6 +1981,7 @@ class HyperliquidTradingNotifier
     Future<HlOrderResult> Function() send, {
     required String cloid,
     List<String>? cloids,
+    int? scaleLegs,
     required HlMarket market,
     required String action,
     Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket m)?
@@ -1990,6 +1991,7 @@ class HyperliquidTradingNotifier
         send: send,
         cloid: cloid,
         cloids: cloids,
+        scaleLegs: scaleLegs,
         market: market,
         lookup: lookup ?? ref.read(hlSentOrderTraceProvider),
         action: action,
@@ -2676,6 +2678,8 @@ class HyperliquidTradingNotifier
         ),
         cloid: baseCloid,
         cloids: legCloids,
+        // Found after no answer: "N of M" as the answer says it.
+        scaleLegs: count,
         market: market,
         action: sendReduceOnly ? 'close' : 'open',
       );
