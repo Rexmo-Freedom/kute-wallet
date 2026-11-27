@@ -817,7 +817,10 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                 // on its pill, or its sidebar item on a laptop).
                 if (widget.startInvesting) ...[
                 SizedBox(height: 16.h),
-                Center(
+                // On the empty state's own 24 side padding: never edge to
+                // edge.
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
                   child: AppButton(
                     key: const ValueKey('dollars-start-investing'),
                     text: l10n.dollarsStartInvesting,
