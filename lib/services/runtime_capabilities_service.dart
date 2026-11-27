@@ -12,6 +12,7 @@ import 'package:kute/l10n/l10n.dart'
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
+import 'package:kute/services/web_advanced_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:kute/platform/platform_caps.dart';
 
@@ -668,6 +669,11 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   };
 
   CapabilityDecision decision(String id) {
+    // TEMPORARY (web_advanced_test.dart): Advanced on in the one browser
+    // that opened the test link. Remove with that file.
+    if (id == 'trading.advanced' && WebAdvancedTest.on) {
+      return const CapabilityDecision(allowed: true, reason: 'allowed');
+    }
     final current = snapshot;
     if (current != null) {
       final value = current.capabilities[id];
@@ -803,6 +809,9 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// cap is 1x, so an outage can only ever tighten leverage, never loosen
   /// it.
   int? get maxLeverage {
+    // TEMPORARY (web_advanced_test.dart): leverage stays at 1x while the
+    // test switch is on, whatever the policy says. Remove with that file.
+    if (WebAdvancedTest.on) return 1;
     for (final policy in [snapshot, publicSnapshot, _held, _public]) {
       if (policy != null) return policy.maxLeverage;
     }
