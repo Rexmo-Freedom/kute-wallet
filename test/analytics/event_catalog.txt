@@ -62,7 +62,6 @@ balance_milestone_reached
 balance_snapshot
 bdk_scan
 bet_slip_abandoned
-bet_slip_advanced_details_toggled
 bet_slip_available_tapped
 bet_slip_limit_price_edited
 bet_slip_open_picker
@@ -613,7 +612,6 @@ seed_words_revealed
 seed_words_wallet_switched
 sell_pending_check_result
 sell_sheet_advanced_applied
-sell_sheet_advanced_details_toggled
 sell_sheet_advanced_opened
 sell_sheet_advanced_sell_tapped
 sell_sheet_available_tapped
