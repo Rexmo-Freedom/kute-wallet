@@ -1,4 +1,5 @@
 import 'package:kute/services/hyperliquid/trailing_stop_guard.dart';
+import 'package:kute/models/hyperliquid_model.dart' show HyperliquidModel;
 import 'package:kute/services/hyperliquid/trailing_stop.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -270,6 +271,56 @@ double hlSpotBuyPerpTransferUsd({
 /// can come home without moving a liquidation price. An open position
 /// keeps its own mode.
 const bool kHlDefaultCross = false;
+
+/// Refuses a modify the chart must never send: a trailing stop (no fixed
+/// price), a row whose type only the WebSocket has seen (it may be a stop
+/// shown at its guard price), a trigger the venue does not name as a take
+/// profit or stop, and any order whose kind differs from the account's
+/// own row for it (a trigger must never be re-sent as a limit, which
+/// would fill at once).
+void hlCheckModifiable(HlOpenOrder order, List<HlOpenOrder> openOrders) {
+  if (order.isTrailingStop) {
+    throw StateError('A trailing stop cannot be moved by price.');
+  }
+  if (!order.detailsKnown) {
+    throw StateError('This order is still loading. Try again in a moment.');
+  }
+  if (order.isTrigger && order.tpsl == null) {
+    throw StateError('This order cannot be moved from the chart.');
+  }
+  for (final o in openOrders) {
+    if (o.oid != order.oid) continue;
+    if (!o.detailsKnown ||
+        o.isTrigger != order.isTrigger ||
+        o.isTrailingStop ||
+        (o.isTrigger && o.tpsl != order.tpsl)) {
+      throw StateError('This order cannot be moved from the chart.');
+    }
+  }
+}
+
+/// [TrailingStopGuard]'s venue read for an unclear trailing-stop send
+/// signed at [sentAtMs]: found when a trailing stop on [market] placed at
+/// or after it (a few seconds' clock slack) is resting or in the order
+/// history; absent when both lists read and neither has it. A read that
+/// fails throws (the guard keeps blocking).
+Future<TrailingStopVenueState> hlLookupTrailingStop({
+  required HyperliquidModel model,
+  required String address,
+  required HlMarket market,
+  required int sentAtMs,
+}) async {
+  bool match(HlOpenOrder o) =>
+      o.isTrailingStop &&
+      (o.coin == market.wireCoin || o.coin == market.coin) &&
+      o.timestamp >= sentAtMs - 10000;
+  final dexes = market.dex.isEmpty ? const <String>[] : [market.dex];
+  final open = await model.getOpenOrders(address, dexes: dexes);
+  if (open.any(match)) return TrailingStopVenueState.found;
+  final history = await model.getHistoricalOrders(address, dex: market.dex);
+  if (history.any(match)) return TrailingStopVenueState.found;
+  return TrailingStopVenueState.absent;
+}
 
 class HyperliquidTradingState {
   /// True once the spending wallet's address resolved — browsing works
@@ -2038,14 +2089,9 @@ class HyperliquidTradingNotifier
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
     await RuntimeCapabilitiesService.instance
         .ensureAllAllowed(_orderCapabilities(market, order.reduceOnly));
-    if (order.isTrailingStop) {
-      throw StateError('A trailing stop cannot be moved by price.');
-    }
-    final tpsl = order.isTrigger ? order.tpsl : null;
-    if (order.isTrigger && tpsl == null) {
-      throw StateError('This order cannot be moved from the chart.');
-    }
     final current = state.valueOrNull ?? const HyperliquidTradingState();
+    hlCheckModifiable(order, current.openOrders);
+    final tpsl = order.isTrigger ? order.tpsl : null;
     _setData(current.copyWith(isPlacingOrder: true));
     try {
       await ensureOnboarded();
@@ -2091,16 +2137,36 @@ class HyperliquidTradingNotifier
             szDecimals: market.szDecimals, isSpot: market.isSpot);
         type = limitOrderType(order.tif);
       }
-      final result = await ex.modifyOrder(
-        oid: order.oid,
-        market: market,
-        isBuy: order.isBuy,
-        size: order.sz,
-        px: px,
-        reduceOnly: order.reduceOnly,
-        orderType: type,
-        cloid: newHlCloid(),
-      );
+      final cloid = newHlCloid();
+      // An unclear answer (a timeout, a dropped connection) is looked up
+      // by the modified order's new cloid before anything is said: found,
+      // the move went through; nowhere for the whole window, the order is
+      // as it was; unreadable, unconfirmed. Never "failed" for a move the
+      // venue may have made, which would invite a second one.
+      final HlOrderResult result;
+      try {
+        result = await _sendReconciled(
+          () => ex.modifyOrder(
+            oid: order.oid,
+            market: market,
+            isBuy: order.isBuy,
+            size: order.sz,
+            px: px,
+            reduceOnly: order.reduceOnly,
+            orderType: type,
+            cloid: cloid,
+          ),
+          cloid: cloid,
+          market: market,
+          action: 'modify',
+        );
+      } on HyperliquidOrderNotPlacedException {
+        unawaited(_silentOrdersRefresh());
+        rethrow;
+      } on HyperliquidOrderUnconfirmedException {
+        unawaited(_silentOrdersRefresh());
+        rethrow;
+      }
       TrackingService.track('hyperliquid_order_modified', params: {
         'coin': market.coin,
         'trigger': tpsl != null,
@@ -2460,9 +2526,11 @@ class HyperliquidTradingNotifier
         ),
         allowed: _hlOrderActions,
       );
+      final lookup = _trailingStopLookup(ex.walletAddress, market);
       await TrailingStopGuard().ensureAvailable(
         address: ex.walletAddress,
         assetId: market.assetId,
+        lookup: lookup,
       );
       verifyAccount();
       final lev = HlIntents.clampLeverage(market, leverage);
@@ -2492,6 +2560,7 @@ class HyperliquidTradingNotifier
         reduceOnly: reduceOnly,
         referencePrice: refPx,
         beforeSend: verifyAccount,
+        lookup: lookup,
       );
       final notional = size * refPx;
       TrackingService.hyperliquidOrderPlaced(
@@ -2526,6 +2595,19 @@ class HyperliquidTradingNotifier
       }
     }
   }
+
+  /// How an unclear trailing-stop send on [market] is looked up
+  /// ([TrailingStopGuard]): a trailing stop on the asset placed at or after
+  /// the send, resting (frontendOpenOrders) or in the order history
+  /// (historicalOrders: it triggered, filled or was cancelled), means it
+  /// landed; neither list having it, both read cleanly, means it did not.
+  TrailingStopLookup _trailingStopLookup(String address, HlMarket market) =>
+      (sentAtMs) => hlLookupTrailingStop(
+            model: ref.read(hyperliquidTradingModelProvider),
+            address: address,
+            market: market,
+            sentAtMs: sentAtMs,
+          );
 
   /// Adds ([usd] > 0) or removes ([usd] < 0) margin on the ISOLATED
   /// position on [market] (updateIsolatedMargin). Leverage, size and side
@@ -2628,6 +2710,54 @@ class HyperliquidTradingNotifier
     VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
   }
 
+  /// Cancels [orders] (one coin's left-over protective triggers after a
+  /// full close) in one signed batch action, the cancel-all path scoped to
+  /// them. Returns how many were cancelled; throws when the cancel did not
+  /// go through or an order's asset is unresolved, so the caller reports
+  /// it rather than leave a stop that could later close a new position.
+  Future<int> cancelOrdersList(List<HlOpenOrder> orders,
+      {String reason = 'after_close'}) async {
+    if (orders.isEmpty) return 0;
+    final cancels = <({int assetId, int oid})>[];
+    final coins = {for (final o in orders) o.coin};
+    try {
+      await RuntimeCapabilitiesService.instance
+          .ensureAllowed('hyperliquid.cancel');
+      await ensureOnboarded();
+      for (final o in orders) {
+        final market = ref.read(hyperliquidWireMarketProvider(o.coin));
+        if (market != null) cancels.add((assetId: market.assetId, oid: o.oid));
+      }
+      if (cancels.length != orders.length) {
+        throw const HlCancellationIncompleteException();
+      }
+      try {
+        await _exchange!.cancelOrders(cancels);
+      } finally {
+        unawaited(_silentOrdersRefresh());
+      }
+    } catch (e) {
+      _trackCancelFailed(
+          scope: reason, coin: coins.length == 1 ? coins.first : '', error: e);
+      rethrow;
+    }
+    TrackingService.hyperliquidOrderCancelled(
+      coin: coins.length == 1 ? coins.first : 'multiple',
+      scope: reason,
+      walletKind: 'hot',
+      extra: {'count': cancels.length},
+    );
+    final current = _current;
+    if (current != null) {
+      final gone = {for (final c in cancels) c.oid};
+      _setData(current.copyWith(
+        openOrders:
+            current.openOrders.where((o) => !gone.contains(o.oid)).toList(),
+      ));
+    }
+    return cancels.length;
+  }
+
   /// Cancels every resting order in one signed batch action.
   Future<int> cancelAllOrders() async {
     final cancels = <({int assetId, int oid})>[];
@@ -2717,15 +2847,20 @@ class HyperliquidTradingNotifier
           origSz: u.origSz,
           timestamp: u.timestamp,
           cloid: u.cloid,
-          // The WS payload carries only the basic order; everything else
-          // is kept from the REST row (tif and position TP/SL included,
-          // so a later modify re-sends the right time in force).
-          reduceOnly: prev?.reduceOnly ?? false,
-          orderType: prev?.orderType ?? 'Limit',
+          // The WS payload carries only the basic order (WsBasicOrder:
+          // coin, side, limitPx, sz, oid, timestamp, origSz, cloid);
+          // everything else is kept from the REST row (tif and position
+          // TP/SL included, so a later modify re-sends the right time in
+          // force). A row REST has not described yet is marked unknown:
+          // listed, never drawn as a movable line nor modified, so a stop
+          // is never mistaken for a limit at its guard price.
+          reduceOnly: prev?.reduceOnly ?? u.reduceOnly ?? false,
+          orderType: prev?.orderType ?? '',
           isTrigger: prev?.isTrigger ?? false,
           triggerPx: prev?.triggerPx,
           tif: prev?.tif ?? 'Gtc',
           isPositionTpsl: prev?.isPositionTpsl ?? false,
+          detailsKnown: prev?.detailsKnown ?? false,
         );
         touched = true;
       } else if (byOid.remove(u.oid) != null) {

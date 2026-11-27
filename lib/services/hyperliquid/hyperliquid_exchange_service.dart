@@ -735,6 +735,7 @@ class HyperliquidExchangeService {
     required double referencePrice,
     bool reduceOnly = false,
     void Function()? beforeSend,
+    TrailingStopLookup? lookup,
   }) async {
     trail.validate(
       market: market,
@@ -757,6 +758,7 @@ class HyperliquidExchangeService {
     return TrailingStopGuard().run(
       address: walletAddress,
       assetId: market.assetId,
+      lookup: lookup,
       send: (persist, markStarted) async {
         final body = await _submitL1Action(
           action,

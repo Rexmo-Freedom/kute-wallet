@@ -987,6 +987,29 @@ class HyperliquidModel {
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
+  /// The account's recent orders whatever became of them
+  /// (`historicalOrders`: filled, triggered, cancelled, rejected), as the
+  /// order each entry carries (frontendOpenOrders' fields). [dex] names a
+  /// builder dex ('' = the main dex). Throws when it cannot be read: a
+  /// caller deciding an order never landed must not read an error as
+  /// "nowhere".
+  Future<List<HlOpenOrder>> getHistoricalOrders(String address,
+      {String dex = ''}) async {
+    final decoded = await _infoOrThrow({
+      'type': 'historicalOrders',
+      'user': address,
+      if (dex.isNotEmpty) 'dex': dex,
+    });
+    if (decoded is! List) {
+      throw const FormatException('unexpected historicalOrders shape');
+    }
+    return [
+      for (final e in decoded.whereType<Map<String, dynamic>>())
+        if (e['order'] is Map<String, dynamic>)
+          HlOpenOrder.fromJson(e['order'] as Map<String, dynamic>),
+    ];
+  }
+
   /// Perps on [dex] ('' = the main dex) that are at their open-interest
   /// cap (`perpsAtOpenInterestCap`), as wire coins ('BTC', 'xyz:TSLA').
   /// While capped, orders that grow a position can be rejected.

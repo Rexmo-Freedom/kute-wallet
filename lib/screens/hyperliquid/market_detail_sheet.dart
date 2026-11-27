@@ -37,6 +37,14 @@ import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show HyperliquidOrderNotPlacedException, HyperliquidOrderUnconfirmedException;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show advancedTradingOffered;
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protection_rows.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart';
@@ -1132,6 +1140,16 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
       if (held != null) ...[
         gap,
         PortfolioCardList(rows: [held]),
+        // Its stops, takes and trailing stops as words (a tap offers the
+        // cancel, in the side panel), as on the position page.
+        if (position != null && widget.ledgerWalletId == null)
+          HlProtectionRows(
+            key: const ValueKey('hl-desk-protection'),
+            coin: position.coin,
+            market: m,
+            atSide: (open) => KuteSideFlow.run(open),
+            padding: EdgeInsets.only(top: kKuteActionCardGap.h),
+          ),
       ],
     ];
     if (bookShown) {
@@ -1277,6 +1295,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
             if (held != null) ...[
               gap,
               PortfolioCardList(rows: [held]),
+              if (position != null && widget.ledgerWalletId == null)
+                HlProtectionRows(
+                  key: const ValueKey('hl-desk-protection'),
+                  coin: position.coin,
+                  market: m,
+                  atSide: (open) => KuteSideFlow.run(open),
+                  padding: EdgeInsets.only(top: kKuteActionCardGap.h),
+                ),
             ],
             SizedBox(height: 20.h),
             // The account's OTHER positions: this market's is the card
@@ -2492,6 +2518,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       if (o.coin != widget.market.wireCoin && o.coin != widget.market.coin) {
         continue;
       }
+      // A row only the WebSocket has seen has no type or trigger price
+      // yet (orderUpdates carries the basic order only): a stop would be
+      // drawn as a movable limit at its 5% guard price. It is drawn once
+      // REST says what it is (a read that follows within moments).
+      if (!o.detailsKnown) continue;
       final size = formatHlSize(o.sz);
       if (o.isTrigger) {
         final trigger = o.triggerPx;
@@ -2563,6 +2594,49 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final oldPx =
         order.isTrigger ? (order.triggerPx ?? order.limitPx) : order.limitPx;
     if ((newPx - oldPx).abs() <= oldPx * 1e-6) return;
+    // Moving an order is Advanced: a withheld policy says so here, before
+    // the confirm sheet and the approval, never after them.
+    if (!advancedTradingOffered(
+        context, ref.read(runtimeCapabilitiesProvider))) {
+      return;
+    }
+    // What the chart must never send: a row it cannot move (still loading,
+    // a trailing stop, a trigger whose kind is unknown).
+    try {
+      hlCheckModifiable(order, _hotOrders());
+    } catch (_) {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.chartOrderMoveFailed,
+          error: true);
+      return;
+    }
+    final mark =
+        ref.read(hyperliquidLiveMidProvider(market.coin)) ??
+        (market.midPx > 0 ? market.midPx : market.markPx);
+    // A stop or take dropped on the wrong side of the price would fire at
+    // once: refused before anything else, the line back where it was.
+    if (order.isTrigger && order.tpsl != null) {
+      final shifted = order.isMarketTrigger
+          ? null
+          : order.limitPx + (newPx - (order.triggerPx ?? order.limitPx));
+      final issue = hlProtectIssue(
+          closeIsBuy: order.isBuy,
+          tpsl: order.tpsl!,
+          trigger: newPx,
+          mark: mark,
+          limitPx: shifted);
+      final text = hlProtectIssueText(context.l10n, issue);
+      if (text != null) {
+        HapticFeedback.heavyImpact();
+        showMessageSnackBar(context: context, message: text, error: true);
+        return;
+      }
+    }
+    // A limit dragged across the price fills now, as a taker: said on the
+    // confirm sheet, not blocked.
+    final crosses = !order.isTrigger &&
+        hlLimitCrossesNow(isBuy: order.isBuy, limitPx: newPx, mark: mark);
     final cap = market.pxDecimalCap;
     final label = order.isTrigger
         ? (order.tpsl == 'tp'
@@ -2581,7 +2655,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               AppBottomSheetHeader(
                 title: context.l10n.chartMoveOrderTitle,
                 subtitle: '$label · ${formatHlSize(order.sz)} ${market.coin}\n'
-                    '${formatHlPrice(oldPx, decimalCap: cap)} → ${formatHlPrice(newPx, decimalCap: cap)}',
+                    '${formatHlPrice(oldPx, decimalCap: cap)} → ${formatHlPrice(newPx, decimalCap: cap)}'
+                    '${crosses ? '\n${context.l10n.hlProtectLimitFillsNow}' : ''}',
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 8.h),
@@ -2636,6 +2711,22 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         if (mounted) {
           await handleGrantFailure(context, e, action: SensitiveAction.hlOrder);
         }
+      } on HyperliquidOrderNotPlacedException {
+        // Looked up after an unclear answer: nowhere moved, the order is
+        // where it was.
+        if (!mounted) return;
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.chartOrderMoveFailed,
+            error: true);
+      } on HyperliquidOrderUnconfirmedException {
+        // Could not tell: the orders were read again; never invite a
+        // second move.
+        if (!mounted) return;
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.investingSubmissionUnknown,
+            error: true);
       } catch (e) {
         if (!mounted) return;
         showMessageSnackBar(

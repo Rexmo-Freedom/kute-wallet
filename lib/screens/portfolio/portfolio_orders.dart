@@ -35,7 +35,12 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/hyperliquid_user_events_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart'
-    show HlEndedOrderRow, HlOrderRow, HlTwapRow, hlCancelAllOrders;
+    show
+        HlEndedOrderRow,
+        HlOrderRow,
+        HlTwapRow,
+        hlCancelAllOrders,
+        hlConfirmCancelAll;
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
     show PolyOrderRow, polyCancelAllOrders;
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
@@ -278,6 +283,13 @@ class _PortfolioCancelAllLinkState
 
   Future<void> _cancelAll() async {
     if (_busy) return;
+    // Investing's orders, protective stops among them, are listed before
+    // anything is cancelled (the Orders sheet's own confirmation).
+    if (widget.investing) {
+      final ok = await hlConfirmCancelAll(context, ref,
+          alsoPredictions: widget.predictions);
+      if (!ok || !mounted || _busy) return;
+    }
     setState(() => _busy = true);
     HapticFeedback.lightImpact();
     try {

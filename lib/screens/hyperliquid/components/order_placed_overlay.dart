@@ -213,6 +213,7 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
     required this.amount,
     this.isClose = false,
     this.viewOrders = false,
+    this.note,
   });
 
   final String coin;
@@ -220,6 +221,10 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
   final String amount;
   final bool isClose;
   final bool viewOrders;
+
+  /// A line in place of the pending-fill detail: what else happened with
+  /// the order (an old stop loss that could not be cancelled).
+  final String? note;
 
   @override
   Widget build(BuildContext context) => KuteConfirmation(
@@ -229,7 +234,7 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
             : context.l10n.investingOrderAccepted,
         amount: amount,
         contextLine: HlMarket.baseCoin(coin),
-        detail: context.l10n.investingOrderPendingFill,
+        detail: note ?? context.l10n.investingOrderPendingFill,
         onDone: () => Navigator.of(context).pop(),
         secondaryButtonText:
             viewOrders ? context.l10n.investingViewOrders : null,

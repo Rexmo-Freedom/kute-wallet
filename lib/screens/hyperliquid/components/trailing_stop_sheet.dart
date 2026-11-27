@@ -151,7 +151,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
           if (mounted) {
             setState(() {
               _pending = true;
-              _error = const PendingTrailingStopException().toString();
+              _error = context.l10n.hlProtectTrailPending;
             });
           }
         });
@@ -235,7 +235,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
           _error = e is ArgumentError
               ? e.message.toString()
               : e is PendingTrailingStopException
-                  ? e.toString()
+                  ? context.l10n.hlProtectTrailPending
                   : hlTradeErrorMessage(context.l10n, e);
         });
       }

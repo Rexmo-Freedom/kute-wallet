@@ -107,7 +107,8 @@ bool hlOpenOrderListEquals(List<HlOpenOrder> a, List<HlOpenOrder> b) {
         a[i].triggerPx != b[i].triggerPx ||
         a[i].reduceOnly != b[i].reduceOnly ||
         a[i].tif != b[i].tif ||
-        a[i].isPositionTpsl != b[i].isPositionTpsl) {
+        a[i].isPositionTpsl != b[i].isPositionTpsl ||
+        a[i].detailsKnown != b[i].detailsKnown) {
       return false;
     }
   }
