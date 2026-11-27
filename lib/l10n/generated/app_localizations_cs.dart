@@ -14736,4 +14736,8 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Otevřít v aplikaci';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Uzavření s Ledgerem nezruší příkazy stop a take profit dané pozice: každé zrušení vyžaduje váš Ledger. Zrušte je v Příkazech, aby neuzavřely novou pozici.';
 }

@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Această pagină este deschisă în altă aplicație. Pentru Face ID și ca să îți păstrezi portofelul, deschide-o în Safari.",
   "shareOpenInBrowserChrome": "Această pagină este deschisă în altă aplicație. Pentru a folosi o cheie de acces și a-ți păstra portofelul, deschide-o în Chrome.",
   "shareOpenInAppBody": "Ai aplicația Kute? Deschide-l acolo.",
-  "shareOpenInApp": "Deschide în aplicație"
+  "shareOpenInApp": "Deschide în aplicație",
+  "hlLeftLedgerStopsOpen": "Închiderea cu un Ledger nu anulează ordinele stop și take profit ale poziției: fiecare anulare are nevoie de Ledger-ul dvs. Anulați-le în Ordine ca să nu închidă o poziție nouă."
 }

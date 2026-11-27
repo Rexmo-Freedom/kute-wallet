@@ -14793,4 +14793,8 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Openen in de app';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Sluiten met een Ledger annuleert de stop- en take-profitorders van de positie niet: elke annulering vraagt je Ledger. Annuleer ze bij Orders, zodat ze geen nieuwe positie sluiten.';
 }

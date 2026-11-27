@@ -14771,4 +14771,8 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Avaa sovelluksessa';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Sulkeminen Ledgerillä ei peru position stop- ja take profit -toimeksiantoja: jokainen peruutus tarvitsee Ledgerisi. Peru ne Toimeksiannoissa, jotta ne eivät sulje uutta positiota.';
 }

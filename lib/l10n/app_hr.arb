@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Ova stranica otvorena je unutar druge aplikacije. Za Face ID i da zadržite novčanik, otvorite je u Safariju.",
   "shareOpenInBrowserChrome": "Ova stranica otvorena je unutar druge aplikacije. Za korištenje pristupnog ključa i da zadržite novčanik, otvorite je u Chromeu.",
   "shareOpenInAppBody": "Imate aplikaciju Kute? Otvorite ovo ondje.",
-  "shareOpenInApp": "Otvori u aplikaciji"
+  "shareOpenInApp": "Otvori u aplikaciji",
+  "hlLeftLedgerStopsOpen": "Zatvaranje Ledgerom ne otkazuje stop i take profit naloge pozicije: svako otkazivanje traži vaš Ledger. Otkažite ih u Nalozima da ne zatvore novu poziciju."
 }

@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Denne side er åbnet i en anden app. Åbn den i Safari for at bruge Face ID og beholde din wallet.",
   "shareOpenInBrowserChrome": "Denne side er åbnet i en anden app. Åbn den i Chrome for at bruge en adgangsnøgle og beholde din wallet.",
   "shareOpenInAppBody": "Har du Kute-appen? Åbn det der.",
-  "shareOpenInApp": "Åbn i appen"
+  "shareOpenInApp": "Åbn i appen",
+  "hlLeftLedgerStopsOpen": "Lukning med en Ledger annullerer ikke positionens stop- og take profit-ordrer: hver annullering kræver din Ledger. Annuller dem under Ordrer, så de ikke lukker en ny position."
 }

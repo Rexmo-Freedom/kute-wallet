@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "このページは別のアプリ内で開いています。Face IDを使いウォレットを保つには、Safariで開いてください。",
   "shareOpenInBrowserChrome": "このページは別のアプリ内で開いています。パスキーを使いウォレットを保つには、Chromeで開いてください。",
   "shareOpenInAppBody": "Kuteアプリをお持ちですか？アプリで開きましょう。",
-  "shareOpenInApp": "アプリで開く"
+  "shareOpenInApp": "アプリで開く",
+  "hlLeftLedgerStopsOpen": "Ledgerで決済しても、このポジションのストップ注文とテイクプロフィット注文は取り消されません。取り消しには毎回Ledgerが必要です。新しいポジションを決済しないよう、注文画面で取り消してください。"
 }

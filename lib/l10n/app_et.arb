@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "See leht on avatud teises rakenduses. Face ID kasutamiseks ja rahakoti hoidmiseks ava see Safaris.",
   "shareOpenInBrowserChrome": "See leht on avatud teises rakenduses. Pääsuvõtme kasutamiseks ja rahakoti hoidmiseks ava see Chrome'is.",
   "shareOpenInAppBody": "Sul on Kute rakendus? Ava see seal.",
-  "shareOpenInApp": "Ava rakenduses"
+  "shareOpenInApp": "Ava rakenduses",
+  "hlLeftLedgerStopsOpen": "Ledgeriga sulgemine ei tühista positsiooni stop- ja take profit-ordereid: iga tühistamine vajab teie Ledgerit. Tühistage need Orderite all, et need ei sulgeks uut positsiooni."
 }

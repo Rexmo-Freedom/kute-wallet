@@ -14791,4 +14791,8 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Odpri v aplikaciji';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Zapiranje z Ledgerjem ne prekliče naročil stop in take profit pozicije: vsak preklic potrebuje vaš Ledger. Prekličite jih v Naročilih, da ne zaprejo nove pozicije.';
 }

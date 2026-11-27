@@ -14804,4 +14804,8 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Abrir na app';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Fechar com um Ledger não cancela as ordens stop e take profit da posição: cada cancelamento precisa do seu Ledger. Cancele-as em Ordens para que não fechem uma nova posição.';
 }

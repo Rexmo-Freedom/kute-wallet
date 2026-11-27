@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Tämä sivu on auki toisessa sovelluksessa. Avaa se Safarissa, jotta voit käyttää Face ID:tä ja lompakkosi säilyy.",
   "shareOpenInBrowserChrome": "Tämä sivu on auki toisessa sovelluksessa. Avaa se Chromessa, jotta voit käyttää pääsyavainta ja lompakkosi säilyy.",
   "shareOpenInAppBody": "Onko sinulla Kute-sovellus? Avaa tämä siellä.",
-  "shareOpenInApp": "Avaa sovelluksessa"
+  "shareOpenInApp": "Avaa sovelluksessa",
+  "hlLeftLedgerStopsOpen": "Sulkeminen Ledgerillä ei peru position stop- ja take profit -toimeksiantoja: jokainen peruutus tarvitsee Ledgerisi. Peru ne Toimeksiannoissa, jotta ne eivät sulje uutta positiota."
 }

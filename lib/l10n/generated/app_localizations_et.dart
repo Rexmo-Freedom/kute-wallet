@@ -14731,4 +14731,8 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Ava rakenduses';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Ledgeriga sulgemine ei tühista positsiooni stop- ja take profit-ordereid: iga tühistamine vajab teie Ledgerit. Tühistage need Orderite all, et need ei sulgeks uut positsiooni.';
 }

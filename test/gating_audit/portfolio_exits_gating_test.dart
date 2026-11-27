@@ -194,6 +194,14 @@ class _LeftoverTrading extends HyperliquidTradingNotifier {
     if (cancelFails) throw StateError('cancel refused');
     return orders.length;
   }
+
+  /// The notifier's own sweep after a close it saw go to zero, here over
+  /// the fake's cancel.
+  @override
+  Future<HlLeftoverSweep>? leftoverSweepFor(String coin) =>
+      cancelOrdersList(const [stop, take]).then(
+          (n) => (cancelled: n, failed: 0),
+          onError: (_) => (cancelled: 0, failed: 2));
 }
 
 /// A limit close that fills in full at once.

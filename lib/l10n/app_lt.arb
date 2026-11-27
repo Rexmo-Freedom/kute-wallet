@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti Face ID ir išsaugoti piniginę, atidarykite jį „Safari“.",
   "shareOpenInBrowserChrome": "Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti prieigos raktą ir išsaugoti piniginę, atidarykite jį „Chrome“.",
   "shareOpenInAppBody": "Turite „Kute“ programėlę? Atidarykite ten.",
-  "shareOpenInApp": "Atidaryti programėlėje"
+  "shareOpenInApp": "Atidaryti programėlėje",
+  "hlLeftLedgerStopsOpen": "Uždarymas su Ledger neatšaukia pozicijos stop ir take profit pavedimų: kiekvienam atšaukimui reikia jūsų Ledger. Atšaukite juos skiltyje Pavedimai, kad jie neuždarytų naujos pozicijos."
 }

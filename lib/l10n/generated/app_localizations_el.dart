@@ -14847,4 +14847,8 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Άνοιγμα στην εφαρμογή';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Το κλείσιμο με Ledger δεν ακυρώνει τις εντολές stop και take profit της θέσης: κάθε ακύρωση χρειάζεται το Ledger σας. Ακυρώστε τις στις Εντολές, ώστε να μην κλείσουν νέα θέση.';
 }

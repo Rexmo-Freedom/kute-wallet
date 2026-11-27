@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Šī lapa ir atvērta citā lietotnē. Lai izmantotu Face ID un saglabātu maku, atveriet to Safari.",
   "shareOpenInBrowserChrome": "Šī lapa ir atvērta citā lietotnē. Lai izmantotu piekļuves atslēgu un saglabātu maku, atveriet to Chrome.",
   "shareOpenInAppBody": "Jums ir Kute lietotne? Atveriet to tur.",
-  "shareOpenInApp": "Atvērt lietotnē"
+  "shareOpenInApp": "Atvērt lietotnē",
+  "hlLeftLedgerStopsOpen": "Aizverot ar Ledger, pozīcijas stop un take profit rīkojumi netiek atcelti: katrai atcelšanai vajadzīgs jūsu Ledger. Atceliet tos sadaļā Rīkojumi, lai tie neaizvērtu jaunu pozīciju."
 }

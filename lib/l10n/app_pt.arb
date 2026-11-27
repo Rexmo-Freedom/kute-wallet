@@ -4420,5 +4420,6 @@
   "shareOpenInBrowserSafari": "Esta página está aberta dentro de outra app. Para usar o Face ID e manter a sua carteira, abra-a no Safari.",
   "shareOpenInBrowserChrome": "Esta página está aberta dentro de outra app. Para usar uma chave de acesso e manter a sua carteira, abra-a no Chrome.",
   "shareOpenInAppBody": "Tem a app Kute? Abra isto lá.",
-  "shareOpenInApp": "Abrir na app"
+  "shareOpenInApp": "Abrir na app",
+  "hlLeftLedgerStopsOpen": "Fechar com um Ledger não cancela as ordens stop e take profit da posição: cada cancelamento precisa do seu Ledger. Cancele-as em Ordens para que não fechem uma nova posição."
 }

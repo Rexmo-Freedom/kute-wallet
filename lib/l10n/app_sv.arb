@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Den här sidan är öppen i en annan app. Öppna den i Safari för Face ID och för att behålla din plånbok.",
   "shareOpenInBrowserChrome": "Den här sidan är öppen i en annan app. Öppna den i Chrome för att använda en nyckel och behålla din plånbok.",
   "shareOpenInAppBody": "Har du Kute-appen? Öppna det där.",
-  "shareOpenInApp": "Öppna i appen"
+  "shareOpenInApp": "Öppna i appen",
+  "hlLeftLedgerStopsOpen": "Att stänga med en Ledger avbryter inte positionens stop- och take profit-order: varje avbrytande kräver din Ledger. Avbryt dem under Order så att de inte stänger en ny position."
 }

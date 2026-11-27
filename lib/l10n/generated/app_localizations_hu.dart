@@ -14778,4 +14778,8 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Megnyitás az alkalmazásban';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'A Ledgerrel történő zárás nem törli a pozíció stop és take profit megbízásait: minden törléshez a Ledgerére van szükség. Törölje őket a Megbízásokban, hogy ne zárjanak le egy új pozíciót.';
 }

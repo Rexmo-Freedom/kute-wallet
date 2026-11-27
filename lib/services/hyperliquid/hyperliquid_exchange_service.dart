@@ -238,6 +238,37 @@ List<String> hlScaleLegCloids(String base, int count) {
 
 // ────────────────────────────── service ────────────────────────────────
 
+/// The venue's per-order answer to a batch cancel, by order id.
+class HlCancelReport {
+  const HlCancelReport({
+    required this.cancelled,
+    required this.gone,
+    required this.failed,
+  });
+
+  /// Cancelled by this action ("success").
+  final List<int> cancelled;
+
+  /// No longer resting when the cancel arrived: already cancelled, filled
+  /// or never placed. Not a failure, and not counted as cancelled here.
+  final List<int> gone;
+
+  /// Refused for any other reason: still resting as far as anyone knows.
+  final List<({int oid, String reason})> failed;
+
+  /// Off the book either way (prunable from local state).
+  Set<int> get done => {...cancelled, ...gone};
+}
+
+/// The cancel error the venue answers for an order that is no longer
+/// resting: "Order was never placed, already canceled, or filled."
+bool hlCancelErrorMeansGone(String reason) {
+  final r = reason.toLowerCase();
+  return r.contains('never placed') ||
+      r.contains('already canceled') ||
+      r.contains('already cancelled');
+}
+
 class HyperliquidExchangeService {
   HyperliquidExchangeService({
     EthPrivateKey? credentials,
@@ -466,6 +497,8 @@ class HyperliquidExchangeService {
 
   /// Batch cancel — one signed L1 action for the whole list (the
   /// cancel action is natively a list; cancel-all costs one submit).
+  /// Strict: any status but success throws. Callers that can treat an
+  /// order already gone as done read [cancelOrdersReport] instead.
   Future<void> cancelOrders(List<({int assetId, int oid})> cancels) async {
     if (cancels.isEmpty) return;
     final expectedCount = cancels.length;
@@ -1436,6 +1469,62 @@ class HyperliquidExchangeService {
     final twapId = running is Map<String, dynamic> ? running['twapId'] : null;
     if (twapId is! int || twapId <= 0) throw unknown;
     return HlOrderResult(kind: HlOrderResultKind.resting, oid: twapId);
+  }
+
+  /// The cancel acknowledgement read per order ([cancelOrdersReport]).
+  /// The shape is checked exactly as [_requireCancelSuccess] checks it: an
+  /// envelope that is not one known status per requested order throws.
+  static HlCancelReport cancelReportFromBody(Map<String, dynamic> body,
+      List<({int assetId, int oid})> cancels) {
+    final response = body['response'];
+    final data = (response is Map<String, dynamic>) ? response['data'] : null;
+    final statuses = (data is Map<String, dynamic>) ? data['statuses'] : null;
+    const unknown = HyperliquidApiException(
+        statusCode: 200, body: 'Unconfirmed cancellation acknowledgement');
+    if (body['status'] != 'ok' ||
+        response is! Map<String, dynamic> ||
+        response['type'] != 'cancel' ||
+        statuses is! List ||
+        cancels.isEmpty ||
+        statuses.length != cancels.length) {
+      throw unknown;
+    }
+    final cancelled = <int>[];
+    final gone = <int>[];
+    final failed = <({int oid, String reason})>[];
+    for (var i = 0; i < statuses.length; i++) {
+      final status = statuses[i];
+      final oid = cancels[i].oid;
+      if (status == 'success') {
+        cancelled.add(oid);
+        continue;
+      }
+      if (status is! Map<String, dynamic> ||
+          status.length != 1 ||
+          status['error'] is! String ||
+          (status['error'] as String).isEmpty) {
+        throw unknown;
+      }
+      final reason = status['error'] as String;
+      if (hlCancelErrorMeansGone(reason)) {
+        gone.add(oid);
+      } else {
+        failed.add((oid: oid, reason: reason));
+      }
+    }
+    return HlCancelReport(cancelled: cancelled, gone: gone, failed: failed);
+  }
+
+  /// Batch cancel read per order: what the venue cancelled, what was no
+  /// longer resting (already cancelled, filled or never placed) and what
+  /// it refused. Throws only when the acknowledgement itself is unclear.
+  Future<HlCancelReport> cancelOrdersReport(
+      List<({int assetId, int oid})> cancels) async {
+    if (cancels.isEmpty) {
+      return const HlCancelReport(cancelled: [], gone: [], failed: []);
+    }
+    final body = await _submitL1Action(buildCancelAction(cancels));
+    return cancelReportFromBody(body, cancels);
   }
 
   /// A cancellation is confirmed only by one exact success per requested

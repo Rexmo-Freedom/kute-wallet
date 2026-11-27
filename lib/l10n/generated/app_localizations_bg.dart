@@ -14767,4 +14767,8 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Отвори в приложението';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Затварянето с Ledger не отменя стоп и тейк профит поръчките на позицията: всяка отмяна изисква вашия Ledger. Отменете ги в Поръчки, за да не затворят нова позиция.';
 }

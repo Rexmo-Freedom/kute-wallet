@@ -4154,5 +4154,6 @@
   "shareOpenInBrowserSafari": "Táto stránka je otvorená v inej aplikácii. Pre Face ID a zachovanie peňaženky ju otvorte v Safari.",
   "shareOpenInBrowserChrome": "Táto stránka je otvorená v inej aplikácii. Ak chcete použiť prístupový kľúč a zachovať peňaženku, otvorte ju v Chrome.",
   "shareOpenInAppBody": "Máte aplikáciu Kute? Otvorte to tam.",
-  "shareOpenInApp": "Otvoriť v aplikácii"
+  "shareOpenInApp": "Otvoriť v aplikácii",
+  "hlLeftLedgerStopsOpen": "Zatvorenie s Ledgerom nezruší príkazy stop a take profit pozície: každé zrušenie vyžaduje váš Ledger. Zrušte ich v Príkazoch, aby neuzavreli novú pozíciu."
 }
