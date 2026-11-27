@@ -398,6 +398,16 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// header's X closes the panel. Null: no X (nothing to close).
   final VoidCallback? onEmbeddedClose;
 
+  /// THE WEB'S MARKET PAGE (founder, 27 November 2026: "why is the right
+  /// side so empty?"): the same ticket ([embedded]) always in the page's
+  /// right column, under the column's own scroll: a card in the side's
+  /// colour sized to its content (not a full-height panel), the amount a
+  /// real typed field (a laptop's keyboard; the on-screen number pad is
+  /// away). Everything else (the side switch, Max, Advanced, the result
+  /// lines, the notices, the primary with its Confirm) is the ticket's
+  /// own.
+  final bool typedAmount;
+
   const HlOrderSlipSheet({
     super.key,
     required this.market,
@@ -412,7 +422,9 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     this.onEmbeddedDone,
     this.embeddedShare,
     this.onEmbeddedClose,
-  }) : assert(!embedded || (ledgerWalletId == null && sendPick == null));
+    this.typedAmount = false,
+  })  : assert(!embedded || (ledgerWalletId == null && sendPick == null)),
+        assert(!typedAmount || embedded);
 
   /// The ticket in place on a wide market page ([embedded]). Hot account
   /// only and never in send mode, so [show]'s one extra door (a Ledger's
@@ -428,6 +440,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     double? initialUsd,
     VoidCallback? onClose,
     String source = 'market_detail',
+    bool typedAmount = false,
   }) =>
       HlOrderSlipSheet(
         key: key,
@@ -440,6 +453,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
         onEmbeddedDone: onDone,
         embeddedShare: share,
         onEmbeddedClose: onClose,
+        typedAmount: typedAmount,
       );
 
   /// What [show] counts as the ticket opens: the flow, the screen and the
@@ -1374,6 +1388,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub?.cancel();
     _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
+    _typedFocus.dispose();
     _priceController.dispose();
     _triggerController.dispose();
     _stopLimitController.dispose();
@@ -6073,7 +6088,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   // While a funded order's steps run under the button the
                   // amount cannot change: the keypad folds away and the
                   // steps take its room. A stop brings it back.
-                  input: FoldAway(
+                  // The web's column types the amount in its field: no
+                  // number pad.
+                  input: widget.typedAmount
+                      ? const SizedBox.shrink()
+                      : FoldAway(
                     folded: lockedShown,
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -6158,7 +6177,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // In place the ticket IS the side panel: its colour the
             // panel's surface from the window's top to its bottom,
             // rounded only where it meets the page (kute_side_panel.dart).
-            decoration: widget.embedded
+            decoration: widget.typedAmount
+                ? BoxDecoration(
+                    color: sideColor,
+                    borderRadius: BorderRadius.circular(24),
+                  )
+                : widget.embedded
                 ? kuteSidePanelDecoration(sideColor)
                 : BoxDecoration(
                     color: sideColor,
@@ -6176,7 +6200,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // In place the pane bounds it.
             // In place it is a full-height card: the keypad takes the
             // pane's spare height, the button at its foot.
-            child: widget.embedded
+            child: widget.typedAmount
+                // The column's card: its content's height, at most a
+                // tall window's worth, the column scrolling past it.
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 760),
+                      child: SlipFit(child: ticket),
+                    ),
+                  )
+                : widget.embedded
                 ? Padding(
                     padding: kuteSidePanelInsets,
                     child: SlipFit(fill: true, child: ticket))
@@ -6292,6 +6326,67 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     return false;
   }
+
+  /// The web column's amount ([HlOrderSlipSheet.typedAmount]): the
+  /// ticket's own controller in a real field, digits and one dot, two
+  /// decimals, the figure's own size and weight, so it reads as the
+  /// ticket's figure and takes a laptop's keyboard first. Locked as the
+  /// number pad is (while the order goes out).
+  final FocusNode _typedFocus = FocusNode(debugLabel: 'hl-ticket-amount');
+
+  Widget _typedAmountField(AppColorsExtension c) {
+    final figure = TextStyle(
+      color: c.textPrimary,
+      fontSize: 44.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.2,
+      height: 1.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(r'$',
+            style: figure.copyWith(
+                color: _amountController.text.isEmpty
+                    ? c.textTertiary
+                    : c.textPrimary)),
+        Expanded(child: _typedAmountInput(c, figure)),
+      ],
+    );
+  }
+
+  Widget _typedAmountInput(AppColorsExtension c, TextStyle figure) =>
+      TextField(
+        key: const ValueKey('order-slip-typed-amount'),
+        controller: _amountController,
+        focusNode: _typedFocus,
+        enabled: _keypadTakesKeys,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textInputAction: TextInputAction.done,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+          TextInputFormatter.withFunction((old, next) {
+            final text = next.text.replaceAll(',', '.');
+            if (!RegExp(r'^\d*\.?\d{0,2}$').hasMatch(text)) return old;
+            return next.copyWith(text: text);
+          }),
+        ],
+        onChanged: (_) => _updateDraft(() {}),
+        cursorColor: c.textPrimary,
+        style: figure,
+        decoration: InputDecoration(
+          isDense: true,
+          filled: false,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          hintText: '0',
+          hintStyle: figure.copyWith(color: c.textTertiary),
+        ),
+      );
 
   // ── Section builders ────────────────────────────────────────────────
 
@@ -7023,6 +7118,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return BigAmountDisplay(
         prefix: r'$',
         amountText: _amountController.text,
+        // The web's column: the figure is a typed field.
+        field: widget.typedAmount ? _typedAmountField(c) : null,
         // At the right of the minimum's row.
         trailingCaption: compactAvailLabel,
         minimumOnOwnLine: true,

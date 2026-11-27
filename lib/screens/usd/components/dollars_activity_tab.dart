@@ -496,7 +496,12 @@ class DollarsActivityTab extends ConsumerStatefulWidget {
       this.wide = false,
       this.onHeld,
       this.pnl = true,
-      this.startInvesting = true});
+      this.startInvesting = true,
+      this.exclude = const {}});
+
+  /// Positions left out by id (`hl-BTC`, `hl-spot-HYPE`, `poly-<token>`):
+  /// a market page's column, whose own position card is above the list.
+  final Set<String> exclude;
 
   /// The empty state's "Start investing" (the Dollars page's Overview).
   /// A market page that lists the positions under its chart leaves it out.
@@ -653,8 +658,12 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     final ref = this.ref;
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
-    final ranked =
-        venues.any ? portfolioOpenRanked(ref, venues) : const <String>[];
+    final ranked = venues.any
+        ? [
+            for (final id in portfolioOpenRanked(ref, venues))
+              if (!widget.exclude.contains(id)) id
+          ]
+        : const <String>[];
     final lists = venues.any
         ? portfolioVenueLists(context, ref, venues)
         : const <BalancesCategory, BalancesVenueList>{};
