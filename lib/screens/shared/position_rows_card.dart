@@ -29,8 +29,12 @@ class PositionRow {
 
   final Key? key;
 
+  /// What a tap on the row does (a protection row offers its cancel);
+  /// null: the row is read only.
+  final VoidCallback? onTap;
+
   const PositionRow(this.label, this.value,
-      {this.valueColor, this.child, this.key});
+      {this.valueColor, this.child, this.key, this.onTap});
 }
 
 class PositionRowsCard extends StatelessWidget {
@@ -56,7 +60,21 @@ class PositionRowsCard extends StatelessWidget {
     );
   }
 
-  Widget _row(AppColorsExtension c, PositionRow row) => Row(
+  Widget _row(AppColorsExtension c, PositionRow row) {
+    final line = _line(c, row);
+    final tap = row.onTap;
+    if (tap == null) return line;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap,
+        child: line,
+      ),
+    );
+  }
+
+  Widget _line(AppColorsExtension c, PositionRow row) => Row(
         key: row.key,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

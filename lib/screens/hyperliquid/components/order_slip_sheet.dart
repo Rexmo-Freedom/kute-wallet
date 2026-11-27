@@ -129,10 +129,13 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart'
+    show hlProtectiveOrdersFor;
 import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart';
 import 'package:kute/screens/hyperliquid/components/hl_order_funding_rules.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart'
     show
+        ledgerHlHeldPosition,
         runLedgerHlClose,
         runLedgerHlMarketOrder,
         runLedgerHlTrailingStop,
@@ -153,9 +156,16 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/market_side_toggle.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart'
-    show hlConfirmingOrdersProvider;
+    show
+        hlConfirmingMarketsProvider,
+        hlConfirmingOrdersProvider,
+        hlMarketConfirming;
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders, openInvestmentsPositions;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
+import 'package:kute/services/hyperliquid/hl_twap_rules.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/hyperliquid/trailing_stop.dart';
 import 'package:kute/services/hyperliquid/liquidation_estimate.dart';
@@ -260,11 +270,182 @@ Future<bool> checkHyperliquidGeoblock(BuildContext context, WidgetRef ref,
   return true;
 }
 
+/// Whether [fill] is on [market]. Fills carry the WIRE coin (a builder
+/// dex's 'xyz:TSLA', a spot pair's '@107'), never the display coin the
+/// ticket shows ('TSLA', 'HYPE'): matched on the display coin, a HIP-3 or
+/// spot order never reached its receipt from the fill stream.
+@visibleForTesting
+bool hlFillOnMarket(HlMarket market, HlFill fill) =>
+    fill.coin == market.wireCoin;
+
+/// Whether [fill] is the ticket's own: on [market] and carrying the cloid
+/// the order went out under ([cloid], or a send again of it,
+/// [HlResendCloids]). A fill with no cloid or another one never is: a stop
+/// that triggered, a TWAP slice or another client's order on the same coin
+/// while this one is in the air.
+@visibleForTesting
+bool hlFillOfOrder(HlMarket market, String cloid, HlFill fill) {
+  final id = fill.cloid?.toLowerCase();
+  if (id == null || !hlFillOnMarket(market, fill)) return false;
+  return HlResendCloids.all(cloid).any((c) => c.toLowerCase() == id);
+}
+
+/// The ticket's own fills ([hlFillOfOrder]) totalled for its receipt: the
+/// size filled and its size-weighted average price (the fee and realised
+/// P&L are summed from the same fills by the receipt). Null for none.
+@visibleForTesting
+({double size, double avgPx})? hlOwnFillsTotal(Iterable<HlFill> fills) {
+  var size = 0.0;
+  var notional = 0.0;
+  for (final f in fills) {
+    size += f.sz;
+    notional += f.sz * f.px;
+  }
+  if (size <= 0) return null;
+  return (size: size, avgPx: notional / size);
+}
+
+/// What the receipt of a Ledger close of the whole position says of the
+/// stops and takes it leaves (each cancel needs the device): the close
+/// sheet's same row and line. [left] is their count from the Ledger's last
+/// read (-1 when it could not be read: the line, no count), null when
+/// there are none or the close was not whole (nothing said).
+@visibleForTesting
+({Map<String, String> rows, String? note}) hlLedgerLeftoverReceipt(
+        AppLocalizations l, int? left) =>
+    (
+      rows: {
+        if ((left ?? 0) > 0) l.hlProtectOrdersNotCancelledRow: '$left',
+      },
+      note: left == null ? null : l.hlLeftLedgerStopsOpen,
+    );
+
+/// A scale ladder on the wrong side of [mid]: a buy ladder rests under the
+/// price (a leg over it would buy at once, as a market order), a sell
+/// ladder over it. Null when it rests where it should (or without a price).
+@visibleForTesting
+String? hlScaleSideIssue(AppLocalizations l,
+    {required bool isLong,
+    required double startPx,
+    required double endPx,
+    required double mid}) {
+  if (mid <= 0) return null;
+  if (isLong && math.max(startPx, endPx) >= mid) return l.hlAdvScaleBelowPrice;
+  if (!isLong && math.min(startPx, endPx) <= mid) {
+    return l.hlAdvScaleAbovePrice;
+  }
+  return null;
+}
+
+/// A take-profit or stop-loss attached to an opening order on the wrong
+/// side of its [entry] (a long's take over it and stop under it, a short's
+/// the mirror). Null when both are where they should be (or absent).
+@visibleForTesting
+String? hlTpSlEntryIssue(AppLocalizations l,
+    {required bool isLong,
+    required double entry,
+    double? takeProfit,
+    double? stopLoss}) {
+  final tp = takeProfit;
+  final sl = stopLoss;
+  if (tp != null && ((isLong && tp <= entry) || (!isLong && tp >= entry))) {
+    return isLong ? l.slipTpAboveEntry : l.slipTpBelowEntry;
+  }
+  if (sl != null && ((isLong && sl >= entry) || (!isLong && sl <= entry))) {
+    return isLong ? l.slipSlBelowEntry : l.slipSlAboveEntry;
+  }
+  return null;
+}
+
+/// What a market ticket closes on from the fill stream: its own fills
+/// ([own], already matched by [hlFillOfOrder]) totalled, once the venue's
+/// answer was unclear ([unconfirmed]), or, while that answer is still
+/// awaited, once they come to the whole size the ticket asked for
+/// ([requestedSize], to within half a [sizeStep], as the limit path): a
+/// slow answer (a builder dex's POST running to its 15 s timeout) never
+/// holds back the receipt of an order filled in a second. Never on a part
+/// while the answer is awaited (the answer says what filled), never with
+/// [requestedSize] 0 (an order with a take-profit, stop-loss or trailing
+/// stop attached, whose answer says whether those were placed), and never
+/// for a limit, Scale or TWAP order, whose stream never closes it on a
+/// total (a limit closes on its whole size alone, a part being said with
+/// what still rests).
+@visibleForTesting
+({double size, double avgPx})? hlStreamReceipt(
+    {required bool unconfirmed,
+    required bool market,
+    required Iterable<HlFill> own,
+    double requestedSize = 0,
+    double sizeStep = 0}) {
+  if (!market) return null;
+  final total = hlOwnFillsTotal(own);
+  if (total == null || unconfirmed) return total;
+  if (requestedSize <= 0) return null;
+  return total.size >= requestedSize - sizeStep / 2 ? total : null;
+}
+
+/// The venue's [answer] to a market order the ticket sent, unless the
+/// ticket already [closed] on that order's own fills from the stream
+/// ([hlStreamReceipt]): then the fills said it was placed, and the answer,
+/// whatever it is (a success, an error, a timeout or an unconfirmed
+/// lookup), only calls [onClosed] (the placing tile marked placed) and
+/// comes back null, never rethrown. No second receipt, no error, no lock.
+@visibleForTesting
+Future<HlOrderResult?> hlMarketAnswer(Future<HlOrderResult> answer,
+    {required bool Function() closed,
+    required void Function() onClosed}) async {
+  try {
+    final result = await answer;
+    if (!closed()) return result;
+  } catch (_) {
+    if (!closed()) rethrow;
+  }
+  onClosed();
+  return null;
+}
+
+/// How long the ticket gathers its order's fills from the stream before it
+/// closes on them after an unclear answer: one match's fills arrive
+/// together, a moment apart at most.
+const Duration kHlStreamFillsSettle = Duration(milliseconds: 400);
+
+/// Runs the trailing stop attached to an order that just filled and
+/// returns what its receipt must say, since the ticket closes on that
+/// receipt next and a line on the ticket would never be seen: null when
+/// [place] placed it (it answers true), [AppLocalizations.
+/// hlAdvTrailingNotApproved] when its own approval was declined (it
+/// answers false), [AppLocalizations.slipTrailingNotPlaced] with the
+/// reason ([describe]) when it threw. [onFailed] hears the error category
+/// ('declined' for a decline), for analytics.
+@visibleForTesting
+Future<String?> hlAttachedTrailingNote(
+  AppLocalizations l10n, {
+  required Future<bool> Function() place,
+  required String Function(Object error) describe,
+  void Function(String category)? onFailed,
+}) async {
+  try {
+    if (await place()) return null;
+    onFailed?.call('declined');
+    return l10n.hlAdvTrailingNotApproved;
+  } catch (e) {
+    onFailed?.call(TrackingService.errorCategory(e));
+    return l10n.slipTrailingNotPlaced(describe(e));
+  }
+}
+
 /// Top-level order mode — the Market | Limit | Pro tab.
 enum _OrderMode { market, limit, pro }
 
-/// The concrete order type behind the Pro tab.
-enum _ProType { scale, stopLimit, stopMarket, takeLimit, takeMarket, twap }
+/// The concrete order type behind the Pro tab. Stop and take orders are
+/// not on the opening ticket (owner decision, Phase 2): they protect a
+/// position and live on its close sheet.
+enum _ProType { scale, twap }
+
+/// A scale order's leg count: at least two, at most fifty (the ticket's
+/// own bound, checked inline before Confirm; the venue documents none).
+const int kHlScaleMinOrders = 2;
+const int kHlScaleMaxOrders = 50;
 
 /// Every numeric input on the Advanced page. The page has no focusable
 /// TextField — one keypad is pinned at the bottom and writes to whichever
@@ -272,8 +453,6 @@ enum _ProType { scale, stopLimit, stopMarket, takeLimit, takeMarket, twap }
 enum _NumField {
   size,
   limitPrice,
-  trigger,
-  stopLimitPrice,
   scaleStart,
   scaleEnd,
   scaleCount,
@@ -638,31 +817,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   late bool _isLong;
   double _marginUsd = 0;
   late final TextEditingController _amountController;
-  int _leverage = 1;
   double _slippagePct = 1.0;
 
-  /// The leverage and margin mode the ticket starts from (and Back from
-  /// Advanced returns to): the open position's own on this market, else
-  /// isolated 1x. An order on a market with an open position must never
-  /// change that position's leverage or margin mode unless the person
-  /// moves the slider or the mode switch themselves (the order path
-  /// writes the ticket's values to the venue before the order).
-  int _defaultLeverage = 1;
-  bool _defaultIsCross = false;
-
-  /// The person moved the leverage slider or the margin mode switch.
-  bool _leverageTouched = false;
-
-  /// The defaults came from an open position (once per ticket).
-  bool _positionDefaultsApplied = false;
+  /// LEVERAGE IS BLOCKED IN THIS APP (founder, 14 October 2026): every
+  /// order this ticket builds is 1x isolated, whatever the policy says
+  /// ([kHlMaxOfferedLeverage]). An open position on this market, opened
+  /// here or elsewhere at any leverage or in cross, is never rewritten:
+  /// the order path sends no leverage write while a position is open, so
+  /// an add trades at the venue's own setting for it and is sized here
+  /// at 1x (the typed dollars are the notional added).
+  int get _leverage => kHlMaxOfferedLeverage;
+  bool get _isCross => kHlCrossMarginOffered;
 
   /// The open-interest cap note was counted (once per ticket).
   bool _oiCapWarned = false;
 
   // ── Ticket structure ───────────────────────────────────────────────
   _OrderMode _mode = _OrderMode.market;
-  _ProType _proType = _ProType.stopMarket;
-  late bool _isCross;
+  _ProType _proType = _ProType.scale;
 
   /// The full-screen editor shares this ticket's draft and live-price hold.
   bool _advancedRouteOpen = false;
@@ -670,8 +842,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   // Advanced inputs.
   late final TextEditingController _priceController; // limit px
-  late final TextEditingController _triggerController; // stop/take trigger
-  late final TextEditingController _stopLimitController; // stop/take limit px
   late final TextEditingController _startPxController; // scale start
   late final TextEditingController _endPxController; // scale end
   late final TextEditingController _countController; // scale legs
@@ -714,6 +884,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           if (node.hasFocus && _focusedField != field) {
             _updateDraft(() => _focusedField = field);
           }
+          // A price left with more precision than the venue takes reads
+          // back as the price that will be sent (the order and its
+          // approval are built on that same rounded figure).
+          if (!node.hasFocus && mounted) _showWirePrice(field);
         });
         return node;
       });
@@ -869,7 +1043,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// The ticket as it stands (no ref reads: used from dispose).
   Map<String, Object> _slipInputs() {
     final lev = isSpot ? 1 : _leverage;
-    final trigger = _parse(_triggerController);
     final limitPx = _parse(_priceController);
     return {
       'venue': 'hyperliquid',
@@ -903,7 +1076,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       'has_sl': _attachTpSl && _parse(_slController) != null,
       'attach_trailing': _attachTrailing,
       if (_attachTrailing) 'trail_type': _trailPercent ? 'percent' : 'price',
-      if (_isTriggerType && trigger != null) 'trigger_price': trigger,
       if (_isScale) 'scale_legs': _parseInt(_countController) ?? 0,
       if (_isTwap) 'twap_minutes': _parseInt(_twapMinutesController) ?? 0,
       if (_isTwap) 'twap_randomized': _randomizeTwap,
@@ -1070,6 +1242,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       ])
         if (inputs[k] != null) k: inputs[k]!,
     });
+    _stagedOwn = VenueAnalytics.staged('hl', market.coin);
     TrackingService.track('hyperliquid_order_submitted', params: {
       ...inputs,
       // What the order does to the position held here (perps only):
@@ -1229,13 +1402,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// This ticket is pinned to a Ledger account.
   bool get _isLedger => widget.ledgerWalletId != null;
 
-  bool get _isTriggerType =>
-      _mode == _OrderMode.pro &&
-      (_proType == _ProType.stopLimit ||
-          _proType == _ProType.stopMarket ||
-          _proType == _ProType.takeLimit ||
-          _proType == _ProType.takeMarket);
-
   bool get _isScale => _mode == _OrderMode.pro && _proType == _ProType.scale;
   bool get _isTwap => _mode == _OrderMode.pro && _proType == _ProType.twap;
 
@@ -1257,14 +1423,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         switch (_proType) {
           case _ProType.scale:
             return 'scale';
-          case _ProType.stopLimit:
-            return 'stop_limit';
-          case _ProType.stopMarket:
-            return 'stop_market';
-          case _ProType.takeLimit:
-            return 'take_profit_limit';
-          case _ProType.takeMarket:
-            return 'take_profit_market';
           case _ProType.twap:
             return 'twap';
         }
@@ -1275,25 +1433,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   void initState() {
     super.initState();
     _isLong = widget.initialIsLong;
-    // Isolated by default, everywhere the venue allows a choice. Cross
-    // margin lets ONE losing position reach every other position in the
-    // account; isolated keeps the damage inside this ticket. Cross is still
-    // one tap away in the margin-mode control for anyone who wants it.
-    // A market with an open position starts from THAT position's leverage
-    // and mode instead (see _defaultLeverage).
-    _isCross = false;
-    _applyPositionDefaults(initial: true);
-    if (!isSpot && !_positionDefaultsApplied) {
-      // The account may still be loading: take the position's settings
-      // when it lands, unless the person already chose their own.
-      if (_isLedger) {
-        ref.listenManual(ledgerHlAccountProvider(widget.ledgerWalletId!),
-            (_, __) => _applyPositionDefaults());
-      } else {
-        ref.listenManual(hyperliquidPerpPositionsProvider,
-            (_, __) => _applyPositionDefaults());
-      }
-    }
     // Opens empty, typed from zero; the button offers the minimum this
     // order needs ([_orderMinimumUsd], [_placeMinimum]). A carried-in
     // amount (a claimed pick) is written as if typed.
@@ -1315,8 +1454,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (prefilled) _amountMethod = 'prefill';
     _amountController.addListener(_onAmountChanged);
     _priceController = TextEditingController();
-    _triggerController = TextEditingController();
-    _stopLimitController = TextEditingController();
     _startPxController = TextEditingController();
     _endPxController = TextEditingController();
     _countController = TextEditingController(text: '5');
@@ -1360,6 +1497,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   @override
   void dispose() {
+    _streamSettle?.cancel();
     if (widget.embedded) {
       HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     }
@@ -1397,7 +1535,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _ownSparkWarm = null;
     _fundPlanTimer?.cancel();
     TrackingService.clearFlowContext('hl_order');
-    VenueAnalytics.unstage('hl', market.coin);
+    // A market order still waiting for its answer keeps its staged
+    // settings for its placed / failed event ([_answerPending]).
+    if (!_answerPending) VenueAnalytics.unstage('hl', market.coin);
     VenueAnalytics.resetSettings(_settingsScope);
     // Release the live-feed hold exactly once (nulled to guard a double
     // dispose from decrementing another surface's hold).
@@ -1410,8 +1550,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _amountController.dispose();
     _typedFocus.dispose();
     _priceController.dispose();
-    _triggerController.dispose();
-    _stopLimitController.dispose();
     _startPxController.dispose();
     _endPxController.dispose();
     _countController.dispose();
@@ -1480,32 +1618,56 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     return _positionPlanFor(size);
   }
 
+  /// The position on this market as the account this ticket trades
+  /// positively knows it (hl_exposure_rule.dart): the Ledger's own reads,
+  /// or the spending wallet's account read. Unknown while it loads.
+  HlHeldPosition _heldPositionNow() {
+    if (isSpot) return const HlHeldPosition.flat();
+    if (_isLedger) {
+      return ledgerHlHeldPosition(
+          ref.watch(ledgerHlAccountProvider(widget.ledgerWalletId!)).valueOrNull,
+          market);
+    }
+    return HlHeldPosition.fromSnapshot(
+        market, ref.watch(hyperliquidAccountProvider).valueOrNull);
+  }
+
+  /// What the exposure rule says of the ticket's order of [size] coins
+  /// against [held]: null when it may go as the ticket sends it. At market
+  /// a reduce or a close goes out reduce-only ([_confirmExit]); the other
+  /// types only with Reduce only on. LEVERAGE IS BLOCKED: on a market held
+  /// above 1x or in cross, nothing that adds to or flips the position.
+  HlExposureRefusal? _exposureRefusal(HlHeldPosition held, double size) {
+    if (isSpot) return null;
+    final atMarket = _mode == _OrderMode.market;
+    final check = hlExposureCheck(
+      market: market,
+      held: held,
+      isBuy: _isLong,
+      size: size,
+      reduceOnly: !atMarket && _reduceOnly,
+    );
+    final plan = hlPositionPlan(
+      position: held.position,
+      orderIsLong: _isLong,
+      orderSize: size,
+      szDecimals: market.szDecimals,
+    );
+    return check.refusalFor(
+        sentReduceOnly: atMarket ? plan.isExit : _reduceOnly);
+  }
+
+  /// [_exposureRefusal] at the tap, before any approval or money: the
+  /// position read fresh when the account has not been read yet (one read
+  /// of this market's dex; a loaded account reads nothing).
+  Future<HlExposureRefusal?> _exposureRefusalAtTap() async {
+    if (isSpot || _isLedger) return null;
+    final held = await ref.read(hlHeldPositionProvider)(market);
+    return _exposureRefusal(held, _currentPlan().orderSize);
+  }
+
   /// The last plan the ticket showed, for the order-submitted event.
   String? _positionEffectName;
-
-  /// Starts the ticket from the open position's leverage and margin mode,
-  /// so adding to it sends the same values and the order path changes
-  /// nothing. Never overrides a choice the person already made.
-  void _applyPositionDefaults({bool initial = false}) {
-    if (_positionDefaultsApplied || _leverageTouched || !mounted) return;
-    final pos = _openPosition();
-    if (pos == null) return;
-    _positionDefaultsApplied = true;
-    final lev = pos.leverageValue.clamp(1, market.offeredMaxLeverage).toInt();
-    final cross = pos.isCross && !market.onlyIsolated;
-    void apply() {
-      _defaultLeverage = lev;
-      _defaultIsCross = cross;
-      _leverage = lev;
-      _isCross = cross;
-    }
-
-    if (initial) {
-      apply();
-    } else {
-      _updateDraft(apply);
-    }
-  }
 
   /// A placement stopped before anything was submitted.
   void _trackBlocked(String reason) {
@@ -1674,11 +1836,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         return true;
       case _NumField.limitPrice:
         return _mode == _OrderMode.limit;
-      case _NumField.trigger:
-        return _isTriggerType;
-      case _NumField.stopLimitPrice:
-        return _mode == _OrderMode.pro &&
-            (_proType == _ProType.stopLimit || _proType == _ProType.takeLimit);
       case _NumField.scaleStart:
       case _NumField.scaleEnd:
       case _NumField.scaleCount:
@@ -1706,10 +1863,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         return _amountController;
       case _NumField.limitPrice:
         return _priceController;
-      case _NumField.trigger:
-        return _triggerController;
-      case _NumField.stopLimitPrice:
-        return _stopLimitController;
       case _NumField.scaleStart:
         return _startPxController;
       case _NumField.scaleEnd:
@@ -1729,6 +1882,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
   }
 
+  /// Rewrites a price field to its wire-rounded value ([_wirePx]) once it
+  /// is left, so the ticket shows the price the order will carry.
+  void _showWirePrice(_NumField f) {
+    switch (f) {
+      case _NumField.limitPrice:
+      case _NumField.scaleStart:
+      case _NumField.scaleEnd:
+      case _NumField.takeProfit:
+      case _NumField.stopLoss:
+        break;
+      default:
+        return;
+    }
+    final c = _controllerFor(f);
+    final typed = _parse(c);
+    final wire = _wirePx(typed);
+    if (typed == null || wire == null || wire == typed) return;
+    try {
+      c.text = roundPrice(typed, szDecimals: market.szDecimals, isSpot: isSpot);
+    } catch (_) {
+      return;
+    }
+    _updateDraft(() {});
+  }
+
   /// A price is not a count is not minutes — the pad hides its decimal key
   /// entirely for the integer fields.
   int _decimalsFor(_NumField f) {
@@ -1739,8 +1917,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       case _NumField.twapMinutes:
         return 0;
       case _NumField.limitPrice:
-      case _NumField.trigger:
-      case _NumField.stopLimitPrice:
       case _NumField.scaleStart:
       case _NumField.scaleEnd:
       case _NumField.takeProfit:
@@ -1791,43 +1967,54 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _advancedRouteOpen = false;
       // Back from Advanced discards what was set there: the plain ticket
       // is always a plain market order (owner decision). Advanced orders
-      // are placed from the Advanced page itself.
-      if (mounted) _resetAdvanced();
+      // are placed from the Advanced page itself. Not while the order
+      // placed from there is still on its way: the ticket stays that
+      // order (its locked line, its receipt) until it ends.
+      if (mounted && !_advancedOrderUnderway) _resetAdvanced();
     }
   }
 
-  /// Returns every Advanced-only setting to the ticket's opening state.
+  /// The order placed from the Advanced page has not ended on this ticket
+  /// yet: it is being prepared, placed or funded, accepted as a standing
+  /// order, unconfirmed, or already on its receipt.
+  bool get _advancedOrderUnderway =>
+      _standingAccepted ||
+      _isPlacing ||
+      _preparing ||
+      _orderInFlight ||
+      _completed ||
+      _unconfirmedLock ||
+      _fundingStage != null;
+
+  /// Returns every Advanced-only setting to the ticket's opening state:
+  /// each field back to what [initState] gave it (the scale's 5 orders,
+  /// the TWAP's 30 minutes), so a type picked again opens valid.
   void _resetAdvanced() {
     _updateDraft(() {
       _mode = _OrderMode.market;
-      _proType = _ProType.stopMarket;
+      _proType = _ProType.scale;
       _tif = 'Gtc';
       _postOnly = false;
       _reduceOnly = false;
+      _randomizeTwap = false;
       _attachTpSl = false;
       _attachTrailing = false;
       _trailPercent = true;
       _trailActivate = false;
       _slippagePct = 1.0;
-      // Back to the ticket's starting point: the open position's own
-      // leverage and mode, else isolated 1x.
-      _leverage = _defaultLeverage;
-      _isCross = _defaultIsCross;
-      _leverageTouched = false;
+      _advancedOptionsOpen = null;
       for (final controller in [
         _priceController,
-        _triggerController,
-        _stopLimitController,
         _startPxController,
         _endPxController,
-        _countController,
-        _twapMinutesController,
         _tpController,
         _slController,
         _trailActivationController,
       ]) {
         controller.clear();
       }
+      _countController.text = '5';
+      _twapMinutesController.text = '30';
       _trailDistanceController.text = '1';
     });
   }
@@ -1863,20 +2050,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     switch (_proType) {
       case _ProType.scale:
         _reduceOnly = false;
-        _prefill(_startPxController, _midNow());
-        _prefill(_endPxController, _midNow());
+        // A ladder rests on its own side of the price, the way a person
+        // would set one: a buy from 1% to 5% under it, a sell over it.
+        // Both equal to the price would cross the book at once.
+        final mid = _midNow();
+        _prefill(_startPxController, mid * (_isLong ? 0.99 : 1.01));
+        _prefill(_endPxController, mid * (_isLong ? 0.95 : 1.05));
       case _ProType.twap:
         _reduceOnly = false;
-      case _ProType.stopLimit:
-      case _ProType.stopMarket:
-      case _ProType.takeLimit:
-      case _ProType.takeMarket:
-        // Stops/takes are protective by default.
-        _reduceOnly = true;
-        _prefill(_triggerController, _midNow());
-        if (_proType == _ProType.stopLimit || _proType == _ProType.takeLimit) {
-          _prefill(_stopLimitController, _midNow());
-        }
     }
   }
 
@@ -1916,7 +2097,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         break;
       }
     }
-    if (existing != null && existing.isLong != _isLong) {
+    // Against the other side, or added to a position held above 1x or in
+    // cross (refused by the exposure rule; its liquidation is the venue's
+    // own, from that position's margin, never this ticket's 1x isolated
+    // figure): no estimate here.
+    if (existing != null &&
+        (existing.isLong != _isLong || hlPositionIsLeveraged(existing))) {
       return (price: null, blocker: _strings.slipDependsOnPosition);
     }
     // Adding to a position in the same direction: estimate the combined
@@ -1963,21 +2149,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       case _OrderMode.market:
         return mid;
       case _OrderMode.limit:
-        return _parse(_priceController) ?? mid;
+        return _parsePx(_priceController) ?? mid;
       case _OrderMode.pro:
         switch (_proType) {
           case _ProType.scale:
-            final s = _parse(_startPxController);
-            final e = _parse(_endPxController);
+            final s = _parsePx(_startPxController);
+            final e = _parsePx(_endPxController);
             if (s != null && e != null) return (s + e) / 2;
             return s ?? e ?? mid;
           case _ProType.twap:
             return mid;
-          case _ProType.stopLimit:
-          case _ProType.stopMarket:
-          case _ProType.takeLimit:
-          case _ProType.takeMarket:
-            return _parse(_triggerController) ?? mid;
         }
     }
   }
@@ -1992,6 +2173,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // The venue minimum: name the minimum this ticket needs now, the
     // figure the button and the available line show, not the bare $10.
     if (hlIsMinNotionalError(e) && !_reduceOnly && !_isScale) {
+      if (_isTwap) {
+        return _strings.hlAdvTwapMinimum(formatHlUsd(HlTwapRules.minAmountUsd(
+            referencePx: _midNow(),
+            szDecimals: market.szDecimals,
+            leverage: isSpot ? 1 : _leverage)));
+      }
       return _strings.investingMinimumOrder(formatHlUsd(_orderMinimumUsd()));
     }
     return hlTradeErrorMessage(_strings, e);
@@ -2005,8 +2192,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// is open, the ticket cannot submit until these are back to plain.
   bool get _usesAdvanced =>
       _mode != _OrderMode.market ||
-      _leverage > 1 ||
-      _isCross ||
       _attachTpSl ||
       _attachTrailing ||
       _slippagePct != 1.0;
@@ -2016,7 +2201,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       await _confirmLedger();
       return;
     }
-    if (_orderInFlight || _isPlacing) return;
+    if (_orderInFlight || _isPlacing || _unconfirmedLock) return;
     // A new try: an earlier funded order's stop gives way to it, and the
     // ticket is locked while it places until its own accept.
     _clearFundedStop();
@@ -2066,6 +2251,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     if (!mounted) return;
 
+    // The exposure rule before anything is approved, signed or moved (an
+    // add to, or a flip of, a position held above 1x or in cross; or a
+    // position that cannot be read).
+    final exposure = await _exposureRefusalAtTap();
+    if (!mounted) return;
+    if (exposure != null) {
+      _trackBlocked(exposure == HlExposureRefusal.positionUnknown
+          ? 'position_unknown'
+          : 'leveraged_position');
+      _updateDraft(() => _errorText = hlExposureRefusalText(_strings, exposure));
+      return;
+    }
+
     // The venue's cash read fresh, not the last poll: a close a moment
     // ago, a sweep or a credit since changes what the order needs moved.
     await _refreshVenueCashNow();
@@ -2086,6 +2284,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final mid = _lastMid ?? (market.midPx > 0 ? market.midPx : market.markPx);
     if (mid <= 0) {
       _trackBlocked('no_price');
+      return;
+    }
+
+    // The ticket's prices against the price now, before any approval.
+    if (!_pricesStillHold()) return;
+    // An earlier order on this market of this account is still being
+    // looked up: never a possible duplicate of it.
+    if (!_isLedger &&
+        hlMarketConfirming(ref.read(hlConfirmingMarketsProvider),
+            account:
+                ref.read(hyperliquidTradingProvider.notifier).accountAddress,
+            wireCoin: market.wireCoin)) {
+      _trackBlocked('order_confirming');
       return;
     }
 
@@ -2113,6 +2324,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (!isSpot) _positionEffectName = plan.effect.name;
     _sentPlan = plan.effect == HlPositionEffect.open ? null : plan;
     _orderFills.clear();
+    _sentMarket = true;
+    // The stream closes the ticket on the order's whole size before the
+    // venue answers, unless something rides on it whose fate only the
+    // answer says (a take-profit / stop-loss leg, a trailing stop placed
+    // after the fill).
+    final attached = (_trailingAvailable && _attachTrailing) ||
+        (!isSpot &&
+            _attachTpSl &&
+            (_parsePx(_tpController) != null ||
+                _parsePx(_slController) != null));
+    _sentMarketSize = attached ? 0 : size;
     if (plan.isExit) {
       if (size <= 0) {
         _trackBlocked('below_min');
@@ -2175,12 +2397,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (grant == null) _stopped('signing_declined');
       return;
     }
+    // The price moved while the approval was up: re-checked right before
+    // signing, nothing sent when it crossed.
+    if (!_pricesStillHold()) {
+      grant.revoke();
+      return;
+    }
 
     // Pre-existing SIGNED size so the placing tile reconciles on the
     // position delta, not the absolute size.
     double preExisting = 0;
     for (final p in ref.read(hyperliquidPerpPositionsProvider)) {
-      if (p.coin == market.coin) {
+      if (p.coin == market.wireCoin) {
         preExisting = p.szi;
         break;
       }
@@ -2206,16 +2434,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub?.cancel();
     _fillSub =
         ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
-      if (f.coin != market.coin) return;
-      if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
+      // Only this order's own fills, by its cloid: never a same-coin fill
+      // with no cloid or another's.
+      if (!hlFillOfOrder(market, cloid, f)) return;
       _orderFills.add(f);
-      // With a trailing stop attached the result path places it first,
-      // then closes the ticket; a stream fill must not close it early.
-      if (_attachTrailing) return;
-      // Against a held position the receipt says what the whole fill did
-      // to it, so the venue's answer (with the filled total) closes it.
-      if (_sentPlan != null) return;
-      _onFilled(sizeFilled: f.sz, avgPx: f.px);
+      // The stream closes the ticket once these fills come to the whole
+      // size asked for, or once the answer was unclear; a part waits for
+      // the answer, which says what filled ([_settleFromStream]).
+      _settleFromStream();
     });
 
     _updateDraft(() {
@@ -2231,17 +2457,30 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // ReauthRequired before it signs.
       _submitted = true;
       _trackSubmitted();
-      final result = await _marketOrder(walletId, cloid).place(grant);
+      _answerPending = true;
+      // Closed on the order's own fills meanwhile: the answer, whatever
+      // it is, only marks the tile placed ([hlMarketAnswer]).
+      final result = await hlMarketAnswer(
+          _marketOrder(walletId, cloid).place(grant),
+          closed: () => _completed,
+          onClosed: () => placing.markSucceeded(placementId));
+      if (result == null) return;
       placing.markSucceeded(placementId);
       if (result.filledSz > 0) {
-        await _placeAttachedTrailing(result.filledSz);
+        final trailNote = await _placeAttachedTrailing(result.filledSz);
         if (!mounted) return;
         final fills = _sentPlan?.effect == HlPositionEffect.flip
             ? await _fillsOf(result)
             : const <HlFill>[];
         if (!mounted) return;
         _onFilled(
-            sizeFilled: result.filledSz, avgPx: result.avgPx, fills: fills);
+            sizeFilled: result.filledSz,
+            avgPx: result.avgPx,
+            fills: fills,
+            notices: [
+              ...hlOrderResultNotices(_strings, result),
+              if (trailNote != null) trailNote,
+            ]);
       } else {
         // Accepted but not (yet) filled — the WS listener / placing
         // tile takes over; close the slip so the user isn't trapped.
@@ -2270,11 +2509,135 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (mounted) {
         _updateDraft(() {
           _isPlacing = false;
+          // The venue may hold it: this ticket never sends it again
+          // ([_unconfirmedLock]).
+          if (e is HyperliquidOrderUnconfirmedException) {
+            _unconfirmedLock = true;
+          }
           _errorText = _messageFor(e);
           _errorCause = e;
         });
+        // Fills of it the stream already brought end on the receipt.
+        if (e is HyperliquidOrderUnconfirmedException) _settleFromStream();
+      }
+    } finally {
+      _answerPending = false;
+      // Closed on the stream before the answer: the settings staged for
+      // the order's placed / failed event stayed for it until now.
+      if (!mounted) _unstageOwn();
+    }
+  }
+
+  /// A market order this ticket sent is still waiting for the venue's
+  /// answer: the ticket may close on its fills first, and the settings
+  /// staged for its placed / failed event ([_trackSubmitted]) stay until
+  /// the answer is in.
+  bool _answerPending = false;
+
+  /// The settings this ticket staged for its order's event, to unstage
+  /// them only while they are still this ticket's.
+  Map<String, Object>? _stagedOwn;
+
+  void _unstageOwn() {
+    final own = _stagedOwn;
+    if (own == null ||
+        identical(VenueAnalytics.staged('hl', market.coin), own)) {
+      VenueAnalytics.unstage('hl', market.coin);
+    }
+  }
+
+  /// The size the market order sent asks for, for the stream to close the
+  /// ticket on its whole fill before the answer ([hlStreamReceipt]); 0
+  /// when something rides on it whose fate only the answer says.
+  double _sentMarketSize = 0;
+
+  /// Closes the ticket on its order's own fills from the stream, totalled
+  /// ([hlOwnFillsTotal]), once they come to the whole size asked for
+  /// ([_sentMarketSize]) or once the venue's answer was unclear
+  /// ([_unconfirmedLock]); a part waits for the answer, which says what
+  /// filled. The fills of one match are gathered a moment
+  /// ([kHlStreamFillsSettle]) first, so a multi-fill order is never said
+  /// as its first fill.
+  void _settleFromStream() {
+    if (_completed) return;
+    ({double size, double avgPx})? receipt() => hlStreamReceipt(
+        unconfirmed: _unconfirmedLock,
+        market: _sentMarket,
+        own: _orderFills,
+        requestedSize: _sentMarketSize,
+        sizeStep: _sizeStep);
+    if (receipt() == null) return;
+    _streamSettle?.cancel();
+    _streamSettle = Timer(kHlStreamFillsSettle, () {
+      _streamSettle = null;
+      if (!mounted || _completed) return;
+      final total = receipt();
+      if (total == null) return;
+      _onFilled(
+          sizeFilled: total.size,
+          avgPx: total.avgPx,
+          fills: List.of(_orderFills));
+    });
+  }
+
+  Timer? _streamSettle;
+
+  /// Whether the order this ticket sent last is a market order (as sent;
+  /// the ticket's mode may change under a locked ticket).
+  bool _sentMarket = false;
+
+  /// After an unclear answer ([_unconfirmedLock]): the ticket goes and
+  /// the orders ([resting]) or what is held opens, to check the order
+  /// there. A fresh ticket is a fresh order, never locked; while the
+  /// order's lookup is still running no ticket on the market sends
+  /// ([hlConfirmingMarketsProvider]).
+  void _viewAfterUnconfirmed({required bool resting}) {
+    final nav = Navigator.of(context, rootNavigator: true);
+    _closeTicket();
+    if (resting) {
+      openInvestmentsOrders(nav.context,
+          product: 'investing', orderKind: 'open');
+    } else {
+      openInvestmentsPositions(nav.context);
+    }
+  }
+
+  /// The ticket's prices against the price as it is right now, re-checked
+  /// before anything is sent and again after the approval, right before
+  /// signing (the price moves while Face ID is up): a scale ladder on its
+  /// side of the price ([hlScaleSideIssue]), an opening order's take-profit
+  /// and stop-loss on their side of its entry ([hlTpSlEntryIssue]). Crossed:
+  /// the inline message, nothing sent, false.
+  bool _pricesStillHold() {
+    final live = ref.read(hyperliquidLiveMidProvider(market.coin));
+    final mid = (live != null && live > 0) ? live : _midNow();
+    String? issue;
+    if (_isScale) {
+      final s = _parsePx(_startPxController);
+      final e = _parsePx(_endPxController);
+      if (s != null && e != null && s != e) {
+        issue = hlScaleSideIssue(_strings,
+            isLong: _isLong, startPx: s, endPx: e, mid: mid);
       }
     }
+    if (_isOpening && _attachTpSl) {
+      issue = hlTpSlEntryIssue(_strings,
+              isLong: _isLong,
+              entry: _entryPx(mid),
+              takeProfit: _parsePx(_tpController),
+              stopLoss: _parsePx(_slController)) ??
+          issue;
+    }
+    if (issue == null) return true;
+    _trackBlocked('price_moved');
+    if (mounted) {
+      _updateDraft(() {
+        _lastMid = mid;
+        _errorText = issue;
+        _errorCause = null;
+      });
+    }
+    return false;
   }
 
   /// A market order that only reduces or closes the position held here,
@@ -2320,7 +2683,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub?.cancel();
     _fillSub =
         ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
-      if (f.coin == market.coin) _orderFills.add(f);
+      if (hlFillOnMarket(market, f)) _orderFills.add(f);
     });
     try {
       _submitted = true;
@@ -2335,8 +2698,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (result.filledSz > 0) {
         final fills = await _fillsOf(result);
         if (!mounted) return;
+        // The whole position closed: its left-over stops, takes and
+        // trailing stops are cancelled by the notifier once it is gone
+        // (as from the close sheet); the receipt waits to say what it did.
+        final leftovers = pos.szi.abs() > 0 &&
+                result.filledSz >= pos.szi.abs() * (1 - 1e-9)
+            ? await _leftoverSweepOf(trading, pos.coin)
+            : null;
+        if (!mounted) return;
         _onFilled(
-            sizeFilled: result.filledSz, avgPx: result.avgPx, fills: fills);
+            sizeFilled: result.filledSz,
+            avgPx: result.avgPx,
+            fills: fills,
+            leftovers: leftovers);
       } else if (!_completed) {
         _closeTicket();
       }
@@ -2358,6 +2732,46 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
   }
 
+  /// What the cancel of [coin]'s left-over protective orders did, awaited
+  /// ([HyperliquidTradingNotifier.leftoverSweepFor]); null when none ran.
+  Future<HlLeftoverSweep?> _leftoverSweepOf(
+      HyperliquidTradingNotifier trading, String coin) async {
+    final sweep = trading.leftoverSweepFor(coin);
+    if (sweep == null) return null;
+    try {
+      return await sweep;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The whole position on this market (perps, hot account) goes with the
+  /// order on the ticket as the notifier arms it (a close sized to it, or
+  /// reduce-only sized past it), and protective orders rest on it: the
+  /// close sheet's line before Confirm, the count of those orders. Null
+  /// otherwise.
+  int? _closeCancelsCount(
+      {required HlPositionPlan marketPlan, required double legSize}) {
+    if (isSpot || _isLedger || widget.sendPick != null) return null;
+    final bool whole;
+    if (_mode == _OrderMode.market) {
+      whole = _netsAgainstPosition &&
+          marketPlan.effect == HlPositionEffect.close;
+    } else if (_mode == _OrderMode.limit || _isTwap) {
+      final plan =
+          _positionPlanFor(_mode == _OrderMode.limit ? _limitSizeNow() : legSize);
+      whole = plan.effect == HlPositionEffect.close ||
+          (_reduceOnly && plan.effect == HlPositionEffect.flip);
+    } else {
+      whole = false;
+    }
+    if (!whole) return null;
+    final orders = ref.watch(hyperliquidTradingProvider).valueOrNull?.openOrders ??
+        const <HlOpenOrder>[];
+    final n = hlProtectiveOrdersFor(orders, market.wireCoin).length;
+    return n == 0 ? null : n;
+  }
+
   /// Limit / Pro path — routes to the matching notifier method. Marketable
   /// fills and accepted resting orders have distinct confirmation receipts.
   Future<void> _confirmAdvanced(double mid) async {
@@ -2372,6 +2786,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final approved = _advancedOrder(walletId, mid, cloid);
     if (approved == null) return; // Market mode: handled by _confirmMarket.
     _sentPlan = null;
+    _sentMarket = false;
+    // What the receipt says about the order, as it is sent: the ticket
+    // behind it may change (or be reset) before the venue answers.
+    _sentReceipt = _receiptNow();
+    final isLimit = _mode == _OrderMode.limit;
+    _sentLimitSize = isLimit ? _limitSizeNow() : 0;
+    _orderFills.clear();
     // A resting order needs its margin as much as a market one: fund the
     // difference from Dollars, then place it exactly as approved (never
     // resized) once the money lands.
@@ -2398,20 +2819,34 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (grant == null) _stopped('signing_declined');
       return;
     }
+    // Re-checked against the price now, right before signing.
+    if (!_pricesStillHold()) {
+      grant.revoke();
+      return;
+    }
 
     // Limit orders may fill immediately — listen for the matching fill by
     // cloid. Scale/TWAP/trigger fills don't carry our cloid (and rest
     // rather than fill on placement), so we don't listen for them: they
     // resolve via _onRestingAccepted, and matching a cloid-less fill here
     // would risk latching onto an unrelated fill mid-submit.
-    if (_mode == _OrderMode.limit) {
+    if (isLimit) {
       _fillSub?.cancel();
       _fillSub =
           ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
-        if (f.coin != market.coin) return;
-        if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
-        if (f.cloid == null) return; // only our own cloid-tagged fills
-        _onFilled(sizeFilled: f.sz, avgPx: f.px);
+        // Only our own cloid-tagged fills.
+        if (!hlFillOfOrder(market, cloid, f)) return;
+        _orderFills.add(f);
+        // The stream closes the ticket on the WHOLE order only: a part
+        // filled is said by the venue's answer ([_onLimitAnswered]), with
+        // what still rests.
+        final filled = _fillsSize(_orderFills);
+        if (_sentLimitSize > 0 && filled >= _sentLimitSize - _sizeStep / 2) {
+          _onFilled(
+              sizeFilled: filled,
+              avgPx: _fillsAvgPx(_orderFills),
+              fills: List.of(_orderFills));
+        }
       });
     }
 
@@ -2431,10 +2866,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _trackSubmitted();
       final result = await order.place(grant);
 
-      if (result.filledSz > 0) {
-        _onFilled(sizeFilled: result.filledSz, avgPx: result.avgPx);
+      if (isLimit) {
+        _onLimitAnswered(result);
+      } else if (result.filledSz > 0) {
+        _onFilled(
+            sizeFilled: result.filledSz,
+            avgPx: result.avgPx,
+            notices: hlOrderResultNotices(_strings, result));
       } else {
-        _onRestingAccepted();
+        _onRestingAccepted(result: result);
       }
     } catch (e) {
       // Unconfirmed: a fill can still arrive for it, and ends on the
@@ -2450,11 +2890,146 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (mounted) {
         _updateDraft(() {
           _isPlacing = false;
+          // The venue may hold it: this ticket never sends it again
+          // ([_unconfirmedLock]).
+          if (e is HyperliquidOrderUnconfirmedException) {
+            _unconfirmedLock = true;
+          }
           _errorText = _messageFor(e);
           _errorCause = e;
         });
       }
     }
+  }
+
+  /// A fill on the stream while a funded order ([cloid]) goes out. Only
+  /// the order's own cloid-tagged fills count (a stop's, a TWAP's or
+  /// another order's never). A market order's receipt comes from the
+  /// queued order's answer with its whole fill, or from the stream on its
+  /// whole size or once that answer was unclear ([_settleFromStream]),
+  /// whichever comes first ([_completed]); a limit closes the
+  /// ticket from the stream on its whole size only: a part is said with
+  /// what still rests by the venue's answer ([_onLimitAnswered]).
+  void _onFundedFill(HlFill f, String cloid) {
+    // Only the order's own cloid-tagged fills (a send again's too), never
+    // a same-coin fill with no cloid or another's.
+    if (!hlFillOfOrder(market, cloid, f)) return;
+    final advanced = _mode != _OrderMode.market;
+    _orderFills.add(f);
+    if (!advanced) {
+      // A market order: the queued order's answer closes the ticket with
+      // its whole fill; the stream once its fills come to the whole size
+      // asked for, or once that answer was unclear.
+      _settleFromStream();
+      return;
+    }
+    if (_attachTrailing || _attachTpSl) return;
+    if (_sentPlan != null) return;
+    final filled = _fillsSize(_orderFills);
+    if (_mode == _OrderMode.limit &&
+        _sentLimitSize > 0 &&
+        filled >= _sentLimitSize - _sizeStep / 2) {
+      _onFilled(
+          sizeFilled: filled,
+          avgPx: _fillsAvgPx(_orderFills),
+          fills: List.of(_orderFills));
+    }
+  }
+
+  /// The order this ticket sent got no answer and the account could not
+  /// say whether the venue took it ([HyperliquidOrderUnconfirmedException]):
+  /// it may be filled or resting. The ticket never sends it again (a new
+  /// tap would be a new cloid, so a possible duplicate): the confirm stays
+  /// off with the notice saying to check the orders and balance, the fill
+  /// listener stays on and a fill that lands still ends on the receipt.
+  bool _unconfirmedLock = false;
+
+  /// What the accepted receipt says about the advanced order sent (its
+  /// type and prices), captured as it was sent ([_receiptNow]).
+  ({Map<String, String> rows, bool isClose, String? detail})? _sentReceipt;
+
+  /// The size (in coins) of the limit order sent, as the notifier sizes it,
+  /// to tell a whole fill from a part.
+  double _sentLimitSize = 0;
+
+  double get _sizeStep => math.pow(10, -market.szDecimals).toDouble();
+
+  static double _fillsSize(Iterable<HlFill> fills) =>
+      fills.fold<double>(0, (a, f) => a + f.sz);
+
+  static double _fillsAvgPx(Iterable<HlFill> fills) {
+    final size = _fillsSize(fills);
+    if (size <= 0) return 0;
+    return fills.fold<double>(0, (a, f) => a + f.sz * f.px) / size;
+  }
+
+  /// The limit order's size as [HyperliquidTradingNotifier.placeLimit]
+  /// sizes it: the margin times the leverage at the (wire-rounded) limit.
+  double _limitSizeNow() {
+    final px = _parsePx(_priceController);
+    if (px == null) return 0;
+    return sizeFromUsd(
+        usd: _marginUsd * (isSpot ? 1 : _leverage),
+        px: px,
+        szDecimals: market.szDecimals);
+  }
+
+  /// The venue answered the limit order: filled whole, filled in part with
+  /// the rest resting (said as such, never "Order filled" for a part), or
+  /// resting untouched (the accepted receipt). A resting answer behind a
+  /// part the stream already brought is a part too.
+  void _onLimitAnswered(HlOrderResult result) {
+    var filled = result.filledSz;
+    var avgPx = result.avgPx;
+    final streamed = _fillsSize(_orderFills);
+    if (streamed > filled) {
+      filled = streamed;
+      avgPx = _fillsAvgPx(_orderFills);
+    }
+    final notices = hlOrderResultNotices(_strings, result);
+    if (filled <= 0) {
+      _onRestingAccepted(result: result);
+      return;
+    }
+    final rest = _sentLimitSize - filled;
+    _onFilled(
+      sizeFilled: filled,
+      avgPx: avgPx,
+      fills: List.of(_orderFills),
+      restingSize: rest > _sizeStep / 2 ? flooredSize(rest + 1e-12, market.szDecimals) : 0,
+      notices: notices,
+    );
+  }
+
+  /// The order on the ticket in the accepted receipt's words: its type
+  /// and prices (a limit's price; a scale's range and order count; a
+  /// TWAP's running time, with its own line), and whether it only reduces.
+  ({Map<String, String> rows, bool isClose, String? detail}) _receiptNow() {
+    final l = _strings;
+    final cap = market.pxDecimalCap;
+    final rows = <String, String>{};
+    String? detail;
+    if (_mode == _OrderMode.limit) {
+      rows[l.investingOrderType] = l.slipLimitOrder;
+      final p = _parsePx(_priceController);
+      if (p != null) rows[l.betLimitPrice] = formatHlPrice(p, decimalCap: cap);
+    } else if (_isScale) {
+      rows[l.investingOrderType] = l.slipScaleOrder;
+      final s = _parsePx(_startPxController);
+      final e = _parsePx(_endPxController);
+      if (s != null) rows[l.slipStartPrice] = formatHlPrice(s, decimalCap: cap);
+      if (e != null) rows[l.slipEndPrice] = formatHlPrice(e, decimalCap: cap);
+      final n = _parseInt(_countController);
+      if (n != null) rows[l.slipNumberOfOrders] = '$n';
+    } else if (_isTwap) {
+      rows[l.investingOrderType] = l.slipTwapOrder;
+      final m = _parseInt(_twapMinutesController);
+      if (m != null) {
+        rows[l.betOrderDuration] = l.slipMinutesValue(m);
+        detail = l.hlAdvTwapRunning(m);
+      }
+    }
+    return (rows: rows, isClose: _reduceOnly, detail: detail);
   }
 
   // ── Per-order funding (one balance) ─────────────────────────────────
@@ -3004,6 +3579,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         placeAt: (grant, margin) => orderAt(margin).place(grant),
         resizable: resizable,
         cloid: cloid,
+        scaleLegs: _scaleLegsNow(),
       ),
       fundUsd: fundUsd,
       directLegs: directLegs,
@@ -3045,6 +3621,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
       }
       if (mounted) _updateDraft(() => _fundingStage = null);
+      return;
+    }
+    // Re-checked against the price now, before anything moves under it.
+    if (!_pricesStillHold()) {
+      grant.revoke();
+      AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+      _updateDraft(() => _fundingStage = null);
       return;
     }
     if (legPlan != null) {
@@ -3104,12 +3687,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub?.cancel();
     _fillSub =
         ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
-      if (f.coin != market.coin) return;
-      if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
-      _orderFills.add(f);
-      if (_attachTrailing) return;
-      if (_sentPlan != null) return;
-      _onFilled(sizeFilled: f.sz, avgPx: f.px);
+      _onFundedFill(f, cloid);
     });
     _listenPending();
     _updateDraft(() {
@@ -3258,12 +3836,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub?.cancel();
     _fillSub =
         ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
-      if (f.coin != market.coin) return;
-      if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
-      _orderFills.add(f);
-      if (_attachTrailing) return;
-      if (_sentPlan != null) return;
-      _onFilled(sizeFilled: f.sz, avgPx: f.px);
+      _onFundedFill(f, cloid);
     });
     _listenPending();
     _submitted = true;
@@ -3502,6 +4075,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         placeAt: (grant, margin) => orderAt(margin).place(grant),
         resizable: resizable,
         cloid: cloid,
+        scaleLegs: _scaleLegsNow(),
       ),
       fundUsd: planFundUsd,
       directLegs: rest.directLegs,
@@ -3547,6 +4121,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               .cancelAutofire(kPendingHlOrderAutofireId);
           return null;
         }
+        // Re-checked against the price now, before anything moves.
+        if (!_pricesStillHold()) {
+          grant.revoke();
+          AuthGrantRegistry.instance
+              .cancelAutofire(kPendingHlOrderAutofireId);
+          return null;
+        }
         // Held, never fired, while the bitcoin leg runs (awaitingDeposit).
         ref.read(pendingHyperliquidOrderProvider.notifier).setIntent(pending);
         // The watcher that places the order on the credit, alive before
@@ -3557,12 +4138,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _fillSub?.cancel();
         _fillSub =
             ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
-          if (f.coin != market.coin) return;
-          if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
-          _orderFills.add(f);
-          if (_attachTrailing) return;
-          if (_sentPlan != null) return;
-          _onFilled(sizeFilled: f.sz, avgPx: f.px);
+          _onFundedFill(f, cloid);
         });
         _listenPending();
         _submitted = true;
@@ -3852,9 +4428,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _updateDraft(() {
       _isPlacing = false;
       _fundingStage = null;
+      _unconfirmedLock = true;
       _errorText = intent.errorMessage ?? _strings.investingSubmissionUnknown;
       _errorCause = null;
     });
+    // Fills of it the stream already brought end on the receipt.
+    _settleFromStream();
   }
 
   /// The watcher placed the funded order: the same receipt the direct
@@ -3865,16 +4444,27 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _pendingSub = null;
     _fundingStage = null;
     final result = intent.result;
+    if (intent.orderKind == 'limit' && result != null) {
+      _onLimitAnswered(result);
+      return;
+    }
     if (result != null && result.filledSz > 0) {
+      String? trailNote;
       if (intent.orderKind == 'market') {
-        await _placeAttachedTrailing(result.filledSz);
+        trailNote = await _placeAttachedTrailing(result.filledSz);
         if (!mounted) return;
       }
-      _onFilled(sizeFilled: result.filledSz, avgPx: result.avgPx);
+      _onFilled(
+          sizeFilled: result.filledSz,
+          avgPx: result.avgPx,
+          notices: [
+            ...hlOrderResultNotices(_strings, result),
+            if (trailNote != null) trailNote,
+          ]);
       return;
     }
     if (intent.orderKind != 'market') {
-      _onRestingAccepted();
+      _onRestingAccepted(result: result);
       return;
     }
     // Accepted but not (yet) filled — the WS listener / placing tile
@@ -3965,6 +4555,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _errorCause = null;
     });
     final HlOrderResult? result;
+    // A whole close on the Ledger leaves its stops and takes (each cancel
+    // needs the device): counted before it goes, said on the receipt as
+    // the close sheet says it.
+    int? ledgerLeftovers;
+    var closingSize = 0.0;
     try {
       if (_usesAdvanced) {
         await RuntimeCapabilitiesService.instance
@@ -3980,6 +4575,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _submitted = true;
       _trackSubmitted();
       if (plan.isExit && plan.orderSize > 0) {
+        if (plan.effect == HlPositionEffect.close) {
+          closingSize = plan.heldSize;
+          ledgerLeftovers = _ledgerProtectiveCount(walletId);
+        }
         final outcome = await runLedgerHlClose(
           context,
           ref,
@@ -4043,7 +4642,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // offeredMaxLeverage is at least 1: a market reporting no leverage
     // (0) would otherwise put clamp's upper bound below its lower one.
     final ledgerLev =
-        isSpot ? 1 : _leverage.clamp(1, market.offeredMaxLeverage).toInt();
+        isSpot ? 1 : HlIntents.clampLeverage(market, _leverage);
     TrackingService.hyperliquidOrderPlaced(
       coin: market.coin,
       kind: isSpot ? 'spot' : 'perp',
@@ -4053,7 +4652,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       notionalUsd: marginUsd * ledgerLev,
       source: widget.source,
       orderType: 'market',
-      isCross: isSpot ? null : !market.onlyIsolated,
+      isCross: isSpot ? null : kHlCrossMarginOffered,
       filled: filled,
       walletKind: 'ledger',
       marketType: isSpot ? 'spot' : (market.dex.isEmpty ? 'perp' : market.dex),
@@ -4061,6 +4660,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       hasSl: _attachTpSl && _parse(_slController) != null,
     );
     if (!mounted) return;
+    String? trailNote;
     if (filled) {
       final mid = _midNow();
       final fallbackSize = mid > 0
@@ -4069,10 +4669,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               px: mid,
               szDecimals: market.szDecimals)
           : 0.0;
-      await _placeAttachedTrailing(
+      trailNote = await _placeAttachedTrailing(
           result.filledSz > 0 ? result.filledSz : fallbackSize);
       if (!mounted) return;
     }
+    // The whole position closed: its stops and takes are still there.
+    final leftOnLedger = ledgerLeftovers != null &&
+            closingSize > 0 &&
+            result.filledSz >= closingSize * (1 - 1e-9)
+        ? ledgerLeftovers
+        : null;
+    final leftReceipt = hlLedgerLeftoverReceipt(l10n, leftOnLedger);
+    final detailLines = [
+      if (trailNote != null) trailNote,
+      if (leftReceipt.note case final note?) note,
+    ];
     Navigator.of(context).pop();
     showLedgerConfirmation(
       navigator,
@@ -4083,9 +4694,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               : (_isLong ? l10n.longLabel : l10n.shortLabel),
           formatHlUsd(marginUsd)),
       contextLine: HlMarket.baseCoin(market.coin),
-      rows: {if (!isSpot) l10n.ledgerSummaryLeverage: '$ledgerLev×'},
+      rows: {
+        if (!isSpot) l10n.ledgerSummaryLeverage: '$ledgerLev×',
+        ...leftReceipt.rows,
+      },
+      detail: detailLines.isEmpty ? null : detailLines.join(' '),
       tone: filled ? KuteConfirmationTone.success : KuteConfirmationTone.pending,
     );
+  }
+
+  /// The Ledger's protective orders on this coin, from its last account
+  /// read: null when there are none, -1 when its orders could not be read
+  /// (they may still be there). The close sheet's same count.
+  int? _ledgerProtectiveCount(String walletId) {
+    final orders =
+        ref.read(ledgerHlAccountProvider(walletId)).valueOrNull?.openOrders;
+    if (orders == null) return -1;
+    final n = hlProtectiveOrdersFor(orders, market.wireCoin).length;
+    return n == 0 ? null : n;
   }
 
   /// The one funding door. A Ledger ticket opens the Move sheet locked to
@@ -4451,9 +5077,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     final leverage = _leverage;
     final isCross = _isCross;
-    final takeProfitPx = _attachTpSl ? _parse(_tpController) : null;
-    final stopLossPx = _attachTpSl ? _parse(_slController) : null;
-    final changeOpenPosition = _leverageTouched;
+    final takeProfitPx = _attachTpSl ? _parsePx(_tpController) : null;
+    final stopLossPx = _attachTpSl ? _parsePx(_slController) : null;
     return _SlipOrder(
       HlIntents.openPosition(
         walletId: walletId,
@@ -4477,7 +5102,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         stopLossPx: stopLossPx,
         source: source,
         cloid: cloid,
-        changeOpenPosition: changeOpenPosition,
         grant: grant,
       ),
     );
@@ -4494,9 +5118,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final source = widget.source;
     final leverage = _leverage;
     final isCross = _isCross;
-    final takeProfitPx = _attachTpSl ? _parse(_tpController) : null;
-    final stopLossPx = _attachTpSl ? _parse(_slController) : null;
-    final changeOpenPosition = _leverageTouched;
+    final takeProfitPx = _attachTpSl ? _parsePx(_tpController) : null;
+    final stopLossPx = _attachTpSl ? _parsePx(_slController) : null;
     final spot = isSpot;
     final mkt = market;
     return (margin) => spot
@@ -4545,7 +5168,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               // A send again after a margin refusal goes under a fresh
               // cloid (HlResendCloids), never this one twice.
               cloid: HlResendCloids.current(cloid),
-              changeOpenPosition: changeOpenPosition,
               grant: grant,
             ),
           );
@@ -4569,9 +5191,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         final tif = _tif;
         final postOnly = _postOnly;
         final takeProfitPx =
-            (_attachTpSl && !reduceOnly) ? _parse(_tpController) : null;
+            (_attachTpSl && !reduceOnly) ? _parsePx(_tpController) : null;
         final stopLossPx =
-            (_attachTpSl && !reduceOnly) ? _parse(_slController) : null;
+            (_attachTpSl && !reduceOnly) ? _parsePx(_slController) : null;
         return _SlipOrder(
           HlIntents.limit(
             walletId: walletId,
@@ -4601,15 +5223,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             stopLossPx: stopLossPx,
             source: source,
             cloid: cloid,
-            changeOpenPosition: _leverageTouched,
             grant: grant,
           ),
         );
       case _OrderMode.pro:
         switch (_proType) {
           case _ProType.scale:
-            final startPx = _parse(_startPxController) ?? entry;
-            final endPx = _parse(_endPxController) ?? entry;
+            final startPx = _parsePx(_startPxController) ?? entry;
+            final endPx = _parsePx(_endPxController) ?? entry;
+            // 2..50 is checked inline before Confirm; the clamp only
+            // guards a ticket that changed under the approval.
             final count = (_parseInt(_countController) ?? 5).clamp(2, 50);
             return _SlipOrder(
               HlIntents.scale(
@@ -4635,14 +5258,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 isCross: isCross,
                 reduceOnly: reduceOnly,
                 source: source,
-                changeOpenPosition: _leverageTouched,
+                // The cloid this send goes under: its legs' ids derive
+                // from it (hlScaleLegCloids), and the lookup after an
+                // unclear answer and "Confirming…" key on the same.
+                cloid: HlResendCloids.current(cloid),
                 grant: grant,
               ),
             );
           case _ProType.twap:
-            final minutes = (_parseInt(_twapMinutesController) ?? 30).clamp(
-                HyperliquidExchangeService.minTwapMinutes,
-                HyperliquidExchangeService.maxTwapMinutes);
+            // The bounds are checked inline before Confirm
+            // ([HlTwapRules]); the notifier refuses anything else before
+            // a leverage write or any money moves, never clamps it.
+            final minutes = _parseInt(_twapMinutesController) ?? 30;
             final randomize = _randomizeTwap;
             return _SlipOrder(
               HlIntents.twap(
@@ -4666,56 +5293,59 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 randomize: randomize,
                 reduceOnly: reduceOnly,
                 source: source,
-                changeOpenPosition: _leverageTouched,
-                grant: grant,
-              ),
-            );
-          case _ProType.stopLimit:
-          case _ProType.stopMarket:
-          case _ProType.takeLimit:
-          case _ProType.takeMarket:
-            final isMarket = _proType == _ProType.stopMarket ||
-                _proType == _ProType.takeMarket;
-            final tpsl = (_proType == _ProType.takeLimit ||
-                    _proType == _ProType.takeMarket)
-                ? 'tp'
-                : 'sl';
-            final trig = _parse(_triggerController) ?? entry;
-            final szCoin = sizeFromUsd(
-              usd: marginUsd * lev,
-              px: trig > 0 ? trig : mid,
-              szDecimals: market.szDecimals,
-            );
-            final limitPx = isMarket ? null : _parse(_stopLimitController);
-            return _SlipOrder(
-              HlIntents.trigger(
-                walletId: walletId,
-                market: market,
-                isLong: isLong,
-                size: szCoin,
-                triggerPx: trig,
-                isMarket: isMarket,
-                tpsl: tpsl,
-                limitPx: limitPx,
-                reduceOnly: reduceOnly,
-              ),
-              (grant) => trading.placeTrigger(
-                market: market,
-                isLong: isLong,
-                size: szCoin,
-                triggerPx: trig,
-                isMarket: isMarket,
-                tpsl: tpsl,
-                limitPx: limitPx,
-                reduceOnly: reduceOnly,
-                source: source,
-                cloid: cloid,
                 grant: grant,
               ),
             );
         }
     }
   }
+
+  /// The legs the scale order on the ticket sends (as [_advancedOrder]
+  /// clamps them), null when the ticket is not a scale order.
+  int? _scaleLegsNow() => _isScale
+      ? (_parseInt(_countController) ?? 5).clamp(2, 50)
+      : null;
+
+  /// The stop-loss on the ticket sits past the estimated liquidation (set
+  /// by the build, read by [_buildTpSlAttach]).
+  bool _slPastLiquidation = false;
+
+  /// The value of the least-worth leg the scale order on the ticket would
+  /// send ([hlScaleLegs], the venue's own legs: the total size at the
+  /// range's middle, split equally, each leg at its own price). Null while
+  /// the range or the count cannot describe one.
+  double? _scaleLowestLegUsd(double notional, int? count) {
+    final s = _parsePx(_startPxController);
+    final e = _parsePx(_endPxController);
+    if (s == null || e == null || count == null || count < 2) return null;
+    final avg = (s + e) / 2;
+    final total =
+        sizeFromUsd(usd: notional, px: avg, szDecimals: market.szDecimals);
+    if (total <= 0) return 0;
+    try {
+      final legs = hlScaleLegs(
+          market: market,
+          totalSize: total,
+          startPx: s,
+          endPx: e,
+          count: count.clamp(2, kHlScaleMaxOrders));
+      return legs
+          .map((l) => double.parse(l.px) * double.parse(l.sz))
+          .reduce(math.min);
+    } catch (_) {
+      // A leg that rounds to nothing is worth nothing.
+      return 0;
+    }
+  }
+
+  /// [px] as the wire sends it ([roundPrice]: five significant figures,
+  /// the market's decimal cap), so the approval binds the price the venue
+  /// gets. Null for nothing usable.
+  double? _wirePx(double? px) =>
+      wireRoundedPrice(px, szDecimals: market.szDecimals, isSpot: isSpot);
+
+  /// A typed price, wire-rounded ([_wirePx]).
+  double? _parsePx(TextEditingController c) => _wirePx(_parse(c));
 
   /// Accepted but not (yet) filled: the WS listener / placing tile takes
   /// over and the ticket closes so the person is not trapped. In place
@@ -4745,11 +5375,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }
 
   /// Accepted is distinct from filled; show a receipt without inventing a fill.
-  Future<void> _onRestingAccepted() async {
+  Future<void> _onRestingAccepted({HlOrderResult? result}) async {
     if (_completed || !mounted || _left) return;
     _completed = true;
     _fillSub?.cancel();
     final amount = formatDollars(_marginUsd);
+    // What was placed, as it was sent (the ticket may have been reset
+    // since), and what of it the venue did not take.
+    final sent = _sentReceipt ?? _receiptNow();
+    final notices = hlOrderResultNotices(_strings, result);
     final nav = Navigator.of(context, rootNavigator: true);
     final ticketRoute = ModalRoute.of(context);
     // The rebuild flips the band to its success snap; the sheet closes
@@ -4765,6 +5399,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           coin: market.coin,
           market: market,
           amount: amount,
+          isClose: sent.isClose,
+          rows: sent.rows,
+          detail: sent.detail,
+          notices: notices,
           viewOrders: !_isLedger),
     );
     if (widget.embedded) widget.onEmbeddedDone?.call();
@@ -4791,6 +5429,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     required double sizeFilled,
     required double avgPx,
     Iterable<HlFill> fills = const [],
+    double restingSize = 0,
+    List<String> notices = const [],
+    HlLeftoverSweep? leftovers,
   }) async {
     if (_completed || !mounted || _left) return;
     _completed = true;
@@ -4844,6 +5485,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           : hlRealizedFromFills(fills.toList(), sizeFilled),
       // The fee the fills paid, as the exchange reported it (exact).
       feeUsd: paidFeeUsd,
+      restingSize: restingSize,
+      notices: notices,
+      leftovers: leftovers,
     );
     // In place: a fresh ticket under the receipt.
     if (widget.embedded) widget.onEmbeddedDone?.call();
@@ -5016,8 +5660,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final int? twapMinutes = _isTwap ? _parseInt(_twapMinutesController) : null;
 
     // Min-notional check (skipped when reduce-only — closing dust is fine).
-    final legDivisor = _isScale ? (scaleCount ?? 1).clamp(1, 50) : 1;
-    final legNotional = notional / legDivisor;
+    final legNotional = notional;
     // Judge the order we will actually SEND. Size is floored to the
     // market's step, so a leg worth exactly the minimum before flooring
     // is worth less than it after, and the venue rejects what the
@@ -5030,7 +5673,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ? sizeFromUsd(
             usd: legNotional, px: legPx, szDecimals: market.szDecimals)
         : 0.0;
-    final sentLegNotional = legSize * legPx;
+    // A scale order is the legs it sends ([hlScaleLegs]): each one must
+    // clear the venue minimum at its OWN price, so the leg furthest down
+    // the ladder (the least worth) is the one checked.
+    final scaleLegValue = _isScale ? _scaleLowestLegUsd(notional, scaleCount) : null;
     // The floor in the amount the person types (margin on a perp, dollars
     // on spot) for the order this ticket would actually send, so the
     // minimum on the available line, the minimum button and this check
@@ -5047,14 +5693,26 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final netPlan =
         _netsAgainstPosition ? plan : const HlPositionPlan.open();
     final exitPlan = netPlan.isExit;
-    final minAmountUsd = netPlan.effect == HlPositionEffect.flip
-        ? _orderMinimumUsd(px: legPx, baseSize: netPlan.heldSize)
-        : openMinUsd;
+    // A whole-position close: its resting stops and takes go with it,
+    // said before Confirm as the close sheet says it.
+    final closeCancels =
+        _closeCancelsCount(marketPlan: netPlan, legSize: legSize);
+    // A TWAP has its own, larger minimum (HlTwapRules, the venue's $100
+    // total), named in its own words.
+    final minAmountUsd = _isTwap
+        ? HlTwapRules.minAmountUsd(
+            referencePx: legPx, szDecimals: market.szDecimals, leverage: lev)
+        : netPlan.effect == HlPositionEffect.flip
+            ? _orderMinimumUsd(px: legPx, baseSize: netPlan.heldSize)
+            : openMinUsd;
     final belowMin = !_reduceOnly &&
         !exitPlan &&
         notional > 0 &&
         (_isScale
-            ? sentLegNotional < HyperliquidConstants.minOrderNotionalUsd - 1e-9
+            // No legs to judge yet (a missing price or count): the field's
+            // own message says what is missing.
+            ? scaleLegValue != null &&
+                scaleLegValue < HyperliquidConstants.minOrderNotionalUsd - 1e-9
             : _marginUsd < minAmountUsd - 1e-9);
     final sizeZero = _marginUsd > 0 && size <= 0;
 
@@ -5065,45 +5723,46 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         paramError = _strings.slipEnterLimitPrice;
       }
     } else if (_isScale) {
-      final s = _parse(_startPxController);
-      final e = _parse(_endPxController);
+      final s = _parsePx(_startPxController);
+      final e = _parsePx(_endPxController);
       if (s == null || e == null) {
         paramError = _strings.slipEnterStartEndPrices;
-      } else if ((scaleCount ?? 0) < 2) {
-        paramError = _strings.slipScaleMinOrders;
+      } else if (scaleCount == null ||
+          scaleCount < kHlScaleMinOrders ||
+          scaleCount > kHlScaleMaxOrders) {
+        paramError = _strings.hlAdvScaleCountRange(
+            kHlScaleMinOrders, kHlScaleMaxOrders);
+      } else if (s == e) {
+        paramError = _strings.hlAdvScaleSamePrice;
+      } else {
+        paramError = hlScaleSideIssue(_strings,
+            isLong: _isLong, startPx: s, endPx: e, mid: mid);
       }
     } else if (_isTwap) {
-      if (twapMinutes == null ||
-          twapMinutes < HyperliquidExchangeService.minTwapMinutes ||
-          twapMinutes > HyperliquidExchangeService.maxTwapMinutes) {
+      if (!HlTwapRules.minutesValid(twapMinutes)) {
         // Exchange rule: 5 minutes to 7 days.
         paramError = _strings.slipTwapDurationRange;
-      }
-    } else if (_isTriggerType) {
-      if (_parse(_triggerController) == null) {
-        paramError = _strings.slipEnterTriggerPrice;
-      } else if ((_proType == _ProType.stopLimit ||
-              _proType == _ProType.takeLimit) &&
-          _parse(_stopLimitController) == null) {
-        paramError = _strings.slipEnterLimitPrice;
       }
     }
 
     // TP/SL sanity (opens only).
+    _slPastLiquidation = false;
     if (_isOpening && _attachTpSl) {
-      final tp = _parse(_tpController);
-      final sl = _parse(_slController);
-      if (tp != null &&
-          ((_isLong && tp <= entry) || (!_isLong && tp >= entry))) {
-        paramError = _isLong
-            ? _strings.slipTpAboveEntry
-            : _strings.slipTpBelowEntry;
-      } else if (sl != null &&
-          ((_isLong && sl >= entry) || (!_isLong && sl <= entry))) {
-        paramError = _isLong
-            ? _strings.slipSlBelowEntry
-            : _strings.slipSlAboveEntry;
+      final tp = _parsePx(_tpController);
+      final sl = _parsePx(_slController);
+      // A stop-loss past where the position would be liquidated never
+      // gets to act: said under the fields, a warning, not a block (a 1x
+      // isolated long has no liquidation in practice; a 1x short's is near
+      // twice its entry).
+      if (sl != null && entry > 0 && _marginUsd > 0) {
+        final liq = _liquidationEstimate(entry, size).price;
+        if (liq != null && liq.isFinite && liq > 0) {
+          _slPastLiquidation = _isLong ? sl <= liq : sl >= liq;
+        }
       }
+      paramError = hlTpSlEntryIssue(_strings,
+              isLong: _isLong, entry: entry, takeProfit: tp, stopLoss: sl) ??
+          paramError;
     }
 
     // Trailing stop sanity (opening market orders only).
@@ -5196,6 +5855,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final advancedBlock = _usesAdvanced
         ? ref.watch(runtimeCapabilitiesProvider).blockReason('trading.advanced')
         : null;
+    // The exposure rule (hl_exposure_rule.dart), Advanced on or off: on a
+    // market held above 1x or in cross only a reduction or a close goes.
+    // Said above the disabled button, before Face ID. A position still
+    // loading is not a refusal here: the tap reads it before anything.
+    final heldNow = _heldPositionNow();
+    final exposureRefusal =
+        heldNow.known ? _exposureRefusal(heldNow, legSize) : null;
+    final exposureBlock = exposureRefusal == null
+        ? null
+        : hlExposureRefusalText(_strings, exposureRefusal);
     // A new position the policy (or the venue) refuses here: the confirm
     // stays on screen, disabled, with the reason above it. Exits never,
     // but a slip in send mode places nothing: its refusal stands whatever
@@ -5230,12 +5899,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         'wallet_kind': _isLedger ? 'ledger' : 'hot',
       });
     }
-    // The person moved leverage or margin mode on a market where they hold
-    // a position: the order will change that position's settings too.
-    final heldPosition = _leverageTouched ? _openPosition() : null;
-    final changesPosition = heldPosition != null &&
-        (heldPosition.leverageValue != _leverage ||
-            (heldPosition.isCross && !market.onlyIsolated) != _isCross);
     // Funding is navigation, so it does not depend on a complete order form.
     // Order validation still applies when the user returns with funds.
     final canDeposit = showDepositCta;
@@ -5365,8 +6028,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       dollarsShort = _shownAddUsd!;
       _warmBitcoinLeg();
     }
+    // An earlier order on this market (from a ticket closed meanwhile) is
+    // still being looked up after an unclear answer: this one waits, so it
+    // is never a duplicate of an order the venue took. Not this ticket's
+    // own lookup (its button is busy anyway), never another account's.
+    final otherConfirming = !_isPlacing &&
+        !_isLedger &&
+        hlMarketConfirming(ref.watch(hlConfirmingMarketsProvider),
+            account:
+                ref.read(hyperliquidTradingProvider.notifier).accountAddress,
+            wireCoin: market.wireCoin);
     final gatesOpen = advancedBlock == null &&
+        exposureBlock == null &&
         openBlock == null &&
+        !_unconfirmedLock &&
+        !otherConfirming &&
         (!insufficient || canFundFromDollars) &&
         !_isPlacing &&
         !_preparing &&
@@ -5622,14 +6298,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   color: c.textSecondary, fontSize: 13.sp, height: 1.4),
             ),
           ],
-          if (changesPosition) ...[
-            SizedBox(height: 10.h),
-            Text(
-              context.l10n.hlSlipChangesPosition(market.coin),
-              style: TextStyle(
-                  color: c.textSecondary, fontSize: 13.sp, height: 1.4),
-            ),
-          ],
 
           // Spread warning (market; ≥3% needs the extra confirm).
           if (wideSpread)
@@ -5644,8 +6312,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               _isScale
                   ? context.l10n.investingMinimumScaleOrder(
                       formatHlUsd(HyperliquidConstants.minOrderNotionalUsd))
-                  : context.l10n
-                      .investingMinimumOrder(formatHlUsd(minAmountUsd)),
+                  : _isTwap
+                      ? context.l10n.hlAdvTwapMinimum(formatHlUsd(minAmountUsd))
+                      : context.l10n
+                          .investingMinimumOrder(formatHlUsd(minAmountUsd)),
               style: TextStyle(color: errorColor, fontSize: 13.sp),
             ),
           ] else if (sizeZero) ...[
@@ -5720,6 +6390,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryLabel = bitcoinStep;
       primaryAction = null;
       primaryNeutral = false;
+    } else if (_unconfirmedLock && !_isPlacing && !_completed) {
+      // The order went out and nobody can say whether the venue took it:
+      // this ticket never sends it again. The notice says to check; the
+      // one button opens where it would be (a resting order in the
+      // orders, a filled one in what is held), as the receipts' own.
+      final resting = _mode != _OrderMode.market;
+      primaryKind = 'view';
+      primaryLabel = resting
+          ? context.l10n.investingViewOrders
+          : context.l10n.investingViewPositions;
+      primaryAction = () => _viewAfterUnconfirmed(resting: resting);
+      primaryNeutral = true;
     } else if ((openBlock != null &&
             _openGateRegion &&
             !_isPlacing &&
@@ -5809,7 +6491,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ? null
           : () => StandingOrderSlips.openInstead(context, placing);
       primaryNeutral = false;
-    } else if (belowMin && !_isScale && _marginUsd > 0 && minAmountUsd > 0) {
+    } else if (belowMin &&
+        !_isScale &&
+        // A TWAP under its own (larger) minimum stays the order, disabled,
+        // its minimum said inline: never a one-tap jump to $100.
+        !_isTwap &&
+        _marginUsd > 0 &&
+        minAmountUsd > 0) {
       // An amount under the venue minimum: the button names the minimum
       // the available line shows, and a tap writes it and places it, as
       // the order at a typed minimum would. Against a held position (a
@@ -5822,9 +6510,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           context.l10n.amountMinimumInline(formatHlUsd(minAmountUsd));
       // Shut with the open gate (any refusal, not only a region one), as
       // the order button is: the minimum would only be refused again.
-      primaryAction =
-          _isPlacing || _preparing || _ledgerBusy || openBlock != null
-              ? null
+      primaryAction = _isPlacing ||
+              _preparing ||
+              _ledgerBusy ||
+              _unconfirmedLock ||
+              openBlock != null
+          ? null
               : netPlan.opposes
                   ? () => _fillAmountChip(minAmountUsd, 'min')
                   : () => _placeFilledMinimum(minAmountUsd);
@@ -5893,17 +6584,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               !primaryNeutral &&
               advancedBlock != openBlock)
             CapabilityBlockNote(advancedBlock),
+          if (exposureBlock != null && openBlock == null)
+            CapabilityBlockNote(exposureBlock),
           // A shut open already explains the disabled deposit door.
           if (depositBlock != null && openBlock == null && !incoming)
             CapabilityBlockNote(depositBlock),
           if (!incoming && (funding?.failed ?? false))
             const SlipDepositFailedNote(),
+          if (otherConfirming && primaryKind == 'trade')
+            CapabilityBlockNote(_strings.slipOtherOrderPlacingNote),
           if (heldByOther && primaryKind == 'trade')
             GestureDetector(
               key: const ValueKey('order-slip-other-placing'),
               behavior: HitTestBehavior.opaque,
               onTap: primaryAction,
               child: CapabilityBlockNote(_strings.slipOtherOrderPlacingNote),
+            ),
+          if (closeCancels != null)
+            Padding(
+              padding: EdgeInsets.only(bottom: 8.h),
+              child: Text(
+                context.l10n.hlProtectCloseCancelsOrders(closeCancels),
+                key: const ValueKey('order-slip-leftovers-note'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: c.textSecondary, fontSize: 13.sp),
+              ),
             ),
           if (priceStaleBlocks)
             Padding(
@@ -6138,11 +6843,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (advanced) {
       return PopScope(
         // Locked while it places; once the accept made a standing order
-        // of it, the person may leave (the order goes on).
+        // of it, the person may step back (the order goes on). Back from
+        // this page lands on the ticket, still open and still following
+        // the order to its receipt: leaving is the ticket's own pop
+        // ([_onLeave]), never this page's.
         canPop: _standingAccepted || !_isPlacing,
-        onPopInvokedWithResult: (didPop, _) {
-          if (didPop) _onLeave();
-        },
         child: Scaffold(
           backgroundColor: base.background,
           appBar: AppBar(
@@ -6322,8 +7027,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
     if (!mounted || _advancedRouteOpen) return false;
     if (ModalRoute.of(context)?.isCurrent != true) return false;
-    final focused = FocusManager.instance.primaryFocus?.context?.widget;
-    if (focused is EditableText) return false;
+    // A focused text field keeps its own keys. The focus node's context is
+    // the field's inner Focus, never the EditableText itself, so the field
+    // is found above it (as the shell bar and the keypad look for it).
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
     // The keypad's own lock, as the last build drew it.
     if (!_keypadTakesKeys) return false;
     final key = event.logicalKey;
@@ -6441,14 +7153,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     switch (_proType) {
       case _ProType.scale:
         return _strings.slipScaleOrder;
-      case _ProType.stopLimit:
-        return _strings.slipStopLimit;
-      case _ProType.stopMarket:
-        return _strings.slipStopMarket;
-      case _ProType.takeLimit:
-        return _strings.slipTakeLimit;
-      case _ProType.takeMarket:
-        return _strings.slipTakeMarket;
       case _ProType.twap:
         return _strings.slipTwapOrder;
     }
@@ -6501,23 +7205,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               style: TextStyle(
                   fontSize: 13.sp, color: c.textSecondary, height: 1.4),
             ),
-          ],
-        ),
-
-      // Margin mode + leverage (perps only).
-      if (!isSpot && (!_isLedger || market.offeredMaxLeverage > 1))
-        _advancedSection(
-          c,
-          market.offeredMaxLeverage > 1
-              ? l.chartLeverage
-              : l.investingMarginMode,
-          [
-            if (!_isLedger) ...[
-              _sectionLabel(c, l.investingMarginMode),
-              SizedBox(height: 8.h),
-              _buildMarginModeRow(c),
-            ],
-            if (market.offeredMaxLeverage > 1) _buildLeverage(c),
           ],
         ),
 
@@ -6636,13 +7323,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           selected: _mode == _OrderMode.limit,
           onTap: () => _onSelectMode(_OrderMode.limit),
         ),
-        _trackSegment(
-          c,
-          label: isPro ? _proTypeShortLabel() : context.l10n.receiveMoreOptions,
-          selected: isPro,
-          chevron: true,
-          onTap: _openProTypeSheet,
-        ),
+        // Scale and TWAP are perp-only here: the venue documents neither
+        // for spot, so a spot ticket offers Market and Limit alone.
+        if (!isSpot)
+          _trackSegment(
+            c,
+            label:
+                isPro ? _proTypeShortLabel() : context.l10n.receiveMoreOptions,
+            selected: isPro,
+            chevron: true,
+            onTap: _openProTypeSheet,
+          ),
       ]),
     );
   }
@@ -6651,14 +7342,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     switch (_proType) {
       case _ProType.scale:
         return _strings.slipScale;
-      case _ProType.stopLimit:
-        return _strings.slipStopLimit;
-      case _ProType.stopMarket:
-        return _strings.slipStopMarket;
-      case _ProType.takeLimit:
-        return _strings.slipTakeLimit;
-      case _ProType.takeMarket:
-        return _strings.slipTakeMarket;
       case _ProType.twap:
         return 'TWAP';
     }
@@ -6671,10 +7354,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     HapticFeedback.selectionClick();
     final items = <(_ProType, String)>[
       (_ProType.scale, _strings.slipScale),
-      (_ProType.stopLimit, _strings.slipStopLimit),
-      (_ProType.stopMarket, _strings.slipStopMarket),
-      (_ProType.takeLimit, _strings.slipTakeLimit),
-      (_ProType.takeMarket, _strings.slipTakeMarket),
       (_ProType.twap, 'TWAP'),
     ];
     final picked = await showHlOrderTypePicker<_ProType>(context,
@@ -6777,39 +7456,55 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }
 
   /// Places the attached trailing stop for the size that just filled: a
-  /// reduce-only order on the opposite side. A failure is reported on the
-  /// ticket; the position itself is already open.
-  Future<void> _placeAttachedTrailing(double filledSize) async {
-    if (!_trailingAvailable || !_attachTrailing || !mounted) return;
+  /// reduce-only order on the opposite side. The position itself is
+  /// already open, and the ticket closes on its receipt next, so what went
+  /// wrong is returned for that receipt to say ("the trailing stop was not
+  /// placed"): a failure, or its own approval declined. Null when it was
+  /// placed (or none was asked for).
+  Future<String?> _placeAttachedTrailing(double filledSize) async {
+    if (!_trailingAvailable || !_attachTrailing || !mounted) return null;
     final trail = _trailingDraft();
     final size = flooredSize(filledSize, market.szDecimals);
-    if (trail == null || size <= 0) return;
     final walletId = widget.ledgerWalletId ?? _spendingWalletId();
-    if (walletId == null) return;
+    if (trail == null || size <= 0 || walletId == null) {
+      return _strings.slipTrailingNotPlaced(_strings.errorCopyGeneric);
+    }
     final isBuy = !_isLong;
-    try {
-      await RuntimeCapabilitiesService.instance
-          .ensureAllowed('trading.advanced');
-      await RuntimeCapabilitiesService.instance
-          .ensureAllowed('hyperliquid.close');
-      final price = await ledgerHlReferencePx(market);
-      trail.validate(market: market, isBuy: isBuy, referencePrice: price);
-      if (!mounted) return;
-      if (_isLedger) {
-        final placed = await runLedgerHlTrailingStop(context, ref,
-            walletId: walletId,
-            market: market,
-            isBuy: isBuy,
-            size: size,
-            trail: trail,
-            reduceOnly: true,
-            leverage: _leverage,
-            isCross: _isCross,
-            onPending: () {});
-        if (placed != null) {
+    return hlAttachedTrailingNote(
+      _strings,
+      describe: _messageFor,
+      onFailed: (category) =>
+          TrackingService.track('hyperliquid_attached_trailing_failed', params: {
+        'coin': market.coin,
+        'wallet_kind': _isLedger ? 'ledger' : 'hot',
+        'error_category': category,
+      }),
+      place: () async {
+        await RuntimeCapabilitiesService.instance
+            .ensureAllowed('trading.advanced');
+        await RuntimeCapabilitiesService.instance
+            .ensureAllowed('hyperliquid.close');
+        final price = await ledgerHlReferencePx(market);
+        trail.validate(market: market, isBuy: isBuy, referencePrice: price);
+        if (!mounted) return true;
+        if (_isLedger) {
+          var pending = false;
+          final placed = await runLedgerHlTrailingStop(context, ref,
+              walletId: walletId,
+              market: market,
+              isBuy: isBuy,
+              size: size,
+              trail: trail,
+              reduceOnly: true,
+              leverage: _leverage,
+              isCross: _isCross,
+              onPending: () => pending = true);
+          // Declined on the device (a submission still in the air is
+          // pending, not refused).
+          if (placed == null) return pending;
           // The hot path reports from the trading notifier; the Ledger
           // order never touches it.
-          final lev = _leverage.clamp(1, market.offeredMaxLeverage).toInt();
+          final lev = HlIntents.clampLeverage(market, _leverage);
           TrackingService.hyperliquidOrderPlaced(
             coin: market.coin,
             kind: 'perp',
@@ -6824,8 +7519,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             marketType: market.dex.isEmpty ? 'perp' : market.dex,
             builderFeeApplied: false,
           );
+          return true;
         }
-      } else {
         final intent = HlIntents.trailingStop(
             walletId: walletId,
             market: market,
@@ -6839,7 +7534,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             intent: intent,
             reason: context.l10n.stepUpReasonOrder(market.coin),
             amountUsd: size * price / _leverage);
-        if (grant == null || !mounted) return;
+        // Its own approval declined: the receipt says so (it used to
+        // return without a word, and the ticket closed on "filled").
+        if (grant == null) return false;
+        if (!mounted) return true;
         await ref.read(hyperliquidTradingProvider.notifier).placeTrailingStop(
             market: market,
             isLong: isBuy,
@@ -6849,233 +7547,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             isCross: _isCross,
             reduceOnly: true,
             grant: grant);
-      }
-    } catch (e) {
-      TrackingService.track('hyperliquid_attached_trailing_failed', params: {
-        'coin': market.coin,
-        'wallet_kind': _isLedger ? 'ledger' : 'hot',
-        'error_category': TrackingService.errorCategory(e),
-      });
-      if (mounted) {
-        _updateDraft(() {
-          _errorCause = e;
-          _errorText = _strings.slipTrailingNotPlaced(_messageFor(e));
-        });
-      }
-    }
-  }
-
-  Widget _buildMarginModeRow(AppColorsExtension c) {
-    Widget seg(String label, bool cross) {
-      final locked = market.onlyIsolated;
-      final disabled = locked && cross; // can't pick cross on isolated-only
-      final sel = !disabled && _isCross == cross;
-      return Expanded(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: disabled
-              ? null
-              : () {
-                  if (_isCross == cross) return;
-                  HapticFeedback.selectionClick();
-                  _settingChanged('margin_mode', cross ? 'cross' : 'isolated');
-                  _updateDraft(() {
-                    _isCross = cross;
-                    _leverageTouched = true;
-                  });
-                },
-          child: Container(
-            height: 36.h,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: sel ? c.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(9.r),
-              border: Border.all(
-                color: sel ? c.border : Colors.transparent,
-                width: 0.5,
-              ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: disabled
-                    ? c.textTertiary.withValues(alpha: 0.4)
-                    : sel
-                        ? c.textPrimary
-                        : c.textTertiary,
-                fontWeight: FontWeight.w700,
-                fontSize: 13.sp,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12.h),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.all(3.w),
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(color: c.border, width: 0.5),
-              ),
-              child: Row(
-                children: [
-                  seg(context.l10n.slipCross, true),
-                  seg(context.l10n.slipIsolated, false),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// The most leverage this ticket offers: the venue's maximum, tightened
-  /// to the policy's cap for this region. Both tickets (spending wallet and
-  /// Ledger) draw the same slider from it.
-  int get _offeredLeverage => ref
-      .watch(runtimeCapabilitiesProvider)
-      .offeredLeverage(market.offeredMaxLeverage);
-
-  Widget _buildLeverage(AppColorsExtension c) {
-    final offered = _offeredLeverage;
-    final capped = offered < market.offeredMaxLeverage;
-    if (_leverage > offered) {
-      // A cap that arrived (or tightened) while the ticket was open pulls
-      // the draft down to it rather than leaving a value the order path
-      // would refuse.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _leverage > offered) {
-          _updateDraft(() => _leverage = offered);
-        }
-      });
-    }
-    final capNote = capped
-        ? Padding(
-            padding: EdgeInsets.only(top: 4.h),
-            child: Text(
-              context.l10n.investingLeverageCapped(offered),
-              style: TextStyle(
-                color: c.textTertiary,
-                fontSize: 12.sp,
-                height: 1.3,
-              ),
-            ),
-          )
-        : null;
-    if (offered <= 1) {
-      // Nothing to slide: the region allows 1x only.
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                context.l10n.ledgerSummaryLeverage,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
-                  color: c.textSecondary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '1x',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w800,
-                  color: c.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          if (capNote != null) capNote,
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              context.l10n.ledgerSummaryLeverage,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textSecondary,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${_leverage}x',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w800,
-                // The page is already painted in the side color, so the
-                // slider and its readout take the contrasting ink.
-                color: c.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: c.textPrimary,
-            inactiveTrackColor: c.surface,
-            thumbColor: c.textPrimary,
-            overlayColor: c.textPrimary.withValues(alpha: 0.12),
-            trackHeight: 3,
-          ),
-          child: Slider(
-            value: _leverage.clamp(1, offered).toDouble(),
-            min: 1,
-            max: offered.toDouble(),
-            divisions: offered - 1,
-            onChanged: (v) {
-              final next = v.round();
-              if (next != _leverage) {
-                HapticFeedback.selectionClick();
-                _updateDraft(() {
-                  _leverage = next;
-                  _leverageTouched = true;
-                });
-              }
-            },
-            onChangeEnd: (v) => _settingChanged('leverage', v.round()),
-          ),
-        ),
-        Row(
-          children: [
-            Text('1x',
-                style: TextStyle(color: c.textTertiary, fontSize: 12.sp)),
-            const Spacer(),
-            Text(context.l10n.slipMaxLeverage('$offered'),
-                style: TextStyle(color: c.textTertiary, fontSize: 12.sp)),
-          ],
-        ),
-        if (capNote != null) capNote,
-        if (market.onlyIsolated) ...[
-          SizedBox(height: 4.h),
-          Text(
-            context.l10n.slipIsolatedOnly,
-            style: TextStyle(
-              color: c.textTertiary,
-              fontSize: 12.sp,
-              height: 1.3,
-            ),
-          ),
-        ],
-      ],
+        return true;
+      },
     );
   }
 
@@ -7270,27 +7743,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ],
               ),
             );
-          case _ProType.stopLimit:
-          case _ProType.takeLimit:
-            return Padding(
-              padding: EdgeInsets.only(top: 16.h),
-              child: Column(
-                children: [
-                  _priceField(
-                      c, _NumField.trigger, context.l10n.slipTriggerPrice),
-                  SizedBox(height: 12.h),
-                  _priceField(
-                      c, _NumField.stopLimitPrice, context.l10n.betLimitPrice),
-                ],
-              ),
-            );
-          case _ProType.stopMarket:
-          case _ProType.takeMarket:
-            return Padding(
-              padding: EdgeInsets.only(top: 16.h),
-              child: _priceField(
-                      c, _NumField.trigger, context.l10n.slipTriggerPrice),
-            );
         }
     }
   }
@@ -7316,8 +7768,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       ));
     }
 
-    // Reduce-only — relevant for every non-market type.
-    if (_mode != _OrderMode.market) {
+    // Reduce-only — relevant for every non-market type on a perp. A spot
+    // sell is already an exit; there is no position to reduce.
+    if (_mode != _OrderMode.market && !isSpot) {
       children.add(SizedBox(height: 12.h));
       children.add(_buildCheckbox(
         c,
@@ -7392,6 +7845,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ),
             ],
           ),
+          // The same quiet warning line as the open-interest cap's.
+          if (_slPastLiquidation) ...[
+            SizedBox(height: 10.h),
+            Text(
+              context.l10n.hlAdvSlPastLiquidation,
+              key: const ValueKey('order-slip-sl-past-liquidation'),
+              style: TextStyle(
+                  color: c.textSecondary, fontSize: 13.sp, height: 1.4),
+            ),
+          ],
         ],
       ],
     );
@@ -7439,13 +7902,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           : formatHlPrice(v, decimalCap: market.pxDecimalCap);
     }
 
+    // On a market with a position the order trades at the position's own
+    // leverage and margin mode (never rewritten): said as it is.
+    final heldPos = _heldPositionNow().position;
     final leverage = isSpot
         ? ''
-        : l.slipLeverageSuffix(
-            '$_leverage',
-            _isCross && !market.onlyIsolated
-                ? l.slipMarginCross
-                : l.slipMarginIsolated);
+        : heldPos != null
+            ? l.slipLeverageSuffix(
+                '${heldPos.leverageValue}',
+                heldPos.isCross ? l.slipMarginCross : l.slipMarginIsolated)
+            : l.slipLeverageSuffix(
+                '$_leverage',
+                _isCross && !market.onlyIsolated
+                    ? l.slipMarginCross
+                    : l.slipMarginIsolated);
     final reduce = _reduceOnly ? l.slipReduceSentence : '';
     final tpsl = _attachTpSl && _isOpening ? l.slipTpSlSentence : '';
     final action = l.slipAction(verb, coin, leverage);
@@ -7474,18 +7944,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           case _ProType.twap:
             final m = _parseInt(_twapMinutesController) ?? 0;
             return l.slipExplainTwap(m, action, reduce);
-          case _ProType.stopMarket:
-            return l.slipExplainStopMarket(
-                coin, px(_triggerController), action, reduce);
-          case _ProType.stopLimit:
-            return l.slipExplainStopLimit(coin, px(_triggerController),
-                px(_stopLimitController), action, reduce);
-          case _ProType.takeMarket:
-            return l.slipExplainTakeMarket(
-                coin, px(_triggerController), action, reduce);
-          case _ProType.takeLimit:
-            return l.slipExplainTakeLimit(coin, px(_triggerController),
-                px(_stopLimitController), action, reduce);
         }
     }
   }
@@ -7508,6 +7966,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     double size = 0,
   }) {
     final holdingCost = _holdingCostLine(notional);
+    final heldPos = isSpot ? null : _heldPositionNow().position;
     final liq = !isSpot && _isOpening && entry > 0 && _marginUsd > 0
         ? _liquidationEstimate(entry, size)
         : (price: null, blocker: null);
@@ -7522,11 +7981,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // carrying cost are facts the order does not otherwise show.
         if (!isSpot) ...[
           // Leverage AND margin mode, on every ticket: which balance backs
-          // this position is not an Advanced detail.
+          // this position is not an Advanced detail. A position already
+          // held (opened elsewhere, say at 5x cross) keeps its own setting,
+          // which the order trades at: its real figures, never "1x".
           _previewRow(
             c,
             context.l10n.chartLeverage,
-            '$_leverage× · ${_isCross ? context.l10n.investingCrossMargin : context.l10n.investingIsolatedMargin}',
+            '${heldPos?.leverageValue ?? _leverage}× · ${(heldPos?.isCross ?? _isCross) ? context.l10n.investingCrossMargin : context.l10n.investingIsolatedMargin}',
           ),
           if (_leverage > 1) ...[
             SizedBox(height: 10.h),
@@ -7742,18 +8203,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     } else if (_isTwap) {
       final m = _parseInt(_twapMinutesController);
       add(_strings.slipOver, m != null ? _strings.slipMinutesValue(m) : '—');
-    } else if (_isTriggerType) {
-      final t = _parse(_triggerController);
-      add(_strings.slipTrigger,
-          t != null ? formatHlPrice(t, decimalCap: market.pxDecimalCap) : '—');
-      if (_proType == _ProType.stopLimit || _proType == _ProType.takeLimit) {
-        final l = _parse(_stopLimitController);
-        add(
-            _strings.betOrderTypeLimit,
-            l != null
-                ? formatHlPrice(l, decimalCap: market.pxDecimalCap)
-                : '—');
-      }
     }
 
     final entry = _entryPx(mid);
@@ -7932,12 +8381,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           case _ProType.twap:
             final m = _parseInt(_twapMinutesController) ?? 0;
             return l.slipCtaTwap(m);
-          case _ProType.stopLimit:
-          case _ProType.stopMarket:
-            return l.slipCtaStop;
-          case _ProType.takeLimit:
-          case _ProType.takeMarket:
-            return l.slipCtaTakeProfit;
         }
     }
   }

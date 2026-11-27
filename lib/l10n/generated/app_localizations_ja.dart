@@ -9,6 +9,117 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'このポジションはレバレッジを使用しているため、ここでは縮小または決済のみ可能です。';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'この市場でのポジションを確認できませんでした。しばらくしてからもう一度お試しください。';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'ストップロスは現在の価格より下に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'ストップロスは現在の価格より上に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'テイクプロフィットは現在の価格より上に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'テイクプロフィットは現在の価格より下に設定してください。そうしないとすぐにポジションが決済されます。';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger => '指値はトリガー価格以下に設定してください。';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger => '指値はトリガー価格以上に設定してください。';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'このストップは清算価格を超えています。発動する前にポジションが清算されます。';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'この価格は市場価格を超えています。すぐに約定し、高いテイカー手数料がかかります。';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return '全額決済すると、このポジションのストップ注文とテイクプロフィット注文($count件)も取り消されます。';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => '取り消した保護注文';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow => '未取消の保護注文';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'ストップ注文とテイクプロフィット注文を取り消せませんでした。新しいポジションを決済しないよう、注文画面で取り消してください。';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      '新しいストップロスは発注されましたが、古いものを取り消せませんでした。注文画面で取り消してください。';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'このポジションには$priceのストップロスがすでにあります。置き換える場合、古い注文は新しい注文の発注後に取り消されます。';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'このポジションにはストップロスがすでに$count件あります。置き換える場合、古い注文は新しい注文の発注後に取り消されます。';
+  }
+
+  @override
+  String get hlProtectReplaceStop => '置き換える';
+
+  @override
+  String get hlProtectAddStop => 'もう1つ追加';
+
+  @override
+  String get hlProtectCancelAllTitle => 'すべての注文を取り消しますか？';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return '未約定の注文がすべて取り消されます($count件)。';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return '未約定の注文がすべて取り消されます($count件、うちポジションを保護する注文$stops件)。';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo => 'Predictionsの注文も取り消されます。';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '残り$left / $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent%約定';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'このマーケットでの直近のトレーリングストップはまだ確認されていません。未約定の注文を確認してください。2つ目の注文は送信されていません。';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'ストップ $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'この注文を取り消しますか？';
+
+  @override
   String get totalBalance => '総残高';
 
   @override
@@ -1557,12 +1668,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get backUpBannerAction => 'バックアップ';
-
-  @override
-  String get getAppBannerTitle => 'Kuteアプリを入手';
-
-  @override
-  String get getAppBannerSubtitle => 'iPhoneとAndroidで利用できます';
 
   @override
   String get cancelOrder => '注文をキャンセル';
@@ -5766,9 +5871,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chartLogScale => '対数スケール';
-
-  @override
-  String get chartPriceScale => '価格スケール';
 
   @override
   String get chartVwapWindow => '表示中のローソク足のVWAP';
@@ -14154,6 +14256,70 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get hlAdvTpNotPlaced => '利確注文は出されませんでした。';
+
+  @override
+  String get hlAdvSlNotPlaced => '損切り注文は出されませんでした。';
+
+  @override
+  String get hlAdvTpSlNotPlaced => '利確注文と損切り注文は出されませんでした。';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return '$total件中$placed件の注文のみ出されました。';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => '注文の一部が約定';
+
+  @override
+  String get hlAdvStillOpen => '未約定';
+
+  @override
+  String get hlAdvRestStillOpen => '残りの注文はまだ未約定です。';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP注文は$amount以上が必要です。';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'TWAP注文は$minutes分間実行されます。';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'スケール注文は$min〜$max件です。';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => '開始価格と終了価格は異なる必要があります。';
+
+  @override
+  String get hlAdvScaleBelowPrice => '両方の価格を現在価格より下にしてください。';
+
+  @override
+  String get hlAdvScaleAbovePrice => '両方の価格を現在価格より上にしてください。';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'この損切りは推定清算価格を超えているため、先にポジションが清算される可能性があります。';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      '注文は約定しましたが、承認されなかったためトレーリングストップは出されませんでした。';
+
+  @override
+  String get getAppBannerTitle => 'Kuteアプリを入手';
+
+  @override
+  String get getAppBannerSubtitle => 'iPhoneとAndroidで利用できます';
+
+  @override
+  String get chartPriceScale => '価格スケール';
+
+  @override
   String get shareOpenInBrowserSafari =>
       'このページは別のアプリ内で開いています。Face IDを使いウォレットを保つには、Safariで開いてください。';
 
@@ -14166,4 +14332,8 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'アプリで開く';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Ledgerで決済しても、このポジションのストップ注文とテイクプロフィット注文は取り消されません。取り消しには毎回Ledgerが必要です。新しいポジションを決済しないよう、注文画面で取り消してください。';
 }

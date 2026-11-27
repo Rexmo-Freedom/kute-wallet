@@ -9,6 +9,121 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ta pozycja korzysta z dźwigni, więc tutaj możesz ją tylko zmniejszyć lub zamknąć.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nie udało się sprawdzić Twojej pozycji na tym rynku. Spróbuj ponownie za chwilę.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Ustaw stop loss poniżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Ustaw stop loss powyżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Ustaw take profit powyżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Ustaw take profit poniżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Ustaw cenę limitu na poziomie ceny aktywacji lub poniżej.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Ustaw cenę limitu na poziomie ceny aktywacji lub powyżej.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ten stop jest za ceną likwidacji: pozycja zostałaby zlikwidowana, zanim się uruchomi.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ta cena jest za ceną rynkową: zlecenie wykona się od razu, z wyższą opłatą takera.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Zamknięcie całości anuluje też jej zlecenia stop i take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Anulowane zlecenia ochronne';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Wciąż otwarte zlecenia ochronne';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Nie udało się anulować jej zleceń stop i take profit. Anuluj je w Zleceniach, aby nie zamknęły nowej pozycji.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Nowy stop loss jest złożony, ale nie udało się anulować starego. Anuluj go w Zleceniach.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ta pozycja ma już stop loss na $price. Przy zastąpieniu stary zostanie anulowany dopiero po złożeniu nowego.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ta pozycja ma już stop lossy: $count. Przy zastąpieniu stare zostaną anulowane dopiero po złożeniu nowego.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Zastąp';
+
+  @override
+  String get hlProtectAddStop => 'Dodaj kolejny';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Anulować wszystkie zlecenia?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'To anuluje wszystkie otwarte zlecenia ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'To anuluje wszystkie otwarte zlecenia ($count), w tym chroniące pozycję: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Twoje zlecenia w Predictions też zostaną anulowane.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Zostało $left z $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Wykonano $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Twój ostatni trailing stop na tym rynku nie jest jeszcze potwierdzony. Sprawdź otwarte zlecenia. Drugie zlecenie nie zostało wysłane.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop na $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Anulować to zlecenie?';
+
+  @override
   String get totalBalance => 'Saldo łączne';
 
   @override
@@ -1587,12 +1702,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get backUpBannerAction => 'Zrób kopię';
-
-  @override
-  String get getAppBannerTitle => 'Pobierz aplikację Kute';
-
-  @override
-  String get getAppBannerSubtitle => 'Dostępna na iPhone\'a i Androida';
 
   @override
   String get cancelOrder => 'Anuluj zlecenie';
@@ -6008,9 +6117,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Skala log.';
-
-  @override
-  String get chartPriceScale => 'Skala cen';
 
   @override
   String get chartVwapWindow => 'VWAP dla widocznych świec';
@@ -14662,6 +14768,74 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get hlAdvTpNotPlaced => 'Take-profit nie został złożony.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss nie został złożony.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Take-profit i stop-loss nie zostały złożone.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Złożono tylko $placed z $total zleceń.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Zlecenie zrealizowane częściowo';
+
+  @override
+  String get hlAdvStillOpen => 'Wciąż otwarte';
+
+  @override
+  String get hlAdvRestStillOpen => 'Reszta zlecenia jest wciąż otwarta.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Zlecenie TWAP musi wynosić co najmniej $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Twoje zlecenie TWAP trwa $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Skalowanie przyjmuje od $min do $max zleceń.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Cena początkowa i końcowa muszą się różnić.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Obie ceny muszą być poniżej bieżącej ceny.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Obie ceny muszą być powyżej bieżącej ceny.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Ten stop-loss jest za szacowaną ceną likwidacji, więc pozycja może zostać zlikwidowana wcześniej.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Zlecenie zrealizowano, ale trailing stop nie został złożony, bo nie został zatwierdzony.';
+
+  @override
+  String get getAppBannerTitle => 'Pobierz aplikację Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Dostępna na iPhone\'a i Androida';
+
+  @override
+  String get chartPriceScale => 'Skala cen';
+
+  @override
   String get shareOpenInBrowserSafari =>
       'Ta strona jest otwarta w innej aplikacji. Aby użyć Face ID i zachować portfel, otwórz ją w Safari.';
 
@@ -14674,4 +14848,8 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Otwórz w aplikacji';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Zamknięcie z Ledgerem nie anuluje zleceń stop i take profit tej pozycji: każde anulowanie wymaga Twojego Ledgera. Anuluj je w Zleceniach, aby nie zamknęły nowej pozycji.';
 }

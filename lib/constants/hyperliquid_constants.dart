@@ -11,6 +11,30 @@
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+/// LEVERAGE IS BLOCKED IN KUTE (founder, 14 October 2026), whatever the
+/// backend policy publishes: every Investing order this app signs is 1x,
+/// isolated. The policy's `maxLeverage` can only tighten this, never
+/// loosen it ([RuntimeCapabilitiesService.offeredLeverage] and
+/// [RuntimeCapabilitiesService.ensureLeverageAllowed] take the smaller).
+/// A position opened elsewhere at more leverage, or in cross margin, is
+/// never rewritten: the app sends no leverage write for a market with an
+/// open position, so closing, reducing, protecting and adding to it keep
+/// the venue's own setting.
+const int kHlMaxOfferedLeverage = 1;
+
+/// Cross margin is not offered (the whole account would back one
+/// position). Every leverage write the app makes is isolated.
+const bool kHlCrossMarginOffered = false;
+
+/// The leverage an order from this app carries on a perp whose venue
+/// maximum is [venueMax]: [requested], held to 1..[kHlMaxOfferedLeverage]
+/// and to the venue's own maximum.
+int hlAppLeverage(int requested, int venueMax) {
+  final venue = venueMax < 1 ? 1 : venueMax;
+  final cap = venue < kHlMaxOfferedLeverage ? venue : kHlMaxOfferedLeverage;
+  return requested.clamp(1, cap).toInt();
+}
+
 class HyperliquidConstants {
   HyperliquidConstants._();
 

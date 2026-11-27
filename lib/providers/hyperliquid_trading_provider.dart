@@ -1,4 +1,5 @@
 import 'package:kute/services/hyperliquid/trailing_stop_guard.dart';
+import 'package:kute/models/hyperliquid_model.dart' show HyperliquidModel;
 import 'package:kute/services/hyperliquid/trailing_stop.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -57,7 +58,11 @@ import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart'
+    show hlProtectiveOrdersFor;
 import 'package:kute/services/hyperliquid/hl_optimistic_margin.dart';
+import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_activity.dart';
@@ -69,6 +74,8 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart';
+import 'package:kute/services/hyperliquid/hl_trigger_guard.dart';
+import 'package:kute/services/hyperliquid/hl_twap_rules.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
@@ -89,6 +96,55 @@ import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show EthPrivateKey;
 import 'package:kute/services/polymarket/order_poll_gate.dart';
+
+/// A batch cancel the venue answered per order, with some still open
+/// after it: [cancelled] went, [stillOpen] did not (what was already gone
+/// is neither).
+class HlCancelPartialException implements Exception {
+  const HlCancelPartialException({
+    required this.cancelled,
+    required this.stillOpen,
+    required this.reason,
+  });
+  final int cancelled;
+  final int stillOpen;
+  final String reason;
+  @override
+  String toString() =>
+      'HlCancelPartialException($cancelled cancelled, $stillOpen still open: '
+      '$reason)';
+}
+
+/// What became of a closed position's left-over protective orders.
+typedef HlLeftoverSweep = ({int cancelled, int failed});
+
+/// The account a left-over sweep started on is no longer the one loaded
+/// (a wallet switch while it ran): nothing is sent.
+class _HlSweepAccountChanged implements Exception {
+  const _HlSweepAccountChanged();
+}
+
+class _FullCloseArm {
+  const _FullCloseArm({
+    required this.absSzi,
+    required this.wasLong,
+    required this.priorOids,
+    this.oid,
+    this.twapId,
+  });
+
+  /// The position's size and side when the closing order was sent.
+  final double absSzi;
+  final bool wasLong;
+
+  /// The coin's orders listed when the close was armed: only these can be
+  /// its left-overs (one placed after it never is).
+  final Set<int> priorOids;
+
+  /// The closing order's handle, while it may rest: its cancel disarms.
+  final int? oid;
+  final int? twapId;
+}
 
 /// The selected cancel-all set could not be resolved completely; no request
 /// was sent and all local orders remain visible.
@@ -271,6 +327,56 @@ double hlSpotBuyPerpTransferUsd({
 /// keeps its own mode.
 const bool kHlDefaultCross = false;
 
+/// Refuses a modify the chart must never send: a trailing stop (no fixed
+/// price), a row whose type only the WebSocket has seen (it may be a stop
+/// shown at its guard price), a trigger the venue does not name as a take
+/// profit or stop, and any order whose kind differs from the account's
+/// own row for it (a trigger must never be re-sent as a limit, which
+/// would fill at once).
+void hlCheckModifiable(HlOpenOrder order, List<HlOpenOrder> openOrders) {
+  if (order.isTrailingStop) {
+    throw StateError('A trailing stop cannot be moved by price.');
+  }
+  if (!order.detailsKnown) {
+    throw StateError('This order is still loading. Try again in a moment.');
+  }
+  if (order.isTrigger && order.tpsl == null) {
+    throw StateError('This order cannot be moved from the chart.');
+  }
+  for (final o in openOrders) {
+    if (o.oid != order.oid) continue;
+    if (!o.detailsKnown ||
+        o.isTrigger != order.isTrigger ||
+        o.isTrailingStop ||
+        (o.isTrigger && o.tpsl != order.tpsl)) {
+      throw StateError('This order cannot be moved from the chart.');
+    }
+  }
+}
+
+/// [TrailingStopGuard]'s venue read for an unclear trailing-stop send
+/// signed at [sentAtMs]: found when a trailing stop on [market] placed at
+/// or after it (a few seconds' clock slack) is resting or in the order
+/// history; absent when both lists read and neither has it. A read that
+/// fails throws (the guard keeps blocking).
+Future<TrailingStopVenueState> hlLookupTrailingStop({
+  required HyperliquidModel model,
+  required String address,
+  required HlMarket market,
+  required int sentAtMs,
+}) async {
+  bool match(HlOpenOrder o) =>
+      o.isTrailingStop &&
+      (o.coin == market.wireCoin || o.coin == market.coin) &&
+      o.timestamp >= sentAtMs - 10000;
+  final dexes = market.dex.isEmpty ? const <String>[] : [market.dex];
+  final open = await model.getOpenOrders(address, dexes: dexes);
+  if (open.any(match)) return TrailingStopVenueState.found;
+  final history = await model.getHistoricalOrders(address, dex: market.dex);
+  if (history.any(match)) return TrailingStopVenueState.found;
+  return TrailingStopVenueState.absent;
+}
+
 class HyperliquidTradingState {
   /// True once the spending wallet's address resolved — browsing works
   /// regardless; this only gates account-scoped UI (balances card).
@@ -286,6 +392,12 @@ class HyperliquidTradingState {
   /// Perp USDC available for withdrawal / new margin, USD.
   final double withdrawable;
   final List<HlPerpPosition> positions;
+
+  /// The perp dexes [positions] were read from ('' = the main dex), as the
+  /// account read covered them ([HlAccountSnapshot.positionDexes]). A
+  /// market on any other dex has an unknown position, and so does every
+  /// market while [isInitialized] is false (hl_exposure_rule.dart).
+  final Set<String> positionDexes;
   final List<HlSpotBalance> spotBalances;
   final List<HlOpenOrder> openOrders;
 
@@ -314,6 +426,7 @@ class HyperliquidTradingState {
     this.totalMarginUsed = 0,
     this.withdrawable = 0,
     this.positions = const [],
+    this.positionDexes = const {''},
     this.spotBalances = const [],
     this.openOrders = const [],
     this.recentFills = const [],
@@ -333,6 +446,7 @@ class HyperliquidTradingState {
     double? totalMarginUsed,
     double? withdrawable,
     List<HlPerpPosition>? positions,
+    Set<String>? positionDexes,
     List<HlSpotBalance>? spotBalances,
     List<HlOpenOrder>? openOrders,
     List<HlFill>? recentFills,
@@ -348,6 +462,7 @@ class HyperliquidTradingState {
       totalMarginUsed: totalMarginUsed ?? this.totalMarginUsed,
       withdrawable: withdrawable ?? this.withdrawable,
       positions: positions ?? this.positions,
+      positionDexes: positionDexes ?? this.positionDexes,
       spotBalances: spotBalances ?? this.spotBalances,
       openOrders: openOrders ?? this.openOrders,
       recentFills: recentFills ?? this.recentFills,
@@ -377,6 +492,7 @@ class HyperliquidTradingState {
         error == other.error &&
         isPlacingOrder == other.isPlacingOrder &&
         setEquals(pendingCloseCoins, other.pendingCloseCoins) &&
+        setEquals(positionDexes, other.positionDexes) &&
         hlPerpPositionListEquals(positions, other.positions) &&
         hlSpotBalanceListEquals(spotBalances, other.spotBalances) &&
         hlOpenOrderListEquals(openOrders, other.openOrders) &&
@@ -418,11 +534,30 @@ class HyperliquidTradingNotifier
     extends AutoDisposeAsyncNotifier<HyperliquidTradingState> {
   HyperliquidExchangeService? _exchange;
 
+  /// Tests only: an exchange (MockClient-backed) in place of the derived
+  /// signer, so the order and cancel paths run for real against canned
+  /// answers.
+  @visibleForTesting
+  void debugUseExchange(HyperliquidExchangeService exchange,
+      {required String walletId}) {
+    _exchange = exchange;
+    _walletId = walletId;
+  }
+
+  /// Tests only: an account snapshot, as the account provider's poll
+  /// delivers it.
+  @visibleForTesting
+  void debugApplySnapshot(HlAccountSnapshot snap) => _applySnapshot(snap);
+
   /// The hot account key, kept beside [_exchange] (same lifetime, never in
   /// state, never persisted) for the venue ownership link only.
   EthPrivateKey? _hotKey;
   String? _walletId;
   String? _address;
+
+  /// Bumped by every [build] (a wallet switch rebuilds): work that spans
+  /// awaits compares it to know it still runs on the same account.
+  int _generation = 0;
   Timer? _ordersTimer;
   bool _disposed = false;
   bool _onboardInFlight = false;
@@ -463,6 +598,29 @@ class HyperliquidTradingNotifier
   /// ([hlPositionsAfterCloses]).
   Map<String, HlClosedInFull> _closedInFull = const {};
 
+  /// When the positions in the state were read, by dex
+  /// ([HlAccountSnapshot.positionsReadAt]; a snapshot without times counts
+  /// from when it arrived). Kept off [HyperliquidTradingState] so an idle
+  /// poll does not notify every consumer.
+  Map<String, DateTime> _statePositionsReadAt = const {};
+
+  /// The order path's own per-dex position reads ([heldPositionFor]), for
+  /// [kHlPositionsFreshFor], by dex, with the account they read.
+  final Map<String, ({String address, HlAccountSnapshot snap, DateTime at})>
+      _dexReads = {};
+
+  /// When this app last changed the account (an action the venue took):
+  /// a read sent before it never counts as fresh.
+  DateTime? _accountChangedAt;
+
+  static Map<String, DateTime> _readTimes(HlAccountSnapshot snap) {
+    final now = DateTime.now();
+    return {
+      for (final dex in snap.positionDexes)
+        dex: snap.positionsReadAt[dex] ?? now,
+    };
+  }
+
   /// Safe state write — long-running async work can outlive this
   /// autoDispose notifier (user navigates away mid-order); writing to a
   /// disposed notifier throws. Same guard as PM's _setData.
@@ -494,6 +652,14 @@ class HyperliquidTradingNotifier
     // remount. Torn down only by explicit invalidation (wallet switch).
     ref.keepAlive();
     _disposed = false;
+    // A sweep still running belongs to the build it started in.
+    _generation++;
+    // Arms belong to the account they were set on.
+    _fullCloseArms.clear();
+    _leftoverSweeps.clear();
+    _dexReads.clear();
+    _statePositionsReadAt = const {};
+    _accountChangedAt = null;
     ref.onDispose(() {
       _disposed = true;
       _ordersTimer?.cancel();
@@ -522,6 +688,7 @@ class HyperliquidTradingNotifier
     try {
       snap = await ref.read(hyperliquidAccountProvider.future);
       accountRead = true;
+      _statePositionsReadAt = _readTimes(snap);
     } catch (_) {
       // Account fetch failed. The account is UNKNOWN, not empty: the state
       // stays uninitialized (no $0.00 counted as the venue's answer, the
@@ -566,6 +733,7 @@ class HyperliquidTradingNotifier
       totalMarginUsed: snap.totalMarginUsed,
       withdrawable: snap.withdrawable,
       positions: snap.positions,
+      positionDexes: snap.positionDexes,
       spotBalances: snap.spotBalances,
       openOrders: orders,
       recentFills: _capFills(fills),
@@ -683,6 +851,7 @@ class HyperliquidTradingNotifier
       _trackCancelFailed(scope: 'twap', coin: twap.coin, error: e);
       rethrow;
     }
+    _disarmByOrder(twapId: twap.twapId);
     TrackingService.track('hl_twap_cancelled', params: {'coin': twap.coin});
     TrackingService.hyperliquidOrderCancelled(
       coin: twap.coin,
@@ -702,6 +871,7 @@ class HyperliquidTradingNotifier
     if (_disposed) return;
     final current = state.valueOrNull;
     if (current == null) return;
+    _statePositionsReadAt = _readTimes(snap);
 
     // Reconcile "Closing…" markers: drop a coin once the snapshot shows
     // its size actually dropped (close settled) or after the safety TTL.
@@ -746,21 +916,24 @@ class HyperliquidTradingNotifier
       totalMarginUsed: keepHold ? hold.totalMarginUsed : snap.totalMarginUsed,
       withdrawable: keepHold ? hold.withdrawable : snap.withdrawable,
       positions: afterCloses.positions,
+      positionDexes: snap.positionDexes,
       spotBalances: snap.spotBalances,
       pendingCloseCoins: pending,
       // A real snapshot: the figures are the venue's answer now (a build
       // whose first read failed starts uninitialized).
       isInitialized: true,
     );
-    if (next == current) return;
-    _setData(next);
+    if (next != current) _setData(next);
+    // A whole position this app closed, now gone: its left-over stops go.
+    _checkFullCloseArms(afterCloses.positions);
   }
 
   // ───────────────────── optimistic margin after a fill ─────────────────────
 
   /// [position] closed in full: off the positions now, and kept off while
   /// a read still shows it at its size ([hlPositionsAfterCloses]).
-  void _dropClosedInFull(HlPerpPosition position) {
+  void _dropClosedInFull(HlPerpPosition position,
+      {required Set<int> priorOids}) {
     final s = _current;
     if (s == null) return;
     _closedInFull = {
@@ -773,6 +946,197 @@ class HyperliquidTradingNotifier
           if (p.coin != position.coin) p,
       ],
     ));
+    // Gone now: the closing order was this app's own (closePosition).
+    _startLeftoverSweep(position.coin, priorOids: priorOids);
+  }
+
+  /// [coin]'s orders listed now: what a close sent now could leave behind.
+  Set<int> _oidsOn(String coin) => {
+        for (final o in _current?.openOrders ?? const <HlOpenOrder>[])
+          if (o.coin == coin) o.oid,
+      };
+
+  // ─────────── left-over protective orders after a full close ───────────
+  //
+  // ONE place for every path that ends with a position at zero: the close
+  // sheet's market close, the order slip's close (closePosition), a limit
+  // or TWAP close sized to the whole position, and an opposite-side order
+  // on the slip that nets it to exactly zero. A reduce-only stop, take or
+  // trailing stop left on a flat market could close a position opened
+  // there later, so the coin's protective orders are cancelled, and only
+  // when all of this holds:
+  //
+  //   * this app sent the order that closes the WHOLE position, in this
+  //     session ([_armFullClose]; a partial close arms nothing);
+  //   * the app saw the position open when it sent it, and now sees it
+  //     gone (the fill of closePosition, or an account snapshot with no
+  //     position on the coin: [_checkFullCloseArms]). A resting limit or
+  //     a TWAP is never swept on acceptance, only once the position is
+  //     actually gone;
+  //   * the position is still gone after the open orders are read again,
+  //     and in one fresh read of the coin's dex (clearinghouseState) right
+  //     before the cancel; a read that fails cancels nothing;
+  //   * the order was listed when the close was armed: one placed after
+  //     it (a reopened position's TP/SL) is never its left-over;
+  //   * the account is still the one the sweep started on (a wallet
+  //     switch mid-sweep sends nothing).
+  //
+  // Only protective orders ([hlProtectiveOrdersFor]: trigger or trailing,
+  // reduce-only or position TP/SL) are cancelled, never an entry or a
+  // plain limit. The arm drops if its closing order is cancelled, or if
+  // the position grows past what the close was sized for or flips side.
+  // The user's own Confirm of that close is the consent: the close sheet
+  // says so before it is sent ("Closing all of it also cancels its stop
+  // and take-profit orders").
+
+  final Map<String, _FullCloseArm> _fullCloseArms = {};
+  final Map<String, Future<HlLeftoverSweep>> _leftoverSweeps = {};
+
+  /// The cancel of [coin]'s left-over protective orders started when its
+  /// position was seen gone after this app closed it, or null when none
+  /// started (not closed in full here, or nothing to cancel). The close
+  /// sheet awaits it for its receipt.
+  Future<HlLeftoverSweep>? leftoverSweepFor(String coin) =>
+      _leftoverSweeps[coin];
+
+  /// Arms the sweep when the order this app just had accepted closes the
+  /// whole of [held] ([orderIsBuy] on the other side, sized to it within
+  /// one lot step; a reduce-only order sized past it also closes it).
+  void _armFullClose({
+    required HlMarket market,
+    required HlPerpPosition? held,
+    required bool orderIsBuy,
+    required double size,
+    required bool reduceOnly,
+    int? oid,
+    int? twapId,
+  }) {
+    if (market.isSpot || held == null || held.szi == 0) return;
+    final plan = hlPositionPlan(
+        position: held,
+        orderIsLong: orderIsBuy,
+        orderSize: size,
+        szDecimals: market.szDecimals);
+    final full = plan.effect == HlPositionEffect.close ||
+        (reduceOnly && plan.effect == HlPositionEffect.flip);
+    if (!full) return;
+    _fullCloseArms[held.coin] = _FullCloseArm(
+      absSzi: held.szi.abs(),
+      wasLong: held.isLong,
+      priorOids: _oidsOn(held.coin),
+      oid: oid,
+      twapId: twapId,
+    );
+    // A fill can land (and a snapshot show it gone) before the order's
+    // answer is back.
+    final s = _current;
+    if (s != null) _checkFullCloseArms(s.positions);
+  }
+
+  HlPerpPosition? _heldOn(HlMarket market) {
+    if (market.isSpot) return null;
+    for (final p in _current?.positions ?? const <HlPerpPosition>[]) {
+      if (p.coin == market.wireCoin && p.szi != 0) return p;
+    }
+    return null;
+  }
+
+  /// An armed coin with no position left is swept; one that grew past
+  /// the close or flipped side is disarmed.
+  void _checkFullCloseArms(List<HlPerpPosition> positions) {
+    if (_fullCloseArms.isEmpty) return;
+    for (final coin in _fullCloseArms.keys.toList()) {
+      final arm = _fullCloseArms[coin]!;
+      HlPerpPosition? now;
+      for (final p in positions) {
+        if (p.coin == coin && p.szi != 0) {
+          now = p;
+          break;
+        }
+      }
+      if (now == null) {
+        _startLeftoverSweep(coin, priorOids: arm.priorOids);
+      } else if (now.isLong != arm.wasLong ||
+          now.szi.abs() > arm.absSzi * (1 + 1e-9) + 1e-12) {
+        _fullCloseArms.remove(coin);
+      }
+    }
+  }
+
+  void _disarmByOrder({int? oid, int? twapId}) {
+    _fullCloseArms.removeWhere((_, arm) =>
+        (oid != null && arm.oid == oid) ||
+        (twapId != null && arm.twapId == twapId));
+  }
+
+  void _startLeftoverSweep(String coin, {required Set<int> priorOids}) {
+    _fullCloseArms.remove(coin);
+    final sweep = _sweepLeftovers(coin, priorOids);
+    _leftoverSweeps[coin] = sweep;
+    unawaited(sweep.then((_) {}, onError: (_) {}));
+  }
+
+  Future<HlLeftoverSweep> _sweepLeftovers(
+      String coin, Set<int> priorOids) async {
+    const none = (cancelled: 0, failed: 0);
+    // The account the sweep runs on, held across every await: a wallet
+    // switch meanwhile drops it ([build] bumps the generation, the signer
+    // and address change).
+    final ex = _exchange;
+    final address = _address;
+    final generation = _generation;
+    if (ex == null ||
+        address == null ||
+        address.toLowerCase() != ex.walletAddress.toLowerCase()) {
+      return none;
+    }
+    bool sameAccount() =>
+        !_disposed &&
+        generation == _generation &&
+        identical(_exchange, ex) &&
+        _address?.toLowerCase() == address.toLowerCase();
+
+    // The orders read again first: a stop first seen over the socket is
+    // not described yet and would otherwise be missed.
+    await _silentOrdersRefresh();
+    if (!sameAccount()) return none;
+    final s = _current;
+    if (s == null) return none;
+    // Never on a market where a position is open (again).
+    if (s.positions.any((p) => p.coin == coin && p.szi != 0)) return none;
+    // Only what was there when the close went out.
+    final leftovers = [
+      for (final o in hlProtectiveOrdersFor(s.openOrders, coin))
+        if (priorOids.contains(o.oid)) o,
+    ];
+    if (leftovers.isEmpty) return none;
+    // The position read fresh, right before the cancel: the lists above
+    // may be the snapshot that set this off (or the optimistic drop), and
+    // the coin may have been opened again since (another device, an order
+    // standing in a queue). Open again, or unreadable: nothing cancelled.
+    try {
+      final i = coin.indexOf(':');
+      final dex = i > 0 ? coin.substring(0, i) : '';
+      final fresh = await ref
+          .read(hyperliquidTradingModelProvider)
+          .getDexClearinghouse(address, dex);
+      if (fresh.positions.any((p) => p.coin == coin && p.szi != 0)) {
+        return none;
+      }
+    } catch (_) {
+      return none;
+    }
+    if (!sameAccount()) return none;
+    try {
+      final report = await _cancelListed(leftovers,
+          reason: 'after_close', exchange: ex, stillCurrent: sameAccount);
+      return (cancelled: report.cancelled.length, failed: report.failed.length);
+    } on _HlSweepAccountChanged {
+      return none;
+    } catch (_) {
+      // Unconfirmed: said as still open; the next read reconciles.
+      return (cancelled: 0, failed: leftovers.length);
+    }
   }
 
   HlOptimisticMargin? _optimisticMargin;
@@ -851,6 +1215,8 @@ class HyperliquidTradingNotifier
     // Order activity: Investing's cash stays put, and its idle window
     // (investing_sweep_rules.dart) starts again.
     VenueActivity.note(OneBalanceVenue.investing);
+    // The positions read before this action are not fresh any more.
+    _accountChangedAt = DateTime.now();
     ref.invalidate(hyperliquidAccountProvider);
     for (final delay in const [1, 4]) {
       Future.delayed(Duration(seconds: delay), () {
@@ -1085,6 +1451,44 @@ class HyperliquidTradingNotifier
     return px;
   }
 
+  /// The price the venue fires a trigger on: the mark ("The mark price is
+  /// used to trigger TP/SL orders", Hyperliquid docs). The market's live
+  /// mark from its `activeAssetCtx` stream while one is open (the market
+  /// sheet holds it), else the freshest mid ([_referencePx]): the listed
+  /// [HlMarket.markPx] carries no age, so it never outranks a live mid.
+  @visibleForTesting
+  double triggerMarkPx(HlMarket market) {
+    try {
+      final live = hyperliquidActiveAssetCtxProvider(market.wireCoin);
+      if (ref.exists(live)) {
+        final mark = ref.read(live).valueOrNull?.markPx;
+        if (mark != null && mark > 0) return mark;
+      }
+    } catch (_) {}
+    return _referencePx(market);
+  }
+
+  /// Throws [HlTriggerCrossedException] when a protective trigger closing
+  /// on [closeIsBuy] at [trigger] is on the wrong side of the freshest
+  /// mark ([triggerMarkPx]): it would fire at once. No price, no check
+  /// (the sheet checked it against the price it showed).
+  void _ensureTriggerHolds(HlMarket market,
+      {required bool closeIsBuy,
+      required String tpsl,
+      required double trigger}) {
+    double mark;
+    try {
+      mark = triggerMarkPx(market);
+    } catch (_) {
+      return;
+    }
+    if (hlTriggerCrossed(
+        closeIsBuy: closeIsBuy, tpsl: tpsl, trigger: trigger, mark: mark)) {
+      throw HlTriggerCrossedException(
+          closeIsBuy: closeIsBuy, tpsl: tpsl, mark: mark);
+    }
+  }
+
   /// A direct deposit may credit either HyperCore clearinghouse. Move only
   /// the cash needed by this reviewed action into perps, after its grant was
   /// consumed. This never touches an external chain or an Arbitrum address.
@@ -1202,7 +1606,6 @@ class HyperliquidTradingNotifier
     double? stopLossPx,
     String? source,
     String? cloid,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance
@@ -1238,20 +1641,37 @@ class HyperliquidTradingNotifier
         ),
         allowed: _hlOrderActions,
       );
-      final lev = leverage.clamp(1, market.maxLeverage).toInt();
+      final lev = HlIntents.clampLeverage(market, leverage);
+      // The exposure rule (hl_exposure_rule.dart), before anything is
+      // funded or signed: on a market held above 1x or in cross only a
+      // reduction goes, reduce-only; an add, a flip or an unknown position
+      // is refused here. A plain order on a flat, loaded account reads
+      // nothing more.
+      final exposure = await exposureFor(market,
+          isBuy: isLong,
+          size: sizeFromUsd(
+              usd: marginUsd * lev,
+              px: _referencePx(market),
+              szDecimals: market.szDecimals));
+      final reduceOnly = exposure.check.mustReduceOnly;
+      exposure.check.ensureAllows(
+          // A reduction carries no TP/SL bracket: that is an open's.
+          sentReduceOnly: takeProfitPx == null && stopLossPx == null);
       HlBuilderFee? builder;
       // Funding through placement holds the Investing cash
       // (InvestingCashLock): a Swap or Send pulling Investing cash at the
       // same moment waits for the order instead of moving the cash it is
       // funding the order with back out of the builder dex.
       final result = await InvestingCashLock.run(() async {
-        await _fundPerpAction(market, marginUsd,
-            leverage: lev, slippagePct: slippagePct);
+        // A reduction needs no margin and makes no leverage write.
+        if (!reduceOnly) {
+          await _fundPerpAction(market, marginUsd,
+              leverage: lev, slippagePct: slippagePct);
 
-        // 1) Leverage + margin mode (writes only when the resting per-asset
-        //    setting differs; always writes when flat).
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+          // 1) Leverage + margin mode: 1x isolated on a flat market, never
+          //    on a held position.
+          await _ensureLeverage(market, exposure.held, lev, isCross);
+        }
 
         // 2) Size from margin × leverage at the live reference price.
         final refPx = _referencePx(market);
@@ -1276,6 +1696,7 @@ class HyperliquidTradingNotifier
             size: size,
             referencePx: refPx,
             slippage: slippagePct / 100,
+            reduceOnly: reduceOnly,
             takeProfitPx: takeProfitPx,
             stopLossPx: stopLossPx,
             cloid: orderCloid,
@@ -1283,7 +1704,7 @@ class HyperliquidTradingNotifier
           ),
           cloid: orderCloid,
           market: market,
-          action: 'open',
+          action: reduceOnly ? 'close' : 'open',
         );
       });
 
@@ -1303,7 +1724,8 @@ class HyperliquidTradingNotifier
           source: source,
           providerOrderId: result.oid?.toString(),
           orderType: 'market',
-          isCross: (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
+          reduceOnly: reduceOnly,
+          isCross: kHlCrossMarginOffered && (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
           hasTp: hasTp,
           hasSl: hasSl,
           filled: result.isFilled,
@@ -1313,7 +1735,11 @@ class HyperliquidTradingNotifier
         );
         _trackTpslLegFailure(market, result,
             wantedTpsl: hasTp || hasSl, parentType: 'market');
-        if (result.isFilled) {
+        // A fill that adds margin: an open on a flat market, or an add to a
+        // 1x isolated position (the exposure rule refuses adds to anything
+        // else), so its margin is the filled notional at 1x. A reduction
+        // locks none.
+        if (result.isFilled && !reduceOnly) {
           // Margin locked by the fill, shown now; the next account poll
           // reconciles (see _applySnapshot).
           final filledMargin = result.avgPx > 0
@@ -1546,6 +1972,13 @@ class HyperliquidTradingNotifier
       if (pos == null) {
         throw StateError('No open position for $coin');
       }
+      // A sweep from an earlier close of this coin is not this close's.
+      _leftoverSweeps.remove(coin);
+      // What this close can leave behind: the coin's orders now.
+      final priorOids = {
+        for (final o in state0.openOrders)
+          if (o.coin == coin) o.oid,
+      };
 
       await ensureOnboarded();
       final ex = _exchange!;
@@ -1622,7 +2055,7 @@ class HyperliquidTradingNotifier
             result.filledSz >= pos.szi.abs() * (1 - 1e-9)) {
           // Closed in full: the position leaves the lists now, not on the
           // next account poll ([hlPositionsAfterCloses]).
-          _dropClosedInFull(pos);
+          _dropClosedInFull(pos, priorOids: priorOids);
         }
         if (result.isFilled && pos.szi.abs() > 0) {
           // Margin released (and PnL realised) by the fill, shown now; the
@@ -1671,23 +2104,45 @@ class HyperliquidTradingNotifier
   Future<HlOrderResult> _sendReconciled(
     Future<HlOrderResult> Function() send, {
     required String cloid,
+    List<String>? cloids,
+    int? scaleLegs,
     required HlMarket market,
     required String action,
-  }) =>
-      hlSendReconciled(
-        send: send,
-        cloid: cloid,
-        market: market,
-        lookup: ref.read(hlSentOrderTraceProvider),
-        action: action,
-        onConfirming: (on) {
-          if (_disposed) return;
-          final confirming = ref.read(hlConfirmingOrdersProvider.notifier);
-          final now = {...confirming.state};
-          on ? now.add(cloid) : now.remove(cloid);
-          confirming.state = now;
-        },
-      );
+    Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket m)?
+        lookup,
+  }) {
+    // The account the order goes to, as it is sent.
+    final account = (accountAddress ?? '').toLowerCase();
+    return hlSendReconciled(
+      send: send,
+      cloid: cloid,
+      cloids: cloids,
+      scaleLegs: scaleLegs,
+      market: market,
+      lookup: lookup ?? ref.read(hlSentOrderTraceProvider),
+      action: action,
+      onConfirming: (on) {
+        if (_disposed) return;
+        final confirming = ref.read(hlConfirmingOrdersProvider.notifier);
+        final now = {...confirming.state};
+        on ? now.add(cloid) : now.remove(cloid);
+        confirming.state = now;
+        // By account and market too: a fresh ticket on it waits for this
+        // lookup; another account's ticket does not.
+        final markets = ref.read(hlConfirmingMarketsProvider.notifier);
+        final byMarket = {...markets.state};
+        on
+            ? byMarket[cloid] = (account: account, wireCoin: market.wireCoin)
+            : byMarket.remove(cloid);
+        markets.state = byMarket;
+      },
+    );
+  }
+
+  /// The account this notifier trades (its address), null before it is
+  /// known.
+  String? get accountAddress =>
+      _address ?? _exchange?.walletAddress ?? _current?.walletAddress;
 
   /// Bookkeeping after the exchange took an order (analytics, the
   /// optimistic margin, a refresh): never thrown out of, since the order
@@ -1712,49 +2167,219 @@ class HyperliquidTradingNotifier
       reduceOnly ? const ['hyperliquid.close'] : hlOpenCapabilities(market);
 
   ///
-  /// An OPEN POSITION's leverage and margin mode are never changed as a
-  /// side effect: unless [changeOpenPosition] (the person moved the
-  /// ticket's leverage or margin mode themselves, and the grant they
-  /// approved carries those values), an order on a market with a position
-  /// leaves the venue setting alone and trades at the position's own
-  /// leverage. The ticket starts from the position's values anyway.
+  /// An OPEN POSITION's leverage and margin mode are never changed: an
+  /// order on a market with a position (opened here or elsewhere, at any
+  /// leverage, cross or isolated) leaves the venue setting alone and trades
+  /// at the position's own setting. On a flat market the write is always
+  /// made (the resting value is unknown) and is always 1x isolated:
+  /// leverage and cross margin are blocked in this app
+  /// ([kHlMaxOfferedLeverage], [kHlCrossMarginOffered]).
+  ///
+  /// [held] is the position on [market] as positively known
+  /// ([heldPositionFor]): an unknown position is refused before this
+  /// ([hlExposureCheck]), never read as flat.
   Future<void> _ensureLeverage(
     HlMarket market,
-    HyperliquidTradingState current,
+    HlHeldPosition held,
     int lev,
-    bool? isCross, {
-    bool changeOpenPosition = false,
-  }) async {
+    bool? isCross,
+  ) async {
     if (market.isSpot) return;
+    if (!held.known) {
+      throw const HlExposureRefusedException(
+          HlExposureRefusal.positionUnknown);
+    }
+    // The position once more when its read aged past the bound since the
+    // rule judged it (funding can take a while): a position opened
+    // elsewhere meanwhile is never written over, and one above 1x or in
+    // cross takes no add. A read within the bound costs nothing.
+    final now = await heldPositionFor(market, maxAge: kHlPositionsFreshFor);
+    if (!now.known) {
+      throw const HlExposureRefusedException(
+          HlExposureRefusal.positionUnknown);
+    }
+    final pos = now.position;
+    if (pos != null && hlPositionIsLeveraged(pos)) {
+      throw const HlExposureRefusedException(
+          HlExposureRefusal.leveragedPosition);
+    }
+    final write = leverageWriteFor(market, now.positions, lev);
+    if (write == null) return;
+    final appLev = write.leverage;
+    final effCross = write.isCross;
     // The region's leverage cap, checked before the venue is asked to set
     // the leverage; the Ledger order path makes the same check.
-    RuntimeCapabilitiesService.instance.ensureLeverageAllowed(lev);
-    HlPerpPosition? existing;
-    for (final p in current.positions) {
-      if (p.coin == market.wireCoin) {
-        existing = p;
-        break;
+    RuntimeCapabilitiesService.instance.ensureLeverageAllowed(appLev);
+    await _exchange!.updateLeverage(
+      assetId: market.assetId,
+      isCross: effCross,
+      leverage: appLev,
+    );
+    // A side effect of placing an order, not a user choice.
+    TrackingService.hyperliquidLeverageAdjusted(
+        coin: market.coin,
+        leverage: appLev,
+        source: 'order_auto',
+        isCross: effCross);
+  }
+
+  /// The leverage write an order on [market] makes before it is placed:
+  /// none on spot or while a position is open on the market (whatever its
+  /// leverage or margin mode, it is never rewritten), else 1x isolated.
+  @visibleForTesting
+  static ({int leverage, bool isCross})? leverageWriteFor(
+      HlMarket market, List<HlPerpPosition> positions, int requested) {
+    if (market.isSpot) return null;
+    for (final p in positions) {
+      if (p.coin == market.wireCoin && p.szi != 0) return null;
+    }
+    return (
+      leverage: hlAppLeverage(requested, market.maxLeverage),
+      isCross: kHlCrossMarginOffered,
+    );
+  }
+
+  /// The newest positive read of [market]'s positions and when it was
+  /// sent: the state's, the account's last read (even one the state
+  /// skipped as unchanged), or the order path's own per-dex read while it
+  /// is within [kHlPositionsFreshFor]. Null when none knows the dex.
+  ({HlHeldPosition held, DateTime? at})? _newestPositionsRead(HlMarket market) {
+    final dex = market.dex;
+    ({HlHeldPosition held, DateTime? at})? best;
+    void offer(HlHeldPosition held, DateTime? at) {
+      final b = best;
+      if (b == null || (at != null && (b.at == null || at.isAfter(b.at!)))) {
+        best = (held: held, at: at);
       }
     }
-    if (existing != null && !changeOpenPosition) return;
-    final effCross =
-        (isCross ?? existing?.isCross ?? kHlDefaultCross) &&
-            !market.onlyIsolated;
-    if (existing == null ||
-        existing.leverageValue != lev ||
-        existing.isCross != effCross) {
-      await _exchange!.updateLeverage(
-        assetId: market.assetId,
-        isCross: effCross,
-        leverage: lev,
-      );
-      // A side effect of placing an order, not a user choice.
-      TrackingService.hyperliquidLeverageAdjusted(
-          coin: market.coin,
-          leverage: lev,
-          source: 'order_auto',
-          isCross: effCross);
+
+    final s = _current;
+    if (s != null && s.isInitialized && s.positionDexes.contains(dex)) {
+      offer(HlHeldPosition.fromPositions(market, s.positions),
+          _statePositionsReadAt[dex]);
     }
+    final address = _address ?? s?.walletAddress;
+    if (address != null) {
+      HlAccountSnapshot? last;
+      try {
+        last = ref.read(hyperliquidAccountProvider.notifier).lastReadOf(address);
+      } catch (_) {}
+      final lastAt = last?.positionsReadAt[dex];
+      if (last != null && lastAt != null && last.positionDexes.contains(dex)) {
+        offer(_heldIn(market, last), lastAt);
+      }
+      final own = _dexReads[dex];
+      if (own != null &&
+          own.address.toLowerCase() == address.toLowerCase() &&
+          DateTime.now().difference(own.at) <= kHlPositionsFreshFor) {
+        offer(_heldIn(market, own.snap), own.at);
+      }
+    }
+    return best;
+  }
+
+  /// [snap]'s position on [market], without a perp this app just closed
+  /// in full that the read still shows ([hlPositionsAfterCloses]).
+  HlHeldPosition _heldIn(HlMarket market, HlAccountSnapshot snap) =>
+      HlHeldPosition.fromPositions(
+          market,
+          hlPositionsAfterCloses(snap.positions, _closedInFull,
+                  now: DateTime.now())
+              .positions);
+
+  /// The position on [market] as this account's reads positively know it:
+  /// unknown while the account has not been read (or the last read
+  /// failed), and for a market on a dex the read did not cover (the full
+  /// read covers the main dex and the USDC-settled builder dexes) unless
+  /// the order path read that dex within [kHlPositionsFreshFor].
+  ///
+  /// [maxAge]: also unknown when the newest read was sent longer ago than
+  /// this, or before this app last changed the account ([_afterAction]):
+  /// "known flat" from an older poll can miss a position opened elsewhere.
+  HlHeldPosition heldPositionKnown(HlMarket market, {Duration? maxAge}) {
+    if (market.isSpot) return const HlHeldPosition.flat();
+    final best = _newestPositionsRead(market);
+    if (best == null) return const HlHeldPosition.unknown();
+    if (maxAge != null) {
+      final at = best.at;
+      final changed = _accountChangedAt;
+      if (at == null ||
+          DateTime.now().difference(at) > maxAge ||
+          (changed != null && !at.isAfter(changed))) {
+        return const HlHeldPosition.unknown();
+      }
+    }
+    return best.held;
+  }
+
+  /// [heldPositionKnown], else one fresh read of [market]'s dex
+  /// (`clearinghouseState` for that dex: the position's size, leverage and
+  /// margin mode), kept for [kHlPositionsFreshFor]. Unknown when that read
+  /// fails too. With [maxAge] (every order that can add exposure), a
+  /// position read longer ago is read again; a plain order on an account
+  /// read within it reads nothing here.
+  Future<HlHeldPosition> heldPositionFor(HlMarket market,
+      {Duration? maxAge}) async {
+    final known = heldPositionKnown(market, maxAge: maxAge);
+    if (known.known) return known;
+    final address = _address ?? _current?.walletAddress;
+    if (address == null) return const HlHeldPosition.unknown();
+    try {
+      final sentAt = DateTime.now();
+      final snap = await ref
+          .read(hyperliquidTradingModelProvider)
+          .getDexClearinghouse(address, market.dex);
+      if (!snap.positionDexes.contains(market.dex)) {
+        return const HlHeldPosition.unknown();
+      }
+      _dexReads[market.dex] = (
+        address: address,
+        snap: snap,
+        at: snap.positionsReadAt[market.dex] ?? sentAt,
+      );
+      return _heldIn(market, snap);
+    } catch (_) {
+      return const HlHeldPosition.unknown();
+    }
+  }
+
+  /// [hlExposureCheck] for an order on [market], against the position as
+  /// positively known and read within [kHlPositionsFreshFor]
+  /// ([heldPositionFor]). Every order that can open or add perp exposure
+  /// asks this before anything is funded or signed.
+  Future<({HlExposureCheck check, HlHeldPosition held})> exposureFor(
+    HlMarket market, {
+    required bool isBuy,
+    required double size,
+    bool reduceOnly = false,
+  }) async {
+    if (market.isSpot || reduceOnly) {
+      return (
+        check: hlExposureCheck(
+            market: market,
+            held: const HlHeldPosition.unknown(),
+            isBuy: isBuy,
+            size: size,
+            reduceOnly: reduceOnly),
+        held: const HlHeldPosition.unknown(),
+      );
+    }
+    final held = await heldPositionFor(market, maxAge: kHlPositionsFreshFor);
+    return (
+      check: hlExposureCheck(
+          market: market, held: held, isBuy: isBuy, size: size),
+      held: held,
+    );
+  }
+
+  /// Test seam: the signer an order is placed with, so a test can drive
+  /// the real order path against a fake venue (no mnemonic, no network).
+  @visibleForTesting
+  void debugAttachExchange(HyperliquidExchangeService exchange,
+      {required String walletId}) {
+    _exchange = exchange;
+    _walletId = walletId;
+    _address = exchange.walletAddress;
   }
 
   // `_tryAttachTpSl` (the post-open best-effort trigger attach) is gone:
@@ -1762,46 +2387,6 @@ class HyperliquidTradingNotifier
   // parent order, so the exchange sizes triggers to the actual fill,
   // OCO-cancels them, and a placement problem surfaces on the result
   // instead of vanishing into a silent catch.
-
-  /// Applies the perp margin mode + leverage for [market] on its own
-  /// (updateLeverage). Isolated is forced when the market is isolated-only.
-  /// No-op for spot. Exposed for the order slip's margin-mode toggle.
-  Future<void> setMarginMode({
-    required HlMarket market,
-    required bool isCross,
-    required int leverage,
-    required AuthGrant grant,
-  }) async {
-    await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
-    await RuntimeCapabilitiesService.instance
-        .ensureAllAllowed(hlOpenCapabilities(market));
-    if (market.isSpot) return;
-    await ensureOnboarded();
-    // Phase 1b.3: a leverage or margin mode change on its own needs its
-    // own grant (an order's grant covers the write inside the order).
-    GrantGuard.consume(
-      grant,
-      HlIntents.marginMode(
-        walletId: _walletId ?? '',
-        market: market,
-        isCross: isCross,
-        leverage: leverage,
-      ),
-      allowed: _hlOrderActions,
-    );
-    final lev = leverage.clamp(1, market.maxLeverage).toInt();
-    RuntimeCapabilitiesService.instance.ensureLeverageAllowed(lev);
-    await _exchange!.updateLeverage(
-      assetId: market.assetId,
-      isCross: isCross && !market.onlyIsolated,
-      leverage: lev,
-    );
-    TrackingService.hyperliquidLeverageAdjusted(
-        coin: market.coin,
-        leverage: lev,
-        source: 'user',
-        isCross: isCross && !market.onlyIsolated);
-  }
 
   /// Places a resting/marketable limit order. Sizing accepts either an
   /// explicit coin [size] or a USD [marginUsd] (× leverage / px). Sets the
@@ -1824,7 +2409,6 @@ class HyperliquidTradingNotifier
     double? stopLossPx,
     String? source,
     String? cloid,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
@@ -1858,27 +2442,37 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev =
-          market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
-      if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
-      }
+          HlIntents.clampLeverage(market, leverage);
       final coinSize = size ??
           sizeFromUsd(
               usd: (marginUsd ?? 0) * lev,
               px: px,
               szDecimals: market.szDecimals);
-      if (!market.isSpot && !reduceOnly) {
+      final asksTpsl = (takeProfitPx != null && takeProfitPx > 0) ||
+          (stopLossPx != null && stopLossPx > 0);
+      // The exposure rule, before the leverage write or any funding: on a
+      // market held above 1x or in cross only a reduction goes, and it
+      // goes reduce-only; an add, a flip or an unknown position stops here.
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: coinSize, reduceOnly: reduceOnly);
+      exposure.check
+          .ensureAllows(sentReduceOnly: reduceOnly || !asksTpsl);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      if (!sendReduceOnly) {
+        await _ensureLeverage(market, exposure.held, lev, isCross);
+      }
+      if (!market.isSpot && !sendReduceOnly) {
         await _fundPerpAction(market, marginUsd ?? coinSize * px / lev,
             leverage: lev);
       }
       final builder = await _builderFee();
-      final wantsTpsl = !reduceOnly &&
-          ((takeProfitPx != null && takeProfitPx > 0) ||
-              (stopLossPx != null && stopLossPx > 0));
+      final wantsTpsl = !sendReduceOnly && asksTpsl;
       // TP/SL rides in the SAME 'normalTpsl'-grouped action (see
       // placeMarketOrder): fill-sized, OCO, never silently missing.
       final orderCloid = cloid ?? newHlCloid();
+      // The position as the app saw it when it sent the order: a limit
+      // that closes all of it arms the left-over sweep.
+      final held = _heldOn(market);
       final result = await _sendReconciled(
         () => wantsTpsl
             ? ex.placeOrderWithTpsl(
@@ -1900,13 +2494,13 @@ class HyperliquidTradingNotifier
                     szDecimals: market.szDecimals, isSpot: market.isSpot),
                 sz: roundSize(coinSize, market.szDecimals),
                 tif: postOnly ? 'Alo' : tif,
-                reduceOnly: reduceOnly,
+                reduceOnly: sendReduceOnly,
                 cloid: orderCloid,
                 builder: builder,
               ),
         cloid: orderCloid,
         market: market,
-        action: reduceOnly ? 'close' : 'open',
+        action: sendReduceOnly ? 'close' : 'open',
       );
       final notional = coinSize * px;
       _afterAccepted(() {
@@ -1920,8 +2514,8 @@ class HyperliquidTradingNotifier
           source: source,
           providerOrderId: result.oid?.toString(),
           orderType: 'limit',
-          reduceOnly: reduceOnly,
-          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
           hasTp: wantsTpsl && takeProfitPx != null && takeProfitPx > 0,
           hasSl: wantsTpsl && stopLossPx != null && stopLossPx > 0,
           filled: result.isFilled,
@@ -1932,6 +2526,14 @@ class HyperliquidTradingNotifier
         );
         _trackTpslLegFailure(market, result,
             wantedTpsl: wantsTpsl, parentType: 'limit');
+        _armFullClose(
+          market: market,
+          held: held,
+          orderIsBuy: isLong,
+          size: flooredSize(coinSize, market.szDecimals),
+          reduceOnly: reduceOnly,
+          oid: result.oid,
+        );
         _afterAction();
       });
       return result;
@@ -1968,17 +2570,26 @@ class HyperliquidTradingNotifier
     String? cloid,
     required AuthGrant grant,
   }) async {
+    // Triggers only protect a held perp position: an entry stop would open
+    // exposure at the venue's resting leverage and margin mode (this path
+    // writes neither), and spot triggers are not offered.
+    if (!reduceOnly || market.isSpot) {
+      throw ArgumentError(
+          'Trigger orders are reduce-only exits on a perp position');
+    }
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
     await RuntimeCapabilitiesService.instance
         .ensureAllAllowed(_orderCapabilities(market, reduceOnly));
+    // The side rule once more against the freshest price here, right
+    // before signing: crossed since the sheet checked it, nothing is sent.
+    _ensureTriggerHolds(market,
+        closeIsBuy: isLong, tpsl: tpsl, trigger: triggerPx);
     final current = state.valueOrNull ?? const HyperliquidTradingState();
     _setData(current.copyWith(isPlacingOrder: true));
     try {
       await ensureOnboarded();
       final ex = _exchange!;
-      // Phase 1b.3: consume the grant before anything is signed. The
-      // order's grant also covers its leverage write and funding
-      // transfer.
+      // Phase 1b.3: consume the grant before anything is signed.
       GrantGuard.consume(
         grant,
         HlIntents.trigger(
@@ -1995,54 +2606,66 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final builder = await _builderFee();
-      final result = await ex.placeTriggerOrder(
+      // One cloid for the trigger, so a send with no answer is looked up
+      // on the account before anything is said, and never sent twice.
+      final orderCloid = cloid ?? newHlCloid();
+      final result = await _sendReconciled(
+        () => ex.placeTriggerOrder(
+          market: market,
+          isBuy: isLong,
+          size: size,
+          triggerPx: triggerPx,
+          isMarket: isMarket,
+          tpsl: tpsl,
+          limitPx: limitPx,
+          reduceOnly: reduceOnly,
+          cloid: orderCloid,
+          builder: builder,
+        ),
+        cloid: orderCloid,
         market: market,
-        isBuy: isLong,
-        size: size,
-        triggerPx: triggerPx,
-        isMarket: isMarket,
-        tpsl: tpsl,
-        limitPx: limitPx,
-        reduceOnly: reduceOnly,
-        cloid: cloid ?? newHlCloid(),
-        builder: builder,
+        action: 'trigger',
       );
-      final notional = size * triggerPx;
-      // A trigger protecting a position carries that position's leverage
-      // and the share of its margin the trigger covers.
-      HlPerpPosition? position;
-      if (!market.isSpot) {
-        for (final p in current.positions) {
-          if (p.coin == market.wireCoin) {
-            position = p;
-            break;
+      // Taken by the exchange: bookkeeping only from here (never a
+      // failure).
+      _afterAccepted(() {
+        final notional = size * triggerPx;
+        // A trigger protecting a position carries that position's leverage
+        // and the share of its margin the trigger covers.
+        HlPerpPosition? position;
+        if (!market.isSpot) {
+          for (final p in current.positions) {
+            if (p.coin == market.wireCoin) {
+              position = p;
+              break;
+            }
           }
         }
-      }
-      final posLev = position?.leverageValue ?? 1;
-      final posAbs = position?.szi.abs() ?? 0;
-      final marginUsd = position != null && posAbs > 0
-          ? position.marginUsed * (size / posAbs).clamp(0.0, 1.0)
-          : notional;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: position != null ? posLev : 1,
-        marginUsd: marginUsd,
-        notionalUsd: notional,
-        source: source,
-        providerOrderId: result.oid?.toString(),
-        orderType: tpsl,
-        reduceOnly: reduceOnly,
-        isCross: position?.isCross,
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        builderFeeApplied: builder != null,
-        limitPrice: isMarket ? null : limitPx,
-      );
-      _afterAction();
+        final posLev = position?.leverageValue ?? 1;
+        final posAbs = position?.szi.abs() ?? 0;
+        final marginUsd = position != null && posAbs > 0
+            ? position.marginUsed * (size / posAbs).clamp(0.0, 1.0)
+            : notional;
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: position != null ? posLev : 1,
+          marginUsd: marginUsd,
+          notionalUsd: notional,
+          source: source,
+          providerOrderId: result.oid?.toString(),
+          orderType: tpsl,
+          reduceOnly: reduceOnly,
+          isCross: position?.isCross,
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          builderFeeApplied: builder != null,
+          limitPrice: isMarket ? null : limitPx,
+        );
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2073,14 +2696,15 @@ class HyperliquidTradingNotifier
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
     await RuntimeCapabilitiesService.instance
         .ensureAllAllowed(_orderCapabilities(market, order.reduceOnly));
-    if (order.isTrailingStop) {
-      throw StateError('A trailing stop cannot be moved by price.');
-    }
-    final tpsl = order.isTrigger ? order.tpsl : null;
-    if (order.isTrigger && tpsl == null) {
-      throw StateError('This order cannot be moved from the chart.');
-    }
     final current = state.valueOrNull ?? const HyperliquidTradingState();
+    hlCheckModifiable(order, current.openOrders);
+    final tpsl = order.isTrigger ? order.tpsl : null;
+    // A protective trigger moved past the price fires at once: checked
+    // against the freshest price here, right before signing.
+    if (tpsl != null && (order.reduceOnly || order.isPositionTpsl)) {
+      _ensureTriggerHolds(market,
+          closeIsBuy: order.isBuy, tpsl: tpsl, trigger: newPx);
+    }
     _setData(current.copyWith(isPlacingOrder: true));
     try {
       await ensureOnboarded();
@@ -2101,6 +2725,19 @@ class HyperliquidTradingNotifier
         ),
         allowed: _hlOrderActions,
       );
+      // The exposure rule before signing: a move keeps the order's
+      // reduce-only flag, so an order that is neither reduce-only nor a
+      // position's TP/SL (one placed while the market was flat, say) is new
+      // exposure. Dragged across the price it fills at once, at the
+      // position's own leverage and margin mode: on a position opened
+      // elsewhere above 1x or in cross since, or one that cannot be read,
+      // nothing is sent.
+      if (hlMoveNeedsExposureCheck(market, order)) {
+        final held =
+            await heldPositionFor(market, maxAge: kHlPositionsFreshFor);
+        final refusal = hlMoveExposureRefusal(market, order, held);
+        if (refusal != null) throw HlExposureRefusedException(refusal);
+      }
       final String px;
       final Map<String, dynamic> type;
       if (tpsl != null) {
@@ -2126,16 +2763,45 @@ class HyperliquidTradingNotifier
             szDecimals: market.szDecimals, isSpot: market.isSpot);
         type = limitOrderType(order.tif);
       }
-      final result = await ex.modifyOrder(
-        oid: order.oid,
-        market: market,
-        isBuy: order.isBuy,
-        size: order.sz,
-        px: px,
-        reduceOnly: order.reduceOnly,
-        orderType: type,
-        cloid: newHlCloid(),
-      );
+      final cloid = newHlCloid();
+      // An unclear answer (a timeout, a dropped connection) is looked up
+      // before anything is said ([hlTraceModifyOf]): by the new cloid AND
+      // by the order's own oid, since the venue's docs say neither which
+      // cloid the modified order carries nor whether its oid changes.
+      // Moved (either way), the move went through; the old order resting
+      // at its old price for the whole window, it is as it was; anything
+      // else, unconfirmed. Never "failed" for a move the venue may have
+      // made, which would invite a second one.
+      final movedTo = double.parse(tpsl != null
+          ? roundPrice(newPx,
+              szDecimals: market.szDecimals, isSpot: market.isSpot)
+          : px);
+      final modifyLookup = ref.read(hlModifyTraceProvider);
+      final HlOrderResult result;
+      try {
+        result = await _sendReconciled(
+          () => ex.modifyOrder(
+            oid: order.oid,
+            market: market,
+            isBuy: order.isBuy,
+            size: order.sz,
+            px: px,
+            reduceOnly: order.reduceOnly,
+            orderType: type,
+            cloid: cloid,
+          ),
+          cloid: cloid,
+          market: market,
+          action: 'modify',
+          lookup: (_, m) => modifyLookup(order, cloid, movedTo, m),
+        );
+      } on HyperliquidOrderNotPlacedException {
+        unawaited(_silentOrdersRefresh());
+        rethrow;
+      } on HyperliquidOrderUnconfirmedException {
+        unawaited(_silentOrdersRefresh());
+        rethrow;
+      }
       TrackingService.track('hyperliquid_order_modified', params: {
         'coin': market.coin,
         'trigger': tpsl != null,
@@ -2172,7 +2838,7 @@ class HyperliquidTradingNotifier
     bool? isCross,
     bool reduceOnly = false,
     String? source,
-    bool changeOpenPosition = false,
+    String? cloid,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
@@ -2203,11 +2869,7 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev =
-          market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
-      if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
-      }
+          HlIntents.clampLeverage(market, leverage);
       final avgPx = (startPx + endPx) / 2;
       final notional = totalUsd * lev;
       final totalSize = sizeFromUsd(
@@ -2215,38 +2877,74 @@ class HyperliquidTradingNotifier
         px: avgPx > 0 ? avgPx : startPx,
         szDecimals: market.szDecimals,
       );
-      if (!market.isSpot && !reduceOnly) {
+      // The exposure rule, before the leverage write or any funding (see
+      // placeLimit): the whole ladder is judged at its total size.
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: totalSize, reduceOnly: reduceOnly);
+      exposure.check.ensureAllows(sentReduceOnly: true);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      if (!sendReduceOnly) {
+        await _ensureLeverage(market, exposure.held, lev, isCross);
+      }
+      if (!market.isSpot && !sendReduceOnly) {
         await _fundPerpAction(market, totalUsd, leverage: lev);
       }
       final builder = await _builderFee();
-      final result = await ex.placeScaleOrder(
+      // Every leg carries its own cloid (derived from one base), so a send
+      // with no answer is looked up on the account by all of them before
+      // anything is said: the legs go out as one signed action, so one
+      // found means the venue took it. Never sent twice.
+      // The base is the cloid the caller sent ([HlResendCloids.current] of
+      // the slip's): "Confirming…" is keyed on it, as the slip watches it,
+      // and every lookup reads the legs derived from it.
+      final baseCloid = cloid ?? newHlCloid();
+      final legCloids = hlScaleLegCloids(baseCloid, count);
+      final result = await _sendReconciled(
+        () => ex.placeScaleOrder(
+          market: market,
+          isBuy: isLong,
+          totalSize: totalSize,
+          startPx: startPx,
+          endPx: endPx,
+          count: count,
+          reduceOnly: sendReduceOnly,
+          legCloids: legCloids,
+          builder: builder,
+        ),
+        cloid: baseCloid,
+        cloids: legCloids,
+        // Found after no answer: "N of M" as the answer says it.
+        scaleLegs: count,
         market: market,
-        isBuy: isLong,
-        totalSize: totalSize,
-        startPx: startPx,
-        endPx: endPx,
-        count: count,
-        reduceOnly: reduceOnly,
-        builder: builder,
+        action: sendReduceOnly ? 'close' : 'open',
       );
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: totalUsd,
-        notionalUsd: notional,
-        source: source,
-        providerOrderId: result.oid?.toString(),
-        orderType: 'scale',
-        reduceOnly: reduceOnly,
-        isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        builderFeeApplied: builder != null,
-      );
-      _afterAction();
+      _afterAccepted(() {
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: totalUsd,
+          notionalUsd: notional,
+          source: source,
+          providerOrderId: result.oid?.toString(),
+          orderType: 'scale',
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          builderFeeApplied: builder != null,
+        );
+        if (result.legsMissing) {
+          TrackingService.track('hyperliquid_scale_legs_refused', params: {
+            'coin': market.coin,
+            'legs_placed': result.legsPlaced ?? 0,
+            'legs_total': result.legsTotal ?? count,
+          });
+        }
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2279,7 +2977,6 @@ class HyperliquidTradingNotifier
     bool randomize = false,
     bool reduceOnly = false,
     String? source,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     final requestedWalletId =
@@ -2341,9 +3038,36 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev =
-          market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
-      late final double refPx;
-      late final double coinSize;
+          HlIntents.clampLeverage(market, leverage);
+      // The venue's TWAP bounds (HlTwapRules), checked BEFORE the leverage
+      // write or any money moves: a TWAP the venue would refuse never
+      // touches the account.
+      final refPx = _referencePx(market);
+      final coinSize = size ??
+          sizeFromUsd(
+              usd: (marginUsd ?? 0) * lev,
+              px: refPx,
+              szDecimals: market.szDecimals);
+      if (!HlTwapRules.minutesValid(durationMinutes)) {
+        throw HyperliquidRejectedException(
+            'TWAP duration must be between ${HlTwapRules.minMinutes} '
+            'minutes and 7 days');
+      }
+      // The exposure rule, before the leverage write or any funding (see
+      // placeLimit).
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: coinSize, reduceOnly: reduceOnly);
+      exposure.check.ensureAllows(sentReduceOnly: true);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      ensureSubmissionCurrent();
+      if (!sendReduceOnly &&
+          !HlTwapRules.meetsMinimum(referencePx: refPx, size: coinSize)) {
+        throw HyperliquidMinNotionalException(
+            'TWAP notional \$${(refPx * coinSize).toStringAsFixed(2)} is below '
+            'the \$${HlTwapRules.minNotionalUsd.toStringAsFixed(0)} TWAP minimum',
+            minimumUsd: HlTwapRules.minNotionalUsd);
+      }
+      final twapHeld = _heldOn(market);
       final result = await HotHyperliquidTwapGuard().run(
         walletId: walletId!,
         address: ex.walletAddress,
@@ -2351,18 +3075,11 @@ class HyperliquidTradingNotifier
         ensureCurrent: ensureSubmissionCurrent,
         send: (beforeSubmit, beforeSend) async {
           ensureSubmissionCurrent();
-          if (!reduceOnly) {
-            await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+          if (!sendReduceOnly) {
+            await _ensureLeverage(market, exposure.held, lev, isCross);
           }
           ensureSubmissionCurrent();
-          refPx = _referencePx(market);
-          coinSize = size ??
-              sizeFromUsd(
-                  usd: (marginUsd ?? 0) * lev,
-                  px: refPx,
-                  szDecimals: market.szDecimals);
-          if (!market.isSpot && !reduceOnly) {
+          if (!market.isSpot && !sendReduceOnly) {
             await _fundPerpAction(market, marginUsd ?? coinSize * refPx / lev,
                 leverage: lev);
           }
@@ -2374,48 +3091,64 @@ class HyperliquidTradingNotifier
             durationMinutes: durationMinutes,
             referencePx: refPx,
             randomize: randomize,
-            reduceOnly: reduceOnly,
+            reduceOnly: sendReduceOnly,
             beforeSubmit: beforeSubmit,
             beforeSend: beforeSend,
           );
         },
       );
-      final notional = coinSize * refPx;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: marginUsd ?? (lev > 0 ? notional / lev : notional),
-        notionalUsd: notional,
-        source: source,
-        orderType: 'twap',
-        reduceOnly: reduceOnly,
-        isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        // The twapOrder action carries no builder field.
-        builderFeeApplied: false,
-      );
+      // Taken by the exchange: bookkeeping only from here (never a
+      // failure).
+      _afterAccepted(() {
+        final notional = coinSize * refPx;
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: marginUsd ?? (lev > 0 ? notional / lev : notional),
+          notionalUsd: notional,
+          source: source,
+          orderType: 'twap',
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          // The twapOrder action carries no builder field.
+          builderFeeApplied: false,
+        );
+      });
       // The result's oid IS the twapId (see _twapResultFromBody) — the
       // only handle twapCancel accepts. Remember it or the TWAP is
       // unstoppable the moment this sheet closes.
-      final twapId = result.oid;
-      if (twapId != null && _address != null) {
-        _showRunningTwap(HlRunningTwap(
-          twapId: twapId,
-          assetId: market.assetId,
-          coin: market.coin,
-          address: ex.walletAddress,
-          isBuy: isLong,
+      _afterAccepted(() {
+        final twapId = result.oid;
+        if (twapId != null && _address != null) {
+          _showRunningTwap(HlRunningTwap(
+            twapId: twapId,
+            assetId: market.assetId,
+            coin: market.coin,
+            address: ex.walletAddress,
+            isBuy: isLong,
+            reduceOnly: sendReduceOnly,
+            size: coinSize,
+            durationMinutes: durationMinutes,
+            startedAt: DateTime.now(),
+          ));
+        }
+        // A TWAP that closes the whole position: its left-over stops go
+        // once the position is actually gone, never on acceptance.
+        _armFullClose(
+          market: market,
+          held: twapHeld,
+          orderIsBuy: isLong,
+          size: flooredSize(coinSize, market.szDecimals),
           reduceOnly: reduceOnly,
-          size: coinSize,
-          durationMinutes: durationMinutes,
-          startedAt: DateTime.now(),
-        ));
-      }
-      _afterAction();
+          twapId: twapId,
+        );
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2441,7 +3174,6 @@ class HyperliquidTradingNotifier
     int leverage = 1,
     bool? isCross,
     bool reduceOnly = false,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     final requested = pickSpendingWallet(ref.read(settingsProvider))?.id;
@@ -2500,15 +3232,23 @@ class HyperliquidTradingNotifier
         ),
         allowed: _hlOrderActions,
       );
+      final lookup = _trailingStopLookup(ex.walletAddress, market);
       await TrailingStopGuard().ensureAvailable(
         address: ex.walletAddress,
         assetId: market.assetId,
+        lookup: lookup,
       );
       verifyAccount();
-      final lev = leverage.clamp(1, market.maxLeverage).toInt();
-      if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+      final lev = HlIntents.clampLeverage(market, leverage);
+      // The exposure rule for a stop that is not reduce-only, before the
+      // leverage write or any funding (see placeLimit).
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: size, reduceOnly: reduceOnly);
+      exposure.check.ensureAllows(sentReduceOnly: true);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      verifyAccount();
+      if (!sendReduceOnly) {
+        await _ensureLeverage(market, exposure.held, lev, isCross);
         verifyAccount();
         await _fundPerpAction(
           market,
@@ -2522,7 +3262,7 @@ class HyperliquidTradingNotifier
         'trading.advanced',
       );
       await RuntimeCapabilitiesService.instance
-          .ensureAllAllowed(_orderCapabilities(market, reduceOnly));
+          .ensureAllAllowed(_orderCapabilities(market, sendReduceOnly));
       verifyAccount();
       final refPx = _referencePx(market);
       final result = await ex.placeTrailingStopOrder(
@@ -2530,28 +3270,31 @@ class HyperliquidTradingNotifier
         isBuy: isLong,
         size: size,
         trail: trail,
-        reduceOnly: reduceOnly,
+        reduceOnly: sendReduceOnly,
         referencePrice: refPx,
         beforeSend: verifyAccount,
+        lookup: lookup,
       );
-      final notional = size * refPx;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: lev > 0 ? notional / lev : notional,
-        notionalUsd: notional,
-        orderType: 'trailing',
-        reduceOnly: reduceOnly,
-        isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        // This action carries no builder field.
-        builderFeeApplied: false,
-      );
-      _afterAction();
+      _afterAccepted(() {
+        final notional = size * refPx;
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: lev > 0 ? notional / lev : notional,
+          notionalUsd: notional,
+          orderType: 'trailing',
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          // This action carries no builder field.
+          builderFeeApplied: false,
+        );
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2567,6 +3310,19 @@ class HyperliquidTradingNotifier
       }
     }
   }
+
+  /// How an unclear trailing-stop send on [market] is looked up
+  /// ([TrailingStopGuard]): a trailing stop on the asset placed at or after
+  /// the send, resting (frontendOpenOrders) or in the order history
+  /// (historicalOrders: it triggered, filled or was cancelled), means it
+  /// landed; neither list having it, both read cleanly, means it did not.
+  TrailingStopLookup _trailingStopLookup(String address, HlMarket market) =>
+      (sentAtMs) => hlLookupTrailingStop(
+            model: ref.read(hyperliquidTradingModelProvider),
+            address: address,
+            market: market,
+            sentAtMs: sentAtMs,
+          );
 
   /// Adds ([usd] > 0) or removes ([usd] < 0) margin on the ISOLATED
   /// position on [market] (updateIsolatedMargin). Leverage, size and side
@@ -2649,6 +3405,8 @@ class HyperliquidTradingNotifier
       _trackCancelFailed(scope: 'single', coin: resolved, error: e);
       rethrow;
     }
+    // A whole-position close the user cancelled closes nothing.
+    _disarmByOrder(oid: oid);
 
     final current = _current;
     TrackingService.hyperliquidOrderCancelled(
@@ -2669,10 +3427,120 @@ class HyperliquidTradingNotifier
     VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
   }
 
-  /// Cancels every resting order in one signed batch action.
+  /// Cancels [orders] (one coin's left-over protective triggers, or the
+  /// stops a new stop replaces) in one signed batch action, the cancel-all
+  /// path scoped to them. Returns how many THIS action cancelled; an order
+  /// the venue says was no longer resting (already cancelled, filled or
+  /// never placed) is done, pruned and not counted. Throws
+  /// [HlCancelPartialException] when any order is still open after it, and
+  /// the venue's own error when the acknowledgement is unclear or an
+  /// order's asset is unresolved, so the caller reports it rather than
+  /// leave a stop that could later close a new position.
+  Future<int> cancelOrdersList(List<HlOpenOrder> orders,
+      {String reason = 'after_close'}) async {
+    if (orders.isEmpty) return 0;
+    final report = await _cancelListed(orders, reason: reason);
+    if (report.failed.isNotEmpty) {
+      throw HlCancelPartialException(
+        cancelled: report.cancelled.length,
+        stillOpen: report.failed.length,
+        reason: report.failed.first.reason,
+      );
+    }
+    return report.cancelled.length;
+  }
+
+  /// [orders] cancelled in one batch, read per order: what was cancelled
+  /// or already gone leaves local state at once; what the venue refused
+  /// stays listed. Throws only when nothing can be said (asset unresolved,
+  /// no clear acknowledgement).
+  ///
+  /// [exchange] and [stillCurrent] pin it to one account (the left-over
+  /// sweep): when [stillCurrent] says the account changed before the
+  /// cancel goes, nothing is sent ([_HlSweepAccountChanged]).
+  Future<HlCancelReport> _cancelListed(List<HlOpenOrder> orders,
+      {required String reason,
+      HyperliquidExchangeService? exchange,
+      bool Function()? stillCurrent}) async {
+    final cancels = <({int assetId, int oid})>[];
+    final coins = {for (final o in orders) o.coin};
+    final coin = coins.length == 1 ? coins.first : '';
+    HlCancelReport report;
+    try {
+      await RuntimeCapabilitiesService.instance
+          .ensureAllowed('hyperliquid.cancel');
+      await ensureOnboarded();
+      for (final o in orders) {
+        final market = ref.read(hyperliquidWireMarketProvider(o.coin));
+        if (market != null) cancels.add((assetId: market.assetId, oid: o.oid));
+      }
+      if (cancels.length != orders.length) {
+        throw const HlCancellationIncompleteException();
+      }
+      if (stillCurrent != null && !stillCurrent()) {
+        throw const _HlSweepAccountChanged();
+      }
+      try {
+        report = await (exchange ?? _exchange!).cancelOrdersReport(cancels);
+      } finally {
+        unawaited(_silentOrdersRefresh());
+      }
+    } catch (e) {
+      if (e is! _HlSweepAccountChanged) {
+        _trackCancelFailed(scope: reason, coin: coin, error: e);
+      }
+      rethrow;
+    }
+    // Another account's lists are not this answer's to prune (the cancel
+    // went to the account it was meant for; its next read reconciles).
+    if (stillCurrent == null || stillCurrent()) _pruneCancelled(report);
+    if (report.cancelled.isNotEmpty) {
+      TrackingService.hyperliquidOrderCancelled(
+        coin: coins.length == 1 ? coins.first : 'multiple',
+        scope: reason,
+        walletKind: 'hot',
+        extra: {
+          'count': report.cancelled.length,
+          if (report.gone.isNotEmpty) 'already_gone': report.gone.length,
+        },
+      );
+    }
+    if (report.failed.isNotEmpty) {
+      _trackCancelFailed(
+          scope: reason,
+          coin: coin,
+          error: HyperliquidRejectedException(report.failed.first.reason));
+    }
+    return report;
+  }
+
+  /// What a cancel took off the book leaves local state now (the refresh
+  /// it started confirms), and any full-close arm on those orders drops.
+  void _pruneCancelled(HlCancelReport report) {
+    final done = report.done;
+    if (done.isEmpty) return;
+    // Only what this cancel took off: an order already gone may have
+    // filled, the close it armed included.
+    for (final oid in report.cancelled) {
+      _disarmByOrder(oid: oid);
+    }
+    final current = _current;
+    if (current != null) {
+      _setData(current.copyWith(
+        openOrders:
+            current.openOrders.where((o) => !done.contains(o.oid)).toList(),
+      ));
+    }
+  }
+
+  /// Cancels every resting order in one signed batch action. Returns how
+  /// many this action cancelled (an order already gone is pruned, not
+  /// counted); throws [HlCancelPartialException] when any order is still
+  /// open after it.
   Future<int> cancelAllOrders() async {
     final cancels = <({int assetId, int oid})>[];
     final coins = <String>{};
+    HlCancelReport report;
     try {
       await RuntimeCapabilitiesService.instance
           .ensureAllowed('hyperliquid.cancel');
@@ -2694,11 +3562,9 @@ class HyperliquidTradingNotifier
         throw const HlCancellationIncompleteException();
       }
       try {
-        await _exchange!.cancelOrders(cancels);
+        report = await _exchange!.cancelOrdersReport(cancels);
       } finally {
-        // A mixed batch can cancel some orders before reporting a
-        // rejection. Only an authoritative refresh may reconcile that
-        // partial outcome.
+        // The refresh confirms what the per-order answer already said.
         unawaited(_silentOrdersRefresh());
       }
     } catch (e) {
@@ -2706,26 +3572,31 @@ class HyperliquidTradingNotifier
           scope: 'all', coin: coins.length == 1 ? coins.first : '', error: e);
       rethrow;
     }
-    TrackingService.track('hl_cancel_all_orders', params: {
-      'count': cancels.length,
-      'count_bucket': _countBucket(cancels.length),
-    });
-    TrackingService.hyperliquidOrderCancelled(
-      coin: coins.length == 1 ? coins.first : 'multiple',
-      scope: 'all',
-      walletKind: 'hot',
-    );
-
-    final current = _current;
-    if (current != null) {
-      final gone = {for (final c in cancels) c.oid};
-      _setData(current.copyWith(
-        openOrders:
-            current.openOrders.where((o) => !gone.contains(o.oid)).toList(),
-      ));
+    _pruneCancelled(report);
+    final count = report.cancelled.length;
+    if (count > 0) {
+      TrackingService.track('hl_cancel_all_orders', params: {
+        'count': count,
+        'count_bucket': _countBucket(count),
+      });
+      TrackingService.hyperliquidOrderCancelled(
+        coin: coins.length == 1 ? coins.first : 'multiple',
+        scope: 'all',
+        walletKind: 'hot',
+      );
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
     }
-    VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
-    return cancels.length;
+    if (report.failed.isNotEmpty) {
+      final error = HlCancelPartialException(
+        cancelled: count,
+        stillOpen: report.failed.length,
+        reason: report.failed.first.reason,
+      );
+      _trackCancelFailed(
+          scope: 'all', coin: coins.length == 1 ? coins.first : '', error: error);
+      throw error;
+    }
+    return count;
   }
 
   // ─────────────────────── WS event integration ───────────────────────
@@ -2758,19 +3629,29 @@ class HyperliquidTradingNotifier
           origSz: u.origSz,
           timestamp: u.timestamp,
           cloid: u.cloid,
-          // The WS payload carries only the basic order; everything else
-          // is kept from the REST row (tif and position TP/SL included,
-          // so a later modify re-sends the right time in force).
-          reduceOnly: prev?.reduceOnly ?? false,
-          orderType: prev?.orderType ?? 'Limit',
+          // The WS payload carries only the basic order (WsBasicOrder:
+          // coin, side, limitPx, sz, oid, timestamp, origSz, cloid);
+          // everything else is kept from the REST row (tif and position
+          // TP/SL included, so a later modify re-sends the right time in
+          // force). A row REST has not described yet is marked unknown:
+          // listed, never drawn as a movable line nor modified, so a stop
+          // is never mistaken for a limit at its guard price.
+          reduceOnly: prev?.reduceOnly ?? u.reduceOnly ?? false,
+          orderType: prev?.orderType ?? '',
           isTrigger: prev?.isTrigger ?? false,
           triggerPx: prev?.triggerPx,
           tif: prev?.tif ?? 'Gtc',
           isPositionTpsl: prev?.isPositionTpsl ?? false,
+          detailsKnown: prev?.detailsKnown ?? false,
         );
         touched = true;
-      } else if (byOid.remove(u.oid) != null) {
-        touched = true;
+      } else {
+        // A closing order cancelled or rejected (here or elsewhere) no
+        // longer closes the position: its arm drops. A fill keeps it.
+        if (u.status != 'filled' && u.status != 'triggered') {
+          _disarmByOrder(oid: u.oid);
+        }
+        if (byOid.remove(u.oid) != null) touched = true;
       }
     }
     if (!touched) return;
@@ -2830,7 +3711,7 @@ class HyperliquidTradingNotifier
   /// reduce-only orders (which never write the margin mode).
   static bool? _crossFor(HlMarket m, bool? isCross, {bool reduceOnly = false}) {
     if (m.isSpot || reduceOnly) return null;
-    return (isCross ?? kHlDefaultCross) && !m.onlyIsolated;
+    return kHlCrossMarginOffered && (isCross ?? kHlDefaultCross) && !m.onlyIsolated;
   }
 
   static String _openOrderType(HlOpenOrder o) {
@@ -3008,6 +3889,27 @@ final hyperliquidTradingProvider = AsyncNotifierProvider.autoDispose<
     HyperliquidTradingNotifier, HyperliquidTradingState>(
   HyperliquidTradingNotifier.new,
 );
+
+/// The position on a market as positively known: the account's state, else
+/// one fresh read of the market's dex, else unknown
+/// ([HyperliquidTradingNotifier.heldPositionFor]). What the order slip and
+/// a queued Investing order judge the exposure rule (hl_exposure_rule.dart)
+/// on before anything is approved or moved. Overridden in tests.
+///
+/// Answers at once (no future) when a read within [kHlPositionsFreshFor]
+/// knows the position, so a queued order on a freshly read account is
+/// queued in the same turn as before; an older read is read again first.
+final hlHeldPositionProvider =
+    Provider<FutureOr<HlHeldPosition> Function(HlMarket market)>((ref) =>
+        (market) {
+          final n = ref.read(hyperliquidTradingProvider.notifier);
+          // Read within the bound: answered now. Older, or unknown: one
+          // fresh read of the market's dex.
+          final known =
+              n.heldPositionKnown(market, maxAge: kHlPositionsFreshFor);
+          if (known.known) return known;
+          return n.heldPositionFor(market, maxAge: kHlPositionsFreshFor);
+        });
 
 /// Display-only fallback. Never use this provider to size, authorize or send
 /// an order/move: [hyperliquidTradingProvider] remains the live execution state.

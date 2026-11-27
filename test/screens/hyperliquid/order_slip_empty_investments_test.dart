@@ -71,6 +71,7 @@ import '../../helpers/render_png.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/shell_bar_harness.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/hl_flat_positions.dart';
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -273,6 +274,7 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
   installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      hlFlatPositionsOverride,
       slipKnownEmptySourcesProvider.overrideWith((_) => () async => knownEmpty),
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
             currency: currency,

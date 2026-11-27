@@ -74,6 +74,11 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart'
+    show hlStopLossesFor;
+import 'package:kute/screens/hyperliquid/components/hl_protection_rows.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart'
+    show hyperliquidTradingProvider;
 import 'package:kute/screens/hyperliquid/components/hl_tick_price.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
@@ -282,6 +287,21 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final canAdjustMargin =
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
+    // The stop loss already resting on the position (the spending
+    // account's; a Ledger's orders are not on it): the Protect card says
+    // its price instead of the plain "Stop loss".
+    // Read only with the market (the chart, which watches the same state,
+    // is on the page then; so is Protect it).
+    final stops = ledgerId == null && m != null
+        ? hlStopLossesFor(
+            ref.watch(hyperliquidTradingProvider).valueOrNull?.openOrders ??
+                const [],
+            pos.coin)
+        : const [];
+    final stopPx = stops.isEmpty
+        ? null
+        : formatHlPrice(stops.first.triggerPx ?? stops.first.limitPx,
+            decimalCap: m?.pxDecimalCap);
     // What can be done to the position, first under the chart (founder, 6
     // November 2026: actions first).
     final actions = <KuteActionCard>[
@@ -305,9 +325,11 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
           key: const ValueKey('hl-position-protect'),
           icon: Icons.shield_outlined,
           title: context.l10n.positionProtectIt,
-          subtitle: ledgerId == null
-              ? context.l10n.hlStopLoss
-              : context.l10n.investingTrailingStop,
+          subtitle: ledgerId != null
+              ? context.l10n.investingTrailingStop
+              : stopPx != null
+                  ? context.l10n.hlProtectStopAt(stopPx)
+                  : context.l10n.hlStopLoss,
           onTap: () {
             TrackingService.track('position_protect_tapped', params: {
               'venue': 'hyperliquid',
@@ -657,6 +679,16 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   ),
                                 ),
                                 SizedBox(height: 12.h),
+                                // The stops, takes and trailing stops
+                                // resting on it, as words (a tap offers the
+                                // cancel); nothing when there are none.
+                                if (ledgerId == null && m != null)
+                                  HlProtectionRows(
+                                    coin: pos.coin,
+                                    market: m,
+                                    atSide: _atSide,
+                                    padding: EdgeInsets.only(bottom: 12.h),
+                                  ),
                               ],
                               // The cards to read more, two side by side
                               // (founder, 4 November 2026: "big squares";

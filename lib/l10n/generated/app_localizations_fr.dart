@@ -9,6 +9,121 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Cette position utilise un effet de levier : ici, vous pouvez seulement la réduire ou la clôturer.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Impossible de vérifier votre position sur ce marché. Réessayez dans un instant.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Placez le stop loss sous le prix actuel, sinon il clôture la position immédiatement.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Placez le stop loss au-dessus du prix actuel, sinon il clôture la position immédiatement.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Placez le take profit au-dessus du prix actuel, sinon il clôture la position immédiatement.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Placez le take profit sous le prix actuel, sinon il clôture la position immédiatement.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Placez le prix limite au niveau du prix de déclenchement ou en dessous.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Placez le prix limite au niveau du prix de déclenchement ou au-dessus.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ce stop est au-delà du prix de liquidation : la position serait liquidée avant qu\'il ne se déclenche.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ce prix est au-delà du prix du marché : l\'ordre est exécuté maintenant, avec les frais taker plus élevés.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Tout clôturer annule aussi ses ordres stop et take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Ordres de protection annulés';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Ordres de protection encore ouverts';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Ses ordres stop et take profit n\'ont pas pu être annulés. Annulez-les dans Ordres pour qu\'ils ne clôturent pas une nouvelle position.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Votre nouveau stop loss est placé, mais l\'ancien n\'a pas pu être annulé. Annulez-le dans Ordres.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Cette position a déjà un stop loss à $price. Le remplacer n\'annule l\'ancien qu\'une fois le nouveau placé.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Cette position a déjà $count stop loss. Les remplacer n\'annule les anciens qu\'une fois le nouveau placé.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Le remplacer';
+
+  @override
+  String get hlProtectAddStop => 'En ajouter un autre';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Annuler tous les ordres ?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Cela annule tous les ordres ouverts ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Cela annule tous les ordres ouverts ($count), dont $stops qui protègent une position.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Vos ordres Predictions sont aussi annulés.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left sur $total restant';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent % exécuté';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Votre dernier stop suiveur sur ce marché n\'est pas encore confirmé. Vérifiez vos ordres ouverts. Aucun second ordre n\'a été envoyé.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop à $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Annuler cet ordre ?';
+
+  @override
   String get totalBalance => 'Solde total';
 
   @override
@@ -1594,12 +1709,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get backUpBannerAction => 'Sauvegarder';
-
-  @override
-  String get getAppBannerTitle => 'Téléchargez l\'app Kute';
-
-  @override
-  String get getAppBannerSubtitle => 'Disponible sur iPhone et Android';
 
   @override
   String get cancelOrder => 'Annuler l\'ordre';
@@ -6036,9 +6145,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Échelle log';
-
-  @override
-  String get chartPriceScale => 'Échelle de prix';
 
   @override
   String get chartVwapWindow => 'VWAP sur les bougies affichées';
@@ -14724,6 +14830,74 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get hlAdvTpNotPlaced => 'Le take-profit n\'a pas été placé.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Le stop-loss n\'a pas été placé.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Le take-profit et le stop-loss n\'ont pas été placés.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Seulement $placed ordres sur $total ont été placés.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Ordre exécuté en partie';
+
+  @override
+  String get hlAdvStillOpen => 'Encore ouvert';
+
+  @override
+  String get hlAdvRestStillOpen => 'Le reste de l\'ordre est encore ouvert.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Un ordre TWAP doit être d\'au moins $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Votre ordre TWAP s\'exécute pendant $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'L\'échelonné prend de $min à $max ordres.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Les prix de début et de fin doivent être différents.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Les deux prix doivent être sous le prix actuel.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Les deux prix doivent être au-dessus du prix actuel.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Ce stop-loss est au-delà du prix de liquidation estimé : la position pourrait être liquidée avant.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'L\'ordre a été exécuté, mais le trailing stop n\'a pas été placé car il n\'a pas été approuvé.';
+
+  @override
+  String get getAppBannerTitle => 'Téléchargez l\'app Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Disponible sur iPhone et Android';
+
+  @override
+  String get chartPriceScale => 'Échelle de prix';
+
+  @override
   String get shareOpenInBrowserSafari =>
       'Cette page est ouverte dans une autre app. Pour Face ID et pour garder votre portefeuille, ouvrez-la dans Safari.';
 
@@ -14736,4 +14910,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Ouvrir dans l\'app';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Clôturer avec un Ledger n\'annule pas les ordres stop et take profit de la position : chaque annulation nécessite votre Ledger. Annulez-les dans Ordres pour qu\'ils ne clôturent pas une nouvelle position.';
 }

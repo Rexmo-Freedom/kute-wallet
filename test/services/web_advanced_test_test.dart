@@ -17,7 +17,10 @@ void main() {
     await policy.refresh(fresh: true);
     expect(WebAdvancedTest.on, isFalse);
     expect(policy.allows('trading.advanced'), isFalse);
-    expect(policy.maxLeverage, 20);
+    // Leverage is blocked in the app whatever the policy publishes (20x
+    // here): the cap is 1x on the phones too (kHlMaxOfferedLeverage).
+    expect(policy.maxLeverage, 1);
+    expect(policy.offeredLeverage(50), 1);
     await expectLater(
         policy.ensureAllowed('trading.advanced'), throwsA(anything));
   });

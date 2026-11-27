@@ -9,6 +9,121 @@ class AppLocalizationsSv extends AppLocalizations {
   AppLocalizationsSv([String locale = 'sv']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Den här positionen använder hävstång, så här kan du bara minska eller stänga den.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Vi kunde inte kontrollera din position på den här marknaden. Försök igen om en stund.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Sätt stop loss under nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Sätt stop loss över nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Sätt take profit över nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Sätt take profit under nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Sätt limitpriset på eller under utlösarpriset.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Sätt limitpriset på eller över utlösarpriset.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Den här stoppen ligger bortom likvidationspriset: positionen skulle likvideras innan den utlöses.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Det här priset ligger bortom marknadspriset: den utförs nu, med den högre taker-avgiften.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Stänger du allt avbryts också dess stop- och take profit-order ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Skyddande order avbrutna';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Skyddande order fortfarande öppna';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Dess stop- och take profit-order kunde inte avbrytas. Avbryt dem under Order så att de inte stänger en ny position.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Din nya stop loss är lagd, men den gamla kunde inte avbrytas. Avbryt den under Order.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Den här positionen har redan en stop loss på $price. Ersätter du den avbryts den gamla först när den nya är lagd.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Den här positionen har redan $count stop loss. Ersätter du dem avbryts de gamla först när den nya är lagd.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Ersätt den';
+
+  @override
+  String get hlProtectAddStop => 'Lägg till en till';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Avbryta alla order?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Det avbryter alla öppna order ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Det avbryter alla öppna order ($count), varav $stops skyddar en position.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Dina Predictions-order avbryts också.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left av $total kvar';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent % utfört';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Din senaste trailing stop på den här marknaden är inte bekräftad än. Kontrollera dina öppna order. Ingen andra order skickades.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop på $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Avbryta den här ordern?';
+
+  @override
   String get totalBalance => 'Totalt saldo';
 
   @override
@@ -1584,12 +1699,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get backUpBannerAction => 'Säkerhetskopiera';
-
-  @override
-  String get getAppBannerTitle => 'Hämta Kute-appen';
-
-  @override
-  String get getAppBannerSubtitle => 'Finns för iPhone och Android';
 
   @override
   String get cancelOrder => 'Avbryt order';
@@ -5987,9 +6096,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Logaritmisk skala';
-
-  @override
-  String get chartPriceScale => 'Prisskala';
 
   @override
   String get chartVwapWindow => 'VWAP över de visade ljusen';
@@ -14611,6 +14717,72 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get hlAdvTpNotPlaced => 'Take-profit lades inte.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss lades inte.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit och stop-loss lades inte.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Bara $placed av $total order lades.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Ordern delvis utförd';
+
+  @override
+  String get hlAdvStillOpen => 'Fortfarande öppen';
+
+  @override
+  String get hlAdvRestStillOpen => 'Resten av ordern är fortfarande öppen.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'En TWAP-order måste vara minst $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Din TWAP-order körs i $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Skala tar $min till $max order.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Start- och slutpris måste skilja sig.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Båda priserna måste ligga under aktuellt pris.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Båda priserna måste ligga över aktuellt pris.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Denna stop-loss ligger bortom det uppskattade likvidationspriset, så positionen kan likvideras först.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Ordern utfördes, men trailing stop lades inte eftersom den inte godkändes.';
+
+  @override
+  String get getAppBannerTitle => 'Hämta Kute-appen';
+
+  @override
+  String get getAppBannerSubtitle => 'Finns för iPhone och Android';
+
+  @override
+  String get chartPriceScale => 'Prisskala';
+
+  @override
   String get shareOpenInBrowserSafari =>
       'Den här sidan är öppen i en annan app. Öppna den i Safari för Face ID och för att behålla din plånbok.';
 
@@ -14623,4 +14795,8 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Öppna i appen';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Att stänga med en Ledger avbryter inte positionens stop- och take profit-order: varje avbrytande kräver din Ledger. Avbryt dem under Order så att de inte stänger en ny position.';
 }

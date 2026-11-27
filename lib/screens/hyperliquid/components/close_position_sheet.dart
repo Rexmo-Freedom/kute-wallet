@@ -2,6 +2,8 @@ import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'trailing_stop_sheet.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
+import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart'
+    show ledgerHlAccountProvider;
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart';
@@ -55,6 +57,13 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart'
+    show flooredSize;
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protection_rows.dart'
+    show hlReadOpenOrders, hlWatchOpenOrders;
+import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart'
+    show hlLiquidationPrice;
 
 /// How the position is closed. [market] is the simple default (reduce-only
 /// IOC market via closePosition); the rest are resting reduce-only orders
@@ -174,10 +183,12 @@ class HlClosePositionSheet extends ConsumerStatefulWidget {
   /// The position screen's "Protect it": the close ticket's own Advanced
   /// page (stop / take profit types and the trailing stop), opened
   /// straight away on a stop-market close of the whole position, its
-  /// trigger left for the user to set. A Ledger position has no stop
-  /// types on that page (its signer reviews Market and Limit), so it opens
-  /// on the page as it is, the trailing stop on it. Withheld Advanced
-  /// opens nothing; the shared sheet says why.
+  /// trigger left empty for the user to set (validated against the price
+  /// before anything is approved). A Ledger position has no stop types on
+  /// that page (its signer reviews Market and Limit), so it opens on a
+  /// Limit close with its price left empty, the trailing stop under it:
+  /// never on a ready market close. Withheld Advanced opens nothing; the
+  /// shared sheet says why.
   static void showProtect(
     BuildContext context,
     WidgetRef ref, {
@@ -198,7 +209,7 @@ class HlClosePositionSheet extends ConsumerStatefulWidget {
     }
     final draft = _CloseDraft(
         size,
-        ledgerWalletId == null ? _CloseType.stopMarket : _CloseType.market,
+        ledgerWalletId == null ? _CloseType.stopMarket : _CloseType.limit,
         1.0,
         '',
         '',
@@ -272,7 +283,23 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       TextEditingController(text: '30');
   bool _randomizeTwap = false;
 
+  /// A stop loss already rests on this position: the new one replaces it
+  /// (the old one is cancelled only once the new one is accepted, so the
+  /// position is never left without a stop between the two) or is added
+  /// beside it, as the user chooses on the page.
+  bool _replaceStop = true;
+
   HlPerpPosition get pos => widget.position;
+
+  /// The spending account's resting orders (a Ledger's are not on this
+  /// account). [watch] in build, read elsewhere.
+  List<HlOpenOrder> _orders({bool watch = false}) {
+    if (widget.ledgerWalletId != null) return const <HlOpenOrder>[];
+    return watch ? hlWatchOpenOrders(ref) : hlReadOpenOrders(ref);
+  }
+
+  bool get _isStopClose =>
+      _closeType == _CloseType.stopMarket || _closeType == _CloseType.stopLimit;
 
   /// The market descriptor for advanced order types — the threaded-in copy,
   /// else the live provider lookup. Null when the coin isn't in the loaded
@@ -671,14 +698,9 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       if (t == _CloseType.limit && _limitPxCtrl.text.trim().isEmpty) {
         _limitPxCtrl.text = _fmtPx(mark);
       }
-      if (_isTriggerClose) {
-        if (_triggerPxCtrl.text.trim().isEmpty) {
-          _triggerPxCtrl.text = _fmtPx(mark);
-        }
-        if (_isTriggerLimit && _limitPxCtrl.text.trim().isEmpty) {
-          _limitPxCtrl.text = _fmtPx(mark);
-        }
-      }
+      // A stop or take is never prefilled at the price now: a trigger at
+      // the mark fires at once. Its fields stay empty for the user to set
+      // (and are checked against the price before any approval).
     });
   }
 
@@ -756,6 +778,14 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         final totalSize = _totalSize;
         final notionalUsd = closeSize * _markNow();
         final isMarketClose = _isMarketClose;
+        // A Ledger's orders are not on the hot account and each cancel
+        // needs the device, so a whole close leaves its stops and takes:
+        // said on the receipt (counted when the Ledger's orders read),
+        // never silently.
+        final ledgerLeftovers = totalSize > 0 &&
+                closeSize >= totalSize * (1 - 1e-9)
+            ? _ledgerProtectiveCount()
+            : null;
         _trackSubmitted();
         _bandTo(0.5);
         final outcome = await runLedgerHlClose(context, ref,
@@ -789,11 +819,17 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         if (outcome?.isSuccess == true && result != null) {
           // Still holding the close: the band snaps first, then the
           // ticket lets go into the confirmation (_popToHost).
+          final fullyClosed =
+              totalSize > 0 && result.filledSz >= totalSize * (1 - 1e-9);
           if (result.filledSz > 0 || _isMarketClose) {
             await _showClosedResult(nav, result,
-                checkOpenOrders: _isLimitClose);
+                checkOpenOrders: _isLimitClose,
+                ledgerLeftovers: fullyClosed ? ledgerLeftovers : null);
           } else {
-            await _showCloseAccepted(nav);
+            await _showCloseAccepted(nav,
+                note: ledgerLeftovers == null
+                    ? null
+                    : context.l10n.hlLeftLedgerStopsOpen);
           }
         } else if (outcome?.isPending == true) {
           // An ambiguous submission is not a confirmed close: leave its
@@ -867,6 +903,19 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     );
     if (grant == null || !mounted) {
       if (grant == null) _stopped('signing_declined');
+      return;
+    }
+    // The price moved while the approval was up: a stop or take re-checked
+    // against the price now, right before signing. Crossed, nothing is
+    // sent and the sheet says why with its own inline line ([_paramError],
+    // read from the same price), the button off.
+    if (_isTriggerClose && _paramError != null) {
+      grant.revoke();
+      _trackBlocked('price_moved');
+      setState(() {
+        _errorDetails = null;
+        _errorText = null;
+      });
       return;
     }
 
@@ -1078,15 +1127,40 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     // Rebuilt from the sheet as it is now. A changed size or slippage, or a
     // flipped position, makes closePosition throw ReauthRequired before it
     // signs.
+    // A whole-position close: its left-over stops, takes and trailing
+    // stops, listed before the close, are cancelled by the notifier once
+    // the position is gone (its one place for every close path); this
+    // waits for that cancel to say on the receipt what it did. A partial
+    // close leaves them (reduce-only caps them at what is left). The venue
+    // is not relied on to cancel them.
+    final trading = ref.read(hyperliquidTradingProvider.notifier);
     final order = await _closeOrder(walletId);
     final result = await order.place(grant);
 
+    ({int cancelled, int failed})? swept;
+    if (_totalSize > 0 && result.filledSz >= _totalSize * (1 - 1e-9)) {
+      final sweep = trading.leftoverSweepFor(pos.coin);
+      if (sweep != null) {
+        try {
+          swept = await sweep;
+        } catch (_) {
+          swept = null;
+        }
+      }
+    }
     if (!mounted) return;
-    await _showClosedResult(nav, result);
+    await _showClosedResult(nav, result, leftovers: swept);
   }
 
   Future<void> _showClosedResult(NavigatorState nav, HlOrderResult result,
-      {bool checkOpenOrders = false}) async {
+      {bool checkOpenOrders = false,
+      ({int cancelled, int failed})? leftovers,
+      int? ledgerLeftovers}) async {
+    // What this close asked for: a resting close order has a remainder
+    // only when it filled less than that, never because the position is
+    // bigger than the close (a fully filled 50% close leaves nothing
+    // resting).
+    final requested = _closeSize;
     final l10n = context.l10n;
     if (result.filledSz > 0) await _bandSucceeded();
     _popToHost(nav);
@@ -1101,6 +1175,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     final remaining = (pos.szi.abs() - closedSz).clamp(0.0, double.infinity);
     final filled = closedSz > 0;
     final partial = remaining > 0.00000001;
+    final orderRemainder = requested - closedSz > 0.00000001;
     pushKuteSuccessOverlay(
       navigator: nav,
       overlay: KuteConfirmation(
@@ -1126,13 +1201,23 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                 if (partial)
                   l10n.investingStillOpen:
                       '${formatHlSize(remaining)} $_displayCoin',
+                if ((leftovers?.cancelled ?? 0) > 0)
+                  l10n.hlProtectOrdersCancelledRow: '${leftovers!.cancelled}',
+                if ((leftovers?.failed ?? 0) > 0)
+                  l10n.hlProtectOrdersNotCancelledRow: '${leftovers!.failed}',
+                if ((ledgerLeftovers ?? 0) > 0)
+                  l10n.hlProtectOrdersNotCancelledRow: '$ledgerLeftovers',
               }
             : const {},
         detail: !filled
             ? null
-            : checkOpenOrders && partial
-                ? l10n.investingCloseRemainderNote
-                : l10n.investingBalanceUpdating,
+            : (leftovers?.failed ?? 0) > 0
+                ? l10n.hlProtectCancelAfterCloseFailed
+                : ledgerLeftovers != null
+                    ? l10n.hlLeftLedgerStopsOpen
+                    : checkOpenOrders && orderRemainder
+                    ? l10n.investingCloseRemainderNote
+                    : l10n.investingBalanceUpdating,
       ),
     );
   }
@@ -1143,22 +1228,37 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   /// so on success we pop with a "close order placed" resting confirmation.
   Future<void> _runAdvancedClose(
       NavigatorState nav, String walletId, AuthGrant grant) async {
+    // A replacing stop loss: the old ones are cancelled only after the
+    // new one is accepted, so the position always has a stop.
+    final toReplace = _isStopClose && _replaceStop
+        ? hlStopLossesFor(_orders(), pos.coin)
+        : const <HlOpenOrder>[];
+    final trading = ref.read(hyperliquidTradingProvider.notifier);
+    final replaceFailed = context.l10n.hlProtectReplaceCancelFailed;
     // Rebuilt from the sheet as it is now (see _runMarketClose).
     final order = await _closeOrder(walletId);
     final result = await order.place(grant);
 
+    String? note;
+    if (toReplace.isNotEmpty) {
+      try {
+        await trading.cancelOrdersList(toReplace, reason: 'replace_stop');
+      } catch (_) {
+        note = replaceFailed;
+      }
+    }
     if (!mounted) return;
     if (result.filledSz > 0) {
       await _showClosedResult(nav, result, checkOpenOrders: true);
       return;
     }
-    await _showCloseAccepted(nav);
+    await _showCloseAccepted(nav, note: note);
   }
 
   /// [snap] false when the band that worked was another sheet's (the
   /// trailing stop's, which snapped before it closed).
   Future<void> _showCloseAccepted(NavigatorState nav,
-      {bool snap = true}) async {
+      {bool snap = true, String? note}) async {
     final amount = '${formatHlSize(_closeSize)} $_displayCoin';
     if (snap) await _bandSucceeded();
     _popToHost(nav);
@@ -1170,6 +1270,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         amount: amount,
         isClose: true,
         viewOrders: widget.ledgerWalletId == null,
+        note: note,
       ),
     );
   }
@@ -1203,20 +1304,40 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   /// Per-type input validity (advanced types only). Null when placeable.
   String? get _paramError {
     if (_isMarketClose) return null;
-    if (_market == null) {
+    final market = _market;
+    if (market == null) {
       return context.l10n.closeOrderDetailsUnavailable;
+    }
+    // A size the market's lot floors to nothing would only fail after the
+    // approval: said here, the button off.
+    if (_closeSize > 0 && flooredSize(_closeSize, market.szDecimals) <= 0) {
+      return context.l10n.amountIsTooSmall;
     }
     if (_isLimitClose) {
       if (_parsePx(_limitPxCtrl) == null) {
         return context.l10n.slipEnterLimitPrice;
       }
     } else if (_isTriggerClose) {
-      if (_parsePx(_triggerPxCtrl) == null) {
+      final trigger = _parsePx(_triggerPxCtrl);
+      if (trigger == null) {
         return context.l10n.slipEnterTriggerPrice;
       }
-      if (_isTriggerLimit && _parsePx(_limitPxCtrl) == null) {
+      final limit = _isTriggerLimit ? _parsePx(_limitPxCtrl) : null;
+      if (_isTriggerLimit && limit == null) {
         return context.l10n.slipEnterLimitPrice;
       }
+      // On the protective side of the price now, or it fires at once:
+      // a long's stop under it and take over it, a short's the mirror; a
+      // limit at or past its trigger on the closing side.
+      final issue = hlProtectIssueText(
+          context.l10n,
+          hlProtectIssue(
+              closeIsBuy: !pos.isLong,
+              tpsl: _isStopClose ? 'sl' : 'tp',
+              trigger: trigger,
+              mark: _markNow(),
+              limitPx: limit));
+      if (issue != null) return issue;
     } else if (_isTwapClose) {
       final m = _parseInt(_twapMinutesCtrl);
       if (m == null ||
@@ -1226,6 +1347,101 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       }
     }
     return null;
+  }
+
+  /// A stop at or past the liquidation price would never fire before the
+  /// venue liquidates the position: said, not blocked.
+  String? get _stopWarning {
+    if (!_isStopClose) return null;
+    final trigger = _parsePx(_triggerPxCtrl);
+    if (trigger == null) return null;
+    return hlStopPastLiquidation(
+            closeIsBuy: !pos.isLong,
+            trigger: trigger,
+            liquidation: hlLiquidationPrice(pos))
+        ? context.l10n.hlProtectStopPastLiquidation
+        : null;
+  }
+
+  /// The Ledger's protective orders on this coin, from its last account
+  /// read: null when there are none, -1 when its orders could not be read
+  /// (they may still be there).
+  int? _ledgerProtectiveCount() {
+    final id = widget.ledgerWalletId;
+    if (id == null) return null;
+    final orders =
+        ref.read(ledgerHlAccountProvider(id)).valueOrNull?.openOrders;
+    if (orders == null) return -1;
+    final n = hlProtectiveOrdersFor(orders, pos.coin).length;
+    return n == 0 ? null : n;
+  }
+
+  /// A whole-position close (market, or a limit or TWAP sized to all of
+  /// it) also cancels the position's resting stops, takes and trailing
+  /// stops once the position is gone (each could otherwise close a
+  /// position opened later): said before it is sent.
+  Widget? _leftoversNote(AppColorsExtension c, {Color? color}) {
+    final whole = _isMarketClose
+        ? _fraction >= 0.999
+        : (_isLimitClose || _isTwapClose) &&
+            _totalSize > 0 &&
+            _closeSize >= _totalSize * (1 - 1e-9);
+    if (!whole) return null;
+    final left = hlProtectiveOrdersFor(_orders(watch: true), pos.coin);
+    if (left.isEmpty) return null;
+    return Padding(
+      padding: EdgeInsets.only(top: 10.h),
+      child: Text(
+        context.l10n.hlProtectCloseCancelsOrders(left.length),
+        key: const ValueKey('hl-close-leftovers-note'),
+        style: TextStyle(color: color ?? c.textSecondary, fontSize: 13.sp),
+      ),
+    );
+  }
+
+  /// A stop loss already rests on this position: said, with the choice to
+  /// replace it or add a second one (Protect it, the stop types).
+  Widget? _existingStopChoice(AppColorsExtension c) {
+    if (!_isStopClose) return null;
+    final stops = hlStopLossesFor(_orders(watch: true), pos.coin);
+    if (stops.isEmpty) return null;
+    final first = stops.first;
+    final px = formatHlPrice(first.triggerPx ?? first.limitPx,
+        decimalCap: _market?.pxDecimalCap);
+    return Padding(
+      key: const ValueKey('hl-protect-existing-stop'),
+      padding: EdgeInsets.only(top: 16.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            stops.length == 1
+                ? context.l10n.hlProtectExistingStop(px)
+                : context.l10n.hlProtectExistingStops(stops.length),
+            style: TextStyle(color: c.textSecondary, fontSize: 14.sp),
+          ),
+          SizedBox(height: 8.h),
+          HlSegmentTrack(segments: [
+            HlTrackSegment(
+                label: context.l10n.hlProtectReplaceStop,
+                selected: _replaceStop,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _settingChanged('replace_stop', true);
+                  setState(() => _replaceStop = true);
+                }),
+            HlTrackSegment(
+                label: context.l10n.hlProtectAddStop,
+                selected: !_replaceStop,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _settingChanged('replace_stop', false);
+                  setState(() => _replaceStop = false);
+                }),
+          ]),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1293,6 +1509,11 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                         message: _errorText!, error: _errorDetails),
                   if (paramError != null)
                     Text(paramError, style: TextStyle(color: c.error)),
+                  if (paramError == null && _stopWarning != null)
+                    Text(_stopWarning!,
+                        key: const ValueKey('hl-protect-liq-warning'),
+                        style: TextStyle(color: c.warning)),
+                  if (_leftoversNote(c) case final note?) note,
                   SizedBox(height: 16.h),
                 ],
               )),
@@ -1501,6 +1722,9 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                         style: TextStyle(color: redColor, fontSize: 13.sp),
                       ),
                     ],
+                    if (_leftoversNote(c, color: c.textPrimary)
+                        case final note?)
+                      note,
                   ],
                 ),
               ),
@@ -1620,15 +1844,23 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
           if (_market != null) ...[
             _buildTypePicker(c),
             _buildPriceInputs(c),
+            if (_existingStopChoice(c) case final choice?) choice,
             // Its own Material: the section's fill would hide the
-            // tile's ink.
+            // tile's ink. Sized by the close amount: with none typed it
+            // says so and takes no tap.
             Material(
               type: MaterialType.transparency,
               child: ListTile(
+                  key: const ValueKey('hl-close-trailing-stop'),
                   contentPadding: EdgeInsets.zero,
                   title: Text(context.l10n.investingTrailingStop),
+                  subtitle: _closeSize > 0
+                      ? null
+                      : Text(context.l10n.barNeedAmount,
+                          style: TextStyle(color: c.textSecondary)),
+                  enabled: _closeSize > 0 && !_isClosing,
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: _openTrailingStop),
+                  onTap: _closeSize > 0 ? _openTrailingStop : null),
             ),
           ],
           if (_isMarketClose) ...[

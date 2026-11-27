@@ -77,7 +77,6 @@ class _Trading extends HyperliquidTradingNotifier {
     int leverage = 1,
     bool? isCross,
     bool reduceOnly = false,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) {
     placed++;

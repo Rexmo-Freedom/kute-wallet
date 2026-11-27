@@ -9,6 +9,121 @@ class AppLocalizationsLt extends AppLocalizations {
   AppLocalizationsLt([String locale = 'lt']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ši pozicija naudoja finansinį svertą, todėl čia galite ją tik sumažinti arba uždaryti.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nepavyko patikrinti jūsų pozicijos šioje rinkoje. Bandykite dar kartą po akimirkos.';
+
+  @override
+  String get hlProtectStopBelowPrice =>
+      'Nustatykite stop loss žemiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Nustatykite stop loss aukščiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Nustatykite take profit aukščiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Nustatykite take profit žemiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Nustatykite limito kainą lygią aktyvavimo kainai arba žemesnę.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Nustatykite limito kainą lygią aktyvavimo kainai arba aukštesnę.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Šis stop yra už likvidavimo kainos: pozicija būtų likviduota anksčiau, nei jis suveiktų.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ši kaina yra už rinkos kainos: pavedimas įvykdomas iškart, su didesniu taker mokesčiu.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Uždarius visą poziciją, atšaukiami ir jos stop bei take profit pavedimai ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Atšaukti apsauginiai pavedimai';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Vis dar atviri apsauginiai pavedimai';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Jos stop ir take profit pavedimų atšaukti nepavyko. Atšaukite juos skiltyje Pavedimai, kad jie neuždarytų naujos pozicijos.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Naujas stop loss pateiktas, bet senojo atšaukti nepavyko. Atšaukite jį skiltyje Pavedimai.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ši pozicija jau turi stop loss ties $price. Pakeičiant senasis atšaukiamas tik pateikus naująjį.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ši pozicija jau turi stop loss pavedimų: $count. Pakeičiant senieji atšaukiami tik pateikus naująjį.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Pakeisti';
+
+  @override
+  String get hlProtectAddStop => 'Pridėti dar vieną';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Atšaukti visus pavedimus?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Taip atšauksite visus atvirus pavedimus ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Taip atšauksite visus atvirus pavedimus ($count), iš jų poziciją saugančių: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Jūsų Predictions pavedimai taip pat atšaukiami.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Liko $left iš $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Įvykdyta $percent %';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Jūsų paskutinis trailing stop šioje rinkoje dar nepatvirtintas. Patikrinkite atvirus pavedimus. Antras pavedimas nebuvo išsiųstas.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop ties $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Atšaukti šį pavedimą?';
+
+  @override
   String get totalBalance => 'Bendras likutis';
 
   @override
@@ -1589,12 +1704,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get backUpBannerAction => 'Sukurti kopiją';
-
-  @override
-  String get getAppBannerTitle => 'Atsisiųskite Kute programėlę';
-
-  @override
-  String get getAppBannerSubtitle => 'Yra iPhone ir Android įrenginiams';
 
   @override
   String get cancelOrder => 'Atšaukti pavedimą';
@@ -6021,9 +6130,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Logaritminė skalė';
-
-  @override
-  String get chartPriceScale => 'Kainų skalė';
 
   @override
   String get chartVwapWindow => 'VWAP per rodomas žvakes';
@@ -14676,6 +14782,72 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get hlAdvTpNotPlaced => 'Take-profit nebuvo pateiktas.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss nebuvo pateiktas.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit ir stop-loss nebuvo pateikti.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Pateikta tik $placed iš $total pavedimų.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Pavedimas įvykdytas iš dalies';
+
+  @override
+  String get hlAdvStillOpen => 'Dar atviras';
+
+  @override
+  String get hlAdvRestStillOpen => 'Likusi pavedimo dalis dar atvira.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP pavedimas turi būti bent $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Jūsų TWAP pavedimas vykdomas $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Laiptinis pavedimas priima nuo $min iki $max pavedimų.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Pradžios ir pabaigos kainos turi skirtis.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Abi kainos turi būti žemiau dabartinės kainos.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Abi kainos turi būti aukščiau dabartinės kainos.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Šis stop-loss yra už numatomos likvidavimo kainos, todėl pozicija gali būti likviduota anksčiau.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Pavedimas įvykdytas, bet slankusis stop nebuvo pateiktas, nes nebuvo patvirtintas.';
+
+  @override
+  String get getAppBannerTitle => 'Atsisiųskite Kute programėlę';
+
+  @override
+  String get getAppBannerSubtitle => 'Yra iPhone ir Android įrenginiams';
+
+  @override
+  String get chartPriceScale => 'Kainų skalė';
+
+  @override
   String get shareOpenInBrowserSafari =>
       'Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti Face ID ir išsaugoti piniginę, atidarykite jį „Safari“.';
 
@@ -14688,4 +14860,8 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Atidaryti programėlėje';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Uždarymas su Ledger neatšaukia pozicijos stop ir take profit pavedimų: kiekvienam atšaukimui reikia jūsų Ledger. Atšaukite juos skiltyje Pavedimai, kad jie neuždarytų naujos pozicijos.';
 }

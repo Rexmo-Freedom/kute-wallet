@@ -77,6 +77,21 @@ String roundPrice(double px, {required int szDecimals, required bool isSpot}) {
   return floatToWire(clamped);
 }
 
+/// [px] as the order wire carries it ([roundPrice]), as a number: the
+/// figure an order's approval binds, so the intent and the wire agree.
+/// [roundPrice] of the result is the result itself. Null for a price that
+/// cannot be sent (missing, not positive, rounding to nothing).
+double? wireRoundedPrice(double? px,
+    {required int szDecimals, required bool isSpot}) {
+  if (px == null || !px.isFinite || px <= 0) return null;
+  try {
+    return double.parse(
+        roundPrice(px, szDecimals: szDecimals, isSpot: isSpot));
+  } catch (_) {
+    return null;
+  }
+}
+
 /// "Market" orders on Hyperliquid are IOC limits priced through the book:
 /// buy at ref*(1+slippage), sell at ref*(1-slippage), wire-rounded.
 String slippagePrice({

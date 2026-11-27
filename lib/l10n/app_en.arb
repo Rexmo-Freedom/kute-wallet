@@ -1,5 +1,95 @@
 {
   "@@locale": "en",
+  "hlExpoLeveragedPosition": "This position uses leverage, so here you can only reduce or close it.",
+  "hlExpoPositionUnknown": "Couldn't check your position on this market. Try again in a moment.",
+  "hlProtectStopBelowPrice": "Set the stop loss below the current price, or it closes the position at once.",
+  "hlProtectStopAbovePrice": "Set the stop loss above the current price, or it closes the position at once.",
+  "hlProtectTakeAbovePrice": "Set the take profit above the current price, or it closes the position at once.",
+  "hlProtectTakeBelowPrice": "Set the take profit below the current price, or it closes the position at once.",
+  "hlProtectLimitAtOrBelowTrigger": "Set the limit price at or below the trigger price.",
+  "hlProtectLimitAtOrAboveTrigger": "Set the limit price at or above the trigger price.",
+  "hlProtectStopPastLiquidation": "This stop is past the liquidation price: the position would be liquidated before it fires.",
+  "hlProtectLimitFillsNow": "This price is past the market price: it fills now, at the higher taker fee.",
+  "hlProtectCloseCancelsOrders": "Closing all of it also cancels its stop and take-profit orders ({count}).",
+  "@hlProtectCloseCancelsOrders": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectOrdersCancelledRow": "Protective orders cancelled",
+  "hlProtectOrdersNotCancelledRow": "Protective orders still open",
+  "hlProtectCancelAfterCloseFailed": "Its stop and take-profit orders could not be cancelled. Cancel them in Orders so they cannot close a new position.",
+  "hlProtectReplaceCancelFailed": "Your new stop loss is placed, but the old one could not be cancelled. Cancel it in Orders.",
+  "hlProtectExistingStop": "This position already has a stop loss at {price}. Replacing it cancels the old one only once the new one is placed.",
+  "@hlProtectExistingStop": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectExistingStops": "This position already has {count} stop losses. Replacing them cancels the old ones only once the new one is placed.",
+  "@hlProtectExistingStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectReplaceStop": "Replace it",
+  "hlProtectAddStop": "Add another",
+  "hlProtectCancelAllTitle": "Cancel all orders?",
+  "hlProtectCancelAllCount": "This cancels every open order ({count}).",
+  "@hlProtectCancelAllCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectCancelAllWithStops": "This cancels every open order ({count}), the stops protecting a position included ({stops}).",
+  "@hlProtectCancelAllWithStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "stops": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectCancelAllPredictionsToo": "Your Predictions orders are cancelled too.",
+  "hlProtectSizeLeft": "{left} of {total} left",
+  "@hlProtectSizeLeft": {
+    "placeholders": {
+      "left": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectPercentFilled": "{percent}% filled",
+  "@hlProtectPercentFilled": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectTrailPending": "Your last trailing stop on this market is not confirmed yet. Check your open orders. No second order was sent.",
+  "hlProtectStopAt": "Stop at {price}",
+  "@hlProtectStopAt": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectCancelOrderTitle": "Cancel this order?",
   "totalBalance": "Total Balance",
   "or": "or",
   "recoverAccount": "Recover Account",
@@ -647,9 +737,6 @@
   "backUpBannerTitle": "Back up your wallet",
   "backUpBannerSubtitle": "In case you lose your phone",
   "backUpBannerAction": "Back up",
-  "getAppBannerTitle": "Get the Kute app",
-  "getAppBannerSubtitle": "Available for iPhone and Android",
-  "@getAppBannerTitle": {"description": "Web home notice offering the iPhone / Android app."},
   "cancelOrder": "Cancel Order",
   "requestRefund": "Request Refund",
   "unspent": "UNSPENT",
@@ -3253,10 +3340,6 @@
   "chartHighlightColor": "Amber",
   "chartVolume": "Volume",
   "chartLogScale": "Log scale",
-  "chartPriceScale": "Price scale",
-  "@chartPriceScale": {
-    "description": "Advanced chart tool rail button: shows or hides the horizontal price lines and their labels on the right."
-  },
   "chartVwapWindow": "VWAP across the displayed candles",
   "chartIndicators": "Indicators",
   "chartInterval": "Interval",
@@ -12899,6 +12982,64 @@
       }
     }
   },
+  "hlAdvTpNotPlaced": "The take-profit was not placed.",
+  "hlAdvSlNotPlaced": "The stop-loss was not placed.",
+  "hlAdvTpSlNotPlaced": "The take-profit and stop-loss were not placed.",
+  "hlAdvScaleLegsPlaced": "Only {placed} of {total} orders were placed.",
+  "@hlAdvScaleLegsPlaced": {
+    "placeholders": {
+      "placed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "hlAdvPartlyFilled": "Order partly filled",
+  "hlAdvStillOpen": "Still open",
+  "hlAdvRestStillOpen": "The rest of the order is still open.",
+  "hlAdvTwapMinimum": "A TWAP order needs at least {amount}.",
+  "@hlAdvTwapMinimum": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "hlAdvTwapRunning": "Your TWAP order is running for {minutes} min.",
+  "@hlAdvTwapRunning": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "hlAdvScaleCountRange": "Scale takes {min} to {max} orders.",
+  "@hlAdvScaleCountRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "hlAdvScaleSamePrice": "Start and end prices must differ.",
+  "hlAdvScaleBelowPrice": "Both prices must be below the current price.",
+  "hlAdvScaleAbovePrice": "Both prices must be above the current price.",
+  "hlAdvSlPastLiquidation": "This stop-loss is past the estimated liquidation price, so the position could be liquidated first.",
+  "hlAdvTrailingNotApproved": "The order filled, but the trailing stop was not placed because it was not approved.",
+  "getAppBannerTitle": "Get the Kute app",
+  "getAppBannerSubtitle": "Available for iPhone and Android",
+  "@getAppBannerTitle": {
+    "description": "Web home notice offering the iPhone / Android app."
+  },
+  "chartPriceScale": "Price scale",
+  "@chartPriceScale": {
+    "description": "Advanced chart tool rail button: shows or hides the horizontal price lines and their labels on the right."
+  },
   "shareOpenInBrowserSafari": "This page is open inside another app. For Face ID and to keep your wallet, open it in Safari.",
   "@shareOpenInBrowserSafari": {
     "description": "Shown on a shared market's wallet step when the page is open inside another app's browser (Instagram, Telegram, X ...) on an iPhone or Mac: passkeys and storage may not work there. Says to open it in Safari. Never mentions a VPN."
@@ -12914,5 +13055,9 @@
   "shareOpenInApp": "Open in the app",
   "@shareOpenInApp": {
     "description": "The notice's button: opens the Kute app (or its store page)."
+  },
+  "hlLeftLedgerStopsOpen": "Closing on a Ledger does not cancel the position's stop and take-profit orders: each cancel needs your Ledger. Cancel them in Orders so they cannot close a new position.",
+  "@hlLeftLedgerStopsOpen": {
+    "description": "Close receipt on a Ledger whole-position close: its protective orders were not cancelled, since every cancel needs a Ledger signature."
   }
 }
