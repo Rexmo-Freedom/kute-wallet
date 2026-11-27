@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Τιμή ανά μερίδιο",
   "betOrderDuration": "Διάρκεια",
   "betUntilCanceled": "Μέχρι ακύρωσης",
+  "advancedFillsNow": "Εκτελείται τώρα",
+  "advancedRests": "Περιμένει στο βιβλίο",
   "betLimitOrderFilled": "Η εντολή ορίου εκτελέστηκε",
   "betLimitBoughtShares": "Αγοράστηκαν {shares} μερίδια {outcome} στα {price}",
   "betLimitPriceSteps": "Επιλέξτε τιμή σε βήματα των {step}.",

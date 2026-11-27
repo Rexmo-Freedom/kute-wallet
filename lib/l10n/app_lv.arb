@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Cena par daļu",
   "betOrderDuration": "Ilgums",
   "betUntilCanceled": "Līdz atcelšanai",
+  "advancedFillsNow": "Izpildās tūlīt",
+  "advancedRests": "Gaida grāmatā",
   "betLimitOrderFilled": "Limita rīkojums izpildīts",
   "betLimitBoughtShares": "Nopirktas {shares} {outcome} daļas par {price}",
   "betLimitPriceSteps": "Izvēlieties cenu ar soli {step}.",

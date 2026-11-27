@@ -7117,6 +7117,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get betUntilCanceled => 'Do zrušení';
 
   @override
+  String get advancedFillsNow => 'Vyplní se hned';
+
+  @override
+  String get advancedRests => 'Čeká v knize';
+
+  @override
   String get betLimitOrderFilled => 'Limitní příkaz vyplněn';
 
   @override

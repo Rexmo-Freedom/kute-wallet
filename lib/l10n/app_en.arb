@@ -4139,6 +4139,14 @@
   "betPricePerShare": "Price per share",
   "betOrderDuration": "Duration",
   "betUntilCanceled": "Until canceled",
+  "advancedFillsNow": "Fills now",
+  "@advancedFillsNow": {
+    "description": "Short label over the limit price on the Advanced page's odds rail: at this price the order buys at once from sellers already there."
+  },
+  "advancedRests": "Rests on the book",
+  "@advancedRests": {
+    "description": "Short label over the limit price on the odds rail: at this price the order waits on the order book until the market reaches it."
+  },
   "betLimitOrderFilled": "Limit order filled",
   "@betLimitOrderFilled": {
     "description": "Sal toast title when a resting Predictions limit order fills (all or part) while the app is open."

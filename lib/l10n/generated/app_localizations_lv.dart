@@ -7103,6 +7103,12 @@ class AppLocalizationsLv extends AppLocalizations {
   String get betUntilCanceled => 'Līdz atcelšanai';
 
   @override
+  String get advancedFillsNow => 'Izpildās tūlīt';
+
+  @override
+  String get advancedRests => 'Gaida grāmatā';
+
+  @override
   String get betLimitOrderFilled => 'Limita rīkojums izpildīts';
 
   @override

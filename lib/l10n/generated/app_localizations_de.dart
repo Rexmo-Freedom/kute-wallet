@@ -7169,6 +7169,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get betUntilCanceled => 'Bis zur Stornierung';
 
   @override
+  String get advancedFillsNow => 'Sofort ausgeführt';
+
+  @override
+  String get advancedRests => 'Wartet im Orderbuch';
+
+  @override
   String get betLimitOrderFilled => 'Limit-Order ausgeführt';
 
   @override

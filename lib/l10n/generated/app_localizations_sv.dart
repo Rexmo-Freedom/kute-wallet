@@ -7114,6 +7114,12 @@ class AppLocalizationsSv extends AppLocalizations {
   String get betUntilCanceled => 'Tills den avbryts';
 
   @override
+  String get advancedFillsNow => 'Utförs direkt';
+
+  @override
+  String get advancedRests => 'Väntar i boken';
+
+  @override
   String get betLimitOrderFilled => 'Limitorder utförd';
 
   @override

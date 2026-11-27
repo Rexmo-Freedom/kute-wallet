@@ -7119,6 +7119,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get betUntilCanceled => 'Kunnes peruttu';
 
   @override
+  String get advancedFillsNow => 'Toteutuu heti';
+
+  @override
+  String get advancedRests => 'Odottaa kirjassa';
+
+  @override
   String get betLimitOrderFilled => 'Rajahintatoimeksianto toteutui';
 
   @override

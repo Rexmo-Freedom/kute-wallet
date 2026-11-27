@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Vieneto kaina",
   "betOrderDuration": "Trukmė",
   "betUntilCanceled": "Kol bus atšauktas",
+  "advancedFillsNow": "Įvykdoma iškart",
+  "advancedRests": "Laukia knygoje",
   "betLimitOrderFilled": "Ribotas pavedimas įvykdytas",
   "betLimitBoughtShares": "Nupirkta {shares} {outcome} dalių už {price}",
   "betLimitPriceSteps": "Pasirinkite kainą {step} žingsniais.",

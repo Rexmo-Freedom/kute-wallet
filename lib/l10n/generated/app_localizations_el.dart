@@ -7174,6 +7174,12 @@ class AppLocalizationsEl extends AppLocalizations {
   String get betUntilCanceled => 'Μέχρι ακύρωσης';
 
   @override
+  String get advancedFillsNow => 'Εκτελείται τώρα';
+
+  @override
+  String get advancedRests => 'Περιμένει στο βιβλίο';
+
+  @override
   String get betLimitOrderFilled => 'Η εντολή ορίου εκτελέστηκε';
 
   @override

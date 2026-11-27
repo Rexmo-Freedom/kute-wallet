@@ -7121,6 +7121,12 @@ class AppLocalizationsDa extends AppLocalizations {
   String get betUntilCanceled => 'Indtil annulleret';
 
   @override
+  String get advancedFillsNow => 'Udføres nu';
+
+  @override
+  String get advancedRests => 'Venter i bogen';
+
+  @override
   String get betLimitOrderFilled => 'Limitordre udført';
 
   @override
