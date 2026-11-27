@@ -14268,4 +14268,8 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'アプリで開く';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Ledgerで決済しても、このポジションのストップ注文とテイクプロフィット注文は取り消されません。取り消しには毎回Ledgerが必要です。新しいポジションを決済しないよう、注文画面で取り消してください。';
 }

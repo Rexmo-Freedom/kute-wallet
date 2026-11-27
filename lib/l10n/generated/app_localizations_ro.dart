@@ -14812,4 +14812,8 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Deschide în aplicație';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Închiderea cu un Ledger nu anulează ordinele stop și take profit ale poziției: fiecare anulare are nevoie de Ledger-ul dvs. Anulați-le în Ordine ca să nu închidă o poziție nouă.';
 }

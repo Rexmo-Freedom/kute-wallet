@@ -2,6 +2,8 @@ import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'trailing_stop_sheet.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
+import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart'
+    show ledgerHlAccountProvider;
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart';
@@ -776,6 +778,14 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         final totalSize = _totalSize;
         final notionalUsd = closeSize * _markNow();
         final isMarketClose = _isMarketClose;
+        // A Ledger's orders are not on the hot account and each cancel
+        // needs the device, so a whole close leaves its stops and takes:
+        // said on the receipt (counted when the Ledger's orders read),
+        // never silently.
+        final ledgerLeftovers = totalSize > 0 &&
+                closeSize >= totalSize * (1 - 1e-9)
+            ? _ledgerProtectiveCount()
+            : null;
         _trackSubmitted();
         _bandTo(0.5);
         final outcome = await runLedgerHlClose(context, ref,
@@ -809,11 +819,17 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         if (outcome?.isSuccess == true && result != null) {
           // Still holding the close: the band snaps first, then the
           // ticket lets go into the confirmation (_popToHost).
+          final fullyClosed =
+              totalSize > 0 && result.filledSz >= totalSize * (1 - 1e-9);
           if (result.filledSz > 0 || _isMarketClose) {
             await _showClosedResult(nav, result,
-                checkOpenOrders: _isLimitClose);
+                checkOpenOrders: _isLimitClose,
+                ledgerLeftovers: fullyClosed ? ledgerLeftovers : null);
           } else {
-            await _showCloseAccepted(nav);
+            await _showCloseAccepted(nav,
+                note: ledgerLeftovers == null
+                    ? null
+                    : context.l10n.hlLeftLedgerStopsOpen);
           }
         } else if (outcome?.isPending == true) {
           // An ambiguous submission is not a confirmed close: leave its
@@ -1099,25 +1115,24 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     // flipped position, makes closePosition throw ReauthRequired before it
     // signs.
     // A whole-position close: its left-over stops, takes and trailing
-    // stops, listed before the close, are cancelled once it has filled in
-    // full (a partial close leaves them; reduce-only caps them at what is
-    // left). The venue is not relied on to cancel them.
-    final leftovers = _fraction >= 0.999
-        ? hlProtectiveOrdersFor(_orders(), pos.coin)
-        : const <HlOpenOrder>[];
+    // stops, listed before the close, are cancelled by the notifier once
+    // the position is gone (its one place for every close path); this
+    // waits for that cancel to say on the receipt what it did. A partial
+    // close leaves them (reduce-only caps them at what is left). The venue
+    // is not relied on to cancel them.
     final trading = ref.read(hyperliquidTradingProvider.notifier);
     final order = await _closeOrder(walletId);
     final result = await order.place(grant);
 
     ({int cancelled, int failed})? swept;
-    if (leftovers.isNotEmpty &&
-        _totalSize > 0 &&
-        result.filledSz >= _totalSize * (1 - 1e-9)) {
-      try {
-        final n = await trading.cancelOrdersList(leftovers);
-        swept = (cancelled: n, failed: 0);
-      } catch (_) {
-        swept = (cancelled: 0, failed: leftovers.length);
+    if (_totalSize > 0 && result.filledSz >= _totalSize * (1 - 1e-9)) {
+      final sweep = trading.leftoverSweepFor(pos.coin);
+      if (sweep != null) {
+        try {
+          swept = await sweep;
+        } catch (_) {
+          swept = null;
+        }
       }
     }
     if (!mounted) return;
@@ -1126,7 +1141,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
 
   Future<void> _showClosedResult(NavigatorState nav, HlOrderResult result,
       {bool checkOpenOrders = false,
-      ({int cancelled, int failed})? leftovers}) async {
+      ({int cancelled, int failed})? leftovers,
+      int? ledgerLeftovers}) async {
     // What this close asked for: a resting close order has a remainder
     // only when it filled less than that, never because the position is
     // bigger than the close (a fully filled 50% close leaves nothing
@@ -1176,13 +1192,17 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                   l10n.hlProtectOrdersCancelledRow: '${leftovers!.cancelled}',
                 if ((leftovers?.failed ?? 0) > 0)
                   l10n.hlProtectOrdersNotCancelledRow: '${leftovers!.failed}',
+                if ((ledgerLeftovers ?? 0) > 0)
+                  l10n.hlProtectOrdersNotCancelledRow: '$ledgerLeftovers',
               }
             : const {},
         detail: !filled
             ? null
             : (leftovers?.failed ?? 0) > 0
                 ? l10n.hlProtectCancelAfterCloseFailed
-                : checkOpenOrders && orderRemainder
+                : ledgerLeftovers != null
+                    ? l10n.hlLeftLedgerStopsOpen
+                    : checkOpenOrders && orderRemainder
                     ? l10n.investingCloseRemainderNote
                     : l10n.investingBalanceUpdating,
       ),
@@ -1330,11 +1350,30 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         : null;
   }
 
-  /// A whole-position market close also cancels the position's resting
-  /// stops, takes and trailing stops once it fills (each could otherwise
-  /// close a position opened later): said before it is sent.
+  /// The Ledger's protective orders on this coin, from its last account
+  /// read: null when there are none, -1 when its orders could not be read
+  /// (they may still be there).
+  int? _ledgerProtectiveCount() {
+    final id = widget.ledgerWalletId;
+    if (id == null) return null;
+    final orders =
+        ref.read(ledgerHlAccountProvider(id)).valueOrNull?.openOrders;
+    if (orders == null) return -1;
+    final n = hlProtectiveOrdersFor(orders, pos.coin).length;
+    return n == 0 ? null : n;
+  }
+
+  /// A whole-position close (market, or a limit or TWAP sized to all of
+  /// it) also cancels the position's resting stops, takes and trailing
+  /// stops once the position is gone (each could otherwise close a
+  /// position opened later): said before it is sent.
   Widget? _leftoversNote(AppColorsExtension c, {Color? color}) {
-    if (!_isMarketClose || _fraction < 0.999) return null;
+    final whole = _isMarketClose
+        ? _fraction >= 0.999
+        : (_isLimitClose || _isTwapClose) &&
+            _totalSize > 0 &&
+            _closeSize >= _totalSize * (1 - 1e-9);
+    if (!whole) return null;
     final left = hlProtectiveOrdersFor(_orders(watch: true), pos.coin);
     if (left.isEmpty) return null;
     return Padding(

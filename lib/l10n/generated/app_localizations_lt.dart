@@ -14796,4 +14796,8 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Atidaryti programėlėje';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Uždarymas su Ledger neatšaukia pozicijos stop ir take profit pavedimų: kiekvienam atšaukimui reikia jūsų Ledger. Atšaukite juos skiltyje Pavedimai, kad jie neuždarytų naujos pozicijos.';
 }

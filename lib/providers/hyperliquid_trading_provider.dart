@@ -58,7 +58,10 @@ import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart'
+    show hlProtectiveOrdersFor;
 import 'package:kute/services/hyperliquid/hl_optimistic_margin.dart';
+import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_activity.dart';
@@ -91,6 +94,44 @@ import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show EthPrivateKey;
 import 'package:kute/services/polymarket/order_poll_gate.dart';
+
+/// A batch cancel the venue answered per order, with some still open
+/// after it: [cancelled] went, [stillOpen] did not (what was already gone
+/// is neither).
+class HlCancelPartialException implements Exception {
+  const HlCancelPartialException({
+    required this.cancelled,
+    required this.stillOpen,
+    required this.reason,
+  });
+  final int cancelled;
+  final int stillOpen;
+  final String reason;
+  @override
+  String toString() =>
+      'HlCancelPartialException($cancelled cancelled, $stillOpen still open: '
+      '$reason)';
+}
+
+/// What became of a closed position's left-over protective orders.
+typedef HlLeftoverSweep = ({int cancelled, int failed});
+
+class _FullCloseArm {
+  const _FullCloseArm({
+    required this.absSzi,
+    required this.wasLong,
+    this.oid,
+    this.twapId,
+  });
+
+  /// The position's size and side when the closing order was sent.
+  final double absSzi;
+  final bool wasLong;
+
+  /// The closing order's handle, while it may rest: its cancel disarms.
+  final int? oid;
+  final int? twapId;
+}
 
 /// The selected cancel-all set could not be resolved completely; no request
 /// was sent and all local orders remain visible.
@@ -470,6 +511,21 @@ class HyperliquidTradingNotifier
     extends AutoDisposeAsyncNotifier<HyperliquidTradingState> {
   HyperliquidExchangeService? _exchange;
 
+  /// Tests only: an exchange (MockClient-backed) in place of the derived
+  /// signer, so the order and cancel paths run for real against canned
+  /// answers.
+  @visibleForTesting
+  void debugUseExchange(HyperliquidExchangeService exchange,
+      {required String walletId}) {
+    _exchange = exchange;
+    _walletId = walletId;
+  }
+
+  /// Tests only: an account snapshot, as the account provider's poll
+  /// delivers it.
+  @visibleForTesting
+  void debugApplySnapshot(HlAccountSnapshot snap) => _applySnapshot(snap);
+
   /// The hot account key, kept beside [_exchange] (same lifetime, never in
   /// state, never persisted) for the venue ownership link only.
   EthPrivateKey? _hotKey;
@@ -546,6 +602,9 @@ class HyperliquidTradingNotifier
     // remount. Torn down only by explicit invalidation (wallet switch).
     ref.keepAlive();
     _disposed = false;
+    // Arms belong to the account they were set on.
+    _fullCloseArms.clear();
+    _leftoverSweeps.clear();
     ref.onDispose(() {
       _disposed = true;
       _ordersTimer?.cancel();
@@ -735,6 +794,7 @@ class HyperliquidTradingNotifier
       _trackCancelFailed(scope: 'twap', coin: twap.coin, error: e);
       rethrow;
     }
+    _disarmByOrder(twapId: twap.twapId);
     TrackingService.track('hl_twap_cancelled', params: {'coin': twap.coin});
     TrackingService.hyperliquidOrderCancelled(
       coin: twap.coin,
@@ -804,8 +864,9 @@ class HyperliquidTradingNotifier
       // whose first read failed starts uninitialized).
       isInitialized: true,
     );
-    if (next == current) return;
-    _setData(next);
+    if (next != current) _setData(next);
+    // A whole position this app closed, now gone: its left-over stops go.
+    _checkFullCloseArms(afterCloses.positions);
   }
 
   // ───────────────────── optimistic margin after a fill ─────────────────────
@@ -825,6 +886,143 @@ class HyperliquidTradingNotifier
           if (p.coin != position.coin) p,
       ],
     ));
+    // Gone now: the closing order was this app's own (closePosition).
+    _startLeftoverSweep(position.coin);
+  }
+
+  // ─────────── left-over protective orders after a full close ───────────
+  //
+  // ONE place for every path that ends with a position at zero: the close
+  // sheet's market close, the order slip's close (closePosition), a limit
+  // or TWAP close sized to the whole position, and an opposite-side order
+  // on the slip that nets it to exactly zero. A reduce-only stop, take or
+  // trailing stop left on a flat market could close a position opened
+  // there later, so the coin's protective orders are cancelled, and only
+  // when all of this holds:
+  //
+  //   * this app sent the order that closes the WHOLE position, in this
+  //     session ([_armFullClose]; a partial close arms nothing);
+  //   * the app saw the position open when it sent it, and now sees it
+  //     gone (the fill of closePosition, or an account snapshot with no
+  //     position on the coin: [_checkFullCloseArms]). A resting limit or
+  //     a TWAP is never swept on acceptance, only once the position is
+  //     actually gone;
+  //   * the position is still gone after the open orders are read again
+  //     right before the cancel.
+  //
+  // Only protective orders ([hlProtectiveOrdersFor]: trigger or trailing,
+  // reduce-only or position TP/SL) are cancelled, never an entry or a
+  // plain limit. The arm drops if its closing order is cancelled, or if
+  // the position grows past what the close was sized for or flips side.
+  // The user's own Confirm of that close is the consent: the close sheet
+  // says so before it is sent ("Closing all of it also cancels its stop
+  // and take-profit orders").
+
+  final Map<String, _FullCloseArm> _fullCloseArms = {};
+  final Map<String, Future<HlLeftoverSweep>> _leftoverSweeps = {};
+
+  /// The cancel of [coin]'s left-over protective orders started when its
+  /// position was seen gone after this app closed it, or null when none
+  /// started (not closed in full here, or nothing to cancel). The close
+  /// sheet awaits it for its receipt.
+  Future<HlLeftoverSweep>? leftoverSweepFor(String coin) =>
+      _leftoverSweeps[coin];
+
+  /// Arms the sweep when the order this app just had accepted closes the
+  /// whole of [held] ([orderIsBuy] on the other side, sized to it within
+  /// one lot step; a reduce-only order sized past it also closes it).
+  void _armFullClose({
+    required HlMarket market,
+    required HlPerpPosition? held,
+    required bool orderIsBuy,
+    required double size,
+    required bool reduceOnly,
+    int? oid,
+    int? twapId,
+  }) {
+    if (market.isSpot || held == null || held.szi == 0) return;
+    final plan = hlPositionPlan(
+        position: held,
+        orderIsLong: orderIsBuy,
+        orderSize: size,
+        szDecimals: market.szDecimals);
+    final full = plan.effect == HlPositionEffect.close ||
+        (reduceOnly && plan.effect == HlPositionEffect.flip);
+    if (!full) return;
+    _fullCloseArms[held.coin] = _FullCloseArm(
+      absSzi: held.szi.abs(),
+      wasLong: held.isLong,
+      oid: oid,
+      twapId: twapId,
+    );
+    // A fill can land (and a snapshot show it gone) before the order's
+    // answer is back.
+    final s = _current;
+    if (s != null) _checkFullCloseArms(s.positions);
+  }
+
+  HlPerpPosition? _heldOn(HlMarket market) {
+    if (market.isSpot) return null;
+    for (final p in _current?.positions ?? const <HlPerpPosition>[]) {
+      if (p.coin == market.wireCoin && p.szi != 0) return p;
+    }
+    return null;
+  }
+
+  /// An armed coin with no position left is swept; one that grew past
+  /// the close or flipped side is disarmed.
+  void _checkFullCloseArms(List<HlPerpPosition> positions) {
+    if (_fullCloseArms.isEmpty) return;
+    for (final coin in _fullCloseArms.keys.toList()) {
+      final arm = _fullCloseArms[coin]!;
+      HlPerpPosition? now;
+      for (final p in positions) {
+        if (p.coin == coin && p.szi != 0) {
+          now = p;
+          break;
+        }
+      }
+      if (now == null) {
+        _startLeftoverSweep(coin);
+      } else if (now.isLong != arm.wasLong ||
+          now.szi.abs() > arm.absSzi * (1 + 1e-9) + 1e-12) {
+        _fullCloseArms.remove(coin);
+      }
+    }
+  }
+
+  void _disarmByOrder({int? oid, int? twapId}) {
+    _fullCloseArms.removeWhere((_, arm) =>
+        (oid != null && arm.oid == oid) ||
+        (twapId != null && arm.twapId == twapId));
+  }
+
+  void _startLeftoverSweep(String coin) {
+    _fullCloseArms.remove(coin);
+    final sweep = _sweepLeftovers(coin);
+    _leftoverSweeps[coin] = sweep;
+    unawaited(sweep.then((_) {}, onError: (_) {}));
+  }
+
+  Future<HlLeftoverSweep> _sweepLeftovers(String coin) async {
+    // The orders read again first: a stop first seen over the socket is
+    // not described yet and would otherwise be missed.
+    await _silentOrdersRefresh();
+    final s = _current;
+    if (s == null) return (cancelled: 0, failed: 0);
+    // Never on a market where a position is open (again).
+    if (s.positions.any((p) => p.coin == coin && p.szi != 0)) {
+      return (cancelled: 0, failed: 0);
+    }
+    final leftovers = hlProtectiveOrdersFor(s.openOrders, coin);
+    if (leftovers.isEmpty) return (cancelled: 0, failed: 0);
+    try {
+      final report = await _cancelListed(leftovers, reason: 'after_close');
+      return (cancelled: report.cancelled.length, failed: report.failed.length);
+    } catch (_) {
+      // Unconfirmed: said as still open; the next read reconciles.
+      return (cancelled: 0, failed: leftovers.length);
+    }
   }
 
   HlOptimisticMargin? _optimisticMargin;
@@ -1596,6 +1794,8 @@ class HyperliquidTradingNotifier
       if (pos == null) {
         throw StateError('No open position for $coin');
       }
+      // A sweep from an earlier close of this coin is not this close's.
+      _leftoverSweeps.remove(coin);
 
       await ensureOnboarded();
       final ex = _exchange!;
@@ -1893,6 +2093,9 @@ class HyperliquidTradingNotifier
       // TP/SL rides in the SAME 'normalTpsl'-grouped action (see
       // placeMarketOrder): fill-sized, OCO, never silently missing.
       final orderCloid = cloid ?? newHlCloid();
+      // The position as the app saw it when it sent the order: a limit
+      // that closes all of it arms the left-over sweep.
+      final held = _heldOn(market);
       final result = await _sendReconciled(
         () => wantsTpsl
             ? ex.placeOrderWithTpsl(
@@ -1946,6 +2149,14 @@ class HyperliquidTradingNotifier
         );
         _trackTpslLegFailure(market, result,
             wantedTpsl: wantsTpsl, parentType: 'limit');
+        _armFullClose(
+          market: market,
+          held: held,
+          orderIsBuy: isLong,
+          size: flooredSize(coinSize, market.szDecimals),
+          reduceOnly: reduceOnly,
+          oid: result.oid,
+        );
         _afterAction();
       });
       return result;
@@ -2428,6 +2639,7 @@ class HyperliquidTradingNotifier
             'the \$${HlTwapRules.minNotionalUsd.toStringAsFixed(0)} TWAP minimum',
             minimumUsd: HlTwapRules.minNotionalUsd);
       }
+      final twapHeld = _heldOn(market);
       final result = await HotHyperliquidTwapGuard().run(
         walletId: walletId!,
         address: ex.walletAddress,
@@ -2497,6 +2709,16 @@ class HyperliquidTradingNotifier
             startedAt: DateTime.now(),
           ));
         }
+        // A TWAP that closes the whole position: its left-over stops go
+        // once the position is actually gone, never on acceptance.
+        _armFullClose(
+          market: market,
+          held: twapHeld,
+          orderIsBuy: isLong,
+          size: flooredSize(coinSize, market.szDecimals),
+          reduceOnly: reduceOnly,
+          twapId: twapId,
+        );
         _afterAction();
       });
       return result;
@@ -2748,6 +2970,8 @@ class HyperliquidTradingNotifier
       _trackCancelFailed(scope: 'single', coin: resolved, error: e);
       rethrow;
     }
+    // A whole-position close the user cancelled closes nothing.
+    _disarmByOrder(oid: oid);
 
     final current = _current;
     TrackingService.hyperliquidOrderCancelled(
@@ -2768,16 +2992,39 @@ class HyperliquidTradingNotifier
     VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
   }
 
-  /// Cancels [orders] (one coin's left-over protective triggers after a
-  /// full close) in one signed batch action, the cancel-all path scoped to
-  /// them. Returns how many were cancelled; throws when the cancel did not
-  /// go through or an order's asset is unresolved, so the caller reports
-  /// it rather than leave a stop that could later close a new position.
+  /// Cancels [orders] (one coin's left-over protective triggers, or the
+  /// stops a new stop replaces) in one signed batch action, the cancel-all
+  /// path scoped to them. Returns how many THIS action cancelled; an order
+  /// the venue says was no longer resting (already cancelled, filled or
+  /// never placed) is done, pruned and not counted. Throws
+  /// [HlCancelPartialException] when any order is still open after it, and
+  /// the venue's own error when the acknowledgement is unclear or an
+  /// order's asset is unresolved, so the caller reports it rather than
+  /// leave a stop that could later close a new position.
   Future<int> cancelOrdersList(List<HlOpenOrder> orders,
       {String reason = 'after_close'}) async {
     if (orders.isEmpty) return 0;
+    final report = await _cancelListed(orders, reason: reason);
+    if (report.failed.isNotEmpty) {
+      throw HlCancelPartialException(
+        cancelled: report.cancelled.length,
+        stillOpen: report.failed.length,
+        reason: report.failed.first.reason,
+      );
+    }
+    return report.cancelled.length;
+  }
+
+  /// [orders] cancelled in one batch, read per order: what was cancelled
+  /// or already gone leaves local state at once; what the venue refused
+  /// stays listed. Throws only when nothing can be said (asset unresolved,
+  /// no clear acknowledgement).
+  Future<HlCancelReport> _cancelListed(List<HlOpenOrder> orders,
+      {required String reason}) async {
     final cancels = <({int assetId, int oid})>[];
     final coins = {for (final o in orders) o.coin};
+    final coin = coins.length == 1 ? coins.first : '';
+    HlCancelReport report;
     try {
       await RuntimeCapabilitiesService.instance
           .ensureAllowed('hyperliquid.cancel');
@@ -2790,36 +3037,62 @@ class HyperliquidTradingNotifier
         throw const HlCancellationIncompleteException();
       }
       try {
-        await _exchange!.cancelOrders(cancels);
+        report = await _exchange!.cancelOrdersReport(cancels);
       } finally {
         unawaited(_silentOrdersRefresh());
       }
     } catch (e) {
-      _trackCancelFailed(
-          scope: reason, coin: coins.length == 1 ? coins.first : '', error: e);
+      _trackCancelFailed(scope: reason, coin: coin, error: e);
       rethrow;
     }
-    TrackingService.hyperliquidOrderCancelled(
-      coin: coins.length == 1 ? coins.first : 'multiple',
-      scope: reason,
-      walletKind: 'hot',
-      extra: {'count': cancels.length},
-    );
-    final current = _current;
-    if (current != null) {
-      final gone = {for (final c in cancels) c.oid};
-      _setData(current.copyWith(
-        openOrders:
-            current.openOrders.where((o) => !gone.contains(o.oid)).toList(),
-      ));
+    _pruneCancelled(report);
+    if (report.cancelled.isNotEmpty) {
+      TrackingService.hyperliquidOrderCancelled(
+        coin: coins.length == 1 ? coins.first : 'multiple',
+        scope: reason,
+        walletKind: 'hot',
+        extra: {
+          'count': report.cancelled.length,
+          if (report.gone.isNotEmpty) 'already_gone': report.gone.length,
+        },
+      );
     }
-    return cancels.length;
+    if (report.failed.isNotEmpty) {
+      _trackCancelFailed(
+          scope: reason,
+          coin: coin,
+          error: HyperliquidRejectedException(report.failed.first.reason));
+    }
+    return report;
   }
 
-  /// Cancels every resting order in one signed batch action.
+  /// What a cancel took off the book leaves local state now (the refresh
+  /// it started confirms), and any full-close arm on those orders drops.
+  void _pruneCancelled(HlCancelReport report) {
+    final done = report.done;
+    if (done.isEmpty) return;
+    // Only what this cancel took off: an order already gone may have
+    // filled, the close it armed included.
+    for (final oid in report.cancelled) {
+      _disarmByOrder(oid: oid);
+    }
+    final current = _current;
+    if (current != null) {
+      _setData(current.copyWith(
+        openOrders:
+            current.openOrders.where((o) => !done.contains(o.oid)).toList(),
+      ));
+    }
+  }
+
+  /// Cancels every resting order in one signed batch action. Returns how
+  /// many this action cancelled (an order already gone is pruned, not
+  /// counted); throws [HlCancelPartialException] when any order is still
+  /// open after it.
   Future<int> cancelAllOrders() async {
     final cancels = <({int assetId, int oid})>[];
     final coins = <String>{};
+    HlCancelReport report;
     try {
       await RuntimeCapabilitiesService.instance
           .ensureAllowed('hyperliquid.cancel');
@@ -2841,11 +3114,9 @@ class HyperliquidTradingNotifier
         throw const HlCancellationIncompleteException();
       }
       try {
-        await _exchange!.cancelOrders(cancels);
+        report = await _exchange!.cancelOrdersReport(cancels);
       } finally {
-        // A mixed batch can cancel some orders before reporting a
-        // rejection. Only an authoritative refresh may reconcile that
-        // partial outcome.
+        // The refresh confirms what the per-order answer already said.
         unawaited(_silentOrdersRefresh());
       }
     } catch (e) {
@@ -2853,26 +3124,31 @@ class HyperliquidTradingNotifier
           scope: 'all', coin: coins.length == 1 ? coins.first : '', error: e);
       rethrow;
     }
-    TrackingService.track('hl_cancel_all_orders', params: {
-      'count': cancels.length,
-      'count_bucket': _countBucket(cancels.length),
-    });
-    TrackingService.hyperliquidOrderCancelled(
-      coin: coins.length == 1 ? coins.first : 'multiple',
-      scope: 'all',
-      walletKind: 'hot',
-    );
-
-    final current = _current;
-    if (current != null) {
-      final gone = {for (final c in cancels) c.oid};
-      _setData(current.copyWith(
-        openOrders:
-            current.openOrders.where((o) => !gone.contains(o.oid)).toList(),
-      ));
+    _pruneCancelled(report);
+    final count = report.cancelled.length;
+    if (count > 0) {
+      TrackingService.track('hl_cancel_all_orders', params: {
+        'count': count,
+        'count_bucket': _countBucket(count),
+      });
+      TrackingService.hyperliquidOrderCancelled(
+        coin: coins.length == 1 ? coins.first : 'multiple',
+        scope: 'all',
+        walletKind: 'hot',
+      );
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
     }
-    VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
-    return cancels.length;
+    if (report.failed.isNotEmpty) {
+      final error = HlCancelPartialException(
+        cancelled: count,
+        stillOpen: report.failed.length,
+        reason: report.failed.first.reason,
+      );
+      _trackCancelFailed(
+          scope: 'all', coin: coins.length == 1 ? coins.first : '', error: error);
+      throw error;
+    }
+    return count;
   }
 
   // ─────────────────────── WS event integration ───────────────────────
@@ -2921,8 +3197,13 @@ class HyperliquidTradingNotifier
           detailsKnown: prev?.detailsKnown ?? false,
         );
         touched = true;
-      } else if (byOid.remove(u.oid) != null) {
-        touched = true;
+      } else {
+        // A closing order cancelled or rejected (here or elsewhere) no
+        // longer closes the position: its arm drops. A fill keeps it.
+        if (u.status != 'filled' && u.status != 'triggered') {
+          _disarmByOrder(oid: u.oid);
+        }
+        if (byOid.remove(u.oid) != null) touched = true;
       }
     }
     if (!touched) return;

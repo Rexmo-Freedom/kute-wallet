@@ -14731,4 +14731,8 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Öppna i appen';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Att stänga med en Ledger avbryter inte positionens stop- och take profit-order: varje avbrytande kräver din Ledger. Avbryt dem under Order så att de inte stänger en ny position.';
 }

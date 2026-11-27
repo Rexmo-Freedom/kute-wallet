@@ -14703,4 +14703,8 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Atvērt lietotnē';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Aizverot ar Ledger, pozīcijas stop un take profit rīkojumi netiek atcelti: katrai atcelšanai vajadzīgs jūsu Ledger. Atceliet tos sadaļā Rīkojumi, lai tie neaizvērtu jaunu pozīciju.';
 }

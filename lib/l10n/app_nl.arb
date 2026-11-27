@@ -4152,5 +4152,6 @@
   "shareOpenInBrowserSafari": "Deze pagina is geopend in een andere app. Open hem in Safari voor Face ID en om je wallet te houden.",
   "shareOpenInBrowserChrome": "Deze pagina is geopend in een andere app. Open hem in Chrome om een toegangssleutel te gebruiken en je wallet te houden.",
   "shareOpenInAppBody": "Heb je de Kute-app? Open het daar.",
-  "shareOpenInApp": "Openen in de app"
+  "shareOpenInApp": "Openen in de app",
+  "hlLeftLedgerStopsOpen": "Sluiten met een Ledger annuleert de stop- en take-profitorders van de positie niet: elke annulering vraagt je Ledger. Annuleer ze bij Orders, zodat ze geen nieuwe positie sluiten."
 }

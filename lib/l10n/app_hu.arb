@@ -4152,5 +4152,6 @@
   "shareOpenInBrowserSafari": "Ez az oldal egy másik alkalmazásban van megnyitva. A Face ID-hoz és a tárcád megőrzéséhez nyisd meg a Safariban.",
   "shareOpenInBrowserChrome": "Ez az oldal egy másik alkalmazásban van megnyitva. A hozzáférési kulcs használatához és a tárcád megőrzéséhez nyisd meg a Chrome-ban.",
   "shareOpenInAppBody": "Megvan a Kute alkalmazás? Nyisd meg ott.",
-  "shareOpenInApp": "Megnyitás az alkalmazásban"
+  "shareOpenInApp": "Megnyitás az alkalmazásban",
+  "hlLeftLedgerStopsOpen": "A Ledgerrel történő zárás nem törli a pozíció stop és take profit megbízásait: minden törléshez a Ledgerére van szükség. Törölje őket a Megbízásokban, hogy ne zárjanak le egy új pozíciót."
 }

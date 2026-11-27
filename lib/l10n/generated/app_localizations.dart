@@ -24776,6 +24776,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open in the app'**
   String get shareOpenInApp;
+
+  /// Close receipt on a Ledger whole-position close: its protective orders were not cancelled, since every cancel needs a Ledger signature.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing on a Ledger does not cancel the position\'s stop and take-profit orders: each cancel needs your Ledger. Cancel them in Orders so they cannot close a new position.'**
+  String get hlLeftLedgerStopsOpen;
 }
 
 class _AppLocalizationsDelegate

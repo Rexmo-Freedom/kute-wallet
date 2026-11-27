@@ -14838,4 +14838,8 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'In der App öffnen';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Das Schließen mit einem Ledger storniert die Stop- und Take-Profit-Aufträge der Position nicht: Jede Stornierung braucht deinen Ledger. Storniere sie unter Aufträge, damit sie keine neue Position schließen.';
 }

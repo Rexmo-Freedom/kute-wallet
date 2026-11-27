@@ -4152,5 +4152,6 @@
   "shareOpenInBrowserSafari": "Ta stran je odprta v drugi aplikaciji. Za Face ID in da obdržite denarnico, jo odprite v Safariju.",
   "shareOpenInBrowserChrome": "Ta stran je odprta v drugi aplikaciji. Za uporabo ključa za dostop in da obdržite denarnico, jo odprite v Chromu.",
   "shareOpenInAppBody": "Imate aplikacijo Kute? Odprite to tam.",
-  "shareOpenInApp": "Odpri v aplikaciji"
+  "shareOpenInApp": "Odpri v aplikaciji",
+  "hlLeftLedgerStopsOpen": "Zapiranje z Ledgerjem ne prekliče naročil stop in take profit pozicije: vsak preklic potrebuje vaš Ledger. Prekličite jih v Naročilih, da ne zaprejo nove pozicije."
 }

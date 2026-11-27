@@ -12961,5 +12961,9 @@
   "shareOpenInApp": "Open in the app",
   "@shareOpenInApp": {
     "description": "The notice's button: opens the Kute app (or its store page)."
+  },
+  "hlLeftLedgerStopsOpen": "Closing on a Ledger does not cancel the position's stop and take-profit orders: each cancel needs your Ledger. Cancel them in Orders so they cannot close a new position.",
+  "@hlLeftLedgerStopsOpen": {
+    "description": "Close receipt on a Ledger whole-position close: its protective orders were not cancelled, since every cancel needs a Ledger signature."
   }
 }

@@ -4152,5 +4152,6 @@
   "shareOpenInBrowserSafari": "Ta strona jest otwarta w innej aplikacji. Aby użyć Face ID i zachować portfel, otwórz ją w Safari.",
   "shareOpenInBrowserChrome": "Ta strona jest otwarta w innej aplikacji. Aby użyć klucza dostępu i zachować portfel, otwórz ją w Chrome.",
   "shareOpenInAppBody": "Masz aplikację Kute? Otwórz to tam.",
-  "shareOpenInApp": "Otwórz w aplikacji"
+  "shareOpenInApp": "Otwórz w aplikacji",
+  "hlLeftLedgerStopsOpen": "Zamknięcie z Ledgerem nie anuluje zleceń stop i take profit tej pozycji: każde anulowanie wymaga Twojego Ledgera. Anuluj je w Zleceniach, aby nie zamknęły nowej pozycji."
 }

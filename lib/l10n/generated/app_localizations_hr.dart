@@ -14765,4 +14765,8 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Otvori u aplikaciji';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Zatvaranje Ledgerom ne otkazuje stop i take profit naloge pozicije: svako otkazivanje traži vaš Ledger. Otkažite ih u Nalozima da ne zatvore novu poziciju.';
 }

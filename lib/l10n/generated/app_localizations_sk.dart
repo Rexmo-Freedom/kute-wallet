@@ -14752,4 +14752,8 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get shareOpenInApp => 'Otvoriť v aplikácii';
+
+  @override
+  String get hlLeftLedgerStopsOpen =>
+      'Zatvorenie s Ledgerom nezruší príkazy stop a take profit pozície: každé zrušenie vyžaduje váš Ledger. Zrušte ich v Príkazoch, aby neuzavreli novú pozíciu.';
 }
