@@ -13,6 +13,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -285,21 +286,29 @@ class _LegRow extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 12.h),
       child: Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10.r),
-          child: SizedBox(
-            width: 38.sp,
-            height: 38.sp,
-            child: leg.imageUrl == null
-                ? Icon(Icons.show_chart, color: c.textTertiary)
-                : PolyCrestImage(
-                    url: leg.imageUrl!,
-                    size: 38.sp,
-                    radius: 10,
-                    fallback: Icon(Icons.show_chart, color: c.textTertiary)),
+        // Web: only a picture the backend routes draw; else none, and no
+        // gap (PolyPictureLead).
+        if (!kIsWeb)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10.r),
+            child: SizedBox(
+              width: 38.sp,
+              height: 38.sp,
+              child: leg.imageUrl == null
+                  ? Icon(Icons.show_chart, color: c.textTertiary)
+                  : PolyCrestImage(
+                      url: leg.imageUrl!,
+                      size: 38.sp,
+                      radius: 10,
+                      fallback:
+                          Icon(Icons.show_chart, color: c.textTertiary)),
+            ),
           ),
-        ),
-        SizedBox(width: 10.w),
+        if (!kIsWeb)
+          SizedBox(width: 10.w)
+        else
+          PolyPictureLead(
+              url: leg.imageUrl, size: 38.sp, radius: 10, gap: 10.w),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

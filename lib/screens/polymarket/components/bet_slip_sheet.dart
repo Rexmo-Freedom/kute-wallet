@@ -7436,11 +7436,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       ),
       child: Row(
         children: [
-          _OutcomeLeadingThumb(
-            imageUrl: sel.imageUrl ?? widget.marketImage,
-            fallbackColor: _outcomeFallbackColor(_selectedIndex),
-          ),
-          SizedBox(width: 10.w),
+          // Web: only a picture the backend routes draw; else none, and
+          // no gap (PolyPictureLead).
+          if (PolyPictureLead.shown(sel.imageUrl ?? widget.marketImage)) ...[
+            _OutcomeLeadingThumb(
+              imageUrl: sel.imageUrl ?? widget.marketImage,
+              fallbackColor: _outcomeFallbackColor(_selectedIndex),
+            ),
+            SizedBox(width: 10.w),
+          ],
           Expanded(
             child: Text(
               sel.name,

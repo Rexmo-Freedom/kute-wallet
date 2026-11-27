@@ -1116,8 +1116,12 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                     // ── Header ───────────────────────────────────────
                     Row(
                       children: [
-                        _artwork(),
-                        SizedBox(width: 10.w),
+                        // Web: no logo to draw, no box and no gap.
+                        if (hlLogoShown(_market.coin, _market.wireCoin,
+                            _market.iconUrl, _market.category)) ...[
+                          _artwork(),
+                          SizedBox(width: 10.w),
+                        ],
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

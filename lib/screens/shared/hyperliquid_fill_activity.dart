@@ -134,14 +134,20 @@ Widget _fillRow(BuildContext context, WidgetRef ref, HlFill fill,
           : resultUsd;
   return buildWalletActivityRow(
     // Round like every other row tile, the letter fallback included.
-    leading: ClipOval(
-      child: HlCoinIcon(
-          coin: coin,
-          wireCoin: market?.wireCoin ?? fill.coin,
-          iconUrl: market?.iconUrl,
-          category: market?.category,
-          size: 44),
-    ),
+    // Web: no logo to draw, no tile and no gap (hlLogoOrNull).
+    leading: hlLogoOrNull(
+        () => ClipOval(
+              child: HlCoinIcon(
+                  coin: coin,
+                  wireCoin: market?.wireCoin ?? fill.coin,
+                  iconUrl: market?.iconUrl,
+                  category: market?.category,
+                  size: 44),
+            ),
+        coin: coin,
+        wireCoin: market?.wireCoin ?? fill.coin,
+        iconUrl: market?.iconUrl,
+        category: market?.category),
     title: activityRowTitle(hlFillRowTitle(fill, symbol, context.l10n)),
     subtitle: friendly == null ? time : '$friendly · $time',
     amount: formatDollars(fill.px * fill.sz),

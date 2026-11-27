@@ -7907,14 +7907,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, pad),
       child: Row(
         children: [
-          HlCoinIcon(
-            coin: market.coin,
-            wireCoin: market.wireCoin,
-            category: market.category,
-            iconUrl: market.iconUrl,
-            size: 36,
-          ),
-          SizedBox(width: 10.w),
+          // Web: no logo to draw, no box and no gap (hlLogoShown).
+          if (hlLogoShown(market.coin, market.wireCoin, market.iconUrl,
+              market.category)) ...[
+            HlCoinIcon(
+              coin: market.coin,
+              wireCoin: market.wireCoin,
+              category: market.category,
+              iconUrl: market.iconUrl,
+              size: 36,
+            ),
+            SizedBox(width: 10.w),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

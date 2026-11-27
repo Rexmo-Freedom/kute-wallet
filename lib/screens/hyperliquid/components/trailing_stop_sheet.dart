@@ -271,12 +271,17 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
     final c = context.colors;
     final form = <Widget>[
       Row(children: [
-        HlCoinIcon(
-            coin: HlMarket.baseCoin(widget.market.coin),
-            wireCoin: widget.market.wireCoin,
-            iconUrl: widget.market.iconUrl,
-            category: widget.market.category),
-        const SizedBox(width: 12),
+        // Web: no logo to draw, no box and no gap (hlLogoShown).
+        if (hlLogoShown(HlMarket.baseCoin(widget.market.coin),
+            widget.market.wireCoin, widget.market.iconUrl,
+            widget.market.category)) ...[
+          HlCoinIcon(
+              coin: HlMarket.baseCoin(widget.market.coin),
+              wireCoin: widget.market.wireCoin,
+              iconUrl: widget.market.iconUrl,
+              category: widget.market.category),
+          const SizedBox(width: 12),
+        ],
         Expanded(
             child: Text(
                 '${widget.reduceOnly ? context.l10n.trailingClose : widget.isBuy ? context.l10n.longLabel : context.l10n.shortLabel} '

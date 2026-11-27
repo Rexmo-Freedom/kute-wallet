@@ -121,19 +121,20 @@ class PolySlipHeader extends StatelessWidget {
           if (leading != null) ...[
             leading!,
             SizedBox(width: 10.w),
-          ] else if (img != null && img.isNotEmpty) ...[
-            PolyCrestImage(
+          ] else if (img != null && img.isNotEmpty)
+            // Web: only a picture the backend routes draw; else none, and
+            // no gap (PolyPictureLead).
+            PolyPictureLead(
               url: img,
               size: 36.sp,
               radius: 10.r,
+              gap: 10.w,
               fallback: Container(
                 width: 36.sp,
                 height: 36.sp,
                 color: c.surfaceLight,
               ),
             ),
-            SizedBox(width: 10.w),
-          ],
           Expanded(
             // The whole question, never cut: up to five lines, in a
             // smaller face the longer it runs.

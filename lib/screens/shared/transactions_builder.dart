@@ -697,7 +697,8 @@ class _AmountText extends StatelessWidget {
 /// prediction won or lost); every other amount is the primary text
 /// colour.
 Widget buildWalletActivityRow({
-  required Widget leading,
+  // Null: no tile and no gap (a market with no picture on the web).
+  required Widget? leading,
   required Widget title,
   required String subtitle,
   required String amount,
@@ -793,7 +794,7 @@ class ActivityRowLayout extends InheritedWidget {
 const double kActivitySquareHeight = 140;
 
 class _TransactionRow extends ConsumerWidget {
-  final Widget leading;
+  final Widget? leading;
   final Widget title;
   final String subtitle;
   final String amount;
@@ -881,7 +882,7 @@ class _TransactionRow extends ConsumerWidget {
       padding: EdgeInsets.symmetric(
           horizontal: 16.w, vertical: compact ? 13.h : 14.h),
       child: TransactionRowContent(
-        leading: _RowIconTile(child: leading),
+        leading: leading == null ? null : _RowIconTile(child: leading!),
         title: title,
         subtitle: Text.rich(
           TextSpan(children: [
@@ -988,7 +989,7 @@ class _TransactionRow extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _RowIconTile(child: leading),
+            if (leading != null) _RowIconTile(child: leading!),
             const Spacer(),
             if (statusText != null) statusText,
             title,
@@ -1008,8 +1009,10 @@ class _TransactionRow extends ConsumerWidget {
         child: LayoutBuilder(builder: (context, box) {
           return Row(
             children: [
-              _RowIconTile(size: 36, child: leading),
-              SizedBox(width: 12.w),
+              if (leading != null) ...[
+                _RowIconTile(size: 36, child: leading!),
+                SizedBox(width: 12.w),
+              ],
               Expanded(
                 child: Row(
                   children: [
@@ -1206,7 +1209,9 @@ class TransactionDetailHeader extends StatelessWidget {
     final c = context.colors;
     final face = row as _TransactionRow;
     return ReceiptHero(
-      leading: _RowIconTile(size: 56, child: face.leading),
+      leading: face.leading == null
+          ? null
+          : _RowIconTile(size: 56, child: face.leading!),
       title: face.title,
       amount: _AmountText(
         amount: face._signed(face.amount),

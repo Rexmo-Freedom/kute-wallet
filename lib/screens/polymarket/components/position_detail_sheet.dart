@@ -827,14 +827,15 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                     if (headerImage != null && headerImage.isNotEmpty) ...[
                       // PolyCrestImage (not raw CachedNetworkImage) so SVG
                       // flags / team crests render: Polymarket serves many
-                      // national-team icons as `.svg`.
-                      PolyCrestImage(
+                      // national-team icons as `.svg`. Web: only a picture
+                      // the backend routes draw, else none and no gap.
+                      PolyPictureLead(
                         url: headerImage,
                         size: 32.w,
                         radius: 8.w,
+                        gap: 8.w,
                         label: pos.marketQuestion,
                       ),
-                      SizedBox(width: 8.w),
                     ],
                     Expanded(
                       // The whole title: smaller rather than cut.

@@ -387,13 +387,17 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                         SizedBox(width: 8.w),
                         // The market sheet's header row: logo and ticker; the
                         // figure is under it.
-                        HlCoinIcon(
-                            coin: m?.coin ?? pos.coin,
-                            wireCoin: m?.wireCoin ?? pos.coin,
-                            category: m?.category,
-                            iconUrl: m?.iconUrl,
-                            size: 32),
-                        SizedBox(width: 8.w),
+                        // Web: no logo to draw, no box and no gap.
+                        if (hlLogoShown(m?.coin ?? pos.coin,
+                            m?.wireCoin ?? pos.coin, m?.iconUrl, m?.category)) ...[
+                          HlCoinIcon(
+                              coin: m?.coin ?? pos.coin,
+                              wireCoin: m?.wireCoin ?? pos.coin,
+                              category: m?.category,
+                              iconUrl: m?.iconUrl,
+                              size: 32),
+                          SizedBox(width: 8.w),
+                        ],
                         Expanded(
                           // Smaller rather than cut, on its one line.
                           child: FittedTitle(

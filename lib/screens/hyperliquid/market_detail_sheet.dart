@@ -581,17 +581,21 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                       ),
                       SizedBox(width: 8.w),
                       // Web: the one remote logo drawn as an `<img>`, the
-                      // opened market's own (web_image.dart, WebImagesOn).
-                      WebImagesOn(
-                        child: HlCoinIcon(
-                          coin: m.coin,
-                          wireCoin: m.wireCoin,
-                          category: m.category,
-                          iconUrl: m.iconUrl,
-                          size: 32,
+                      // opened market's own (web_image.dart, WebImagesOn);
+                      // none to draw, no box and no gap (hlLogoShown).
+                      if (hlLogoShown(
+                          m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
+                        WebImagesOn(
+                          child: HlCoinIcon(
+                            coin: m.coin,
+                            wireCoin: m.wireCoin,
+                            category: m.category,
+                            iconUrl: m.iconUrl,
+                            size: 32,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 8.w),
+                        SizedBox(width: 8.w),
+                      ],
                       Flexible(
                         flex: deskWeb ? 0 : 1,
                         fit: deskWeb ? FlexFit.loose : FlexFit.tight,
@@ -3195,14 +3199,16 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final identity = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        HlCoinIcon(
-          coin: m.coin,
-          wireCoin: m.wireCoin,
-          category: m.category,
-          iconUrl: m.iconUrl,
-          size: 30,
-        ),
-        const SizedBox(width: 10),
+        if (hlLogoShown(m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
+          HlCoinIcon(
+            coin: m.coin,
+            wireCoin: m.wireCoin,
+            category: m.category,
+            iconUrl: m.iconUrl,
+            size: 30,
+          ),
+          const SizedBox(width: 10),
+        ],
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 220),
           child: Text(
@@ -3448,14 +3454,16 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       height: 44,
       child: Row(
         children: [
-          HlCoinIcon(
-            coin: m.coin,
-            wireCoin: m.wireCoin,
-            category: m.category,
-            iconUrl: m.iconUrl,
-            size: 24,
-          ),
-          SizedBox(width: 8.w),
+          if (hlLogoShown(m.coin, m.wireCoin, m.iconUrl, m.category)) ...[
+            HlCoinIcon(
+              coin: m.coin,
+              wireCoin: m.wireCoin,
+              category: m.category,
+              iconUrl: m.iconUrl,
+              size: 24,
+            ),
+            SizedBox(width: 8.w),
+          ],
           Expanded(
             child: Text(
               m.coin,

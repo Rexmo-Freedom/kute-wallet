@@ -305,7 +305,16 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       _closeType == _CloseType.stopLimit || _closeType == _CloseType.takeLimit;
 
   String get _displayCoin => _market?.coin ?? HlMarket.baseCoin(pos.coin);
-  Widget _marketArtwork() => HlCoinIcon(
+  /// Null on the web when there is no logo to draw: the header then has
+  /// no box and no gap (hlLogoShown).
+  Widget? _marketArtwork() => hlLogoOrNull(
+      () => _marketArtworkIcon(),
+      coin: _displayCoin,
+      wireCoin: _market?.wireCoin ?? pos.coin,
+      iconUrl: _market?.iconUrl,
+      category: _market?.category);
+
+  Widget _marketArtworkIcon() => HlCoinIcon(
       coin: _displayCoin,
       wireCoin: _market?.wireCoin ?? pos.coin,
       iconUrl: _market?.iconUrl,

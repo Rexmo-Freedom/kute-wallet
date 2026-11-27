@@ -44,6 +44,9 @@ import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:kute/platform/web_image_proxy.dart' show WebImageProxy;
+import 'package:kute/helpers/polymarket_artwork.dart' show polymarketArtworkUrl;
 import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
@@ -1050,21 +1053,38 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           // the Investing header's logo.
           Builder(builder: (_) {
             final iconUrl = event.displayIconUrl;
+            final gap = SizedBox(width: 8.w);
             if (iconUrl == null || iconUrl.isEmpty) {
-              return _buildFallbackIcon(c, 32.w);
+              // Web: no picture, no box (the title takes its place).
+              if (kIsWeb) return const SizedBox.shrink();
+              return Row(mainAxisSize: MainAxisSize.min, children: [
+                _buildFallbackIcon(c, 32.w),
+                gap,
+              ]);
             }
-            // Web: the one remote logo drawn as an `<img>`, the opened
-            // market's own (web_image.dart, WebImagesOn).
-            return WebImagesOn(
-              child: PolyCrestImage(
-                url: iconUrl,
-                size: 32.w,
-                radius: 8.w,
-                fallback: _buildFallbackIcon(c, 32.w),
+            // Web: a picture the backend routes serve is drawn in the
+            // canvas, none and no gap when it is missing
+            // (PolyPictureLead); any other host is the one remote logo
+            // drawn as an `<img>`, the opened market's own
+            // (web_image.dart, WebImagesOn).
+            if (kIsWeb &&
+                WebImageProxy.proxied(polymarketArtworkUrl(iconUrl) ?? '') !=
+                    null) {
+              return PolyPictureLead(
+                  url: iconUrl, size: 32.w, radius: 8.w, gap: 8.w);
+            }
+            return Row(mainAxisSize: MainAxisSize.min, children: [
+              WebImagesOn(
+                child: PolyCrestImage(
+                  url: iconUrl,
+                  size: 32.w,
+                  radius: 8.w,
+                  fallback: _buildFallbackIcon(c, 32.w),
+                ),
               ),
-            );
+              gap,
+            ]);
           }),
-          SizedBox(width: 8.w),
           Expanded(
             // The whole title: smaller rather than cut.
             child: FittedTitle(
