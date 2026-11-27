@@ -135,15 +135,19 @@
     /* Safari (iOS 26 on) paints the band behind its status bar in the
        colour of a full-width fixed element at the top edge, and the band
        behind its toolbar in the page's background: the app sets both to
-       its own edge colours (lib/platform/web_edge_colors.dart). Behind
-       the Flutter view, never over it. */
+       its own edge colours (lib/platform/web_edge_colors.dart). Safari
+       reads the topmost such element, and Flutter puts a transparent
+       full-width fixed element of its own there (its text measuring
+       paragraph), so the strip lies over the view: 8 px (thinner is not
+       read) in exactly the colour the app draws at its top edge, taking
+       no taps. */
     #kute-edge-top {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       height: 8px;
-      z-index: 0;
+      z-index: 2;
       pointer-events: none;
       background-color: #FFFFFF;
     }

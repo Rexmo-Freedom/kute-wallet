@@ -27,6 +27,8 @@ import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart' show Theme;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarRouteObserver;
 import 'package:flutter/widgets.dart';
 
 import 'web_edge_colors_native.dart'
@@ -37,9 +39,13 @@ import 'web_edge_colors_native.dart'
 /// translucent layer over it (a sheet's dimming barrier) blended on;
 /// [fallback] where nothing opaque is found (a plain coloured box, whose
 /// colour the framework keeps private, is the app's background).
+///
+/// [dim] is the dimming of a sheet on top, whose barrier paints through a
+/// box that keeps its colour private: blended over [fallback] when
+/// nothing opaque is found (the band beside a sheet's top).
 @visibleForTesting
 Color webEdgeColorAt(FlutterView view, Offset position, Color fallback,
-    {bool top = false}) {
+    {bool top = false, Color? dim}) {
   final result = HitTestResult();
   RendererBinding.instance.hitTestInView(result, position, view.viewId);
   final over = <Color>[];
@@ -70,6 +76,7 @@ Color webEdgeColorAt(FlutterView view, Offset position, Color fallback,
     over.add(c);
   }
   var color = base ?? fallback;
+  if (base == null && dim != null) color = Color.alphaBlend(dim, color);
   for (final layer in over.reversed) {
     color = Color.alphaBlend(layer, color);
   }
@@ -127,7 +134,10 @@ class _WebEdgeColorsState extends State<WebEdgeColors> {
     if (size.isEmpty) return;
     final fallback = Theme.of(context).scaffoldBackgroundColor;
     // Off the centre line, where the floating bar sits.
-    final top = webEdgeColorAt(view, const Offset(2, 1), fallback, top: true);
+    final sheet = KuteBarRouteObserver.sheetOnTop();
+    final dim = sheet is ModalRoute ? sheet.barrierColor : null;
+    final top = webEdgeColorAt(view, const Offset(2, 1), fallback,
+        top: true, dim: dim);
     final bottom =
         webEdgeColorAt(view, Offset(2, size.height - 1), fallback);
     if (top != _top || bottom != _bottom) {
