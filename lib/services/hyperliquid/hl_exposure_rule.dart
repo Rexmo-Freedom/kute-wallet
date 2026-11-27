@@ -29,6 +29,16 @@ import 'dart:math' as math;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 
+/// How old the positions an opening order is judged on may be. "Known
+/// flat" from a poll 5-15 s ago can miss a position opened elsewhere since,
+/// so before an order that can open or add perp exposure is funded, or a
+/// leverage write is made, a dex whose positions were read longer ago than
+/// this is read once more (one `clearinghouseState` for that dex, inside
+/// the order's own "preparing" spinner). A read within it costs nothing.
+/// The same bound caches that one read, so taps in a row on a builder dex
+/// outside the account read do not read it each time.
+const Duration kHlPositionsFreshFor = Duration(seconds: 3);
+
 /// The position held on one market, as far as it is known.
 class HlHeldPosition {
   const HlHeldPosition.unknown()
@@ -171,6 +181,25 @@ HlExposureCheck hlExposureCheck({
   return HlExposureCheck.refused(HlExposureRefusal.leveragedPosition,
       position: pos);
 }
+
+/// The rule for MOVING resting [order] on [market] (the chart drag, the
+/// venue's modify): a move keeps the order's reduce-only flag, and dragged
+/// across the price it fills at once at the position's own setting. So an
+/// order that is neither reduce-only nor a position's TP/SL is judged as
+/// a new order of its remaining size against [held]; null when it may
+/// move. Spot and exits always may.
+HlExposureRefusal? hlMoveExposureRefusal(
+    HlMarket market, HlOpenOrder order, HlHeldPosition held) {
+  if (market.isSpot || order.reduceOnly || order.isPositionTpsl) return null;
+  return hlExposureCheck(
+          market: market, held: held, isBuy: order.isBuy, size: order.sz)
+      .refusalFor(sentReduceOnly: false);
+}
+
+/// Whether moving [order] asks [hlMoveExposureRefusal] at all (so needs
+/// the position).
+bool hlMoveNeedsExposureCheck(HlMarket market, HlOpenOrder order) =>
+    !market.isSpot && !order.reduceOnly && !order.isPositionTpsl;
 
 /// An order refused by [hlExposureCheck], before anything was funded or
 /// signed.

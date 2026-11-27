@@ -583,6 +583,29 @@ class HyperliquidTradingNotifier
   /// ([hlPositionsAfterCloses]).
   Map<String, HlClosedInFull> _closedInFull = const {};
 
+  /// When the positions in the state were read, by dex
+  /// ([HlAccountSnapshot.positionsReadAt]; a snapshot without times counts
+  /// from when it arrived). Kept off [HyperliquidTradingState] so an idle
+  /// poll does not notify every consumer.
+  Map<String, DateTime> _statePositionsReadAt = const {};
+
+  /// The order path's own per-dex position reads ([heldPositionFor]), for
+  /// [kHlPositionsFreshFor], by dex, with the account they read.
+  final Map<String, ({String address, HlAccountSnapshot snap, DateTime at})>
+      _dexReads = {};
+
+  /// When this app last changed the account (an action the venue took):
+  /// a read sent before it never counts as fresh.
+  DateTime? _accountChangedAt;
+
+  static Map<String, DateTime> _readTimes(HlAccountSnapshot snap) {
+    final now = DateTime.now();
+    return {
+      for (final dex in snap.positionDexes)
+        dex: snap.positionsReadAt[dex] ?? now,
+    };
+  }
+
   /// Safe state write — long-running async work can outlive this
   /// autoDispose notifier (user navigates away mid-order); writing to a
   /// disposed notifier throws. Same guard as PM's _setData.
@@ -617,6 +640,9 @@ class HyperliquidTradingNotifier
     // Arms belong to the account they were set on.
     _fullCloseArms.clear();
     _leftoverSweeps.clear();
+    _dexReads.clear();
+    _statePositionsReadAt = const {};
+    _accountChangedAt = null;
     ref.onDispose(() {
       _disposed = true;
       _ordersTimer?.cancel();
@@ -645,6 +671,7 @@ class HyperliquidTradingNotifier
     try {
       snap = await ref.read(hyperliquidAccountProvider.future);
       accountRead = true;
+      _statePositionsReadAt = _readTimes(snap);
     } catch (_) {
       // Account fetch failed. The account is UNKNOWN, not empty: the state
       // stays uninitialized (no $0.00 counted as the venue's answer, the
@@ -827,6 +854,7 @@ class HyperliquidTradingNotifier
     if (_disposed) return;
     final current = state.valueOrNull;
     if (current == null) return;
+    _statePositionsReadAt = _readTimes(snap);
 
     // Reconcile "Closing…" markers: drop a coin once the snapshot shows
     // its size actually dropped (close settled) or after the safety TTL.
@@ -1115,6 +1143,8 @@ class HyperliquidTradingNotifier
     // Order activity: Investing's cash stays put, and its idle window
     // (investing_sweep_rules.dart) starts again.
     VenueActivity.note(OneBalanceVenue.investing);
+    // The positions read before this action are not fresh any more.
+    _accountChangedAt = DateTime.now();
     ref.invalidate(hyperliquidAccountProvider);
     for (final delay in const [1, 4]) {
       Future.delayed(Duration(seconds: delay), () {
@@ -1349,9 +1379,26 @@ class HyperliquidTradingNotifier
     return px;
   }
 
+  /// The price the venue fires a trigger on: the mark ("The mark price is
+  /// used to trigger TP/SL orders", Hyperliquid docs). The market's live
+  /// mark from its `activeAssetCtx` stream while one is open (the market
+  /// sheet holds it), else the freshest mid ([_referencePx]): the listed
+  /// [HlMarket.markPx] carries no age, so it never outranks a live mid.
+  @visibleForTesting
+  double triggerMarkPx(HlMarket market) {
+    try {
+      final live = hyperliquidActiveAssetCtxProvider(market.wireCoin);
+      if (ref.exists(live)) {
+        final mark = ref.read(live).valueOrNull?.markPx;
+        if (mark != null && mark > 0) return mark;
+      }
+    } catch (_) {}
+    return _referencePx(market);
+  }
+
   /// Throws [HlTriggerCrossedException] when a protective trigger closing
   /// on [closeIsBuy] at [trigger] is on the wrong side of the freshest
-  /// price ([_referencePx]): it would fire at once. No price, no check
+  /// mark ([triggerMarkPx]): it would fire at once. No price, no check
   /// (the sheet checked it against the price it showed).
   void _ensureTriggerHolds(HlMarket market,
       {required bool closeIsBuy,
@@ -1359,7 +1406,7 @@ class HyperliquidTradingNotifier
       required double trigger}) {
     double mark;
     try {
-      mark = _referencePx(market);
+      mark = triggerMarkPx(market);
     } catch (_) {
       return;
     }
@@ -2052,7 +2099,21 @@ class HyperliquidTradingNotifier
       throw const HlExposureRefusedException(
           HlExposureRefusal.positionUnknown);
     }
-    final write = leverageWriteFor(market, held.positions, lev);
+    // The position once more when its read aged past the bound since the
+    // rule judged it (funding can take a while): a position opened
+    // elsewhere meanwhile is never written over, and one above 1x or in
+    // cross takes no add. A read within the bound costs nothing.
+    final now = await heldPositionFor(market, maxAge: kHlPositionsFreshFor);
+    if (!now.known) {
+      throw const HlExposureRefusedException(
+          HlExposureRefusal.positionUnknown);
+    }
+    final pos = now.position;
+    if (pos != null && hlPositionIsLeveraged(pos)) {
+      throw const HlExposureRefusedException(
+          HlExposureRefusal.leveragedPosition);
+    }
+    final write = leverageWriteFor(market, now.positions, lev);
     if (write == null) return;
     final appLev = write.leverage;
     final effCross = write.isCross;
@@ -2088,41 +2149,114 @@ class HyperliquidTradingNotifier
     );
   }
 
-  /// The position on [market] as this account's state positively knows it:
+  /// The newest positive read of [market]'s positions and when it was
+  /// sent: the state's, the account's last read (even one the state
+  /// skipped as unchanged), or the order path's own per-dex read while it
+  /// is within [kHlPositionsFreshFor]. Null when none knows the dex.
+  ({HlHeldPosition held, DateTime? at})? _newestPositionsRead(HlMarket market) {
+    final dex = market.dex;
+    ({HlHeldPosition held, DateTime? at})? best;
+    void offer(HlHeldPosition held, DateTime? at) {
+      final b = best;
+      if (b == null || (at != null && (b.at == null || at.isAfter(b.at!)))) {
+        best = (held: held, at: at);
+      }
+    }
+
+    final s = _current;
+    if (s != null && s.isInitialized && s.positionDexes.contains(dex)) {
+      offer(HlHeldPosition.fromPositions(market, s.positions),
+          _statePositionsReadAt[dex]);
+    }
+    final address = _address ?? s?.walletAddress;
+    if (address != null) {
+      HlAccountSnapshot? last;
+      try {
+        last = ref.read(hyperliquidAccountProvider.notifier).lastReadOf(address);
+      } catch (_) {}
+      final lastAt = last?.positionsReadAt[dex];
+      if (last != null && lastAt != null && last.positionDexes.contains(dex)) {
+        offer(_heldIn(market, last), lastAt);
+      }
+      final own = _dexReads[dex];
+      if (own != null &&
+          own.address.toLowerCase() == address.toLowerCase() &&
+          DateTime.now().difference(own.at) <= kHlPositionsFreshFor) {
+        offer(_heldIn(market, own.snap), own.at);
+      }
+    }
+    return best;
+  }
+
+  /// [snap]'s position on [market], without a perp this app just closed
+  /// in full that the read still shows ([hlPositionsAfterCloses]).
+  HlHeldPosition _heldIn(HlMarket market, HlAccountSnapshot snap) =>
+      HlHeldPosition.fromPositions(
+          market,
+          hlPositionsAfterCloses(snap.positions, _closedInFull,
+                  now: DateTime.now())
+              .positions);
+
+  /// The position on [market] as this account's reads positively know it:
   /// unknown while the account has not been read (or the last read
   /// failed), and for a market on a dex the read did not cover (the full
-  /// read covers the main dex and the USDC-settled builder dexes).
-  HlHeldPosition heldPositionKnown(HlMarket market) {
+  /// read covers the main dex and the USDC-settled builder dexes) unless
+  /// the order path read that dex within [kHlPositionsFreshFor].
+  ///
+  /// [maxAge]: also unknown when the newest read was sent longer ago than
+  /// this, or before this app last changed the account ([_afterAction]):
+  /// "known flat" from an older poll can miss a position opened elsewhere.
+  HlHeldPosition heldPositionKnown(HlMarket market, {Duration? maxAge}) {
     if (market.isSpot) return const HlHeldPosition.flat();
-    final s = _current;
-    if (s == null || !s.isInitialized || !s.positionDexes.contains(market.dex)) {
-      return const HlHeldPosition.unknown();
+    final best = _newestPositionsRead(market);
+    if (best == null) return const HlHeldPosition.unknown();
+    if (maxAge != null) {
+      final at = best.at;
+      final changed = _accountChangedAt;
+      if (at == null ||
+          DateTime.now().difference(at) > maxAge ||
+          (changed != null && !at.isAfter(changed))) {
+        return const HlHeldPosition.unknown();
+      }
     }
-    return HlHeldPosition.fromPositions(market, s.positions);
+    return best.held;
   }
 
   /// [heldPositionKnown], else one fresh read of [market]'s dex
   /// (`clearinghouseState` for that dex: the position's size, leverage and
-  /// margin mode). Unknown when that read fails too. The plain first order
-  /// on a loaded account reads nothing here.
-  Future<HlHeldPosition> heldPositionFor(HlMarket market) async {
-    final known = heldPositionKnown(market);
+  /// margin mode), kept for [kHlPositionsFreshFor]. Unknown when that read
+  /// fails too. With [maxAge] (every order that can add exposure), a
+  /// position read longer ago is read again; a plain order on an account
+  /// read within it reads nothing here.
+  Future<HlHeldPosition> heldPositionFor(HlMarket market,
+      {Duration? maxAge}) async {
+    final known = heldPositionKnown(market, maxAge: maxAge);
     if (known.known) return known;
     final address = _address ?? _current?.walletAddress;
     if (address == null) return const HlHeldPosition.unknown();
     try {
+      final sentAt = DateTime.now();
       final snap = await ref
           .read(hyperliquidTradingModelProvider)
           .getDexClearinghouse(address, market.dex);
-      return HlHeldPosition.fromSnapshot(market, snap);
+      if (!snap.positionDexes.contains(market.dex)) {
+        return const HlHeldPosition.unknown();
+      }
+      _dexReads[market.dex] = (
+        address: address,
+        snap: snap,
+        at: snap.positionsReadAt[market.dex] ?? sentAt,
+      );
+      return _heldIn(market, snap);
     } catch (_) {
       return const HlHeldPosition.unknown();
     }
   }
 
   /// [hlExposureCheck] for an order on [market], against the position as
-  /// positively known ([heldPositionFor]). Every order that can open or
-  /// add perp exposure asks this before anything is funded or signed.
+  /// positively known and read within [kHlPositionsFreshFor]
+  /// ([heldPositionFor]). Every order that can open or add perp exposure
+  /// asks this before anything is funded or signed.
   Future<({HlExposureCheck check, HlHeldPosition held})> exposureFor(
     HlMarket market, {
     required bool isBuy,
@@ -2140,7 +2274,7 @@ class HyperliquidTradingNotifier
         held: const HlHeldPosition.unknown(),
       );
     }
-    final held = await heldPositionFor(market);
+    final held = await heldPositionFor(market, maxAge: kHlPositionsFreshFor);
     return (
       check: hlExposureCheck(
           market: market, held: held, isBuy: isBuy, size: size),
@@ -2501,6 +2635,19 @@ class HyperliquidTradingNotifier
         ),
         allowed: _hlOrderActions,
       );
+      // The exposure rule before signing: a move keeps the order's
+      // reduce-only flag, so an order that is neither reduce-only nor a
+      // position's TP/SL (one placed while the market was flat, say) is new
+      // exposure. Dragged across the price it fills at once, at the
+      // position's own leverage and margin mode: on a position opened
+      // elsewhere above 1x or in cross since, or one that cannot be read,
+      // nothing is sent.
+      if (hlMoveNeedsExposureCheck(market, order)) {
+        final held =
+            await heldPositionFor(market, maxAge: kHlPositionsFreshFor);
+        final refusal = hlMoveExposureRefusal(market, order, held);
+        if (refusal != null) throw HlExposureRefusedException(refusal);
+      }
       final String px;
       final Map<String, dynamic> type;
       if (tpsl != null) {
@@ -3644,16 +3791,19 @@ final hyperliquidTradingProvider = AsyncNotifierProvider.autoDispose<
 /// a queued Investing order judge the exposure rule (hl_exposure_rule.dart)
 /// on before anything is approved or moved. Overridden in tests.
 ///
-/// Answers at once (no future) when the state already knows the position,
-/// so a queued order on a loaded account is queued in the same turn as
-/// before.
+/// Answers at once (no future) when a read within [kHlPositionsFreshFor]
+/// knows the position, so a queued order on a freshly read account is
+/// queued in the same turn as before; an older read is read again first.
 final hlHeldPositionProvider =
     Provider<FutureOr<HlHeldPosition> Function(HlMarket market)>((ref) =>
         (market) {
           final n = ref.read(hyperliquidTradingProvider.notifier);
-          final known = n.heldPositionKnown(market);
+          // Read within the bound: answered now. Older, or unknown: one
+          // fresh read of the market's dex.
+          final known =
+              n.heldPositionKnown(market, maxAge: kHlPositionsFreshFor);
           if (known.known) return known;
-          return n.heldPositionFor(market);
+          return n.heldPositionFor(market, maxAge: kHlPositionsFreshFor);
         });
 
 /// Display-only fallback. Never use this provider to size, authorize or send

@@ -92,6 +92,33 @@ HlPerpPosition held(double usd,
       maxLeverage: 40,
     );
 
+/// A flat main-dex account read [age] ago.
+HlAccountSnapshot _flatReadAgo(Duration age) => HlAccountSnapshot(
+      accountValue: 0,
+      withdrawable: 5000,
+      totalMarginUsed: 0,
+      positions: const [],
+      spotBalances: const [],
+      positionsReadAt: {'': DateTime.now().subtract(age)},
+    );
+
+/// A resting BUY limit on BTC at 59,000, placed while the market was flat.
+const _restingBuy = HlOpenOrder(
+  coin: 'BTC',
+  oid: 41,
+  isBuy: true,
+  limitPx: 59000,
+  sz: 0.002,
+  origSz: 0.002,
+  timestamp: 1,
+  cloid: null,
+  reduceOnly: false,
+  orderType: 'Limit',
+  isTrigger: false,
+  triggerPx: null,
+  tif: 'Gtc',
+);
+
 HlExposureCheck _check(HlHeldPosition h, {required bool isBuy, double usd = 0}) =>
     hlExposureCheck(market: btc, held: h, isBuy: isBuy, size: usd / 60000);
 
@@ -101,6 +128,10 @@ class _Venue extends HyperliquidModel {
   _Venue(this.positions);
   List<HlPerpPosition> positions;
   bool failDexRead = false;
+
+  /// What a fresh per-dex read finds, when it differs from the account
+  /// read (a position opened elsewhere since the last poll).
+  List<HlPerpPosition>? dexPositions;
   final reads = <String>[];
 
   HlAccountSnapshot _snap({Set<String> dexes = const {''}}) =>
@@ -125,6 +156,16 @@ class _Venue extends HyperliquidModel {
       String address, String dex) async {
     reads.add('dex:$dex');
     if (failDexRead) throw http.ClientException('info failed');
+    final fresh = dexPositions;
+    if (fresh != null) {
+      return HlAccountSnapshot(
+          accountValue: 0,
+          withdrawable: 5000,
+          totalMarginUsed: 0,
+          positions: fresh,
+          spotBalances: const [],
+          positionDexes: {dex});
+    }
     return _snap(dexes: {dex});
   }
 
@@ -604,6 +645,186 @@ void main() {
       for (final o in posted.single['orders'] as List) {
         expect((o as Map<String, dynamic>)['r'], isTrue);
       }
+    });
+  });
+
+  group('freshness of the positions an opening order is judged on', () {
+    setUp(() => RuntimeCapabilitiesService.debugInstance = _Policy(advanced: true));
+    tearDown(() => RuntimeCapabilitiesService.debugInstance = null);
+
+    test(
+        'a 5x cross long opened elsewhere since the last poll (10 s ago): '
+        'seen by one fresh read, the add refused before any funding or '
+        'leverage write', () async {
+      final venue = _Venue([])
+        ..dexPositions = [held(500, leverage: 5, cross: true)];
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted,
+          account: () => _flatReadAgo(const Duration(seconds: 10)));
+      venue.reads.clear();
+      await expectLater(
+          _buy(n, isLong: true, usd: 100),
+          throwsA(isA<HlExposureRefusedException>().having((e) => e.refusal,
+              'refusal', HlExposureRefusal.leveragedPosition)));
+      // One position read; no funding read ('account'), nothing posted (no
+      // updateLeverage on the wire).
+      expect(venue.reads, ['dex:']);
+      expect(posted, isEmpty);
+    });
+
+    test('the same on the limit path', () async {
+      final venue = _Venue([])
+        ..dexPositions = [held(500, leverage: 10)];
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted,
+          account: () => _flatReadAgo(const Duration(seconds: 10)));
+      await expectLater(_limit(n, isLong: true, usd: 100),
+          throwsA(isA<HlExposureRefusedException>()));
+      expect(posted, isEmpty);
+    });
+
+    test(
+        'a plain market buy on a flat account read 1 s ago: no extra read, '
+        'the 1x isolated write, then the order', () async {
+      final venue = _Venue([]);
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted,
+          account: () => _flatReadAgo(const Duration(seconds: 1)));
+      venue.reads.clear();
+      await _buy(n, isLong: true, usd: 100);
+      expect(venue.reads.where((r) => r.startsWith('dex:')), isEmpty);
+      expect(_types(posted), ['updateLeverage', 'order']);
+    });
+
+    test(
+        'a flat account read 10 s ago and still flat: one read, then the '
+        'order as usual (the leverage write reads nothing more)', () async {
+      final venue = _Venue([]);
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted,
+          account: () => _flatReadAgo(const Duration(seconds: 10)));
+      venue.reads.clear();
+      await _buy(n, isLong: true, usd: 100);
+      expect(venue.reads.where((r) => r.startsWith('dex:')), ['dex:']);
+      expect(_types(posted), ['updateLeverage', 'order']);
+    });
+
+    test(
+        'a builder dex the account read does not cover is read once per '
+        'bound, not on every tap', () async {
+      final venue = _Venue([]);
+      final n = await _notifierOn(venue, <Map<String, dynamic>>[]);
+      venue.reads.clear();
+      final a =
+          await n.heldPositionFor(_xyz, maxAge: kHlPositionsFreshFor);
+      final b =
+          await n.heldPositionFor(_xyz, maxAge: kHlPositionsFreshFor);
+      expect(a.known && b.known, isTrue);
+      expect(n.heldPositionKnown(_xyz).known, isTrue);
+      expect(venue.reads, ['dex:xyz']);
+    });
+  });
+
+  group('a resting order moved (modifyOrder)', () {
+    setUp(() => RuntimeCapabilitiesService.debugInstance = _Policy(advanced: true));
+    tearDown(() => RuntimeCapabilitiesService.debugInstance = null);
+
+    Future<void> move(HyperliquidTradingNotifier n, HlOpenOrder order,
+            double px) =>
+        n.modifyOrder(
+          market: btc,
+          order: order,
+          newPx: px,
+          grant: _grantFor(HlIntents.modify(
+            walletId: _walletId,
+            market: btc,
+            oid: order.oid,
+            isLong: order.isBuy,
+            size: order.sz,
+            px: px,
+            reduceOnly: order.reduceOnly,
+            tif: order.tif,
+            tpsl: null,
+            isMarket: false,
+          )),
+        );
+
+    for (final (lev, cross) in [(5, true), (10, false)]) {
+      final kind = '${lev}x ${cross ? 'cross' : 'isolated'}';
+      test(
+          'a buy limit placed while flat, dragged above the price after a '
+          '$kind long was opened elsewhere: refused, nothing sent', () async {
+        final venue = _Venue([held(500, leverage: lev, cross: cross)]);
+        final posted = <Map<String, dynamic>>[];
+        final n = await _notifierOn(venue, posted);
+        await expectLater(
+            move(n, _restingBuy, 61000),
+            throwsA(isA<HlExposureRefusedException>().having((e) => e.refusal,
+                'refusal', HlExposureRefusal.leveragedPosition)));
+        expect(posted, isEmpty);
+        // The drag asks the same rule before its confirm sheet.
+        expect(
+            hlMoveExposureRefusal(btc, _restingBuy,
+                HlHeldPosition.of(held(500, leverage: lev, cross: cross))),
+            HlExposureRefusal.leveragedPosition);
+      });
+    }
+
+    test('flat: the move goes out as the venue\'s modify', () async {
+      final venue = _Venue([]);
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted);
+      await move(n, _restingBuy, 61000);
+      expect(_types(posted), ['modify']);
+      expect(hlMoveExposureRefusal(btc, _restingBuy, const HlHeldPosition.flat()),
+          isNull);
+    });
+
+    test('a reduce-only order on a 5x cross position moves', () async {
+      final venue = _Venue([held(500, leverage: 5, cross: true)]);
+      final posted = <Map<String, dynamic>>[];
+      final n = await _notifierOn(venue, posted);
+      const sell = HlOpenOrder(
+        coin: 'BTC',
+        oid: 42,
+        isBuy: false,
+        limitPx: 62000,
+        sz: 0.002,
+        origSz: 0.002,
+        timestamp: 1,
+        cloid: null,
+        reduceOnly: true,
+        orderType: 'Limit',
+        isTrigger: false,
+        triggerPx: null,
+        tif: 'Gtc',
+      );
+      await move(n, sell, 61500);
+      expect(_types(posted), ['modify']);
+      expect(
+          hlMoveExposureRefusal(btc, sell, const HlHeldPosition.unknown()),
+          isNull);
+    });
+
+    test('an unknown position: the move is refused', () {
+      expect(
+          hlMoveExposureRefusal(
+              btc, _restingBuy, const HlHeldPosition.unknown()),
+          HlExposureRefusal.positionUnknown);
+    });
+
+    test('the chart drag asks the rule before its confirm sheet and approval',
+        () {
+      final src = File('lib/screens/hyperliquid/market_detail_sheet.dart')
+          .readAsStringSync();
+      final start = src.indexOf('Future<void> _moveOrder(');
+      final end = src.indexOf('\n  void _onTradeLineTapped', start);
+      final body = src.substring(start, end);
+      final rule = body.indexOf('hlMoveExposureRefusal(');
+      expect(rule, greaterThan(0));
+      expect(body.indexOf('showAppBottomSheet<bool>('), greaterThan(rule));
+      expect(body.indexOf('requireFreshAuthGrant('), greaterThan(rule));
+      expect(body, contains('on HlExposureRefusedException'));
     });
   });
 

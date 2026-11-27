@@ -11,6 +11,8 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/services/hyperliquid/hl_trigger_guard.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
+    show HlAssetCtx;
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 import '../gating_audit/investing_gating_policies.dart';
@@ -127,5 +129,55 @@ void main() {
           ),
       throwsA(isA<HlTriggerCrossedException>()),
     );
+  });
+
+  test(
+      'triggers fire on the mark: with the market\'s live mark at 63,500 and '
+      'its mid still 66,000, a long\'s stop at 64,000 is refused on the mark',
+      () async {
+    // Hyperliquid: "The mark price is used to trigger TP/SL orders".
+    final c = ProviderContainer(overrides: [
+      hyperliquidLivePricesProvider.overrideWith(() => _Prices(66000)),
+      hyperliquidTradingProvider.overrideWith(_Trading.new),
+      hyperliquidActiveAssetCtxProvider.overrideWith((ref, wire) =>
+          Stream.value(const HlAssetCtx(
+              markPx: 63500,
+              midPx: 66000,
+              prevDayPx: 66000,
+              dayNtlVlm: 0,
+              funding: null,
+              openInterest: null))),
+    ]);
+    addTearDown(c.dispose);
+    c.listen(hyperliquidLivePricesProvider, (_, __) {});
+    // The market sheet holds the live context open.
+    c.listen(hyperliquidActiveAssetCtxProvider('BTC'), (_, __) {});
+    await c.read(hyperliquidActiveAssetCtxProvider('BTC').future);
+    await c.read(hyperliquidTradingProvider.future);
+    final n = c.read(hyperliquidTradingProvider.notifier);
+    expect(n.triggerMarkPx(_btc), 63500);
+    final grant = grantFor(64000);
+    await expectLater(
+      n.placeTrigger(
+        market: _btc,
+        isLong: false,
+        size: 0.01,
+        triggerPx: 64000,
+        isMarket: true,
+        tpsl: 'sl',
+        grant: grant,
+      ),
+      throwsA(isA<HlTriggerCrossedException>()
+          .having((e) => e.mark, 'mark', 63500)),
+    );
+    expect(grant.consumed, isFalse);
+  });
+
+  test('no live context open: the freshest mid stands in for the mark',
+      () async {
+    final c = container(65000);
+    await c.read(hyperliquidTradingProvider.future);
+    expect(c.read(hyperliquidTradingProvider.notifier).triggerMarkPx(_btc),
+        65000);
   });
 }

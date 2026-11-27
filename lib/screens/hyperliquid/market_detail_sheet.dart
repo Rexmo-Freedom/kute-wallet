@@ -50,6 +50,7 @@ import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
 import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart';
 import 'package:kute/screens/hyperliquid/components/hl_protection_rows.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
@@ -2656,6 +2657,26 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         : (order.isBuy ? context.l10n.hlBuyLimit : context.l10n.hlSellLimit);
     _movingOrder = true;
     try {
+      // LEVERAGE IS BLOCKED: an order that is neither reduce-only nor a
+      // position's TP/SL is new exposure when it moves (dragged across the
+      // price it fills at once, at the position's own leverage). On a
+      // position held above 1x or in cross (opened elsewhere since the
+      // order was placed), or one that cannot be read, refused here,
+      // before the confirm sheet and the approval: the line goes back.
+      if (hlMoveNeedsExposureCheck(market, order)) {
+        final held = await ref.read(hlHeldPositionProvider)(market);
+        if (!mounted) return;
+        final refusal = hlMoveExposureRefusal(market, order, held);
+        if (refusal != null) {
+          HapticFeedback.heavyImpact();
+          showMessageSnackBar(
+              context: context,
+              message: hlExposureRefusalText(context.l10n, refusal),
+              error: true);
+          return;
+        }
+      }
+      if (!mounted) return;
       final confirmed = await showAppBottomSheet<bool>(
         context: context,
         builder: (sheetContext) => AppBottomSheetContainer(
@@ -2754,6 +2775,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             context: context,
             message: context.l10n.chartOrderMoveFailed,
             error: true);
+      } on HlExposureRefusedException catch (e) {
+        // The rule once more before signing: nothing sent.
+        if (!mounted) return;
+        HapticFeedback.heavyImpact();
+        showMessageSnackBar(
+            context: context, message: e.messageIn(context.l10n), error: true);
       } on HlTriggerCrossedException catch (e) {
         // Crossed by the freshest price the notifier had: nothing sent.
         if (!mounted) return;
