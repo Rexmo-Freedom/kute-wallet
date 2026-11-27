@@ -6731,6 +6731,62 @@ class AppLocalizationsJa extends AppLocalizations {
   String get betUntilCanceled => 'キャンセルまで';
 
   @override
+  String get betLimitOrderFilled => '指値注文が約定しました';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return '$outcomeを$shares株、$priceで購入しました';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return '$step刻みで価格を選んでください。';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return '$low〜$highの価格を選んでください。';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'この市場の最小注文は$count株です。';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '未約定注文に$count株';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return '売却できるのは$count株だけです。残りは未約定注文にあります。';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'すべての注文をキャンセルしますか？';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '未約定注文$count件を削除します：',
+      one: '未約定注文1件を削除します：',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => '注文を残す';
+
+  @override
+  String get betOrderTypeRow => '注文タイプ';
+
+  @override
+  String get betReservedRow => '確保額';
+
+  @override
   String get betProceedsToPredictions => '予測へ';
 
   @override

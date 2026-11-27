@@ -7055,6 +7055,62 @@ class AppLocalizationsDe extends AppLocalizations {
   String get betUntilCanceled => 'Bis zur Stornierung';
 
   @override
+  String get betLimitOrderFilled => 'Limit-Order ausgeführt';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return '$shares Anteile $outcome zu $price gekauft';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Wähle einen Preis in Schritten von $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Wähle einen Preis von $low bis $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Die kleinste Order hier sind $count Anteile.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count Anteile in offenen Orders';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Nur $count Anteile sind frei verkaufbar. Der Rest liegt in deinen offenen Orders.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Alle Orders stornieren?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Damit werden $count offene Orders entfernt:',
+      one: 'Damit wird 1 offene Order entfernt:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Orders behalten';
+
+  @override
+  String get betOrderTypeRow => 'Ordertyp';
+
+  @override
+  String get betReservedRow => 'Reserviert';
+
+  @override
   String get betProceedsToPredictions => 'An Prognosen';
 
   @override

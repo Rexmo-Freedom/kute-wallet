@@ -7015,6 +7015,62 @@ class AppLocalizationsBg extends AppLocalizations {
   String get betUntilCanceled => 'До отмяна';
 
   @override
+  String get betLimitOrderFilled => 'Лимитната поръчка е изпълнена';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Купени $shares дяла от $outcome на $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Изберете цена на стъпки от $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Изберете цена от $low до $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Най-малката поръчка тук е $count дяла.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count дяла в отворени поръчки';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Само $count дяла са свободни за продажба. Останалите са в отворените ви поръчки.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Да се отменят ли всички поръчки?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Това премахва $count отворени поръчки:',
+      one: 'Това премахва 1 отворена поръчка:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Запази поръчките';
+
+  @override
+  String get betOrderTypeRow => 'Вид поръчка';
+
+  @override
+  String get betReservedRow => 'Резервирано';
+
+  @override
   String get betProceedsToPredictions => 'Към Прогнози';
 
   @override
