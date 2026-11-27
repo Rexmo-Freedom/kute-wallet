@@ -494,6 +494,8 @@
   "backUpBannerTitle": "ウォレットをバックアップ",
   "backUpBannerSubtitle": "端末を紛失した場合に備えて",
   "backUpBannerAction": "バックアップ",
+  "getAppBannerTitle": "Kuteアプリを入手",
+  "getAppBannerSubtitle": "iPhoneとAndroidで利用できます",
   "cancelOrder": "注文をキャンセル",
   "requestRefund": "返金をリクエスト",
   "unspent": "未使用",

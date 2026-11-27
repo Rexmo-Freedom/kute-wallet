@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Varmuuskopioi lompakkosi",
   "backUpBannerSubtitle": "Siltä varalta, että kadotat puhelimesi",
   "backUpBannerAction": "Varmuuskopioi",
+  "getAppBannerTitle": "Lataa Kute-sovellus",
+  "getAppBannerSubtitle": "Saatavilla iPhonelle ja Androidille",
   "cancelOrder": "Peruuta tilaus",
   "requestRefund": "Pyydä palautusta",
   "unspent": "KÄYTTÄMÄTÖN",

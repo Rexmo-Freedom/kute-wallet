@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Varnostno kopirajte denarnico",
   "backUpBannerSubtitle": "Za primer, da izgubite telefon",
   "backUpBannerAction": "Shrani kopijo",
+  "getAppBannerTitle": "Prenesite aplikacijo Kute",
+  "getAppBannerSubtitle": "Na voljo za iPhone in Android",
   "cancelOrder": "Prekliči naročilo",
   "requestRefund": "Zahtevaj vračilo",
   "unspent": "NEPORABLJENO",

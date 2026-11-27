@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Napravi sigurnosnu kopiju novčanika",
   "backUpBannerSubtitle": "Za slučaj da izgubiš telefon",
   "backUpBannerAction": "Napravi kopiju",
+  "getAppBannerTitle": "Preuzmi aplikaciju Kute",
+  "getAppBannerSubtitle": "Dostupno za iPhone i Android",
   "cancelOrder": "Otkaži nalog",
   "requestRefund": "Zatraži povrat",
   "unspent": "NEPOTROŠENO",

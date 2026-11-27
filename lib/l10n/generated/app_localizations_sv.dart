@@ -1586,6 +1586,12 @@ class AppLocalizationsSv extends AppLocalizations {
   String get backUpBannerAction => 'Säkerhetskopiera';
 
   @override
+  String get getAppBannerTitle => 'Hämta Kute-appen';
+
+  @override
+  String get getAppBannerSubtitle => 'Finns för iPhone och Android';
+
+  @override
   String get cancelOrder => 'Avbryt order';
 
   @override

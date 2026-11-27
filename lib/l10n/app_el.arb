@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Κράτα αντίγραφο ασφαλείας του πορτοφολιού σου",
   "backUpBannerSubtitle": "Σε περίπτωση που χάσεις το τηλέφωνό σου",
   "backUpBannerAction": "Αντίγραφο",
+  "getAppBannerTitle": "Κατέβασε την εφαρμογή Kute",
+  "getAppBannerSubtitle": "Διαθέσιμη για iPhone και Android",
   "cancelOrder": "Ακύρωση εντολής",
   "requestRefund": "Αίτημα επιστροφής χρημάτων",
   "unspent": "ΑΞΟΔΕΥΤΑ",

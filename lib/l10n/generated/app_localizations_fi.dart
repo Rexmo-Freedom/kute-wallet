@@ -1589,6 +1589,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get backUpBannerAction => 'Varmuuskopioi';
 
   @override
+  String get getAppBannerTitle => 'Lataa Kute-sovellus';
+
+  @override
+  String get getAppBannerSubtitle => 'Saatavilla iPhonelle ja Androidille';
+
+  @override
   String get cancelOrder => 'Peruuta tilaus';
 
   @override

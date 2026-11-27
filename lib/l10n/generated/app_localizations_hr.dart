@@ -1590,6 +1590,12 @@ class AppLocalizationsHr extends AppLocalizations {
   String get backUpBannerAction => 'Napravi kopiju';
 
   @override
+  String get getAppBannerTitle => 'Preuzmi aplikaciju Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Dostupno za iPhone i Android';
+
+  @override
   String get cancelOrder => 'Otkaži nalog';
 
   @override

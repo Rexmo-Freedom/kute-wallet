@@ -28,6 +28,8 @@ BrowserSignals? readBrowserSignals() {
       coarsePointer: _matches('(pointer: coarse)'),
       noHover: _matches('(hover: none)'),
       userAgent: userAgent,
+      standalone: _matches('(display-mode: standalone)') ||
+          ((navigator?['standalone'] as JSBoolean?)?.toDart ?? false),
     );
   } catch (_) {
     return null;

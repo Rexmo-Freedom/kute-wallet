@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Sichere dein Wallet",
   "backUpBannerSubtitle": "Falls du dein Telefon verlierst",
   "backUpBannerAction": "Sichern",
+  "getAppBannerTitle": "Hol dir die Kute-App",
+  "getAppBannerSubtitle": "Für iPhone und Android",
   "cancelOrder": "Auftrag stornieren",
   "requestRefund": "Rückerstattung anfordern",
   "unspent": "UNAUSGEGEBEN",

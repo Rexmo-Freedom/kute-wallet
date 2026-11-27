@@ -1588,6 +1588,12 @@ class AppLocalizationsSl extends AppLocalizations {
   String get backUpBannerAction => 'Shrani kopijo';
 
   @override
+  String get getAppBannerTitle => 'Prenesite aplikacijo Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Na voljo za iPhone in Android';
+
+  @override
   String get cancelOrder => 'Prekliči naročilo';
 
   @override

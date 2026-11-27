@@ -1585,6 +1585,12 @@ class AppLocalizationsEt extends AppLocalizations {
   String get backUpBannerAction => 'Varunda';
 
   @override
+  String get getAppBannerTitle => 'Laadi alla Kute äpp';
+
+  @override
+  String get getAppBannerSubtitle => 'Saadaval iPhone\'ile ja Androidile';
+
+  @override
   String get cancelOrder => 'Tühista tellimus';
 
   @override

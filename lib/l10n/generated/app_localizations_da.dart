@@ -1588,6 +1588,12 @@ class AppLocalizationsDa extends AppLocalizations {
   String get backUpBannerAction => 'Tag backup';
 
   @override
+  String get getAppBannerTitle => 'Hent Kute-appen';
+
+  @override
+  String get getAppBannerSubtitle => 'Fås til iPhone og Android';
+
+  @override
   String get cancelOrder => 'Annuller ordre';
 
   @override
