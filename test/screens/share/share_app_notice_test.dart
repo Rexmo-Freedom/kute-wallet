@@ -49,6 +49,13 @@ void main() {
     await pump(tester);
     expect(find.byKey(const ValueKey('share-app-notice')), findsOneWidget);
     expect(ShareAppNotice.showing.value, isTrue);
+    // The words are drawn under a Material (no debug underline), and the
+    // page under the notice is still there.
+    final words = tester.widget<RichText>(find.descendant(
+        of: find.text('Have the Kute app? Open this there.'),
+        matching: find.byType(RichText)));
+    expect(words.text.style?.decoration, isNot(TextDecoration.underline));
+    expect(find.text('MARKET'), findsOneWidget);
     await tester.tap(find.text('Open in the app'));
     expect(opened.single.toString(), 'https://apps.apple.com/app/id123456789');
     expect(opened.single.toString(), isNot(contains('onelink')));
