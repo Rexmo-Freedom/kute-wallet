@@ -28,6 +28,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/in_app_browser.dart';
 import 'package:kute/platform/open_external.dart';
+import 'package:kute/screens/shared/kute_notice_card.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -68,7 +69,7 @@ abstract final class ShareAppNotice {
   }
 }
 
-/// [child] with the notice over its top on a phone browser.
+/// [child] with the notice above it on a phone browser.
 class ShareAppNoticeHost extends StatefulWidget {
   const ShareAppNoticeHost({super.key, required this.child});
 
@@ -127,45 +128,39 @@ class _ShareAppNoticeHostState extends State<ShareAppNoticeHost> {
     final c = context.colors;
     final l10n = context.l10n;
     final top = MediaQuery.paddingOf(context).top;
-    return Stack(
-      children: [
-        widget.child,
-        Positioned(
-          left: 12.w,
-          right: 12.w,
-          top: top + 8.h,
-          child: Material(
-            key: const ValueKey('share-app-notice'),
-            color: c.surface,
-            elevation: 2,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(14.w, 6.h, 4.w, 6.h),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.shareOpenInAppBody,
-                      style: TextStyle(color: c.textPrimary, fontSize: 14.sp),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _open,
-                    child: Text(l10n.shareOpenInApp),
-                  ),
-                  IconButton(
-                    tooltip:
-                        MaterialLocalizations.of(context).closeButtonTooltip,
-                    icon: Icon(Icons.close_rounded,
-                        size: 18, color: c.textSecondary),
-                    onPressed: _dismiss,
-                  ),
-                ],
-              ),
+    // ABOVE the page, never over it: laid over the top it hid the market's
+    // own bar (back, the market's name, the star) on a phone (seen in
+    // Safari, 27 November 2026). The page keeps its place under the notice
+    // and loses only the top inset the notice now covers.
+    return ColoredBox(
+      color: c.background,
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(12.w, top + 8.h, 12.w, 4.h),
+            // The app's own notice card (the home's backup reminder, the
+            // web's "get the app"): never a lookalike.
+            child: KuteNoticeCard(
+              key: const ValueKey('share-app-notice'),
+              title: l10n.shareOpenInAppBody,
+              subtitle: null,
+              titleMaxLines: 2,
+              actions: [
+                KuteNoticeAction(label: l10n.shareOpenInApp, onTap: _open),
+              ],
+              closeLabel: l10n.close,
+              onClose: _dismiss,
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: widget.child,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

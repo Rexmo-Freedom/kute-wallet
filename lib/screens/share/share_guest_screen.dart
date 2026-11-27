@@ -64,16 +64,41 @@ class _ShareGuestScreenState extends ConsumerState<ShareGuestScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _resolve());
   }
 
+  /// ANOTHER SHARED LINK OPENED IN THIS SAME TAB (a second link pasted over
+  /// the first, or tapped in a page that reuses the tab). The route is the
+  /// same one, so this state is kept and only [ShareGuestScreen.target]
+  /// changes: the page must become the new market, not stay on the old one
+  /// under a new address (seen in a browser, 27 November 2026).
+  @override
+  void didUpdateWidget(covariant ShareGuestScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.target?.encode() == widget.target?.encode()) return;
+    final parked = ShareTargets.takeParked();
+    if (parked != null) ShareTargets.restored(parked.target, 'guest');
+    _event = null;
+    _market = null;
+    _missing = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Whatever the old market had open over it (an outcome's page, a
+      // slip, the region sheet) belongs to the old market.
+      Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+      _resolve();
+    });
+  }
+
   Future<void> _resolve() async {
     final target = widget.target;
     if (target == null) return _lost();
+    // A read that finishes after the link changed is the old market's.
+    bool stale() => !mounted || widget.target?.encode() != target.encode();
     final container = ProviderScope.containerOf(context, listen: false);
     if (target.investing) {
       final read = ShareGuestScreen.debugHlMarket;
       final market = read != null
           ? await read(target.slug)
           : await ShareTargetOpener.resolveHlMarket(container, target.slug);
-      if (!mounted) return;
+      if (stale()) return;
       if (market == null) return _lost();
       setState(() => _market = market);
     } else {
@@ -81,7 +106,7 @@ class _ShareGuestScreenState extends ConsumerState<ShareGuestScreen> {
       final event = read != null
           ? await read(target.slug)
           : await ShareTargetOpener.resolvePolyEvent(container, target.slug);
-      if (!mounted) return;
+      if (stale()) return;
       if (event == null) return _lost();
       setState(() => _event = event);
     }
@@ -115,6 +140,13 @@ class _ShareGuestScreenState extends ConsumerState<ShareGuestScreen> {
         ),
       );
     }
-    return ShareAppNoticeHost(child: page);
+    // Keyed by the market: a new link's page is a new page, never the old
+    // one's state under new data.
+    return ShareAppNoticeHost(
+      child: KeyedSubtree(
+        key: ValueKey<String?>(widget.target?.encode()),
+        child: page,
+      ),
+    );
   }
 }

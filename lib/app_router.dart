@@ -332,6 +332,7 @@ class AppRouter {
     bool Function(BuildContext context) dollarsShown = _dollarsShown,
     bool Function() hasWallet = _noWalletKnown,
     bool Function() guestShareView = _guestShareViewOff,
+    Future<void>? Function() walletsLoading = _walletsLoaded,
   }) {
     // Last in-app location we sat on, so an incoming deep link can register its
     // referral code without yanking the user off their current screen.
@@ -343,12 +344,22 @@ class AppRouter {
       final rootReferral = rootReferralRedirect(uri, locked: sessionLocked());
       if (rootReferral != null) return rootReferral;
       if (ShareTarget.isShareLocation(uri)) {
-        return shareLocationRedirect(
-          uri,
-          locked: sessionLocked(),
-          hasWallet: hasWallet(),
-          guestView: guestShareView(),
-        );
+        String? decide() => shareLocationRedirect(
+              uri,
+              locked: sessionLocked(),
+              hasWallet: hasWallet(),
+              guestView: guestShareView(),
+            );
+        // A COLD START ON A SHARED LINK. The saved wallet list is read from
+        // disk at start, and until it is in, [hasWallet] says "none": a
+        // person WITH a wallet in this browser was shown the no-wallet
+        // guest page instead of their PIN (seen in Safari, 27 November
+        // 2026). So the answer waits for the list. A list that cannot be
+        // read goes to splash, which owns that failure.
+        final loading = walletsLoading();
+        if (loading == null) return decide();
+        return loading.then<String?>((_) => decide(),
+            onError: (Object _) => '/splash');
       }
       if (uri.hasScheme) {
         handleIncomingLink(uri);
@@ -393,6 +404,7 @@ class AppRouter {
 
   static bool _noWalletKnown() => false;
   static bool _guestShareViewOff() => false;
+  static Future<void>? _walletsLoaded() => null;
 
   /// Where a shared market link (`/s/p/<slug>`, `/s/i/<coin>`;
   /// services/share_target.dart) goes. Its referral code becomes the
@@ -442,6 +454,7 @@ class AppRouter {
     required bool Function() sessionLocked,
     bool Function() hasWallet = _noWalletKnown,
     bool Function() guestShareView = _guestShareViewOff,
+    Future<void>? Function() walletsLoading = _walletsLoaded,
     List<NavigatorObserver> extraObservers = const [],
   }) {
     _firstRouterAt ??= DateTime.now();
@@ -458,7 +471,8 @@ class AppRouter {
           sessionLocked: sessionLocked,
           initialRoute: initialRoute,
           hasWallet: hasWallet,
-          guestShareView: guestShareView),
+          guestShareView: guestShareView,
+          walletsLoading: walletsLoading),
       routes: [
         GoRoute(
           path: '/splash',

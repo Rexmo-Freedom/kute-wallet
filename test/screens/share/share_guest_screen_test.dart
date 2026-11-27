@@ -135,6 +135,33 @@ void main() {
     await tester.pump(const Duration(seconds: 30));
   });
 
+  testWidgets('a second link in the same tab shows the new market',
+      (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await http.runWithClient(() async {
+      await tester.pumpWidget(app(ShareGuestScreen(
+          target: ShareTarget.of(investing: false, slug: 'will-it-rain')!)));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      expect(find.text('Will it rain?'), findsWidgets);
+      // The same route with another link's market: the same state object.
+      await tester.pumpWidget(app(ShareGuestScreen(
+          target: ShareTarget.of(investing: true, slug: 'BTC')!)));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      expect(find.text('Will it rain?'), findsNothing);
+      expect(find.text('BTC'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    }, () => MockClient((r) async => http.Response('{}', 404)));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 30));
+  });
+
   testWidgets('a blocked region: the VPN sheet, no wallet step, nothing parked',
       (tester) async {
     final policy = runtimePolicyFixture(
