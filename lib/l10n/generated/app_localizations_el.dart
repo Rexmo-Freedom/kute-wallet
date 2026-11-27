@@ -9,6 +9,14 @@ class AppLocalizationsEl extends AppLocalizations {
   AppLocalizationsEl([String locale = 'el']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Αυτή η θέση χρησιμοποιεί μόχλευση, οπότε εδώ μπορείτε μόνο να τη μειώσετε ή να την κλείσετε.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Δεν ήταν δυνατός ο έλεγχος της θέσης σας σε αυτή την αγορά. Δοκιμάστε ξανά σε λίγο.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Ορίστε το stop loss κάτω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
 

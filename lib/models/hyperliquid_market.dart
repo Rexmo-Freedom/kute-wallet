@@ -1074,6 +1074,12 @@ class HlAccountSnapshot {
   /// returns a builder dex's orders only when that dex is named).
   final Set<String> activeDexes;
 
+  /// The perp dexes whose positions this snapshot read ('' = the main
+  /// dex). A market on a dex outside it has an UNKNOWN position here, never
+  /// "none": the full account read covers the main dex and the USDC-settled
+  /// builder dexes only (hl_exposure_rule.dart).
+  final Set<String> positionDexes;
+
   const HlAccountSnapshot({
     required this.accountValue,
     required this.withdrawable,
@@ -1082,6 +1088,7 @@ class HlAccountSnapshot {
     required this.positions,
     required this.spotBalances,
     this.activeDexes = const {},
+    this.positionDexes = const {''},
   });
 
   /// True when this (single-dex) snapshot holds equity, margin or a
@@ -1100,6 +1107,7 @@ class HlAccountSnapshot {
   factory HlAccountSnapshot.fromJson({
     required Map<String, dynamic> perpState,
     Map<String, dynamic>? spotState,
+    String dex = '',
   }) {
     final marginSummary = (perpState['marginSummary'] is Map<String, dynamic>)
         ? perpState['marginSummary'] as Map<String, dynamic>
@@ -1126,6 +1134,7 @@ class HlAccountSnapshot {
           _toDouble(perpState['crossMaintenanceMarginUsed']) ?? 0,
       positions: positions,
       spotBalances: balances,
+      positionDexes: {dex},
     );
   }
 }

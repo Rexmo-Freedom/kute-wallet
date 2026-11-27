@@ -1,5 +1,7 @@
 {
   "@@locale": "da",
+  "hlExpoLeveragedPosition": "Denne position bruger gearing, så her kan du kun reducere eller lukke den.",
+  "hlExpoPositionUnknown": "Vi kunne ikke tjekke din position på dette marked. Prøv igen om lidt.",
   "hlProtectStopBelowPrice": "Sæt stop loss under den aktuelle pris, ellers lukker den positionen med det samme.",
   "hlProtectStopAbovePrice": "Sæt stop loss over den aktuelle pris, ellers lukker den positionen med det samme.",
   "hlProtectTakeAbovePrice": "Sæt take profit over den aktuelle pris, ellers lukker den positionen med det samme.",

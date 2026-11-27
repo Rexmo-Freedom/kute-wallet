@@ -9,6 +9,14 @@ class AppLocalizationsRo extends AppLocalizations {
   AppLocalizationsRo([String locale = 'ro']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Această poziție folosește efect de levier, așa că aici o poți doar reduce sau închide.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nu am putut verifica poziția ta pe această piață. Încearcă din nou peste câteva momente.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Setați stop loss-ul sub prețul actual, altfel închide poziția imediat.';
 

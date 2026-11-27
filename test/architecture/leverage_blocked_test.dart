@@ -49,7 +49,25 @@ HlPerpPosition _held({required int leverage, required bool cross}) =>
       maxLeverage: 40,
     );
 
+/// `.clamp(1, <anything>maxLeverage)` across any whitespace or newlines.
+final _venueMaxClamp = RegExp(
+    r'\.clamp\(\s*1\s*,\s*[\w.!?]*[mM]axLeverage\w*\s*\)',
+    multiLine: true);
+
 void main() {
+  test('the source scan catches a venue-max clamp spread over lines', () {
+    const sample = '''
+        final lev = widget.leverage
+            .clamp(1, widget.market.offeredMaxLeverage)
+            .toInt();
+        final b = x.clamp(
+            1,
+            market.maxLeverage);
+        final ok = requested.clamp(1, cap).toInt();
+''';
+    expect(_venueMaxClamp.allMatches(sample).length, 2);
+  });
+
   test('the app offers 1x isolated only', () {
     expect(kHlMaxOfferedLeverage, 1);
     expect(kHlCrossMarginOffered, isFalse);
@@ -147,12 +165,11 @@ void main() {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final path = entity.path;
       final text = entity.readAsStringSync();
-      // The venue maximum must never become an order's leverage.
-      for (final pattern in [
-        'clamp(1, market.maxLeverage)',
-        'clamp(1, market.offeredMaxLeverage)',
-      ]) {
-        if (text.contains(pattern)) offenders.add('$path: $pattern');
+      // The venue maximum must never become an order's leverage, however
+      // the call is spread over lines or whatever holds the market
+      // (`widget.market.offeredMaxLeverage`, `m.maxLeverage`, ...).
+      for (final m in _venueMaxClamp.allMatches(text)) {
+        offenders.add('$path: ${m.group(0)!.replaceAll(RegExp(r'\s+'), ' ')}');
       }
       if (RegExp(r'isCross:\s*true').hasMatch(text)) {
         offenders.add('$path: isCross: true');

@@ -9,6 +9,14 @@ class AppLocalizationsBg extends AppLocalizations {
   AppLocalizationsBg([String locale = 'bg']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Тази позиция използва ливъридж, затова тук можете само да я намалите или затворите.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Не успяхме да проверим позицията ви на този пазар. Опитайте отново след малко.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Задайте стоп лоса под текущата цена, иначе той веднага затваря позицията.';
 

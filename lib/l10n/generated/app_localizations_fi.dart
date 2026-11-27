@@ -9,6 +9,14 @@ class AppLocalizationsFi extends AppLocalizations {
   AppLocalizationsFi([String locale = 'fi']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Tämä positio käyttää vipua, joten voit täällä vain pienentää tai sulkea sen.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Positiotasi tällä markkinalla ei voitu tarkistaa. Yritä hetken päästä uudelleen.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Aseta stop loss nykyisen hinnan alle, muuten se sulkee position heti.';
 

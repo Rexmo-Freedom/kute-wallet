@@ -58,6 +58,7 @@ import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 import 'package:kute/services/hyperliquid/hl_optimistic_margin.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
@@ -338,6 +339,12 @@ class HyperliquidTradingState {
   /// Perp USDC available for withdrawal / new margin, USD.
   final double withdrawable;
   final List<HlPerpPosition> positions;
+
+  /// The perp dexes [positions] were read from ('' = the main dex), as the
+  /// account read covered them ([HlAccountSnapshot.positionDexes]). A
+  /// market on any other dex has an unknown position, and so does every
+  /// market while [isInitialized] is false (hl_exposure_rule.dart).
+  final Set<String> positionDexes;
   final List<HlSpotBalance> spotBalances;
   final List<HlOpenOrder> openOrders;
 
@@ -366,6 +373,7 @@ class HyperliquidTradingState {
     this.totalMarginUsed = 0,
     this.withdrawable = 0,
     this.positions = const [],
+    this.positionDexes = const {''},
     this.spotBalances = const [],
     this.openOrders = const [],
     this.recentFills = const [],
@@ -385,6 +393,7 @@ class HyperliquidTradingState {
     double? totalMarginUsed,
     double? withdrawable,
     List<HlPerpPosition>? positions,
+    Set<String>? positionDexes,
     List<HlSpotBalance>? spotBalances,
     List<HlOpenOrder>? openOrders,
     List<HlFill>? recentFills,
@@ -400,6 +409,7 @@ class HyperliquidTradingState {
       totalMarginUsed: totalMarginUsed ?? this.totalMarginUsed,
       withdrawable: withdrawable ?? this.withdrawable,
       positions: positions ?? this.positions,
+      positionDexes: positionDexes ?? this.positionDexes,
       spotBalances: spotBalances ?? this.spotBalances,
       openOrders: openOrders ?? this.openOrders,
       recentFills: recentFills ?? this.recentFills,
@@ -429,6 +439,7 @@ class HyperliquidTradingState {
         error == other.error &&
         isPlacingOrder == other.isPlacingOrder &&
         setEquals(pendingCloseCoins, other.pendingCloseCoins) &&
+        setEquals(positionDexes, other.positionDexes) &&
         hlPerpPositionListEquals(positions, other.positions) &&
         hlSpotBalanceListEquals(spotBalances, other.spotBalances) &&
         hlOpenOrderListEquals(openOrders, other.openOrders) &&
@@ -618,6 +629,7 @@ class HyperliquidTradingNotifier
       totalMarginUsed: snap.totalMarginUsed,
       withdrawable: snap.withdrawable,
       positions: snap.positions,
+      positionDexes: snap.positionDexes,
       spotBalances: snap.spotBalances,
       openOrders: orders,
       recentFills: _capFills(fills),
@@ -798,6 +810,7 @@ class HyperliquidTradingNotifier
       totalMarginUsed: keepHold ? hold.totalMarginUsed : snap.totalMarginUsed,
       withdrawable: keepHold ? hold.withdrawable : snap.withdrawable,
       positions: afterCloses.positions,
+      positionDexes: snap.positionDexes,
       spotBalances: snap.spotBalances,
       pendingCloseCoins: pending,
       // A real snapshot: the figures are the venue's answer now (a build
@@ -1290,18 +1303,36 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev = HlIntents.clampLeverage(market, leverage);
+      // The exposure rule (hl_exposure_rule.dart), before anything is
+      // funded or signed: on a market held above 1x or in cross only a
+      // reduction goes, reduce-only; an add, a flip or an unknown position
+      // is refused here. A plain order on a flat, loaded account reads
+      // nothing more.
+      final exposure = await exposureFor(market,
+          isBuy: isLong,
+          size: sizeFromUsd(
+              usd: marginUsd * lev,
+              px: _referencePx(market),
+              szDecimals: market.szDecimals));
+      final reduceOnly = exposure.check.mustReduceOnly;
+      exposure.check.ensureAllows(
+          // A reduction carries no TP/SL bracket: that is an open's.
+          sentReduceOnly: takeProfitPx == null && stopLossPx == null);
       HlBuilderFee? builder;
       // Funding through placement holds the Investing cash
       // (InvestingCashLock): a Swap or Send pulling Investing cash at the
       // same moment waits for the order instead of moving the cash it is
       // funding the order with back out of the builder dex.
       final result = await InvestingCashLock.run(() async {
-        await _fundPerpAction(market, marginUsd,
-            leverage: lev, slippagePct: slippagePct);
+        // A reduction needs no margin and makes no leverage write.
+        if (!reduceOnly) {
+          await _fundPerpAction(market, marginUsd,
+              leverage: lev, slippagePct: slippagePct);
 
-        // 1) Leverage + margin mode (writes only when the resting per-asset
-        //    setting differs; always writes when flat).
-        await _ensureLeverage(market, current, lev, isCross);
+          // 1) Leverage + margin mode: 1x isolated on a flat market, never
+          //    on a held position.
+          await _ensureLeverage(market, exposure.held, lev, isCross);
+        }
 
         // 2) Size from margin × leverage at the live reference price.
         final refPx = _referencePx(market);
@@ -1326,6 +1357,7 @@ class HyperliquidTradingNotifier
             size: size,
             referencePx: refPx,
             slippage: slippagePct / 100,
+            reduceOnly: reduceOnly,
             takeProfitPx: takeProfitPx,
             stopLossPx: stopLossPx,
             cloid: orderCloid,
@@ -1333,7 +1365,7 @@ class HyperliquidTradingNotifier
           ),
           cloid: orderCloid,
           market: market,
-          action: 'open',
+          action: reduceOnly ? 'close' : 'open',
         );
       });
 
@@ -1353,6 +1385,7 @@ class HyperliquidTradingNotifier
           source: source,
           providerOrderId: result.oid?.toString(),
           orderType: 'market',
+          reduceOnly: reduceOnly,
           isCross: kHlCrossMarginOffered && (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
           hasTp: hasTp,
           hasSl: hasSl,
@@ -1363,7 +1396,11 @@ class HyperliquidTradingNotifier
         );
         _trackTpslLegFailure(market, result,
             wantedTpsl: hasTp || hasSl, parentType: 'market');
-        if (result.isFilled) {
+        // A fill that adds margin: an open on a flat market, or an add to a
+        // 1x isolated position (the exposure rule refuses adds to anything
+        // else), so its margin is the filled notional at 1x. A reduction
+        // locks none.
+        if (result.isFilled && !reduceOnly) {
           // Margin locked by the fill, shown now; the next account poll
           // reconciles (see _applySnapshot).
           final filledMargin = result.avgPx > 0
@@ -1771,13 +1808,22 @@ class HyperliquidTradingNotifier
   /// made (the resting value is unknown) and is always 1x isolated:
   /// leverage and cross margin are blocked in this app
   /// ([kHlMaxOfferedLeverage], [kHlCrossMarginOffered]).
+  ///
+  /// [held] is the position on [market] as positively known
+  /// ([heldPositionFor]): an unknown position is refused before this
+  /// ([hlExposureCheck]), never read as flat.
   Future<void> _ensureLeverage(
     HlMarket market,
-    HyperliquidTradingState current,
+    HlHeldPosition held,
     int lev,
     bool? isCross,
   ) async {
-    final write = leverageWriteFor(market, current.positions, lev);
+    if (market.isSpot) return;
+    if (!held.known) {
+      throw const HlExposureRefusedException(
+          HlExposureRefusal.positionUnknown);
+    }
+    final write = leverageWriteFor(market, held.positions, lev);
     if (write == null) return;
     final appLev = write.leverage;
     final effCross = write.isCross;
@@ -1811,6 +1857,76 @@ class HyperliquidTradingNotifier
       leverage: hlAppLeverage(requested, market.maxLeverage),
       isCross: kHlCrossMarginOffered,
     );
+  }
+
+  /// The position on [market] as this account's state positively knows it:
+  /// unknown while the account has not been read (or the last read
+  /// failed), and for a market on a dex the read did not cover (the full
+  /// read covers the main dex and the USDC-settled builder dexes).
+  HlHeldPosition heldPositionKnown(HlMarket market) {
+    if (market.isSpot) return const HlHeldPosition.flat();
+    final s = _current;
+    if (s == null || !s.isInitialized || !s.positionDexes.contains(market.dex)) {
+      return const HlHeldPosition.unknown();
+    }
+    return HlHeldPosition.fromPositions(market, s.positions);
+  }
+
+  /// [heldPositionKnown], else one fresh read of [market]'s dex
+  /// (`clearinghouseState` for that dex: the position's size, leverage and
+  /// margin mode). Unknown when that read fails too. The plain first order
+  /// on a loaded account reads nothing here.
+  Future<HlHeldPosition> heldPositionFor(HlMarket market) async {
+    final known = heldPositionKnown(market);
+    if (known.known) return known;
+    final address = _address ?? _current?.walletAddress;
+    if (address == null) return const HlHeldPosition.unknown();
+    try {
+      final snap = await ref
+          .read(hyperliquidTradingModelProvider)
+          .getDexClearinghouse(address, market.dex);
+      return HlHeldPosition.fromSnapshot(market, snap);
+    } catch (_) {
+      return const HlHeldPosition.unknown();
+    }
+  }
+
+  /// [hlExposureCheck] for an order on [market], against the position as
+  /// positively known ([heldPositionFor]). Every order that can open or
+  /// add perp exposure asks this before anything is funded or signed.
+  Future<({HlExposureCheck check, HlHeldPosition held})> exposureFor(
+    HlMarket market, {
+    required bool isBuy,
+    required double size,
+    bool reduceOnly = false,
+  }) async {
+    if (market.isSpot || reduceOnly) {
+      return (
+        check: hlExposureCheck(
+            market: market,
+            held: const HlHeldPosition.unknown(),
+            isBuy: isBuy,
+            size: size,
+            reduceOnly: reduceOnly),
+        held: const HlHeldPosition.unknown(),
+      );
+    }
+    final held = await heldPositionFor(market);
+    return (
+      check: hlExposureCheck(
+          market: market, held: held, isBuy: isBuy, size: size),
+      held: held,
+    );
+  }
+
+  /// Test seam: the signer an order is placed with, so a test can drive
+  /// the real order path against a fake venue (no mnemonic, no network).
+  @visibleForTesting
+  void debugAttachExchange(HyperliquidExchangeService exchange,
+      {required String walletId}) {
+    _exchange = exchange;
+    _walletId = walletId;
+    _address = exchange.walletAddress;
   }
 
   // `_tryAttachTpSl` (the post-open best-effort trigger attach) is gone:
@@ -1874,22 +1990,30 @@ class HyperliquidTradingNotifier
       );
       final lev =
           HlIntents.clampLeverage(market, leverage);
-      if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross);
-      }
       final coinSize = size ??
           sizeFromUsd(
               usd: (marginUsd ?? 0) * lev,
               px: px,
               szDecimals: market.szDecimals);
-      if (!market.isSpot && !reduceOnly) {
+      final asksTpsl = (takeProfitPx != null && takeProfitPx > 0) ||
+          (stopLossPx != null && stopLossPx > 0);
+      // The exposure rule, before the leverage write or any funding: on a
+      // market held above 1x or in cross only a reduction goes, and it
+      // goes reduce-only; an add, a flip or an unknown position stops here.
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: coinSize, reduceOnly: reduceOnly);
+      exposure.check
+          .ensureAllows(sentReduceOnly: reduceOnly || !asksTpsl);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      if (!sendReduceOnly) {
+        await _ensureLeverage(market, exposure.held, lev, isCross);
+      }
+      if (!market.isSpot && !sendReduceOnly) {
         await _fundPerpAction(market, marginUsd ?? coinSize * px / lev,
             leverage: lev);
       }
       final builder = await _builderFee();
-      final wantsTpsl = !reduceOnly &&
-          ((takeProfitPx != null && takeProfitPx > 0) ||
-              (stopLossPx != null && stopLossPx > 0));
+      final wantsTpsl = !sendReduceOnly && asksTpsl;
       // TP/SL rides in the SAME 'normalTpsl'-grouped action (see
       // placeMarketOrder): fill-sized, OCO, never silently missing.
       final orderCloid = cloid ?? newHlCloid();
@@ -1914,13 +2038,13 @@ class HyperliquidTradingNotifier
                     szDecimals: market.szDecimals, isSpot: market.isSpot),
                 sz: roundSize(coinSize, market.szDecimals),
                 tif: postOnly ? 'Alo' : tif,
-                reduceOnly: reduceOnly,
+                reduceOnly: sendReduceOnly,
                 cloid: orderCloid,
                 builder: builder,
               ),
         cloid: orderCloid,
         market: market,
-        action: reduceOnly ? 'close' : 'open',
+        action: sendReduceOnly ? 'close' : 'open',
       );
       final notional = coinSize * px;
       _afterAccepted(() {
@@ -1934,8 +2058,8 @@ class HyperliquidTradingNotifier
           source: source,
           providerOrderId: result.oid?.toString(),
           orderType: 'limit',
-          reduceOnly: reduceOnly,
-          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
           hasTp: wantsTpsl && takeProfitPx != null && takeProfitPx > 0,
           hasSl: wantsTpsl && stopLossPx != null && stopLossPx > 0,
           filled: result.isFilled,
@@ -2250,9 +2374,6 @@ class HyperliquidTradingNotifier
       );
       final lev =
           HlIntents.clampLeverage(market, leverage);
-      if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross);
-      }
       final avgPx = (startPx + endPx) / 2;
       final notional = totalUsd * lev;
       final totalSize = sizeFromUsd(
@@ -2260,7 +2381,16 @@ class HyperliquidTradingNotifier
         px: avgPx > 0 ? avgPx : startPx,
         szDecimals: market.szDecimals,
       );
-      if (!market.isSpot && !reduceOnly) {
+      // The exposure rule, before the leverage write or any funding (see
+      // placeLimit): the whole ladder is judged at its total size.
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: totalSize, reduceOnly: reduceOnly);
+      exposure.check.ensureAllows(sentReduceOnly: true);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      if (!sendReduceOnly) {
+        await _ensureLeverage(market, exposure.held, lev, isCross);
+      }
+      if (!market.isSpot && !sendReduceOnly) {
         await _fundPerpAction(market, totalUsd, leverage: lev);
       }
       final builder = await _builderFee();
@@ -2277,14 +2407,14 @@ class HyperliquidTradingNotifier
           startPx: startPx,
           endPx: endPx,
           count: count,
-          reduceOnly: reduceOnly,
+          reduceOnly: sendReduceOnly,
           legCloids: legCloids,
           builder: builder,
         ),
         cloid: legCloids.first,
         cloids: legCloids,
         market: market,
-        action: reduceOnly ? 'close' : 'open',
+        action: sendReduceOnly ? 'close' : 'open',
       );
       _afterAccepted(() {
         TrackingService.hyperliquidOrderPlaced(
@@ -2297,8 +2427,8 @@ class HyperliquidTradingNotifier
           source: source,
           providerOrderId: result.oid?.toString(),
           orderType: 'scale',
-          reduceOnly: reduceOnly,
-          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
           filled: result.isFilled,
           walletKind: 'hot',
           marketType: _marketType(market),
@@ -2421,7 +2551,14 @@ class HyperliquidTradingNotifier
             'TWAP duration must be between ${HlTwapRules.minMinutes} '
             'minutes and 7 days');
       }
-      if (!reduceOnly &&
+      // The exposure rule, before the leverage write or any funding (see
+      // placeLimit).
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: coinSize, reduceOnly: reduceOnly);
+      exposure.check.ensureAllows(sentReduceOnly: true);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      ensureSubmissionCurrent();
+      if (!sendReduceOnly &&
           !HlTwapRules.meetsMinimum(referencePx: refPx, size: coinSize)) {
         throw HyperliquidMinNotionalException(
             'TWAP notional \$${(refPx * coinSize).toStringAsFixed(2)} is below '
@@ -2435,11 +2572,11 @@ class HyperliquidTradingNotifier
         ensureCurrent: ensureSubmissionCurrent,
         send: (beforeSubmit, beforeSend) async {
           ensureSubmissionCurrent();
-          if (!reduceOnly) {
-            await _ensureLeverage(market, current, lev, isCross);
+          if (!sendReduceOnly) {
+            await _ensureLeverage(market, exposure.held, lev, isCross);
           }
           ensureSubmissionCurrent();
-          if (!market.isSpot && !reduceOnly) {
+          if (!market.isSpot && !sendReduceOnly) {
             await _fundPerpAction(market, marginUsd ?? coinSize * refPx / lev,
                 leverage: lev);
           }
@@ -2451,7 +2588,7 @@ class HyperliquidTradingNotifier
             durationMinutes: durationMinutes,
             referencePx: refPx,
             randomize: randomize,
-            reduceOnly: reduceOnly,
+            reduceOnly: sendReduceOnly,
             beforeSubmit: beforeSubmit,
             beforeSend: beforeSend,
           );
@@ -2470,8 +2607,8 @@ class HyperliquidTradingNotifier
           notionalUsd: notional,
           source: source,
           orderType: 'twap',
-          reduceOnly: reduceOnly,
-          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
           filled: result.isFilled,
           walletKind: 'hot',
           marketType: _marketType(market),
@@ -2491,7 +2628,7 @@ class HyperliquidTradingNotifier
             coin: market.coin,
             address: ex.walletAddress,
             isBuy: isLong,
-            reduceOnly: reduceOnly,
+            reduceOnly: sendReduceOnly,
             size: coinSize,
             durationMinutes: durationMinutes,
             startedAt: DateTime.now(),
@@ -2590,8 +2727,15 @@ class HyperliquidTradingNotifier
       );
       verifyAccount();
       final lev = HlIntents.clampLeverage(market, leverage);
-      if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross);
+      // The exposure rule for a stop that is not reduce-only, before the
+      // leverage write or any funding (see placeLimit).
+      final exposure = await exposureFor(market,
+          isBuy: isLong, size: size, reduceOnly: reduceOnly);
+      exposure.check.ensureAllows(sentReduceOnly: true);
+      final sendReduceOnly = reduceOnly || exposure.check.mustReduceOnly;
+      verifyAccount();
+      if (!sendReduceOnly) {
+        await _ensureLeverage(market, exposure.held, lev, isCross);
         verifyAccount();
         await _fundPerpAction(
           market,
@@ -2605,7 +2749,7 @@ class HyperliquidTradingNotifier
         'trading.advanced',
       );
       await RuntimeCapabilitiesService.instance
-          .ensureAllAllowed(_orderCapabilities(market, reduceOnly));
+          .ensureAllAllowed(_orderCapabilities(market, sendReduceOnly));
       verifyAccount();
       final refPx = _referencePx(market);
       final result = await ex.placeTrailingStopOrder(
@@ -2613,7 +2757,7 @@ class HyperliquidTradingNotifier
         isBuy: isLong,
         size: size,
         trail: trail,
-        reduceOnly: reduceOnly,
+        reduceOnly: sendReduceOnly,
         referencePrice: refPx,
         beforeSend: verifyAccount,
         lookup: lookup,
@@ -2628,8 +2772,8 @@ class HyperliquidTradingNotifier
           marginUsd: lev > 0 ? notional / lev : notional,
           notionalUsd: notional,
           orderType: 'trailing',
-          reduceOnly: reduceOnly,
-          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          reduceOnly: sendReduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: sendReduceOnly),
           filled: result.isFilled,
           walletKind: 'hot',
           marketType: _marketType(market),
@@ -3160,6 +3304,24 @@ final hyperliquidTradingProvider = AsyncNotifierProvider.autoDispose<
     HyperliquidTradingNotifier, HyperliquidTradingState>(
   HyperliquidTradingNotifier.new,
 );
+
+/// The position on a market as positively known: the account's state, else
+/// one fresh read of the market's dex, else unknown
+/// ([HyperliquidTradingNotifier.heldPositionFor]). What the order slip and
+/// a queued Investing order judge the exposure rule (hl_exposure_rule.dart)
+/// on before anything is approved or moved. Overridden in tests.
+///
+/// Answers at once (no future) when the state already knows the position,
+/// so a queued order on a loaded account is queued in the same turn as
+/// before.
+final hlHeldPositionProvider =
+    Provider<FutureOr<HlHeldPosition> Function(HlMarket market)>((ref) =>
+        (market) {
+          final n = ref.read(hyperliquidTradingProvider.notifier);
+          final known = n.heldPositionKnown(market);
+          if (known.known) return known;
+          return n.heldPositionFor(market);
+        });
 
 /// Display-only fallback. Never use this provider to size, authorize or send
 /// an order/move: [hyperliquidTradingProvider] remains the live execution state.

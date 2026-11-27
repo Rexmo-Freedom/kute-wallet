@@ -1,5 +1,7 @@
 {
   "@@locale": "hu",
+  "hlExpoLeveragedPosition": "Ez a pozíció tőkeáttételt használ, ezért itt csak csökkentheted vagy lezárhatod.",
+  "hlExpoPositionUnknown": "Nem sikerült ellenőrizni a pozíciódat ezen a piacon. Próbáld újra egy pillanat múlva.",
   "hlProtectStopBelowPrice": "A stop losst az aktuális ár alá állítsa, különben azonnal lezárja a pozíciót.",
   "hlProtectStopAbovePrice": "A stop losst az aktuális ár fölé állítsa, különben azonnal lezárja a pozíciót.",
   "hlProtectTakeAbovePrice": "A take profitot az aktuális ár fölé állítsa, különben azonnal lezárja a pozíciót.",

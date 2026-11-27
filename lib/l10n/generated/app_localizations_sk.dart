@@ -9,6 +9,14 @@ class AppLocalizationsSk extends AppLocalizations {
   AppLocalizationsSk([String locale = 'sk']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Táto pozícia používa pákový efekt, preto ju tu môžete len znížiť alebo uzavrieť.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nepodarilo sa overiť vašu pozíciu na tomto trhu. Skúste to o chvíľu znova.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Nastavte stop loss pod aktuálnu cenu, inak pozíciu hneď uzavrie.';
 

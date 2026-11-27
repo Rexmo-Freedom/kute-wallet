@@ -1,5 +1,7 @@
 {
   "@@locale": "es",
+  "hlExpoLeveragedPosition": "Esta posición usa apalancamiento, así que aquí solo puedes reducirla o cerrarla.",
+  "hlExpoPositionUnknown": "No pudimos comprobar tu posición en este mercado. Inténtalo de nuevo en un momento.",
   "hlProtectStopBelowPrice": "Pon el stop loss por debajo del precio actual o cerrará la posición al instante.",
   "hlProtectStopAbovePrice": "Pon el stop loss por encima del precio actual o cerrará la posición al instante.",
   "hlProtectTakeAbovePrice": "Pon el take profit por encima del precio actual o cerrará la posición al instante.",

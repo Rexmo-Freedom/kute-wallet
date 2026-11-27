@@ -9,6 +9,14 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'このポジションはレバレッジを使用しているため、ここでは縮小または決済のみ可能です。';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'この市場でのポジションを確認できませんでした。しばらくしてからもう一度お試しください。';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'ストップロスは現在の価格より下に設定してください。そうしないとすぐにポジションが決済されます。';
 

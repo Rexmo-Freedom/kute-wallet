@@ -9,6 +9,14 @@ class AppLocalizationsSl extends AppLocalizations {
   AppLocalizationsSl([String locale = 'sl']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ta pozicija uporablja finančni vzvod, zato jo lahko tukaj le zmanjšate ali zaprete.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Vaše pozicije na tem trgu ni bilo mogoče preveriti. Poskusite znova čez trenutek.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Stop loss nastavite pod trenutno ceno, sicer pozicijo takoj zapre.';
 

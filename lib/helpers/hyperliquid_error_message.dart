@@ -4,6 +4,7 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 
 /// Rejections are authoritative. A transport or unclassified failure is not
 /// proof that nothing was submitted, so never promise safety or suggest an
@@ -13,6 +14,7 @@ String hlTradeErrorMessage(AppLocalizations l10n, Object error) {
     return error.decision.messageIn(l10n);
   }
   if (error is LeverageCapExceededException) return error.messageIn(l10n);
+  if (error is HlExposureRefusedException) return error.messageIn(l10n);
   if (error is PendingHyperliquidTwapException) {
     return l10n.investingTwapPending;
   }

@@ -1,5 +1,7 @@
 {
   "@@locale": "et",
+  "hlExpoLeveragedPosition": "See positsioon kasutab finantsvõimendust, seega saad seda siin ainult vähendada või sulgeda.",
+  "hlExpoPositionUnknown": "Sinu positsiooni sellel turul ei õnnestunud kontrollida. Proovi hetke pärast uuesti.",
   "hlProtectStopBelowPrice": "Seadke stop loss praegusest hinnast allapoole, muidu sulgeb see positsiooni kohe.",
   "hlProtectStopAbovePrice": "Seadke stop loss praegusest hinnast ülespoole, muidu sulgeb see positsiooni kohe.",
   "hlProtectTakeAbovePrice": "Seadke take profit praegusest hinnast ülespoole, muidu sulgeb see positsiooni kohe.",

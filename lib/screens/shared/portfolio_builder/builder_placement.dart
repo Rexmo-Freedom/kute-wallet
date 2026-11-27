@@ -28,6 +28,8 @@
 // (GrantGuard.chain), and each approved leg can be placed once. The screen
 // closes the approval after the loop.
 
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart'
+    show HlExposureRefusedException;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -483,6 +485,11 @@ Future<BuilderLegResult> placeTradeBuilderLeg(
     // Nothing was signed for this leg.
     trackGrantFailure(e, action: SensitiveAction.hlOrder);
     return BuilderLegResult.fail(approval.failureText(e));
+  } on HlExposureRefusedException catch (e) {
+    // The exposure rule (openPosition asks it before funding or signing):
+    // a perp leg on a market held above 1x or in cross, or whose position
+    // could not be read, is not placed.
+    return BuilderLegResult.fail(e.messageIn(appL10n()));
   } catch (e) {
     return BuilderLegResult.fail(builderErrorText(e));
   }

@@ -9,6 +9,14 @@ class AppLocalizationsHr extends AppLocalizations {
   AppLocalizationsHr([String locale = 'hr']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ova pozicija koristi financijsku polugu pa je ovdje možete samo smanjiti ili zatvoriti.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nismo mogli provjeriti vašu poziciju na ovom tržištu. Pokušajte ponovno za trenutak.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Postavite stop loss ispod trenutne cijene, inače odmah zatvara poziciju.';
 

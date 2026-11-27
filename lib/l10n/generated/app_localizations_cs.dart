@@ -9,6 +9,14 @@ class AppLocalizationsCs extends AppLocalizations {
   AppLocalizationsCs([String locale = 'cs']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Tato pozice používá páku, proto ji zde můžete jen snížit nebo uzavřít.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nepodařilo se ověřit vaši pozici na tomto trhu. Zkuste to za chvíli znovu.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Nastavte stop loss pod aktuální cenu, jinak pozici hned uzavře.';
 

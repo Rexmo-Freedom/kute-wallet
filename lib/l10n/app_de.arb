@@ -1,5 +1,7 @@
 {
   "@@locale": "de",
+  "hlExpoLeveragedPosition": "Diese Position nutzt einen Hebel, daher kannst du sie hier nur verkleinern oder schließen.",
+  "hlExpoPositionUnknown": "Deine Position in diesem Markt konnte nicht geprüft werden. Versuche es gleich noch einmal.",
   "hlProtectStopBelowPrice": "Setze den Stop-Loss unter den aktuellen Preis, sonst schließt er die Position sofort.",
   "hlProtectStopAbovePrice": "Setze den Stop-Loss über den aktuellen Preis, sonst schließt er die Position sofort.",
   "hlProtectTakeAbovePrice": "Setze den Take-Profit über den aktuellen Preis, sonst schließt er die Position sofort.",

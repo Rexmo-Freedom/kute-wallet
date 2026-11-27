@@ -9,6 +9,14 @@ class AppLocalizationsSv extends AppLocalizations {
   AppLocalizationsSv([String locale = 'sv']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Den här positionen använder hävstång, så här kan du bara minska eller stänga den.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Vi kunde inte kontrollera din position på den här marknaden. Försök igen om en stund.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Sätt stop loss under nuvarande pris, annars stänger den positionen direkt.';
 
