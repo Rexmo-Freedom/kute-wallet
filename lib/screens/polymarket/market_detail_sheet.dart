@@ -4515,11 +4515,9 @@ class KuteWideSlipPane extends ConsumerWidget {
         if (holds(p)) p,
     ];
     final here = ordersHere;
-    // The positions watched above build and follow the account in the app,
-    // so it exists by now and is watched (rebuilds) below; a test's
-    // override of the positions leaves it unbuilt.
+    // Followed always (the positions above already build the account in
+    // the app): the orders appear the moment the account reads them.
     final resting = here != null &&
-        ref.exists(polymarketTradingProvider) &&
         ref.watch(polymarketTradingProvider.select((s) =>
             (s.valueOrNull?.openOrders ?? const <Order>[]).any(here)));
     return SlipPanelFooter(

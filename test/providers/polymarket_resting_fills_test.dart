@@ -211,7 +211,7 @@ void main() {
         'still said (registered at placement)', () async {
       container
           .read(polymarketRestingFillsProvider.notifier)
-          .noteOrder(_order('new'));
+          .noteOrder(_order('new'), account: '0xabc');
       // The first list read after it: already gone (filled), never listed.
       trading.orders(const []);
       await Future<void>.delayed(Duration.zero);
@@ -247,6 +247,59 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(fills.single.orderId, 'a');
       expect(tries, 2);
+    });
+
+    test(
+        'a list read before the placement misses the order: its LIVE record '
+        'keeps it tracked, and a part fill on the next list is said',
+        () async {
+      final reads = <String>[];
+      PolymarketRestingFillsNotifier.lookup = (ref, id) async {
+        reads.add(id);
+        return {'status': 'LIVE', 'size_matched': '0', 'original_size': '10'};
+      };
+      container
+          .read(polymarketRestingFillsProvider.notifier)
+          .noteOrder(_order('new'), account: '0xabc');
+      // The stale list (read before the order was placed) lands.
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(reads, ['new']);
+      expect(fills, isEmpty);
+      // The next list carries it, part filled: said, counted from the
+      // registered shares.
+      trading.orders([_order('new', matched: 4)]);
+      expect(fills.single.orderId, 'new');
+      expect(fills.single.filledShares, 4);
+    });
+
+    test('one record read at a time per order, however many lists land',
+        () async {
+      final pending = Completer<Map<String, dynamic>?>();
+      var calls = 0;
+      PolymarketRestingFillsNotifier.lookup = (ref, id) {
+        calls++;
+        return pending.future;
+      };
+      trading.orders([_order('a')]);
+      trading.orders(const []);
+      trading.orders([_order('z')]);
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, 2); // 'a' once, 'z' once
+      pending.complete({'size_matched': '10'});
+      await Future<void>.delayed(Duration.zero);
+      expect(fills.map((f) => f.orderId).toSet(), {'a', 'z'});
+    });
+
+    test('an order placed on another account is never tracked here',
+        () async {
+      container
+          .read(polymarketRestingFillsProvider.notifier)
+          .noteOrder(_order('elsewhere'), account: '0xdef');
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills, isEmpty);
     });
 
     test('another account: nothing of the last one is said', () async {

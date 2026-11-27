@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -77,6 +78,15 @@ class _NoTrading extends PolymarketTradingNotifier {
       const PolymarketTradingState();
 }
 
+/// The account with [orders] resting.
+class _OrdersTrading extends PolymarketTradingNotifier {
+  _OrdersTrading(this.orders);
+  final List<Order> orders;
+  @override
+  Future<PolymarketTradingState> build() async =>
+      PolymarketTradingState(isAuthenticated: true, openOrders: orders);
+}
+
 class _Prices extends LivePriceNotifier {
   @override
   LivePriceState build() => const LivePriceState();
@@ -133,7 +143,8 @@ final _election = PolymarketEvent(
 List<Override> _overrides(
         {PolymarketEvent? event,
         PolyPositionJourney? journey,
-        int balancePrivacy = 0}) =>
+        int balancePrivacy = 0,
+        List<Order>? orders}) =>
     [
       balancePrivacyOverride(balancePrivacy),
       polymarketClaimablePositionsProvider.overrideWithValue(const []),
@@ -144,7 +155,9 @@ List<Override> _overrides(
       aiEnabledProvider.overrideWith((ref) async => false),
       polymarketCostBasisProvider.overrideWith((ref) => _NoCostBasis()),
       predictionUsdCostProvider.overrideWith((ref, id) async => null),
-      polymarketTradingProvider.overrideWith(_NoTrading.new),
+      orders == null
+          ? polymarketTradingProvider.overrideWith(_NoTrading.new)
+          : polymarketTradingProvider.overrideWith(() => _OrdersTrading(orders)),
       polymarketEventDetailsProvider('ceasefire-2026')
           .overrideWith((ref) async => null),
       polymarketEventDetailsProvider('brazil-election-2026')
@@ -158,14 +171,18 @@ Future<void> _pump(WidgetTester tester, PolymarketPosition position,
     double width = 390,
     double textScale = 1,
     bool dark = false,
-    int balancePrivacy = 0}) async {
+    int balancePrivacy = 0,
+    List<Order>? orders}) async {
   tester.view.physicalSize = Size(width, 1200);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
     overrides: _overrides(
-        event: event, journey: journey, balancePrivacy: balancePrivacy),
+        event: event,
+        journey: journey,
+        balancePrivacy: balancePrivacy,
+        orders: orders),
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
@@ -182,7 +199,13 @@ Future<void> _pump(WidgetTester tester, PolymarketPosition position,
               .copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
-        home: PositionDetailSheet(position: position),
+        // With [orders], the account exists (as it does in the app).
+        home: orders == null
+            ? PositionDetailSheet(position: position)
+            : Consumer(builder: (context, ref, _) {
+                ref.watch(polymarketTradingProvider);
+                return PositionDetailSheet(position: position);
+              }),
       ),
     ),
   ));
@@ -229,6 +252,18 @@ Future<void> _advancedPolicy(
   RuntimeCapabilitiesService.debugInstance = policy;
   await policy.refresh();
 }
+
+Order _sellOrder(String token) => Order(
+      id: 'rest-$token',
+      market: 'c-cf',
+      assetId: token,
+      owner: 'x',
+      side: 'SELL',
+      price: '0.8',
+      originalSize: '20',
+      sizeMatched: '0',
+      outcome: 'No',
+    );
 
 void main() {
   late List<(String, Map<String, Object>?)> events;
@@ -820,6 +855,36 @@ void main() {
     // Only the Unavailable sheet: the sell sheet never opens.
     expect(find.byType(SellSheet), findsNothing);
     expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the position page adds no space without resting orders; with one, '
+      'its row under the actions', (tester) async {
+    Future<double> tilesTop(List<Order> orders) async {
+      // A fresh account each time (a scope's overrides never change).
+      await tester.pumpWidget(const SizedBox());
+      await _pump(tester, _no, orders: orders);
+      await tester.pump(const Duration(seconds: 1));
+      final listed = find.byKey(const ValueKey('poly-position-orders'));
+      expect(listed, findsOneWidget);
+      final height = tester.getSize(listed).height;
+      final mine = orders.any((o) => o.assetId == 'cf-no');
+      if (!mine) expect(height, 0);
+      if (mine) {
+        expect(height, greaterThan(0));
+        expect(find.byKey(const ValueKey('market-order-rest-cf-no')),
+            findsOneWidget);
+      }
+      return tester.getTopLeft(listed).dy + height;
+    }
+
+    // An order on another token of the account: not this position's.
+    final none = await tilesTop(const []);
+    final other = await tilesTop([_sellOrder('elsewhere')]);
+    expect(other, none);
+    final mine = await tilesTop([_sellOrder('cf-no')]);
+    expect(mine, greaterThan(none));
     expect(tester.takeException(), isNull);
   });
 

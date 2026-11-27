@@ -20,6 +20,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/providers/pending_bet_autofire.dart'
+    show autofireLimitOrder;
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -297,6 +299,35 @@ void main() {
       expect(
           betSlipWorstFeePrice(limitPrice: 0.005, shown: 0.5, slippagePct: 5),
           0.005);
+    });
+  });
+
+  group('a funded or queued limit (the autofire posts it)', () {
+    const terms = PolymarketFeeTerms.worstCase;
+
+    test(
+        'it posts the size checked before Confirm: the minimum stake at 28c '
+        'is 5.00 shares even when the cash landed a hair over it', () {
+      // The old sizing: min(stake, 99% of the cash) = 1.3959 -> 4.98.
+      final r =
+          autofireLimitOrder(amount: 1.40, balance: 1.41, price: 0.28, feeTerms: terms);
+      expect(r.shares, 5.0);
+      expect(
+          polymarketMeetsMinimumShares(r.shares, kPolymarketDefaultMinOrderShares),
+          isTrue);
+    });
+
+    test(
+        'its fee reserve is what the cash carries past the cost, so the '
+        'collateral wait can always end', () {
+      final tight =
+          autofireLimitOrder(amount: 1.40, balance: 1.41, price: 0.28, feeTerms: terms);
+      expect(tight.feeReserveUsd, closeTo(0.01, 1e-9));
+      expect(5.0 * 0.28 + tight.feeReserveUsd, lessThanOrEqualTo(1.41 + 1e-9));
+      final ample =
+          autofireLimitOrder(amount: 10, balance: 20, price: 0.5, feeTerms: terms);
+      expect(ample.feeReserveUsd,
+          terms.feeCeilingForNotional(ample.shares * 0.5, 0.5));
     });
   });
 }

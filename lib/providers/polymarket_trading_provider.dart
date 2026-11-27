@@ -382,17 +382,32 @@ class PolymarketEvmFormatPendingException implements Exception {
 ///   them);
 /// * a known address is never replaced with null, and a balance that could
 ///   not be read keeps the last one that was.
+/// How long a known open-orders list is kept while every orders read
+/// fails: about ten failed full reads, so a blip never drops a reserve,
+/// and short enough that a list nobody can refresh (an order cancelled
+/// elsewhere) never holds cash or locks shares for long. Past it the
+/// account reads as nothing reserved, as it did before limits, and the
+/// venue's own refusal is the guard.
+const Duration kPolymarketKeptOrdersFor = Duration(minutes: 5);
+
 /// The open orders a refresh carries: the list [read] (null: a cash-only
 /// tick, or a read that failed); else the same account's [previous] list
-/// (a failed read never wipes a known reserve: what resting buys hold
-/// stays held); else none, as before (nothing was ever known to be
-/// reserved: the venue's own refusal is the guard, and nobody waits).
+/// while the reads have been failing for no longer than
+/// [kPolymarketKeptOrdersFor] ([staleFor], null while none failed); else
+/// none, as before (the venue's own refusal is the guard; nobody waits).
 @visibleForTesting
 List<Order> polymarketOrdersAfterRead({
   required List<Order>? read,
   required PolymarketTradingState? previous,
-}) =>
-    read ?? previous?.openOrders ?? const <Order>[];
+  Duration? staleFor,
+}) {
+  if (read != null) return read;
+  if (previous != null &&
+      (staleFor == null || staleFor <= kPolymarketKeptOrdersFor)) {
+    return previous.openOrders;
+  }
+  return const <Order>[];
+}
 
 @visibleForTesting
 PolymarketTradingState? mergePolymarketRefresh({
@@ -672,6 +687,29 @@ class PolymarketTradingNotifier
   /// auth headers for the `subscribe` payload. Null until the user
   /// has enabled trading and we've derived API credentials.
   PolymarketBackendService? get backendService => _backendService;
+
+  /// When the orders reads began failing for this account (null while the
+  /// last full read landed): bounds how long its last list is kept.
+  DateTime? _ordersStaleSince;
+
+  /// The clock the kept list is aged by; tests replace it.
+  @visibleForTesting
+  static DateTime Function() ordersClock = DateTime.now;
+
+  /// Tests: the public model and authenticated service a refresh reads.
+  @visibleForTesting
+  void debugUseReads(
+      PolymarketModel model, PolymarketBackendService? backend) {
+    _publicModel = model;
+    _backendService = backend;
+  }
+
+  /// Tests: one refresh's reads, as the account's refreshes run them.
+  @visibleForTesting
+  Future<PolymarketTradingState> debugFetchAllData(String eoa,
+          {String? proxyWallet,
+          PolymarketRefreshScope scope = PolymarketRefreshScope.full}) =>
+      _fetchAllData(eoa, proxyWallet: proxyWallet, scope: scope);
 
   /// Read-only SDK client handle for metadata lookups (market min size,
   /// tick size). Null until trading is initialized.
@@ -2332,10 +2370,21 @@ class PolymarketTradingNotifier
         previous.proxyWalletAddress?.toLowerCase() == addr.toLowerCase();
     var positions = (results[0] as List<Position>?) ??
         (samePreviousAccount ? previous.openPositions : const <Position>[]);
-    // The open orders this state carries (polymarketOrdersAfterRead).
+    // The open orders this state carries (polymarketOrdersAfterRead): a
+    // failed full read starts the clock on the kept list, a read that
+    // lands stops it, another account starts over.
+    final ordersRead = results[1] as List<Order>?;
+    final ordersNow = ordersClock();
+    if (!samePreviousAccount) _ordersStaleSince = null;
+    if (full) {
+      _ordersStaleSince = ordersRead != null ? null : (_ordersStaleSince ?? ordersNow);
+    }
     final orders = polymarketOrdersAfterRead(
-        read: results[1] as List<Order>?,
-        previous: samePreviousAccount ? previous : null);
+        read: ordersRead,
+        previous: samePreviousAccount ? previous : null,
+        staleFor: _ordersStaleSince == null
+            ? null
+            : ordersNow.difference(_ordersStaleSince!));
     final onChainUsdc = results[2] as double;
     // The settled rows held to their result (the state's closedPositions,
     // which the history reads as Won / Lost) and, for everything below

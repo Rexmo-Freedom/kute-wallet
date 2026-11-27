@@ -437,10 +437,15 @@ class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
   Future<void> _cancelAll() async {
     if (_busy) return;
     final walletId = widget.ledgerWalletId;
-    final orders = walletId == null
-        ? ref.read(polymarketOpenOrdersProvider).valueOrNull
-        : ref.read(ledgerPmOpenOrdersProvider(walletId)).valueOrNull;
-    // Asks first, listing what goes (one tap per order needs no ask).
+    final read = walletId == null
+        ? ref.read(polymarketOpenOrdersProvider)
+        : ref.read(ledgerPmOpenOrdersProvider(walletId));
+    // Asks first, listing what goes (one tap per order needs no ask). A
+    // list being read again (a poll, a cancel's refresh) or one whose
+    // last read failed may not be the venue's whole list, while Cancel
+    // all removes every order: then the question alone, never a count
+    // (the Portfolio's rule, portfolio_orders.dart).
+    final orders = polyCancelAllKnownOrders(read);
     if (!await polyConfirmCancelAll(context,
         lines: orders == null ? null : polyCancelAllLines(context, orders))) {
       return;
@@ -488,6 +493,11 @@ Widget _emptyOrders(AppColorsExtension c, String message, bool embedded) {
       ? Expanded(child: KuteDockClearance(child: text))
       : Padding(padding: EdgeInsets.symmetric(vertical: 28.h), child: text);
 }
+
+/// The orders a Cancel all may list as all it removes: the last read's,
+/// only while that read is settled and succeeded; else null.
+List<Order>? polyCancelAllKnownOrders(AsyncValue<List<Order>?> read) =>
+    read.hasError || read.isLoading ? null : read.valueOrNull;
 
 /// One line per resting order a Cancel all removes: "BUY · Yes · 40% ·
 /// 12.50 shares".

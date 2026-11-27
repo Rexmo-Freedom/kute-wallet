@@ -41,6 +41,7 @@ import 'package:kute/screens/hyperliquid/components/hl_format.dart'
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
     show
         PolyOrderRow,
+        polyCancelAllKnownOrders,
         polyCancelAllLines,
         polyCancelAllOrders,
         polyConfirmCancelAll;
@@ -292,12 +293,9 @@ class _PortfolioCancelAllLinkState
     final hlOrders = widget.investing
         ? ref.read(hyperliquidTradingProvider).valueOrNull?.openOrders
         : const <HlOpenOrder>[];
-    final pmRead = ref.read(polymarketOpenOrdersProvider);
     final pmOrders = !widget.predictions
         ? const <Order>[]
-        : pmRead.hasError || pmRead.isLoading
-            ? null
-            : pmRead.valueOrNull;
+        : polyCancelAllKnownOrders(ref.read(polymarketOpenOrdersProvider));
     final lines = hlOrders == null || pmOrders == null
         ? null
         : [

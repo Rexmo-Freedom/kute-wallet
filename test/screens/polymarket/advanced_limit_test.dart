@@ -12,6 +12,8 @@
 //   * the receipt rows of a resting buy and where a placed limit leaves the
 //     navigator (P7, also in test/render/wide_predictions_render_test.dart).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +36,8 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
+import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
+    show polyCancelAllKnownOrders;
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
@@ -255,7 +259,11 @@ Future<void> _typeSellAmount(WidgetTester tester, String amount) async {
   await tester.pumpAndSettle();
 }
 
+late StreamController<List<Order>> _feed;
+
 void main() {
+  setUp(() => _feed = StreamController<List<Order>>.broadcast());
+  tearDown(() => _feed.close());
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     PredictionsVenueFunder.debugRouteShare = (_) async => 0;
@@ -495,6 +503,35 @@ void main() {
       expect(step['shares'], 18.6049);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
+    });
+  });
+
+  group('Cancel all never shows a list that may be incomplete', () {
+    test('only a settled, successful read is listed', () async {
+      final orders = [_order('t', 'BUY', 5)];
+      final container = ProviderContainer(overrides: [
+        polymarketOpenOrdersProvider.overrideWith((ref) => _feed.stream),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(polymarketOpenOrdersProvider, (_, __) {});
+      expect(polyCancelAllKnownOrders(container.read(polymarketOpenOrdersProvider)),
+          isNull);
+      _feed.add(orders);
+      await Future<void>.delayed(Duration.zero);
+      expect(polyCancelAllKnownOrders(container.read(polymarketOpenOrdersProvider)),
+          orders);
+      // A failed poll keeps the last value: not listed as complete.
+      _feed.addError(StateError('poll failed'));
+      await Future<void>.delayed(Duration.zero);
+      final failed = container.read(polymarketOpenOrdersProvider);
+      expect(failed.valueOrNull, orders);
+      expect(polyCancelAllKnownOrders(failed), isNull);
+      // Read again (a cancel's invalidate): loading over the last value.
+      _feed.add(orders);
+      await Future<void>.delayed(Duration.zero);
+      container.invalidate(polymarketOpenOrdersProvider);
+      final again = container.read(polymarketOpenOrdersProvider);
+      expect(polyCancelAllKnownOrders(again), isNull);
     });
   });
 

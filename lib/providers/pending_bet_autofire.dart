@@ -170,6 +170,35 @@ const Duration kFundsTimeout = Duration(minutes: 12);
   return (usd: fits, resized: resized);
 }
 
+/// The resting limit a funded or queued bet posts once its money landed:
+/// the shares of the stake as approved ([amount]; the tick and the venue's
+/// minimum were checked on it before Confirm), bumped to the venue's \$1
+/// floor when the stake covers it, as before; and the fee reserve its
+/// collateral check counts: the fee ceiling at the limit, as far as the
+/// [balance] past the order's cost carries it. A bet that reached this
+/// point passed [landedStakeFor], so the cost itself fits; a fee the cash
+/// cannot carry is the venue's to refuse, with its own refusal message,
+/// never a collateral wait that cannot end.
+@visibleForTesting
+({double shares, double feeReserveUsd}) autofireLimitOrder({
+  required double amount,
+  required double balance,
+  required double price,
+  required PolymarketFeeTerms feeTerms,
+}) {
+  var shares = polymarketLimitBuyShares(amount, price);
+  if (shares * price < 1.0 && amount >= 1.0) {
+    shares = (1.0 / price * 100).ceilToDouble() / 100;
+  }
+  final cost = shares * price;
+  final fee = feeTerms.feeCeilingForNotional(cost, price);
+  final room = balance - cost;
+  return (
+    shares: shares,
+    feeReserveUsd: room <= 0 ? 0.0 : min(fee, room),
+  );
+}
+
 /// How many times a bet is sent again after the venue refused it only
 /// because the money was not usable yet ([autofireNotReadyYet]). A safety
 /// cap: the real bound is time (the funds wait, counted from the first
@@ -2046,16 +2075,18 @@ class PendingBetAutoFire {
                 .release(intent.fundQuoteRef, reason: 'failed');
             return;
           }
-          final effectiveAmount = min(intent.amount, balance * 0.99);
-          // In integers (limit_order_rules.dart): never 4.99 shares for
-          // a stake that buys 5.00.
-          double shares = polymarketLimitBuyShares(effectiveAmount, price);
-          // The CLOB rejects orders under $1 — bump to the minimum when the
-          // intent covers it, mirroring the market path. The overshoot is
-          // bounded by one share-tick (≤ 1¢), which the 99% cap absorbs.
-          if (shares * price < 1.0 && effectiveAmount >= 1.0) {
-            shares = (1.0 / price * 100).ceilToDouble() / 100;
-          }
+          // The size checked before Confirm (prepareIntent: the tick and
+          // the venue's minimum on the stake as approved), never a smaller
+          // one cut from the balance, which could fall under the minimum
+          // after the person confirmed; and a fee reserve the cash can
+          // carry, so the collateral wait never stalls on it
+          // (autofireLimitOrder).
+          final sized = autofireLimitOrder(
+              amount: intent.amount,
+              balance: balance,
+              price: price,
+              feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase);
+          double shares = sized.shares;
           if (shares <= 0) {
             throw Exception('Amount too small for this limit price.');
           }
@@ -2093,10 +2124,9 @@ class PendingBetAutoFire {
               negRisk: intent.negRisk,
               price: price,
               orderType: OrderType.gtc,
-              // The controller's own check: a limit that crosses the book
-              // fills as a taker, so its fee ceiling is counted too.
-              feeReserveUsd: (intent.feeTerms ?? PolymarketFeeTerms.worstCase)
-                  .feeCeilingForNotional(shares * price, price),
+              // The controller's own check, as far as the cash landed
+              // carries it (autofireLimitOrder): never a wait it cannot end.
+              feeReserveUsd: sized.feeReserveUsd,
               marketTitle: intent.marketQuestion,
               marketImage: intent.marketImage,
               marketOutcome: intent.outcomeName,

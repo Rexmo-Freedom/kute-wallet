@@ -695,6 +695,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       try {
         final price = _limitPrice;
         final sellShares = _sharesToSell;
+        // The account the sale is placed from (a wallet switch meanwhile
+        // drops its fills tracking).
+        final placedOn = ref
+            .read(polymarketTradingProvider)
+            .valueOrNull
+            ?.proxyWalletAddress;
         // The market's tick and minimum, read now, before the approval: a
         // price off the tick or under the minimum is said on the ticket
         // here, never refused by the encoder or the venue after Face ID.
@@ -746,7 +752,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         final settlement = await _watchSale(placed,
             tokenId: tokenId, offered: sellShares, resting: true);
         // What still rests is known to the fills tracker at once, so a
-        // fill before the next orders read is still said.
+        // fill before the next orders read is still said, counted from
+        // the shares the receipt states (_finishSale: the settlement's).
+        // Registered only on the account it was placed from.
         final restingId =
             '${placed['orderID'] ?? placed['orderId'] ?? ''}';
         if (mounted &&
@@ -763,7 +771,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                 originalSize: '$sellShares',
                 sizeMatched: '${settlement.soldShares}',
                 outcome: pos.outcome,
-              ));
+              ),
+              account: placedOn);
         }
         TrackingService.track('polymarket_limit_sell_placed', params: {
           ..._kindParams(),

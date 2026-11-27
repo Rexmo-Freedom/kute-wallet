@@ -587,7 +587,8 @@ class PolymarketBetController {
   /// A resting order this app placed, told to the fills tracker while it
   /// is alive (the Predictions screen is up). Nothing when it filled whole.
   void _noteResting(Map<String, dynamic> placed, String tokenId,
-      {required bool isBuy,
+      {required String? account,
+      required bool isBuy,
       required double price,
       required double shares,
       required double matched,
@@ -595,7 +596,8 @@ class PolymarketBetController {
     final id = '${placed['orderID'] ?? placed['orderId'] ?? ''}';
     if (id.isEmpty || matched >= shares - 0.005) return;
     if (!ref.exists(polymarketRestingFillsProvider)) return;
-    ref.read(polymarketRestingFillsProvider.notifier).noteOrder(Order(
+    ref.read(polymarketRestingFillsProvider.notifier).noteOrder(
+        Order(
           id: id,
           market: '',
           assetId: tokenId,
@@ -605,7 +607,8 @@ class PolymarketBetController {
           originalSize: '$shares',
           sizeMatched: '$matched',
           outcome: outcome,
-        ));
+        ),
+        account: account);
   }
 
   /// The resting price of a limit bet.
@@ -913,6 +916,10 @@ class PolymarketBetController {
       PendingBetIntent intent, AuthGrant grant,
       {bool successHaptic = true, String? entrySource}) async {
     final notifier = ref.read(polymarketTradingProvider.notifier);
+    // The account the order is placed from (a wallet switch meanwhile
+    // drops its fills tracking, never hands it to the next account).
+    final placedOn =
+        ref.read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
     // Set once the venue took the order: nothing after it ends as failed.
     Map<String, dynamic>? taken;
     try {
@@ -954,14 +961,6 @@ class PolymarketBetController {
       final settlement =
           await _settle(placed, intent, orderedShares: shares, resting: true);
       PolymarketPlacementTimeline.mark('settle');
-      // What still rests is known to the fills tracker at once, so a fill
-      // before the next orders read is still said (resting fills).
-      _noteResting(placed, intent.tokenId,
-          isBuy: true,
-          price: price,
-          shares: shares,
-          matched: settlement.soldShares,
-          outcome: intent.outcomeName);
       TrackingService.track('polymarket_limit_order_placed', params: {
         'source': 'usdc_pool',
         'wallet_kind': 'hot',
@@ -982,6 +981,18 @@ class PolymarketBetController {
         _showArriving(intent,
             shares: settlement.soldShares, cost: settlement.proceeds);
       }
+      // What still rests is known to the fills tracker at once, so a fill
+      // before the next orders read is still said, counted from the shares
+      // the receipt states (never told twice), on the account it was
+      // placed from.
+      _noteResting(placed, intent.tokenId,
+          account: placedOn,
+          isBuy: true,
+          price: price,
+          shares: shares,
+          matched: max(settlement.soldShares,
+              ref.read(pendingPolymarketBetProvider)?.filledShares ?? 0),
+          outcome: intent.outcomeName);
       notifier.refreshAfterSale();
       SoundService.playSuccess();
       // Apple Pay style two-beat success haptic — single choke point for
