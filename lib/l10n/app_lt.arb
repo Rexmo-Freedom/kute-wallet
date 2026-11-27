@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Sukurkite piniginės atsarginę kopiją",
   "backUpBannerSubtitle": "Jei pamestumėte telefoną",
   "backUpBannerAction": "Sukurti kopiją",
+  "getAppBannerTitle": "Atsisiųskite Kute programėlę",
+  "getAppBannerSubtitle": "Yra iPhone ir Android įrenginiams",
   "cancelOrder": "Atšaukti pavedimą",
   "requestRefund": "Prašyti grąžinimo",
   "unspent": "NEPANAUDOTA",

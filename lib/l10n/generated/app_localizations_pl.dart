@@ -1589,6 +1589,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get backUpBannerAction => 'Zrób kopię';
 
   @override
+  String get getAppBannerTitle => 'Pobierz aplikację Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Dostępna na iPhone\'a i Androida';
+
+  @override
   String get cancelOrder => 'Anuluj zlecenie';
 
   @override

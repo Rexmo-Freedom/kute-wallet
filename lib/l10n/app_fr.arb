@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Sauvegardez votre portefeuille",
   "backUpBannerSubtitle": "Au cas où vous perdriez votre téléphone",
   "backUpBannerAction": "Sauvegarder",
+  "getAppBannerTitle": "Téléchargez l'app Kute",
+  "getAppBannerSubtitle": "Disponible sur iPhone et Android",
   "cancelOrder": "Annuler l'ordre",
   "requestRefund": "Demander un remboursement",
   "unspent": "NON DÉPENSÉ",

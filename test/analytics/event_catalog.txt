@@ -165,6 +165,9 @@ first_swap_completed
 five_min_tile_tapped
 forgot_pin_dialog_dismissed
 forgot_pin_dialog_shown
+get_app_banner_dismissed
+get_app_banner_shown
+get_app_banner_store_tapped
 hardware_connection_completed
 hardware_connection_failed
 hardware_connection_result

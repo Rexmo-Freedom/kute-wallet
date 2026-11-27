@@ -1584,6 +1584,12 @@ class AppLocalizationsSk extends AppLocalizations {
   String get backUpBannerAction => 'Zálohovať';
 
   @override
+  String get getAppBannerTitle => 'Stiahni si aplikáciu Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'K dispozícii pre iPhone a Android';
+
+  @override
   String get cancelOrder => 'Zrušiť príkaz';
 
   @override

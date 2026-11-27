@@ -1590,6 +1590,12 @@ class AppLocalizationsBg extends AppLocalizations {
   String get backUpBannerAction => 'Архивирай';
 
   @override
+  String get getAppBannerTitle => 'Изтегли приложението Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Налично за iPhone и Android';
+
+  @override
   String get cancelOrder => 'Отмени поръчката';
 
   @override

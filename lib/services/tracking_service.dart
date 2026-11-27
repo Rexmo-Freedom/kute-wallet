@@ -2063,6 +2063,30 @@ class TrackingService {
   static void seedUnavailableBannerTapped() =>
       track('seed_unavailable_banner_tapped');
 
+  /// The web home's "get the app" notice (get_app_notice.dart) was on
+  /// screen; once per session per [surface] (`bitcoin` | `dollars`).
+  /// [platform] is the browser's kind (`ios` | `android` | `laptop`).
+  static void getAppBannerShown(
+          {required String surface, required String platform}) =>
+      track('get_app_banner_shown',
+          params: {'surface': surface, 'platform': platform});
+
+  /// A store button on it was tapped: [store] is `app_store` or
+  /// `google_play`.
+  static void getAppBannerStoreTapped({
+    required String store,
+    required String surface,
+    required String platform,
+  }) =>
+      track('get_app_banner_store_tapped',
+          params: {'store': store, 'surface': surface, 'platform': platform});
+
+  /// Its close control was tapped; it stays away for 30 days.
+  static void getAppBannerDismissed(
+          {required String surface, required String platform}) =>
+      track('get_app_banner_dismissed',
+          params: {'surface': surface, 'platform': platform});
+
   /// iOS replaced the recovery phrase on [surface] with a notice because
   /// the screen is being recorded or mirrored.
   static void seedCaptureHidden({required String surface}) {

@@ -3104,6 +3104,18 @@ abstract class AppLocalizations {
   /// **'Back up'**
   String get backUpBannerAction;
 
+  /// Web home notice offering the iPhone / Android app.
+  ///
+  /// In en, this message translates to:
+  /// **'Get the Kute app'**
+  String get getAppBannerTitle;
+
+  /// No description provided for @getAppBannerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Available for iPhone and Android'**
+  String get getAppBannerSubtitle;
+
   /// No description provided for @cancelOrder.
   ///
   /// In en, this message translates to:

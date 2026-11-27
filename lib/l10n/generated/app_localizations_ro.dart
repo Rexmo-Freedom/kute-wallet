@@ -1593,6 +1593,12 @@ class AppLocalizationsRo extends AppLocalizations {
   String get backUpBannerAction => 'Fă backup';
 
   @override
+  String get getAppBannerTitle => 'Descarcă aplicația Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Disponibilă pentru iPhone și Android';
+
+  @override
   String get cancelOrder => 'Anulează ordinul';
 
   @override

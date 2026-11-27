@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Dublē savu maciņu",
   "backUpBannerSubtitle": "Ja pazaudēsi tālruni",
   "backUpBannerAction": "Dublēt",
+  "getAppBannerTitle": "Lejupielādē Kute lietotni",
+  "getAppBannerSubtitle": "Pieejama iPhone un Android ierīcēm",
   "cancelOrder": "Atcelt rīkojumu",
   "requestRefund": "Pieprasīt atmaksu",
   "unspent": "NEIZTĒRĒTS",

@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Fai il backup del wallet",
   "backUpBannerSubtitle": "Nel caso perdessi il telefono",
   "backUpBannerAction": "Backup",
+  "getAppBannerTitle": "Scarica l'app Kute",
+  "getAppBannerSubtitle": "Disponibile per iPhone e Android",
   "cancelOrder": "Annulla ordine",
   "requestRefund": "Richiedi rimborso",
   "unspent": "NON SPESO",

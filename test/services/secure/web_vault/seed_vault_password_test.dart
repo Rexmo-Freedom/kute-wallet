@@ -1,7 +1,8 @@
-// The laptop browser's password lock (unlock_secret.dart): a password
-// takes the PIN's place in the vault's derivation, after NFKC, and the
-// record says which kind it was made with. Every secret here is a test
-// literal.
+// A web vault made with a password (24 to 27 November 2026; every new
+// vault takes the PIN since, unlock_secret.dart): a password takes the
+// PIN's place in the vault's derivation, after NFKC, and the record says
+// which kind it was made with, so it keeps asking for it. Every secret
+// here is a test literal.
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -9,6 +10,7 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/auth_model.dart';
+import 'package:kute/platform/browser_signals.dart';
 import 'package:kute/platform/unlock_secret.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/web_vault/seed_vault.dart';
@@ -179,123 +181,126 @@ void main() {
       auth = AuthModel(webVault: router);
     });
 
-    test('a password set on create makes a password vault', () async {
-      await auth.setPinAsync(testPassword);
-      expect(vault.secretKind, VaultSecretKind.password);
+    tearDown(() => debugBrowserSignals = null);
+
+    test('a new vault is a PIN vault, laptop browser signals included',
+        () async {
+      debugBrowserSignals = _laptop;
+      expect(readBrowserSignals()!.isLaptop, isTrue);
+      await auth.setPinAsync('123456');
+      expect(vault.secretKind, VaultSecretKind.pin);
+      expect(db.meta!['kind'], 'pin');
       router.lock();
-      expect(await auth.checkPin('123456'), PinCheck.mismatch);
-      expect(await auth.checkPin(testPassword), PinCheck.match);
+      expect(await auth.checkPin('123456'), PinCheck.match);
     });
 
-    test('a PIN vault upgrades once its PIN opened it', () async {
-      await auth.setPinAsync('123456');
+    test('a new vault refuses anything but the 6-digit PIN', () async {
+      debugBrowserSignals = _laptop;
+      await expectLater(
+          auth.setPinAsync(testPassword), throwsArgumentError);
+      expect(vault.exists, isFalse);
+    });
+
+    test('an existing password vault still asks for its password and '
+        'still unlocks with it', () async {
+      debugBrowserSignals = _laptop;
+      // Made before 27 November 2026, with a password.
+      await vault.create(testPassword, kind: VaultSecretKind.password);
       await SecretStores.local.writeLocalOnly(key: key, value: phrase);
       router.lock();
-      expect(() => auth.upgradeToPassword(testPassword),
-          throwsA(isA<VaultLockedException>()));
-      expect(await auth.checkPin('123456'), PinCheck.match);
-      expect(() => auth.upgradeToPassword('short'), throwsArgumentError);
-      expect(vault.secretKind, VaultSecretKind.pin);
-      await auth.upgradeToPassword(testPassword);
-      expect(vault.secretKind, VaultSecretKind.password);
-      router.lock();
+      final reloaded = await newVault(db);
+      expect(reloaded.secretKind, VaultSecretKind.password);
       expect(await auth.checkPin('123456'), PinCheck.mismatch);
       expect(await auth.checkPin(testPassword), PinCheck.match);
       expect(await router.read(key: key, options: opts), phrase);
+      // Nothing migrated it.
+      expect(vault.secretKind, VaultSecretKind.password);
     });
 
-    test('changing a PIN to a password marks the vault', () async {
-      await auth.setPinAsync('123456');
-      await auth.changePin('123456', testPassword);
-      expect(vault.secretKind, VaultSecretKind.password);
+    test('a password vault changed to a PIN becomes a PIN vault', () async {
+      await vault.create(testPassword, kind: VaultSecretKind.password);
       await auth.changePin(testPassword, '654321');
       expect(vault.secretKind, VaultSecretKind.pin);
+      router.lock();
+      expect(await auth.checkPin(testPassword), PinCheck.mismatch);
+      expect(await auth.checkPin('654321'), PinCheck.match);
     });
   });
 
   group('UnlockSecret', () {
     tearDown(() {
-      UnlockSecret.debugDeviceKind = null;
       UnlockSecret.debugVaultKind = null;
+      debugBrowserSignals = null;
     });
 
-    BrowserSignals s({
-      int touch = 0,
-      bool coarse = false,
-      bool noHover = false,
-      String ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-          'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
-    }) =>
-        BrowserSignals(
-            maxTouchPoints: touch,
-            coarsePointer: coarse,
-            noHover: noHover,
-            userAgent: ua);
+    test('off the web, and before any vault, the PIN', () {
+      expect(UnlockSecret.current, VaultSecretKind.pin);
+      debugBrowserSignals = _laptop;
+      expect(UnlockSecret.current, VaultSecretKind.pin);
+    });
 
+    test('a vault recorded as a password keeps asking for it, whatever '
+        'the browser', () {
+      UnlockSecret.debugVaultKind = VaultSecretKind.password;
+      debugBrowserSignals = _laptop;
+      expect(UnlockSecret.current, VaultSecretKind.password);
+      debugBrowserSignals = _signals(touch: 5, coarse: true, noHover: true);
+      expect(UnlockSecret.current, VaultSecretKind.password);
+    });
+  });
+
+  group('BrowserSignals.isLaptop', () {
     test('a Mac laptop is a laptop', () {
-      expect(UnlockSecret.classify(s()), VaultSecretKind.password);
+      expect(_laptop.isLaptop, isTrue);
     });
 
-    test('iPadOS Safari (a "Mac" with touch points) keeps the PIN', () {
-      expect(UnlockSecret.classify(s(touch: 5, coarse: true, noHover: true)),
-          VaultSecretKind.pin);
+    test('iPadOS Safari (a "Mac" with touch points) is touch-first', () {
+      expect(_signals(touch: 5, coarse: true, noHover: true).isLaptop,
+          isFalse);
       // With a trackpad attached the media queries may say fine/hover;
       // the touch points still give it away.
-      expect(UnlockSecret.classify(s(touch: 5)), VaultSecretKind.pin);
+      expect(_signals(touch: 5).isLaptop, isFalse);
     });
 
-    test('phones keep the PIN', () {
+    test('phones are touch-first', () {
       expect(
-          UnlockSecret.classify(s(
-              touch: 5,
-              coarse: true,
-              noHover: true,
-              ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')),
-          VaultSecretKind.pin);
+          _signals(
+                  touch: 5,
+                  coarse: true,
+                  noHover: true,
+                  ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)')
+              .isLaptop,
+          isFalse);
       expect(
-          UnlockSecret.classify(s(
-              touch: 5,
-              ua: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) Mobile Safari')),
-          VaultSecretKind.pin);
+          _signals(
+                  touch: 5,
+                  ua: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) Mobile Safari')
+              .isLaptop,
+          isFalse);
     });
 
     test('a touch-screen Windows laptop with a mouse is a laptop', () {
       expect(
-          UnlockSecret.classify(s(
-              touch: 10,
-              ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0')),
-          VaultSecretKind.password);
-    });
-
-    test('a browser that says nothing gets the stronger secret', () {
-      expect(UnlockSecret.classify(null), VaultSecretKind.password);
-    });
-
-    test('off the web everything is the PIN', () {
-      expect(UnlockSecret.deviceKind, VaultSecretKind.pin);
-      expect(UnlockSecret.current, VaultSecretKind.pin);
-      expect(UnlockSecret.needsPasswordUpgrade, isFalse);
-    });
-
-    test('a PIN vault in a laptop browser needs the upgrade', () {
-      UnlockSecret.debugDeviceKind = VaultSecretKind.password;
-      UnlockSecret.debugVaultKind = VaultSecretKind.pin;
-      expect(UnlockSecret.needsPasswordUpgrade, isTrue);
-      expect(UnlockSecret.forChange, VaultSecretKind.password);
-      UnlockSecret.debugVaultKind = VaultSecretKind.password;
-      expect(UnlockSecret.needsPasswordUpgrade, isFalse);
-      // A password vault seen from a touch device stays a password.
-      UnlockSecret.debugDeviceKind = VaultSecretKind.pin;
-      expect(UnlockSecret.current, VaultSecretKind.password);
-      expect(UnlockSecret.forChange, VaultSecretKind.password);
-    });
-
-    test('the rule counts characters as seen, nothing else', () {
-      expect(UnlockSecret.meetsRule('123456789'), isFalse);
-      expect(UnlockSecret.meetsRule('aaaaaaaaaa'), isTrue);
-      // Ten emoji are ten characters, though twenty UTF-16 units.
-      expect(UnlockSecret.meetsRule('🔐' * 9), isFalse);
-      expect(UnlockSecret.meetsRule('🔐' * 10), isTrue);
+          _signals(
+                  touch: 10,
+                  ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0')
+              .isLaptop,
+          isTrue);
     });
   });
 }
+
+BrowserSignals _signals({
+  int touch = 0,
+  bool coarse = false,
+  bool noHover = false,
+  String ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+      'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+}) =>
+    BrowserSignals(
+        maxTouchPoints: touch,
+        coarsePointer: coarse,
+        noHover: noHover,
+        userAgent: ua);
+
+final BrowserSignals _laptop = _signals();

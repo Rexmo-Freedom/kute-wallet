@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Säkerhetskopiera din plånbok",
   "backUpBannerSubtitle": "Om du skulle tappa bort telefonen",
   "backUpBannerAction": "Säkerhetskopiera",
+  "getAppBannerTitle": "Hämta Kute-appen",
+  "getAppBannerSubtitle": "Finns för iPhone och Android",
   "cancelOrder": "Avbryt order",
   "requestRefund": "Begär återbetalning",
   "unspent": "OANVÄND",

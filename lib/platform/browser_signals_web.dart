@@ -1,11 +1,11 @@
 /// Web: reads the browser's pointer and touch signals for
-/// unlock_secret.dart.
+/// browser_signals.dart.
 library;
 
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
-import 'unlock_secret.dart' show BrowserSignals;
+import 'browser_signals.dart' show BrowserSignals;
 
 bool _matches(String query) {
   try {
@@ -28,6 +28,8 @@ BrowserSignals? readBrowserSignals() {
       coarsePointer: _matches('(pointer: coarse)'),
       noHover: _matches('(hover: none)'),
       userAgent: userAgent,
+      standalone: _matches('(display-mode: standalone)') ||
+          ((navigator?['standalone'] as JSBoolean?)?.toDart ?? false),
     );
   } catch (_) {
     return null;

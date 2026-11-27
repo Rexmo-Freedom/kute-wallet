@@ -1586,6 +1586,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backUpBannerAction => 'Back up';
 
   @override
+  String get getAppBannerTitle => 'Get the Kute app';
+
+  @override
+  String get getAppBannerSubtitle => 'Available for iPhone and Android';
+
+  @override
   String get cancelOrder => 'Cancel Order';
 
   @override

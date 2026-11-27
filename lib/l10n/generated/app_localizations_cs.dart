@@ -1584,6 +1584,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get backUpBannerAction => 'Zálohovat';
 
   @override
+  String get getAppBannerTitle => 'Stáhni si aplikaci Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'K dispozici pro iPhone a Android';
+
+  @override
   String get cancelOrder => 'Zrušit objednávku';
 
   @override

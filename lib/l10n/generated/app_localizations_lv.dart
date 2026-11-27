@@ -1581,6 +1581,12 @@ class AppLocalizationsLv extends AppLocalizations {
   String get backUpBannerAction => 'Dublēt';
 
   @override
+  String get getAppBannerTitle => 'Lejupielādē Kute lietotni';
+
+  @override
+  String get getAppBannerSubtitle => 'Pieejama iPhone un Android ierīcēm';
+
+  @override
   String get cancelOrder => 'Atcelt rīkojumu';
 
   @override

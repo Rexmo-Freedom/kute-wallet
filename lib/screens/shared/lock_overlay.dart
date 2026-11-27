@@ -34,7 +34,6 @@ import 'package:kute/screens/shared/kute_split_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_password_field.dart';
 import 'package:kute/screens/shared/password_copy.dart';
-import 'package:kute/screens/shared/password_upgrade_page.dart';
 import 'package:kute/platform/unlock_secret.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/pin_attempt_guard.dart';
@@ -89,14 +88,11 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       if (s == AnimationStatus.completed) _shake.reverse();
     });
 
-  /// The vault's secret is a password (a laptop browser,
-  /// unlock_secret.dart): one field instead of the pad. Read per lock.
+  /// The vault's secret is a password (a web vault made with one between
+  /// 24 and 27 November 2026, unlock_secret.dart): one field instead of
+  /// the pad. Read per lock.
   bool _password = UnlockSecret.current == VaultSecretKind.password;
   final TextEditingController _field = TextEditingController();
-
-  /// Set when a PIN opened a PIN vault in a laptop browser: the unlock
-  /// waits until a password is created (password_upgrade_page.dart).
-  VoidCallback? _afterUpgrade;
 
   void _clearEntry() {
     _field.clear();
@@ -121,7 +117,6 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   /// biometrics exactly like the cold-start PIN screen does.
   Future<void> _onLockEngaged() async {
     _clearEntry();
-    _afterUpgrade = null;
     _password = UnlockSecret.current == VaultSecretKind.password;
     // Once per lock engagement (the listener in build fires on the
     // false → true edge only), so never per rebuild.
@@ -236,15 +231,6 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
         _finishUnlock(method: 'biometric');
       }
 
-      // A PIN vault in a laptop browser is upgraded after a biometric
-      // unlock too (open_pin.dart): the vault's key is open either way.
-      if (UnlockSecret.needsPasswordUpgrade) {
-        setState(() {
-          _clearEntry();
-          _afterUpgrade = finish;
-        });
-        return;
-      }
       finish();
     } catch (e) {
       // local_auth 3 throws a LocalAuthException for a dismissed prompt
@@ -296,14 +282,6 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
           _finishUnlock(method: 'pin');
         }
 
-        if (UnlockSecret.needsPasswordUpgrade) {
-          setState(() {
-            _clearEntry();
-            _verifying = false;
-            _afterUpgrade = finish;
-          });
-          return;
-        }
         finish();
         return;
       }
@@ -380,7 +358,6 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     setState(() {
       _clearEntry();
       _verifying = false;
-      _afterUpgrade = null;
     });
     // Drop the cover FIRST so the user's screen is instantly back,
     // then run the shared bootstrap + sync kick after the frame. NO
@@ -417,16 +394,6 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     final biometricsEnabled =
         ref.watch(settingsProvider.select((s) => s.biometricsEnabled));
     final padInert = _lockedOut || _verifying;
-    final afterUpgrade = _afterUpgrade;
-    if (afterUpgrade != null) {
-      return Positioned.fill(
-        child: KuteOverlayHost(
-          child: KuteSplitScreen(
-            child: PasswordUpgradePage(onUpgraded: afterUpgrade),
-          ),
-        ),
-      );
-    }
     // The same scaffold, title, dots and keypad as the cold-start PIN
     // screen, so a relock after backgrounding looks like Welcome back
     // and nothing else.
@@ -479,6 +446,8 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
               opacity: padInert ? 0.4 : 1.0,
               child: CustomKeypad(
                 chromed: true,
+                // A laptop's keyboard types on the pad too (web only).
+                typeFromKeyboard: true,
                 onDigitPressed: (d) {
                   if (_lockedOut || _verifying) return;
                   if (_pin.length < 6) {

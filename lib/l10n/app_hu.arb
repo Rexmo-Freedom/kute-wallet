@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Mentsd el a tárcádat",
   "backUpBannerSubtitle": "Arra az esetre, ha elveszítenéd a telefonod",
   "backUpBannerAction": "Mentés",
+  "getAppBannerTitle": "Töltsd le a Kute appot",
+  "getAppBannerSubtitle": "Elérhető iPhone-ra és Androidra",
   "cancelOrder": "Megbízás törlése",
   "requestRefund": "Visszatérítés kérése",
   "unspent": "NEM ELKÖLTÖTT",

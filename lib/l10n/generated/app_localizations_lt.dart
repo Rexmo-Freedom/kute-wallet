@@ -1591,6 +1591,12 @@ class AppLocalizationsLt extends AppLocalizations {
   String get backUpBannerAction => 'Sukurti kopiją';
 
   @override
+  String get getAppBannerTitle => 'Atsisiųskite Kute programėlę';
+
+  @override
+  String get getAppBannerSubtitle => 'Yra iPhone ir Android įrenginiams';
+
+  @override
   String get cancelOrder => 'Atšaukti pavedimą';
 
   @override

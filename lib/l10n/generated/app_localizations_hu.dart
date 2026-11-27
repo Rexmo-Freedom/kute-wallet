@@ -1589,6 +1589,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get backUpBannerAction => 'Mentés';
 
   @override
+  String get getAppBannerTitle => 'Töltsd le a Kute appot';
+
+  @override
+  String get getAppBannerSubtitle => 'Elérhető iPhone-ra és Androidra';
+
+  @override
   String get cancelOrder => 'Megbízás törlése';
 
   @override

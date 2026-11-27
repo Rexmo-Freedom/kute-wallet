@@ -182,6 +182,7 @@
 // polymarket_screen.dart); the balance and the money row on the right,
 // with the open positions under Investing and Predictions, always in view.
 
+import 'package:kute/screens/home/components/get_app_notice.dart';
 import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
@@ -1081,6 +1082,19 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
     final left = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Web only: the "get the app" notice at the top of the column,
+        // at a phone's width on the lists' edge (get_app_notice.dart).
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: KuteLayout.paneWidth),
+            child: const GetAppNotice(
+              surface: 'dollars',
+              padding: EdgeInsets.fromLTRB(
+                  kuteBrowseListInset, 8, kuteBrowseListInset, 4),
+            ),
+          ),
+        ),
         // The phone's pill row, at a phone's width: never three pills
         // stretched across the pane.
         if (nav == null)
@@ -1332,6 +1346,13 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Web only: the "get the app" notice at the top of
+                      // the page (get_app_notice.dart); measured with the
+                      // hero, so the header makes its room.
+                      GetAppNotice(
+                        surface: 'dollars',
+                        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+                      ),
                       // The total scales down towards the compact line's
                       // corner as it leaves.
                       Transform.scale(
