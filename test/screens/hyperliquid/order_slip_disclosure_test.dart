@@ -223,13 +223,12 @@ Future<void> _typeOnKeypad(WidgetTester tester, String amount) async {
   await _settle(tester);
 }
 
-/// Rare order types (Scale, Stop, Take, TWAP) sit behind More options on
-/// the Advanced page's order type control.
-Future<void> _pickMoreOption(WidgetTester tester, String type) async {
-  await tester.ensureVisible(find.text('More options'));
-  await tester.tap(find.text('More options'));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(type).last);
+/// Scale and TWAP are tiles beside Market and Limit on the Advanced
+/// page's order types.
+Future<void> _pickType(WidgetTester tester, String type) async {
+  final tile = find.byKey(ValueKey('hl-adv-type-${type.toLowerCase()}'));
+  await tester.ensureVisible(tile);
+  await tester.tap(tile);
   await tester.pumpAndSettle();
 }
 
@@ -683,7 +682,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Short BTC · Advanced'), findsOneWidget);
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     expect(find.text('Short BTC · Advanced').hitTestable(), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -722,7 +721,7 @@ void main() {
     await _pumpSlip(tester, available: 0);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     await tester.enterText(find.byType(TextField).first, '');
     await tester.enterText(find.byType(TextField).at(1), '2');
     await tester.pumpAndSettle();
@@ -751,7 +750,7 @@ void main() {
     await _pumpSlip(tester);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    await _pickMoreOption(tester, 'TWAP');
+    await _pickType(tester, 'TWAP');
     await tester.enterText(find.byType(TextField).first, '600');
     await tester.enterText(find.byType(TextField).at(1), '2');
     await tester.pumpAndSettle();
