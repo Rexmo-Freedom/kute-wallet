@@ -359,7 +359,19 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // The stack's top while its route is current; else the default: over
     // whatever is pushed, and on the tab roots themselves (the ONE pill of
     // the app; founder, 31 October 2026); nothing before the shell exists.
-    final KuteBarContext? top = stackTop != null && stackTop.current
+    // A MODAL BOTTOM SHEET WITH NO ACTION OF ITS OWN HAS NO BAR (founder,
+    // 27 November 2026: the pill sat over the Financial hub's Add account
+    // row): the default pill stays away while such a sheet is on top and
+    // returns when it closes. A sheet that sets its own context (a slip's
+    // Place, onboarding's Next) keeps it. The Sal sheet the pill became
+    // holds its place as before ([_morphed]).
+    final sheet = KuteBarRouteObserver.sheetOnTop();
+    final bareSheet = sheet != null &&
+        !_morphed &&
+        !(stackTop != null && stackTop.current && stackTop.route == sheet);
+    final KuteBarContext? top = bareSheet
+        ? null
+        : stackTop != null && stackTop.current
         ? stackTop
         : over || kuteShellMounted.value
             ? KuteBarContext(label: context.l10n.searchOrManageAi)

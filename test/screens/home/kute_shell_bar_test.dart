@@ -90,8 +90,10 @@ Future<void> _push(WidgetTester tester, Widget page, {String? name}) async {
 
 /// Whether the bar is up: shown and taking taps.
 bool _up(WidgetTester tester) {
-  final slide = tester.widget<AnimatedSlide>(
-      find.byKey(const ValueKey('kute-shell-bar-slide')));
+  final finder = find.byKey(const ValueKey('kute-shell-bar-slide'));
+  // Never shown yet: no bar at all.
+  if (finder.evaluate().isEmpty) return false;
+  final slide = tester.widget<AnimatedSlide>(finder);
   return slide.offset == Offset.zero;
 }
 
@@ -122,8 +124,9 @@ void main() {
     expect(_up(tester), isFalse);
   });
 
-  testWidgets('a bottom sheet counts; a dialog and a lock screen do not',
-      (tester) async {
+  testWidgets(
+      'a bottom sheet counts, but one with no action of its own has no bar '
+      'over it; a dialog and a lock screen do not count', (tester) async {
     await _pump(tester);
     final homeContext = _navKey.currentContext!;
     // ignore: unawaited_futures
@@ -132,10 +135,27 @@ void main() {
         builder: (_) => const SizedBox(height: 300, child: Text('Sheet')));
     await tester.pumpAndSettle();
     expect(find.text('Sheet'), findsOneWidget);
-    expect(_up(tester), isTrue);
+    expect(KuteBarRouteObserver.over.value, 1);
+    // Founder, 27 November 2026: the pill sat over the Financial hub.
+    expect(_up(tester), isFalse);
+    expect(find.byType(KuteSalPill).hitTestable(), findsNothing);
     _nav(tester).pop();
     await tester.pumpAndSettle();
     expect(_up(tester), isFalse);
+
+    // A sheet whose action is the bar keeps it.
+    // ignore: unawaited_futures
+    showKuteModalSheet<void>(
+        context: homeContext,
+        builder: (_) => KuteBarContextScope(
+            barContext:
+                KuteBarContext.primary(label: 'Place', onPrimary: () {}),
+            child: const SizedBox(height: 300, child: Text('Slip'))));
+    await tester.pumpAndSettle();
+    expect(_up(tester), isTrue);
+    expect(find.text('Place').hitTestable(), findsOneWidget);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
 
     // ignore: unawaited_futures
     showDialog<void>(
@@ -272,8 +292,9 @@ void main() {
     _nav(tester).pop();
     await tester.pumpAndSettle();
 
-    // Past the short fraction: the bar floats over it, and the sheet's
-    // scroll content leaves it room.
+    // Past the short fraction: no bar either (founder, 27 November 2026:
+    // a sheet with no action of its own has none over it), and the
+    // sheet's scroll content keeps no room for one.
     double? room;
     // ignore: unawaited_futures
     showKuteModalSheet<void>(
@@ -290,15 +311,15 @@ void main() {
             ));
     await tester.pumpAndSettle();
     expect(find.text('Tall'), findsOneWidget);
-    expect(_up(tester), isTrue);
-    expect(room, greaterThan(0));
+    expect(_up(tester), isFalse);
+    expect(room, 0);
     _nav(tester).pop();
     await tester.pumpAndSettle();
   });
 
   testWidgets(
-      'a page\'s context reads while its route is current; a sheet over it '
-      'gets the default', (tester) async {
+      'a page\'s context reads while its route is current; a sheet with no '
+      'action over it has no bar, and the page\'s comes back', (tester) async {
     await _pump(tester);
     await _push(tester, _page(barContext: _market), name: 'market');
     expect(find.text('Share with your friends'), findsOneWidget);
@@ -308,8 +329,8 @@ void main() {
         context: _navKey.currentContext!,
         builder: (_) => const SizedBox(height: 300, child: Text('Slip')));
     await tester.pumpAndSettle();
-    expect(find.text('Search or Manage with AI'), findsOneWidget);
-    expect(find.text('Share with your friends'), findsNothing);
+    expect(_up(tester), isFalse);
+    expect(find.text('Share with your friends').hitTestable(), findsNothing);
 
     _nav(tester).pop();
     await tester.pumpAndSettle();

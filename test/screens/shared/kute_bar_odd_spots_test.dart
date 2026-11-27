@@ -58,8 +58,10 @@ Future<ProviderContainer> _pump(WidgetTester tester,
 
 /// Whether the bar is up: shown and taking taps.
 bool _up(WidgetTester tester) {
-  final slide = tester.widget<AnimatedSlide>(
-      find.byKey(const ValueKey('kute-shell-bar-slide')));
+  final finder = find.byKey(const ValueKey('kute-shell-bar-slide'));
+  // Never shown yet: no bar at all.
+  if (finder.evaluate().isEmpty) return false;
+  final slide = tester.widget<AnimatedSlide>(finder);
   return slide.offset == Offset.zero;
 }
 
@@ -114,13 +116,13 @@ void main() {
     });
   }
 
-  // A tall sheet (past kuteBarShortSheetFraction) has the pill over its
-  // foot: its scroll content ends with KuteSheetBarSpace, so the last row
-  // scrolls clear of the pill and can be tapped. A short sheet has the
-  // bar away, and gains no empty band.
+  // A sheet with no action of its own has no bar over it, tall or short
+  // (founder, 27 November 2026: the pill sat over the Financial hub's
+  // last row): the last row scrolls to the sheet's foot and can be
+  // tapped, and KuteSheetBarSpace keeps no empty band.
   testWidgets(
-      'a tall list sheet: the last row scrolls clear of the pill; a short '
-      'one has the bar away and no extra room', (tester) async {
+      'a tall list sheet: no bar, the last row reachable; a short one the '
+      'same, no extra room either way', (tester) async {
     await _pump(tester, size: const Size(390, 844));
     final home = _navKey.currentContext!;
     // ignore: unawaited_futures
@@ -141,14 +143,10 @@ void main() {
       ),
     );
     await _settle(tester);
-    expect(_up(tester), isTrue);
+    expect(_up(tester), isFalse);
     await tester.drag(find.text('Row 10'), const Offset(0, -4000));
     await _settle(tester);
-    expect(tester.getSize(find.byType(KuteSheetBarSpace)).height,
-        greaterThan(60));
-    final pillTop = tester.getRect(find.byType(KuteSalPill)).top;
-    expect(tester.getRect(find.text('Row 39')).bottom,
-        lessThanOrEqualTo(pillTop));
+    expect(find.byType(KuteSalPill).hitTestable(), findsNothing);
     expect(find.text('Row 39').hitTestable(), findsOneWidget);
     _navKey.currentState!.pop();
     await _settle(tester);
@@ -171,8 +169,8 @@ void main() {
   });
 
   testWidgets(
-      'the amount unit picker: its Cancel sits above the pill, never '
-      'under it', (tester) async {
+      'the amount unit picker: no bar over it, its Cancel in reach',
+      (tester) async {
     await _pump(tester, size: const Size(390, 844));
     // ignore: unawaited_futures
     showAmountUnitPicker(_navKey.currentContext!,
@@ -182,10 +180,9 @@ void main() {
     await _settle(tester);
     final cancel = find.text('Cancel');
     expect(cancel, findsOneWidget);
-    // Seven units make the sheet tall: the pill is over it.
-    expect(_up(tester), isTrue);
-    expect(tester.getRect(cancel).bottom,
-        lessThanOrEqualTo(tester.getRect(find.byType(KuteSalPill)).top));
+    // Seven units make the sheet tall; it has no action of its own, so
+    // no bar over it.
+    expect(_up(tester), isFalse);
     expect(cancel.hitTestable(), findsOneWidget);
   });
 }

@@ -897,6 +897,17 @@ class KuteBarRouteObserver extends NavigatorObserver {
     return true;
   }
 
+  /// The modal bottom sheet on top across navigators ([onTop]), or null
+  /// when the top is a page, a panel or nothing. The bar reads it
+  /// (kute_shell_bar.dart): a sheet that sets no context of its own has
+  /// no bar over it.
+  static Route<dynamic>? sheetOnTop() {
+    for (final r in _over) {
+      if (r is ModalBottomSheetRoute && onTop(r)) return r;
+    }
+    return null;
+  }
+
   static void _add(Route<dynamic> route) {
     if (!counts(route) || !_over.add(route)) return;
     _publish();

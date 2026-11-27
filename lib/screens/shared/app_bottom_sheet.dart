@@ -255,10 +255,11 @@ class _KuteSheetBarFitState extends State<KuteSheetBarFit> {
         child: KuteBarContextScope(
             barContext: const KuteBarContext.hidden(),
             active: _short == true,
-            // Measured tall: the bar is over this sheet, and its scroll
-            // views leave it room (kuteSheetBarClearance).
-            child: _KuteSheetBarRoom(
-                over: _short == false, child: widget.child)),
+            // No room for the bar any more (founder, 27 November 2026):
+            // a sheet with no action of its own has no bar over it, tall
+            // or short (kute_shell_bar.dart, a bare sheet on top), so its
+            // scroll views end at their content (kuteSheetBarClearance).
+            child: _KuteSheetBarRoom(over: false, child: widget.child)),
       ),
     );
   }
