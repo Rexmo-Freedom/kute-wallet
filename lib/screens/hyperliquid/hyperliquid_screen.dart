@@ -9,6 +9,7 @@ import 'package:kute/screens/hyperliquid/components/hl_browse_labels.dart';
 
 import 'package:kute/services/runtime_capabilities_service.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart'
@@ -37,6 +38,7 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconAvailability, HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
+import 'package:kute/screens/hyperliquid/components/hl_wide_featured.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlMarketDetailSheet;
 import 'package:kute/screens/hyperliquid/components/hl_watchlist_sheet.dart'
@@ -71,6 +73,11 @@ class HyperliquidScreen extends ConsumerStatefulWidget {
     this.autoShowWithdraw = false,
     this.embedded = false,
   });
+
+  /// Tests and renders: the wide web's featured card (HlWideFeatured) off
+  /// the web.
+  @visibleForTesting
+  static bool debugWideWeb = false;
 
   /// A pull-to-refresh's part of its own: the market lists read again.
   /// The account and everything else are the shared refresh
@@ -272,6 +279,14 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// Embedded in the Dollars page on EXPANDED: the wide board
   /// ([_boardSlivers]) and the page's one grid.
   bool get _wideBoard => widget.embedded && KuteLayout.isExpanded(context);
+
+  /// The web at MEDIUM and EXPANDED, embedded: Trending's featured set as
+  /// one large card (HlWideFeatured) in place of the four squares. The
+  /// phones and the phone layout keep the squares.
+  bool get _wideWebFeatured =>
+      (kIsWeb || HyperliquidScreen.debugWideWeb) &&
+      widget.embedded &&
+      KuteLayout.isWide(context);
 
   /// A category page on the Dollars page on EXPANDED (any category or
   /// subcategory but Trending's default view and the Watchlist, which
@@ -848,7 +863,13 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: EdgeInsets.only(top: 8.h),
-                                  child: const HlMovingNowStripSkeleton(),
+                                  child: _wideWebFeatured &&
+                                          tab != HlBrowseTab.watchlist
+                                      ? const Padding(
+                                          padding: EdgeInsets.fromLTRB(
+                                              16, 0, 16, 4),
+                                          child: HlWideFeaturedSkeleton())
+                                      : const HlMovingNowStripSkeleton(),
                                 ),
                               )
                             else if (_moversFor(tab, sub, markets, universe)
@@ -867,7 +888,14 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                           source: 'watchlist',
                                           blankUntilLogo: false,
                                         )
-                                      : HlMovingNowStrip(
+                                      : _wideWebFeatured
+                                          ? Padding(
+                                              padding: const EdgeInsets
+                                                  .fromLTRB(16, 0, 16, 4),
+                                              child: HlWideFeatured(
+                                                  markets: _moversFor(tab, sub,
+                                                      markets, universe)))
+                                          : HlMovingNowStrip(
                                           markets: _moversFor(
                                               tab, sub, markets, universe)),
                                 ),
