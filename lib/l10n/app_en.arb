@@ -4139,6 +4139,98 @@
   "betPricePerShare": "Price per share",
   "betOrderDuration": "Duration",
   "betUntilCanceled": "Until canceled",
+  "betLimitOrderFilled": "Limit order filled",
+  "@betLimitOrderFilled": {
+    "description": "Sal toast title when a resting Predictions limit order fills (all or part) while the app is open."
+  },
+  "betLimitBoughtShares": "Bought {shares} shares of {outcome} at {price}",
+  "@betLimitBoughtShares": {
+    "description": "Toast detail for a fully filled limit buy.",
+    "placeholders": {
+      "shares": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "betLimitPriceSteps": "Pick a price in steps of {step}.",
+  "@betLimitPriceSteps": {
+    "description": "Inline error under a limit price that is not on the market's price increment, e.g. 'in steps of 1¢'.",
+    "placeholders": {
+      "step": {
+        "type": "String"
+      }
+    }
+  },
+  "betLimitPriceRange": "Pick a price from {low} to {high}.",
+  "@betLimitPriceRange": {
+    "description": "Inline error under a limit price outside the market's range.",
+    "placeholders": {
+      "low": {
+        "type": "String"
+      },
+      "high": {
+        "type": "String"
+      }
+    }
+  },
+  "betLimitMinimumShares": "The smallest order here is {count} shares.",
+  "@betLimitMinimumShares": {
+    "description": "Inline error: the venue's minimum order size in shares.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "betSharesInOpenOrders": "{count} shares in open orders",
+  "@betSharesInOpenOrders": {
+    "description": "Sell ticket: shares of this position already offered in resting sell orders.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "betSellFreeShares": "Only {count} shares are free to sell. The rest are in your open orders.",
+  "@betSellFreeShares": {
+    "description": "Sell ticket error: more shares than are free (the rest are locked in resting sells).",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "ordersCancelAllTitle": "Cancel all orders?",
+  "@ordersCancelAllTitle": {
+    "description": "Title of the confirm sheet before cancelling every open order."
+  },
+  "ordersCancelAllBody": "{count, plural, =1{This removes 1 open order:} other{This removes {count} open orders:}}",
+  "@ordersCancelAllBody": {
+    "description": "Confirm sheet subtitle, followed by one line per order.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ordersKeep": "Keep orders",
+  "@ordersKeep": {
+    "description": "Confirm sheet's dismiss button: keep the open orders."
+  },
+  "betOrderTypeRow": "Order type",
+  "@betOrderTypeRow": {
+    "description": "Receipt row label: the kind of order (Limit)."
+  },
+  "betReservedRow": "Reserved",
+  "@betReservedRow": {
+    "description": "Receipt row label: the cash a resting limit buy holds (stake plus the most it can pay in fees)."
+  },
   "betProceedsToPredictions": "To Predictions",
   "betYourPosition": "Your position",
   "betAdvancedSaleSellingAll": "Selling your whole position",

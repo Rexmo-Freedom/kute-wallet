@@ -7135,6 +7135,62 @@ class AppLocalizationsHu extends AppLocalizations {
   String get betUntilCanceled => 'Visszavonásig';
 
   @override
+  String get betLimitOrderFilled => 'Limitáras megbízás teljesült';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return '$shares $outcome részesedés vásárolva $price áron';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Válassz árat $step lépésekben.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Válassz árat $low és $high között.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'A legkisebb megbízás itt $count részesedés.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count részesedés nyitott megbízásokban';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Csak $count részesedés szabad eladásra. A többi a nyitott megbízásaidban van.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Minden megbízás visszavonása?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ez $count nyitott megbízást töröl:',
+      one: 'Ez 1 nyitott megbízást töröl:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Megbízások megtartása';
+
+  @override
+  String get betOrderTypeRow => 'Megbízás típusa';
+
+  @override
+  String get betReservedRow => 'Lefoglalva';
+
+  @override
   String get betProceedsToPredictions => 'Az Előrejelzésekbe';
 
   @override

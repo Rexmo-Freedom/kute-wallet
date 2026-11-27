@@ -7103,6 +7103,62 @@ class AppLocalizationsLv extends AppLocalizations {
   String get betUntilCanceled => 'Līdz atcelšanai';
 
   @override
+  String get betLimitOrderFilled => 'Limita rīkojums izpildīts';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Nopirktas $shares $outcome daļas par $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Izvēlieties cenu ar soli $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Izvēlieties cenu no $low līdz $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Mazākais rīkojums šeit ir $count daļas.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count daļas atvērtos rīkojumos';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Pārdošanai brīvas ir tikai $count daļas. Pārējās ir jūsu atvērtajos rīkojumos.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Atcelt visus rīkojumus?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tiks noņemti $count atvērti rīkojumi:',
+      one: 'Tiks noņemts 1 atvērts rīkojums:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Paturēt rīkojumus';
+
+  @override
+  String get betOrderTypeRow => 'Rīkojuma veids';
+
+  @override
+  String get betReservedRow => 'Rezervēts';
+
+  @override
   String get betProceedsToPredictions => 'Uz Prognozēm';
 
   @override

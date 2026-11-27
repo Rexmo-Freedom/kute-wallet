@@ -7119,6 +7119,62 @@ class AppLocalizationsFi extends AppLocalizations {
   String get betUntilCanceled => 'Kunnes peruttu';
 
   @override
+  String get betLimitOrderFilled => 'Rajahintatoimeksianto toteutui';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Ostettu $shares osuutta $outcome hintaan $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Valitse hinta $step askelin.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Valitse hinta väliltä $low–$high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Pienin toimeksianto tässä on $count osuutta.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count osuutta avoimissa toimeksiannoissa';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Vain $count osuutta on vapaana myytäväksi. Loput ovat avoimissa toimeksiannoissasi.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Perutaanko kaikki toimeksiannot?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tämä poistaa $count avointa toimeksiantoa:',
+      one: 'Tämä poistaa 1 avoimen toimeksiannon:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Pidä toimeksiannot';
+
+  @override
+  String get betOrderTypeRow => 'Toimeksiannon tyyppi';
+
+  @override
+  String get betReservedRow => 'Varattu';
+
+  @override
   String get betProceedsToPredictions => 'Ennusteisiin';
 
   @override

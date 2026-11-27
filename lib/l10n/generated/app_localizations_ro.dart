@@ -7157,6 +7157,62 @@ class AppLocalizationsRo extends AppLocalizations {
   String get betUntilCanceled => 'Până la anulare';
 
   @override
+  String get betLimitOrderFilled => 'Ordinul limită a fost executat';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Ai cumpărat $shares acțiuni $outcome la $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Alege un preț în pași de $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Alege un preț între $low și $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Cel mai mic ordin aici este de $count acțiuni.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count acțiuni în ordine deschise';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Doar $count acțiuni sunt libere de vândut. Restul sunt în ordinele tale deschise.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Anulezi toate ordinele?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se elimină $count ordine deschise:',
+      one: 'Se elimină 1 ordin deschis:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Păstrează ordinele';
+
+  @override
+  String get betOrderTypeRow => 'Tip de ordin';
+
+  @override
+  String get betReservedRow => 'Rezervat';
+
+  @override
   String get betProceedsToPredictions => 'În Predicții';
 
   @override

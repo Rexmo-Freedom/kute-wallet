@@ -7155,6 +7155,62 @@ class AppLocalizationsLt extends AppLocalizations {
   String get betUntilCanceled => 'Kol bus atšauktas';
 
   @override
+  String get betLimitOrderFilled => 'Ribotas pavedimas įvykdytas';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Nupirkta $shares $outcome dalių už $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Pasirinkite kainą $step žingsniais.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Pasirinkite kainą nuo $low iki $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Mažiausias pavedimas čia – $count dalių.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count dalių atviruose pavedimuose';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Parduoti laisvos tik $count dalys. Likusios yra jūsų atviruose pavedimuose.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Atšaukti visus pavedimus?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Bus pašalinti $count atviri pavedimai:',
+      one: 'Bus pašalintas 1 atviras pavedimas:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Palikti pavedimus';
+
+  @override
+  String get betOrderTypeRow => 'Pavedimo tipas';
+
+  @override
+  String get betReservedRow => 'Rezervuota';
+
+  @override
   String get betProceedsToPredictions => 'Į Prognozes';
 
   @override

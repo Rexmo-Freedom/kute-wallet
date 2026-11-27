@@ -7114,6 +7114,62 @@ class AppLocalizationsSv extends AppLocalizations {
   String get betUntilCanceled => 'Tills den avbryts';
 
   @override
+  String get betLimitOrderFilled => 'Limitorder utförd';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Köpte $shares andelar av $outcome för $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Välj ett pris i steg om $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Välj ett pris från $low till $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Den minsta ordern här är $count andelar.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count andelar i öppna ordrar';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Bara $count andelar är fria att sälja. Resten ligger i dina öppna ordrar.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Avbryta alla ordrar?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Detta tar bort $count öppna ordrar:',
+      one: 'Detta tar bort 1 öppen order:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Behåll ordrar';
+
+  @override
+  String get betOrderTypeRow => 'Ordertyp';
+
+  @override
+  String get betReservedRow => 'Reserverat';
+
+  @override
   String get betProceedsToPredictions => 'Till Prognoser';
 
   @override

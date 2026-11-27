@@ -1025,7 +1025,7 @@ class StandingOrdersNotifier extends Notifier<List<StandingOrder>> {
     final id = newId();
     final isLimit = intent.isLimit;
     final price = isLimit
-        ? intent.limitPrice.clamp(0.01, 0.99).toDouble()
+        ? intent.limitPrice.clamp(0.0001, 0.9999).toDouble()
         : _onTick(polymarketFundedWorstPrice(intent), intent);
     final shares = PolymarketOrderPlan.sharesFor(intent.amount, price);
     if (shares <= 0 || price <= 0) return;

@@ -7100,6 +7100,62 @@ class AppLocalizationsEt extends AppLocalizations {
   String get betUntilCanceled => 'Kuni tühistamiseni';
 
   @override
+  String get betLimitOrderFilled => 'Limiitorder täidetud';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Ostetud $shares osakut $outcome hinnaga $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Vali hind sammuga $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Vali hind vahemikus $low kuni $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Väikseim order on siin $count osakut.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count osakut avatud orderites';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Müüa saab vaid $count vaba osakut. Ülejäänud on sinu avatud orderites.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Tühistada kõik orderid?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'See eemaldab $count avatud orderit:',
+      one: 'See eemaldab 1 avatud orderi:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Jäta orderid alles';
+
+  @override
+  String get betOrderTypeRow => 'Orderi tüüp';
+
+  @override
+  String get betReservedRow => 'Reserveeritud';
+
+  @override
   String get betProceedsToPredictions => 'Ennustustesse';
 
   @override

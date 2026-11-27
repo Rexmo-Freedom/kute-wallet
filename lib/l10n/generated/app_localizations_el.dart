@@ -7174,6 +7174,62 @@ class AppLocalizationsEl extends AppLocalizations {
   String get betUntilCanceled => 'Μέχρι ακύρωσης';
 
   @override
+  String get betLimitOrderFilled => 'Η εντολή ορίου εκτελέστηκε';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Αγοράστηκαν $shares μερίδια $outcome στα $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Επιλέξτε τιμή σε βήματα των $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Επιλέξτε τιμή από $low έως $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Η μικρότερη εντολή εδώ είναι $count μερίδια.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count μερίδια σε ανοιχτές εντολές';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Μόνο $count μερίδια είναι ελεύθερα για πώληση. Τα υπόλοιπα είναι στις ανοιχτές εντολές σας.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Ακύρωση όλων των εντολών;';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Αυτό αφαιρεί $count ανοιχτές εντολές:',
+      one: 'Αυτό αφαιρεί 1 ανοιχτή εντολή:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Διατήρηση εντολών';
+
+  @override
+  String get betOrderTypeRow => 'Τύπος εντολής';
+
+  @override
+  String get betReservedRow => 'Δεσμευμένα';
+
+  @override
   String get betProceedsToPredictions => 'Στις Προβλέψεις';
 
   @override

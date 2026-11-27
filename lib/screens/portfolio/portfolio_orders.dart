@@ -35,14 +35,16 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/hyperliquid_user_events_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart'
-    show
-        HlEndedOrderRow,
-        HlOrderRow,
-        HlTwapRow,
-        hlCancelAllOrders,
-        hlConfirmCancelAll;
+    show HlEndedOrderRow, HlOrderRow, HlTwapRow, hlCancelAllOrders;
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show formatHlPrice, formatHlSize;
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
-    show PolyOrderRow, polyCancelAllOrders;
+    show
+        PolyOrderRow,
+        polyCancelAllKnownOrders,
+        polyCancelAllLines,
+        polyCancelAllOrders,
+        polyConfirmCancelAll;
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
@@ -283,12 +285,32 @@ class _PortfolioCancelAllLinkState
 
   Future<void> _cancelAll() async {
     if (_busy) return;
-    // Investing's orders, protective stops among them, are listed before
-    // anything is cancelled (the Orders sheet's own confirmation).
-    if (widget.investing) {
-      final ok = await hlConfirmCancelAll(context, ref,
-          alsoPredictions: widget.predictions);
-      if (!ok || !mounted || _busy) return;
+    // Asks first, listing what goes at each venue (one tap per order
+    // needs no ask).
+    final l10n = context.l10n;
+    // Each venue's list as read; a venue whose list is not known whole
+    // (loading, failed) shows the question alone, never a partial list.
+    final hlOrders = widget.investing
+        ? ref.read(hyperliquidTradingProvider).valueOrNull?.openOrders
+        : const <HlOpenOrder>[];
+    final pmOrders = !widget.predictions
+        ? const <Order>[]
+        : polyCancelAllKnownOrders(ref.read(polymarketOpenOrdersProvider));
+    final lines = hlOrders == null || pmOrders == null
+        ? null
+        : [
+      if (widget.investing)
+        for (final o in hlOrders)
+          [
+            o.isBuy ? l10n.betBuyUpper : l10n.betSellUpper,
+            o.coin,
+            formatHlSize(o.sz),
+            formatHlPrice(o.isTrigger ? (o.triggerPx ?? o.limitPx) : o.limitPx),
+          ].join(' · '),
+      if (widget.predictions) ...polyCancelAllLines(context, pmOrders),
+    ];
+    if (!await polyConfirmCancelAll(context, lines: lines) || !mounted) {
+      return;
     }
     setState(() => _busy = true);
     HapticFeedback.lightImpact();

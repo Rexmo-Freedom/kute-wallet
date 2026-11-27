@@ -1,0 +1,221 @@
+// The open orders a refresh carries, through the account's own refresh
+// reads (_fetchAllData, with fakes for the public model and the
+// authenticated service; nothing reaches the network):
+//   * a cold boot (no cache, no earlier list) whose orders read fails is
+//     nothing reserved, exactly as before limits: a plain bet is never held;
+//   * a cash-only tick keeps the account's list, never another account's;
+//   * a failed full read keeps the account's last list: its buys keep
+//     reserving cash until a read lands (no expiry: the spendable figure,
+//     the slip's shortfall and the sweeper all read it); its sells stop
+//     locking shares past kPolymarketKeptOrdersFor; a read that lands
+//     resets both; an account with no resting orders is as before at
+//     every step.
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/providers/investment_balances_provider.dart'
+    show polymarketInvestmentBalances;
+import 'package:kute/providers/polymarket_bet_controller.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/services/polymarket_backend_service.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
+    show ClosedPosition, Order, Position;
+
+const _eoa = '0x1111111111111111111111111111111111111111';
+const _a = '0x2222222222222222222222222222222222222222';
+const _b = '0x3333333333333333333333333333333333333333';
+
+Order _buy(String id, {String size = '10', String price = '0.30'}) => Order(
+    id: id,
+    market: 'm',
+    assetId: 't',
+    owner: 'x',
+    side: 'BUY',
+    price: price,
+    originalSize: size,
+    sizeMatched: '0',
+    outcome: 'Yes');
+
+class _Model extends Fake implements PolymarketModel {
+  @override
+  List<ClosedPosition> closedSoldPositions = const [];
+  @override
+  Set<String> closedNegRiskConditionIds = const {};
+  @override
+  void invalidateBalanceCache() {}
+  @override
+  Future<List<Position>?> getPositionsOrNull(String walletAddress,
+          {Object? client}) async =>
+      const [];
+  @override
+  Future<double> getOnChainUsdcBalance(String walletAddress) async => 5;
+  @override
+  Future<double> getPortfolioTotalValue(String walletAddress,
+          {Object? client}) async =>
+      5;
+  @override
+  Future<List<ClosedPosition>> getClosedPositions(String walletAddress,
+          {Object? client}) async =>
+      const [];
+}
+
+/// The authenticated orders read: answers [orders], or fails.
+class _Backend extends Fake implements PolymarketBackendService {
+  List<Order>? orders = const [];
+  int reads = 0;
+  @override
+  Future<List<Order>> getOpenOrders({String? market}) async {
+    reads++;
+    final o = orders;
+    if (o == null) throw StateError('orders read failed');
+    return o;
+  }
+}
+
+class _Account extends PolymarketTradingNotifier {
+  _Account(this.start);
+  final PolymarketTradingState? start;
+  @override
+  Future<PolymarketTradingState> build() async =>
+      start ?? const PolymarketTradingState();
+  void set(PolymarketTradingState s) => state = AsyncData(s);
+}
+
+void main() {
+  late DateTime now;
+  setUp(() {
+    now = DateTime(2026, 11, 27, 12);
+    PolymarketTradingNotifier.ordersClock = () => now;
+  });
+  tearDown(() => PolymarketTradingNotifier.ordersClock = DateTime.now);
+
+  Future<(_Account, _Backend, ProviderContainer)> account(
+      {PolymarketTradingState? start}) async {
+    final notifier = _Account(start);
+    final backend = _Backend();
+    final container = ProviderContainer(overrides: [
+      polymarketTradingProvider.overrideWith(() => notifier),
+    ]);
+    addTearDown(container.dispose);
+    container.listen(polymarketTradingProvider, (_, __) {});
+    await container.read(polymarketTradingProvider.future);
+    notifier.debugUseReads(_Model(), backend);
+    return (notifier, backend, container);
+  }
+
+  Future<PolymarketTradingState> read(_Account n,
+      {String proxy = _a,
+      PolymarketRefreshScope scope = PolymarketRefreshScope.full}) async {
+    final s = await n.debugFetchAllData(_eoa, proxyWallet: proxy, scope: scope);
+    n.set(s);
+    return s;
+  }
+
+  test(
+      'a cold boot with no cache whose orders read fails: nothing reserved, '
+      'and a plain bet sizes on the whole balance, as before', () async {
+    final (n, backend, container) = await account();
+    backend.orders = null;
+    // The account start's first read is cash only, then the full read fails.
+    expect((await read(n, scope: PolymarketRefreshScope.cash)).openOrders,
+        isEmpty);
+    final s = await read(n);
+    expect(s.openOrders, isEmpty);
+    expect(s.balanceKnown, isTrue);
+    expect(PolymarketBetController.spendableUsdc(s.usdcBalance, s.openOrders),
+        5);
+    expect(backend.reads, 1);
+    expect(container.read(polymarketTradingProvider).valueOrNull?.usdcBalance,
+        5);
+  });
+
+  test('a cash-only tick keeps the account\'s list, never another\'s',
+      () async {
+    final (n, backend, _) = await account();
+    backend.orders = [_buy('o1')];
+    expect((await read(n)).openOrders.single.id, 'o1');
+    // A cash tick reads no orders: the list stays.
+    expect((await read(n, scope: PolymarketRefreshScope.cash)).openOrders
+        .single
+        .id, 'o1');
+    // Another account's cash tick never carries the last one's list.
+    expect(
+        (await read(n, proxy: _b, scope: PolymarketRefreshScope.cash))
+            .openOrders,
+        isEmpty);
+  });
+
+  Order sell(String id, {String size = '6'}) => Order(
+      id: id,
+      market: 'm',
+      assetId: 't',
+      owner: 'x',
+      side: 'SELL',
+      price: '0.70',
+      originalSize: size,
+      sizeMatched: '0',
+      outcome: 'Yes');
+
+  test(
+      'cash stays reserved until a read lands, past the bound too; shares '
+      'stop being locked past the bound; a read that lands resets both',
+      () async {
+    final (n, backend, _) = await account();
+    backend.orders = [_buy('o1'), sell('s1')];
+    var s = await read(n);
+    expect(s.openOrdersStaleSince, isNull);
+    backend.orders = null;
+    s = await read(n);
+    final since = s.openOrdersStaleSince;
+    expect(since, now);
+    expect(polymarketLockedSellShares(s, 't', now: now), 6);
+    // Well past the bound, the reads still failing.
+    now = now.add(kPolymarketKeptOrdersFor * 4);
+    s = await read(n);
+    expect(s.openOrdersStaleSince, since);
+    // CASH: the resting buy (10 at 30c = \$3 of \$5) still holds.
+    expect(s.openOrders.map((o) => o.id), ['o1', 's1']);
+    expect(PolymarketBetController.spendableUsdc(s.usdcBalance, s.openOrders),
+        closeTo(2, 1e-9));
+    // The sweeper's figure (venue_sweeper_provider.dart) and the
+    // Investments total hold it too.
+    final venue = polymarketInvestmentBalances(state: s, orders: s.openOrders);
+    expect(venue.available, closeTo(2, 1e-9));
+    // SHARES: the resting sell no longer locks them.
+    expect(polymarketLockedSellShares(s, 't', now: now), 0);
+    // A read that lands: its list, the clock cleared, the sell locks again.
+    backend.orders = [sell('s2', size: '4')];
+    s = await read(n);
+    expect(s.openOrdersStaleSince, isNull);
+    expect(polymarketLockedSellShares(s, 't', now: now), 4);
+    expect(PolymarketBetController.spendableUsdc(s.usdcBalance, s.openOrders),
+        5);
+  });
+
+  test(
+      'an account with no resting orders reads exactly as before at every '
+      'step, failing or not', () async {
+    final (n, backend, _) = await account();
+    for (final orders in [const <Order>[], null, null, const <Order>[], null]) {
+      backend.orders = orders;
+      now = now.add(kPolymarketKeptOrdersFor);
+      final s = await read(n);
+      expect(s.openOrders, isEmpty);
+      expect(s.openOrdersStaleSince, isNull);
+      expect(PolymarketBetController.spendableUsdc(s.usdcBalance, s.openOrders),
+          5);
+    }
+  });
+
+  test(
+      'a cached list restored at launch keeps its cash reserved while every '
+      'read fails', () async {
+    final (n, backend, _) = await account(
+        start: PolymarketTradingState(
+            proxyWalletAddress: _a, usdcBalance: 5, openOrders: [_buy('c1')]));
+    backend.orders = null;
+    expect((await read(n)).openOrders.single.id, 'c1');
+    now = now.add(kPolymarketKeptOrdersFor * 2);
+    expect((await read(n)).openOrders.single.id, 'c1');
+  });
+}

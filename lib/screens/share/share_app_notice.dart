@@ -132,7 +132,9 @@ class _ShareAppNoticeHostState extends State<ShareAppNoticeHost> {
     // own bar (back, the market's name, the star) on a phone (seen in
     // Safari, 27 November 2026). The page keeps its place under the notice
     // and loses only the top inset the notice now covers.
-    return ColoredBox(
+    // A Material, not a bare box: the card's words take their style from
+    // it (without one they draw with the yellow debug underline).
+    return Material(
       color: c.background,
       child: Column(
         children: [
