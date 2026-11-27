@@ -15,7 +15,6 @@
 
 import 'dart:typed_data';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -718,26 +717,31 @@ void main() {
     expect(find.text('100%'), findsOneWidget);
   });
 
-  test('a share carries the sharer\'s AppsFlyer link, never the market\'s '
-      'backend address', () {
-    // No OneLink template (a test, an early start): the website.
+  test('a share carries the web app\'s link with the sharer\'s code, never '
+      'a backend address or an AppsFlyer link', () {
+    // A market: its page on the web app, the code on it.
     expect(
-        shareLinkWithReferral('https://backend.kutewallet.com/m/x',
+        shareLinkWithReferral(
+            'https://app.kutewallet.com/#/s/p/who-wins', code: 'KUTE42'),
+        'https://app.kutewallet.com/#/s/p/who-wins?r=KUTE42');
+    // The older market address becomes the same web link.
+    expect(
+        shareLinkWithReferral(
+            'https://backend.kutewallet.com/m/investing/BTC', code: 'KUTE42'),
+        'https://app.kutewallet.com/#/s/i/BTC?r=KUTE42');
+    // Nothing to open: the web app's start, with the code or without.
+    expect(shareLinkWithReferral('https://backend.kutewallet.com/m/x',
             code: 'KUTE42'),
-        'https://getkute.com');
-    dotenv.loadFromString(
-        envString: 'APPSFLYER_ONELINK_TEMPLATE=kute.onelink.me/abcd');
-    addTearDown(dotenv.clean);
-    // With a code: the sharer's own invite link.
-    expect(
-        shareLinkWithReferral('https://backend.kutewallet.com/m/x',
-            code: 'KUTE42'),
-        'https://kute.onelink.me/abcd?pid=affiliate&c=KUTE42'
-        '&deep_link_value=KUTE42&af_sub1=KUTE42');
-    // Without one: the app's OneLink alone.
-    expect(
-        shareLinkWithReferral('https://backend.kutewallet.com/m/x',
-            code: null),
-        'https://kute.onelink.me/abcd?pid=share');
+        'https://app.kutewallet.com/#/?r=KUTE42');
+    expect(shareLinkWithReferral('https://backend.kutewallet.com/m/x'),
+        'https://app.kutewallet.com/#/');
+    for (final link in [
+      shareLinkWithReferral('https://app.kutewallet.com/#/s/p/a', code: 'K1X'),
+      shareLinkWithReferral('x', code: 'K1X'),
+    ]) {
+      expect(link, isNot(contains('onelink')));
+      expect(link, isNot(contains('backend.')));
+      expect(link, isNot(contains('pid=')));
+    }
   });
 }

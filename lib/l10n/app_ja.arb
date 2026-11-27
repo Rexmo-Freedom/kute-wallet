@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance}%の確率",
   "sendRecipientSearchHint": "名前、電話番号、各種暗号資産アドレス",
   "sendRecipientSearchHintNoPhone": "名前または暗号資産アドレス",
-  "shareGetKuteLine": "getkute.com で参加しよう",
   "sendMoveToYourDollars": "ドルへ移動",
   "sendMoveToYourBitcoin": "ビットコインへ移動",
   "sendWhatTitle": "{name}さんに送金",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "両方の価格を現在価格より下にしてください。",
   "hlAdvScaleAbovePrice": "両方の価格を現在価格より上にしてください。",
   "hlAdvSlPastLiquidation": "この損切りは推定清算価格を超えているため、先にポジションが清算される可能性があります。",
-  "hlAdvTrailingNotApproved": "注文は約定しましたが、承認されなかったためトレーリングストップは出されませんでした。"
+  "hlAdvTrailingNotApproved": "注文は約定しましたが、承認されなかったためトレーリングストップは出されませんでした。",
+  "getAppBannerTitle": "Kuteアプリを入手",
+  "getAppBannerSubtitle": "iPhoneとAndroidで利用できます",
+  "chartPriceScale": "価格スケール",
+  "shareOpenInBrowserSafari": "このページは別のアプリ内で開いています。Face IDを使いウォレットを保つには、Safariで開いてください。",
+  "shareOpenInBrowserChrome": "このページは別のアプリ内で開いています。パスキーを使いウォレットを保つには、Chromeで開いてください。",
+  "shareOpenInAppBody": "Kuteアプリをお持ちですか？アプリで開きましょう。",
+  "shareOpenInApp": "アプリで開く"
 }

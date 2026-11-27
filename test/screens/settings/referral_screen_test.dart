@@ -40,7 +40,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../helpers/kute_bar_test_support.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
-const _link = 'https://kute.onelink.me/aBcD';
+// The invite: the web app's start with the code (no AppsFlyer link).
+const _link = 'https://app.kutewallet.com/#/?r=EKVGUY';
 
 /// The program's rules as the backend publishes them (affiliate_me.go).
 const Map<String, Object> _rules = {
@@ -167,8 +168,7 @@ void main() {
       GoogleFonts.config.allowRuntimeFetching = false;
       FlutterSecureStorage.setMockInitialValues({});
       dotenv.loadFromString(
-          envString: 'BACKEND=https://backend.test\n'
-              'APPSFLYER_ONELINK_TEMPLATE=kute.onelink.me/aBcD');
+          envString: 'BACKEND=https://backend.test');
       AffiliateService.debugSessionToken = 'test-session';
       TrackingService.setDisabled(true);
       events = [];

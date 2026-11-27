@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance}% șanse",
   "sendRecipientSearchHint": "Nume, telefon sau orice adresă cripto",
   "sendRecipientSearchHintNoPhone": "Nume sau orice adresă cripto",
-  "shareGetKuteLine": "Intră în joc pe getkute.com",
   "sendMoveToYourDollars": "Mută în Dolarii tăi",
   "sendMoveToYourBitcoin": "Mută în Bitcoin-ul tău",
   "sendWhatTitle": "Trimite către {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Ambele prețuri trebuie să fie sub prețul curent.",
   "hlAdvScaleAbovePrice": "Ambele prețuri trebuie să fie peste prețul curent.",
   "hlAdvSlPastLiquidation": "Acest stop-loss este dincolo de prețul estimat de lichidare, așa că poziția ar putea fi lichidată mai întâi.",
-  "hlAdvTrailingNotApproved": "Ordinul a fost executat, dar trailing stopul nu a fost plasat pentru că nu a fost aprobat."
+  "hlAdvTrailingNotApproved": "Ordinul a fost executat, dar trailing stopul nu a fost plasat pentru că nu a fost aprobat.",
+  "getAppBannerTitle": "Descarcă aplicația Kute",
+  "getAppBannerSubtitle": "Disponibilă pentru iPhone și Android",
+  "chartPriceScale": "Scară de preț",
+  "shareOpenInBrowserSafari": "Această pagină este deschisă în altă aplicație. Pentru Face ID și ca să îți păstrezi portofelul, deschide-o în Safari.",
+  "shareOpenInBrowserChrome": "Această pagină este deschisă în altă aplicație. Pentru a folosi o cheie de acces și a-ți păstra portofelul, deschide-o în Chrome.",
+  "shareOpenInAppBody": "Ai aplicația Kute? Deschide-l acolo.",
+  "shareOpenInApp": "Deschide în aplicație"
 }

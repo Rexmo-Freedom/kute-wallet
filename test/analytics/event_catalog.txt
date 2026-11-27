@@ -117,6 +117,7 @@ chart_history_extended
 chart_log_scale_toggled
 chart_magnet_toggled
 chart_note_saved
+chart_price_scale_toggled
 chart_timeframe_changed
 chart_trade_marker_opened
 chart_type_changed
@@ -165,6 +166,9 @@ first_swap_completed
 five_min_tile_tapped
 forgot_pin_dialog_dismissed
 forgot_pin_dialog_shown
+get_app_banner_dismissed
+get_app_banner_shown
+get_app_banner_store_tapped
 hardware_connection_completed
 hardware_connection_failed
 hardware_connection_result
@@ -518,6 +522,10 @@ qr_scanner_completed
 qr_scanner_dismissed
 qr_scanner_torch_toggled
 quick_action_tapped
+quick_wallet_abandoned
+quick_wallet_completed
+quick_wallet_failed
+quick_wallet_started
 quote_roundtrip_latency
 receipt_card_shared
 receive_abandoned
@@ -654,14 +662,20 @@ settlement_rereview_required
 settlement_route_unavailable
 settlement_submit_attempt
 settlement_terminal
+share_app_notice_dismissed
+share_app_notice_shown
+share_app_notice_tapped
 share_challenge_answered
 share_link_cancelled
 share_link_claimed
 share_link_created
+share_link_opened
 share_link_paid
 share_link_shared
 share_market_link_shared
 share_market_opened
+share_target_lost
+share_target_restored
 shell_swipe_hint_shown
 shell_tab_changed
 shell_tab_reselected
@@ -689,6 +703,7 @@ step_up_pin_fallback
 step_up_reauth_required
 step_up_review_again_tapped
 step_up_small_action_allowed
+storage_persist_requested
 storage_unavailable_restore_tapped
 storage_unavailable_retry
 support_opened

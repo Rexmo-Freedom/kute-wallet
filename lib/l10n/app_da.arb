@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance} % chance",
   "sendRecipientSearchHint": "Navn, telefon eller kryptoadresse",
   "sendRecipientSearchHintNoPhone": "Navn eller kryptoadresse",
-  "shareGetKuteLine": "Vær med på getkute.com",
   "sendMoveToYourDollars": "Flyt til dine Dollars",
   "sendMoveToYourBitcoin": "Flyt til din Bitcoin",
   "sendWhatTitle": "Send til {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Begge priser skal være under den aktuelle pris.",
   "hlAdvScaleAbovePrice": "Begge priser skal være over den aktuelle pris.",
   "hlAdvSlPastLiquidation": "Dette stop-loss ligger efter den anslåede likvidationspris, så positionen kan blive likvideret først.",
-  "hlAdvTrailingNotApproved": "Ordren blev udført, men trailing stop blev ikke placeret, fordi det ikke blev godkendt."
+  "hlAdvTrailingNotApproved": "Ordren blev udført, men trailing stop blev ikke placeret, fordi det ikke blev godkendt.",
+  "getAppBannerTitle": "Hent Kute-appen",
+  "getAppBannerSubtitle": "Fås til iPhone og Android",
+  "chartPriceScale": "Prisskala",
+  "shareOpenInBrowserSafari": "Denne side er åbnet i en anden app. Åbn den i Safari for at bruge Face ID og beholde din wallet.",
+  "shareOpenInBrowserChrome": "Denne side er åbnet i en anden app. Åbn den i Chrome for at bruge en adgangsnøgle og beholde din wallet.",
+  "shareOpenInAppBody": "Har du Kute-appen? Åbn det der.",
+  "shareOpenInApp": "Åbn i appen"
 }

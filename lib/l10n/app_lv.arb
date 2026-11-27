@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance}% iespēja",
   "sendRecipientSearchHint": "Vārds, tālrunis vai kripto adrese",
   "sendRecipientSearchHintNoPhone": "Vārds vai kripto adrese",
-  "shareGetKuteLine": "Pievienojies darbībai: getkute.com",
   "sendMoveToYourDollars": "Pārvietot uz taviem Dolāriem",
   "sendMoveToYourBitcoin": "Pārvietot uz tavu Bitcoin",
   "sendWhatTitle": "Saņēmējs: {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Abām cenām jābūt zem pašreizējās cenas.",
   "hlAdvScaleAbovePrice": "Abām cenām jābūt virs pašreizējās cenas.",
   "hlAdvSlPastLiquidation": "Šis stop-loss ir aiz aplēstās likvidācijas cenas, tāpēc pozīcija var tikt likvidēta agrāk.",
-  "hlAdvTrailingNotApproved": "Rīkojums izpildīts, bet sekojošais stop netika iesniegts, jo tas netika apstiprināts."
+  "hlAdvTrailingNotApproved": "Rīkojums izpildīts, bet sekojošais stop netika iesniegts, jo tas netika apstiprināts.",
+  "getAppBannerTitle": "Lejupielādē Kute lietotni",
+  "getAppBannerSubtitle": "Pieejama iPhone un Android ierīcēm",
+  "chartPriceScale": "Cenu skala",
+  "shareOpenInBrowserSafari": "Šī lapa ir atvērta citā lietotnē. Lai izmantotu Face ID un saglabātu maku, atveriet to Safari.",
+  "shareOpenInBrowserChrome": "Šī lapa ir atvērta citā lietotnē. Lai izmantotu piekļuves atslēgu un saglabātu maku, atveriet to Chrome.",
+  "shareOpenInAppBody": "Jums ir Kute lietotne? Atveriet to tur.",
+  "shareOpenInApp": "Atvērt lietotnē"
 }

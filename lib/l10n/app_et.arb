@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance}% tõenäosus",
   "sendRecipientSearchHint": "Nimi, telefon või krüptoaadress",
   "sendRecipientSearchHintNoPhone": "Nimi või krüptoaadress",
-  "shareGetKuteLine": "Löö kaasa: getkute.com",
   "sendMoveToYourDollars": "Teisalda oma Dollaritesse",
   "sendMoveToYourBitcoin": "Teisalda oma Bitcoini",
   "sendWhatTitle": "Saaja: {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Mõlemad hinnad peavad olema praegusest hinnast madalamal.",
   "hlAdvScaleAbovePrice": "Mõlemad hinnad peavad olema praegusest hinnast kõrgemal.",
   "hlAdvSlPastLiquidation": "See stop-loss on hinnangulisest likvideerimishinnast kaugemal, nii et positsioon võidakse enne likvideerida.",
-  "hlAdvTrailingNotApproved": "Tellimus täideti, kuid jälgivat stoppi ei esitatud, sest seda ei kinnitatud."
+  "hlAdvTrailingNotApproved": "Tellimus täideti, kuid jälgivat stoppi ei esitatud, sest seda ei kinnitatud.",
+  "getAppBannerTitle": "Laadi alla Kute äpp",
+  "getAppBannerSubtitle": "Saadaval iPhone'ile ja Androidile",
+  "chartPriceScale": "Hinnaskaala",
+  "shareOpenInBrowserSafari": "See leht on avatud teises rakenduses. Face ID kasutamiseks ja rahakoti hoidmiseks ava see Safaris.",
+  "shareOpenInBrowserChrome": "See leht on avatud teises rakenduses. Pääsuvõtme kasutamiseks ja rahakoti hoidmiseks ava see Chrome'is.",
+  "shareOpenInAppBody": "Sul on Kute rakendus? Ava see seal.",
+  "shareOpenInApp": "Ava rakenduses"
 }

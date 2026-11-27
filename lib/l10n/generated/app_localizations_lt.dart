@@ -12298,9 +12298,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Vardas ar kripto adresas';
 
   @override
-  String get shareGetKuteLine => 'Prisijunk prie veiksmo: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Perkelti į tavo Dolerius';
 
   @override
@@ -14776,4 +14773,27 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get hlAdvTrailingNotApproved =>
       'Pavedimas įvykdytas, bet slankusis stop nebuvo pateiktas, nes nebuvo patvirtintas.';
+
+  @override
+  String get getAppBannerTitle => 'Atsisiųskite Kute programėlę';
+
+  @override
+  String get getAppBannerSubtitle => 'Yra iPhone ir Android įrenginiams';
+
+  @override
+  String get chartPriceScale => 'Kainų skalė';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti Face ID ir išsaugoti piniginę, atidarykite jį „Safari“.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti prieigos raktą ir išsaugoti piniginę, atidarykite jį „Chrome“.';
+
+  @override
+  String get shareOpenInAppBody => 'Turite „Kute“ programėlę? Atidarykite ten.';
+
+  @override
+  String get shareOpenInApp => 'Atidaryti programėlėje';
 }

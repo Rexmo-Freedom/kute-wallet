@@ -1,5 +1,5 @@
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/kute_notice_card.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -14,7 +14,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class SecurityActionCard extends ConsumerStatefulWidget {
   /// Null is the Home reminder for the spending account. Detail screens pin
@@ -71,7 +70,6 @@ class _SecurityActionCardState extends ConsumerState<SecurityActionCard> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final walletId = widget.walletId;
     final pending = ref.watch(passkeyPendingLabelsProvider);
     final target = walletId == null
@@ -97,9 +95,9 @@ class _SecurityActionCardState extends ConsumerState<SecurityActionCard> {
     }
     // One compact neutral row: the whole row is the tap target and the
     // filled "Back up" button is its single visible action. The loss
-    // warning lives on the backup screen this opens.
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    // warning lives on the backup screen this opens. The card itself is
+    // the shared notice card (kute_notice_card.dart).
+    return KuteNoticeCard(
       onTap: () {
         if (passkeyLabel) {
           _finishPasskeyBackup(target, surface);
@@ -108,93 +106,20 @@ class _SecurityActionCardState extends ConsumerState<SecurityActionCard> {
         TrackingService.backupPromptTapped(surface: surface);
         context.push('/backup_wallet', extra: target.id);
       },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-        // Same chrome as every other card in the app (floating shadow
-        // card in light, hairline surface in dark).
-        decoration: AppDecorations.card(context),
-        child: Row(
-          children: [
-            Container(
-              width: 36.sp,
-              height: 36.sp,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: c.surfaceLight,
-                shape: BoxShape.circle,
-                border: Border.all(color: c.borderSubtle, width: 0.5),
-              ),
-              // Sal in the circle (founder, 31 October 2026): surprised
-              // once as the card appears, then held on that last frame;
-              // the shield until the sheets exist.
-              child: ClipOval(
-                child: SalSprite(
-                  clip: 'surprise',
-                  loop: false,
-                  size: 36.sp,
-                  fallback: Icon(Icons.shield_outlined,
-                      color: c.textSecondary, size: 18.sp),
-                ),
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                      passkeyLabel
-                          ? context.l10n.passkeyFinishBackupTitle
-                          : context.l10n.backUpBannerTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2)),
-                  SizedBox(height: 2.h),
-                  Text(
-                      passkeyLabel
-                          ? context.l10n.passkeyFinishBackupSubtitle
-                          : context.l10n.backUpBannerSubtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w500,
-                          height: 1.3)),
-                ],
-              ),
-            ),
-            SizedBox(width: 8.w),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 9.h),
-              decoration: BoxDecoration(
-                color: context.ctaFill,
-                borderRadius: AppRadius.buttonBorder,
-              ),
-              child: _busy
-                  ? LoadingAnimationWidget.staggeredDotsWave(
-                      color: context.ctaOnColor, size: 13.sp)
-                  : Text(
-                      passkeyLabel
-                          ? context.l10n.confirm
-                          : context.l10n.backUpBannerAction,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: context.ctaOnColor,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.1,
-                        height: 1.0,
-                      ),
-                    ),
-            ),
-          ],
+      title: passkeyLabel
+          ? context.l10n.passkeyFinishBackupTitle
+          : context.l10n.backUpBannerTitle,
+      subtitle: passkeyLabel
+          ? context.l10n.passkeyFinishBackupSubtitle
+          : context.l10n.backUpBannerSubtitle,
+      actions: [
+        KuteNoticeAction(
+          label: passkeyLabel
+              ? context.l10n.confirm
+              : context.l10n.backUpBannerAction,
+          busy: _busy,
         ),
-      ),
+      ],
     );
   }
 }

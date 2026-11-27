@@ -1,13 +1,13 @@
 // lib/screens/shared/kute_password_field.dart
 //
-// The password field of a laptop browser's lock (unlock_secret.dart): the
-// app's own text field (AppTextField) obscured, with a show/hide toggle,
-// autofocused, Enter submitting. It takes the dots' place on every PIN
-// page and sheet when the secret is a password; the page's shake wraps it
-// as it wraps the dots.
+// The password field of a web vault made with a password (24 to 27
+// November 2026; since then every new vault takes the PIN,
+// unlock_secret.dart): the app's own text field (AppTextField) obscured,
+// with a show/hide toggle, autofocused, Enter submitting. It takes the
+// dots' place on every PIN page and sheet when the secret is a password;
+// the page's shake wraps it as it wraps the dots.
 //
-// A browser password manager can save and fill it: `new-password` on
-// create and confirm, `current-password` everywhere it is checked. The
+// A browser password manager can fill it (`current-password`). The
 // value goes to nothing but the vault: no analytics, no logs (the field
 // is masked for any session replay too).
 
@@ -27,8 +27,6 @@ class KutePasswordField extends StatefulWidget {
     required this.onSubmitted,
     this.onChanged,
     this.focusNode,
-    this.isNew = false,
-    this.showRule = false,
     this.enabled = true,
     this.autofocus = true,
   });
@@ -40,24 +38,9 @@ class KutePasswordField extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final FocusNode? focusNode;
 
-  /// A password being created or confirmed (`new-password`), not checked
-  /// (`current-password`).
-  final bool isNew;
-
-  /// The quiet rule line under the field ("At least 10 characters").
-  final bool showRule;
-
   /// False while the page checks or saves: the text stays, nothing types.
   final bool enabled;
   final bool autofocus;
-
-  /// Tells the browser's password manager the form is done, so it offers
-  /// to save a new password. Call after a password was accepted.
-  static void finishAutofill({bool save = true}) {
-    try {
-      TextInput.finishAutofillContext(shouldSave: save);
-    } catch (_) {}
-  }
 
   @override
   State<KutePasswordField> createState() => _KutePasswordFieldState();
@@ -102,9 +85,7 @@ class _KutePasswordFieldState extends State<KutePasswordField> {
       textInputAction: TextInputAction.done,
       autocorrect: false,
       enableSuggestions: false,
-      autofillHints: [
-        widget.isNew ? AutofillHints.newPassword : AutofillHints.password,
-      ],
+      autofillHints: const [AutofillHints.password],
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
       // Enter keeps the focus: a wrong or mismatched entry is typed again
@@ -124,30 +105,7 @@ class _KutePasswordFieldState extends State<KutePasswordField> {
         ),
       ),
     );
-    return PostHogMaskWidget(
-      child: AutofillGroup(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            field,
-            if (widget.showRule) ...[
-              SizedBox(height: 10.h),
-              Text(
-                PasswordCopy.rule,
-                key: const ValueKey('kute-password-rule'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: c.textTertiary,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+    return PostHogMaskWidget(child: AutofillGroup(child: field));
   }
 }
 

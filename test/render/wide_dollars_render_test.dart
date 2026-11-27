@@ -25,9 +25,13 @@ import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
 import 'package:kute/screens/polymarket/polymarket_screen.dart'
     show PolymarketScreen;
+import 'package:kute/providers/hyperliquid_candles_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart'
+    show HyperliquidScreen;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
+import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/open_pnl_history_provider.dart'
     show OpenPnlSources;
@@ -62,6 +66,13 @@ class _LivePrices extends HlLivePricesNotifier {
   void acquire() {}
   @override
   void release() {}
+}
+
+class _Stars extends HlWatchlistNotifier {
+  _Stars(this.keys);
+  final List<String> keys;
+  @override
+  List<String> build() => keys;
 }
 
 class _Sports extends SportsLiveNotifier {
@@ -172,6 +183,7 @@ Future<void> _render(WidgetTester tester, String name,
     bool dark = false,
     int positions = 4,
     bool scrolled = false,
+    List<String> stars = const [],
     void Function(ProviderContainer container)? pick}) async {
   final now = DateTime.now();
   final coins = const [
@@ -192,6 +204,7 @@ Future<void> _render(WidgetTester tester, String name,
       dark: dark,
       size: size,
       designSize: KuteLayout.designSizeFor(size),
+      hlStars: stars.isEmpty ? null : () => _Stars(stars),
       child: RepaintBoundary(
         key: _shotKey,
         child: Theme(
@@ -237,6 +250,19 @@ Future<void> _render(WidgetTester tester, String name,
         hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
         hyperliquidSparklineStoreProvider.overrideWithValue(
             HlSparklineStore(fetch: (_) async => const [100, 101, 99, 102])),
+        // The day's hourly candles (the featured card's 24h High / Low).
+        hyperliquidLiveCandlesProvider.overrideWith((ref, key) =>
+            Stream.value(HlLiveCandlesState(candles: [
+              for (var h = 24; h > 0; h--)
+                HyperliquidCandle(
+                    openTime: now.subtract(Duration(hours: h)),
+                    closeTime: now.subtract(Duration(hours: h - 1)),
+                    open: 100,
+                    high: 100 + (h % 5),
+                    low: 97 + (h % 3),
+                    close: 100,
+                    volume: 1),
+            ]))),
         polyBrowseFeedProvider.overrideWith(_Feed.new),
         sportsLiveProvider.overrideWith(_Sports.new),
         if (positions > 0)
@@ -319,11 +345,15 @@ void main() {
   if (web) {
     setUp(() {
       KuteBarPane.debugWeb = true;
+      KuteLayout.debugWeb = true;
       PolymarketScreen.debugWideWeb = true;
+      HyperliquidScreen.debugWideWeb = true;
     });
     tearDown(() {
       KuteBarPane.debugWeb = false;
+      KuteLayout.debugWeb = false;
       PolymarketScreen.debugWideWeb = false;
+      HyperliquidScreen.debugWideWeb = false;
     });
   }
 
@@ -357,6 +387,11 @@ void main() {
     '1920x1080': Size(1920, 1080),
     '2400x1200': Size(2400, 1200),
     '1000x700': Size(1000, 700),
+    '1024x768': Size(1024, 768),
+    '960x760': Size(960, 760),
+    '900x760': Size(900, 760),
+    '840x760': Size(840, 760),
+    '620x800': Size(620, 800),
     '820x1180': Size(820, 1180),
     '430x932': Size(430, 932),
   };
@@ -364,6 +399,16 @@ void main() {
   void crypto(ProviderContainer c) =>
       c.read(hlBrowseSelectionProvider.notifier).state =
           c.read(hlBrowseSelectionProvider).copyWith(tab: HlBrowseTab.crypto);
+  void perps(ProviderContainer c) =>
+      c.read(hlBrowseSelectionProvider.notifier).state =
+          c.read(hlBrowseSelectionProvider).copyWith(tab: HlBrowseTab.perps);
+  void stocks(ProviderContainer c) =>
+      c.read(hlBrowseSelectionProvider.notifier).state =
+          c.read(hlBrowseSelectionProvider).copyWith(
+              tab: HlBrowseTab.tradfi, sub: HlBrowseSub.stocks);
+  void watchlist(ProviderContainer c) =>
+      c.read(hlBrowseSelectionProvider.notifier).state =
+          const HlBrowseSelection(tab: HlBrowseTab.watchlist);
   void fiveMin(ProviderContainer c) =>
       c.read(polyBrowseSelectionProvider.notifier).state =
           const PolyBrowseSelection(
@@ -375,20 +420,36 @@ void main() {
       ({
     String pill,
     int positions,
-    void Function(ProviderContainer)? pick
+    void Function(ProviderContainer)? pick,
+    List<String> stars,
   })>{
-    'overview_empty': (pill: 'Overview', positions: 0, pick: null),
-    'overview_3': (pill: 'Overview', positions: 3, pick: null),
-    'overview_4': (pill: 'Overview', positions: 4, pick: null),
-    'investing': (pill: 'Investing', positions: 4, pick: null),
-    'investing_crypto': (pill: 'Investing', positions: 4, pick: crypto),
-    'predictions': (pill: 'Predictions', positions: 4, pick: null),
-    'predictions_5min': (pill: 'Predictions', positions: 0, pick: fiveMin),
-    'investing_none': (pill: 'Investing', positions: 0, pick: null),
-    'investing_crypto_none': (pill: 'Investing', positions: 0, pick: crypto),
-    'predictions_none': (pill: 'Predictions', positions: 0, pick: null),
+    'overview_empty': (pill: 'Overview', positions: 0, pick: null, stars: const []),
+    'overview_3': (pill: 'Overview', positions: 3, pick: null, stars: const []),
+    'overview_4': (pill: 'Overview', positions: 4, pick: null, stars: const []),
+    'investing': (pill: 'Investing', positions: 4, pick: null, stars: const []),
+    'investing_crypto': (pill: 'Investing', positions: 4, pick: crypto, stars: const []),
+    'predictions': (pill: 'Predictions', positions: 4, pick: null, stars: const []),
+    'predictions_5min': (pill: 'Predictions', positions: 0, pick: fiveMin, stars: const []),
+    'investing_none': (pill: 'Investing', positions: 0, pick: null, stars: const []),
+    'investing_crypto_none': (pill: 'Investing', positions: 0, pick: crypto, stars: const []),
+    'predictions_none': (pill: 'Predictions', positions: 0, pick: null, stars: const []),
     'predictions_politics_none':
-        (pill: 'Predictions', positions: 0, pick: politics),
+        (pill: 'Predictions', positions: 0, pick: politics, stars: const []),
+    'investing_perps': (pill: 'Investing', positions: 4, pick: perps, stars: const []),
+    'investing_stocks': (pill: 'Investing', positions: 4, pick: stocks, stars: const []),
+    // The owner's two: Ethereum, then Bitcoin.
+    'watchlist_2': (
+      pill: 'Investing',
+      positions: 4,
+      pick: watchlist,
+      stars: const ['perp:ETH', 'perp:BTC']
+    ),
+    'watchlist_6': (
+      pill: 'Investing',
+      positions: 4,
+      pick: watchlist,
+      stars: [for (final m in hlMarketMapFixture.take(6)) hlWatchlistKey(m)]
+    ),
   };
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
@@ -403,6 +464,7 @@ void main() {
                 pill: c.pill,
                 dark: dark,
                 positions: c.positions,
+                stars: c.stars,
                 pick: c.pick));
       }
     }

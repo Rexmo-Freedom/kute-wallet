@@ -3354,7 +3354,6 @@
   "shareMarketChance": "Šansa {chance} %",
   "sendRecipientSearchHint": "Ime, telefon ili bilo koja kripto adresa",
   "sendRecipientSearchHintNoPhone": "Ime ili bilo koja kripto adresa",
-  "shareGetKuteLine": "Uključi se na getkute.com",
   "sendMoveToYourDollars": "Premjesti u tvoje Dolare",
   "sendMoveToYourBitcoin": "Premjesti na tvoj Bitcoin",
   "sendWhatTitle": "Primatelj: {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Obje cijene moraju biti ispod trenutne cijene.",
   "hlAdvScaleAbovePrice": "Obje cijene moraju biti iznad trenutne cijene.",
   "hlAdvSlPastLiquidation": "Ovaj stop-loss je iza procijenjene cijene likvidacije, pa bi pozicija mogla biti likvidirana prije.",
-  "hlAdvTrailingNotApproved": "Nalog je izvršen, ali trailing stop nije postavljen jer nije odobren."
+  "hlAdvTrailingNotApproved": "Nalog je izvršen, ali trailing stop nije postavljen jer nije odobren.",
+  "getAppBannerTitle": "Preuzmi aplikaciju Kute",
+  "getAppBannerSubtitle": "Dostupno za iPhone i Android",
+  "chartPriceScale": "Cjenovna skala",
+  "shareOpenInBrowserSafari": "Ova stranica otvorena je unutar druge aplikacije. Za Face ID i da zadržite novčanik, otvorite je u Safariju.",
+  "shareOpenInBrowserChrome": "Ova stranica otvorena je unutar druge aplikacije. Za korištenje pristupnog ključa i da zadržite novčanik, otvorite je u Chromeu.",
+  "shareOpenInAppBody": "Imate aplikaciju Kute? Otvorite ovo ondje.",
+  "shareOpenInApp": "Otvori u aplikaciji"
 }

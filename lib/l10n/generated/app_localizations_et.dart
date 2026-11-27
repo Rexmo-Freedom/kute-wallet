@@ -12224,9 +12224,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nimi või krüptoaadress';
 
   @override
-  String get shareGetKuteLine => 'Löö kaasa: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Teisalda oma Dollaritesse';
 
   @override
@@ -14703,4 +14700,27 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get hlAdvTrailingNotApproved =>
       'Tellimus täideti, kuid jälgivat stoppi ei esitatud, sest seda ei kinnitatud.';
+
+  @override
+  String get getAppBannerTitle => 'Laadi alla Kute äpp';
+
+  @override
+  String get getAppBannerSubtitle => 'Saadaval iPhone\'ile ja Androidile';
+
+  @override
+  String get chartPriceScale => 'Hinnaskaala';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'See leht on avatud teises rakenduses. Face ID kasutamiseks ja rahakoti hoidmiseks ava see Safaris.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'See leht on avatud teises rakenduses. Pääsuvõtme kasutamiseks ja rahakoti hoidmiseks ava see Chrome\'is.';
+
+  @override
+  String get shareOpenInAppBody => 'Sul on Kute rakendus? Ava see seal.';
+
+  @override
+  String get shareOpenInApp => 'Ava rakenduses';
 }

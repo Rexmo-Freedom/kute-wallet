@@ -12292,9 +12292,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nombre o dirección cripto';
 
   @override
-  String get shareGetKuteLine => 'Súmate a la acción en getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Mover a tus Dólares';
 
   @override
@@ -14796,4 +14793,27 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get hlAdvTrailingNotApproved =>
       'La orden se ejecutó, pero el trailing stop no se colocó porque no se aprobó.';
+
+  @override
+  String get getAppBannerTitle => 'Descarga la app de Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Disponible para iPhone y Android';
+
+  @override
+  String get chartPriceScale => 'Escala de precios';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Esta página está abierta dentro de otra app. Para usar Face ID y conservar tu monedero, ábrela en Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Esta página está abierta dentro de otra app. Para usar una llave de acceso y conservar tu monedero, ábrela en Chrome.';
+
+  @override
+  String get shareOpenInAppBody => '¿Tienes la app de Kute? Ábrelo allí.';
+
+  @override
+  String get shareOpenInApp => 'Abrir en la app';
 }

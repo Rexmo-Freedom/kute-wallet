@@ -19,3 +19,11 @@ Uri? appStoreListingUri(String? appStoreId) {
   if (id.isEmpty) return null;
   return Uri.parse('https://apps.apple.com/app/id$id');
 }
+
+/// The app's Android package (android/app/build.gradle's applicationId).
+const String kAndroidPackage = 'com.kutewallet.app';
+
+/// The Google Play listing for the app: a plain store link, no tracking
+/// parameters.
+Uri playStoreListingUri() => Uri.https(
+    'play.google.com', '/store/apps/details', {'id': kAndroidPackage});

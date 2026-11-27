@@ -12285,9 +12285,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Imię lub dowolny adres krypto';
 
   @override
-  String get shareGetKuteLine => 'Dołącz do akcji na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Przenieś na twoje Dolary';
 
   @override
@@ -14764,4 +14761,27 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get hlAdvTrailingNotApproved =>
       'Zlecenie zrealizowano, ale trailing stop nie został złożony, bo nie został zatwierdzony.';
+
+  @override
+  String get getAppBannerTitle => 'Pobierz aplikację Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Dostępna na iPhone\'a i Androida';
+
+  @override
+  String get chartPriceScale => 'Skala cen';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Ta strona jest otwarta w innej aplikacji. Aby użyć Face ID i zachować portfel, otwórz ją w Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Ta strona jest otwarta w innej aplikacji. Aby użyć klucza dostępu i zachować portfel, otwórz ją w Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Masz aplikację Kute? Otwórz to tam.';
+
+  @override
+  String get shareOpenInApp => 'Otwórz w aplikacji';
 }

@@ -189,8 +189,8 @@ class _DollarsTopBalance extends ConsumerWidget {
                 figure.stale ? c.textSecondary : c.textPrimary),
           ),
         ),
-        line: SizedBox(
-          width: KuteTopBarBalance.maxWidth,
+        // Its own width (the halves at their text's), never the cap's.
+        line: IntrinsicWidth(
           child: OneBalancePnlAvailableLine(
             available: amount(split.availableUsd),
             availableLabel: context.l10n.available,

@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance}% πιθανότητα",
   "sendRecipientSearchHint": "Όνομα, κινητό ή διεύθυνση κρύπτο",
   "sendRecipientSearchHintNoPhone": "Όνομα ή διεύθυνση κρύπτο",
-  "shareGetKuteLine": "Μπες κι εσύ στη δράση στο getkute.com",
   "sendMoveToYourDollars": "Μεταφορά στα Δολάριά σου",
   "sendMoveToYourBitcoin": "Μεταφορά στο Bitcoin σου",
   "sendWhatTitle": "Αποστολή σε {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Και οι δύο τιμές πρέπει να είναι κάτω από την τρέχουσα τιμή.",
   "hlAdvScaleAbovePrice": "Και οι δύο τιμές πρέπει να είναι πάνω από την τρέχουσα τιμή.",
   "hlAdvSlPastLiquidation": "Αυτό το stop-loss είναι πέρα από την εκτιμώμενη τιμή ρευστοποίησης, οπότε η θέση μπορεί να ρευστοποιηθεί πρώτα.",
-  "hlAdvTrailingNotApproved": "Η εντολή εκτελέστηκε, αλλά το trailing stop δεν τοποθετήθηκε επειδή δεν εγκρίθηκε."
+  "hlAdvTrailingNotApproved": "Η εντολή εκτελέστηκε, αλλά το trailing stop δεν τοποθετήθηκε επειδή δεν εγκρίθηκε.",
+  "getAppBannerTitle": "Κατέβασε την εφαρμογή Kute",
+  "getAppBannerSubtitle": "Διαθέσιμη για iPhone και Android",
+  "chartPriceScale": "Κλίμακα τιμών",
+  "shareOpenInBrowserSafari": "Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για Face ID και για να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Safari.",
+  "shareOpenInBrowserChrome": "Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για να χρησιμοποιήσετε κλειδί πρόσβασης και να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Chrome.",
+  "shareOpenInAppBody": "Έχετε την εφαρμογή Kute; Ανοίξτε το εκεί.",
+  "shareOpenInApp": "Άνοιγμα στην εφαρμογή"
 }

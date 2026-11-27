@@ -11,7 +11,6 @@ import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 
@@ -35,7 +34,7 @@ void main() {
       'kute_affiliate_session_address':
           jsonEncode({'pubkey': _pubkey, 'address': 'alice@paykute.com'}),
     });
-    AppsFlyerService.clearCapturedReferrer();
+    AffiliateService.clearCapturedReferrer();
     WalletIdentityService.debugBind(
         pubkey: _pubkey, signer: (_) async => 'cd' * 65);
     AffiliateService.debugSessionToken = null;

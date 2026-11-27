@@ -3354,7 +3354,6 @@
   "shareMarketChance": "Šanca {chance} %",
   "sendRecipientSearchHint": "Meno, telefón či krypto adresa",
   "sendRecipientSearchHintNoPhone": "Meno či krypto adresa",
-  "shareGetKuteLine": "Pridaj sa k akcii na getkute.com",
   "sendMoveToYourDollars": "Presunúť na tvoje Doláre",
   "sendMoveToYourBitcoin": "Presunúť na tvoj Bitcoin",
   "sendWhatTitle": "Príjemca: {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Obe ceny musia byť pod aktuálnou cenou.",
   "hlAdvScaleAbovePrice": "Obe ceny musia byť nad aktuálnou cenou.",
   "hlAdvSlPastLiquidation": "Tento stop-loss je za odhadovanou likvidačnou cenou, takže pozícia môže byť zlikvidovaná skôr.",
-  "hlAdvTrailingNotApproved": "Objednávka sa vyplnila, ale trailing stop nebol zadaný, pretože nebol schválený."
+  "hlAdvTrailingNotApproved": "Objednávka sa vyplnila, ale trailing stop nebol zadaný, pretože nebol schválený.",
+  "getAppBannerTitle": "Stiahni si aplikáciu Kute",
+  "getAppBannerSubtitle": "K dispozícii pre iPhone a Android",
+  "chartPriceScale": "Cenová škála",
+  "shareOpenInBrowserSafari": "Táto stránka je otvorená v inej aplikácii. Pre Face ID a zachovanie peňaženky ju otvorte v Safari.",
+  "shareOpenInBrowserChrome": "Táto stránka je otvorená v inej aplikácii. Ak chcete použiť prístupový kľúč a zachovať peňaženku, otvorte ju v Chrome.",
+  "shareOpenInAppBody": "Máte aplikáciu Kute? Otvorte to tam.",
+  "shareOpenInApp": "Otvoriť v aplikácii"
 }

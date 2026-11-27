@@ -1,3 +1,5 @@
+import 'package:kute/screens/share/share_wallet_gate.dart';
+import 'package:kute/services/share_target.dart';
 import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/helpers/root_navigator.dart' show kuteRootContext;
@@ -569,6 +571,52 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // shows no notice and counts nothing.
     final inPlace = BetSlipInPlaceHost.maybeOf(context);
     final quiet = inPlace?.quietOpen ?? false;
+    // No wallet at all (a shared market's guest page): the wallet comes
+    // first, then this same slip (share_wallet_gate.dart). A quiet open
+    // (the wide page's pane on its own) shows nothing.
+    if (ledgerWalletId == null &&
+        sendPick == null &&
+        ShareWalletGate.needsWallet(context)) {
+      if (quiet) return;
+      return ShareWalletGate.open(context,
+          target: ShareTarget.of(
+              investing: false,
+              slug: event?.slug ?? marketSlug,
+              outcome: outcomes.isNotEmpty &&
+                      initialOutcomeIndex >= 0 &&
+                      initialOutcomeIndex < outcomes.length &&
+                      outcomes.length > 1 &&
+                      event != null &&
+                      event.outcomes.length > 2
+                  ? outcomes[initialOutcomeIndex].name
+                  : null),
+          pick: ShareWalletPick(
+              outcome: outcomes.isNotEmpty &&
+                      initialOutcomeIndex >= 0 &&
+                      initialOutcomeIndex < outcomes.length
+                  ? outcomes[initialOutcomeIndex].name
+                  : null,
+              buyNo: initialBuyNo),
+          resume: () => BetSlipSheet.show(context,
+              marketQuestion: marketQuestion,
+              marketSlug: marketSlug,
+              marketImage: marketImage,
+              outcomes: outcomes,
+              initialOutcomeIndex: initialOutcomeIndex,
+              onDeposit: onDeposit,
+              marketEndAt: marketEndAt,
+              marketCategory: marketCategory,
+              initialBuyNo: initialBuyNo,
+              sideLabelPos: sideLabelPos,
+              sideLabelNeg: sideLabelNeg,
+              outcomeColors: outcomeColors,
+              outcomeLabels: outcomeLabels,
+              initialAmountUsd: initialAmountUsd,
+              negRisk: negRisk,
+              source: source,
+              event: event,
+              widePage: widePage));
+    }
     // A Ledger bet answers to Ledger Predictions (`ledger.polymarket`)
     // first, wherever the slip was opened from (the Ledger Predictions
     // tab, search, a market page). Sells, claims and withdrawals keep

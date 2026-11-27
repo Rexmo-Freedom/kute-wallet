@@ -12275,9 +12275,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Naam of elk crypto-adres';
 
   @override
-  String get shareGetKuteLine => 'Doe mee op getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Verplaats naar je Dollars';
 
   @override
@@ -14765,4 +14762,27 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get hlAdvTrailingNotApproved =>
       'De order is uitgevoerd, maar de trailing stop is niet geplaatst omdat die niet is goedgekeurd.';
+
+  @override
+  String get getAppBannerTitle => 'Download de Kute-app';
+
+  @override
+  String get getAppBannerSubtitle => 'Beschikbaar voor iPhone en Android';
+
+  @override
+  String get chartPriceScale => 'Prijsschaal';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Deze pagina is geopend in een andere app. Open hem in Safari voor Face ID en om je wallet te houden.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Deze pagina is geopend in een andere app. Open hem in Chrome om een toegangssleutel te gebruiken en je wallet te houden.';
+
+  @override
+  String get shareOpenInAppBody => 'Heb je de Kute-app? Open het daar.';
+
+  @override
+  String get shareOpenInApp => 'Openen in de app';
 }

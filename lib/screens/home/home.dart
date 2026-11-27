@@ -1,3 +1,4 @@
+import 'package:kute/screens/home/components/get_app_notice.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -435,7 +436,12 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: SecurityActionCard(),
-            ),
+            )
+          else
+            // Web only: the "get the app" notice, where the backup
+            // reminder stands; that one wins (get_app_notice.dart).
+            const GetAppNotice(
+                surface: 'bitcoin', padding: EdgeInsets.only(bottom: 12)),
         ],
       );
 
@@ -509,6 +515,15 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
           child: Padding(
             padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
             child: const SecurityActionCard(),
+          ),
+        )
+      else
+        // Web only: the "get the app" notice, where the backup reminder
+        // stands; that one wins (get_app_notice.dart).
+        SliverToBoxAdapter(
+          child: GetAppNotice(
+            surface: 'bitcoin',
+            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
           ),
         ),
 

@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance} %:n todennäköisyys",
   "sendRecipientSearchHint": "Nimi, puhelin tai kryptoosoite",
   "sendRecipientSearchHintNoPhone": "Nimi tai kryptoosoite",
-  "shareGetKuteLine": "Lähde mukaan: getkute.com",
   "sendMoveToYourDollars": "Siirrä Dollareihisi",
   "sendMoveToYourBitcoin": "Siirrä Bitcoiniisi",
   "sendWhatTitle": "Vastaanottaja: {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Kummankin hinnan on oltava nykyhinnan alapuolella.",
   "hlAdvScaleAbovePrice": "Kummankin hinnan on oltava nykyhinnan yläpuolella.",
   "hlAdvSlPastLiquidation": "Tämä stop-loss on arvioidun likvidaatiohinnan takana, joten positio voidaan likvidoida ensin.",
-  "hlAdvTrailingNotApproved": "Toimeksianto toteutui, mutta seuraavaa stoppia ei asetettu, koska sitä ei hyväksytty."
+  "hlAdvTrailingNotApproved": "Toimeksianto toteutui, mutta seuraavaa stoppia ei asetettu, koska sitä ei hyväksytty.",
+  "getAppBannerTitle": "Lataa Kute-sovellus",
+  "getAppBannerSubtitle": "Saatavilla iPhonelle ja Androidille",
+  "chartPriceScale": "Hinta-asteikko",
+  "shareOpenInBrowserSafari": "Tämä sivu on auki toisessa sovelluksessa. Avaa se Safarissa, jotta voit käyttää Face ID:tä ja lompakkosi säilyy.",
+  "shareOpenInBrowserChrome": "Tämä sivu on auki toisessa sovelluksessa. Avaa se Chromessa, jotta voit käyttää pääsyavainta ja lompakkosi säilyy.",
+  "shareOpenInAppBody": "Onko sinulla Kute-sovellus? Avaa tämä siellä.",
+  "shareOpenInApp": "Avaa sovelluksessa"
 }

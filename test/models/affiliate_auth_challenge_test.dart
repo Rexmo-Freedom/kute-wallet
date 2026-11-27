@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/models/affiliate_model.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 
@@ -34,7 +33,7 @@ void main() {
     signed.clear();
     events.clear();
     requests.clear();
-    AppsFlyerService.clearCapturedReferrer();
+    AffiliateService.clearCapturedReferrer();
     WalletIdentityService.debugBind(
       pubkey: _pubkey,
       signer: (message) async {
@@ -102,9 +101,13 @@ void main() {
     final canonical = [
       body['paykute_address'] ?? '',
       body['referred_by_code'] ?? '',
-      body['appsflyer_id'] ?? '',
-      body['af_platform'] ?? '',
+      // The backend's two install-attribution fields, never sent now:
+      // empty, exactly as auth_challenge.go reads an absent field.
+      '',
+      '',
     ].join('\n');
+    expect(body.containsKey('appsflyer_id'), isFalse);
+    expect(body.containsKey('af_platform'), isFalse);
     expect(body['paykute_address'], 'alice@paykute.com');
     expect(body['referred_by_code'], 'FRIEND7');
     expect(body['challenge'], '$challenge|${_sha256Hex(canonical)}');
@@ -126,6 +129,9 @@ void main() {
     final c = WalletIdentityService.canonicalAuthBodyDigest(
         paykuteAddress: 'alice@paykute.com', referredByCode: 'X');
     expect(a, _sha256Hex('alice@paykute.com\n\n\n'));
+    // The backend's canonicalBodyDigest(address, code, "", ""): four
+    // fields, newline-joined, the last two empty.
+    expect(c, _sha256Hex('alice@paykute.com\nX\n\n'));
     expect({a, b, c}, hasLength(3));
   });
 

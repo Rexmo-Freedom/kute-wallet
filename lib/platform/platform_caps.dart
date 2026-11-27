@@ -58,8 +58,6 @@ abstract final class PlatformCaps {
   /// Elsewhere "Rate the app" opens the App Store page in a new tab.
   static bool get hasInAppReview => _mobile || _macos;
 
-  /// `appsflyer_sdk`: install attribution. iOS and Android only.
-  static bool get hasAppsFlyer => _mobile;
 
   /// `firebase_crashlytics`: iOS, Android, macOS. Off on web and Windows.
   static bool get hasCrashlytics => _mobile || _macos;

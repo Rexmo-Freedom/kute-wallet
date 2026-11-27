@@ -3824,6 +3824,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
               margin: const EdgeInsets.symmetric(vertical: 4),
               color: c.border,
             ),
+            // The price lines and their labels (hl_drawing_rail.dart).
+            HlPriceScaleRailButton(
+              large: wide,
+              extra: {
+                'coin': widget.market.coin,
+                ...VenueAnalytics.hlAssetParams(widget.market.coin),
+              },
+            ),
             Builder(
               builder: (anchor) => HlRailButton(
                 key: const ValueKey('hl-chart-rail-more'),
@@ -4503,6 +4511,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 context, ref, line,
                 decimalCap: widget.market.pxDecimalCap)),
             drawingMode: _drawingMode,
+            priceScale: layout.priceScale,
             armedTool: _armedTool,
             armedColorValue: _armedColorValue,
             magnet: preferences.magnet,

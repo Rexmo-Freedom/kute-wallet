@@ -11802,9 +11802,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => '名前または暗号資産アドレス';
 
   @override
-  String get shareGetKuteLine => 'getkute.com で参加しよう';
-
-  @override
   String get sendMoveToYourDollars => 'ドルへ移動';
 
   @override
@@ -14248,4 +14245,27 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get hlAdvTrailingNotApproved =>
       '注文は約定しましたが、承認されなかったためトレーリングストップは出されませんでした。';
+
+  @override
+  String get getAppBannerTitle => 'Kuteアプリを入手';
+
+  @override
+  String get getAppBannerSubtitle => 'iPhoneとAndroidで利用できます';
+
+  @override
+  String get chartPriceScale => '価格スケール';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'このページは別のアプリ内で開いています。Face IDを使いウォレットを保つには、Safariで開いてください。';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'このページは別のアプリ内で開いています。パスキーを使いウォレットを保つには、Chromeで開いてください。';
+
+  @override
+  String get shareOpenInAppBody => 'Kuteアプリをお持ちですか？アプリで開きましょう。';
+
+  @override
+  String get shareOpenInApp => 'アプリで開く';
 }

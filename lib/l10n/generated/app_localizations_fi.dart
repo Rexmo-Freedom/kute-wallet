@@ -12252,9 +12252,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nimi tai kryptoosoite';
 
   @override
-  String get shareGetKuteLine => 'Lähde mukaan: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Siirrä Dollareihisi';
 
   @override
@@ -14742,4 +14739,28 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get hlAdvTrailingNotApproved =>
       'Toimeksianto toteutui, mutta seuraavaa stoppia ei asetettu, koska sitä ei hyväksytty.';
+
+  @override
+  String get getAppBannerTitle => 'Lataa Kute-sovellus';
+
+  @override
+  String get getAppBannerSubtitle => 'Saatavilla iPhonelle ja Androidille';
+
+  @override
+  String get chartPriceScale => 'Hinta-asteikko';
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Tämä sivu on auki toisessa sovelluksessa. Avaa se Safarissa, jotta voit käyttää Face ID:tä ja lompakkosi säilyy.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Tämä sivu on auki toisessa sovelluksessa. Avaa se Chromessa, jotta voit käyttää pääsyavainta ja lompakkosi säilyy.';
+
+  @override
+  String get shareOpenInAppBody =>
+      'Onko sinulla Kute-sovellus? Avaa tämä siellä.';
+
+  @override
+  String get shareOpenInApp => 'Avaa sovelluksessa';
 }

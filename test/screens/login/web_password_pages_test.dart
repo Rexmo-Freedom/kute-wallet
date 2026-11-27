@@ -1,11 +1,15 @@
-// The laptop browser's password lock (unlock_secret.dart) on the pages
-// that ask for the PIN: create, confirm, unlock, the lock overlay and the
-// one-time upgrade of a PIN vault. A touch-first browser and the native
-// apps keep the PIN pad. Every secret here is a test literal.
+// One secret on the web (unlock_secret.dart, 27 November 2026): every new
+// vault takes the 6-digit PIN, laptop browsers included, and on a laptop
+// the PIN pad takes digits and Backspace from the keyboard on the create,
+// confirm and unlock screens. A vault made with a password (24 to 27
+// November) still asks for it on unlock, the lock overlay and the gate
+// sheet; there is no password upgrade. Every secret here is a test
+// literal.
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +18,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/platform/browser_signals.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/unlock_secret.dart';
 import 'package:kute/providers/auth_provider.dart';
@@ -25,11 +30,9 @@ import 'package:kute/screens/login/open_pin.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
-import 'package:kute/screens/shared/kute_dialog.dart' show KuteInPlaceFoot;
 import 'package:kute/screens/shared/kute_password_field.dart';
 import 'package:kute/screens/shared/kute_split_screen.dart';
 import 'package:kute/screens/shared/lock_overlay.dart';
-import 'package:kute/screens/shared/password_upgrade_page.dart';
 import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
@@ -119,12 +122,27 @@ void main() {
 
   tearDown(() {
     SecretStores.debugReset();
-    UnlockSecret.debugDeviceKind = null;
     UnlockSecret.debugVaultKind = null;
+    debugBrowserSignals = null;
+    KuteKeypadHardwareKeys.debugIsWeb = false;
   });
 
+  /// A Mac laptop's browser.
+  void laptopBrowser() {
+    debugBrowserSignals = const BrowserSignals(
+      maxTouchPoints: 0,
+      coarsePointer: false,
+      noHover: false,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+          'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+    );
+    KuteKeypadHardwareKeys.debugIsWeb = true;
+  }
+
+  /// A laptop browser holding a vault made with a password (24 to 27
+  /// November 2026).
   void laptop() {
-    UnlockSecret.debugDeviceKind = VaultSecretKind.password;
+    laptopBrowser();
     UnlockSecret.debugVaultKind = VaultSecretKind.password;
   }
 
@@ -198,47 +216,186 @@ void main() {
   EditableText editable(WidgetTester tester) =>
       tester.widget<EditableText>(find.byType(EditableText));
 
-  group('laptop browser', () {
-    testWidgets('create: one obscured, autofocused field, the rule, no pad; '
-        'Next only at 10 characters', (tester) async {
-      laptop();
+  Settings biometricSettings() => Settings(
+        wallets: [WalletConfig(id: 'w1', name: 'Spending')],
+        activeWalletId: 'w1',
+        currency: 'USD',
+        language: 'en',
+        btcFormat: 'sats',
+        backup: true,
+        biometricsEnabled: true,
+        bitcoinElectrumNode: 'ssl://example.com:50002',
+        nodeType: 'electrum',
+        reviewDone: true,
+      );
+
+  Future<void> letUnlockRun(WidgetTester tester) async {
+    // The unlock reads Hive (real file I/O): let it run.
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await settle(tester);
+  }
+
+
+  Future<void> key(WidgetTester tester, LogicalKeyboardKey k,
+      {String? character}) async {
+    await tester.sendKeyDownEvent(k, character: character);
+    await tester.sendKeyUpEvent(k);
+    await tester.pump();
+  }
+
+  Future<void> typeDigits(WidgetTester tester, String digits) async {
+    const keys = {
+      '0': LogicalKeyboardKey.digit0,
+      '1': LogicalKeyboardKey.digit1,
+      '2': LogicalKeyboardKey.digit2,
+      '3': LogicalKeyboardKey.digit3,
+      '4': LogicalKeyboardKey.digit4,
+      '5': LogicalKeyboardKey.digit5,
+      '6': LogicalKeyboardKey.digit6,
+      '7': LogicalKeyboardKey.digit7,
+      '8': LogicalKeyboardKey.digit8,
+      '9': LogicalKeyboardKey.digit9,
+    };
+    for (final d in digits.split('')) {
+      await key(tester, keys[d]!, character: d);
+    }
+  }
+
+  int dots(WidgetTester tester) => tester
+      .widget<PinProgressIndicator>(find.byType(PinProgressIndicator))
+      .currentLength;
+
+  group('every new vault takes the PIN, laptop browsers included', () {
+    testWidgets('create: the PIN pad, no password field; the keyboard '
+        'types digits and Backspace removes one', (tester) async {
+      laptopBrowser();
       final container = await pump(tester, '/set_pin');
-      expect(find.text('Create a password'), findsOneWidget);
-      expect(find.byType(KutePasswordField), findsOneWidget);
-      expect(find.byType(CustomKeypad), findsNothing);
-      expect(find.text('At least 10 characters'), findsWidgets);
-      final field = editable(tester);
-      expect(field.obscureText, isTrue);
-      expect(field.autofocus, isTrue);
-      expect(field.autofillHints, [AutofillHints.newPassword]);
-
-      await typeAndEnter(tester, '123456789');
-      expect(kuteBarPrimaryContext(tester).enabled, isFalse);
-      expect(container.read(pinProvider), isEmpty);
-
-      await tester.tap(find.byKey(const ValueKey('kute-password-visibility')));
-      await tester.pump();
-      expect(editable(tester).obscureText, isFalse);
-
-      await typeAndEnter(tester, testPassword);
-      expect(container.read(pinProvider), testPassword);
+      expect(find.text('Create a PIN'), findsOneWidget);
+      expect(find.byType(CustomKeypad), findsOneWidget);
+      expect(find.byType(KutePasswordField), findsNothing);
+      expect(find.text('Create a password'), findsNothing);
+      await typeDigits(tester, '123');
+      expect(dots(tester), 3);
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(dots(tester), 2);
+      // Letters type nothing.
+      await key(tester, LogicalKeyboardKey.keyA, character: 'a');
+      expect(dots(tester), 2);
+      await typeDigits(tester, '3456');
+      expect(dots(tester), 6);
+      // A seventh digit is refused, as on the pad.
+      await typeDigits(tester, '7');
+      expect(dots(tester), 6);
       await settle(tester);
+      expect(kuteBarPrimaryContext(tester).enabled, isTrue);
+      kuteBarPrimaryContext(tester).onPrimary!();
+      await settle(tester);
+      expect(container.read(pinProvider), '123456');
     });
 
-    testWidgets('confirm: a different password does not match', (tester) async {
-      laptop();
+    testWidgets('confirm: the keyboard types the PIN again', (tester) async {
+      laptopBrowser();
       await pump(tester, '/confirm_pin', overrides: [
-        pinProvider.overrideWith((ref) => testPassword),
+        pinProvider.overrideWith((ref) => '123456'),
       ]);
-      expect(find.text('Confirm your password'), findsOneWidget);
-      expect(find.byType(CustomKeypad), findsNothing);
-      expect(editable(tester).autofillHints, [AutofillHints.newPassword]);
-      await typeAndEnter(tester, 'correct horse batterY');
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text("Passwords don't match"), findsOneWidget);
-      expect(editable(tester).controller.text, isEmpty);
+      expect(find.byType(CustomKeypad), findsOneWidget);
+      expect(find.byType(KutePasswordField), findsNothing);
+      await typeDigits(tester, '1235');
+      expect(dots(tester), 4);
+      await key(tester, LogicalKeyboardKey.backspace);
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(dots(tester), 2);
+      await typeDigits(tester, '3456');
+      expect(dots(tester), 6);
+      await settle(tester);
+      expect(kuteBarPrimaryContext(tester).enabled, isTrue);
+      expect(kuteBarPrimaryContext(tester).label, 'Set PIN');
     });
 
+    testWidgets('unlock: a PIN vault is typed from the keyboard and goes '
+        'straight on, no password asked', (tester) async {
+      laptopBrowser();
+      keychain.seed('pin', '111111');
+      await pump(tester, '/open_pin');
+      expect(find.byType(CustomKeypad), findsOneWidget);
+      expect(find.byType(KutePasswordField), findsNothing);
+      await typeDigits(tester, '12');
+      await key(tester, LogicalKeyboardKey.backspace);
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(dots(tester), 0);
+      await typeDigits(tester, '111111');
+      await tester.pump(const Duration(milliseconds: 150));
+      await letUnlockRun(tester);
+      expect(find.text('Create a password'), findsNothing);
+      expect(find.byType(KutePasswordField), findsNothing);
+      expect(find.textContaining('route:home'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 7));
+    });
+
+    testWidgets('unlock: a wrong PIN from the keyboard counts',
+        (tester) async {
+      laptopBrowser();
+      keychain.seed('pin', '111111');
+      await pump(tester, '/open_pin');
+      await typeDigits(tester, '222222');
+      await tester.pump(const Duration(milliseconds: 150));
+      await settle(tester);
+      expect(keychain.peek('failed_pin_attempts'), '1');
+      expect(find.text('5 attempts remaining'), findsOneWidget);
+    });
+
+    testWidgets('a PIN vault opened by biometrics goes straight on',
+        (tester) async {
+      laptopBrowser();
+      final auth = _PassingBiometrics();
+      final container = await pump(tester, '/open_pin',
+          localAuth: auth, settings: biometricSettings);
+      await letUnlockRun(tester);
+      expect(auth.prompts, 1);
+      expect(find.text('Create a password'), findsNothing);
+      expect(find.textContaining('route:home'), findsOneWidget);
+      expect(container.read(sessionAuthProvider)?.method,
+          UnlockMethod.biometric);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 7));
+    });
+
+    testWidgets('the lock overlay: the PIN pad, typed from the keyboard',
+        (tester) async {
+      laptopBrowser();
+      keychain.seed('pin', '111111');
+      await pump(tester, '/', lock: true);
+      expect(find.byType(CustomKeypad), findsOneWidget);
+      expect(find.byType(KutePasswordField), findsNothing);
+      await typeDigits(tester, '123');
+      expect(dots(tester), 3);
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(dots(tester), 2);
+      await key(tester, LogicalKeyboardKey.backspace);
+      await key(tester, LogicalKeyboardKey.backspace);
+      // A wrong PIN typed in full is checked and counted.
+      await typeDigits(tester, '222222');
+      await tester.pump(const Duration(milliseconds: 150));
+      await settle(tester);
+      expect(keychain.peek('failed_pin_attempts'), '1');
+      expect(dots(tester), 0);
+    });
+
+    testWidgets('native: the keyboard types nothing on the pad (the phones '
+        'as they were)', (tester) async {
+      // No web flag: a hardware keyboard on an iPad stays as today.
+      await pump(tester, '/set_pin', size: const Size(430, 932));
+      await typeDigits(tester, '123');
+      expect(dots(tester), 0);
+    });
+  });
+
+  group('a vault made with a password, in a laptop browser', () {
     testWidgets('unlock: Welcome Back, a wrong password counts like a PIN',
         (tester) async {
       laptop();
@@ -253,32 +410,6 @@ void main() {
       expect(keychain.peek('failed_pin_attempts'), '1');
       expect(find.text('5 attempts remaining'), findsOneWidget);
       expect(editable(tester).controller.text, isEmpty);
-    });
-
-    testWidgets('a PIN vault: after its PIN, a password must be created '
-        'before going on', (tester) async {
-      UnlockSecret.debugDeviceKind = VaultSecretKind.password;
-      UnlockSecret.debugVaultKind = VaultSecretKind.pin;
-      keychain.seed('pin', '111111');
-      await pump(tester, '/open_pin');
-      // The vault is a PIN vault: the pad, until the PIN opens it.
-      expect(find.byType(CustomKeypad), findsOneWidget);
-      for (final d in '111111'.split('')) {
-        await tester.tap(find.text(d));
-        await tester.pump();
-      }
-      await tester.pump(const Duration(milliseconds: 150));
-      // The unlock reads Hive (real file I/O): let it run.
-      for (var i = 0; i < 10; i++) {
-        await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-      await settle(tester);
-      expect(find.byType(PasswordUpgradePage), findsOneWidget);
-      expect(find.text('Create a password'), findsOneWidget);
-      expect(find.textContaining('route:home'), findsNothing);
-      expect(find.byType(CustomKeypad), findsNothing);
     });
 
     /// The page's primary: one, right under the password field (its rule
@@ -300,32 +431,6 @@ void main() {
     KuteBarContext drawn(WidgetTester tester) => tester
         .widget<KuteBarPrimaryButton>(find.byType(KuteBarPrimaryButton))
         .barContext;
-
-    testWidgets('create and confirm: the button sits under the field, '
-        'on as soon as the rule is met', (tester) async {
-      laptop();
-      await pump(tester, '/set_pin');
-      expectButtonUnderField(tester);
-      expect(drawn(tester).enabled, isFalse);
-      await tester.enterText(find.byType(TextField), '123456789');
-      await settle(tester);
-      expect(drawn(tester).enabled, isFalse);
-      await tester.enterText(find.byType(TextField), '1234567890');
-      await settle(tester);
-      expect(drawn(tester).enabled, isTrue);
-      expect(drawn(tester).label, 'Next');
-      expectButtonUnderField(tester);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
-
-      await pump(tester, '/confirm_pin', overrides: [
-        pinProvider.overrideWith((ref) => testPassword),
-      ]);
-      expectButtonUnderField(tester);
-      await tester.enterText(find.byType(TextField), testPassword);
-      await settle(tester);
-      expect(drawn(tester).enabled, isTrue);
-    });
 
     testWidgets('unlock: Unlock under the field, Forgot under the button; '
         'a tap checks it as Enter does', (tester) async {
@@ -349,57 +454,6 @@ void main() {
       expect(keychain.peek('failed_pin_attempts'), '1');
     });
 
-    testWidgets('a phone-sized laptop window keeps the floating bar',
-        (tester) async {
-      laptop();
-      await pump(tester, '/set_pin', size: const Size(430, 932));
-      // Not in a split screen: the page's own geometry, the bar draws it.
-      expect(find.byType(KuteInPlaceFoot), findsNothing);
-      final field = tester.getRect(find.byType(KutePasswordField));
-      final button = tester.getRect(find.byType(KuteBarPrimaryButton));
-      expect(button.top - field.bottom, greaterThan(200));
-    });
-
-    Settings biometricSettings() => Settings(
-          wallets: [WalletConfig(id: 'w1', name: 'Spending')],
-          activeWalletId: 'w1',
-          currency: 'USD',
-          language: 'en',
-          btcFormat: 'sats',
-          backup: true,
-          biometricsEnabled: true,
-          bitcoinElectrumNode: 'ssl://example.com:50002',
-          nodeType: 'electrum',
-          reviewDone: true,
-        );
-
-    Future<void> letUnlockRun(WidgetTester tester) async {
-      // The unlock reads Hive (real file I/O): let it run.
-      for (var i = 0; i < 10; i++) {
-        await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-      await settle(tester);
-    }
-
-    testWidgets('a PIN vault opened by biometrics: the password must still '
-        'be created before going on', (tester) async {
-      UnlockSecret.debugDeviceKind = VaultSecretKind.password;
-      UnlockSecret.debugVaultKind = VaultSecretKind.pin;
-      final auth = _PassingBiometrics();
-      final container = await pump(tester, '/open_pin',
-          localAuth: auth, settings: biometricSettings);
-      await letUnlockRun(tester);
-      // The automatic prompt on entry passed.
-      expect(auth.prompts, 1);
-      expect(find.byType(PasswordUpgradePage), findsOneWidget);
-      expect(find.text('Create a password'), findsOneWidget);
-      expect(find.textContaining('route:home'), findsNothing);
-      // Not unlocked until the password is made.
-      expect(container.read(sessionAuthProvider), isNull);
-    });
-
     testWidgets('a password vault opened by biometrics goes straight on',
         (tester) async {
       laptop();
@@ -408,29 +462,12 @@ void main() {
           localAuth: auth, settings: biometricSettings);
       await letUnlockRun(tester);
       expect(auth.prompts, 1);
-      expect(find.byType(PasswordUpgradePage), findsNothing);
       expect(find.textContaining('route:home'), findsOneWidget);
       expect(container.read(sessionAuthProvider)?.method,
           UnlockMethod.biometric);
       // The deferred post-unlock work (3 s and 6 s) runs out.
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 7));
-    });
-
-    testWidgets('the lock overlay: a biometric unlock of a PIN vault asks '
-        'for the password too', (tester) async {
-      UnlockSecret.debugDeviceKind = VaultSecretKind.password;
-      UnlockSecret.debugVaultKind = VaultSecretKind.pin;
-      final auth = _PassingBiometrics();
-      final container = await pump(tester, '/',
-          lock: true, localAuth: auth, settings: biometricSettings);
-      // The PIN pad's biometric key.
-      await tester.tap(find.byIcon(Icons.fingerprint_rounded));
-      await letUnlockRun(tester);
-      expect(auth.prompts, 1);
-      expect(find.byType(PasswordUpgradePage), findsOneWidget);
-      expect(container.read(appLockedProvider), isTrue);
-      expect(container.read(sessionAuthProvider), isNull);
     });
 
     testWidgets('the lock overlay asks for the password', (tester) async {
@@ -504,57 +541,14 @@ void main() {
     });
   });
 
-  testWidgets('upgrade page: create, confirm, then the host goes on',
-      (tester) async {
-    var done = false;
-    String? saved;
-    tester.view.physicalSize = const Size(1440, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(ProviderScope(
-      child: ScreenUtilInit(
-        designSize: KuteLayout.designSizeFor(const Size(1440, 900)),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(extensions: [AppColorsExtension.light()]),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: KuteSplitScreen(
-            child: PasswordUpgradePage(
-              onUpgraded: () => done = true,
-              upgrade: (p) async => saved = p,
-            ),
-          ),
-        ),
-      ),
-    ));
-    await settle(tester);
-    await typeAndEnter(tester, testPassword);
-    await settle(tester);
-    expect(find.text('Confirm your password'), findsOneWidget);
-    await typeAndEnter(tester, 'something else entirely');
-    await settle(tester);
-    expect(find.text("Passwords don't match"), findsOneWidget);
-    expect(find.text('Create a password'), findsOneWidget);
-    await typeAndEnter(tester, testPassword);
-    await settle(tester);
-    await typeAndEnter(tester, testPassword);
-    await settle(tester);
-    expect(saved, testPassword);
-    expect(done, isTrue);
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 3));
-  });
-
   group('touch-first browser and native keep the PIN pad', () {
-    for (final (label, size, kind) in [
-      ('phone-sized web', const Size(430, 932), VaultSecretKind.pin),
-      ('iPad landscape web', const Size(1180, 820), VaultSecretKind.pin),
-      ('native', const Size(430, 932), null),
+    for (final (label, size) in [
+      ('phone-sized web', const Size(430, 932)),
+      ('iPad landscape web', const Size(1180, 820)),
+      ('native', const Size(430, 932)),
     ]) {
       testWidgets('$label: create, confirm and unlock show the pad',
           (tester) async {
-        UnlockSecret.debugDeviceKind = kind;
         for (final route in ['/set_pin', '/confirm_pin', '/open_pin']) {
           await pump(tester, route, size: size);
           expect(find.byType(CustomKeypad), findsOneWidget, reason: route);

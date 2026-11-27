@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -37,6 +38,12 @@ class CustomKeypad extends StatelessWidget {
   /// with no border and a 24r corner, when nothing else is 24.
   final bool chromed;
 
+  /// Web only: a hardware keyboard's digits and Backspace press the keys
+  /// wherever this pad is (the PIN set, confirm and unlock screens on a
+  /// laptop; founder, 27 November 2026, the PIN on every browser), not
+  /// only inside a panel. Off the web it changes nothing.
+  final bool typeFromKeyboard;
+
   const CustomKeypad({
     super.key,
     required this.onDigitPressed,
@@ -46,6 +53,7 @@ class CustomKeypad extends StatelessWidget {
     this.onDecimalPressed,
     this.compact = false,
     this.chromed = false,
+    this.typeFromKeyboard = false,
   });
 
   double get _keyHeight => compact ? 56.h : 72.h;
@@ -77,6 +85,7 @@ class CustomKeypad extends StatelessWidget {
       onDigit: onDigitPressed,
       onBackspace: onBackspacePressed,
       onDecimal: showDecimal ? onDecimalPressed : null,
+      onWeb: typeFromKeyboard,
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 12.w),
         child: adaptive
@@ -609,51 +618,102 @@ class _RenderKeypadRows extends RenderBox
 /// its route is on top, and never while a text field has the focus or a
 /// shortcut modifier is held. A phone, and a keypad outside a panel (the
 /// slips in place have their own), are untouched.
+///
+/// [onWeb]: on the web the pad listens outside a panel too (the PIN pad
+/// on a laptop). When two listening pads are mounted at once (the lock
+/// overlay over a sheet's pad), only the newest one that may take keys
+/// does, so a digit never lands on a pad under the one on screen.
 class KuteKeypadHardwareKeys extends StatefulWidget {
   const KuteKeypadHardwareKeys({
     super.key,
     required this.onDigit,
     required this.onBackspace,
     this.onDecimal,
+    this.onWeb = false,
     required this.child,
   });
 
   final ValueSetter<String> onDigit;
   final VoidCallback onBackspace;
   final VoidCallback? onDecimal;
+  final bool onWeb;
   final Widget child;
+
+  /// Tests: run as if on the web.
+  @visibleForTesting
+  static bool debugIsWeb = false;
 
   @override
   State<KuteKeypadHardwareKeys> createState() => _KuteKeypadHardwareKeysState();
 }
 
 class _KuteKeypadHardwareKeysState extends State<KuteKeypadHardwareKeys> {
-  bool _listening = false;
+  /// The listening pads, oldest first.
+  static final List<_KuteKeypadHardwareKeysState> _listeners = [];
+
+  bool get _listening => _listeners.contains(this);
+
+  bool get _shouldListen =>
+      KuteDialogScope.inDialog(context) ||
+      (widget.onWeb && (kIsWeb || KuteKeypadHardwareKeys.debugIsWeb));
+
+  void _sync() {
+    final listen = _shouldListen;
+    if (listen && !_listening) {
+      if (_listeners.isEmpty) HardwareKeyboard.instance.addHandler(_dispatch);
+      _listeners.add(this);
+    } else if (!listen && _listening) {
+      _stop();
+    }
+  }
+
+  void _stop() {
+    _listeners.remove(this);
+    if (_listeners.isEmpty) HardwareKeyboard.instance.removeHandler(_dispatch);
+  }
+
+  /// The newest pad that may take keys gets the event; none below it.
+  static bool _dispatch(KeyEvent event) {
+    for (final pad in _listeners.reversed.toList()) {
+      if (pad._eligible()) return pad._onKey(event);
+    }
+    return false;
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final inDialog = KuteDialogScope.inDialog(context);
-    if (inDialog && !_listening) {
-      HardwareKeyboard.instance.addHandler(_onKey);
-      _listening = true;
-    } else if (!inDialog && _listening) {
-      HardwareKeyboard.instance.removeHandler(_onKey);
-      _listening = false;
-    }
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant KuteKeypadHardwareKeys oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.onWeb != widget.onWeb) _sync();
   }
 
   @override
   void dispose() {
-    if (_listening) HardwareKeyboard.instance.removeHandler(_onKey);
+    if (_listening) _stop();
     super.dispose();
   }
 
-  bool _onKey(KeyEvent event) {
+  /// Whether this pad is on screen and free to take keys.
+  bool _eligible() {
     if (!mounted) return false;
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
     if (ModalRoute.of(context)?.isCurrent == false) return false;
     if (!TickerMode.valuesOf(context).enabled) return false;
+    // A disabled pad (AmountKeypad's AbsorbPointer, a PIN pad's
+    // IgnorePointer while it checks or is locked out) takes no keys.
+    final absorb = context.findAncestorWidgetOfExactType<AbsorbPointer>();
+    if (absorb != null && absorb.absorbing) return false;
+    final ignore = context.findAncestorWidgetOfExactType<IgnorePointer>();
+    if (ignore != null && ignore.ignoring) return false;
+    return true;
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
     final focused = FocusManager.instance.primaryFocus?.context;
     if (focused != null &&
         (focused.widget is EditableText ||
@@ -666,9 +726,6 @@ class _KuteKeypadHardwareKeysState extends State<KuteKeypadHardwareKeys> {
         keyboard.isAltPressed) {
       return false;
     }
-    // A disabled pad (AmountKeypad's AbsorbPointer) takes no keys either.
-    final absorb = context.findAncestorWidgetOfExactType<AbsorbPointer>();
-    if (absorb != null && absorb.absorbing) return false;
     if (event.logicalKey == LogicalKeyboardKey.backspace) {
       widget.onBackspace();
       return true;

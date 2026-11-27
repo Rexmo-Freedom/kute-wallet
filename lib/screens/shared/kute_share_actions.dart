@@ -28,25 +28,21 @@
 // it on an open position) where something opens it with this context
 // (a long press on a primary button).
 //
-// THE MARKET LINK. The app has no market deep link yet (incoming links are
-// referral codes and `/c/{id}` claims, app_router.dart), so a shared
-// market points at the backend, which has to route it:
+// THE MARKET LINK (founder, 27 November 2026: every share opens the web
+// app on the thing shared, services/share_target.dart):
 //
-//     https://backend.kutewallet.com/m/predictions/{event slug}
-//     https://backend.kutewallet.com/m/investing/{coin}
+//     https://app.kutewallet.com/#/s/p/{event slug}
+//     https://app.kutewallet.com/#/s/i/{coin}
 //
-// [kKuteMarketLinkBase] + `/m/` + [venue] + `/` + [slug]; the referral
-// code is added as `?ref=CODE` by the share sheet.
+// the referral code added as `r=CODE` by the share sheet.
 //
 // ONE MARKET OF AN EVENT (founder, 7 November 2026: "sharing here should
 // be just the yes or no. only here is the full market"). A candidate
 // opened as its own Yes / No page (the ↑76,000 row of "What price will
 // Bitcoin hit November 2-8?") shares THAT market: its card is the
 // market's question and its Yes chance (share_card_sources.dart,
-// predictionCardFor's `candidate`), and its link names it as a send-a-pick
-// link does, by the candidate's name on the event:
-//
-//     https://backend.kutewallet.com/m/predictions/{event slug}?outcome={name}
+// predictionCardFor's `candidate`), and its link names it by the
+// candidate's name on the event, `o={name}`.
 //
 // The event page (all its outcomes) keeps sharing the whole event.
 //
@@ -82,9 +78,8 @@ import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
     show showBragPreviewSheet;
 import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
-
-/// Where a shared market's link points (see the file header).
-const String kKuteMarketLinkBase = 'https://backend.kutewallet.com';
+import 'package:kute/services/share_target.dart'
+    show ShareTarget, webInviteLink;
 
 /// The venue segment of a market link.
 const String kMarketLinkPredictions = 'predictions';
@@ -101,13 +96,9 @@ const String kShareVenueHyperliquid = 'hyperliquid';
 /// is then about that market alone.
 String marketShareLink(
     {required String venue, required String? slug, String? outcome}) {
-  final s = slug?.trim() ?? '';
-  if (s.isEmpty) return '$kKuteMarketLinkBase/m/$venue';
-  final base = '$kKuteMarketLinkBase/m/$venue/${Uri.encodeComponent(s)}';
-  final o = outcome?.trim() ?? '';
-  if (o.isEmpty) return base;
-  return Uri.parse(base)
-      .replace(queryParameters: {'outcome': o}).toString();
+  final target = ShareTarget.of(
+      investing: venue == kMarketLinkInvesting, slug: slug, outcome: outcome);
+  return target?.link() ?? webInviteLink(null);
 }
 
 /// The share-link venue for a market-link venue segment.

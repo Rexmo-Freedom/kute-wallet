@@ -3354,7 +3354,6 @@
   "shareMarketChance": "{chance}% tikimybė",
   "sendRecipientSearchHint": "Vardas, telefonas ar kripto adresas",
   "sendRecipientSearchHintNoPhone": "Vardas ar kripto adresas",
-  "shareGetKuteLine": "Prisijunk prie veiksmo: getkute.com",
   "sendMoveToYourDollars": "Perkelti į tavo Dolerius",
   "sendMoveToYourBitcoin": "Perkelti į tavo Bitcoin",
   "sendWhatTitle": "Gavėjas: {name}",
@@ -4146,5 +4145,12 @@
   "hlAdvScaleBelowPrice": "Abi kainos turi būti žemiau dabartinės kainos.",
   "hlAdvScaleAbovePrice": "Abi kainos turi būti aukščiau dabartinės kainos.",
   "hlAdvSlPastLiquidation": "Šis stop-loss yra už numatomos likvidavimo kainos, todėl pozicija gali būti likviduota anksčiau.",
-  "hlAdvTrailingNotApproved": "Pavedimas įvykdytas, bet slankusis stop nebuvo pateiktas, nes nebuvo patvirtintas."
+  "hlAdvTrailingNotApproved": "Pavedimas įvykdytas, bet slankusis stop nebuvo pateiktas, nes nebuvo patvirtintas.",
+  "getAppBannerTitle": "Atsisiųskite Kute programėlę",
+  "getAppBannerSubtitle": "Yra iPhone ir Android įrenginiams",
+  "chartPriceScale": "Kainų skalė",
+  "shareOpenInBrowserSafari": "Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti Face ID ir išsaugoti piniginę, atidarykite jį „Safari“.",
+  "shareOpenInBrowserChrome": "Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti prieigos raktą ir išsaugoti piniginę, atidarykite jį „Chrome“.",
+  "shareOpenInAppBody": "Turite „Kute“ programėlę? Atidarykite ten.",
+  "shareOpenInApp": "Atidaryti programėlėje"
 }
