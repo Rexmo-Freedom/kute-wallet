@@ -64,8 +64,11 @@ class AdvancedTicketFrame extends StatelessWidget {
   /// Wraps the content (a marker a page may need).
   final Key? contentKey;
 
-  /// The fade's height over the foot.
+  /// The fade's height over the foot (at least).
   static const double fadeHeight = 96;
+
+  /// How far over the primary the fade starts.
+  static const double fadeTop = 40;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +123,7 @@ class AdvancedTicketFrame extends StatelessWidget {
               left: 0,
               right: 0,
               bottom: 0,
-              height: fadeHeight + safe,
+              height: fadeTop + primaryHeight + safe,
               child: IgnorePointer(
                 child: DecoratedBox(
                   key: const ValueKey('advanced-ticket-fade'),
@@ -130,7 +133,17 @@ class AdvancedTicketFrame extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         c.background.withValues(alpha: 0),
-                        c.background.withValues(alpha: 0.92),
+                        c.background.withValues(alpha: 0.96),
+                        c.background.withValues(alpha: 0.98),
+                      ],
+                      // Clear ~40 px over the pill, ~96% by its centre.
+                      stops: [
+                        0,
+                        ((fadeTop + primaryHeight / 2) /
+                                (fadeTop + primaryHeight + safe))
+                            .clamp(0.2, 0.95)
+                            .toDouble(),
+                        1,
                       ],
                     ),
                   ),
@@ -329,8 +342,13 @@ class AdvancedTypeOption {
 }
 
 /// The order types as a row of 2 to 4 equal tiles (76 high), each a small
-/// painted glyph over its label; the selected one in the side colour. One
-/// sentence under the row ([explanation]) says what the selected type does.
+/// painted glyph over its label, in the app's own selection language: one
+/// hairline rail holding the tiles and one neutral filled pill for the
+/// selection (the house segmented track, HlSegmentTrack: the Dollars home's
+/// pills, the Bitcoin | Dollars switcher). One sentence under the row
+/// ([explanation]) says what the selected type does. [sideColor] is kept
+/// for callers and no longer paints the selection (the page's only colour
+/// is the sides, the primary and money figures).
 class AdvancedTypeTiles extends StatelessWidget {
   const AdvancedTypeTiles({
     super.key,
@@ -339,7 +357,11 @@ class AdvancedTypeTiles extends StatelessWidget {
     required this.onSelected,
     required this.sideColor,
     this.explanation,
+    this.tileHeight = 76,
   });
+
+  /// The tiles' height (a small phone takes 68).
+  final double tileHeight;
 
   final List<AdvancedTypeOption> options;
   final int selected;
@@ -354,13 +376,21 @@ class AdvancedTypeTiles extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
+        Container(
+          key: const ValueKey('advanced-type-track'),
+          padding: EdgeInsets.all(3.w),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: c.border, width: 0.5),
+          ),
+          child: Row(
           children: [
             for (var i = 0; i < options.length; i++) ...[
-              if (i > 0) SizedBox(width: 8.w),
               Expanded(
                 child: _TypeTile(
                   key: options[i].key,
+                  height: tileHeight,
                   option: options[i],
                   selected: i == selected,
                   sideColor: sideColor,
@@ -373,6 +403,7 @@ class AdvancedTypeTiles extends StatelessWidget {
               ),
             ],
           ],
+        ),
         ),
         if (explanation case final text?) ...[
           SizedBox(height: 10.h),
@@ -391,12 +422,14 @@ class _TypeTile extends StatelessWidget {
   const _TypeTile({
     super.key,
     required this.option,
+    this.height = 76,
     required this.selected,
     required this.sideColor,
     required this.onTap,
   });
 
   final AdvancedTypeOption option;
+  final double height;
   final bool selected;
   final Color sideColor;
   final VoidCallback onTap;
@@ -404,7 +437,7 @@ class _TypeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final ink = selected ? sideColor : c.textSecondary;
+    final ink = selected ? c.textPrimary : c.textSecondary;
     return Semantics(
       button: true,
       selected: selected,
@@ -415,14 +448,14 @@ class _TypeTile extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          height: 76,
+          // Inside the rail's 3 px padding: the tiles keep the row's height.
+          height: height - 6,
+          // The house segment: the selected one a surface pill with its
+          // hairline (HlTrackSegment), the others bare.
           decoration: BoxDecoration(
-            color: selected ? sideColor.withValues(alpha: 0.14) : c.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? sideColor : c.border,
-              width: selected ? 1.5 : 0.5,
-            ),
+            color: selected ? c.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(9.r),
+            border: selected ? Border.all(color: c.border) : null,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -438,7 +471,7 @@ class _TypeTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   color: selected ? c.textPrimary : c.textSecondary,
                 ),
               ),
@@ -527,7 +560,12 @@ class AdvancedStepper extends StatelessWidget {
     this.onTrailing,
     this.valueKey,
     this.enabled = true,
+    this.framed = true,
   });
+
+  /// False: the − value + row alone, no card and no label row (the odds
+  /// rail's card holds it as its last row, [AdvancedOddsTrack.footer]).
+  final bool framed;
 
   final String label;
   final String value;
@@ -543,6 +581,8 @@ class AdvancedStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final steps = _stepsRow(c);
+    if (!framed) return steps;
     return Container(
       padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
       decoration: AppDecorations.card(context),
@@ -552,12 +592,15 @@ class AdvancedStepper extends StatelessWidget {
         children: [
           Row(
             children: [
+              // An empty label: the card above names the pair.
               Expanded(
-                child: Text(label,
-                    style: TextStyle(
-                        fontSize: 14.sp,
-                        color: c.textSecondary,
-                        fontWeight: FontWeight.w600)),
+                child: label.isEmpty
+                    ? const SizedBox.shrink()
+                    : Text(label,
+                        style: TextStyle(
+                            fontSize: 14.sp,
+                            color: c.textSecondary,
+                            fontWeight: FontWeight.w600)),
               ),
               if (trailing case final t?)
                 GestureDetector(
@@ -578,7 +621,13 @@ class AdvancedStepper extends StatelessWidget {
             ],
           ),
           SizedBox(height: 8.h),
-          Row(
+          steps,
+        ],
+      ),
+    );
+  }
+
+  Widget _stepsRow(AppColorsExtension c) => Row(
             children: [
               _RoundStep(
                   key: const ValueKey('advanced-stepper-minus'),
@@ -609,11 +658,7 @@ class AdvancedStepper extends StatelessWidget {
                   enabled: enabled,
                   onStep: () => onStep(1)),
             ],
-          ),
-        ],
-      ),
-    );
-  }
+          );
 }
 
 /// A round 40 px step button; holding it repeats.
@@ -804,7 +849,7 @@ class AdvancedChips extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 7.h),
               decoration: BoxDecoration(
-                color: i == selected ? context.ctaFill : c.surfaceLight,
+                color: i == selected ? context.ctaFill : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
                 border: Border.all(
                     color: i == selected ? context.ctaFill : c.border,
@@ -844,35 +889,49 @@ class AdvancedSummaryCard extends StatelessWidget {
     super.key,
     this.headline,
     this.headlineColor,
+    this.headlineChip,
     this.rows = const [],
     this.footer = const [],
   });
 
   final AdvancedSummaryRow? headline;
   final Color? headlineColor;
+
+  /// A small chip beside the headline's figure (a return multiple, "16.7×").
+  final String? headlineChip;
   final List<AdvancedSummaryRow> rows;
   final List<Widget> footer;
+
+  /// One row drawn as the card draws its [rows] (for a row placed among
+  /// [footer] widgets).
+  static Widget rowOf(BuildContext context, AdvancedSummaryRow r) =>
+      _summaryRow(context, r);
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    Widget row(AdvancedSummaryRow r) => GestureDetector(
+    Widget row(AdvancedSummaryRow r) => _summaryRow(context, r);
+    return _card(context, c, row);
+  }
+
+  static Widget _summaryRow(BuildContext context, AdvancedSummaryRow r) {
+    final c = context.colors;
+    return GestureDetector(
           key: r.key,
           behavior: HitTestBehavior.opaque,
           onTap: r.onTap,
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 5.h),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(r.label,
-                    style: TextStyle(fontSize: 14.sp, color: c.textSecondary)),
-                SizedBox(width: 12.w),
-                // A long value ("Depends on your open position", a
-                // translation) wraps at the right instead of overflowing.
                 Expanded(
-                  child: Text(r.value,
-                    textAlign: TextAlign.right,
+                  child: Text(r.label,
+                      style:
+                          TextStyle(fontSize: 14.sp, color: c.textSecondary)),
+                ),
+                SizedBox(width: 12.w),
+                Text(r.value,
+                    textAlign: TextAlign.end,
                     style: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
@@ -881,11 +940,14 @@ class AdvancedSummaryCard extends StatelessWidget {
                             r.onTap != null ? TextDecoration.underline : null,
                         decorationColor: c.textTertiary,
                         fontFeatures: const [FontFeature.tabularFigures()])),
-                ),
               ],
             ),
           ),
         );
+  }
+
+  Widget _card(BuildContext context, AppColorsExtension c,
+      Widget Function(AdvancedSummaryRow) row) {
     return Container(
       padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
       decoration: AppDecorations.card(context),
@@ -904,14 +966,38 @@ class AdvancedSummaryCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: c.textPrimary)),
                 ),
-                Text(h.value,
-                    key: h.key,
-                    style: TextStyle(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w800,
-                        color: headlineColor ?? c.textPrimary,
-                        letterSpacing: -0.5,
-                        fontFeatures: const [FontFeature.tabularFigures()])),
+                if (headlineChip case final chip?) ...[
+                  Container(
+                    key: const ValueKey('advanced-summary-chip'),
+                    margin: EdgeInsets.only(bottom: 4.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: (headlineColor ?? c.textPrimary)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(chip,
+                        style: TextStyle(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w800,
+                            color: headlineColor ?? c.textPrimary,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ])),
+                  ),
+                  SizedBox(width: 8.w),
+                ],
+                // An unknown figure is left out, never a placeholder.
+                if (h.value.isNotEmpty)
+                  Text(h.value,
+                      key: h.key,
+                      style: TextStyle(
+                          fontSize: 24.sp,
+                          fontWeight: FontWeight.w800,
+                          color: headlineColor ?? c.textPrimary,
+                          letterSpacing: -0.5,
+                          fontFeatures: const [FontFeature.tabularFigures()])),
               ],
             ),
             if (rows.isNotEmpty) ...[
@@ -1176,15 +1262,42 @@ double advancedSnapOdds(double price, double tick) {
   return double.parse((n * t).toStringAsFixed(6));
 }
 
-/// The Predictions limit price as a rail from 0 to 100 cents (a card about
-/// 96 high): the market's price marked ([marketLabel]), the best bid / ask
-/// ticks when the book is known, and a draggable thumb for [price] that
-/// snaps to [tick] inside [tick, 1 − tick]. The part of the rail where the
-/// order would fill at once ([fillsFrom] up for a buy, down to it for a
-/// sell: [buy]) is tinted, and [thumbLabel] sits over the thumb. It calls
-/// back with the snapped price only ([onChanged]); the page keeps the
-/// price and its rules.
-class AdvancedOddsTrack extends StatelessWidget {
+/// The window [AdvancedOddsTrack] shows: about 20 cents wide (40 ticks on
+/// a market quoting under a cent), inside [tick, 1 − tick], first centred
+/// on [market]; [from] is the window's last start, kept while [price]
+/// stays inside it (with a tenth of the width to spare) and slid just
+/// enough to bring it back in otherwise. Returns (start, end).
+(double, double) advancedOddsWindow(
+    {required double price,
+    required double market,
+    required double tick,
+    double? from}) {
+  final t = tick <= 0 || tick >= 1 ? 0.01 : tick;
+  final lo = t, hi = 1 - t;
+  final width = math.min(t < 0.01 ? 40 * t : 0.20, hi - lo);
+  double clampStart(double s) => s.clamp(lo, hi - width).toDouble();
+  var start = clampStart(from ?? market - width / 2);
+  final margin = width * 0.1;
+  if (price < start + margin) start = clampStart(price - margin);
+  if (price > start + width - margin) {
+    start = clampStart(price + margin - width);
+  }
+  return (start, start + width);
+}
+
+/// The Predictions limit price as an instrument (a card): [title] at the
+/// left with the order's status ([thumbLabel]: "Rests on the book" /
+/// "Fills now") as a chip at the right; a rail zoomed on a window around
+/// the market ([advancedOddsWindow]) with its two end prices, filled from
+/// its left edge to the thumb in the ink (a native slider, neutral); the
+/// market as a tick with [marketLabel] under it, the best bid and ask as
+/// two smaller ticks when the book is known, the zone where the order would
+/// fill at once (a buy from [fillsFrom] up, a sell from it down: [buy])
+/// softly tinted in [sideColor], the card's only colour; the app's filled
+/// pill over the thumb with the price. The thumb snaps to [tick]; the
+/// window slides to keep it in. It calls back with the snapped price
+/// only ([onChanged]); the page keeps the price and its rules.
+class AdvancedOddsTrack extends StatefulWidget {
   const AdvancedOddsTrack({
     super.key,
     required this.price,
@@ -1199,7 +1312,17 @@ class AdvancedOddsTrack extends StatelessWidget {
     this.buy = true,
     this.thumbLabel,
     this.formatPrice,
+    this.title,
+    this.footer,
+    this.onMarketTap,
   });
+
+  /// The card's last row (the price stepper: one card for the pair).
+  final Widget? footer;
+
+  /// Makes the market's label under its tick the snap-to-market action
+  /// (underlined, a 44 px tap target), so the words appear once.
+  final VoidCallback? onMarketTap;
 
   final double price;
   final double market;
@@ -1211,111 +1334,242 @@ class AdvancedOddsTrack extends StatelessWidget {
   final double? bestAsk;
   final double? fillsFrom;
   final bool buy;
+
+  /// The order's status, shown as the chip at the card's top right.
   final String? thumbLabel;
+
+  /// How a price reads (the bubble, the window's ends); cents by default.
   final String Function(double)? formatPrice;
 
-  static const double _inset = 18;
+  /// The card's title at the top left ("Limit price").
+  final String? title;
+
+  @override
+  State<AdvancedOddsTrack> createState() => _AdvancedOddsTrackState();
+}
+
+class _AdvancedOddsTrackState extends State<AdvancedOddsTrack> {
+  double? _start;
+
+  static const double _inset = 22;
+  static const double _railY = 70;
+
+  String _fmt(double p) {
+    final f = widget.formatPrice;
+    if (f != null) return f(p);
+    var s = (p * 100).toStringAsFixed(2);
+    s = s.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    return '$s¢';
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final (start, end) = advancedOddsWindow(
+        price: widget.price,
+        market: widget.market,
+        tick: widget.tick,
+        from: _start);
+    _start = start;
+    final side = widget.sideColor;
     return Container(
       key: const ValueKey('advanced-odds-track'),
-      height: 96,
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 10.h),
       decoration: AppDecorations.card(context),
-      child: LayoutBuilder(builder: (context, box) {
-        final w = box.maxWidth - 2 * _inset;
-        double xOf(double p) => _inset + p.clamp(0.0, 1.0) * w;
-        void drag(double dx) {
-          final p = advancedSnapOdds((dx - _inset) / w, tick);
-          if ((p - price).abs() > 1e-9) {
-            HapticFeedback.selectionClick();
-            onChanged(p);
-          }
-        }
-
-        final thumbX = xOf(price);
-        const railY = 50.0;
-        return GestureDetector(
-          key: const ValueKey('advanced-odds-rail'),
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => drag(d.localPosition.dx),
-          onHorizontalDragUpdate: (d) => drag(d.localPosition.dx),
-          child: Stack(
-            clipBehavior: Clip.none,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
             children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _OddsPainter(
-                    inset: _inset,
-                    railY: railY,
-                    market: market,
-                    bestBid: bestBid,
-                    bestAsk: bestAsk,
-                    fillsFrom: fillsFrom,
-                    buy: buy,
-                    rail: c.surfaceLight,
-                    border: c.border,
-                    tint: sideColor.withValues(alpha: 0.22),
-                    marker: c.textSecondary,
-                  ),
-                ),
+              Expanded(
+                child: Text(widget.title ?? '',
+                    style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        color: c.textSecondary)),
               ),
-              // The market's price, under the rail.
-              if (marketLabel case final m?)
-                Positioned(
-                  top: railY + 12,
-                  left: (xOf(market) - 60).clamp(0.0, box.maxWidth - 120),
-                  width: 120,
-                  child: Text(m,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
+              if (widget.thumbLabel case final status?)
+                Container(
+                  key: const ValueKey('advanced-odds-thumb-label'),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    border: Border.all(color: c.border, width: 0.5),
+                  ),
+                  child: Text(status,
                       style: TextStyle(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w600,
-                          color: c.textSecondary)),
-                ),
-              // What the thumb says (fills at once / rests), over it.
-              if (thumbLabel case final t?)
-                Positioned(
-                  top: 0,
-                  left: (thumbX - 90).clamp(0.0, box.maxWidth - 180),
-                  width: 180,
-                  child: Text(t,
-                      key: const ValueKey('advanced-odds-thumb-label'),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 11.sp,
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w700,
                           color: c.textPrimary)),
                 ),
-              Positioned(
-                left: thumbX - 13,
-                top: railY - 13,
-                child: Container(
-                  key: const ValueKey('advanced-odds-thumb'),
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: c.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: sideColor, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2)),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
-        );
-      }),
+          SizedBox(
+            height: 132,
+            child: LayoutBuilder(builder: (context, box) {
+              final w = box.maxWidth - 2 * _inset;
+              double xOf(double p) =>
+                  _inset + ((p - start) / (end - start)).clamp(0.0, 1.0) * w;
+              void drag(double dx) {
+                final frac = ((dx - _inset) / w).clamp(0.0, 1.0);
+                final p =
+                    advancedSnapOdds(start + frac * (end - start), widget.tick);
+                if ((p - widget.price).abs() > 1e-9) {
+                  HapticFeedback.selectionClick();
+                  widget.onChanged(p);
+                }
+              }
+
+              final thumbX = xOf(widget.price);
+              final marketX = xOf(widget.market);
+              final marketIn =
+                  widget.market >= start - 1e-9 && widget.market <= end + 1e-9;
+              return GestureDetector(
+                key: const ValueKey('advanced-odds-rail'),
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (d) => drag(d.localPosition.dx),
+                onHorizontalDragUpdate: (d) => drag(d.localPosition.dx),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _OddsPainter(
+                          inset: _inset,
+                          railY: _railY,
+                          start: start,
+                          end: end,
+                          price: widget.price,
+                          market: marketIn ? widget.market : null,
+                          bestBid: widget.bestBid,
+                          bestAsk: widget.bestAsk,
+                          fillsFrom: widget.fillsFrom,
+                          buy: widget.buy,
+                          rail: c.surfaceLight,
+                          border: c.border,
+                          fill: c.textPrimary,
+                          zone: side.withValues(alpha: 0.10),
+                          marker: c.textSecondary,
+                          ticks: c.textTertiary,
+                        ),
+                      ),
+                    ),
+                    // The bubble: the price, in the side colour, over the
+                    // thumb.
+                    Positioned(
+                      top: _railY - 54,
+                      left: (thumbX - 40).clamp(0.0, box.maxWidth - 80),
+                      width: 80,
+                      child: Center(
+                        child: Container(
+                          key: const ValueKey('advanced-odds-bubble'),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 9.w, vertical: 4.h),
+                          // The app's filled pill.
+                          decoration: BoxDecoration(
+                            color: context.ctaFill,
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.pill),
+                          ),
+                          child: Text(_fmt(widget.price),
+                              style: TextStyle(
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: context.ctaOnColor,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ])),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: thumbX - 12,
+                      top: _railY - 12,
+                      child: Container(
+                        key: const ValueKey('advanced-odds-thumb'),
+                        width: 24,
+                        height: 24,
+                        // A native slider's thumb: a solid disc in the ink
+                        // with a ring of the page's ground.
+                        decoration: BoxDecoration(
+                          color: c.textPrimary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: c.background, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // The market under its tick; with [onMarketTap] the
+                    // snap to it (underlined, a 44 px target).
+                    if (marketIn && widget.marketLabel != null)
+                      Positioned(
+                        top: _railY + 6,
+                        height: 44,
+                        left: (marketX - 60).clamp(0.0, box.maxWidth - 120),
+                        width: 120,
+                        child: GestureDetector(
+                          key: const ValueKey('advanced-odds-market'),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: widget.onMarketTap == null
+                              ? null
+                              : () {
+                                  HapticFeedback.selectionClick();
+                                  widget.onMarketTap!();
+                                },
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(widget.marketLabel!,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                style: TextStyle(
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.onMarketTap != null
+                                        ? c.textPrimary
+                                        : c.textSecondary,
+                                    decoration: widget.onMarketTap != null
+                                        ? TextDecoration.underline
+                                        : null,
+                                    decorationColor: c.textPrimary)),
+                          ),
+                        ),
+                      ),
+                    // The window's two ends.
+                    Positioned(
+                      top: _railY + 16,
+                      left: 0,
+                      child: Text(_fmt(start),
+                          key: const ValueKey('advanced-odds-window-start'),
+                          style: TextStyle(
+                              fontSize: 10.sp, color: c.textTertiary)),
+                    ),
+                    Positioned(
+                      top: _railY + 16,
+                      right: 0,
+                      child: Text(_fmt(end),
+                          key: const ValueKey('advanced-odds-window-end'),
+                          style: TextStyle(
+                              fontSize: 10.sp, color: c.textTertiary)),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+          if (widget.footer case final f?) ...[
+            SizedBox(height: 4.h),
+            f,
+          ],
+        ],
+      ),
     );
   }
 }
@@ -1324,6 +1578,9 @@ class _OddsPainter extends CustomPainter {
   _OddsPainter({
     required this.inset,
     required this.railY,
+    required this.start,
+    required this.end,
+    required this.price,
     required this.market,
     required this.bestBid,
     required this.bestAsk,
@@ -1331,35 +1588,60 @@ class _OddsPainter extends CustomPainter {
     required this.buy,
     required this.rail,
     required this.border,
-    required this.tint,
+    required this.fill,
+    required this.zone,
     required this.marker,
+    required this.ticks,
   });
-  final double inset, railY, market;
-  final double? bestBid, bestAsk, fillsFrom;
+  final double inset, railY, start, end, price;
+  final double? market, bestBid, bestAsk, fillsFrom;
   final bool buy;
-  final Color rail, border, tint, marker;
+  final Color rail, border, fill, zone, marker, ticks;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width - 2 * inset;
-    double x(double p) => inset + p.clamp(0.0, 1.0) * w;
-    final r = RRect.fromLTRBR(
-        inset, railY - 4, size.width - inset, railY + 4, const Radius.circular(4));
-    canvas.drawRRect(r, Paint()..color = rail);
+    bool inside(double p) => p >= start - 1e-9 && p <= end + 1e-9;
+    double x(double p) =>
+        inset + ((p - start) / (end - start)).clamp(0.0, 1.0) * w;
+    const r = Radius.circular(3);
+    final left = inset, right = size.width - inset;
+    // The zone where the order fills at once: a soft band over the rail.
     if (fillsFrom case final f?) {
-      final a = buy ? x(f) : inset, b = buy ? size.width - inset : x(f);
-      canvas.drawRRect(
-          RRect.fromLTRBR(a, railY - 4, b, railY + 4, const Radius.circular(4)),
-          Paint()..color = tint);
+      final a = buy ? x(f) : left, b = buy ? right : x(f);
+      if (b > a) {
+        canvas.drawRRect(
+            RRect.fromLTRBR(a, railY - 11, b, railY + 11,
+                const Radius.circular(6)),
+            Paint()..color = zone);
+      }
     }
-    final tick = Paint()
-      ..color = marker
-      ..strokeWidth = 1.5;
+    final track = RRect.fromLTRBR(left, railY - 3, right, railY + 3, r);
+    canvas.drawRRect(track, Paint()..color = rail);
+    canvas.drawRRect(
+        track,
+        Paint()
+          ..color = border
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.5);
+    // Filled to the thumb, as a slider.
+    canvas.drawRRect(RRect.fromLTRBR(left, railY - 3, x(price), railY + 3, r),
+        Paint()..color = fill);
+    final small = Paint()
+      ..color = ticks
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
     for (final p in [bestBid, bestAsk]) {
-      if (p == null) continue;
-      canvas.drawLine(Offset(x(p), railY - 9), Offset(x(p), railY + 9), tick);
+      if (p == null || !inside(p)) continue;
+      canvas.drawLine(Offset(x(p), railY - 8), Offset(x(p), railY + 8), small);
     }
-    canvas.drawCircle(Offset(x(market), railY), 4, Paint()..color = marker);
+    if (market case final m?) {
+      final big = Paint()
+        ..color = marker
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(x(m), railY - 12), Offset(x(m), railY + 12), big);
+    }
   }
 
   @override
