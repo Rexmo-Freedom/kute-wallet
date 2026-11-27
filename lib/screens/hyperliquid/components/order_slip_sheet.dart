@@ -7353,7 +7353,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       options: [for (final o in options) o.$1],
       selected: selected,
       onSelected: (i) => options[i].$2(),
-      sideColor: _isLong ? greenColor : redColor,
+      // Selection is the app's neutral pill, never the side's colour: the
+      // colour is the shared tiles' API only and no longer paints.
+      sideColor: c.textPrimary,
+      // A small phone takes the shorter tiles.
+      tileHeight: MediaQuery.sizeOf(context).height < 700 ? 68 : 76,
       // What the chosen type does, in one sentence, right where it is
       // chosen rather than at the bottom of the page.
       explanation: _orderExplanation(),

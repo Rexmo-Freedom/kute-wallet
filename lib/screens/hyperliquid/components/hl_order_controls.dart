@@ -357,7 +357,7 @@ class _HlStepFieldState extends State<HlStepField> {
                 onTrailing: widget.onTrailing,
               ),
             ),
-            // Typing: the stepper's rim in the app's focus ink.
+            // Typing: a neutral rim (never the side's or the accent's colour).
             Positioned.fill(
               child: IgnorePointer(
                 child: AnimatedContainer(
@@ -365,7 +365,8 @@ class _HlStepFieldState extends State<HlStepField> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(AppRadius.lg),
                     border: Border.all(
-                      color: node.hasFocus ? c.accent : Colors.transparent,
+                      color:
+                          node.hasFocus ? c.textTertiary : Colors.transparent,
                       width: 1.5,
                     ),
                   ),
