@@ -216,6 +216,9 @@ class _AppWidgetState extends ConsumerState<AppWidget>
       // the session and covers the screen instead.
       sessionLocked: () => ref.read(sessionAuthProvider) == null,
       hasWallet: () => ref.read(settingsProvider).wallets.isNotEmpty,
+      // The shared market's read-only page for a visitor with no wallet
+      // (share_guest_screen.dart): the web only.
+      guestShareView: () => kIsWeb,
       extraObservers: [
         syncRouteObserver,
         PosthogObserver(),

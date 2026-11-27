@@ -12,6 +12,7 @@ import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:kute/screens/share/claim_screen.dart';
+import 'package:kute/screens/share/share_guest_screen.dart';
 import 'package:kute/services/share_link_claims.dart';
 import 'package:kute/services/share_target.dart';
 import 'package:kute/services/share_targets.dart';
@@ -470,6 +471,18 @@ class AppRouter {
             child: const Splash(),
             state: state,
             wide: KuteWideMode.column,
+          ),
+        ),
+        // A shared market for a visitor with no wallet (web; the redirect
+        // sends everyone else on, shareLocationRedirect).
+        GoRoute(
+          path: '/s/:venue/:slug',
+          name: ShareGuestScreen.routeName,
+          pageBuilder: (context, state) => _buildFadeScalePage(
+            child: ShareGuestScreen(
+                target: ShareTarget.parseLocation(state.uri)?.target),
+            state: state,
+            wide: KuteWideMode.own,
           ),
         ),
         GoRoute(
