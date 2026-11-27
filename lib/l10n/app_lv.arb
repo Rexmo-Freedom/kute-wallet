@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Dzintara",
   "chartVolume": "Apjoms",
   "chartLogScale": "Log. skala",
+  "chartPriceScale": "Cenu skala",
   "chartVwapWindow": "VWAP redzamajām svecēm",
   "chartIndicators": "Indikatori",
   "chartInterval": "Intervāls",

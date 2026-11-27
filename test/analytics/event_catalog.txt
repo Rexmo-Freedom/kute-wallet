@@ -117,6 +117,7 @@ chart_history_extended
 chart_log_scale_toggled
 chart_magnet_toggled
 chart_note_saved
+chart_price_scale_toggled
 chart_timeframe_changed
 chart_trade_marker_opened
 chart_type_changed

@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Chihlimbar",
   "chartVolume": "Volum",
   "chartLogScale": "Scară logaritmică",
+  "chartPriceScale": "Scară de preț",
   "chartVwapWindow": "VWAP pe lumânările afișate",
   "chartIndicators": "Indicatori",
   "chartInterval": "Interval",

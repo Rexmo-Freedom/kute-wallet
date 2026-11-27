@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Bernstein",
   "chartVolume": "Volumen",
   "chartLogScale": "Log-Skala",
+  "chartPriceScale": "Preisskala",
   "chartVwapWindow": "VWAP über die angezeigten Kerzen",
   "chartIndicators": "Indikatoren",
   "chartInterval": "Intervall",

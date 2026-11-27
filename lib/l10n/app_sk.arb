@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Jantárová",
   "chartVolume": "Objem",
   "chartLogScale": "Logaritmická mierka",
+  "chartPriceScale": "Cenová škála",
   "chartVwapWindow": "VWAP zo zobrazených sviečok",
   "chartIndicators": "Indikátory",
   "chartInterval": "Interval",

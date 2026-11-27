@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Jantarna",
   "chartVolume": "Volumen",
   "chartLogScale": "Logaritamska skala",
+  "chartPriceScale": "Cjenovna skala",
   "chartVwapWindow": "VWAP za prikazane svijeće",
   "chartIndicators": "Indikatori",
   "chartInterval": "Interval",

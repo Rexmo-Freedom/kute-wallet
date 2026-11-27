@@ -5968,6 +5968,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartLogScale => 'Log. skala';
 
   @override
+  String get chartPriceScale => 'Cenu skala';
+
+  @override
   String get chartVwapWindow => 'VWAP redzamajām svecēm';
 
   @override

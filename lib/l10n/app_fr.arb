@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Ambre",
   "chartVolume": "Volume",
   "chartLogScale": "Échelle log",
+  "chartPriceScale": "Échelle de prix",
   "chartVwapWindow": "VWAP sur les bougies affichées",
   "chartIndicators": "Indicateurs",
   "chartInterval": "Intervalle",

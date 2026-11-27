@@ -10479,6 +10479,12 @@ abstract class AppLocalizations {
   /// **'Log scale'**
   String get chartLogScale;
 
+  /// Advanced chart tool rail button: shows or hides the horizontal price lines and their labels on the right.
+  ///
+  /// In en, this message translates to:
+  /// **'Price scale'**
+  String get chartPriceScale;
+
   /// No description provided for @chartVwapWindow.
   ///
   /// In en, this message translates to:

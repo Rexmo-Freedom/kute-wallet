@@ -6000,6 +6000,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get chartLogScale => 'Logaritamska skala';
 
   @override
+  String get chartPriceScale => 'Cjenovna skala';
+
+  @override
   String get chartVwapWindow => 'VWAP za prikazane svijeće';
 
   @override

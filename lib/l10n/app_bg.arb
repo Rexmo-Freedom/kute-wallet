@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Кехлибарен",
   "chartVolume": "Обем",
   "chartLogScale": "Логаритмична скала",
+  "chartPriceScale": "Ценова скала",
   "chartVwapWindow": "VWAP за показаните свещи",
   "chartIndicators": "Индикатори",
   "chartInterval": "Интервал",

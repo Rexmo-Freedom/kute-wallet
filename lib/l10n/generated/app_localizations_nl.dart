@@ -6008,6 +6008,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartLogScale => 'Logschaal';
 
   @override
+  String get chartPriceScale => 'Prijsschaal';
+
+  @override
   String get chartVwapWindow => 'VWAP over de getoonde candles';
 
   @override

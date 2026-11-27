@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Amber",
   "chartVolume": "Volume",
   "chartLogScale": "Logschaal",
+  "chartPriceScale": "Prijsschaal",
   "chartVwapWindow": "VWAP over de getoonde candles",
   "chartIndicators": "Indicatoren",
   "chartInterval": "Interval",

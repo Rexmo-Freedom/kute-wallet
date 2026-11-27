@@ -5990,6 +5990,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get chartLogScale => 'Logaritmická mierka';
 
   @override
+  String get chartPriceScale => 'Cenová škála';
+
+  @override
   String get chartVwapWindow => 'VWAP zo zobrazených sviečok';
 
   @override

@@ -5762,6 +5762,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartLogScale => '対数スケール';
 
   @override
+  String get chartPriceScale => '価格スケール';
+
+  @override
   String get chartVwapWindow => '表示中のローソク足のVWAP';
 
   @override

@@ -1862,6 +1862,7 @@
   "chartHighlightColor": "Âmbar",
   "chartVolume": "Volume",
   "chartLogScale": "Escala logarítmica",
+  "chartPriceScale": "Escala de preços",
   "chartVwapWindow": "VWAP das velas apresentadas",
   "chartIndicators": "Indicadores",
   "chartInterval": "Intervalo",

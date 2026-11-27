@@ -5992,6 +5992,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get chartLogScale => 'Logaritmisk skala';
 
   @override
+  String get chartPriceScale => 'Prisskala';
+
+  @override
   String get chartVwapWindow => 'VWAP over de viste lys';
 
   @override

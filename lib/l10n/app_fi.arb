@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Meripihka",
   "chartVolume": "Volyymi",
   "chartLogScale": "Log-asteikko",
+  "chartPriceScale": "Hinta-asteikko",
   "chartVwapWindow": "VWAP näytettyjen kynttilöiden ajalta",
   "chartIndicators": "Indikaattorit",
   "chartInterval": "Aikaväli",

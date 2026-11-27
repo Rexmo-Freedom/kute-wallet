@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Bärnsten",
   "chartVolume": "Volym",
   "chartLogScale": "Logaritmisk skala",
+  "chartPriceScale": "Prisskala",
   "chartVwapWindow": "VWAP över de visade ljusen",
   "chartIndicators": "Indikatorer",
   "chartInterval": "Intervall",

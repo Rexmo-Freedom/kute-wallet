@@ -6034,6 +6034,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chartLogScale => 'Log-Skala';
 
   @override
+  String get chartPriceScale => 'Preisskala';
+
+  @override
   String get chartVwapWindow => 'VWAP über die angezeigten Kerzen';
 
   @override

@@ -1730,6 +1730,7 @@
   "chartHighlightColor": "Bursztynowy",
   "chartVolume": "Wolumen",
   "chartLogScale": "Skala log.",
+  "chartPriceScale": "Skala cen",
   "chartVwapWindow": "VWAP dla widocznych świec",
   "chartIndicators": "Wskaźniki",
   "chartInterval": "Interwał",

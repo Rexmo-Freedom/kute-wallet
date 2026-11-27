@@ -869,6 +869,13 @@ List<double> hlNiceLevels(double lo, double hi, {bool log = false}) {
 /// layer shares is untouched, so drawings / crosshair / markers stay in
 /// register. The host keeps this layer on in the reading view and in
 /// Advanced mode, and fades it in on a scrub anywhere else.
+///
+/// In Advanced mode ([HlCandlestickChart.priceScale]) the same levels are
+/// also the chart's horizontal price lines: [_HlPriceLinesPainter] (this
+/// painter with [gridColor] set) paints only those hairlines across the
+/// plot, under the data, and none of the labels. The tag column is
+/// widened there to hold a label whole ([hlPriceScaleGutter]), so no
+/// level loses its label to the column's width.
 class _HlPriceScalePainter extends CustomPainter {
   final List<HyperliquidCandle> candles;
   final bool renderAsLine;
@@ -897,7 +904,12 @@ class _HlPriceScalePainter extends CustomPainter {
   /// The labels' size; null: the reading view's 11 sp.
   final double? labelFontSize;
 
+  /// Set: this instance paints the levels' hairlines across the plot (the
+  /// tag column left clear) in this colour, and no labels.
+  final Color? gridColor;
+
   _HlPriceScalePainter({
+    this.gridColor,
     this.labelSpacing,
     this.labelFontSize,
     required this.candles,
@@ -969,6 +981,21 @@ class _HlPriceScalePainter extends CustomPainter {
 
     final fontSize = labelFontSize ?? 11.sp;
     final plotW = hlPlotWidth(size.width, tagGutter);
+    final grid = gridColor;
+    if (grid != null) {
+      final paint = Paint()
+        ..color = grid
+        ..strokeWidth = 1;
+      for (final l in labels) {
+        final y = priceH *
+            (1 - (_hlMapPrice(l.value, geom.log) - geom.loP) / geom.rangeP);
+        if (y < 0 || y > priceH) continue;
+        // On the pixel grid, so the hairline is one crisp pixel.
+        final py = y.floorToDouble() + 0.5;
+        canvas.drawLine(Offset(0, py), Offset(plotW, py), paint);
+      }
+      return;
+    }
     // In the column, past the data, their digits ending where the live
     // price pill's do.
     final minLeft = plotW + kPolyTagLead;
@@ -1015,11 +1042,35 @@ class _HlPriceScalePainter extends CustomPainter {
       !identical(old.morphSeries, morphSeries) ||
       old.decimalCap != decimalCap ||
       old.labelColor != labelColor ||
+      old.gridColor != gridColor ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||
       old.labelFontSize != labelFontSize ||
       old.labelSpacing != labelSpacing ||
       old.lastValue != lastValue;
+}
+
+/// The Advanced chart's horizontal price lines: [_HlPriceScalePainter]'s
+/// levels as hairlines across the plot, under the data (its own type, so
+/// the labels' layer is still the one [_HlPriceScalePainter] on screen).
+class _HlPriceLinesPainter extends _HlPriceScalePainter {
+  _HlPriceLinesPainter.of(_HlPriceScalePainter p, {required Color color})
+      : super(
+          gridColor: color,
+          labelSpacing: p.labelSpacing,
+          labelFontSize: p.labelFontSize,
+          candles: p.candles,
+          renderAsLine: p.renderAsLine,
+          showVolume: p.showVolume,
+          logScale: p.logScale,
+          leadingClose: p.leadingClose,
+          morphSeries: p.morphSeries,
+          decimalCap: p.decimalCap,
+          labelColor: p.labelColor,
+          domain: p.domain,
+          tagGutter: p.tagGutter,
+          lastValue: p.lastValue,
+        );
 }
 
 // ─────────────────────────── tag column ───────────────────────────
@@ -1274,6 +1325,22 @@ double hlChartTagGutter({
   return gutter;
 }
 
+/// The tag column the Advanced chart's price scale needs ([gutter], the
+/// column [hlChartTagGutter] sized for the tags, at least): its widest
+/// label ([priceTemplate], every digit a 0) written at [fontSize] whole
+/// between the column's lead and the 5 px the labels keep from the edge,
+/// as [_HlPriceScalePainter] places them. A label 0.7 px wider than the
+/// price's pill would otherwise be left out at every level (a gold
+/// market's "4,120.0" at the desk's 12 px), and the scale drawn empty.
+double hlPriceScaleGutter({
+  required double gutter,
+  required String priceTemplate,
+  required double fontSize,
+}) {
+  final label = _HlPriceScalePainter._tp(priceTemplate, Colors.white, fontSize);
+  return math.max(gutter, label.width + kPolyTagLead + 5.w + 1);
+}
+
 // ─────────────────────────── candlestick chart ───────────────────────────
 
 /// Indicator lines on the Hyperliquid chart: thinner than the data so
@@ -1396,6 +1463,14 @@ class HlCandlestickChart extends StatefulWidget {
   final bool desk;
 
   final bool drawingMode;
+
+  /// [drawingMode]'s price scale: its horizontal price lines across the
+  /// plot and their labels in the tag column (the tool rail's Price scale
+  /// button; HlChartLayout.priceScale). Off hides both there; the latest
+  /// price's tag and the crosshair's tag stay. Outside [drawingMode] the
+  /// chart is as before (no lines; a few labels in the reading view, or
+  /// on a scrub).
+  final bool priceScale;
 
   /// When true the plot takes whatever height the parent column leaves
   /// after the fixed rows (scrub label, date axis, indicator panes), so
@@ -1538,6 +1613,7 @@ class HlCandlestickChart extends StatefulWidget {
     this.priceLines = const [],
     this.onPriceLineTapped,
     this.drawingMode = false,
+    this.priceScale = true,
     this.armedTool,
     this.armedColorValue,
     this.selectedDrawingId,
@@ -4034,8 +4110,59 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             : null;
                         final leadingClose =
                             (_asLine && !morphing) ? lead : null;
+                        // The price scale's levels: the labels in the tag
+                        // column and, in Advanced, the price lines.
+                        _HlPriceScalePainter scalePainter() =>
+                            _HlPriceScalePainter(
+                              // Advanced: a label every ~70 px (~56 at
+                              // the desk, larger).
+                              labelSpacing: _deskEditor
+                                  ? 56
+                                  : widget.drawingMode
+                                      ? 70
+                                      : null,
+                              labelFontSize: widget.drawingMode
+                                  ? _scaleLabelFontSize
+                                  : null,
+                              candles: candles,
+                              renderAsLine: _asLine,
+                              showVolume: _plotVolume,
+                              logScale: widget.logScale,
+                              leadingClose: leadingClose,
+                              morphSeries: morphSeries,
+                              decimalCap: widget.decimalCap,
+                              labelColor: c.textTertiary,
+                              domain: domain,
+                              tagGutter: gutter,
+                              lastValue: morphSeries != null &&
+                                      morphSeries.isNotEmpty
+                                  ? morphSeries.last
+                                  : (_asLine
+                                      ? (leadingClose ?? candles.last.close)
+                                      : candles.last.close),
+                            );
+                        // Advanced with its price scale on: the scale's
+                        // levels as hairlines across the plot.
+                        final priceLinesShown =
+                            widget.drawingMode && widget.priceScale;
                         return Stack(
                           children: [
+                            // ── Price lines (Advanced, under the data).
+                            if (priceLinesShown)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: RepaintBoundary(
+                                    child: CustomPaint(
+                                      key: const ValueKey(
+                                          'hl-chart-price-lines-grid'),
+                                      size: Size.infinite,
+                                      painter: _HlPriceLinesPainter.of(
+                                          scalePainter(),
+                                          color: c.border),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             Positioned.fill(
                               child: RepaintBoundary(
                                 child: CustomPaint(
@@ -4102,13 +4229,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   ),
                                 ),
                               ),
-                            // ── Price scale (at most three labels in the
-                            // tag column, no hairlines). Always on in the
-                            // reading view and in Advanced mode; anywhere
-                            // else it rides the crosshair's 120ms fade
-                            // while the user scrubs. The shared price
-                            // geometry never shifts.
-                            Positioned.fill(
+                            // ── Price scale (labels in the tag column).
+                            // Always on in the reading view and in
+                            // Advanced mode, where its Price scale switch
+                            // (HlCandlestickChart.priceScale) can leave it
+                            // out with the price lines; anywhere else it
+                            // rides the crosshair's 120ms fade while the
+                            // user scrubs. The shared price geometry
+                            // never shifts.
+                            if (!widget.drawingMode || widget.priceScale)
+                              Positioned.fill(
                                 child: IgnorePointer(
                                   child: AnimatedOpacity(
                                     opacity: (widget.drawingMode ||
@@ -4124,35 +4254,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     curve: Curves.easeOut,
                                     child: RepaintBoundary(
                                       child: CustomPaint(
+                                        key: const ValueKey(
+                                            'hl-chart-price-scale-labels'),
                                         size: Size.infinite,
-                                        painter: _HlPriceScalePainter(
-                                          // Advanced: a label every ~70 px
-                                          // (~56 at the desk, larger).
-                                          labelSpacing: _deskEditor
-                                              ? 56
-                                              : widget.drawingMode
-                                                  ? 70
-                                                  : null,
-                                          labelFontSize:
-                                              _deskEditor ? 12 : null,
-                                          candles: candles,
-                                          renderAsLine: _asLine,
-                                          showVolume: _plotVolume,
-                                          logScale: widget.logScale,
-                                          leadingClose: leadingClose,
-                                          morphSeries: morphSeries,
-                                          decimalCap: widget.decimalCap,
-                                          labelColor: c.textTertiary,
-                                          domain: domain,
-                                          tagGutter: gutter,
-                                          lastValue: morphSeries != null &&
-                                                  morphSeries.isNotEmpty
-                                              ? morphSeries.last
-                                              : (_asLine
-                                                  ? (leadingClose ??
-                                                      candles.last.close)
-                                                  : candles.last.close),
-                                        ),
+                                        painter: scalePainter(),
                                       ),
                                     ),
                                   ),
@@ -4861,6 +4966,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         decimalCap: widget.decimalCap);
     final entryTag = (widget.entryPx ?? 0) > 0;
     final reference = tape.isEmpty ? 0.0 : tape.last.close;
+    // Advanced: the scale's labels are held whole too (sized a tenth
+    // past the tape's high, where an autoscaled axis can label), whether
+    // or not they are shown, so switching them never moves the data.
+    final scaleFont = widget.drawingMode ? _scaleLabelFontSize : null;
+    final scaleTemplate = scaleFont == null
+        ? null
+        : hlPriceTagTemplate(_range.lo, _range.hi * 1.1,
+            decimalCap: widget.decimalCap);
     final key = (
       width,
       template,
@@ -4868,10 +4981,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       widget.signals.levels,
       entryTag,
       hlPriceDecimals(reference, decimalCap: widget.decimalCap),
+      scaleTemplate,
+      scaleFont,
     );
     if (key == _gutterKey) return _gutter;
     _gutterKey = key;
-    return _gutter = hlChartTagGutter(
+    final gutter = hlChartTagGutter(
       width: width,
       priceTemplate: template,
       entryTag: entryTag,
@@ -4880,7 +4995,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
           formatHlPriceLike(p, reference, decimalCap: widget.decimalCap),
       signalLevels: widget.signals.levels,
     );
+    return _gutter = scaleTemplate == null
+        ? gutter
+        : hlPriceScaleGutter(
+            gutter: gutter,
+            priceTemplate: scaleTemplate,
+            fontSize: scaleFont!,
+          );
   }
+
+  /// The price scale's label size: 12 at the desk, the reading view's
+  /// 11 sp elsewhere.
+  double get _scaleLabelFontSize => _deskEditor ? 12 : 11.sp;
 
   /// Tag rects from the last signal band paint, for tap hit-testing.
   final List<ChartSignalHit> _bandHits = [];

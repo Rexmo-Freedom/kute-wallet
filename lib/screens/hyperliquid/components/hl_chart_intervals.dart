@@ -20,6 +20,10 @@
 //     market and a candle size in its own box; the first read migrates
 //     the style the user had picked (else candles) and that candle size
 //     (else 1h).
+//   * [HlChartLayout.priceScale]: the Advanced chart's price scale (its
+//     horizontal price lines and their labels down the right), on by
+//     default; the tool rail's Price scale button switches it, for every
+//     market, saved in the same box.
 
 import 'dart:async';
 import 'dart:convert';
@@ -112,11 +116,13 @@ int hlIntervalMinutes(String interval) {
   return 60;
 }
 
-/// The global chart layout: style + candle interval.
+/// The global chart layout: style + candle interval + the Advanced
+/// chart's price scale.
 class HlChartLayout {
   const HlChartLayout({
     this.style = kHlDefaultChartStyle,
     this.interval = kHlDefaultCandleInterval,
+    this.priceScale = true,
   });
 
   /// HlChartStyle name.
@@ -125,9 +131,16 @@ class HlChartLayout {
   /// Hyperliquid interval string ('1m' … '1w').
   final String interval;
 
-  HlChartLayout copyWith({String? style, String? interval}) => HlChartLayout(
+  /// The Advanced chart (the editor and the web desk's inline chart)
+  /// draws its horizontal price lines and their labels in the tag column.
+  /// Off leaves the latest price's tag and the crosshair's tag alone.
+  final bool priceScale;
+
+  HlChartLayout copyWith({String? style, String? interval, bool? priceScale}) =>
+      HlChartLayout(
         style: style ?? this.style,
         interval: interval ?? this.interval,
+        priceScale: priceScale ?? this.priceScale,
       );
 }
 
@@ -135,6 +148,7 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
   static const String _box = 'settings';
   static const String _styleKey = 'hlChartLayoutStyle';
   static const String _intervalKey = 'hlChartLayoutInterval';
+  static const String _priceScaleKey = 'hlChartLayoutPriceScale';
 
   static bool _isInterval(Object? v) =>
       v is String && kHlCandleIntervals.any((iv) => iv.interval == v);
@@ -151,11 +165,14 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
         final box = Hive.box(_box);
         final style = box.get(_styleKey);
         final interval = box.get(_intervalKey);
+        final priceScale = box.get(_priceScaleKey);
         if (_isStyle(style) && interval is String) {
           // An interval the picker does not have opens as 1h; the fallback
           // is saved so the next read is plain.
           final layout = HlChartLayout(
-              style: style as String, interval: hlPickerInterval(interval));
+              style: style as String,
+              interval: hlPickerInterval(interval),
+              priceScale: priceScale is bool ? priceScale : true);
           if (layout.interval != interval) unawaited(_save(layout));
           return layout;
         }
@@ -203,6 +220,7 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
       final box = await Hive.openBox(_box);
       await box.put(_styleKey, layout.style);
       await box.put(_intervalKey, layout.interval);
+      await box.put(_priceScaleKey, layout.priceScale);
     } catch (_) {
       // The chart works without a saved layout.
     }
@@ -212,6 +230,14 @@ class HlChartLayoutNotifier extends Notifier<HlChartLayout> {
     if (!_isStyle(style) || style == state.style) return;
     _touched = true;
     state = state.copyWith(style: style);
+    unawaited(_save(state));
+  }
+
+  /// Shows or hides the Advanced chart's price scale (every market).
+  void setPriceScale(bool on) {
+    if (on == state.priceScale) return;
+    _touched = true;
+    state = state.copyWith(priceScale: on);
     unawaited(_save(state));
   }
 
