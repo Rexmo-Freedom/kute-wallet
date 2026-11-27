@@ -371,6 +371,13 @@ const InvestmentsTab kInvestmentsDefaultTab = InvestmentsTab.activity;
 final investmentsTabProvider =
     StateProvider<InvestmentsTab>((ref) => kInvestmentsDefaultTab);
 
+/// The Overview holds nothing open (no position, no order on its way, not
+/// loading): written by the Overview page's own [DollarsActivityTab]. On
+/// it the bar is "Start investing", to the Investing pill (founder, 27
+/// November 2026: the inline button "looks awful and dissonant"), else
+/// "See full portfolio and activity" ([UsdAccountActionBar.barContext]).
+final dollarsOverviewEmptyProvider = StateProvider<bool>((ref) => false);
+
 /// The Bitcoin | Dollars switch landed on Dollars (a tap on the strip or a
 /// swipe, app_shell.dart): the page opens on its default pill again
 /// ([kInvestmentsDefaultTab]), wherever it was left. A link that names a
@@ -860,7 +867,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       // On Overview the bar is the way to everything else (founder, 4
       // November 2026): "See full portfolio and activity", the Portfolio
       // screen ([UsdAccountActionBar.barContext]).
-      barContext: UsdAccountActionBar.barContext(context, selected),
+      barContext: UsdAccountActionBar.barContext(context, selected,
+          overviewEmpty: ref.watch(dollarsOverviewEmptyProvider)),
       child: expanded
           ? _InvestmentsPanes(
               nav: deskNav
@@ -1755,9 +1763,31 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// "See full portfolio and activity", pushing the Portfolio screen; on a
   /// venue pill the search pill scoped to that venue ("Search predictions
   /// or Manage with AI").
-  static KuteBarContext barContext(BuildContext context, InvestmentsTab tab) {
+  ///
+  /// With nothing open on the Overview ([overviewEmpty]) the primary is
+  /// "Start investing" instead, landing on the Investing pill and sending
+  /// `quick_action_tapped` `start_investing` from `overview_empty`. A
+  /// laptop draws it in the empty state itself ([startInvestingAction]),
+  /// its bar being the search there.
+  static KuteBarContext barContext(BuildContext context, InvestmentsTab tab,
+      {bool overviewEmpty = false}) {
     final l10n = context.l10n;
     final target = searchTarget(tab);
+    if (tab == InvestmentsTab.activity &&
+        overviewEmpty &&
+        !kuteWindowIsExpanded(context)) {
+      return KuteBarContext.primary(
+        label: l10n.dollarsStartInvesting,
+        onPrimary: () {
+          TrackingService.quickAction(startInvestingActionId,
+              source: startInvestingSource);
+          startInvesting(context);
+        },
+        disabledLabel: l10n.dollarsStartInvesting,
+        category: target.category,
+        source: target.source,
+      );
+    }
     // A laptop's top bar carries the Portfolio's own button beside Buy
     // dollars ([portfolioAction]), so the bar is the search pill there.
     if (tab == InvestmentsTab.activity && !kuteWindowIsExpanded(context)) {
@@ -1807,6 +1837,28 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// keys `receive` and `send`, so the events read as before: Receive is
   /// money into Dollars (from Bitcoin or another wallet), Send is Dollars
   /// out, to Bitcoin or sent on as a coin to another wallet.
+  /// The empty Overview's way on: the `quick_action_tapped` key and source.
+  static const String startInvestingActionId = 'start_investing';
+  static const String startInvestingSource = 'overview_empty';
+
+  /// Lands on the Investing pill (as a tap on it, or its sidebar item).
+  static void startInvesting(BuildContext context) =>
+      ProviderScope.containerOf(context, listen: false)
+          .read(investmentsTabProvider.notifier)
+          .state = InvestmentsTab.investing;
+
+  /// The empty Overview's "Start investing" on a laptop, where the bar is
+  /// the search: the top bar's own pill ([KuteTopBarActions]), which
+  /// sends the same `quick_action_tapped`.
+  static KuteDockAction startInvestingAction(BuildContext context) =>
+      KuteDockAction(
+        icon: Icons.trending_up_rounded,
+        label: context.l10n.dollarsStartInvesting,
+        trackingId: startInvestingActionId,
+        solid: true,
+        onTap: () => startInvesting(context),
+      );
+
   /// The Portfolio's door for the laptop's top bar, beside Buy dollars
   /// (founder, 25 November 2026): the bar's own "See full portfolio and
   /// activity" as a pill, the same `quick_action_tapped` `portfolio` the

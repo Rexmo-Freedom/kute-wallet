@@ -161,7 +161,10 @@ import 'package:kute/platform/kute_wide_frames.dart'
         kuteBrowseListInset,
         kuteBrowsePagePadding,
         kuteDeskNavMinWidth,
+        kuteWindowIsExpanded,
         kuteWindowWidth;
+import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
+    show KuteTopBarActions;
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
     show hyperliquidDisplayTradingProvider;
 import 'package:kute/providers/open_pnl_history_provider.dart'
@@ -211,10 +214,11 @@ import 'package:kute/screens/shared/standing_order_slips.dart'
 import 'package:kute/screens/shared/standing_orders_section.dart'
     show StandingOrderRow, standingOrderStageLine;
 import 'package:kute/services/standing_orders/standing_orders_provider.dart';
-import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show InvestmentsTab, investmentsTabProvider, openInvestmentsPortfolio;
-import 'package:kute/services/tracking_service.dart';
+    show
+        UsdAccountActionBar,
+        dollarsOverviewEmptyProvider,
+        openInvestmentsPortfolio;
 import 'package:kute/theme/app_theme.dart';
 
 /// The open positions drawn as squares, at most.
@@ -522,6 +526,7 @@ class DollarsActivityTab extends ConsumerStatefulWidget {
 class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
   /// What [DollarsActivityTab.onHeld] was last told.
   bool? _toldHeld;
+  bool? _toldEmpty;
 
   /// Rebuilds the tab when the next hold ends ([dollarsNextHoldEnd]).
   Timer? _holdTimer;
@@ -772,6 +777,16 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     }
     final loading = squares.isEmpty && lists.values.any((list) => list.loading);
     final held = squares.isNotEmpty || loading;
+    // The Overview page's own copy tells the bar (dollarsOverviewEmpty).
+    if (widget.startInvesting && !widget.inPane && _toldEmpty != !held) {
+      _toldEmpty = !held;
+      final empty = !held;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(dollarsOverviewEmptyProvider.notifier).state = empty;
+        }
+      });
+    }
 
     final blocks = <Widget>[
       if (held)
@@ -812,27 +827,23 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                   subtitleSize: 15,
                   subtitleColor: context.colors.textSecondary,
                 ),
-                // Founder, 26 November 2026: the page opens on Overview,
-                // and with nothing open it leads to Investing (as a tap
-                // on its pill, or its sidebar item on a laptop).
-                if (widget.startInvesting) ...[
-                SizedBox(height: 16.h),
-                // On the empty state's own 24 side padding: never edge to
-                // edge.
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
-                  child: AppButton(
-                    key: const ValueKey('dollars-start-investing'),
-                    text: l10n.dollarsStartInvesting,
-                    compact: true,
-                    onPressed: () {
-                      TrackingService.quickAction('start_investing',
-                          source: 'overview_empty');
-                      ref.read(investmentsTabProvider.notifier).state =
-                          InvestmentsTab.investing;
-                    },
+                // With nothing open the page leads to Investing (founder,
+                // 26 and 27 November 2026): on a phone the bar is "Start
+                // investing" (UsdAccountActionBar.barContext); on a
+                // laptop, whose bar is the search, the top bar's pill,
+                // centred, content width.
+                if (widget.startInvesting &&
+                    kuteWindowIsExpanded(context)) ...[
+                  SizedBox(height: 16.h),
+                  Center(
+                    child: KuteTopBarActions(
+                      key: const ValueKey('dollars-start-investing-wide'),
+                      actions: [
+                        UsdAccountActionBar.startInvestingAction(context)
+                      ],
+                      source: UsdAccountActionBar.startInvestingSource,
+                    ),
                   ),
-                ),
                 ],
               ],
             ),

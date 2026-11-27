@@ -162,11 +162,20 @@ KuteBarContext? _barTop(WidgetTester tester) =>
 /// 2026): on the Overview pill the bar is "See full portfolio and
 /// activity", and its tap pushes the Portfolio screen over the page. The
 /// shell bar is not mounted here, so its tap is the context's own handler.
+/// These pages hold nothing, where the bar is "Start investing" instead
+/// (founder, 27 November 2026; dollars_default_tab_test.dart drives both),
+/// so the Overview is told it holds something first.
 Future<void> openPortfolio(WidgetTester tester) async {
   final l10n = _l10n(tester);
   if (_container(tester).read(investmentsTabProvider) !=
       InvestmentsTab.activity) {
     await _tapPill(tester, l10n.overview);
+  }
+  final barBefore = _barTop(tester);
+  if (barBefore?.label == l10n.dollarsStartInvesting) {
+    _container(tester).read(dollarsOverviewEmptyProvider.notifier).state =
+        false;
+    await _pumpFrames(tester, 2);
   }
   final bar = _barTop(tester);
   expect(bar?.label, l10n.seeFullPortfolioAndActivity);
@@ -494,14 +503,10 @@ void main() {
     expect(find.textContaining('Predictions deposit', skipOffstage: false),
         findsNothing);
     // The full-width door is gone: no button in the header, and the
-    // door's label is nowhere on the page. (Overview's empty state has its
-    // own "Start investing", which is no door.)
+    // door's label is nowhere on the page. (Overview's empty state leads
+    // on through the bar, "Start investing", no button of its own.)
     expect(
-        find.byWidgetPredicate(
-            (w) =>
-                w is AppButton &&
-                w.key != const ValueKey('dollars-start-investing'),
-            skipOffstage: false),
+        find.byWidgetPredicate((w) => w is AppButton, skipOffstage: false),
         findsNothing);
     expect(find.text(l10n.dollarDeposit, skipOffstage: false), findsNothing);
 
@@ -1247,11 +1252,7 @@ void main() {
     expect(
         find.text(l10n.portfolioTabOrders, skipOffstage: false), findsNothing);
     expect(
-        find.byWidgetPredicate(
-            (w) =>
-                w is AppButton &&
-                w.key != const ValueKey('dollars-start-investing'),
-            skipOffstage: false),
+        find.byWidgetPredicate((w) => w is AppButton, skipOffstage: false),
         findsNWidgets(2)); // the rows' own Cancel buttons
     // Each venue's order under its small heading, under the block (the
     // card with the venue rows and the chart), never inside it: the
