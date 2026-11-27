@@ -38,6 +38,7 @@ import 'package:kute/models/add_wallet_model.dart';
 import 'package:kute/models/send_tx_model.dart';
 import 'package:kute/providers/add_wallet_provider.dart';
 import 'package:kute/providers/qr_scanner_provider.dart';
+import 'package:kute/platform/web_edge_colors.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/add_wallet_capabilities.dart';
@@ -1173,16 +1174,11 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     // to its bottom edge, and the drag handle and the close X float over
     // the video. Shorter than the full-height sheets so it reads as a
     // sheet over the page, the send sheet's first-step height.
-    // The bar explains the scanner (founder, 31 October 2026): "What can
-    // I scan?", tapping sends the question to Sal.
+    // No bar over the scanner (founder, 27 November 2026: "get rid of the
+    // button what I can scan, no need"; it was "What can I scan?" since
+    // 31 October 2026): the bar slides away while the scanner is up.
     return KuteBarContextScope(
-      barContext: KuteBarContext(
-        label: context.l10n.barScannerLabel,
-        sublabel: context.l10n.barAskSalSub,
-        clip: 'curious',
-        question: context.l10n.barScannerQuestion,
-        source: 'scanner',
-      ),
+      barContext: const KuteBarContext.hidden(),
       child: PopScope<Object?>(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _onClosing();
@@ -1198,7 +1194,11 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _preview(context, multi),
+                // The field is black to its bottom edge: the web says so
+                // to Safari, whose bottom bar takes it
+                // (web_edge_colors.dart).
+                WebEdgeColor(
+                    color: Colors.black, child: _preview(context, multi)),
                 // The drag handle, over the video. None in a panel on
                 // EXPANDED: nothing there is dragged.
                 if (!inPanel)

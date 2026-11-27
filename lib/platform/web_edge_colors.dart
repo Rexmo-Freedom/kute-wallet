@@ -68,6 +68,8 @@ Color webEdgeColorAt(FlutterView view, Offset position, Color fallback,
       c = target.color;
     } else if (target is RenderPhysicalShape) {
       c = target.color;
+    } else if (target is RenderWebEdgeColor) {
+      c = target.color;
     }
     if (c == null || c.a == 0) continue;
     if (c.a >= 0.999) {
@@ -82,6 +84,32 @@ Color webEdgeColorAt(FlutterView view, Offset position, Color fallback,
     color = Color.alphaBlend(layer, color);
   }
   return color.withValues(alpha: 1);
+}
+
+/// Says what colour a surface paints, for a surface drawn with a plain
+/// coloured box (whose colour the framework keeps private, so the band
+/// would fall back to the page's background): the scanner's black field
+/// (founder, 27 November 2026: under the black scanner sheet the bottom
+/// band was the page's grey). Draws nothing itself.
+class WebEdgeColor extends SingleChildRenderObjectWidget {
+  const WebEdgeColor({super.key, required this.color, super.child});
+
+  final Color color;
+
+  @override
+  RenderWebEdgeColor createRenderObject(BuildContext context) =>
+      RenderWebEdgeColor(color);
+
+  @override
+  void updateRenderObject(
+          BuildContext context, RenderWebEdgeColor renderObject) =>
+      renderObject.color = color;
+}
+
+class RenderWebEdgeColor extends RenderProxyBoxWithHitTestBehavior {
+  RenderWebEdgeColor(this.color) : super(behavior: HitTestBehavior.opaque);
+
+  Color color;
 }
 
 /// Keeps the page's top and bottom band colours in step with the app (see

@@ -40,6 +40,34 @@ void main() {
         page);
   });
 
+  testWidgets('a plain coloured field that says its colour (the scanner)',
+      (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(Directionality(
+      textDirection: TextDirection.ltr,
+      child: Stack(children: [
+        const Positioned.fill(
+            child: DecoratedBox(decoration: BoxDecoration(color: page))),
+        const Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 500,
+          child: WebEdgeColor(
+              color: Colors.black, child: ColoredBox(color: Colors.black)),
+        ),
+      ]),
+    ));
+    final view = tester.view;
+    expect(webEdgeColorAt(view, const Offset(2, 799), page),
+        const Color(0xFF000000));
+    // Above the field the page is still the page.
+    expect(webEdgeColorAt(view, const Offset(2, 1), Colors.red, top: true),
+        page);
+  });
+
   testWidgets('nothing opaque: the fallback, a sheet\'s dimming blended on',
       (tester) async {
     tester.view.physicalSize = const Size(400, 800);
