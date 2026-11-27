@@ -38,9 +38,19 @@ import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/providers/polymarket_game_timeline_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
+import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/providers/pending_polymarket_bet_provider.dart';
+import 'package:kute/providers/polymarket_bet_controller.dart';
+import 'package:kute/screens/polymarket/components/sell_sheet.dart'
+    show SellSheet;
+import 'package:kute/platform/kute_wide_frames.dart' show KuteSideFlow;
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
@@ -56,6 +66,41 @@ import '../screens/polymarket/crypto_next_round_card_test.dart'
     show CardWorld, roundStart;
 
 final _dir = Platform.environment['WIDE_PREDICTIONS_RENDER'];
+
+/// The Advanced limit pages' captures (ap_*), written only when asked:
+///   ADVANCED_LIMIT_RENDER=<dir> flutter test \
+///     test/render/wide_predictions_render_test.dart
+final _apDir = Platform.environment['ADVANCED_LIMIT_RENDER'];
+
+/// The placement engine, faked at its edges: the intent as prepared, an
+/// approval bound to it, and a venue that answers that the limit rests.
+class _RestingController extends PolymarketBetController {
+  _RestingController(super.ref);
+  @override
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+          {bool requireFreshCollateral = false}) async =>
+      intent;
+  @override
+  SensitiveIntent? reviewIntent(PendingBetIntent intent) => PmGrants.betReview(
+      walletId: 'w',
+      tokenId: intent.tokenId,
+      maxCostUsd: intent.amount + 1,
+      worstPrice: intent.limitPrice,
+      orderType: 'gtc');
+  @override
+  void prefetchForSend(PendingBetIntent intent) {}
+  @override
+  Future<AuthGrantException?> place(String mode,
+      {required AuthGrant grant,
+      bool successHaptic = true,
+      String? entrySource,
+      bool requireFreshCollateral = false}) async {
+    ref
+        .read(pendingPolymarketBetProvider.notifier)
+        .updateStatus(PendingBetStatus.done);
+    return null;
+  }
+}
 
 class _NoStars extends PolyWatchlistNotifier {
   @override
@@ -240,15 +285,17 @@ Future<void> _fonts(WidgetTester tester) => tester.runAsync(() async {
       await icons.load();
     });
 
-Future<void> _shoot(WidgetTester tester, String name, Size size) async {
+Future<void> _shoot(WidgetTester tester, String name, Size size,
+    {String? dir}) async {
   final boundary = tester
       .renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('shot')));
   final image = (await tester
       .runAsync(() => boundary.toImage(pixelRatio: size.width > 600 ? 1 : 2)))!;
+  final to = dir ?? _dir!;
   await tester.runAsync(() async {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    Directory(_dir!).createSync(recursive: true);
-    File('$_dir/$name.png').writeAsBytesSync(data!.buffer.asUint8List());
+    Directory(to).createSync(recursive: true);
+    File('$to/$name.png').writeAsBytesSync(data!.buffer.asUint8List());
   });
 }
 
@@ -304,7 +351,8 @@ Future<void> _pump(WidgetTester tester,
     {required Size size,
     required bool dark,
     required List<Override> overrides,
-    required Route<void> Function() route}) async {
+    required Route<void> Function() route,
+    bool account = false}) async {
   await _fonts(tester);
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -336,6 +384,14 @@ Future<void> _pump(WidgetTester tester,
     ),
   ));
   await tester.pump();
+  // The Predictions account as the app has it once Predictions was opened
+  // (the shell builds it): the market page lists its resting orders.
+  if (account) {
+    final container = ProviderScope.containerOf(
+        AppRouter.rootNavigatorKey.currentContext!);
+    container.listen(polymarketTradingProvider, (_, __) {});
+    await tester.pump();
+  }
   AppRouter.rootNavigatorKey.currentState!.push(route());
   for (var i = 0; i < 20; i++) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -482,12 +538,16 @@ void main() {
   // ── Behaviour (always run) ──────────────────────────────────────────
 
   Future<void> pumpMarket(WidgetTester tester, Size size, PolymarketEvent e,
-      {List<PolymarketPosition> positions = const []}) async {
+      {List<PolymarketPosition> positions = const [],
+      List<Order> orders = const [],
+      List<Override> extra = const [],
+      bool dark = false}) async {
     await allow(tester);
-    final world = CardWorld();
+    final world = CardWorld()..orders = orders;
     await _pump(tester,
+        account: orders.isNotEmpty,
         size: size,
-        dark: false,
+        dark: dark,
         overrides: [
           ...world.overrides(),
           polyGameLinesProvider
@@ -495,6 +555,7 @@ void main() {
           polymarketActivePositionsProvider.overrideWithValue(positions),
           polymarketMarketHistoryProvider.overrideWith(
               (ref, params) async => _history(params.tokenId, 0.3)),
+          ...extra,
         ],
         route: () => MaterialPageRoute<void>(
             settings: const RouteSettings(name: MarketDetailSheet.routeName),
@@ -743,4 +804,209 @@ void main() {
     expect(find.byKey(const ValueKey('kute-bar-trade-row')), findsOneWidget);
     await release(tester);
   });
+
+  // ── Advanced limits (the audit before `trading.advanced` is on) ─────
+
+  // A resting limit buy on the aliens market's Yes, and one on another
+  // market that must not show here.
+  final restingYes = Order(
+    id: 'rest-y',
+    market: 'c-aliens',
+    assetId: 'y',
+    owner: 'x',
+    side: 'BUY',
+    price: '0.04',
+    originalSize: '250',
+    sizeMatched: '40',
+    outcome: 'Yes',
+    timestamp: '${DateTime.now().millisecondsSinceEpoch ~/ 1000 - 7200}',
+  );
+  final restingElsewhere = Order(
+    id: 'rest-other',
+    market: 'c-other',
+    assetId: 'other',
+    owner: 'x',
+    side: 'BUY',
+    price: '0.5',
+    originalSize: '10',
+    sizeMatched: '0',
+    outcome: 'Yes',
+  );
+
+  Future<void> openAdvancedLimit(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('kute-bar-trade-yes')));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')).first);
+    await settle(tester);
+    await tester.ensureVisible(find.text('Limit').last);
+    await tester.tap(find.text('Limit').last);
+    await settle(tester);
+  }
+
+  /// Places the limit on the Advanced page through the slip's own path:
+  /// the approval is the test's seam, the venue a fake that answers that it
+  /// rests (nothing is signed or sent).
+  Future<void> placeRestingLimit(WidgetTester tester) async {
+    await openAdvancedLimit(tester);
+    await tester.enterText(find.byType(TextField).last, '5');
+    await settle(tester);
+    final cta = find.textContaining(r'Place $5.00 limit at');
+    await tester.ensureVisible(cta.last);
+    await tester.tap(cta.last);
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  List<Override> placing() => [
+        polymarketBetControllerProvider.overrideWith(_RestingController.new),
+      ];
+
+  testWidgets(
+      'P7 wide: a limit placed from Advanced over the slip in place keeps '
+      'the market page and its slip (through the placement)', (tester) async {
+    debugPmBetApproval = (review) async =>
+        AuthGrants.issue(review, method: AuthGrantMethod.allowance);
+    addTearDown(() => debugPmBetApproval = null);
+    await pumpMarket(tester, const Size(1440, 900), _aliens, extra: placing());
+    await placeRestingLimit(tester);
+    expect(find.text('Advanced prediction'), findsNothing);
+    expect(find.byType(MarketDetailSheet), findsOneWidget);
+    expect(find.byKey(const ValueKey('bet-slip-in-place')), findsOneWidget);
+    // The resting receipt and its rows.
+    expect(find.text('Until canceled'), findsOneWidget);
+    expect(find.text('Reserved'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
+
+  testWidgets(
+      'P7 phone: the same placement closes the slip and the market sheet, '
+      'as before', (tester) async {
+    debugPmBetApproval = (review) async =>
+        AuthGrants.issue(review, method: AuthGrantMethod.allowance);
+    addTearDown(() => debugPmBetApproval = null);
+    await pumpMarket(tester, const Size(430, 932), _aliens, extra: placing());
+    await placeRestingLimit(tester);
+    expect(find.text('Advanced prediction'), findsNothing);
+    expect(find.byType(MarketDetailSheet), findsNothing);
+    expect(find.text('Until canceled'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
+
+  testWidgets('P7 phone: Advanced over the sheet slip is not marked',
+      (tester) async {
+    await pumpMarket(tester, const Size(430, 932), _aliens);
+    await openAdvancedLimit(tester);
+    expect(find.text('Advanced prediction'), findsOneWidget);
+    expect(find.byKey(const ValueKey('prediction-advanced-over-in-place')),
+        findsNothing);
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
+
+  testWidgets(
+      'resting orders: the market page lists this market\'s, phone and '
+      'wide (the right column at rest, the side panel\'s footer open)',
+      (tester) async {
+    await pumpMarket(tester, const Size(430, 932), _aliens,
+        orders: [restingYes, restingElsewhere]);
+    final listed = find.byKey(const ValueKey('poly-market-orders'));
+    await tester.scrollUntilVisible(listed, 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(listed, findsOneWidget);
+    expect(find.byKey(const ValueKey('market-order-rest-y')), findsOneWidget);
+    expect(find.byKey(const ValueKey('market-order-rest-other')), findsNothing);
+    await release(tester);
+
+    await pumpMarket(tester, const Size(1440, 900), _aliens,
+        orders: [restingYes, restingElsewhere]);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('poly-desk-column')),
+            matching: find.byKey(const ValueKey('market-order-rest-y'))),
+        findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('kute-bar-trade-yes')));
+    await settle(tester);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('slip-panel-footer')),
+            matching: find.byKey(const ValueKey('market-order-rest-y'))),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('market-order-rest-other')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
+
+  const apSizes = [('phone', Size(430, 932)), ('wide', Size(1440, 900))];
+  for (final (form, size) in apSizes) {
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('render: ap market with a resting order $form $mode',
+          skip: _apDir == null, (tester) async {
+        await pumpMarket(tester, size, _aliens,
+            orders: [restingYes], dark: dark);
+        if (form == 'phone') {
+          final listed = find.byKey(const ValueKey('poly-market-orders'));
+          await tester.scrollUntilVisible(listed, 200,
+              scrollable: find.byType(Scrollable).first);
+          await settle(tester);
+          await _shoot(tester, 'ap_market_resting_${form}_$mode', size,
+              dir: _apDir);
+        } else {
+          await _shoot(tester, 'ap_market_resting_${form}_$mode', size,
+              dir: _apDir);
+          await tester.tap(find.byKey(const ValueKey('kute-bar-trade-yes')));
+          await settle(tester);
+          await _shoot(tester, 'ap_market_resting_${form}_${mode}_open', size,
+              dir: _apDir);
+        }
+        expect(tester.takeException(), isNull);
+        await release(tester);
+      });
+
+      testWidgets('render: ap buy advanced limit $form $mode',
+          skip: _apDir == null, (tester) async {
+        await pumpMarket(tester, size, _aliens,
+            orders: [restingYes], dark: dark);
+        await openAdvancedLimit(tester);
+        await _shoot(tester, 'ap_buy_advanced_${form}_$mode', size,
+            dir: _apDir);
+        expect(tester.takeException(), isNull);
+        await release(tester);
+      });
+
+      testWidgets('render: ap sell advanced limit $form $mode',
+          skip: _apDir == null, (tester) async {
+        await pumpMarket(tester, size, _aliens,
+            positions: const [_alienPosition],
+            orders: [
+              Order(
+                id: 'rest-sell',
+                market: 'c-aliens',
+                assetId: 'y',
+                owner: 'x',
+                side: 'SELL',
+                price: '0.12',
+                originalSize: '50',
+                sizeMatched: '0',
+                outcome: 'Yes',
+              ),
+            ],
+            dark: dark);
+        final nav = AppRouter.rootNavigatorKey.currentState!;
+        if (size.width >= 900) KuteSideFlow.arm();
+        SellSheet.show(nav.context,
+            position: _alienPosition, startWithLimit: true);
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await _shoot(tester, 'ap_sell_advanced_${form}_$mode', size,
+            dir: _apDir);
+        expect(tester.takeException(), isNull);
+        await release(tester);
+      });
+    }
+  }
 }

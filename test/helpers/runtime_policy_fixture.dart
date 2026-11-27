@@ -12,12 +12,14 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 /// default is `disabled`. [blocked] is read on every fetch, so a test may
 /// change it between fetches. [decorations] adds fields to a blocked
 /// capability's decision (`blockedBy`, `regions`), as a backend with the
-/// region cascade sends them.
+/// region cascade sends them. [comingSoon] names capabilities answered
+/// allowed but "coming soon" (withheld from the person all the same).
 RuntimeCapabilitiesService runtimePolicyFixture(
         {Set<String> blocked = const {},
         Map<String, String> reasons = const {},
         Map<String, Map<String, Object?>> decorations = const {},
         Set<String> also = const {},
+        Set<String> comingSoon = const {},
         int revision = 1,
         int Function()? revisionOf,
         int? maxLeverage}) =>
@@ -59,7 +61,7 @@ RuntimeCapabilitiesService runtimePolicyFixture(
                     'reason': blocked.contains(id)
                         ? (reasons[id] ?? 'disabled')
                         : '',
-                    'comingSoon': false,
+                    'comingSoon': comingSoon.contains(id),
                     if (blocked.contains(id)) ...?decorations[id],
                   },
               },

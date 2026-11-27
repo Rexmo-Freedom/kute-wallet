@@ -59,6 +59,9 @@ import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
+import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
+    show PolyMarketOrders;
+import 'package:kute/services/polymarket/limit_order_rules.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -362,7 +365,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   bool _limitSellBlocked() {
     final decision =
         ref.read(runtimeCapabilitiesProvider).decision('trading.advanced');
-    if (decision.allowed) return false;
+    // "Coming soon" is withheld too, as the slips' Advanced pill reads it
+    // (advancedTradingOffered).
+    if (decision.allowed && !decision.comingSoon) return false;
     unawaited(showCapabilityDecisionSheet(context, decision,
         capability: 'trading.advanced', surface: 'position_limit_sell'));
     return true;
@@ -1143,6 +1148,14 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         ),
                         SizedBox(height: 12.h),
                       ],
+                      // The position's resting orders (a protective sell,
+                      // a limit buy for more), each with its Cancel.
+                      if (pos.tokenId case final token? when token.isNotEmpty)
+                        PolyMarketOrders(
+                          key: const ValueKey('poly-position-orders'),
+                          here: (o) => o.assetId == token,
+                          bottom: 12.h,
+                        ),
                     ],
                     // The profit and payout tiles (on EXPANDED under the
                     // dial, on the left).
@@ -1366,7 +1379,10 @@ Color polyHeldSideColor(String outcome, AppColorsExtension c) =>
 /// The limit price "Set a sell at 72%" starts on: the explored chance,
 /// inside the book's 1¢ to 99¢.
 double polyWhatIfSellPrice(double chance) =>
-    chance.clamp(0.01, 0.99).toDouble();
+    // On a whole cent, the tick every market under 10¢ steps quotes; the
+    // sell ticket snaps it to the market's own tick when it is finer
+    // (limit_order_rules.dart).
+    polymarketSnapToTick(chance, kPolymarketFallbackTick);
 
 /// Under the dial: when the market ends (over the drag hint, until the
 /// first drag); while the needle is dragged and for a moment after, a

@@ -7011,6 +7011,62 @@ class AppLocalizationsCs extends AppLocalizations {
   String get betUntilCanceled => 'Do zrušení';
 
   @override
+  String get betLimitOrderFilled => 'Limitní příkaz vyplněn';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Koupeno $shares podílů $outcome za $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Zvolte cenu v krocích po $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Zvolte cenu od $low do $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Nejmenší příkaz je zde $count podílů.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count podílů v otevřených příkazech';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'K prodeji je volných jen $count podílů. Zbytek je ve vašich otevřených příkazech.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Zrušit všechny příkazy?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tímto odstraníte $count otevřených příkazů:',
+      one: 'Tímto odstraníte 1 otevřený příkaz:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Ponechat příkazy';
+
+  @override
+  String get betOrderTypeRow => 'Typ příkazu';
+
+  @override
+  String get betReservedRow => 'Rezervováno';
+
+  @override
   String get betProceedsToPredictions => 'Do Predikcí';
 
   @override

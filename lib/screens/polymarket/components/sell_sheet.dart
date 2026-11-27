@@ -18,6 +18,8 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
         polymarketLevels,
         polymarketWalkBids;
 import 'package:kute/services/polymarket/order_connection.dart';
+import 'package:kute/services/polymarket/limit_order_rules.dart';
+import 'package:kute/screens/polymarket/components/limit_copy.dart';
 import 'package:kute/services/polymarket/sell_ladder.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
@@ -52,7 +54,7 @@ import 'package:kute/screens/polymarket/components/position_chance_bar.dart'
     show polyOutcomeDirection;
 import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyChanceFigure;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:kute/services/sound_service.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
@@ -66,6 +68,7 @@ import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
+import 'package:kute/providers/polymarket_resting_fills_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
@@ -253,6 +256,59 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// The increment of the last book read, for the floor the sale's
   /// figures stop at.
   double? _liquidityTick;
+
+  /// The market's tick and minimum order size (shares) from the last book
+  /// read, for the Advanced page's limit price and the minimum check.
+  final ValueNotifier<({double? tick, double? minShares})> _limitTerms =
+      ValueNotifier((tick: null, minShares: null));
+
+  /// The tick a limit sell price is snapped to and checked against.
+  double get _sellTick => polymarketUsableTick(_limitTerms.value.tick);
+
+  /// The venue's minimum order size in shares (the usual 5 while unread).
+  double get _minSellShares {
+    final min = _limitTerms.value.minShares;
+    return min != null && min > 0 ? min : kPolymarketDefaultMinOrderShares;
+  }
+
+  /// Shares of this position already offered in resting sells: the venue
+  /// holds them, so a new sale cannot offer them again (P4).
+  double get _lockedShares => polymarketLockedSellShares(
+      ref.read(polymarketTradingProvider).valueOrNull, pos.tokenId);
+
+  /// What may be sold now: the position less what resting sells hold.
+  double get _freeShares => polymarketFreeShares(pos.size, _lockedShares);
+
+  /// The price a typed dollar figure is turned into shares at: a limit's
+  /// own price (what the shares bring at it), else the market's.
+  double _sizingPrice() {
+    if (_isLimitMode && _limitPrice > 0) return _limitPrice;
+    final lp = pos.tokenId != null
+        ? ref.read(livePriceProvider).prices[pos.tokenId]
+        : null;
+    return lp ?? pos.currentPrice;
+  }
+
+  /// Why the sale as it stands cannot be sent, in the words the ticket
+  /// shows in red; null when it can. More than is free, a limit under the
+  /// venue's minimum, a limit price off the tick or out of its range.
+  String? _sellIssue(AppLocalizations l10n) {
+    if (_sharesToSell <= 0) return null;
+    final free = _freeShares;
+    if (free < pos.size &&
+        polymarketShareHundredths(_sharesToSell) >
+            polymarketShareHundredths(free)) {
+      return l10n.betSellFreeShares(free.toStringAsFixed(2));
+    }
+    if (!_isLimitMode) return null;
+    final issue = polymarketLimitIssueText(l10n, _limitPrice, _sellTick);
+    if (issue != null) return issue;
+    if (!polymarketMeetsMinimumShares(_sharesToSell, _minSellShares)) {
+      return l10n.betLimitMinimumShares(
+          polymarketSharesFigure(_minSellShares));
+    }
+    return null;
+  }
   Timer? _bidRefreshTimer;
 
   PolymarketPosition get pos => widget.position;
@@ -396,6 +452,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       if (!mounted) return;
       final bestBid = book.bestBid;
       final tick = double.tryParse(book.minTickSize ?? '');
+      _limitTerms.value = (
+        tick: polymarketTickValue(book.minTickSize) ?? _limitTerms.value.tick,
+        minShares: double.tryParse(book.minOrderSize ?? '') ??
+            _limitTerms.value.minShares,
+      );
       if (bestBid == null || bestBid <= 0) {
         setState(() {
           _liquidityBid = null;
@@ -420,15 +481,63 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// the live `currentPrice`. Clamped to the position's share count
   /// so the user can't oversell.
   void _recomputeSharesFromUsdc() {
-    final livePrices = ref.read(livePriceProvider);
-    final lp = pos.tokenId != null ? livePrices.prices[pos.tokenId] : null;
-    final currentPrice = lp ?? pos.currentPrice;
-    if (currentPrice <= 0) {
+    // A limit's figure is what the shares bring at ITS price (P9), never
+    // at the market's. More than is free to sell (P4) is said in red
+    // ([_sellIssue]) rather than quietly cut.
+    final price = _sizingPrice();
+    if (price <= 0) {
       _sharesToSell = 0;
       return;
     }
-    final raw = _amountUsdc / currentPrice;
-    _sharesToSell = raw.clamp(0.0, pos.size);
+    final raw = _amountUsdc / price;
+    final free = _freeShares;
+    // With shares in resting sells, the figure Max wrote (every free
+    // share, rounded up to a cent) is every free share, never a hair
+    // more. With none, exactly as before.
+    _sharesToSell = free < pos.size &&
+            raw > free &&
+            polymarketAmountWithinShares(_amountUsdc, free, price)
+        ? free
+        : raw.clamp(0.0, pos.size);
+  }
+
+  /// The limit sell checked against the market's terms read now (the
+  /// book's tick and minimum), and against what is free to sell: null
+  /// when it may be approved, else what the ticket says. A book that
+  /// cannot be read is said as the connection, nothing approved.
+  Future<String?> _limitSellRefusal(
+      String tokenId, double price, double shares) async {
+    final l10n = context.l10n;
+    final model = PolymarketModel();
+    try {
+      final book =
+          await model.getOrderBook(tokenId).timeout(const Duration(seconds: 5));
+      final tick = polymarketTickValue(book.minTickSize);
+      final min = double.tryParse(book.minOrderSize ?? '');
+      if (mounted) {
+        _limitTerms.value = (
+          tick: tick ?? _limitTerms.value.tick,
+          minShares: min ?? _limitTerms.value.minShares,
+        );
+      }
+      if (tick == null) return l10n.betConnectionUnavailable;
+      final issue = polymarketLimitIssueText(l10n, price, tick);
+      if (issue != null) return issue;
+      final minShares =
+          min != null && min > 0 ? min : kPolymarketDefaultMinOrderShares;
+      if (!polymarketMeetsMinimumShares(shares, minShares)) {
+        return l10n.betLimitMinimumShares(polymarketSharesFigure(minShares));
+      }
+      if (polymarketShareHundredths(shares) >
+          polymarketShareHundredths(_freeShares)) {
+        return l10n.betSellFreeShares(_freeShares.toStringAsFixed(2));
+      }
+      return null;
+    } catch (_) {
+      return l10n.betConnectionUnavailable;
+    } finally {
+      model.dispose();
+    }
   }
 
   void _onAmountChanged() {
@@ -468,6 +577,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     }
     TrackingService.clearFlowContext('polymarket_sell');
     _bidRefreshTimer?.cancel();
+    _limitTerms.dispose();
     _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     super.dispose();
@@ -534,6 +644,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       _stopped(_sharesToSell <= 0 ? 'no_amount' : 'above_position');
       return;
     }
+    // What the ticket says in red keeps the button shut; a tap that raced
+    // it stops here, before anything is approved.
+    if (_sellIssue(l10n) != null) {
+      _stopped('invalid_order');
+      return;
+    }
 
     final tokenId = pos.tokenId;
     if (tokenId == null || tokenId.isEmpty) {
@@ -576,8 +692,29 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // NOT mark the position sold (it's still held until the order fills).
     if (_isLimitMode) {
       try {
-        final price = _limitPrice.clamp(0.01, 0.99).toDouble();
+        final price = _limitPrice;
         final sellShares = _sharesToSell;
+        // The account the sale is placed from (a wallet switch meanwhile
+        // drops its fills tracking).
+        final placedOn = ref
+            .read(polymarketTradingProvider)
+            .valueOrNull
+            ?.proxyWalletAddress;
+        // The market's tick and minimum, read now, before the approval: a
+        // price off the tick or under the minimum is said on the ticket
+        // here, never refused by the encoder or the venue after Face ID.
+        final refusal = await _limitSellRefusal(tokenId, price, sellShares);
+        if (refusal != null) {
+          _stopped('limit_refused');
+          if (mounted) {
+            setState(() {
+              _sellFailed = true;
+              _sellErrorMessage = refusal;
+              _sellErrorDetails = null;
+            });
+          }
+          return;
+        }
         // Phase 1b.4: approve exactly this resting sell before it is signed.
         final grant = await _approveSell(
           tokenId: tokenId,
@@ -613,6 +750,25 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         // sold it all. One read of the order says which.
         final settlement = await _watchSale(placed,
             tokenId: tokenId, offered: sellShares, resting: true);
+        // What still rests is known to the fills tracker at once, so a
+        // fill before the next orders read is still said, counted from
+        // the shares the receipt states (_finishSale: the settlement's).
+        // Registered only on the account it was placed from.
+        if (mounted) {
+          polymarketNoteRestingOrder(
+            tracking: ref.exists(polymarketRestingFillsProvider),
+            tracker: () => ref.read(polymarketRestingFillsProvider.notifier),
+            placed: placed,
+            account: placedOn,
+            tokenId: tokenId,
+            isBuy: false,
+            price: price,
+            shares: sellShares,
+            matched: settlement.soldShares,
+            outcome: pos.outcome,
+            market: pos.marketId,
+          );
+        }
         TrackingService.track('polymarket_limit_sell_placed', params: {
           ..._kindParams(),
           ..._sellInputs(),
@@ -1396,8 +1552,16 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           tone: KuteConfirmationTone.pending,
           message: l10n.investingOrderAccepted,
           amount: l10n.portfolioPredictionEntry(shares.toStringAsFixed(2),
-              '${(price * 100).toStringAsFixed(2)}¢'),
+              polymarketLimitCentsLabel(price)),
           contextLine: '${pos.outcome} · ${pos.marketQuestion}',
+          // What was set, in the order the ticket set it, and what the
+          // venue holds for it while it rests: the shares.
+          rows: {
+            l10n.betOrderTypeRow: l10n.betOrderTypeLimit,
+            l10n.betSellAt: polymarketLimitCentsLabel(price),
+            l10n.betOrderDuration: l10n.betUntilCanceled,
+            l10n.betReservedRow: l10n.betSharesCount(shares.toStringAsFixed(2)),
+          },
           detail: l10n.betRestingSellNote,
           onDone: navigator.pop,
           // The sell rests: "View orders" opens the Portfolio's P&L
@@ -1619,8 +1783,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// What Advanced is set to when it is not the default (a limit, at its
   /// price), for the chip under the amount; null: the default.
   String? get _advancedSummary => _isLimitMode
-      ? context.l10n
-          .betSlipLimitAt('${(_limitPrice * 100).toStringAsFixed(1)}¢')
+      ? context.l10n.betSlipLimitAt(polymarketLimitCentsLabel(_limitPrice))
       : null;
 
   Future<void> _openAdvanced() async {
@@ -1650,9 +1813,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             currentPrice: currentPrice,
             isLimitMode: _isLimitMode,
             limitPrice: _limitPrice,
-            slippagePct: _slippagePct,
+            slippageChoice: _slippageChoice,
             amountText: _amountController.text,
             marketDefaultSlippagePct: _marketDefaultSlippage,
+            terms: _limitTerms,
           ),
         ),
       );
@@ -1660,9 +1824,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       setState(() {
         _isLimitMode = result.isLimitMode;
         _limitPrice = result.limitPrice;
-        if (result.slippagePct != _slippagePct) {
-          _slippageChoice = result.slippagePct;
-        }
+        // The one rule both pages read ([_usesAdvanced]): a slippage the
+        // person picked, else the market's own default.
+        _slippageChoice = result.slippageChoice;
+        // The figure is re-sized at the price now in force (a limit's).
+        _recomputeSharesFromUsdc();
       });
       // The page carries the amount too, so whatever it was left on comes
       // back through the controller (which recomputes the shares).
@@ -1690,9 +1856,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     setState(() {
       _isLimitMode = true;
       if (_limitPrice <= 0) {
-        _limitPrice = (asked != null && asked > 0 ? asked : lp ?? pos.currentPrice)
-            .clamp(0.01, 0.99)
-            .toDouble();
+        // On the tick, at or over the market (a sell never seeds under it).
+        _limitPrice = polymarketSnapToTick(
+            asked != null && asked > 0 ? asked : lp ?? pos.currentPrice,
+            _sellTick,
+            snap: PolymarketTickSnap.up);
       }
     });
     unawaited(_openAdvanced());
@@ -1720,7 +1888,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         .select((s) => pos.tokenId != null ? s.prices[pos.tokenId] : null));
     final currentPrice = livePrice ?? pos.currentPrice;
     final currentValue = pos.size * currentPrice;
-    final canSell = _sharesToSell > 0 && _sharesToSell <= pos.size;
+    // What resting sells already hold of the position (P4), followed live
+    // so a cancel elsewhere frees it here.
+    ref.watch(polymarketTradingProvider
+        .select((s) => s.valueOrNull?.openOrders ?? const []));
+    final locked = _lockedShares;
+    final issue = _sellIssue(context.l10n);
+    final canSell = _sharesToSell > 0 && _sharesToSell <= pos.size &&
+        issue == null;
 
     // A sale in flight keeps its ticket until the venue has answered. The
     // progress is carried by the CTA, the controls go inert underneath it,
@@ -1827,8 +2002,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             amountText: _amountController.text,
             availableLabel:
                 '${context.l10n.betCurrentValue} ${formatDollars(currentValue)}'
-                ' · ${context.l10n.betPercentChance(formatPolyChanceFigure(currentPrice))}',
-            availableExceeded: _amountUsdc > currentValue,
+                ' · ${context.l10n.betPercentChance(formatPolyChanceFigure(currentPrice))}'
+                '${locked > 0 ? ' · ${context.l10n.betSharesInOpenOrders(locked.toStringAsFixed(2))}' : ''}',
+            availableExceeded: _amountUsdc > currentValue || issue != null,
             // One small Max chip beside the figure, as on the buy slips:
             // it fills the whole position (every share), and brings that
             // back after an edit. Nothing to sell, no chip. The Advanced
@@ -1881,6 +2057,16 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               valueColor: pnlColor,
             ),
           ),
+          // More than is free, under the venue's minimum, a limit price
+          // off the tick: said here in red, the button shut.
+          if (issue != null) ...[
+            SlipGap(10.h),
+            Text(
+              issue,
+              key: const ValueKey('poly-sell-issue'),
+              style: TextStyle(fontSize: 14.sp, color: tc.textPrimary),
+            ),
+          ],
           if (_advancedBlock case final reason?)
             CapabilityBlockNote(reason, padding: EdgeInsets.only(top: 10.h)),
           // A sale that did not go through says so here, on the ticket
@@ -2027,7 +2213,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                           : _isLimitMode
                               ? (canSell
                                   ? context.l10n.betPlaceLimitAtPrice(
-                                      '${(_limitPrice * 100).toStringAsFixed(1)}¢')
+                                      polymarketLimitCentsLabel(_limitPrice))
                                   : context.l10n.betPlaceLimit)
                               : (canSell
                                   ? '${context.l10n.sell} · ${formatDollars(_amountUsdc)}'
@@ -2055,11 +2241,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// or BTC) — mirrors the bet slip's quick-chip behaviour.
   void _setSellFraction(double fraction) {
     final clamped = fraction.clamp(0.0, 1.0);
-    final shares = clamped >= 1.0 ? pos.size : pos.size * clamped;
-    final livePrices = ref.read(livePriceProvider);
-    final lp = pos.tokenId != null ? livePrices.prices[pos.tokenId] : null;
-    final currentPrice = lp ?? pos.currentPrice;
-    final usdc = shares * currentPrice;
+    // Max is every share free to sell: what resting sells hold is theirs
+    // (P4). Its figure is what they bring at the price in force (a
+    // limit's own, P9).
+    final free = _freeShares;
+    final shares = clamped >= 1.0 ? free : free * clamped;
+    final usdc = shares * _sizingPrice();
     final String seed;
     {
       seed = usdc <= 0
@@ -2151,14 +2338,16 @@ class _SellAdvancedResult {
   const _SellAdvancedResult({
     required this.isLimitMode,
     required this.limitPrice,
-    required this.slippagePct,
+    required this.slippageChoice,
     required this.amountText,
     required this.submit,
   });
 
   final bool isLimitMode;
   final double limitPrice;
-  final double slippagePct;
+
+  /// The slippage picked on the page; null: the market's default.
+  final double? slippageChoice;
   final String amountText;
   final bool submit;
 }
@@ -2181,8 +2370,9 @@ class _SellAdvancedScreen extends ConsumerStatefulWidget {
     required this.currentPrice,
     required this.isLimitMode,
     required this.limitPrice,
-    required this.slippagePct,
+    required this.slippageChoice,
     required this.amountText,
+    required this.terms,
     this.marketDefaultSlippagePct = kPolymarketDefaultSlippagePct,
   });
 
@@ -2190,7 +2380,14 @@ class _SellAdvancedScreen extends ConsumerStatefulWidget {
   final double currentPrice;
   final bool isLimitMode;
   final double limitPrice;
-  final double slippagePct;
+
+  /// The slippage the person picked on the sheet; null: the market's
+  /// default ([marketDefaultSlippagePct]).
+  final double? slippageChoice;
+
+  /// The market's tick and minimum order size, from the sheet's last
+  /// book read (null while unread).
+  final ValueListenable<({double? tick, double? minShares})> terms;
 
   /// The market's own default (wider on a short crypto round): not an
   /// Advanced choice.
@@ -2208,23 +2405,43 @@ class _SellAdvancedScreen extends ConsumerStatefulWidget {
 
 class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
   late bool _isLimitMode = widget.isLimitMode;
-  late double _limitPrice = widget.limitPrice > 0
-      ? widget.limitPrice
-      : widget.currentPrice.clamp(0.01, 0.99).toDouble();
-  late double _slippagePct = widget.slippagePct;
+  late double _limitPrice =
+      widget.limitPrice > 0 ? widget.limitPrice : _seed(widget.currentPrice);
+  late double? _slippageChoice = widget.slippageChoice;
+  double get _slippagePct =>
+      _slippageChoice ?? widget.marketDefaultSlippagePct;
   late final TextEditingController _amountController =
       TextEditingController(text: widget.amountText);
 
+  /// The limit price was stepped by hand: it is no longer re-seeded when
+  /// the market's tick arrives.
+  bool _limitEdited = false;
+
   PolymarketPosition get pos => widget.position;
+
+  /// The tick a limit price is snapped to and checked against.
+  double get _tick => polymarketUsableTick(widget.terms.value.tick);
+
+  /// The venue's minimum order size in shares (the usual 5 while unread).
+  double get _minShares {
+    final min = widget.terms.value.minShares;
+    return min != null && min > 0 ? min : kPolymarketDefaultMinOrderShares;
+  }
+
+  /// A sell's seed: on the tick, at or over [price].
+  double _seed(double price) =>
+      polymarketSnapToTick(price, _tick, snap: PolymarketTickSnap.up);
 
   @override
   void initState() {
     super.initState();
     _amountController.addListener(_onAmountChanged);
+    widget.terms.addListener(_onTerms);
   }
 
   @override
   void dispose() {
+    widget.terms.removeListener(_onTerms);
     _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     super.dispose();
@@ -2232,25 +2449,74 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
 
   void _onAmountChanged() => setState(() {});
 
+  /// The market's tick arrived (or moved): an untouched seed follows it; a
+  /// price set by hand is said off the tick instead ([_issue]).
+  void _onTerms() {
+    if (!mounted) return;
+    setState(() {
+      if (!_limitEdited && !polymarketPriceOnTick(_limitPrice, _tick)) {
+        _limitPrice = _seed(widget.currentPrice);
+      }
+    });
+  }
+
+  /// Shares of this position already offered in resting sells.
+  double get _lockedShares => polymarketLockedSellShares(
+      ref.watch(polymarketTradingProvider.select((s) => s.valueOrNull)),
+      pos.tokenId);
+
+  /// What may be sold now: the position less what resting sells hold.
+  double get _freeShares => polymarketFreeShares(pos.size, _lockedShares);
+
+  /// Why the sale cannot be sent as it stands (red, the button shut);
+  /// null when it can. The sheet checks the same before approval.
+  String? _issue(AppLocalizations l10n) {
+    final price = _sizingPrice;
+    if (price <= 0 || _amountUsdc <= 0) return null;
+    final free = _freeShares;
+    if (free < pos.size - 0.005 &&
+        !polymarketAmountWithinShares(_amountUsdc, free, price)) {
+      return l10n.betSellFreeShares(free.toStringAsFixed(2));
+    }
+    if (!_isLimitMode) return null;
+    final priceIssue = polymarketLimitIssueText(l10n, _limitPrice, _tick);
+    if (priceIssue != null) return priceIssue;
+    if (!polymarketMeetsMinimumShares(_sharesToSell, _minShares)) {
+      return l10n.betLimitMinimumShares(polymarketSharesFigure(_minShares));
+    }
+    return null;
+  }
+
   /// The typed figure: dollars, the unit the order is sized in, exactly as
   /// the sheet reads it.
   double get _amountUsdc => double.tryParse(_amountController.text) ?? 0.0;
 
   double get _positionValue => pos.size * widget.currentPrice;
 
-  /// Shares the order will offer, clamped to what is actually held.
+  /// The price the typed figure is turned into shares at: a limit's own
+  /// (what the shares bring at it), else the market's (as the sheet).
+  double get _sizingPrice =>
+      _isLimitMode && _limitPrice > 0 ? _limitPrice : widget.currentPrice;
+
+  /// Shares the order will offer, clamped to what is free to sell.
   double get _sharesToSell {
-    if (widget.currentPrice <= 0) return 0;
-    return (_amountUsdc / widget.currentPrice).clamp(0.0, pos.size).toDouble();
+    final price = _sizingPrice;
+    if (price <= 0) return 0;
+    return (_amountUsdc / price).clamp(0.0, _freeShares).toDouble();
   }
 
-  bool get _canSell => _sharesToSell > 0 && _sharesToSell <= pos.size;
+  bool get _canSell =>
+      _sharesToSell > 0 &&
+      _sharesToSell <= pos.size &&
+      _issue(context.l10n) == null;
 
-  /// Mirrors the sheet: the page is always reachable, the sale is not.
+  /// The sheet's own rule (a limit, or a slippage picked other than the
+  /// 5% default; the market's wider default on a short round is not), so
+  /// the page never offers a sale the sheet then withholds.
   bool get _usesAdvanced =>
       _isLimitMode ||
-      (_slippagePct != kPolymarketDefaultSlippagePct &&
-          _slippagePct != widget.marketDefaultSlippagePct);
+      (_slippageChoice ?? kPolymarketDefaultSlippagePct) !=
+          kPolymarketDefaultSlippagePct;
 
   String? get _advancedBlock => _usesAdvanced
       ? ref.watch(runtimeCapabilitiesProvider).blockReason('trading.advanced')
@@ -2259,7 +2525,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
   _SellAdvancedResult _result({required bool submit}) => _SellAdvancedResult(
         isLimitMode: _isLimitMode,
         limitPrice: _limitPrice,
-        slippagePct: _slippagePct,
+        slippageChoice: _slippageChoice,
         amountText: _amountController.text,
         submit: submit,
       );
@@ -2361,7 +2627,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
             setState(() {
               _isLimitMode = isLimit;
               if (isLimit && _limitPrice <= 0) {
-                _limitPrice = widget.currentPrice.clamp(0.01, 0.99).toDouble();
+                _limitPrice = _seed(widget.currentPrice);
               }
             });
           },
@@ -2401,11 +2667,14 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
   }
 
   Widget _limitPriceInput(AppColorsExtension c) {
-    void bump(double deltaCents) {
-      final next =
-          (((_limitPrice * 100) + deltaCents).clamp(1.0, 99.0)) / 100.0;
+    // One tick a step, on the market's tick and inside its range.
+    void bump(int direction) {
+      final next = polymarketStepLimitPrice(_limitPrice, _tick, direction);
       HapticFeedback.selectionClick();
-      setState(() => _limitPrice = next);
+      setState(() {
+        _limitPrice = next;
+        _limitEdited = true;
+      });
     }
 
     Widget step(IconData icon, VoidCallback onTap) => GestureDetector(
@@ -2440,8 +2709,8 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: () => setState(() => _limitPrice =
-                  widget.currentPrice.clamp(0.01, 0.99).toDouble()),
+              onTap: () =>
+                  setState(() => _limitPrice = _seed(widget.currentPrice)),
               behavior: HitTestBehavior.opaque,
               child: Text(
                 context.l10n.betMarketPrice(
@@ -2470,7 +2739,8 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
               Expanded(
                 child: Center(
                   child: Text(
-                    '${(_limitPrice * 100).toStringAsFixed(1)}¢',
+                    polymarketLimitCentsLabel(_limitPrice),
+                    key: const ValueKey('sell-advanced-limit-price'),
                     style: TextStyle(
                       fontSize: 22.sp,
                       fontWeight: FontWeight.w700,
@@ -2512,7 +2782,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                 selected: _slippagePct == opt,
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  setState(() => _slippagePct = opt);
+                  setState(() => _slippageChoice = opt);
                 },
               ),
           ],
@@ -2528,6 +2798,8 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
     final orderPrice = _isLimitMode ? _limitPrice : widget.currentPrice;
     final sellingAll = _sharesToSell >= pos.size - 0.000001;
     final amountStr = formatDollars(_amountUsdc);
+    final locked = _lockedShares;
+    final issue = _issue(l10n);
 
     return PopScope(
       // The page always answers with its edited values, including on a
@@ -2569,8 +2841,11 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                         SizedBox(height: 14.h),
                         PolySlipSection(
                           title: l10n.amount,
+                          // What is free to sell, worth it at the price in
+                          // force; what resting sells hold, said under the
+                          // figure.
                           trailing: Text(
-                            '${l10n.available} ${formatDollars(_positionValue)}',
+                            '${l10n.available} ${formatDollars(_freeShares * _sizingPrice)}',
                             textAlign: TextAlign.end,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -2585,6 +2860,16 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                                 DecimalInputFormatter(fractionDigits: 2)
                               ],
                             ),
+                            if (locked > 0) ...[
+                              SizedBox(height: 10.h),
+                              Text(
+                                l10n.betSharesInOpenOrders(
+                                    locked.toStringAsFixed(2)),
+                                key: const ValueKey('sell-advanced-locked'),
+                                style: TextStyle(
+                                    fontSize: 14.sp, color: c.textSecondary),
+                              ),
+                            ],
                             if (_sharesToSell > 0) ...[
                               SizedBox(height: 10.h),
                               Text(
@@ -2593,6 +2878,17 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                                     : '≈ ${l10n.betSharesCount(_sharesToSell.toStringAsFixed(2))}',
                                 style: TextStyle(
                                     fontSize: 14.sp, color: c.textSecondary),
+                              ),
+                            ],
+                            // More than is free, under the minimum, a
+                            // price off the tick: in red, the button shut.
+                            if (issue != null) ...[
+                              SizedBox(height: 10.h),
+                              Text(
+                                issue,
+                                key: const ValueKey('sell-advanced-issue'),
+                                style: TextStyle(
+                                    fontSize: 14.sp, color: AppColors.error),
                               ),
                             ],
                           ],
@@ -2639,6 +2935,10 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                             if (_isLimitMode) ...[
                               SizedBox(height: 12.h),
                               PolySlipDetailRow(
+                                  label: l10n.betOrderTypeRow,
+                                  value: l10n.betOrderTypeLimit),
+                              SizedBox(height: 12.h),
+                              PolySlipDetailRow(
                                   label: l10n.betOrderDuration,
                                   value: l10n.betUntilCanceled),
                             ],
@@ -2680,12 +2980,14 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                       label: _isLimitMode
                           ? (_canSell
                               ? l10n.betPlaceLimitAtPrice(
-                                  '${(_limitPrice * 100).toStringAsFixed(1)}¢')
+                                  polymarketLimitCentsLabel(_limitPrice))
                               : l10n.betPlaceLimit)
                           : (_canSell
                               ? '${l10n.sellNow} · $amountStr'
                               : l10n.sell),
-                      disabledLabel: _canSell ? null : l10n.barNeedAmount,
+                      disabledLabel: _canSell || issue != null
+                          ? null
+                          : l10n.barNeedAmount,
                     ),
                   ]),
                 ),

@@ -12226,6 +12226,78 @@ abstract class AppLocalizations {
   /// **'Until canceled'**
   String get betUntilCanceled;
 
+  /// Sal toast title when a resting Predictions limit order fills (all or part) while the app is open.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit order filled'**
+  String get betLimitOrderFilled;
+
+  /// Toast detail for a fully filled limit buy.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought {shares} shares of {outcome} at {price}'**
+  String betLimitBoughtShares(String shares, String outcome, String price);
+
+  /// Inline error under a limit price that is not on the market's price increment, e.g. 'in steps of 1¢'.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a price in steps of {step}.'**
+  String betLimitPriceSteps(String step);
+
+  /// Inline error under a limit price outside the market's range.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a price from {low} to {high}.'**
+  String betLimitPriceRange(String low, String high);
+
+  /// Inline error: the venue's minimum order size in shares.
+  ///
+  /// In en, this message translates to:
+  /// **'The smallest order here is {count} shares.'**
+  String betLimitMinimumShares(String count);
+
+  /// Sell ticket: shares of this position already offered in resting sell orders.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} shares in open orders'**
+  String betSharesInOpenOrders(String count);
+
+  /// Sell ticket error: more shares than are free (the rest are locked in resting sells).
+  ///
+  /// In en, this message translates to:
+  /// **'Only {count} shares are free to sell. The rest are in your open orders.'**
+  String betSellFreeShares(String count);
+
+  /// Title of the confirm sheet before cancelling every open order.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel all orders?'**
+  String get ordersCancelAllTitle;
+
+  /// Confirm sheet subtitle, followed by one line per order.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This removes 1 open order:} other{This removes {count} open orders:}}'**
+  String ordersCancelAllBody(int count);
+
+  /// Confirm sheet's dismiss button: keep the open orders.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep orders'**
+  String get ordersKeep;
+
+  /// Receipt row label: the kind of order (Limit).
+  ///
+  /// In en, this message translates to:
+  /// **'Order type'**
+  String get betOrderTypeRow;
+
+  /// Receipt row label: the cash a resting limit buy holds (stake plus the most it can pay in fees).
+  ///
+  /// In en, this message translates to:
+  /// **'Reserved'**
+  String get betReservedRow;
+
   /// No description provided for @betProceedsToPredictions.
   ///
   /// In en, this message translates to:

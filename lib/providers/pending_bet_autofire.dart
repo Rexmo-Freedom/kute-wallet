@@ -74,6 +74,8 @@ import 'package:kute/providers/polymarket_bet_controller.dart'
     show PolymarketBetController, polymarketRetryPrice, polymarketThinBookMessage;
 import 'package:kute/services/polymarket/relayer_wallet_queue.dart'
     show isTransientRelayerRefusal;
+import 'package:kute/services/polymarket/limit_order_rules.dart'
+    show polymarketLimitBuyShares;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
@@ -167,6 +169,61 @@ const Duration kFundsTimeout = Duration(minutes: 12);
   if (isLimit && resized) return null;
   return (usd: fits, resized: resized);
 }
+
+/// The resting limit a funded or queued bet posts once its money landed:
+/// the shares of the stake as approved ([amount]; the tick and the venue's
+/// minimum were checked on it before Confirm), bumped to the venue's \$1
+/// floor when the stake covers it, as before; and the fee reserve its
+/// collateral check counts: the fee ceiling at the limit, as far as the
+/// [balance] past the order's cost carries it. A bet that reached this
+/// point passed [landedStakeFor], so the cost itself fits; a fee the cash
+/// cannot carry is the venue's to refuse, with its own refusal message,
+/// never a collateral wait that cannot end.
+@visibleForTesting
+({double shares, double costUsd, double feeReserveUsd}) autofireLimitOrder({
+  required double amount,
+  required double balance,
+  required double price,
+  required PolymarketFeeTerms feeTerms,
+}) {
+  var shares = polymarketLimitBuyShares(amount, price);
+  if (shares * price < 1.0 && amount >= 1.0) {
+    shares = (1.0 / price * 100).ceilToDouble() / 100;
+  }
+  final cost = shares * price;
+  final fee = feeTerms.feeCeilingForNotional(cost, price);
+  final room = balance - cost;
+  return (
+    shares: shares,
+    costUsd: cost,
+    feeReserveUsd: room <= 0 ? 0.0 : min(fee, room),
+  );
+}
+
+/// Whether the autofire may post the resting limit [sized] for a queued
+/// bet: one queued behind its own funding ([funded]; a limit is never
+/// queued otherwise), whose money landed whole ([landedStakeFor] on the
+/// [balance] it may use), and whose cost, the \$1 floor included, fits
+/// that balance.
+@visibleForTesting
+bool autofireLimitPostable({
+  required bool funded,
+  required double amount,
+  required double balance,
+  required double price,
+  required PolymarketFeeTerms feeTerms,
+  required ({double shares, double costUsd, double feeReserveUsd}) sized,
+}) =>
+    funded &&
+    landedStakeFor(
+            amount: amount,
+            balance: balance,
+            feeTerms: feeTerms,
+            price: price,
+            isLimit: true) !=
+        null &&
+    sized.shares > 0 &&
+    sized.costUsd <= balance + 1e-9;
 
 /// How many times a bet is sent again after the venue refused it only
 /// because the money was not usable yet ([autofireNotReadyYet]). A safety
@@ -1029,7 +1086,7 @@ class PendingBetAutoFire {
 
   static double _costPrice(PendingBetIntent intent) {
     var price = intent.isLimit
-        ? intent.limitPrice.clamp(0.01, 0.99).toDouble()
+        ? intent.limitPrice.clamp(0.0001, 0.9999).toDouble()
         : polymarketFundedWorstPrice(intent);
     if (!intent.isLimit) {
       final quote = intent.marketQuote;
@@ -2012,7 +2069,7 @@ class PendingBetAutoFire {
       // that ends it as failed.
       var limitTook = false;
       try {
-        final price = intent.limitPrice.clamp(0.01, 0.99).toDouble();
+        final price = intent.limitPrice.clamp(0.0001, 0.9999).toDouble();
         var placedShares = 0.0;
         while (true) {
           // Cap by the USDC actually at the Safe — the swap can land slightly
@@ -2020,18 +2077,38 @@ class PendingBetAutoFire {
           // the CLOB rejects any order whose cost exceeds the balance. Without
           // the cap the rejection strands the swapped USDC with no order
           // placed. Same 99% cap as the market path below.
-          final balance = _orderCash(intent);
-          // A funded limit bet whose deposit landed short is not placed
-          // for less at the person's price: it fails, the cash stays as
-          // venue cash for the sweeper.
-          if (funded &&
-              landedStakeFor(
-                      amount: intent.amount,
-                      balance: balance,
-                      feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase,
-                      price: price,
-                      isLimit: true) ==
-                  null) {
+          // The cash this order may use: what landed, less what resting
+          // buys hold of it (the account's last known list, kept while its
+          // reads fail: polymarketOrdersAfterRead). The same figure the
+          // slip's shortfall used before Confirm.
+          final balance = PolymarketBetController.spendableUsdc(
+              _orderCash(intent),
+              ref.read(polymarketTradingProvider).valueOrNull?.openOrders ??
+                  const []);
+          // The size checked before Confirm (prepareIntent: the tick and
+          // the venue's minimum on the stake as approved), never a smaller
+          // one cut from the balance, which could fall under the minimum
+          // after the person confirmed; and a fee reserve the cash can
+          // carry, so the collateral wait never stalls on it
+          // (autofireLimitOrder).
+          final sized = autofireLimitOrder(
+              amount: intent.amount,
+              balance: balance,
+              price: price,
+              feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase);
+          // Posted only as checked: a limit queued behind its own funding
+          // (every queued limit is), whose money landed whole, whose cost
+          // (the \$1 floor included) fits it. Anything else is not placed
+          // for less at the person's price and does not wait out the funds
+          // timer: it ends now, with "Add funds to predict", the cash
+          // staying as venue cash.
+          if (!autofireLimitPostable(
+              funded: funded,
+              amount: intent.amount,
+              balance: balance,
+              price: price,
+              feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase,
+              sized: sized)) {
             _trackFailed(intent, 'insufficient_usdc');
             journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
                 'insufficient_funds');
@@ -2044,15 +2121,7 @@ class PendingBetAutoFire {
                 .release(intent.fundQuoteRef, reason: 'failed');
             return;
           }
-          final effectiveAmount = min(intent.amount, balance * 0.99);
-          double shares =
-              ((effectiveAmount / price) * 100).floorToDouble() / 100;
-          // The CLOB rejects orders under $1 — bump to the minimum when the
-          // intent covers it, mirroring the market path. The overshoot is
-          // bounded by one share-tick (≤ 1¢), which the 99% cap absorbs.
-          if (shares * price < 1.0 && effectiveAmount >= 1.0) {
-            shares = (1.0 / price * 100).ceilToDouble() / 100;
-          }
+          double shares = sized.shares;
           if (shares <= 0) {
             throw Exception('Amount too small for this limit price.');
           }
@@ -2090,6 +2159,9 @@ class PendingBetAutoFire {
               negRisk: intent.negRisk,
               price: price,
               orderType: OrderType.gtc,
+              // The controller's own check, as far as the cash landed
+              // carries it (autofireLimitOrder): never a wait it cannot end.
+              feeReserveUsd: sized.feeReserveUsd,
               marketTitle: intent.marketQuestion,
               marketImage: intent.marketImage,
               marketOutcome: intent.outcomeName,

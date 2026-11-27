@@ -7030,6 +7030,62 @@ class AppLocalizationsHr extends AppLocalizations {
   String get betUntilCanceled => 'Do otkazivanja';
 
   @override
+  String get betLimitOrderFilled => 'Limitni nalog izvršen';
+
+  @override
+  String betLimitBoughtShares(String shares, String outcome, String price) {
+    return 'Kupljeno $shares udjela $outcome po $price';
+  }
+
+  @override
+  String betLimitPriceSteps(String step) {
+    return 'Odaberite cijenu u koracima od $step.';
+  }
+
+  @override
+  String betLimitPriceRange(String low, String high) {
+    return 'Odaberite cijenu od $low do $high.';
+  }
+
+  @override
+  String betLimitMinimumShares(String count) {
+    return 'Najmanji nalog ovdje je $count udjela.';
+  }
+
+  @override
+  String betSharesInOpenOrders(String count) {
+    return '$count udjela u otvorenim nalozima';
+  }
+
+  @override
+  String betSellFreeShares(String count) {
+    return 'Samo $count udjela slobodno je za prodaju. Ostatak je u vašim otvorenim nalozima.';
+  }
+
+  @override
+  String get ordersCancelAllTitle => 'Otkazati sve naloge?';
+
+  @override
+  String ordersCancelAllBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ovime se uklanja $count otvorenih naloga:',
+      one: 'Ovime se uklanja 1 otvoreni nalog:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ordersKeep => 'Zadrži naloge';
+
+  @override
+  String get betOrderTypeRow => 'Vrsta naloga';
+
+  @override
+  String get betReservedRow => 'Rezervirano';
+
+  @override
   String get betProceedsToPredictions => 'U Predviđanja';
 
   @override
