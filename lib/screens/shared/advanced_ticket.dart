@@ -560,7 +560,12 @@ class AdvancedStepper extends StatelessWidget {
     this.onTrailing,
     this.valueKey,
     this.enabled = true,
+    this.framed = true,
   });
+
+  /// False: the − value + row alone, no card and no label row (the odds
+  /// rail's card holds it as its last row, [AdvancedOddsTrack.footer]).
+  final bool framed;
 
   final String label;
   final String value;
@@ -576,6 +581,8 @@ class AdvancedStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final steps = _stepsRow(c);
+    if (!framed) return steps;
     return Container(
       padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
       decoration: AppDecorations.card(context),
@@ -614,7 +621,13 @@ class AdvancedStepper extends StatelessWidget {
             ],
           ),
           SizedBox(height: 8.h),
-          Row(
+          steps,
+        ],
+      ),
+    );
+  }
+
+  Widget _stepsRow(AppColorsExtension c) => Row(
             children: [
               _RoundStep(
                   key: const ValueKey('advanced-stepper-minus'),
@@ -645,11 +658,7 @@ class AdvancedStepper extends StatelessWidget {
                   enabled: enabled,
                   onStep: () => onStep(1)),
             ],
-          ),
-        ],
-      ),
-    );
-  }
+          );
 }
 
 /// A round 40 px step button; holding it repeats.
@@ -1304,7 +1313,16 @@ class AdvancedOddsTrack extends StatefulWidget {
     this.thumbLabel,
     this.formatPrice,
     this.title,
+    this.footer,
+    this.onMarketTap,
   });
+
+  /// The card's last row (the price stepper: one card for the pair).
+  final Widget? footer;
+
+  /// Makes the market's label under its tick the snap-to-market action
+  /// (underlined, a 44 px tap target), so the words appear once.
+  final VoidCallback? onMarketTap;
 
   final double price;
   final double market;
@@ -1390,7 +1408,7 @@ class _AdvancedOddsTrackState extends State<AdvancedOddsTrack> {
             ],
           ),
           SizedBox(
-            height: 112,
+            height: 132,
             child: LayoutBuilder(builder: (context, box) {
               final w = box.maxWidth - 2 * _inset;
               double xOf(double p) =>
@@ -1489,19 +1507,40 @@ class _AdvancedOddsTrackState extends State<AdvancedOddsTrack> {
                         ),
                       ),
                     ),
-                    // The market under its tick.
+                    // The market under its tick; with [onMarketTap] the
+                    // snap to it (underlined, a 44 px target).
                     if (marketIn && widget.marketLabel != null)
                       Positioned(
-                        top: _railY + 16,
+                        top: _railY + 6,
+                        height: 44,
                         left: (marketX - 60).clamp(0.0, box.maxWidth - 120),
                         width: 120,
-                        child: Text(widget.marketLabel!,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            style: TextStyle(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w700,
-                                color: c.textSecondary)),
+                        child: GestureDetector(
+                          key: const ValueKey('advanced-odds-market'),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: widget.onMarketTap == null
+                              ? null
+                              : () {
+                                  HapticFeedback.selectionClick();
+                                  widget.onMarketTap!();
+                                },
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(widget.marketLabel!,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                style: TextStyle(
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.onMarketTap != null
+                                        ? c.textPrimary
+                                        : c.textSecondary,
+                                    decoration: widget.onMarketTap != null
+                                        ? TextDecoration.underline
+                                        : null,
+                                    decorationColor: c.textPrimary)),
+                          ),
+                        ),
                       ),
                     // The window's two ends.
                     Positioned(
@@ -1525,6 +1564,10 @@ class _AdvancedOddsTrackState extends State<AdvancedOddsTrack> {
               );
             }),
           ),
+          if (widget.footer case final f?) ...[
+            SizedBox(height: 4.h),
+            f,
+          ],
         ],
       ),
     );

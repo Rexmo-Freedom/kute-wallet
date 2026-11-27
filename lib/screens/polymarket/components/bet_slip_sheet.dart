@@ -4730,6 +4730,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           fillsFrom: ask,
           title: context.l10n.betLimitPrice,
           formatPrice: polymarketLimitCentsLabel,
+          // "Market 6%" under the market's tick snaps the price to it.
+          onMarketTap: () =>
+              _updateState(() => _limitPrice = _limitSeed(currentPrice)),
+          // One card for the pair: the stepper is its last row.
+          footer: AdvancedStepper(
+            label: '',
+            framed: false,
+            value: polymarketLimitCentsLabel(_limitPrice),
+            valueKey: const ValueKey('bet-slip-limit-price'),
+            onStep: bump,
+          ),
           thumbLabel: ask == null
               ? null
               : fillsNow
@@ -4743,17 +4754,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             _trackLimitPriceEdited();
           },
         ),
-        SizedBox(height: 10.h),
-        // The card above names the pair: no second label here.
-        AdvancedStepper(
-          label: '',
-          value: polymarketLimitCentsLabel(_limitPrice),
-          valueKey: const ValueKey('bet-slip-limit-price'),
-          onStep: bump,
-          trailing: context.l10n.betMarketPrice(formatPolyCents(currentPrice)),
-          onTrailing: () =>
-              _updateState(() => _limitPrice = _limitSeed(currentPrice)),
-        ),
+
         // Off the tick or out of range: said here, in red, and the
         // button stays shut until it is fixed (one step does it).
         if (issue != null) ...[

@@ -2688,6 +2688,17 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
           fillsFrom: bid,
           title: context.l10n.betSellAt,
           formatPrice: polymarketLimitCentsLabel,
+          // "Market 6.0¢" under the market's tick snaps the price to it.
+          onMarketTap: () =>
+              setState(() => _limitPrice = _seed(widget.currentPrice)),
+          // One card for the pair: the stepper is its last row.
+          footer: AdvancedStepper(
+            label: '',
+            framed: false,
+            value: polymarketLimitCentsLabel(_limitPrice),
+            valueKey: const ValueKey('sell-advanced-limit-price'),
+            onStep: bump,
+          ),
           thumbLabel: bid == null
               ? null
               : fillsNow
@@ -2698,17 +2709,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
             _limitEdited = true;
           }),
         ),
-        SizedBox(height: 10.h),
-        // The card above names the pair: no second label here.
-        AdvancedStepper(
-          label: '',
-          value: polymarketLimitCentsLabel(_limitPrice),
-          valueKey: const ValueKey('sell-advanced-limit-price'),
-          onStep: bump,
-          trailing: context.l10n.betMarketPrice(market),
-          onTrailing: () =>
-              setState(() => _limitPrice = _seed(widget.currentPrice)),
-        ),
+
         SizedBox(height: 8.h),
         Text(
           context.l10n.betLimitRestsOnBook,

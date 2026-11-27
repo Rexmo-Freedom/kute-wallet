@@ -211,4 +211,43 @@ void main() {
     expect(fade.height, greaterThanOrEqualTo(AdvancedTicketFrame.fadeHeight));
     expect(find.text('Advanced prediction'), findsOneWidget);
   });
+
+  testWidgets(
+      'one card for the price: the stepper as its last row, the market label '
+      'the snap (44 px target)', (tester) async {
+    var snapped = 0;
+    final steps = <int>[];
+    await _pump(
+        tester,
+        SizedBox(
+          width: 360,
+          child: AdvancedOddsTrack(
+            price: 0.5,
+            market: 0.55,
+            tick: 0.01,
+            sideColor: AppColors.marketUp,
+            onChanged: (_) {},
+            title: 'Limit price',
+            marketLabel: 'Market 55%',
+            onMarketTap: () => snapped++,
+            footer: AdvancedStepper(
+              label: '',
+              framed: false,
+              value: '50¢',
+              valueKey: const ValueKey('price'),
+              onStep: steps.add,
+            ),
+          ),
+        ));
+    final card = find.byKey(const ValueKey('advanced-odds-track'));
+    expect(find.descendant(of: card, matching: find.byKey(const ValueKey('price'))),
+        findsOneWidget);
+    expect(find.text('Market 55%'), findsOneWidget);
+    final market = find.byKey(const ValueKey('advanced-odds-market'));
+    expect(tester.getSize(market).height, greaterThanOrEqualTo(44));
+    await tester.tap(market);
+    expect(snapped, 1);
+    await tester.tap(find.byKey(const ValueKey('advanced-stepper-plus')));
+    expect(steps, [1]);
+  });
 }
