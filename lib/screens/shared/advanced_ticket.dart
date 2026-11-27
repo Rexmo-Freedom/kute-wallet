@@ -923,23 +923,29 @@ class AdvancedSummaryCard extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 5.h),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(r.label,
-                      style:
-                          TextStyle(fontSize: 14.sp, color: c.textSecondary)),
-                ),
+                Text(r.label,
+                    style: TextStyle(fontSize: 14.sp, color: c.textSecondary)),
                 SizedBox(width: 12.w),
-                Text(r.value,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                        color: c.textPrimary,
-                        decoration:
-                            r.onTap != null ? TextDecoration.underline : null,
-                        decorationColor: c.textTertiary,
-                        fontFeatures: const [FontFeature.tabularFigures()])),
+                // A long value ("Depends on your open position", a
+                // translation) wraps on the right edge instead of
+                // overflowing.
+                Expanded(
+                  child: Text(r.value,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary,
+                          decoration: r.onTap != null
+                              ? TextDecoration.underline
+                              : null,
+                          decorationColor: c.textTertiary,
+                          fontFeatures: const [
+                            FontFeature.tabularFigures()
+                          ])),
+                ),
               ],
             ),
           ),
