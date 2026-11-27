@@ -241,6 +241,7 @@ hyperliquid_order_slip_abandoned
 hyperliquid_order_slip_opened
 hyperliquid_order_submitted
 hyperliquid_position_closed
+hyperliquid_scale_legs_refused
 hyperliquid_tab_opened
 hyperliquid_tpsl_failed
 hyperliquid_trading_enabled
