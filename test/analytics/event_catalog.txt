@@ -577,6 +577,7 @@ sal_opened
 sal_question_asked
 sal_source_opened
 scan_payload_identified
+scanner_camera_refused
 scanner_open_camera_settings
 search_category_changed
 search_closed

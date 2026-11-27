@@ -113,6 +113,10 @@ String polyChartShortName(String label) {
   final date = _kDateName.firstMatch(trimmed);
   if (date != null) return '${date[1]!.substring(0, 3)} ${date[2]}';
   final words = trimmed.split(RegExp(r'\s+'));
+  // A number is never the word to drop: "25 bps increase" is not "bps
+  // increase" (founder's shared card, 27 November 2026, which read "bps
+  // increase 95%"). Such a name stays whole; the pill's fitting cuts it.
+  if (RegExp(r'\d').hasMatch(words.first)) return trimmed;
   return words.length > 1 ? words.sublist(1).join(' ') : trimmed;
 }
 
