@@ -100,6 +100,7 @@ import 'package:kute/platform/kute_wide_frames.dart'
         kuteBarPane,
         kuteDialogsOpen,
         kuteInPlaceRoutes,
+        kuteTopSearchInBar,
         kuteWindowWidth;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
@@ -1460,7 +1461,14 @@ class _Shimmer extends StatelessWidget {
 /// sheet's Escape closes it as before. Built only through
 /// [KuteBarPane.top]; the phones keep the pill.
 class KuteTopSearchField extends ConsumerStatefulWidget {
-  const KuteTopSearchField({super.key});
+  const KuteTopSearchField({super.key, this.inTopBar = false});
+
+  /// Drawn in the desktop top bar's centre (kute_top_nav_bar.dart): no
+  /// row padding, and only one of the two fields answers "/".
+  final bool inTopBar;
+
+  /// The field's narrowest in the top bar (logical px).
+  static const double minWidth = 280;
 
   /// The field's widest (logical px).
   static const double maxWidth = 640;
@@ -1504,7 +1512,11 @@ class _KuteTopSearchFieldState extends ConsumerState<KuteTopSearchField> {
 
   bool _onKey(KeyEvent event) {
     if (!mounted || event is! KeyDownEvent) return false;
-    if (!TickerMode.valuesOf(context).enabled) return false;
+    // One field answers: the top bar's while it holds one, else the row's.
+    if (widget.inTopBar != kuteTopSearchInBar.value) return false;
+    if (!widget.inTopBar && !TickerMode.valuesOf(context).enabled) {
+      return false;
+    }
     final route = ModalRoute.of(context);
     if (route != null && !route.isCurrent) return false;
     if (kuteDialogsOpen.value > 0) return false;
@@ -1535,9 +1547,12 @@ class _KuteTopSearchFieldState extends ConsumerState<KuteTopSearchField> {
         : context.l10n.searchOrManageAi;
     final radius = BorderRadius.circular(AppRadius.lg);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: widget.inTopBar
+          ? EdgeInsets.zero
+          : const EdgeInsets.only(bottom: 12),
+      // Its own row (no room in the top bar): centred on the column.
       child: Align(
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.center,
         child: ConstrainedBox(
           constraints:
               const BoxConstraints(maxWidth: KuteTopSearchField.maxWidth),

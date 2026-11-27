@@ -234,6 +234,13 @@ class KuteBarPaneSpan {
 final ValueNotifier<KuteBarPaneSpan?> kuteBarPane =
     ValueNotifier<KuteBarPaneSpan?>(null);
 
+/// Whether the desktop top bar holds the home tabs' search field in its
+/// centre (kute_top_nav_bar.dart) right now: the window has the room.
+/// When it does not, a [KuteBarPane]'s [KuteBarPane.top] draws the field
+/// on its own row under the bar instead. Written by the top bar after its
+/// layout; read by the panes.
+final ValueNotifier<bool> kuteTopSearchInBar = ValueNotifier<bool>(false);
+
 /// Marks [child] as the pane the floating Sal bar belongs under on an
 /// EXPANDED window (kute_shell_bar.dart): while its page is the one on
 /// screen (its tab shown, its route current) it reports its horizontal
@@ -251,9 +258,13 @@ class KuteBarPane extends StatefulWidget {
   /// Elsewhere (phones, MEDIUM, the native apps) it is not built.
   final Widget? top;
 
-  /// Tests: build [top] off the web.
+  /// Tests and renders: build [top] off the web.
   @visibleForTesting
   static bool debugWeb = false;
+
+  /// The web's wide layout ([top], the top bar's search), or a test or
+  /// render asking for it.
+  static bool get webLayout => kIsWeb || debugWeb;
 
   @override
   State<KuteBarPane> createState() => _KuteBarPaneState();
@@ -311,16 +322,24 @@ class _KuteBarPaneState extends State<KuteBarPane> {
     final route = ModalRoute.of(context);
     final active = expanded && shown;
     final top = widget.top;
-    _topShown = (kIsWeb || KuteBarPane.debugWeb) && expanded && top != null;
+    _topShown = KuteBarPane.webLayout && expanded && top != null;
     return LayoutBuilder(builder: (context, constraints) {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _report(active, route));
       return KeyedSubtree(
         key: _key,
         child: _topShown
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [top!, Expanded(child: widget.child)],
+            // The field's own row only while the top bar has no room
+            // for it ([kuteTopSearchInBar]).
+            ? ValueListenableBuilder<bool>(
+                valueListenable: kuteTopSearchInBar,
+                builder: (context, inBar, child) => inBar
+                    ? child!
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [top!, Expanded(child: child!)],
+                      ),
+                child: widget.child,
               )
             : widget.child,
       );

@@ -31,9 +31,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/shell_wallet_provider.dart';
+import 'package:kute/providers/active_shell_tab_provider.dart'
+    show ActiveNavTab;
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
 import 'package:kute/screens/home/components/desktop_top_bar_money.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteTopSearchField;
 import 'package:kute/screens/shared/kute_wordmark.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/home/components/home_tab_switch.dart'
@@ -201,6 +205,14 @@ class _KuteDesktopTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final window = kuteWindowWidth(context);
     final narrow = window < _narrowBelow;
+    // The web's home tabs: the search field in the centre (when the
+    // window has the room, see [_TopBarSlots]); elsewhere the balance.
+    final search = KuteBarPane.webLayout &&
+        (activeTab == ActiveNavTab.home || activeTab == ActiveNavTab.usd);
+    if (!search && kuteTopSearchInBar.value) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => kuteTopSearchInBar.value = false);
+    }
     // It stays put while the page scrolls under it, so it is drawn on the
     // page's own background across the window: a scrolled card never
     // shows through the switch.
@@ -220,7 +232,7 @@ class _KuteDesktopTopBar extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: KuteLayout.paneGap),
               child: CustomMultiChildLayout(
-                delegate: _TopBarSlots(),
+                delegate: _TopBarSlots(search: search),
                 children: [
                   LayoutId(
                     id: _TopBarSlot.left,
@@ -239,18 +251,37 @@ class _KuteDesktopTopBar extends StatelessWidget {
                             pagePosition: pagePosition,
                           ),
                         ),
+                        // Web (founder, 27 November 2026: "search and
+                        // manage should be in the centre"): the balance
+                        // follows the switch, left-aligned, and the centre
+                        // is the search's.
+                        if (search) ...[
+                          SizedBox(width: narrow ? 20 : 28),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: KuteDesktopMoney.balance(
+                                  activeTab: activeTab),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                   // The active tab's balance in the bar's centre, its
                   // actions at the right, as the fintech desktops put
-                  // the money (desktop_top_bar_money.dart).
+                  // the money (desktop_top_bar_money.dart); on the web's
+                  // home tabs the search field instead.
                   LayoutId(
                     id: _TopBarSlot.centre,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: KuteDesktopMoney.balance(activeTab: activeTab),
-                    ),
+                    child: search
+                        ? const KuteTopSearchField(inTopBar: true)
+                        : FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child:
+                                KuteDesktopMoney.balance(activeTab: activeTab),
+                          ),
                   ),
                   LayoutId(
                     id: _TopBarSlot.right,
@@ -281,17 +312,59 @@ class _KuteDesktopTopBar extends StatelessWidget {
 enum _TopBarSlot { left, centre, right }
 
 /// The desktop top bar's three places: the left group at the left edge,
-/// the right group at the right edge, and the balance in the bar's TRUE
-/// centre (the window's, not the middle of whatever room is left), moved
-/// off it only as far as keeping [_gap] from either group asks, and
-/// scaled down (its [FittedBox]) if even that room is too little.
+/// the right group at the right edge, and the centre (the balance, or on
+/// the web's home tabs the search field) on the bar's TRUE centre (the
+/// window's, not the middle of whatever room is left).
+///   * The balance is moved off the centre only as far as keeping [_gap]
+///     from either group asks, and scaled down (its [FittedBox]) if even
+///     that room is too little.
+///   * The search field ([search]) stays centred: as wide as the room
+///     symmetric about the centre allows, [_searchMax] at most; under
+///     [KuteTopSearchField.minWidth] it leaves the bar
+///     ([kuteTopSearchInBar] false) and the page draws it on its own row
+///     under the bar. The left group (with the balance) never overlaps the
+///     right one: it is laid out in what the right leaves.
 class _TopBarSlots extends MultiChildLayoutDelegate {
-  _TopBarSlots();
+  _TopBarSlots({this.search = false});
+
+  final bool search;
 
   static const double _gap = 20;
 
+  /// The search field's widest in the bar.
+  static const double _searchMax = 560;
+
   @override
   void performLayout(Size size) {
+    double middle(Size child) => (size.height - child.height) / 2;
+    if (search) {
+      final right =
+          layoutChild(_TopBarSlot.right, BoxConstraints.loose(size));
+      final left = layoutChild(
+          _TopBarSlot.left,
+          BoxConstraints.loose(Size(
+              math.max(0.0, size.width - right.width - _gap), size.height)));
+      positionChild(_TopBarSlot.left, Offset(0, middle(left)));
+      positionChild(
+          _TopBarSlot.right, Offset(size.width - right.width, middle(right)));
+      final half = size.width / 2;
+      final room = 2 *
+          math.min(half - left.width - _gap, half - right.width - _gap);
+      final double width = math.min<double>(_searchMax, room.toDouble());
+      final fits = width >= KuteTopSearchField.minWidth;
+      final field = layoutChild(
+          _TopBarSlot.centre,
+          fits
+              ? BoxConstraints.tightFor(width: width)
+              : BoxConstraints.tight(Size.zero));
+      positionChild(_TopBarSlot.centre,
+          fits ? Offset(half - width / 2, middle(field)) : Offset.zero);
+      if (kuteTopSearchInBar.value != fits) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => kuteTopSearchInBar.value = fits);
+      }
+      return;
+    }
     final left = layoutChild(_TopBarSlot.left, BoxConstraints.loose(size));
     final right = layoutChild(
         _TopBarSlot.right,
@@ -301,7 +374,6 @@ class _TopBarSlots extends MultiChildLayoutDelegate {
         math.max(0.0, size.width - left.width - right.width - 2 * _gap);
     final centre = layoutChild(
         _TopBarSlot.centre, BoxConstraints.loose(Size(room, size.height)));
-    double middle(Size child) => (size.height - child.height) / 2;
     positionChild(_TopBarSlot.left, Offset(0, middle(left)));
     positionChild(
         _TopBarSlot.right, Offset(size.width - right.width, middle(right)));
@@ -312,7 +384,7 @@ class _TopBarSlots extends MultiChildLayoutDelegate {
   }
 
   @override
-  bool shouldRelayout(_TopBarSlots oldDelegate) => false;
+  bool shouldRelayout(_TopBarSlots oldDelegate) => oldDelegate.search != search;
 }
 
 /// Sal and the wordmark as one lockup, as the PIN screen shows them.
