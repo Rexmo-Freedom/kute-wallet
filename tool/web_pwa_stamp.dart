@@ -96,6 +96,7 @@ void main(List<String> args) {
       'manifest.json',
       'favicon.png',
       'splash.js',
+      'ios_haptics.js',
       'breez_boot.js',
       'bdk_boot.js',
       'assets/FontManifest.json',
