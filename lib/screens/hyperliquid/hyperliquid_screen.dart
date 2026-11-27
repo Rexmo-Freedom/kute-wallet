@@ -181,6 +181,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   bool _moversPerpsLanded = false;
   bool _moversDefault = false;
   int _moversLogos = -1;
+  bool _moversWide = false;
   bool _moversLoading = false;
   List<HlMarket> _movers = const [];
   List<HlMarket> _rest = const [];
@@ -192,7 +193,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
         ref.read(hyperliquidPerpMarketsProvider).valueOrNull != null;
     final defaultView = hlBrowseIsDefaultView(tab, sub);
     final logos = HlIconAvailability.revision.value;
+    final wide = _wideWebFeatured;
     if (!identical(markets, _moversListed) ||
+        wide != _moversWide ||
         tab != _moversTab ||
         perpsLanded != _moversPerpsLanded ||
         defaultView != _moversDefault ||
@@ -202,6 +205,16 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       _moversPerpsLanded = perpsLanded;
       _moversDefault = defaultView;
       _moversLogos = logos;
+      _moversWide = wide;
+      if (tab == HlBrowseTab.watchlist && wide) {
+        // The wide web: the whole watchlist, in its order, through the
+        // featured card ([_wideFeaturedSet]), and as the rows under it
+        // from two markets (one is the card alone).
+        _moversLoading = false;
+        _movers = markets;
+        _rest = markets.length > 1 ? markets : const [];
+        return _movers;
+      }
       if (tab == HlBrowseTab.watchlist) {
         // Exactly what was picked: no ranking, no logo rule, nothing
         // left out (see [hlWatchlistSquareCount]).
@@ -287,6 +300,34 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       (kIsWeb || HyperliquidScreen.debugWideWeb) &&
       widget.embedded &&
       KuteLayout.isWide(context);
+
+  /// THE ONE PLACE that decides a wide web Investing page's featured card
+  /// (founder, 27 November 2026: one big card on Trending, then "watch
+  /// list should have the same effect" and of Perps "the big options
+  /// should also show here"): the ordered set [HlWideFeatured] steps
+  /// through, or null for no card (the phones and the phone layout,
+  /// which keep their squares). Trending: its strip's set; the Watchlist:
+  /// all of it, in its order; every other page (any category or
+  /// subcategory, a new one included): its first [kHlWideFeaturedMax]
+  /// markets in its own list's order, the list under it unchanged. Empty:
+  /// no card, the page's own empty state.
+  List<HlMarket>? _wideFeaturedSet(HlBrowseTab tab, HlBrowseSub sub,
+      List<HlMarket> markets, List<HlMarket> universe) {
+    if (!_wideWebFeatured) return null;
+    if (tab == HlBrowseTab.watchlist || hlBrowseIsDefaultView(tab, sub)) {
+      return _moversFor(tab, sub, markets, universe);
+    }
+    if (!identical(markets, _featuredOf)) {
+      _featuredOf = markets;
+      _featured = markets.take(kHlWideFeaturedMax).toList(growable: false);
+    }
+    return _featured;
+  }
+
+  /// [_wideFeaturedSet]'s memo for a category page: one list per list
+  /// instance, so the card is not handed a new set on every rebuild.
+  List<HlMarket>? _featuredOf;
+  List<HlMarket> _featured = const [];
 
   /// A category page on the Dollars page on EXPANDED (any category or
   /// subcategory but Trending's default view and the Watchlist, which
@@ -745,6 +786,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     final drilled = _drilledInto == tab && subs.length > 1;
     final markets = _listFor(tab, sub, universe);
     _prefetchIcons(markets, universe);
+    final featured = _wideFeaturedSet(tab, sub, markets, universe);
 
     // The browser's own scroll view. Embedded in Investments it is the
     // body of that page's nested scroll: it takes the page's primary
@@ -872,12 +914,30 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                       : const HlMovingNowStripSkeleton(),
                                 ),
                               )
-                            else if (_moversFor(tab, sub, markets, universe)
-                                .isNotEmpty)
+                            else if (featured?.isNotEmpty ??
+                                _moversFor(tab, sub, markets, universe)
+                                    .isNotEmpty)
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: EdgeInsets.only(top: 8.h),
-                                  child: tab == HlBrowseTab.watchlist
+                                  child: featured != null
+                                      // The wide web: every page's
+                                      // featured card ([_wideFeaturedSet]).
+                                      ? Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              16, 0, 16, 4),
+                                          child: HlWideFeatured(
+                                              key: ValueKey(
+                                                  'hl-wide-featured-${tab.name}-${sub.name}'),
+                                              markets: featured,
+                                              source: tab ==
+                                                      HlBrowseTab.watchlist
+                                                  ? 'watchlist'
+                                                  : hlBrowseIsDefaultView(
+                                                          tab, sub)
+                                                      ? kHlMovingNowSource
+                                                      : 'market_list'))
+                                      : tab == HlBrowseTab.watchlist
                                       // The Watchlist's own squares: every
                                       // market shown whatever its logo.
                                       ? HlMovingNowStrip(
@@ -888,14 +948,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                                           source: 'watchlist',
                                           blankUntilLogo: false,
                                         )
-                                      : _wideWebFeatured
-                                          ? Padding(
-                                              padding: const EdgeInsets
-                                                  .fromLTRB(16, 0, 16, 4),
-                                              child: HlWideFeatured(
-                                                  markets: _moversFor(tab, sub,
-                                                      markets, universe)))
-                                          : HlMovingNowStrip(
+                                      : HlMovingNowStrip(
                                           markets: _moversFor(
                                               tab, sub, markets, universe)),
                                 ),

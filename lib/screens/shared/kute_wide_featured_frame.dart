@@ -50,7 +50,7 @@ class KuteWideFeaturedFrame extends StatelessWidget {
   final List<Widget> figures;
   final Widget foot;
 
-  /// How many markets the set holds: under two, previous / next are off.
+  /// How many markets the set holds: under two, no previous / next.
   final int count;
 
   /// Previous (-1) or next (+1).
@@ -103,10 +103,14 @@ class KuteWideFeaturedFrame extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(child: foot),
-                            arrow(Icons.chevron_left_rounded, -1,
-                                '$keyPrefix-prev'),
-                            arrow(Icons.chevron_right_rounded, 1,
-                                '$keyPrefix-next'),
+                            if (count > 1) ...[
+                              arrow(Icons.chevron_left_rounded, -1,
+                                  '$keyPrefix-prev'),
+                              arrow(Icons.chevron_right_rounded, 1,
+                                  '$keyPrefix-next'),
+                            ] else
+                              // The arrows' row height, kept.
+                              const SizedBox(height: 48),
                           ],
                         ),
                       ],

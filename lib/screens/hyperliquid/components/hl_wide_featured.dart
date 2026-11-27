@@ -6,7 +6,11 @@
 // [hlTrendingStrip], in its order) as ONE large card, the Predictions
 // page's featured card's frame ([KuteWideFeaturedFrame]), previous / next
 // stepping through them. The phones and the phone layout keep the four
-// squares ([HlMovingNowStrip]).
+// squares ([HlMovingNowStrip]). Since then every wide web Investing page
+// leads with it ("watch list should have the same effect"; of Perps, "the
+// big options should also show here"): the Watchlist all of it, in its
+// order; a category or subcategory its first [kHlWideFeaturedMax] markets
+// (hyperliquid_screen.dart, _wideFeaturedSet).
 //
 //   * left: the logo (only one the web can draw, [hlLogoShown]: else the
 //     name alone) and the name; the live price large with the day's move
@@ -58,6 +62,10 @@ import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
     show hlSparklineWithLivePrice;
 import 'package:kute/theme/app_theme.dart';
 
+/// The most markets a category page's card steps through (its first, in
+/// the page's own order): as many as Trending's squares were.
+const int kHlWideFeaturedMax = 4;
+
 /// The day's high and low of [m] from the About sheet's 1h x 24h candles
 /// (hlAboutStats, market_detail_sheet.dart), rescaled onto display units;
 /// null until they land.
@@ -90,10 +98,15 @@ class HlWideFeatured extends ConsumerStatefulWidget {
     required this.markets,
     this.onTap,
     this.chart = true,
+    this.source = kHlMovingNowSource,
   });
 
   final List<HlMarket> markets;
   final void Function(HlMarket market)? onTap;
+
+  /// The market page's entry source for a click: the squares' on
+  /// Trending, 'watchlist' on the Watchlist, the rows' on a category.
+  final String source;
 
   /// Tests: off leaves the chart, its series and the day's candles out.
   final bool chart;
@@ -136,7 +149,7 @@ class _HlWideFeaturedState extends ConsumerState<HlWideFeatured> {
     if (tap != null) {
       tap(m);
     } else {
-      HlMarketDetailSheet.show(context, market: m, source: kHlMovingNowSource);
+      HlMarketDetailSheet.show(context, market: m, source: widget.source);
     }
   }
 
