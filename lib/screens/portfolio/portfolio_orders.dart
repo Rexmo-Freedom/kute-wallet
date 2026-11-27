@@ -287,20 +287,29 @@ class _PortfolioCancelAllLinkState
     // Asks first, listing what goes at each venue (one tap per order
     // needs no ask).
     final l10n = context.l10n;
-    final lines = [
+    // Each venue's list as read; a venue whose list is not known whole
+    // (loading, failed) shows the question alone, never a partial list.
+    final hlOrders = widget.investing
+        ? ref.read(hyperliquidTradingProvider).valueOrNull?.openOrders
+        : const <HlOpenOrder>[];
+    final pmRead = ref.read(polymarketOpenOrdersProvider);
+    final pmOrders = !widget.predictions
+        ? const <Order>[]
+        : pmRead.hasError || pmRead.isLoading
+            ? null
+            : pmRead.valueOrNull;
+    final lines = hlOrders == null || pmOrders == null
+        ? null
+        : [
       if (widget.investing)
-        for (final o in ref.read(hyperliquidTradingProvider).valueOrNull
-                ?.openOrders ??
-            const <HlOpenOrder>[])
+        for (final o in hlOrders)
           [
             o.isBuy ? l10n.betBuyUpper : l10n.betSellUpper,
             o.coin,
             formatHlSize(o.sz),
             formatHlPrice(o.isTrigger ? (o.triggerPx ?? o.limitPx) : o.limitPx),
           ].join(' · '),
-      if (widget.predictions)
-        ...polyCancelAllLines(context,
-            ref.read(polymarketOpenOrdersProvider).valueOrNull ?? const []),
+      if (widget.predictions) ...polyCancelAllLines(context, pmOrders),
     ];
     if (!await polyConfirmCancelAll(context, lines: lines) || !mounted) {
       return;

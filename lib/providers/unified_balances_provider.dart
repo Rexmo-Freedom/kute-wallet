@@ -124,8 +124,7 @@ final unifiedVenueBalancesProvider = Provider<UnifiedVenueBalances>((ref) {
     final combos = ref.watch(polymarketCombosValueProvider);
     final b = polymarketInvestmentBalances(
       state: pm,
-      // Orders that could not be read are unknown, never "none".
-      orders: pm.openOrdersKnown ? pm.openOrders : null,
+      orders: pm.openOrders,
       comboValueUsd: combos,
     );
     if (b.available != null) {

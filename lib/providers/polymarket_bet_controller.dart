@@ -36,6 +36,8 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
+import 'package:kute/providers/polymarket_resting_fills_provider.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -89,9 +91,7 @@ class PolymarketBetController {
   /// and refused.
   double get _spendableUsdc {
     final state = ref.read(polymarketTradingProvider).valueOrNull;
-    // What resting buys reserve could not be read: nothing is spendable
-    // until it can, never the whole balance.
-    if (state == null || !state.openOrdersKnown) return 0;
+    if (state == null) return 0;
     return spendableUsdc(state.usdcBalance, state.openOrders);
   }
 
@@ -131,8 +131,7 @@ class PolymarketBetController {
       if (reads == null ||
           !reads.setupDone ||
           reads.venue == null ||
-          current == null ||
-          !current.openOrdersKnown) {
+          current == null) {
         return 0;
       }
       return spendableUsdc(
@@ -161,8 +160,13 @@ class PolymarketBetController {
     }
     final terms = intent.feeTerms ?? PolymarketFeeTerms.worstCase;
     final price = intent.isLimit ? _gtcPrice(intent) : intent.expectedPrice;
+    // A market buy's fee is sized inside 1c-99c, as it always was; a
+    // limit at its own price (a 0.1c market rests under 1c).
     return terms.allInCost(
-        intent.amount, price.clamp(0.0001, 0.9999).toDouble());
+        intent.amount,
+        intent.isLimit
+            ? price.clamp(0.0001, 0.9999).toDouble()
+            : price.clamp(0.01, 0.99).toDouble());
   }
 
   /// The cash a Max stake is sized against: what was spendable at the tap,
@@ -220,7 +224,10 @@ class PolymarketBetController {
       final clock = Stopwatch()..start();
       final OrderBook book;
       try {
-        book = await readBook(intent.tokenId,
+        // The REST book: it carries the market's minimum order size,
+        // which the feed's snapshot does not (the Advanced page reads the
+        // same, polymarketLimitTermsProvider).
+        book = await restBook(intent.tokenId,
             timeout: const Duration(seconds: 5));
       } catch (e) {
         PolymarketPlacementDiagnostics.stepFailed(
@@ -577,6 +584,30 @@ class PolymarketBetController {
       e is PolymarketOrderNotAcceptedException &&
       isPolymarketPriceRefusal(e.reason);
 
+  /// A resting order this app placed, told to the fills tracker while it
+  /// is alive (the Predictions screen is up). Nothing when it filled whole.
+  void _noteResting(Map<String, dynamic> placed, String tokenId,
+      {required bool isBuy,
+      required double price,
+      required double shares,
+      required double matched,
+      required String outcome}) {
+    final id = '${placed['orderID'] ?? placed['orderId'] ?? ''}';
+    if (id.isEmpty || matched >= shares - 0.005) return;
+    if (!ref.exists(polymarketRestingFillsProvider)) return;
+    ref.read(polymarketRestingFillsProvider.notifier).noteOrder(Order(
+          id: id,
+          market: '',
+          assetId: tokenId,
+          owner: '',
+          side: isBuy ? 'BUY' : 'SELL',
+          price: '$price',
+          originalSize: '$shares',
+          sizeMatched: '$matched',
+          outcome: outcome,
+        ));
+  }
+
   /// The resting price of a limit bet.
   /// Inside the venue's widest range (a 0.01¢ market): the price itself
   /// is checked against the market's tick before approval
@@ -923,6 +954,14 @@ class PolymarketBetController {
       final settlement =
           await _settle(placed, intent, orderedShares: shares, resting: true);
       PolymarketPlacementTimeline.mark('settle');
+      // What still rests is known to the fills tracker at once, so a fill
+      // before the next orders read is still said (resting fills).
+      _noteResting(placed, intent.tokenId,
+          isBuy: true,
+          price: price,
+          shares: shares,
+          matched: settlement.soldShares,
+          outcome: intent.outcomeName);
       TrackingService.track('polymarket_limit_order_placed', params: {
         'source': 'usdc_pool',
         'wallet_kind': 'hot',

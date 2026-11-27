@@ -400,12 +400,14 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
 
       if (positionAssets.isNotEmpty) {
         ref.read(livePriceProvider.notifier).addTokens(positionAssets);
+        ref.read(userChannelProvider.notifier).subscribe(positionAssets);
       }
-      // The user channel follows the tokens held AND those with a resting
-      // order: a limit buy on a token not held yet is heard when it fills.
-      final channelAssets = polymarketUserChannelAssets(state);
-      if (channelAssets.isNotEmpty) {
-        ref.read(userChannelProvider.notifier).subscribe(channelAssets);
+      // Tokens with a resting order are followed too, added to the open
+      // subscription (never a reconnect): a limit buy on a token not held
+      // yet is heard when it fills. Nothing for an account with none.
+      final orderAssets = polymarketRestingOrderAssets(state);
+      if (orderAssets.isNotEmpty) {
+        ref.read(userChannelProvider.notifier).follow(orderAssets);
       }
     }, fireImmediately: true);
 

@@ -16,6 +16,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show polymarketActivePositionsProvider;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
@@ -199,13 +201,16 @@ class _OrderRowState extends ConsumerState<PolyOrderRow> {
     try {
       final walletId = widget.ledgerWalletId;
       if (walletId == null) {
-        // Its leaving the list is this cancel, never a fill to announce.
-        ref
-            .read(polymarketRestingFillsProvider.notifier)
-            .noteCancelled([widget.order.id]);
         await ref
             .read(polymarketTradingProvider.notifier)
             .cancelOrder(widget.order.id);
+        // The venue confirmed it: its leaving the list is this cancel,
+        // never a fill to announce (a failed cancel marks nothing).
+        if (ref.exists(polymarketRestingFillsProvider)) {
+          ref
+              .read(polymarketRestingFillsProvider.notifier)
+              .noteCancelled([widget.order.id]);
+        }
       } else {
         await cancelLedgerPmOrder(ref, walletId, widget.order.id);
       }
@@ -372,7 +377,7 @@ Future<void> polyCancelAllOrders(BuildContext context, WidgetRef ref,
   final walletKind = ledgerWalletId == null ? 'hot' : 'ledger';
   try {
     if (ledgerWalletId == null) {
-      ref.read(polymarketRestingFillsProvider.notifier).noteCancelled([
+      final ids = [
         for (final o in ref.read(polymarketTradingProvider).valueOrNull
                 ?.openOrders ??
             const <Order>[])
@@ -381,8 +386,12 @@ Future<void> polyCancelAllOrders(BuildContext context, WidgetRef ref,
             in ref.read(polymarketOpenOrdersProvider).valueOrNull ??
                 const <Order>[])
           o.id,
-      ]);
+      ];
       await ref.read(polymarketTradingProvider.notifier).cancelAllOrders();
+      // Confirmed: those leaving the list are this cancel, not fills.
+      if (ref.exists(polymarketRestingFillsProvider)) {
+        ref.read(polymarketRestingFillsProvider.notifier).noteCancelled(ids);
+      }
     } else {
       final orders =
           await ref.read(ledgerPmOpenOrdersProvider(ledgerWalletId).future);
@@ -433,7 +442,7 @@ class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
         : ref.read(ledgerPmOpenOrdersProvider(walletId)).valueOrNull;
     // Asks first, listing what goes (one tap per order needs no ask).
     if (!await polyConfirmCancelAll(context,
-        lines: polyCancelAllLines(context, orders ?? const []))) {
+        lines: orders == null ? null : polyCancelAllLines(context, orders))) {
       return;
     }
     if (!mounted) return;
@@ -500,11 +509,17 @@ List<String> polyCancelAllLines(BuildContext context, List<Order> orders) => [
 
 /// The app's confirm sheet before a Cancel all: what it removes, one line
 /// per order ([lines], at most eight and "…" after), Cancel all or keep
-/// them. True only on Cancel all.
+/// them. [lines] null: the list is not known whole yet (still loading, a
+/// read that failed), so none is shown as if it were; the question alone.
+/// True only on Cancel all.
 Future<bool> polyConfirmCancelAll(BuildContext context,
-    {required List<String> lines}) async {
+    {required List<String>? lines}) async {
   final l10n = context.l10n;
-  final shown = lines.length > 8 ? [...lines.take(8), '…'] : lines;
+  final shown = lines == null
+      ? null
+      : lines.length > 8
+          ? [...lines.take(8), '…']
+          : lines;
   final confirmed = await showAppBottomSheet<bool>(
     context: context,
     builder: (sheetContext) => AppBottomSheetContainer(
@@ -514,8 +529,10 @@ Future<bool> polyConfirmCancelAll(BuildContext context,
         children: [
           AppBottomSheetHeader(
             title: l10n.ordersCancelAllTitle,
-            subtitle: [l10n.ordersCancelAllBody(lines.length), ...shown]
-                .join('\n'),
+            subtitle: lines == null || shown == null
+                ? null
+                : [l10n.ordersCancelAllBody(lines.length), ...shown]
+                    .join('\n'),
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 8.h),
@@ -576,20 +593,29 @@ void showPolymarketRestingFillToast(
 /// account's last read.
 class PolyMarketOrders extends ConsumerWidget {
   const PolyMarketOrders(
-      {super.key, required this.here, this.heading = true, this.top = 0});
+      {super.key,
+      required this.here,
+      this.heading = true,
+      this.top = 0,
+      this.bottom = 0});
 
   final bool Function(Order order) here;
 
   /// The "Open orders" heading over the rows.
   final bool heading;
 
-  /// Room over it, only when there is something to show.
+  /// Room over and under it, only when there is something to show: with
+  /// no resting order the page's layout is exactly as without it.
   final double top;
+  final double bottom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Never builds the account itself: a page shown before Predictions
-    // was opened (a Ledger's, a test's) has no orders to list.
+    // The pages that show this follow the positions, which build and
+    // follow the account: watched here too, so this rebuilds with them and
+    // the account exists before its orders are read. It is never built
+    // here for a page without it (a test's override of the positions).
+    ref.watch(polymarketActivePositionsProvider);
     if (!ref.exists(polymarketTradingProvider)) return const SizedBox.shrink();
     final orders = [
       for (final o in ref.watch(polymarketTradingProvider
@@ -600,7 +626,7 @@ class PolyMarketOrders extends ConsumerWidget {
     final c = context.colors;
     return Padding(
       key: const ValueKey('poly-market-orders'),
-      padding: EdgeInsets.only(top: top),
+      padding: EdgeInsets.only(top: top, bottom: bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

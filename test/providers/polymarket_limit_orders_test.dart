@@ -7,9 +7,12 @@
 //   * P2: the minimum stake at 28¢ signs 5.00 shares, never 4.99; a stake
 //     under the venue's minimum in shares is refused before approval;
 //   * P9: the collateral check of a crossing limit covers its fee ceiling;
-//   * P5: open orders that could not be read are unknown, never "nothing
-//     reserved": a failed read keeps the last known list, and with none
-//     known nothing is spendable.
+//   * P5: a failed open-orders read keeps the account's last known list
+//     (a known reserve stays held), and with none known it is nothing
+//     reserved as before: a cold boot, or an orders read that keeps
+//     failing, never blocks or slows a plain market buy;
+//   * a plain market buy (Advanced off) end to end: its fee figure inside
+//     1c-99c exactly as before.
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,10 +20,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/helpers/auth_grant.dart';
-import 'package:kute/providers/investment_balances_provider.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
+    show betSlipWorstFeePrice;
+import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/polymarket/limit_order_rules.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
@@ -40,16 +45,17 @@ Order _buy(String size, String price) => Order(
     outcome: 'Yes');
 
 class _Trading extends PolymarketTradingNotifier {
-  _Trading({this.ordersKnown = true});
-  final bool ordersKnown;
+  _Trading({this.balance = 50, this.orders = const []});
+  final double balance;
+  final List<Order> orders;
 
   final placed = <({double size, double price, double? feeReserve})>[];
 
   @override
   Future<PolymarketTradingState> build() async => PolymarketTradingState(
-      usdcBalance: 50,
+      usdcBalance: balance,
       proxyWalletAddress: '0xdeposit',
-      openOrdersKnown: ordersKnown);
+      openOrders: orders);
 
   @override
   String? get signingWalletId => 'spending';
@@ -124,8 +130,9 @@ void main() {
   Future<({Object? error, _Trading trading, PendingBetIntent? pending})> run(
       PendingBetIntent intent,
       {Map<String, dynamic>? book,
-      bool ordersKnown = true}) async {
-    final trading = _Trading(ordersKnown: ordersKnown);
+      double balance = 50,
+      List<Order> orders = const []}) async {
+    final trading = _Trading(balance: balance, orders: orders);
     final container = ProviderContainer(overrides: [
       polymarketTradingProvider.overrideWith(() => trading),
     ]);
@@ -209,48 +216,87 @@ void main() {
     }
   });
 
+  const market = PendingBetIntent(
+      tokenId: _token,
+      amount: 4,
+      slippagePct: 5,
+      marketQuestion: 'Will it rain?',
+      outcomeName: 'Yes',
+      expectedPrice: 0.6);
+
   group('P5: open orders that could not be read', () {
-    test('a failed read keeps the account\'s last list; none known is unknown',
+    test('a failed read keeps the account\'s last list; none known is none',
         () {
       final previous = PolymarketTradingState(openOrders: [_buy('10', '0.3')]);
-      final kept = polymarketOrdersAfterRead(read: null, previous: previous);
-      expect(kept.known, isTrue);
-      expect(kept.orders, previous.openOrders);
-      final fresh =
-          polymarketOrdersAfterRead(read: const [], previous: previous);
-      expect(fresh.known, isTrue);
-      expect(fresh.orders, isEmpty);
-      final none = polymarketOrdersAfterRead(read: null, previous: null);
-      expect(none.known, isFalse);
-      final unknownBefore = polymarketOrdersAfterRead(
-          read: null,
-          previous: const PolymarketTradingState(openOrdersKnown: false));
-      expect(unknownBefore.known, isFalse);
+      expect(polymarketOrdersAfterRead(read: null, previous: previous),
+          previous.openOrders);
+      expect(
+          polymarketOrdersAfterRead(read: const [], previous: previous), isEmpty);
+      // A cold boot (no cache) whose orders read failed: nothing reserved,
+      // exactly as before; the venue's own refusal is the guard.
+      expect(polymarketOrdersAfterRead(read: null, previous: null), isEmpty);
     });
 
-    test('with none known nothing is spendable and nothing is signed',
-        () async {
-      final r = await run(
-          const PendingBetIntent(
-              tokenId: _token,
-              amount: 5,
-              slippagePct: 5,
-              marketQuestion: 'Will it rain?',
-              outcomeName: 'Yes',
-              expectedPrice: 0.6),
-          ordersKnown: false);
-      expect(r.trading.placed, isEmpty);
-      expect(r.pending?.status, PendingBetStatus.failed);
+    test(
+        'a cold boot with no cache, or an orders read that keeps failing: a '
+        'plain market buy is placed', () async {
+      // The state such a boot reaches: a balance, no orders list.
+      final r = await run(market, balance: 5);
+      expect(r.error, isNull);
+      expect(r.trading.placed, hasLength(1));
+      // Reached the venue: the fake stops it there, after every check.
+      expect(r.trading.placed.single.size, greaterThan(0));
     });
 
-    test('the Investments figures read the reserve as unknown, never \$0',
-        () {
-      const state = PolymarketTradingState(
-          isAuthenticated: true, usdcBalance: 40, openOrdersKnown: false);
-      final balances = polymarketInvestmentBalances(
-          state: state,
-          orders: state.openOrdersKnown ? state.openOrders : null);
-      expect(balances.available, isNull);
+    test(
+        'an account with a resting buy whose read fails keeps that reserve: '
+        'a stake that fits the balance but not what is free stops before '
+        'signing; without the buy the same stake is placed', () async {
+      // \$5 held, \$3 reserved by a resting buy (10 at 30c) kept from the
+      // last list: \$2 free, so \$4 does not fit.
+      final held = await run(market, balance: 5, orders: [_buy('10', '0.30')]);
+      expect(held.trading.placed, isEmpty);
+      expect(held.pending?.status, PendingBetStatus.failed);
+      final free = await run(market, balance: 5);
+      expect(free.trading.placed, hasLength(1));
+    });
+  });
+
+  group('a plain market buy (Advanced off)', () {
+    test('its fee ceiling is sized inside 1c-99c, as before limits', () {
+      const terms = PolymarketFeeTerms.worstCase;
+      const high = PendingBetIntent(
+          tokenId: _token,
+          amount: 20,
+          slippagePct: 5,
+          marketQuestion: 'q',
+          outcomeName: 'Yes',
+          expectedPrice: 0.995);
+      expect(PolymarketBetController.allInMax(high),
+          terms.allInCost(20, 0.99));
+      const low = PendingBetIntent(
+          tokenId: _token,
+          amount: 20,
+          slippagePct: 5,
+          marketQuestion: 'q',
+          outcomeName: 'Yes',
+          expectedPrice: 0.004);
+      expect(PolymarketBetController.allInMax(low), terms.allInCost(20, 0.01));
+      // The slip's figure (what a funding move is sized on): the shown
+      // price plus slippage, inside 1c-99c.
+      expect(
+          betSlipWorstFeePrice(limitPrice: null, shown: 0.97, slippagePct: 5),
+          0.99);
+      expect(
+          betSlipWorstFeePrice(limitPrice: null, shown: 0.5, slippagePct: 5),
+          closeTo(0.525, 1e-12));
+      expect(
+          betSlipWorstFeePrice(limitPrice: null, shown: 0.002, slippagePct: 5),
+          0.01);
+      // A limit at its own price, under 1c on a 0.1c market.
+      expect(
+          betSlipWorstFeePrice(limitPrice: 0.005, shown: 0.5, slippagePct: 5),
+          0.005);
     });
   });
 }

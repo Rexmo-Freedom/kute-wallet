@@ -2093,6 +2093,10 @@ class PendingBetAutoFire {
               negRisk: intent.negRisk,
               price: price,
               orderType: OrderType.gtc,
+              // The controller's own check: a limit that crosses the book
+              // fills as a taker, so its fee ceiling is counted too.
+              feeReserveUsd: (intent.feeTerms ?? PolymarketFeeTerms.worstCase)
+                  .feeCeilingForNotional(shares * price, price),
               marketTitle: intent.marketQuestion,
               marketImage: intent.marketImage,
               marketOutcome: intent.outcomeName,

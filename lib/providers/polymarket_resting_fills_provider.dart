@@ -68,18 +68,44 @@ class PolymarketRestingFillTracker {
   final Map<String, Order> _orders = {};
   final Map<String, double> _matched = {};
   final Set<String> _cancelled = {};
-  bool _primed = false;
+
+  /// Orders whose record could not be read, with the reads tried: read
+  /// again with the next list, at most [maxGoneReads] times.
+  final Map<String, (Order, int)> _unread = {};
+  static const maxGoneReads = 3;
 
   /// Forget everything (another account).
   void reset() {
     _orders.clear();
     _matched.clear();
     _cancelled.clear();
-    _primed = false;
+    _unread.clear();
   }
 
-  /// An order this app cancelled: its leaving the list is not a fill.
+  /// An order this app cancelled (the venue confirmed it): its leaving the
+  /// list is not a fill.
   void noteCancelled(Iterable<String> orderIds) => _cancelled.addAll(orderIds);
+
+  /// An order this app just placed that rests ([order]'s size matched: what
+  /// it bought or sold on arrival, already on its receipt): known at once,
+  /// so a fill before the next list read is still said.
+  void register(Order order) {
+    _orders[order.id] = order;
+    final now = _num(order.sizeMatched);
+    if ((_matched[order.id] ?? -1) < now) _matched[order.id] = now;
+  }
+
+  /// [order]'s record could not be read: try again with the next list.
+  void readLater(Order order) {
+    final tries = (_unread[order.id]?.$2 ?? 0) + 1;
+    if (tries >= maxGoneReads) {
+      _unread.remove(order.id);
+      _orders.remove(order.id);
+      _matched.remove(order.id);
+      return;
+    }
+    _unread[order.id] = (order, tries);
+  }
 
   PolymarketRestingFill _fill(Order o, double matched, double before) =>
       PolymarketRestingFill(
@@ -100,18 +126,27 @@ class PolymarketRestingFillTracker {
     final fills = <PolymarketRestingFill>[];
     final gone = <Order>[];
     final ids = {for (final o in orders) o.id};
-    if (_primed) {
-      for (final o in orders) {
-        final before = _matched[o.id];
-        final now = _num(o.sizeMatched);
-        if (before != null && now > before + 1e-6) {
-          fills.add(_fill(o, now, before));
-        }
-      }
-      for (final o in _orders.values) {
-        if (!ids.contains(o.id) && !_cancelled.contains(o.id)) gone.add(o);
+    for (final o in orders) {
+      final before = _matched[o.id];
+      final now = _num(o.sizeMatched);
+      // Before the first list only orders placed here are known.
+      if (before != null && now > before + 1e-6) {
+        fills.add(_fill(o, now, before));
       }
     }
+    // Orders known here (listed before, or placed here) that left it.
+    for (final o in _orders.values) {
+      if (!ids.contains(o.id) &&
+          !_cancelled.contains(o.id) &&
+          !_unread.containsKey(o.id)) {
+        gone.add(o);
+      }
+    }
+    // Records that could not be read last time, read again.
+    for (final (o, _) in _unread.values) {
+      if (!ids.contains(o.id)) gone.add(o);
+    }
+    _unread.removeWhere((id, _) => ids.contains(id));
     // Gone orders stay known until their record is read ([onGone]).
     final kept = {for (final o in gone) o.id: o};
     _orders
@@ -124,7 +159,6 @@ class PolymarketRestingFillTracker {
     }
     _matched.removeWhere((id, _) => !_orders.containsKey(id));
     _cancelled.removeWhere((id) => !_orders.containsKey(id));
-    _primed = true;
     return (fills: fills, gone: gone);
   }
 
@@ -132,6 +166,7 @@ class PolymarketRestingFillTracker {
   /// `size_matched`, null when it has none): a fill past what was seen.
   PolymarketRestingFill? onGone(Order order, Map<String, dynamic>? record) {
     final before = _matched[order.id];
+    _unread.remove(order.id);
     _orders.remove(order.id);
     _matched.remove(order.id);
     if (record == null || before == null) return null;
@@ -152,8 +187,10 @@ class PolymarketRestingFillTracker {
 }
 
 /// The last resting fill seen (null until one); each fill is a new value.
+/// Lives as long as something listens (the Predictions screen, as the user
+/// channel always did): it never keeps the channel open on its own.
 class PolymarketRestingFillsNotifier
-    extends Notifier<PolymarketRestingFill?> {
+    extends AutoDisposeNotifier<PolymarketRestingFill?> {
   final PolymarketRestingFillTracker _tracker = PolymarketRestingFillTracker();
   String? _account;
 
@@ -183,9 +220,13 @@ class PolymarketRestingFillsNotifier
     return null;
   }
 
-  /// Orders this app cancelled ([PolyOrderRow], Cancel all).
+  /// Orders this app cancelled, once the venue confirmed it ([PolyOrderRow],
+  /// Cancel all).
   void noteCancelled(Iterable<String> orderIds) =>
       _tracker.noteCancelled(orderIds);
+
+  /// An order this app just placed that rests: known at once.
+  void noteOrder(Order order) => _tracker.register(order);
 
   void _onTrading(PolymarketTradingState? s) {
     if (s == null || !s.isAuthenticated) return;
@@ -194,7 +235,6 @@ class PolymarketRestingFillsNotifier
       _account = account;
       _tracker.reset();
     }
-    if (!s.openOrdersKnown) return;
     final seen = _tracker.onOrders(s.openOrders);
     for (final fill in seen.fills) {
       state = fill;
@@ -209,7 +249,9 @@ class PolymarketRestingFillsNotifier
     try {
       record = await lookup(ref, order.id);
     } catch (_) {
-      record = null;
+      // Not read: tried again with the next list, never dropped silently.
+      if (account == _account) _tracker.readLater(order);
+      return;
     }
     if (account != _account) return;
     final fill = _tracker.onGone(order, record);
@@ -217,16 +259,15 @@ class PolymarketRestingFillsNotifier
   }
 }
 
-final polymarketRestingFillsProvider =
-    NotifierProvider<PolymarketRestingFillsNotifier, PolymarketRestingFill?>(
-        PolymarketRestingFillsNotifier.new);
+final polymarketRestingFillsProvider = NotifierProvider.autoDispose<
+    PolymarketRestingFillsNotifier,
+    PolymarketRestingFill?>(PolymarketRestingFillsNotifier.new);
 
-/// The tokens the user channel follows: those held and those with a
-/// resting order, so a resting buy on a token not held yet is heard when
-/// it fills.
-List<String> polymarketUserChannelAssets(PolymarketTradingState state) => {
-      for (final p in state.openPositions)
-        if (p.asset.isNotEmpty) p.asset,
+
+/// The tokens with a resting order: the user channel follows them on top
+/// of the positions, so a resting buy on a token not held yet is heard
+/// when it fills.
+List<String> polymarketRestingOrderAssets(PolymarketTradingState state) => {
       for (final o in state.openOrders)
         if (o.assetId.isNotEmpty) o.assetId,
     }.toList();

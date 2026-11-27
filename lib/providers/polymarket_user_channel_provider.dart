@@ -12,6 +12,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -31,7 +32,16 @@ class UserChannelNotifier extends AutoDisposeNotifier<UserChannelState> {
   PolymarketClobWebSocket? _ws;
   StreamSubscription? _msgSub;
   final Set<String> _subscribedAssets = {};
+
+  /// Tokens with a resting order, followed on top of the positions
+  /// ([follow]): added to the open subscription, never a reconnect.
+  final Set<String> _followed = {};
   bool _connecting = false;
+
+  /// The socket; tests hand in a fake.
+  @visibleForTesting
+  static PolymarketClobWebSocket Function() socketFactory =
+      PolymarketClobWebSocket.new;
 
   @override
   UserChannelState build() {
@@ -44,6 +54,40 @@ class UserChannelNotifier extends AutoDisposeNotifier<UserChannelState> {
     _ws?.dispose();
     _ws = null;
     _subscribedAssets.clear();
+    _followed.clear();
+  }
+
+  /// Also follow [assetIds] (tokens with a resting order), so a resting
+  /// buy on a token not held yet is heard when it fills. Added to the
+  /// open subscription as one more `user` frame (the same frame
+  /// [subscribe] sends), never a teardown: no update can fall in a gap.
+  /// With no socket yet the tokens ride on the next connect, or start one
+  /// when nothing else will. The open-orders list read on every refresh
+  /// backs the socket up either way (polymarket_resting_fills_provider).
+  void follow(List<String> assetIds) {
+    final added = assetIds
+        .where((a) =>
+            a.isNotEmpty &&
+            !_followed.contains(a) &&
+            !_subscribedAssets.contains(a))
+        .toSet();
+    if (added.isEmpty) return;
+    _followed.addAll(added);
+    final ws = _ws;
+    if (ws != null && _msgSub != null) {
+      final backend =
+          ref.read(polymarketTradingProvider.notifier).backendService;
+      if (backend == null) return;
+      ws.subscribeToUser(
+        assetIds: added.toList(),
+        authHeadersFactory: backend.userChannelAuthHeaders,
+      );
+      return;
+    }
+    // No socket and no positions to open one: these tokens open it.
+    if (_msgSub == null && !_connecting && _subscribedAssets.isEmpty) {
+      _connectAndSubscribe(_followed.toList());
+    }
   }
 
   void subscribe(List<String> assetIds) {
@@ -80,11 +124,11 @@ class UserChannelNotifier extends AutoDisposeNotifier<UserChannelState> {
         return;
       }
 
-      _ws ??= PolymarketClobWebSocket();
+      _ws ??= socketFactory();
       await _ws!.connect();
 
       _ws!.subscribeToUser(
-        assetIds: assetIds,
+        assetIds: {...assetIds, ..._followed}.toList(),
         // Factory closure so headers are re-computed on every
         // reconnect (timestamps are short-lived).
         authHeadersFactory: backend.userChannelAuthHeaders,

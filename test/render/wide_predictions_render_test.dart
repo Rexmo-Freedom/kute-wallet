@@ -43,6 +43,10 @@ import 'package:kute/providers/polymarket_trading_provider.dart'
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
+import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/providers/pending_polymarket_bet_provider.dart';
+import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart'
     show SellSheet;
 import 'package:kute/platform/kute_wide_frames.dart' show KuteSideFlow;
@@ -67,6 +71,36 @@ final _dir = Platform.environment['WIDE_PREDICTIONS_RENDER'];
 ///   ADVANCED_LIMIT_RENDER=<dir> flutter test \
 ///     test/render/wide_predictions_render_test.dart
 final _apDir = Platform.environment['ADVANCED_LIMIT_RENDER'];
+
+/// The placement engine, faked at its edges: the intent as prepared, an
+/// approval bound to it, and a venue that answers that the limit rests.
+class _RestingController extends PolymarketBetController {
+  _RestingController(super.ref);
+  @override
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+          {bool requireFreshCollateral = false}) async =>
+      intent;
+  @override
+  SensitiveIntent? reviewIntent(PendingBetIntent intent) => PmGrants.betReview(
+      walletId: 'w',
+      tokenId: intent.tokenId,
+      maxCostUsd: intent.amount + 1,
+      worstPrice: intent.limitPrice,
+      orderType: 'gtc');
+  @override
+  void prefetchForSend(PendingBetIntent intent) {}
+  @override
+  Future<AuthGrantException?> place(String mode,
+      {required AuthGrant grant,
+      bool successHaptic = true,
+      String? entrySource,
+      bool requireFreshCollateral = false}) async {
+    ref
+        .read(pendingPolymarketBetProvider.notifier)
+        .updateStatus(PendingBetStatus.done);
+    return null;
+  }
+}
 
 class _NoStars extends PolyWatchlistNotifier {
   @override
@@ -506,6 +540,7 @@ void main() {
   Future<void> pumpMarket(WidgetTester tester, Size size, PolymarketEvent e,
       {List<PolymarketPosition> positions = const [],
       List<Order> orders = const [],
+      List<Override> extra = const [],
       bool dark = false}) async {
     await allow(tester);
     final world = CardWorld()..orders = orders;
@@ -520,6 +555,7 @@ void main() {
           polymarketActivePositionsProvider.overrideWithValue(positions),
           polymarketMarketHistoryProvider.overrideWith(
               (ref, params) async => _history(params.tokenId, 0.3)),
+          ...extra,
         ],
         route: () => MaterialPageRoute<void>(
             settings: const RouteSettings(name: MarketDetailSheet.routeName),
@@ -807,21 +843,54 @@ void main() {
     await settle(tester);
   }
 
-  testWidgets(
-      'P7 wide: Advanced over the slip in place is marked as over it, and a '
-      'limit placed there keeps the market page and its slip', (tester) async {
-    await pumpMarket(tester, const Size(1440, 900), _aliens);
+  /// Places the limit on the Advanced page through the slip's own path:
+  /// the approval is the test's seam, the venue a fake that answers that it
+  /// rests (nothing is signed or sent).
+  Future<void> placeRestingLimit(WidgetTester tester) async {
     await openAdvancedLimit(tester);
-    expect(find.text('Advanced prediction'), findsOneWidget);
-    expect(find.byKey(const ValueKey('prediction-advanced-over-in-place')),
-        findsOneWidget);
-    // What the placement's end does there (bet_slip_sheet.dart).
-    popBetSlipRoutes(AppRouter.rootNavigatorKey.currentState!,
-        keepMarketPage: true);
+    await tester.enterText(find.byType(TextField).last, '5');
     await settle(tester);
+    final cta = find.textContaining(r'Place $5.00 limit at');
+    await tester.ensureVisible(cta.last);
+    await tester.tap(cta.last);
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  List<Override> placing() => [
+        polymarketBetControllerProvider.overrideWith(_RestingController.new),
+      ];
+
+  testWidgets(
+      'P7 wide: a limit placed from Advanced over the slip in place keeps '
+      'the market page and its slip (through the placement)', (tester) async {
+    debugPmBetApproval = (review) async =>
+        AuthGrants.issue(review, method: AuthGrantMethod.allowance);
+    addTearDown(() => debugPmBetApproval = null);
+    await pumpMarket(tester, const Size(1440, 900), _aliens, extra: placing());
+    await placeRestingLimit(tester);
     expect(find.text('Advanced prediction'), findsNothing);
     expect(find.byType(MarketDetailSheet), findsOneWidget);
     expect(find.byKey(const ValueKey('bet-slip-in-place')), findsOneWidget);
+    // The resting receipt and its rows.
+    expect(find.text('Until canceled'), findsOneWidget);
+    expect(find.text('Reserved'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await release(tester);
+  });
+
+  testWidgets(
+      'P7 phone: the same placement closes the slip and the market sheet, '
+      'as before', (tester) async {
+    debugPmBetApproval = (review) async =>
+        AuthGrants.issue(review, method: AuthGrantMethod.allowance);
+    addTearDown(() => debugPmBetApproval = null);
+    await pumpMarket(tester, const Size(430, 932), _aliens, extra: placing());
+    await placeRestingLimit(tester);
+    expect(find.text('Advanced prediction'), findsNothing);
+    expect(find.byType(MarketDetailSheet), findsNothing);
+    expect(find.text('Until canceled'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await release(tester);
   });

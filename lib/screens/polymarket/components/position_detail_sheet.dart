@@ -1154,9 +1154,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         PolyMarketOrders(
                           key: const ValueKey('poly-position-orders'),
                           here: (o) => o.assetId == token,
+                          bottom: 12.h,
                         ),
-                      if (pos.tokenId case final token? when token.isNotEmpty)
-                        SizedBox(height: 12.h),
                     ],
                     // The profit and payout tiles (on EXPANDED under the
                     // dial, on the left).

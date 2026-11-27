@@ -68,6 +68,7 @@ import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
+import 'package:kute/providers/polymarket_resting_fills_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
@@ -295,8 +296,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   String? _sellIssue(AppLocalizations l10n) {
     if (_sharesToSell <= 0) return null;
     final free = _freeShares;
-    if (polymarketShareHundredths(_sharesToSell) >
-        polymarketShareHundredths(free)) {
+    if (free < pos.size &&
+        polymarketShareHundredths(_sharesToSell) >
+            polymarketShareHundredths(free)) {
       return l10n.betSellFreeShares(free.toStringAsFixed(2));
     }
     if (!_isLimitMode) return null;
@@ -490,9 +492,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     }
     final raw = _amountUsdc / price;
     final free = _freeShares;
-    // The figure Max wrote (every free share, rounded up to a cent) is
-    // every free share, never a hair more.
-    _sharesToSell = raw > free &&
+    // With shares in resting sells, the figure Max wrote (every free
+    // share, rounded up to a cent) is every free share, never a hair
+    // more. With none, exactly as before.
+    _sharesToSell = free < pos.size &&
+            raw > free &&
             polymarketAmountWithinShares(_amountUsdc, free, price)
         ? free
         : raw.clamp(0.0, pos.size);
@@ -741,6 +745,26 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         // sold it all. One read of the order says which.
         final settlement = await _watchSale(placed,
             tokenId: tokenId, offered: sellShares, resting: true);
+        // What still rests is known to the fills tracker at once, so a
+        // fill before the next orders read is still said.
+        final restingId =
+            '${placed['orderID'] ?? placed['orderId'] ?? ''}';
+        if (mounted &&
+            restingId.isNotEmpty &&
+            settlement.soldShares < sellShares - 0.005 &&
+            ref.exists(polymarketRestingFillsProvider)) {
+          ref.read(polymarketRestingFillsProvider.notifier).noteOrder(Order(
+                id: restingId,
+                market: pos.marketId,
+                assetId: tokenId,
+                owner: '',
+                side: 'SELL',
+                price: '$price',
+                originalSize: '$sellShares',
+                sizeMatched: '${settlement.soldShares}',
+                outcome: pos.outcome,
+              ));
+        }
         TrackingService.track('polymarket_limit_sell_placed', params: {
           ..._kindParams(),
           ..._sellInputs(),

@@ -363,6 +363,11 @@ class _BetSlipDraft extends ChangeNotifier {
 @visibleForTesting
 Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetFundingApproval;
 
+/// Test seam: stands in for a bet's own approval (no funding leg), as
+/// [debugPmBetFundingApproval] does for a funded one.
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetApproval;
+
 /// Whether [pending]'s stop retries on its series' next round: a short
 /// round with a slug per window (`btc-updown-5m-…`) that has ended at
 /// [now] (it ended while its money was moving, or its price moved past
@@ -2959,8 +2964,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // A balance that was not read is unknown, not $0.00: never decide a
     // shortfall (and a funding move from Dollars) on it. The button waits
     // in that state; this covers a tap that raced a failed read.
-    if (!(tradingState.valueOrNull?.balanceKnown ?? false) ||
-        !(tradingState.valueOrNull?.openOrdersKnown ?? false)) {
+    if (!(tradingState.valueOrNull?.balanceKnown ?? false)) {
       _stopped('balance_unknown');
       if (mounted) {
         showMessageSnackBar(
@@ -3300,7 +3304,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       if (grant == null) return _decline('approval_not_granted');
       return grant;
     }
-    final grant = await requireFreshAuthGrant(
+    final plainSeam = debugPmBetApproval;
+    final grant = plainSeam != null
+        ? await plainSeam(review)
+        : await requireFreshAuthGrant(
       context,
       ref,
       intent: review,
@@ -4543,10 +4550,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // The fees at the order's worst price (its tolerance), plus the
     // rounding cent: the most the order can take of the venue's cash.
     final shown = _maxFeePrice ?? selected.price;
-    final worst = _isLimitMode && _limitPrice > 0
-        ? _limitPrice
-        : shown * (1 + _slippagePct / 100);
-    final price = worst.clamp(0.0001, 0.9999).toDouble();
+    final price = betSlipWorstFeePrice(
+        limitPrice: _isLimitMode ? _limitPrice : null,
+        shown: shown,
+        slippagePct: _slippagePct);
     return terms.allInCost(stake, price) +
         PolymarketMarketBuyQuote.roundingHeadroom;
   }
@@ -6866,11 +6873,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // Until the Predictions account is set up and its balance was read,
     // the button waits: a 0 that only means "not read yet" must never
     // turn it into the Deposit door, nor let a tap through.
-    // What resting buys reserve is part of it: a failed orders read is
-    // unknown, never "nothing reserved" (the same wait).
-    final balanceKnown = trading.hasValue &&
-        (trading.valueOrNull?.balanceKnown ?? false) &&
-        (trading.valueOrNull?.openOrdersKnown ?? false);
+    final balanceKnown =
+        trading.hasValue && (trading.valueOrNull?.balanceKnown ?? false);
     if (!balanceKnown && !_isPlacing && !busy && !_buyInFlight) {
       return PolySlipCta(
         key: const ValueKey('bet-slip-loading-account'),
@@ -8149,6 +8153,19 @@ class _IconDiscButton extends StatelessWidget {
 /// haptic, so the controller skips its own); limit orders keep the short
 /// in-sheet beat and the controller haptic.
 bool betSlipEndsOnConfirmation({required bool isLimit}) => !isLimit;
+
+/// The price the slip sizes a stake's fees at: a limit's own price (inside
+/// the widest tick's range: a 0.1c market rests under 1c), else the shown
+/// price plus the slippage, inside 1c-99c exactly as before limits.
+double betSlipWorstFeePrice(
+    {required double? limitPrice,
+    required double shown,
+    required double slippagePct}) {
+  if (limitPrice != null && limitPrice > 0) {
+    return limitPrice.clamp(0.0001, 0.9999).toDouble();
+  }
+  return (shown * (1 + slippagePct / 100)).clamp(0.01, 0.99).toDouble();
+}
 
 /// The receipt of a limit buy resting whole: what it is (a limit), its
 /// price, its shares, how long it stands, and what it holds of the cash

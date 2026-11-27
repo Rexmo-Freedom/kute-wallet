@@ -168,12 +168,6 @@ class PolymarketTradingState {
   /// for "unknown": the slip waits instead of offering a deposit on it.
   final bool balanceKnown;
 
-  /// Whether [openOrders] is a list that was read for this account. False
-  /// when the read failed and none was known before: what resting buys
-  /// reserve of [usdcBalance] is then unknown, and the slip waits instead
-  /// of treating it as nothing reserved.
-  final bool openOrdersKnown;
-
   /// True while the figures shown are the last ones the device knew (the
   /// account cache, or a brand-new wallet's known $0.00) or the account is
   /// still finishing its start (credentials, open orders): a fresh read is
@@ -207,7 +201,6 @@ class PolymarketTradingState {
     this.pendingSaleTokens = const {},
     this.clearingConditionIds = const {},
     this.balanceKnown = true,
-    this.openOrdersKnown = true,
     this.refreshing = false,
     this.pendingFills = const [],
     this.confirmedSales = const [],
@@ -228,7 +221,6 @@ class PolymarketTradingState {
     Set<String>? pendingSaleTokens,
     Set<String>? clearingConditionIds,
     bool? balanceKnown,
-    bool? openOrdersKnown,
     bool? refreshing,
     List<PolymarketPendingFill>? pendingFills,
     List<PolymarketConfirmedSale>? confirmedSales,
@@ -248,7 +240,6 @@ class PolymarketTradingState {
       pendingSaleTokens: pendingSaleTokens ?? this.pendingSaleTokens,
       clearingConditionIds: clearingConditionIds ?? this.clearingConditionIds,
       balanceKnown: balanceKnown ?? this.balanceKnown,
-      openOrdersKnown: openOrdersKnown ?? this.openOrdersKnown,
       refreshing: refreshing ?? this.refreshing,
       pendingFills: pendingFills ?? this.pendingFills,
       confirmedSales: confirmedSales ?? this.confirmedSales,
@@ -280,7 +271,6 @@ class PolymarketTradingState {
         error == other.error &&
         isPlacingOrder == other.isPlacingOrder &&
         refreshing == other.refreshing &&
-        openOrdersKnown == other.openOrdersKnown &&
         setEquals(pendingSaleTokens, other.pendingSaleTokens) &&
         setEquals(clearingConditionIds, other.clearingConditionIds) &&
         _samePositionValues(openPositions, other.openPositions) &&
@@ -301,7 +291,6 @@ class PolymarketTradingState {
         error,
         isPlacingOrder,
         refreshing,
-        openOrdersKnown,
         Object.hashAll(openPositions),
         Object.hashAll(closedPositions),
         Object.hashAll(openOrders),
@@ -393,21 +382,17 @@ class PolymarketEvmFormatPendingException implements Exception {
 ///   them);
 /// * a known address is never replaced with null, and a balance that could
 ///   not be read keeps the last one that was.
-/// The open orders a refresh carries, and whether they are known: the
-/// list [read] (null: a cash-only tick, or a read that failed); else the
-/// same account's [previous] list while that one was known; else none
-/// known. A failed read is never "nothing reserved".
+/// The open orders a refresh carries: the list [read] (null: a cash-only
+/// tick, or a read that failed); else the same account's [previous] list
+/// (a failed read never wipes a known reserve: what resting buys hold
+/// stays held); else none, as before (nothing was ever known to be
+/// reserved: the venue's own refusal is the guard, and nobody waits).
 @visibleForTesting
-({List<Order> orders, bool known}) polymarketOrdersAfterRead({
+List<Order> polymarketOrdersAfterRead({
   required List<Order>? read,
   required PolymarketTradingState? previous,
-}) {
-  if (read != null) return (orders: read, known: true);
-  if (previous != null && previous.openOrdersKnown) {
-    return (orders: previous.openOrders, known: true);
-  }
-  return (orders: const <Order>[], known: false);
-}
+}) =>
+    read ?? previous?.openOrders ?? const <Order>[];
 
 @visibleForTesting
 PolymarketTradingState? mergePolymarketRefresh({
@@ -2347,11 +2332,8 @@ class PolymarketTradingNotifier
         previous.proxyWalletAddress?.toLowerCase() == addr.toLowerCase();
     var positions = (results[0] as List<Position>?) ??
         (samePreviousAccount ? previous.openPositions : const <Position>[]);
-    // The open orders this state carries: a fresh read; else (a cash-only
-    // tick, or a read that failed) this account's last known list; else
-    // none known, and nothing is sized on the venue's cash until a read
-    // lands ([PolymarketTradingState.openOrdersKnown]).
-    final (orders: orders, known: ordersKnown) = polymarketOrdersAfterRead(
+    // The open orders this state carries (polymarketOrdersAfterRead).
+    final orders = polymarketOrdersAfterRead(
         read: results[1] as List<Order>?,
         previous: samePreviousAccount ? previous : null);
     final onChainUsdc = results[2] as double;
@@ -2589,7 +2571,6 @@ class PolymarketTradingNotifier
       openPositions: positions,
       closedPositions: heldToResult,
       openOrders: orders,
-      openOrdersKnown: ordersKnown,
       walletAddress: eoaAddress,
       proxyWalletAddress: proxyWallet,
       pendingSaleTokens: _pendingSaleTokens.keys.toSet(),

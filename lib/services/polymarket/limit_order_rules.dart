@@ -186,8 +186,11 @@ double polymarketSharesInRestingSells(List<Order> orders, String? tokenId) {
 }
 
 /// The shares of a [held] position free to sell: less what [locked] in
-/// resting sells, never under zero, to the hundredth.
+/// resting sells, never under zero, to the hundredth. With nothing locked
+/// it is [held] itself, untouched (a full Max sells every share as it
+/// always did).
 double polymarketFreeShares(double held, double locked) {
+  if (locked <= 0) return held;
   final free = polymarketShareHundredths(held) -
       (locked <= 0 ? 0 : (locked * 100 - 1e-6).ceil());
   return free <= 0 ? 0 : free / 100;

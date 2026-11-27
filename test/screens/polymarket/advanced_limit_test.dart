@@ -41,6 +41,7 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show PredictionsVenueFunder;
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
@@ -448,6 +449,50 @@ void main() {
               .amountText,
           '2.16');
       expect(find.textContaining('6.00 shares in open orders'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+  });
+
+  group('a plain market sale (Advanced off), no resting sells', () {
+    testWidgets(
+        'Max on a fractional position sells every share and reports a whole '
+        'sale, exactly as before', (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final policy = await _allow();
+      _phone(tester);
+      installShellBar();
+      await tester.pumpWidget(ProviderScope(
+        overrides: _overrides(const []),
+        child: shellBarApp(
+          theme: ThemeData(
+            splashFactory: NoSplash.splashFactory,
+            extensions: [AppColorsExtension.light()],
+          ),
+          home: Scaffold(
+              body: SellSheet(position: _position(size: 18.6049, price: 0.15))),
+        ),
+      ));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.bySemanticsLabel('Use maximum'));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('poly-sell-issue')), findsNothing);
+      expect(find.textContaining('in open orders'), findsNothing);
+      // The step event carries what is entered: the whole position.
+      await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
+      await tester.pumpAndSettle();
+      final step = events
+          .where((e) =>
+              e.$1 == 'polymarket_sell_step' && e.$2?['step'] == 'advanced')
+          .single
+          .$2!;
+      expect(step['sell_scope'], 'all');
+      expect(step['pct_of_position'], 100);
+      expect(step['shares'], 18.6049);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
     });

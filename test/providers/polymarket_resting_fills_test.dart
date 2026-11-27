@@ -4,13 +4,23 @@
 // matched grew), or an order that left the list whose record shows a fill.
 // The user channel follows the tokens with a resting order, not only the
 // tokens held. Fakes only: nothing is read from the venue.
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
+    show showPolymarketRestingFillToast;
+import 'package:kute/screens/shared/sal_toast.dart';
+import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/providers/polymarket_resting_fills_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_user_channel_provider.dart';
 import 'package:kute/services/polymarket_clob_websocket.dart'
-    show PolymarketOrderWsMessage;
+    show PolymarketClobWebSocket, PolymarketOrderWsMessage, PolymarketWsMessage;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Order, Position;
 
@@ -51,9 +61,44 @@ class _Trading extends PolymarketTradingNotifier {
   Future<PolymarketTradingState> build() async => const PolymarketTradingState(
       isAuthenticated: true, proxyWalletAddress: '0xabc');
 
-  void orders(List<Order> orders, {bool known = true}) =>
-      state = AsyncData(state.requireValue
-          .copyWith(openOrders: orders, openOrdersKnown: known));
+  void orders(List<Order> orders) =>
+      state = AsyncData(state.requireValue.copyWith(openOrders: orders));
+
+  void account(String proxy) => state = AsyncData(PolymarketTradingState(
+      isAuthenticated: true, proxyWalletAddress: proxy));
+}
+
+/// The user-channel socket, faked: what was subscribed, and a stream the
+/// test pushes order updates down.
+class _Socket extends PolymarketClobWebSocket {
+  final subscribed = <List<String>>[];
+  int listeners = 0;
+  late final _out = StreamController<PolymarketWsMessage>.broadcast(
+      onListen: () => listeners++, onCancel: () => listeners--);
+
+  @override
+  Future<void> connect() async {}
+  @override
+  Stream<PolymarketWsMessage> get messages => _out.stream;
+  @override
+  void subscribeToUser({
+    required List<String> assetIds,
+    required Map<String, String> Function() authHeadersFactory,
+  }) =>
+      subscribed.add(assetIds);
+  @override
+  void dispose() {}
+  void push(PolymarketWsMessage m) => _out.add(m);
+}
+
+class _Backend extends Fake implements PolymarketBackendService {
+  @override
+  Map<String, String> userChannelAuthHeaders() => const {};
+}
+
+class _AuthedTrading extends _Trading {
+  @override
+  PolymarketBackendService? get backendService => _Backend();
 }
 
 class _Channel extends UserChannelNotifier {
@@ -152,17 +197,148 @@ void main() {
       expect(fills.last.filledShares, 4);
     });
 
-    test('a failed orders read says nothing and forgets nothing', () async {
+    test(
+        'the socket silent across a resubscribe: the next list says the fill '
+        '(the list backs the socket up)', () async {
       trading.orders([_order('a')]);
-      trading.orders(const [], known: false);
-      await Future<void>.delayed(Duration.zero);
-      expect(fills, isEmpty);
+      // No socket update at all; the refresh's list shows the fill.
       trading.orders([_order('a', matched: 5)]);
       expect(fills.single.filledShares, 5);
     });
+
+    test(
+        'an order placed here that fills whole before the next list is '
+        'still said (registered at placement)', () async {
+      container
+          .read(polymarketRestingFillsProvider.notifier)
+          .noteOrder(_order('new'));
+      // The first list read after it: already gone (filled), never listed.
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills.single.orderId, 'new');
+      expect(fills.single.complete, isTrue);
+    });
+
+    test(
+        'a cancel that failed marks nothing: a fill after it is said; a '
+        'confirmed cancel is never a fill', () async {
+      trading.orders([_order('kept'), _order('gone')]);
+      // Only the confirmed cancel is noted (open_orders_sheet.dart).
+      container
+          .read(polymarketRestingFillsProvider.notifier)
+          .noteCancelled(['gone']);
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills.map((f) => f.orderId), ['kept']);
+    });
+
+    test('a record that could not be read is read again with the next list',
+        () async {
+      var tries = 0;
+      PolymarketRestingFillsNotifier.lookup = (ref, id) async {
+        if (tries++ == 0) throw StateError('offline');
+        return {'size_matched': '10'};
+      };
+      trading.orders([_order('a')]);
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills, isEmpty);
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills.single.orderId, 'a');
+      expect(tries, 2);
+    });
+
+    test('another account: nothing of the last one is said', () async {
+      trading.orders([_order('a')]);
+      trading.account('0xother');
+      trading.orders([_order('a', matched: 8)]);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills, isEmpty);
+    });
   });
 
-  test('the user channel follows resting orders\' tokens too', () {
+  group('the user channel', () {
+    late _Socket socket;
+    late ProviderContainer container;
+
+    setUp(() async {
+      socket = _Socket();
+      UserChannelNotifier.socketFactory = () => socket;
+      container = ProviderContainer(overrides: [
+        polymarketTradingProvider.overrideWith(_AuthedTrading.new),
+      ]);
+      container.listen(userChannelProvider, (_, __) {});
+      await container.read(polymarketTradingProvider.future);
+    });
+    tearDown(() {
+      container.dispose();
+      UserChannelNotifier.socketFactory = PolymarketClobWebSocket.new;
+    });
+
+    test(
+        'resting orders\' tokens are added to the open subscription: no '
+        'teardown, an update right after is heard', () async {
+      final channel = container.read(userChannelProvider.notifier);
+      channel.subscribe(['held']);
+      await Future<void>.delayed(Duration.zero);
+      expect(socket.subscribed, [
+        ['held']
+      ]);
+      expect(socket.listeners, 1);
+      channel.follow(['resting', 'held']);
+      // One more `user` frame with the new token only; the stream stays.
+      expect(socket.subscribed.last, ['resting']);
+      expect(socket.listeners, 1);
+      socket.push(_update('o1', 2));
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(userChannelProvider).recentOrders, hasLength(1));
+      // Already followed: nothing sent again.
+      channel.follow(['resting']);
+      expect(socket.subscribed, hasLength(2));
+    });
+
+    test('an account with no positions: its resting orders open the channel',
+        () async {
+      container.read(userChannelProvider.notifier).follow(['resting']);
+      await Future<void>.delayed(Duration.zero);
+      expect(socket.subscribed.single, ['resting']);
+      expect(socket.listeners, 1);
+    });
+  });
+
+  testWidgets('a fill is said with the Sal toast', (tester) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+            theme: ThemeData(extensions: [AppColorsExtension.light()]),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(builder: (c) {
+              ctx = c;
+              return const Scaffold();
+            }))));
+    showPolymarketRestingFillToast(
+        ctx,
+        const PolymarketRestingFill(
+            orderId: 'a',
+            tokenId: 't',
+            isBuy: true,
+            price: 0.4,
+            outcome: 'Yes',
+            filledShares: 10,
+            matchedShares: 10,
+            originalShares: 10));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(SalToast), findsOneWidget);
+    expect(find.text('Limit order filled'), findsOneWidget);
+    expect(find.text('Bought 10.00 shares of Yes at 40%'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  test('the tokens with a resting order, held or not', () {
     final state = PolymarketTradingState(
       openPositions: [
         const Position(
@@ -193,6 +369,6 @@ void main() {
       ],
       openOrders: [_order('a', token: 'resting'), _order('b', token: 'held')],
     );
-    expect(polymarketUserChannelAssets(state), ['held', 'resting']);
+    expect(polymarketRestingOrderAssets(state), ['resting', 'held']);
   });
 }
