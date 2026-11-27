@@ -510,10 +510,12 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
       const SizedBox(height: 8),
     ];
 
-    // A picker: the floating bar is away while it is up.
-    return KuteBarContextScope(
-      barContext: const KuteBarContext.hidden(),
-      child: AppBottomSheetContainer(
+    // RESET IS THE FLOATING BAR (founder, 27 November 2026: "make this
+    // reset floating also like the others"): the sheet draws no button and
+    // no rule over one; Reset is the Sal bar's primary, over the cards,
+    // which scroll clear of it ([_resetBar], the scroll content's last
+    // child).
+    return AppBottomSheetContainer(
         maxHeight: 0.9,
         child: Column(
           key: const ValueKey('hl-chart-sheet'),
@@ -534,40 +536,43 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
-                  children: sections,
-                ),
-              ),
-            ),
-            Container(height: 0.5, color: c.border),
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 2, 16.w, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  key: const ValueKey('hl-chart-sheet-reset'),
-                  onPressed: isDefault ? null : _reset,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    minimumSize: Size(0, 44.h),
-                    foregroundColor: c.textPrimary,
-                    disabledForegroundColor: c.textTertiary,
-                  ),
-                  child: Text(
-                    l10n.chartReset,
-                    style: TextStyle(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
+                  children: [
+                    ...sections,
+                    hlChartResetBar(
+                      key: const ValueKey('hl-chart-sheet-reset'),
+                      label: l10n.chartReset,
+                      onReset: isDefault ? null : _reset,
+                      source: 'hl_chart_sheet',
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
-      ),
     );
   }
 }
+
+/// Reset as the floating Sal bar's primary on a chart sheet, and the room
+/// under the sheet's content for it: disabled (the bar's own disabled
+/// look) while there is nothing to put back ([onReset] null).
+Widget hlChartResetBar({
+  required Key key,
+  required String label,
+  required VoidCallback? onReset,
+  required String source,
+}) =>
+    KuteBarContextScope(
+      key: key,
+      barContext: KuteBarContext.primary(
+        label: label,
+        enabled: onReset != null,
+        onPrimary: onReset ?? () {},
+        source: source,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text, {super.key});
@@ -1655,9 +1660,8 @@ class _HlIndicatorSettingsSheetState
       for (var i = 0; i < values.length; i++)
         values[i] == spec.params[i].defaultValue,
     ].every((v) => v);
-    return KuteBarContextScope(
-      barContext: const KuteBarContext.hidden(),
-      child: AppBottomSheetContainer(
+    // Reset is the floating bar here too (hlChartResetBar).
+    return AppBottomSheetContainer(
         child: Column(
           key: ValueKey('hl-indicator-settings-${widget.indicator}'),
           mainAxisSize: MainAxisSize.min,
@@ -1704,36 +1708,20 @@ class _HlIndicatorSettingsSheetState
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 6, 16.w, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  key: const ValueKey('hl-indicator-settings-reset'),
-                  onPressed: isDefault
-                      ? null
-                      : () {
-                          HapticFeedback.selectionClick();
-                          _last = spec.defaults;
-                          _notifier.setParams(widget.indicator, null);
-                        },
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    minimumSize: Size(0, 44.h),
-                    foregroundColor: c.textPrimary,
-                    disabledForegroundColor: c.textTertiary,
-                  ),
-                  child: Text(
-                    l10n.chartReset,
-                    style:
-                        TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
+            hlChartResetBar(
+              key: const ValueKey('hl-indicator-settings-reset'),
+              label: l10n.chartReset,
+              onReset: isDefault
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      _last = spec.defaults;
+                      _notifier.setParams(widget.indicator, null);
+                    },
+              source: 'hl_indicator_settings',
             ),
           ],
         ),
-      ),
     );
   }
 }

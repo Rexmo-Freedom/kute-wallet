@@ -25,6 +25,7 @@ import 'package:kute/screens/hyperliquid/components/hl_price_lines_host.dart';
 import 'package:kute/screens/shared/charts/kute_chart_drawings.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import '../../helpers/hl_chart_edit_harness.dart';
 
 Finder get _bells => find.byWidgetPredicate(
@@ -58,6 +59,16 @@ Future<void> _open(WidgetTester tester) async {
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
+}
+
+/// Presses Reset: the floating bar's primary on a chart sheet
+/// (hlChartResetBar), by the scope that declares it.
+Future<void> _pressReset(WidgetTester tester, String key) async {
+  final scope = tester.widget<KuteBarContextScope>(find.byKey(ValueKey(key)));
+  expect(scope.barContext.isPrimary, isTrue);
+  expect(scope.barContext.enabled, isTrue);
+  scope.barContext.onPrimary!();
+  await tester.pump();
 }
 
 void main() {
@@ -203,7 +214,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('hl-chart-style-candles')));
       await _settle(tester);
-      await tester.tap(find.byKey(const ValueKey('hl-chart-sheet-reset')));
+      await _pressReset(tester, 'hl-chart-sheet-reset');
       await _settle(tester);
       expect(_saved(tester), hasLength(2));
 
