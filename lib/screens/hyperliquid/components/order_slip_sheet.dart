@@ -23,8 +23,8 @@ import 'package:kute/screens/hyperliquid/components/builder_fee_consent.dart';
 import 'package:kute/screens/hyperliquid/components/hl_error_copy.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
 import 'package:kute/screens/shared/advanced_ticket.dart';
-import 'package:flutter/rendering.dart' show RenderProxyBox;
 // lib/screens/hyperliquid/components/order_slip_sheet.dart
 //
 // Order slip bottom sheet — a full Hyperliquid trading ticket mirroring
@@ -6861,7 +6861,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             onBack: () => Navigator.of(context).maybePop(),
             scrollKey: const ValueKey('hl-advanced-form-scroll'),
             primaryHeight: _advancedPrimaryHeight,
-            primary: _ReportSize(
+            primary: HlReportSize(
               onSize: (size) {
                 if (!mounted ||
                     (size.height - _advancedPrimaryHeight).abs() < 0.5) {
@@ -6873,25 +6873,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               child: action,
             ),
             children: [
-              // The page's switches as Settings draws them (the CTA fill
-              // when on, never the accent).
-              Theme(
-                data: appTheme.copyWith(
-                  switchTheme: SwitchThemeData(
-                    thumbColor: WidgetStateProperty.resolveWith((states) =>
-                        states.contains(WidgetState.selected)
-                            ? context.ctaOnColor
-                            : base.textSecondary),
-                    trackColor: WidgetStateProperty.resolveWith((states) =>
-                        states.contains(WidgetState.selected)
-                            ? context.ctaFill
-                            : base.surfaceLight),
-                    trackOutlineColor: WidgetStateProperty.resolveWith(
-                        (states) => states.contains(WidgetState.selected)
-                            ? Colors.transparent
-                            : base.borderSubtle),
-                  ),
-                ),
+              // The page's switches as Settings draws them.
+              hlAdvancedSwitchTheme(
+                context,
                 child: IgnorePointer(ignoring: ledgerLocked, child: form),
               ),
             ],
@@ -7386,16 +7370,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   // ── Steppers ─────────────────────────────────────────────────────────
 
-  /// The venue's price step at [px]: five significant figures under the
-  /// market's decimal cap, whole dollars from 100,000 (the rule
-  /// [roundPrice] sends by).
-  double _priceTick(double px) {
-    if (px >= 1e5) return 1;
-    final maxDecimals = math.max(0, (isSpot ? 8 : 6) - market.szDecimals);
-    final magnitude = (math.log(px) / math.ln10 + 1e-9).floor();
-    return math.max(math.pow(10, magnitude - 4).toDouble(),
-        math.pow(10, -maxDecimals).toDouble());
-  }
+  double _priceTick(double px) =>
+      hlPriceTick(px, szDecimals: market.szDecimals, isSpot: isSpot);
 
   /// Writes [px] into a price [field] as the wire sends it.
   void _setPrice(_NumField field, double px) {
@@ -7458,11 +7434,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
-  /// One number on the Advanced page as a stepper: the value big with
-  /// round − / + at its ends; a tap on the value types it (its own field,
-  /// focus node and formatter, unseen under the stepper, so the keyboard,
-  /// the wire rounding on leaving and the checks are the field's as they
-  /// were). [onStep] moves it; [trailing] is the snap to the market.
+  /// One number on the Advanced page as a stepper ([HlStepField]): its
+  /// own field, focus node (the wire rounding on leaving) and formatter.
   Widget _stepField(
     AppColorsExtension c,
     _NumField field,
@@ -7472,83 +7445,27 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     String suffix = '',
     String? trailing,
     VoidCallback? onTrailing,
-  }) {
-    final controller = _controllerFor(field);
-    final node = _focusNodeFor(field);
-    return ListenableBuilder(
-      listenable: node,
-      builder: (context, _) {
-        final text = controller.text.trim();
-        final parsed = double.tryParse(text);
-        final String value;
-        if (text.isEmpty) {
-          value = '—';
-        } else if (price && !node.hasFocus && parsed != null && parsed > 0) {
-          value = formatHlPrice(parsed, decimalCap: market.pxDecimalCap);
-        } else {
-          value = '${price ? r'$' : ''}$text$suffix';
-        }
-        return Stack(
-          children: [
-            // The real input, unseen: it holds the focus and the keyboard.
-            Positioned(
-              left: 0,
-              top: 0,
-              child: Opacity(
-                opacity: 0,
-                child: SizedBox(
-                  width: 1,
-                  height: 1,
-                  child: TextField(
-                    key: ValueKey('hl-adv-field-${field.name}'),
-                    controller: controller,
-                    focusNode: node,
-                    keyboardType: TextInputType.numberWithOptions(
-                        decimal: _decimalsFor(field) > 0),
-                    inputFormatters: [
-                      DecimalInputFormatter(fractionDigits: _decimalsFor(field))
-                    ],
-                    showCursor: false,
-                    enableInteractiveSelection: false,
-                    onChanged: (_) => _updateDraft(() {}),
-                    decoration: const InputDecoration.collapsed(hintText: ''),
-                  ),
-                ),
-              ),
-            ),
-            AdvancedStepper(
-              key: ValueKey('hl-adv-stepper-${field.name}'),
-              label: label,
-              value: value,
-              valueKey: ValueKey('hl-adv-value-${field.name}'),
-              onStep: (dir) {
-                node.unfocus();
-                onStep(dir);
-              },
-              onValueTap: node.requestFocus,
-              trailing: trailing,
-              onTrailing: onTrailing,
-            ),
-            // Typing: the stepper's rim in the app's focus ink.
-            Positioned.fill(
-              child: IgnorePointer(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    border: Border.all(
-                      color: node.hasFocus ? c.accent : Colors.transparent,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  }) =>
+      HlStepField(
+        key: ValueKey('hl-adv-stepper-${field.name}'),
+        fieldKey: ValueKey('hl-adv-field-${field.name}'),
+        controller: _controllerFor(field),
+        focusNode: _focusNodeFor(field),
+        label: label,
+        prefix: price ? r'$' : '',
+        suffix: suffix,
+        formatPrice: price
+            ? (v) => formatHlPrice(v, decimalCap: market.pxDecimalCap)
+            : null,
+        inputFormatters: [
+          DecimalInputFormatter(fractionDigits: _decimalsFor(field))
+        ],
+        decimal: _decimalsFor(field) > 0,
+        onChanged: (_) => _updateDraft(() {}),
+        onStep: onStep,
+        trailing: trailing,
+        onTrailing: onTrailing,
+      );
 
   /// A price stepper with the snap to the market and, under it, the
   /// distance presets on [pcts] from the market.
@@ -7687,51 +7604,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     return levels;
   }
 
-  /// A plain switch row (the whole row toggles), as the settings rows
-  /// have it; [card] gives it the page's card.
   Widget _switchRow(AppColorsExtension c, String label, bool value,
-      ValueChanged<bool> onChanged,
-      {Key? key, bool card = false}) {
-    final row = GestureDetector(
-      key: key,
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onChanged(!value);
-      },
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 2.h),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            SizedBox(width: 8.w),
-            Switch(
-              value: value,
-              onChanged: (v) {
-                HapticFeedback.selectionClick();
-                onChanged(v);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-    if (!card) return row;
-    return Container(
-      padding: EdgeInsets.fromLTRB(14.w, 6.h, 10.w, 6.h),
-      decoration: AppDecorations.card(context),
-      child: row,
-    );
-  }
+          ValueChanged<bool> onChanged,
+          {bool card = false}) =>
+      HlSwitchRow(
+          label: label, value: value, onChanged: onChanged, card: card);
 
   /// Take profit / stop loss: one switch, and while it is on a stepper for
   /// each with its distance presets from the entry.
@@ -8797,33 +8674,3 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
 }
 
-/// Reports its child's laid-out size after the frame (the Advanced page's
-/// floating primary, whose notes come and go).
-class _ReportSize extends SingleChildRenderObjectWidget {
-  const _ReportSize({required this.onSize, super.child});
-  final ValueChanged<Size> onSize;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderReportSize(onSize);
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderReportSize renderObject) {
-    renderObject.onSize = onSize;
-  }
-}
-
-class _RenderReportSize extends RenderProxyBox {
-  _RenderReportSize(this.onSize);
-  ValueChanged<Size> onSize;
-  Size? _last;
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    final now = size;
-    if (now == _last) return;
-    _last = now;
-    WidgetsBinding.instance.addPostFrameCallback((_) => onSize(now));
-  }
-}

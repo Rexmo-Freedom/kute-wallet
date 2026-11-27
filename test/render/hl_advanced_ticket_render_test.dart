@@ -33,7 +33,10 @@ import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_orderbook_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/screens/hyperliquid/components/close_position_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
@@ -104,6 +107,83 @@ class _Account extends HlAccountNotifier {
         ],
         spotBalances: const [],
       );
+}
+
+class _Trading extends HyperliquidTradingNotifier {
+  @override
+  Future<HyperliquidTradingState> build() async =>
+      const HyperliquidTradingState(isInitialized: true);
+}
+
+const _long = HlPerpPosition(
+  coin: 'BTC',
+  szi: 0.01,
+  entryPx: 64000,
+  positionValue: 660,
+  unrealizedPnl: 20,
+  returnOnEquity: 0.03,
+  liquidationPx: null,
+  marginUsed: 640,
+  leverageType: 'isolated',
+  leverageValue: 1,
+  maxLeverage: 40,
+);
+
+/// The close sheet over a page, its Advanced page opened.
+Future<void> _pumpClose(WidgetTester tester,
+    {required Size size, required bool dark}) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  addTearDown(tester.view.reset);
+  OpenOnce.reset();
+  addTearDown(OpenOnce.reset);
+  installShellBar();
+  final theme = dark ? buildDarkTheme() : buildLightTheme();
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      settingsProvider.overrideWith((_) => SettingsModel(Settings(
+            currency: 'USD',
+            language: 'en',
+            btcFormat: 'sats',
+            backup: false,
+            biometricsEnabled: false,
+            bitcoinElectrumNode: '',
+            nodeType: '',
+            reviewDone: true,
+          ))),
+      hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
+      hyperliquidPerpPositionsProvider.overrideWith((_) => [_long]),
+      hyperliquidAddressProvider.overrideWith((_) async => null),
+      hyperliquidTradingProvider.overrideWith(_Trading.new),
+      currencyProvider.overrideWith((_) => _Currency()),
+      runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
+      aiEnabledProvider.overrideWith((_) async => false),
+    ],
+    child: ScreenUtilInit(
+      designSize: KuteLayout.designSizeFor(size),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (_, __) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: theme.copyWith(
+            textTheme: theme.textTheme.apply(fontFamily: 'Inter')),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        navigatorObservers: shellBarObservers(),
+        builder: shellBarBuilder,
+        home: const Scaffold(
+          body: Align(
+              alignment: Alignment.bottomCenter,
+              child: HlClosePositionSheet(position: _long, market: _btc)),
+        ),
+      ),
+    ),
+  ));
+  await _settle(tester);
+  final button = find.byKey(const ValueKey('slip-advanced-button'));
+  await tester.ensureVisible(button);
+  await tester.tap(button);
+  await _settle(tester);
 }
 
 const _btc = HlMarket(
@@ -228,6 +308,28 @@ Future<void> _shoot(WidgetTester tester, String name) async {
 }
 
 Finder get _scroll => find.byKey(const ValueKey('hl-advanced-form-scroll'));
+
+/// The close page's shots: its top, a screen at a time, its foot (the
+/// summary clear of the floating button).
+Future<void> _closeShots(WidgetTester tester, String name) async {
+  final state = tester.state<ScrollableState>(find
+      .descendant(
+          of: find.byKey(const ValueKey('hl-close-adv-scroll')),
+          matching: find.byType(Scrollable))
+      .first);
+  state.position.jumpTo(0);
+  await _settle(tester, 4);
+  await _shoot(tester, '${name}_top');
+  state.position.jumpTo(state.position.maxScrollExtent);
+  await _settle(tester, 4);
+  await _shoot(tester, '${name}_foot');
+  final summary =
+      tester.getRect(find.byKey(const ValueKey('hl-close-adv-summary')));
+  final primary =
+      tester.getRect(find.byKey(const ValueKey('advanced-ticket-primary')));
+  expect(summary.bottom, lessThanOrEqualTo(primary.top + 1),
+      reason: '$name: the summary scrolls clear of the floating button');
+}
 
 Future<void> _tap(WidgetTester tester, Finder f) async {
   await tester.ensureVisible(f);
@@ -375,5 +477,37 @@ void main() {
       await _topAndFoot(tester, 'refusal_$label');
       expect(tester.takeException(), isNull);
     });
+  }
+
+  for (final (type, label) in [
+    (null, 'market'),
+    ('Limit', 'limit'),
+    ('Stop market', 'stop'),
+    ('TWAP', 'twap'),
+  ]) {
+    for (final (theme, size, dark) in [
+      ('phone_light', phone, false),
+      ('phone_dark', phone, true),
+      ('small_light', small, false),
+    ]) {
+      testWidgets('close · $label · $theme', (tester) async {
+        await _pumpClose(tester, size: size, dark: dark);
+        if (type == 'Limit') {
+          await _tap(tester, find.text('Limit'));
+        } else if (type != null) {
+          await _tap(tester, find.text('More options'));
+          await tester.tap(find.text(type).last);
+          await _settle(tester, 8);
+        }
+        if (type == 'Stop market') {
+          await _tap(tester,
+              find.descendant(
+                  of: find.byKey(const ValueKey('hl-close-chips-trigger')),
+                  matching: find.byKey(const ValueKey('advanced-chip-1'))));
+        }
+        await _closeShots(tester, 'close_${label}_$theme');
+        expect(tester.takeException(), isNull);
+      });
+    }
   }
 }

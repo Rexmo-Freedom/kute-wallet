@@ -832,12 +832,7 @@ void main() {
       await _frames(tester, 12);
       expect(find.byKey(const ValueKey('hl-protect-existing-stop')),
           findsOneWidget);
-      final trigger = find.descendant(
-          of: find
-              .ancestor(
-                  of: find.text('Trigger price'), matching: find.byType(Column))
-              .first,
-          matching: find.byType(TextField));
+      final trigger = find.byKey(const ValueKey('hl-close-field-trigger'));
       await tester.enterText(trigger.first, '61000');
       await _frames(tester, 6);
       await tester.tap(find.byType(KuteBackButton).first);

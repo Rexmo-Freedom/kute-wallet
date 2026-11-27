@@ -1,7 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderProxyBox;
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/advanced_ticket.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -222,149 +226,285 @@ Future<T?> showHlOrderTypePicker<T>(
       });
 }
 
-/// The same input surface and focus treatment for opening and closing.
-class HlNumericField extends StatefulWidget {
-  const HlNumericField(
-      {super.key,
-      required this.controller,
-      required this.label,
-      required this.onChanged,
-      this.focusNode,
-      this.prefix,
-      this.hint = '0',
-      this.valueFontSize,
-      this.footer = const [],
-      this.inputFormatters,
-      this.decimal = true,
-      this.readOnly = false});
-  final TextEditingController controller;
-  final String label, hint;
-  final String? prefix;
-  final FocusNode? focusNode;
-  final double? valueFontSize;
-  final List<Widget> footer;
-  final List<TextInputFormatter>? inputFormatters;
-  final ValueChanged<String> onChanged;
-  final bool decimal;
-  final bool readOnly;
-  @override
-  State<HlNumericField> createState() => _HlNumericFieldState();
+// ── The Advanced pages' steppers ─────────────────────────────────────────
+
+/// The venue's price step at [px] (the rule [roundPrice] sends by): five
+/// significant figures under the market's decimal cap (6, or 8 on spot,
+/// less the size decimals), whole dollars from 100,000.
+double hlPriceTick(double px, {required int szDecimals, required bool isSpot}) {
+  if (!(px > 0)) return 1;
+  if (px >= 1e5) return 1;
+  final maxDecimals = math.max(0, (isSpot ? 8 : 6) - szDecimals);
+  final magnitude = (math.log(px) / math.ln10 + 1e-9).floor();
+  return math.max(math.pow(10, magnitude - 4).toDouble(),
+      math.pow(10, -maxDecimals).toDouble());
 }
 
-class _HlNumericFieldState extends State<HlNumericField> {
-  final _ownFocus = FocusNode();
+/// One number on an Advanced page as a stepper ([AdvancedStepper]): the
+/// value big with round − / + at its ends; a tap on the value types it in
+/// its own field ([controller], [focusNode], [inputFormatters]), unseen
+/// under the stepper, so the keyboard and every check on the field stay
+/// the field's. [onStep] moves it; [trailing] is the snap to the market.
+/// A price ([formatPrice]) reads formatted while it is not being typed.
+class HlStepField extends StatefulWidget {
+  const HlStepField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.onStep,
+    required this.onChanged,
+    this.focusNode,
+    this.fieldKey,
+    this.prefix = '',
+    this.suffix = '',
+    this.formatPrice,
+    this.inputFormatters,
+    this.decimal = true,
+    this.trailing,
+    this.onTrailing,
+    this.readOnly = false,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final ValueChanged<int> onStep;
+  final ValueChanged<String> onChanged;
+  final FocusNode? focusNode;
+  final Key? fieldKey;
+  final String prefix;
+  final String suffix;
+  final String Function(double value)? formatPrice;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool decimal;
+  final String? trailing;
+  final VoidCallback? onTrailing;
+  final bool readOnly;
+
+  @override
+  State<HlStepField> createState() => _HlStepFieldState();
+}
+
+class _HlStepFieldState extends State<HlStepField> {
+  FocusNode? _own;
+  FocusNode get _node => widget.focusNode ?? (_own ??= FocusNode());
+
   @override
   void dispose() {
-    _ownFocus.dispose();
+    _own?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final node = widget.focusNode ?? _ownFocus;
+    final node = _node;
     return ListenableBuilder(
-        listenable: node,
-        builder: (context, _) {
-          final c = context.colors;
-          final focused = node.hasFocus;
-          final controller = widget.controller;
-          final text = controller.text;
-          final label = widget.label;
-          final prefix = widget.prefix;
-          final hint = widget.hint;
-          final footer = widget.footer;
-          final fontSize = widget.valueFontSize ?? 16.sp;
-          return Semantics(
-            label: label,
-            value: text,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => node.requestFocus(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      color: focused ? c.textPrimary : c.textTertiary,
-                    ),
+      listenable: Listenable.merge([node, widget.controller]),
+      builder: (context, _) {
+        final c = context.colors;
+        final text = widget.controller.text.trim();
+        final parsed = double.tryParse(text.replaceAll(',', '.'));
+        final String value;
+        if (text.isEmpty) {
+          value = '—';
+        } else if (widget.formatPrice != null &&
+            !node.hasFocus &&
+            parsed != null &&
+            parsed > 0) {
+          value = widget.formatPrice!(parsed);
+        } else {
+          value = '${widget.prefix}$text${widget.suffix}';
+        }
+        return Stack(
+          children: [
+            // The real input, unseen: it holds the focus and the keyboard.
+            Positioned(
+              left: 0,
+              top: 0,
+              child: Opacity(
+                opacity: 0,
+                child: SizedBox(
+                  width: 1,
+                  height: 1,
+                  child: TextField(
+                    key: widget.fieldKey,
+                    controller: widget.controller,
+                    focusNode: node,
+                    readOnly: widget.readOnly,
+                    keyboardType: TextInputType.numberWithOptions(
+                        decimal: widget.decimal),
+                    inputFormatters: widget.inputFormatters,
+                    showCursor: false,
+                    enableInteractiveSelection: false,
+                    onChanged: widget.onChanged,
+                    decoration: const InputDecoration.collapsed(hintText: ''),
                   ),
-                  SizedBox(height: 6.h),
-                  Container(
-                    constraints: BoxConstraints(minHeight: 56.h),
-                    decoration: BoxDecoration(
-                      // Inputs sit on a section card of the quiet veil, so they
-                      // take the step above it to read as fields you can edit.
-                      color: c.surface,
-                      // 16, the radius every other card on an Advanced page
-                      // wears. At 12 these fields read as a different family
-                      // sitting inside the same frame.
-                      borderRadius: BorderRadius.circular(16.r),
-                      border: Border.all(
-                        // Focus in the accent, the app's own focus ink. A rim
-                        // in the primary text colour is a black bar in light
-                        // mode and a white one in dark, which shouts.
-                        color: focused ? c.accent : c.border,
-                        width: focused ? 1.5 : 0.5,
-                      ),
-                    ),
-                    padding: EdgeInsets.symmetric(horizontal: 14.w),
-                    child: Row(
-                      children: [
-                        if (prefix != null) ...[
-                          Text(
-                            prefix,
-                            style: TextStyle(
-                              fontSize: fontSize,
-                              fontWeight: FontWeight.w700,
-                              color: c.textSecondary,
-                            ),
-                          ),
-                          SizedBox(width: 4.w),
-                        ],
-                        Expanded(
-                          child: TextField(
-                            controller: controller,
-                            readOnly: widget.readOnly,
-                            focusNode: node,
-                            keyboardType: TextInputType.numberWithOptions(
-                              decimal: widget.decimal,
-                            ),
-                            inputFormatters: widget.inputFormatters,
-                            cursorColor: c.textPrimary,
-                            maxLines: 1,
-                            onChanged: widget.onChanged,
-                            style: TextStyle(
-                              fontSize: fontSize,
-                              fontWeight: FontWeight.w700,
-                              color: c.textPrimary,
-                            ),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14.h),
-                              hintText: hint,
-                              hintStyle: TextStyle(
-                                fontSize: fontSize,
-                                fontWeight: FontWeight.w700,
-                                color: c.textTertiary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ...footer,
-                ],
+                ),
               ),
             ),
-          );
-        });
+            Semantics(
+              label: widget.label,
+              value: text,
+              child: AdvancedStepper(
+                label: widget.label,
+                value: value,
+                enabled: !widget.readOnly,
+                onStep: (dir) {
+                  node.unfocus();
+                  widget.onStep(dir);
+                },
+                onValueTap: node.requestFocus,
+                trailing: widget.trailing,
+                onTrailing: widget.onTrailing,
+              ),
+            ),
+            // Typing: the stepper's rim in the app's focus ink.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    border: Border.all(
+                      color: node.hasFocus ? c.accent : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A plain switch row (the whole row toggles), drawn as Settings draws its
+/// switches (the CTA fill when on, never the accent); [card] gives it the
+/// page's card.
+class HlSwitchRow extends StatelessWidget {
+  const HlSwitchRow({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.card = false,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool card;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final row = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onChanged(!value);
+      },
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 2.h),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            SizedBox(width: 8.w),
+            Switch(
+              value: value,
+              onChanged: (v) {
+                HapticFeedback.selectionClick();
+                onChanged(v);
+              },
+              thumbColor: WidgetStateProperty.resolveWith((states) =>
+                  states.contains(WidgetState.selected)
+                      ? context.ctaOnColor
+                      : c.textSecondary),
+              trackColor: WidgetStateProperty.resolveWith((states) =>
+                  states.contains(WidgetState.selected)
+                      ? context.ctaFill
+                      : c.surfaceLight),
+              trackOutlineColor: WidgetStateProperty.resolveWith((states) =>
+                  states.contains(WidgetState.selected)
+                      ? Colors.transparent
+                      : c.borderSubtle),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!card) return row;
+    return Container(
+      padding: EdgeInsets.fromLTRB(14.w, 6.h, 10.w, 6.h),
+      decoration: AppDecorations.card(context),
+      child: row,
+    );
+  }
+}
+
+/// The Advanced pages' switches as Settings draws them, for the shared
+/// rows under [child] ([AdvancedToggleRow]'s own switch).
+Widget hlAdvancedSwitchTheme(BuildContext context, {required Widget child}) {
+  final c = context.colors;
+  return Theme(
+    data: Theme.of(context).copyWith(
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.selected)
+                ? context.ctaOnColor
+                : c.textSecondary),
+        trackColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.selected)
+                ? context.ctaFill
+                : c.surfaceLight),
+        trackOutlineColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.selected)
+                ? Colors.transparent
+                : c.borderSubtle),
+      ),
+    ),
+    child: child,
+  );
+}
+
+/// Reports its child's laid-out size after the frame (an Advanced page's
+/// floating primary, whose notes come and go, for the room the form
+/// leaves under its last card).
+class HlReportSize extends SingleChildRenderObjectWidget {
+  const HlReportSize({super.key, required this.onSize, super.child});
+  final ValueChanged<Size> onSize;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderReportSize(onSize);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) {
+    (renderObject as _RenderReportSize).onSize = onSize;
+  }
+}
+
+class _RenderReportSize extends RenderProxyBox {
+  _RenderReportSize(this.onSize);
+  ValueChanged<Size> onSize;
+  Size? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final now = size;
+    if (now == _last) return;
+    _last = now;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onSize(now));
   }
 }
