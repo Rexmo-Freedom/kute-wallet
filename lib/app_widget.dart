@@ -219,6 +219,13 @@ class _AppWidgetState extends ConsumerState<AppWidget>
       // The shared market's read-only page for a visitor with no wallet
       // (share_guest_screen.dart): the web only.
       guestShareView: () => kIsWeb,
+      // The wallet list is still being read from disk at a cold start: a
+      // shared link's route waits for it (app_router.dart).
+      walletsLoading: () {
+        final loaded = ref.read(initialSettingsProvider);
+        if (loaded.hasValue || loaded.hasError) return null;
+        return ref.read(initialSettingsProvider.future).then<void>((_) {});
+      },
       extraObservers: [
         syncRouteObserver,
         PosthogObserver(),
