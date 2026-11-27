@@ -12158,9 +12158,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Meno či krypto adresa';
 
   @override
-  String get shareGetKuteLine => 'Pridaj sa k akcii na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Presunúť na tvoje Doláre';
 
   @override

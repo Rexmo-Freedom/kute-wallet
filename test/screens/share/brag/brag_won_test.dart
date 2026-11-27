@@ -166,7 +166,7 @@ void main() {
       expect(win.entryText, '41¢');
       expect(win.imageUrl, isNull);
       expect(win.link,
-          'https://backend.kutewallet.com/m/predictions/fed-december');
+          'https://app.kutewallet.com/#/s/p/fed-december');
       expect(win.kind, BragKind.position);
       expect(win.up, isTrue);
       expect(win.tone, BragTone.bigWin);
@@ -316,7 +316,7 @@ void main() {
       });
       await settle(tester);
       expect(env.paramsOf('brag_shared').single,
-          {'kind': 'position', 'card': 'won'});
+          {'kind': 'position', 'link_kind': 'web', 'card': 'won'});
     });
 
     Future<void> pumpPosition(

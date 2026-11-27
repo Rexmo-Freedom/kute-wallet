@@ -12154,9 +12154,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nimi tai kryptoosoite';
 
   @override
-  String get shareGetKuteLine => 'Lähde mukaan: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Siirrä Dollareihisi';
 
   @override

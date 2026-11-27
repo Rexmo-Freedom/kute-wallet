@@ -12187,9 +12187,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ime ali kateri koli kripto naslov';
 
   @override
-  String get shareGetKuteLine => 'Pridruži se dogajanju na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Prenesi na tvoje Dolarje';
 
   @override

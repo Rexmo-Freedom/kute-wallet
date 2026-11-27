@@ -12222,9 +12222,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Όνομα ή διεύθυνση κρύπτο';
 
   @override
-  String get shareGetKuteLine => 'Μπες κι εσύ στη δράση στο getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Μεταφορά στα Δολάριά σου';
 
   @override

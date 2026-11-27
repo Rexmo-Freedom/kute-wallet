@@ -606,12 +606,12 @@ void main() {
       await tester.pump();
     }
     expect(sent, hasLength(1));
-    // The getkute.com line last while the social send is off
-    // (config/feature_flags.dart, the build's state).
-    expect(texts.single, endsWith('Get in on the action at getkute.com'));
+    // The invite: the web app's start, no getkute.com line any more.
+    expect(texts.single, contains('https://app.kutewallet.com/#/'));
+    expect(texts.single, isNot(contains('getkute.com')));
     expect(
         events.where((e) => e.$1 == 'receipt_card_shared').map((e) => e.$2), [
-      {'card': 'receipt_sent', 'result': 'success'}
+      {'card': 'receipt_sent', 'result': 'success', 'link_kind': 'web'}
     ]);
   });
 
@@ -627,7 +627,7 @@ void main() {
                 title: 'Will it rain?',
                 link: 'https://backend.kutewallet.com/m/predictions/rain',
                 referralCode: 'JOAO42')),
-        'Will it rain? on Kute https://getkute.com');
+        'Will it rain? on Kute https://app.kutewallet.com/#/s/p/rain?r=JOAO42');
     expect(
         receiptShareText(
             l10n,
@@ -641,6 +641,6 @@ void main() {
             l10n,
             const ReceiptCardData(
                 type: ReceiptCardKind.sent, asset: ReceiptCardAsset.bitcoin)),
-        '');
+        "I'm using Kute. Join with my link: https://app.kutewallet.com/#/");
   });
 }

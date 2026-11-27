@@ -12169,9 +12169,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Név vagy bármilyen kriptocím';
 
   @override
-  String get shareGetKuteLine => 'Szállj be te is: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Áthelyezés a Dollárodba';
 
   @override

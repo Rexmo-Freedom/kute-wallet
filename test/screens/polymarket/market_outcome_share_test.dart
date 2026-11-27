@@ -292,9 +292,9 @@ void main() {
         expect(sheet.title, _q76);
         expect(sheet.chance, closeTo(94, 0.01));
         expect(sheet.marketSlug, _slug);
-        final link = Uri.parse(sheet.deepLink);
-        expect(link.path, '/m/predictions/$_slug');
-        expect(link.queryParameters, {'outcome': '↑ 76,000'});
+        final link = Uri.parse(sheet.deepLink.split('#').last);
+        expect(link.path, '/s/p/$_slug');
+        expect(link.queryParameters, {'o': '↑ 76,000'});
 
         final card = _card(tester, sheet);
         expect(card.question, _q76);
@@ -435,19 +435,24 @@ void main() {
 
   test('the market link names one market only when asked', () {
     expect(marketShareLink(venue: kMarketLinkPredictions, slug: _slug),
-        'https://backend.kutewallet.com/m/predictions/$_slug');
+        'https://app.kutewallet.com/#/s/p/$_slug');
     final one = Uri.parse(marketShareLink(
-        venue: kMarketLinkPredictions, slug: _slug, outcome: ' ↑ 76,000 '));
-    expect(one.path, '/m/predictions/$_slug');
-    expect(one.queryParameters, {'outcome': '↑ 76,000'});
+            venue: kMarketLinkPredictions, slug: _slug, outcome: ' ↑ 76,000 ')
+        .split('#')
+        .last);
+    expect(one.path, '/s/p/$_slug');
+    expect(one.queryParameters, {'o': '↑ 76,000'});
     expect(
         marketShareLink(
             venue: kMarketLinkPredictions, slug: _slug, outcome: ''),
-        'https://backend.kutewallet.com/m/predictions/$_slug');
-    // What a share's words carry is never that backend address (founder,
-    // 25 November 2026): the app's own link instead.
-    expect(shareLinkWithReferral(one.toString(), code: 'ANA1'),
-        isNot(contains('backend.kutewallet.com')));
+        'https://app.kutewallet.com/#/s/p/$_slug');
+    // What a share's words carry: that market on the web app, the code on
+    // it, never a backend address.
+    final shared = shareLinkWithReferral(
+        'https://app.kutewallet.com/#$one', code: 'ANA1');
+    expect(shared, isNot(contains('backend.kutewallet.com')));
+    expect(Uri.parse(shared.split('#').last).queryParameters,
+        {'o': '↑ 76,000', 'r': 'ANA1'});
   });
 
   group('send mode: no look-only link, the bar says what is happening', () {

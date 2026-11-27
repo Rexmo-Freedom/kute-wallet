@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance} %:n todennäköisyys",
   "sendRecipientSearchHint": "Nimi, puhelin tai kryptoosoite",
   "sendRecipientSearchHintNoPhone": "Nimi tai kryptoosoite",
-  "shareGetKuteLine": "Lähde mukaan: getkute.com",
   "sendMoveToYourDollars": "Siirrä Dollareihisi",
   "sendMoveToYourBitcoin": "Siirrä Bitcoiniisi",
   "sendWhatTitle": "Vastaanottaja: {name}",

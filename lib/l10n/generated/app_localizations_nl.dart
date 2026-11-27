@@ -12178,9 +12178,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Naam of elk crypto-adres';
 
   @override
-  String get shareGetKuteLine => 'Doe mee op getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Verplaats naar je Dollars';
 
   @override

@@ -201,6 +201,45 @@ class ShareTarget {
   String toString() => 'ShareTarget(${venue.segment})';
 }
 
+/// The web app's start with the sharer's referral code, `/#/?r=CODE` (the
+/// invite / Earn link, and a share about no one market): the code is
+/// recorded at boot like a market link's. Without a valid code, the start.
+String webInviteLink(String? referralCode) {
+  final code = ShareTarget.normalizeReferral(referralCode);
+  return code == null
+      ? '$kShareWebBase/'
+      : '$kShareWebBase/?$kShareReferralQuery=$code';
+}
+
+/// [link] (a share link this app built) with [referralCode] on it: a
+/// market link keeps its market, anything else becomes the invite link.
+/// Nothing but the market, the outcome and the code is ever carried.
+String webShareLinkWithReferral(String link, {String? referralCode}) {
+  if (link.startsWith(kShareWebBase)) {
+    try {
+      final parsed = ShareTarget.parseLocation(
+          Uri.parse(link.substring(kShareWebBase.length)));
+      if (parsed != null) return parsed.target.link(referralCode: referralCode);
+    } catch (_) {/* not one of ours: the invite */}
+  }
+  // The older market address (`/m/predictions/{slug}[?outcome=]`,
+  // `/m/investing/{coin}`), never shown again: its market on the web app.
+  try {
+    final uri = Uri.parse(link);
+    final seg = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (seg.length == 3 &&
+        seg[0] == 'm' &&
+        (seg[1] == 'predictions' || seg[1] == 'investing')) {
+      final target = ShareTarget.of(
+          investing: seg[1] == 'investing',
+          slug: seg[2],
+          outcome: uri.queryParameters['outcome']);
+      if (target != null) return target.link(referralCode: referralCode);
+    }
+  } catch (_) {/* the invite */}
+  return webInviteLink(referralCode);
+}
+
 /// Test seam for the dedupe of repeated redirect evaluations.
 @visibleForTesting
 void debugResetShareTargetDedupe() => ShareTargetIngest.debugReset();

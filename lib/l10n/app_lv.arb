@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance}% iespēja",
   "sendRecipientSearchHint": "Vārds, tālrunis vai kripto adrese",
   "sendRecipientSearchHintNoPhone": "Vārds vai kripto adrese",
-  "shareGetKuteLine": "Pievienojies darbībai: getkute.com",
   "sendMoveToYourDollars": "Pārvietot uz taviem Dolāriem",
   "sendMoveToYourBitcoin": "Pārvietot uz tavu Bitcoin",
   "sendWhatTitle": "Saņēmējs: {name}",

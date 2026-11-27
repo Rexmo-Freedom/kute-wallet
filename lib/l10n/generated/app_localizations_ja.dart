@@ -11708,9 +11708,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => '名前または暗号資産アドレス';
 
   @override
-  String get shareGetKuteLine => 'getkute.com で参加しよう';
-
-  @override
   String get sendMoveToYourDollars => 'ドルへ移動';
 
   @override

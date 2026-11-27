@@ -12127,9 +12127,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nimi või krüptoaadress';
 
   @override
-  String get shareGetKuteLine => 'Löö kaasa: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Teisalda oma Dollaritesse';
 
   @override

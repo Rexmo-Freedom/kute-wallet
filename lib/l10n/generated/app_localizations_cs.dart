@@ -12142,9 +12142,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Jméno či krypto adresa';
 
   @override
-  String get shareGetKuteLine => 'Přidej se k akci na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Přesunout na tvé Dolary';
 
   @override

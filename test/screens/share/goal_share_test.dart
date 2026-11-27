@@ -258,13 +258,14 @@ void main() {
   });
 
   group('the message', () {
-    test('the invite with the code, never an amount; nothing without a code',
+    test('the invite with the code, never an amount; the start without one',
         () {
       final text = appInviteShareText(en, 'JOAO42');
       expect(text, contains('JOAO42'));
       expect(_money.hasMatch(text), isFalse);
-      expect(appInviteShareText(en, null), '');
-      expect(appInviteShareText(en, '  '), '');
+      expect(appInviteShareText(en, null),
+          "I'm using Kute. Join with my link: https://app.kutewallet.com/#/");
+      expect(appInviteShareText(en, '  '), appInviteShareText(en, null));
     });
   });
 

@@ -20358,12 +20358,6 @@ abstract class AppLocalizations {
   /// **'Name or any crypto address'**
   String get sendRecipientSearchHintNoPhone;
 
-  /// The last line of the text that goes with a shared prediction, position, win, P&L, portfolio, level or receipt card: invites whoever sees it to get the app. Keep "getkute.com" exactly as it is (the website, never translated or changed). Casual, short, one line.
-  ///
-  /// In en, this message translates to:
-  /// **'Get in on the action at getkute.com'**
-  String get shareGetKuteLine;
-
   /// Send's search result when the person types the name of their own Dollars account ('dollars', 'my dollars'): opens Move money from their Bitcoin into their Dollars. Dollars is the account name.
   ///
   /// In en, this message translates to:

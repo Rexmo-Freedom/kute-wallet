@@ -12204,9 +12204,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nume sau orice adresă cripto';
 
   @override
-  String get shareGetKuteLine => 'Intră în joc pe getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Mută în Dolarii tăi';
 
   @override

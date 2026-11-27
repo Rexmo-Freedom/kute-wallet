@@ -12110,9 +12110,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Vārds vai kripto adrese';
 
   @override
-  String get shareGetKuteLine => 'Pievienojies darbībai: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Pārvietot uz taviem Dolāriem';
 
   @override

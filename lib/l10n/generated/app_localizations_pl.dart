@@ -12187,9 +12187,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Imię lub dowolny adres krypto';
 
   @override
-  String get shareGetKuteLine => 'Dołącz do akcji na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Przenieś na twoje Dolary';
 
   @override

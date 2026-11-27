@@ -12161,9 +12161,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Име или крипто адрес';
 
   @override
-  String get shareGetKuteLine => 'Включи се в играта на getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Премести в твоите Долари';
 
   @override
