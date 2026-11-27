@@ -14619,4 +14619,63 @@ class AppLocalizationsIt extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Il take-profit non è stato piazzato.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Lo stop-loss non è stato piazzato.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Take-profit e stop-loss non sono stati piazzati.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Sono stati piazzati solo $placed ordini su $total.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Ordine eseguito in parte';
+
+  @override
+  String get hlAdvStillOpen => 'Ancora aperto';
+
+  @override
+  String get hlAdvRestStillOpen => 'Il resto dell\'ordine è ancora aperto.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Un ordine TWAP richiede almeno $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Il tuo ordine TWAP è attivo per $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Lo scaglionato accetta da $min a $max ordini.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Il prezzo iniziale e quello finale devono essere diversi.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Entrambi i prezzi devono essere sotto il prezzo attuale.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Entrambi i prezzi devono essere sopra il prezzo attuale.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Questo stop-loss è oltre il prezzo di liquidazione stimato, quindi la posizione potrebbe essere liquidata prima.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'L\'ordine è stato eseguito, ma il trailing stop non è stato piazzato perché non è stato approvato.';
 }

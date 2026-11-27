@@ -14570,4 +14570,59 @@ class AppLocalizationsSk extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit nebol zadaný.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss nebol zadaný.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit a stop-loss neboli zadané.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Zadaných bolo len $placed z $total objednávok.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Objednávka čiastočne vyplnená';
+
+  @override
+  String get hlAdvStillOpen => 'Stále otvorené';
+
+  @override
+  String get hlAdvRestStillOpen => 'Zvyšok objednávky je stále otvorený.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Objednávka TWAP musí mať aspoň $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Vaša objednávka TWAP beží $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Škálovanie berie $min až $max objednávok.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Počiatočná a koncová cena sa musia líšiť.';
+
+  @override
+  String get hlAdvScaleBelowPrice => 'Obe ceny musia byť pod aktuálnou cenou.';
+
+  @override
+  String get hlAdvScaleAbovePrice => 'Obe ceny musia byť nad aktuálnou cenou.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Tento stop-loss je za odhadovanou likvidačnou cenou, takže pozícia môže byť zlikvidovaná skôr.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Objednávka sa vyplnila, ale trailing stop nebol zadaný, pretože nebol schválený.';
 }

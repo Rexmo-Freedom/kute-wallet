@@ -14540,4 +14540,61 @@ class AppLocalizationsEt extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit jäi esitamata.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss jäi esitamata.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit ja stop-loss jäid esitamata.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Esitati ainult $placed tellimust $total-st.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Tellimus osaliselt täidetud';
+
+  @override
+  String get hlAdvStillOpen => 'Veel avatud';
+
+  @override
+  String get hlAdvRestStillOpen => 'Ülejäänud osa tellimusest on veel avatud.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP-tellimus peab olema vähemalt $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Sinu TWAP-tellimus kestab $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Astmeline tellimus võtab $min kuni $max tellimust.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Algus- ja lõpphind peavad erinema.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Mõlemad hinnad peavad olema praegusest hinnast madalamal.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Mõlemad hinnad peavad olema praegusest hinnast kõrgemal.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'See stop-loss on hinnangulisest likvideerimishinnast kaugemal, nii et positsioon võidakse enne likvideerida.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Tellimus täideti, kuid jälgivat stoppi ei esitatud, sest seda ei kinnitatud.';
 }

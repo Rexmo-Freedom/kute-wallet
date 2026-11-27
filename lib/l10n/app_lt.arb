@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 žvakė} few{{count} žvakės} other{{count} žvakių}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 žvakė} few{{count} žvakės} other{{count} žvakių}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit nebuvo pateiktas.",
+  "hlAdvSlNotPlaced": "Stop-loss nebuvo pateiktas.",
+  "hlAdvTpSlNotPlaced": "Take-profit ir stop-loss nebuvo pateikti.",
+  "hlAdvScaleLegsPlaced": "Pateikta tik {placed} iš {total} pavedimų.",
+  "hlAdvPartlyFilled": "Pavedimas įvykdytas iš dalies",
+  "hlAdvStillOpen": "Dar atviras",
+  "hlAdvRestStillOpen": "Likusi pavedimo dalis dar atvira.",
+  "hlAdvTwapMinimum": "TWAP pavedimas turi būti bent {amount}.",
+  "hlAdvTwapRunning": "Jūsų TWAP pavedimas vykdomas {minutes} min.",
+  "hlAdvScaleCountRange": "Laiptinis pavedimas priima nuo {min} iki {max} pavedimų.",
+  "hlAdvScaleSamePrice": "Pradžios ir pabaigos kainos turi skirtis.",
+  "hlAdvScaleBelowPrice": "Abi kainos turi būti žemiau dabartinės kainos.",
+  "hlAdvScaleAbovePrice": "Abi kainos turi būti aukščiau dabartinės kainos.",
+  "hlAdvSlPastLiquidation": "Šis stop-loss yra už numatomos likvidavimo kainos, todėl pozicija gali būti likviduota anksčiau.",
+  "hlAdvTrailingNotApproved": "Pavedimas įvykdytas, bet slankusis stop nebuvo pateiktas, nes nebuvo patvirtintas."
 }

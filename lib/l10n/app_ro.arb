@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 lumânare} few{{count} lumânări} other{{count} de lumânări}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 lumânare} few{{count} lumânări} other{{count} de lumânări}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profitul nu a fost plasat.",
+  "hlAdvSlNotPlaced": "Stop-lossul nu a fost plasat.",
+  "hlAdvTpSlNotPlaced": "Take-profitul și stop-lossul nu au fost plasate.",
+  "hlAdvScaleLegsPlaced": "Doar {placed} din {total} ordine au fost plasate.",
+  "hlAdvPartlyFilled": "Ordin executat parțial",
+  "hlAdvStillOpen": "Încă deschis",
+  "hlAdvRestStillOpen": "Restul ordinului este încă deschis.",
+  "hlAdvTwapMinimum": "Un ordin TWAP are nevoie de cel puțin {amount}.",
+  "hlAdvTwapRunning": "Ordinul tău TWAP rulează {minutes} min.",
+  "hlAdvScaleCountRange": "Ordinul eșalonat ia între {min} și {max} ordine.",
+  "hlAdvScaleSamePrice": "Prețul de început și cel de sfârșit trebuie să difere.",
+  "hlAdvScaleBelowPrice": "Ambele prețuri trebuie să fie sub prețul curent.",
+  "hlAdvScaleAbovePrice": "Ambele prețuri trebuie să fie peste prețul curent.",
+  "hlAdvSlPastLiquidation": "Acest stop-loss este dincolo de prețul estimat de lichidare, așa că poziția ar putea fi lichidată mai întâi.",
+  "hlAdvTrailingNotApproved": "Ordinul a fost executat, dar trailing stopul nu a fost plasat pentru că nu a fost aprobat."
 }

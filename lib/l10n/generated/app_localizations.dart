@@ -24494,6 +24494,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 bar} other{{count} bars}} · {duration}'**
   String chartRangeBars(int count, String duration);
+
+  /// No description provided for @hlAdvTpNotPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The take-profit was not placed.'**
+  String get hlAdvTpNotPlaced;
+
+  /// No description provided for @hlAdvSlNotPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The stop-loss was not placed.'**
+  String get hlAdvSlNotPlaced;
+
+  /// No description provided for @hlAdvTpSlNotPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'The take-profit and stop-loss were not placed.'**
+  String get hlAdvTpSlNotPlaced;
+
+  /// No description provided for @hlAdvScaleLegsPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'Only {placed} of {total} orders were placed.'**
+  String hlAdvScaleLegsPlaced(int placed, int total);
+
+  /// No description provided for @hlAdvPartlyFilled.
+  ///
+  /// In en, this message translates to:
+  /// **'Order partly filled'**
+  String get hlAdvPartlyFilled;
+
+  /// No description provided for @hlAdvStillOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Still open'**
+  String get hlAdvStillOpen;
+
+  /// No description provided for @hlAdvRestStillOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'The rest of the order is still open.'**
+  String get hlAdvRestStillOpen;
+
+  /// No description provided for @hlAdvTwapMinimum.
+  ///
+  /// In en, this message translates to:
+  /// **'A TWAP order needs at least {amount}.'**
+  String hlAdvTwapMinimum(String amount);
+
+  /// No description provided for @hlAdvTwapRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Your TWAP order is running for {minutes} min.'**
+  String hlAdvTwapRunning(int minutes);
+
+  /// No description provided for @hlAdvScaleCountRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale takes {min} to {max} orders.'**
+  String hlAdvScaleCountRange(int min, int max);
+
+  /// No description provided for @hlAdvScaleSamePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Start and end prices must differ.'**
+  String get hlAdvScaleSamePrice;
+
+  /// No description provided for @hlAdvScaleBelowPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Both prices must be below the current price.'**
+  String get hlAdvScaleBelowPrice;
+
+  /// No description provided for @hlAdvScaleAbovePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Both prices must be above the current price.'**
+  String get hlAdvScaleAbovePrice;
+
+  /// No description provided for @hlAdvSlPastLiquidation.
+  ///
+  /// In en, this message translates to:
+  /// **'This stop-loss is past the estimated liquidation price, so the position could be liquidated first.'**
+  String get hlAdvSlPastLiquidation;
+
+  /// No description provided for @hlAdvTrailingNotApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'The order filled, but the trailing stop was not placed because it was not approved.'**
+  String get hlAdvTrailingNotApproved;
 }
 
 class _AppLocalizationsDelegate

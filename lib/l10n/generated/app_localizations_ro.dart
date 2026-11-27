@@ -14626,4 +14626,63 @@ class AppLocalizationsRo extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profitul nu a fost plasat.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-lossul nu a fost plasat.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Take-profitul și stop-lossul nu au fost plasate.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Doar $placed din $total ordine au fost plasate.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Ordin executat parțial';
+
+  @override
+  String get hlAdvStillOpen => 'Încă deschis';
+
+  @override
+  String get hlAdvRestStillOpen => 'Restul ordinului este încă deschis.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Un ordin TWAP are nevoie de cel puțin $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Ordinul tău TWAP rulează $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Ordinul eșalonat ia între $min și $max ordine.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Prețul de început și cel de sfârșit trebuie să difere.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Ambele prețuri trebuie să fie sub prețul curent.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Ambele prețuri trebuie să fie peste prețul curent.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Acest stop-loss este dincolo de prețul estimat de lichidare, așa că poziția ar putea fi lichidată mai întâi.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Ordinul a fost executat, dar trailing stopul nu a fost plasat pentru că nu a fost aprobat.';
 }

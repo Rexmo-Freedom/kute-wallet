@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit nie został złożony.",
+  "hlAdvSlNotPlaced": "Stop-loss nie został złożony.",
+  "hlAdvTpSlNotPlaced": "Take-profit i stop-loss nie zostały złożone.",
+  "hlAdvScaleLegsPlaced": "Złożono tylko {placed} z {total} zleceń.",
+  "hlAdvPartlyFilled": "Zlecenie zrealizowane częściowo",
+  "hlAdvStillOpen": "Wciąż otwarte",
+  "hlAdvRestStillOpen": "Reszta zlecenia jest wciąż otwarta.",
+  "hlAdvTwapMinimum": "Zlecenie TWAP musi wynosić co najmniej {amount}.",
+  "hlAdvTwapRunning": "Twoje zlecenie TWAP trwa {minutes} min.",
+  "hlAdvScaleCountRange": "Skalowanie przyjmuje od {min} do {max} zleceń.",
+  "hlAdvScaleSamePrice": "Cena początkowa i końcowa muszą się różnić.",
+  "hlAdvScaleBelowPrice": "Obie ceny muszą być poniżej bieżącej ceny.",
+  "hlAdvScaleAbovePrice": "Obie ceny muszą być powyżej bieżącej ceny.",
+  "hlAdvSlPastLiquidation": "Ten stop-loss jest za szacowaną ceną likwidacji, więc pozycja może zostać zlikwidowana wcześniej.",
+  "hlAdvTrailingNotApproved": "Zlecenie zrealizowano, ale trailing stop nie został złożony, bo nie został zatwierdzony."
 }

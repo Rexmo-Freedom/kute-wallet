@@ -69,6 +69,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart';
+import 'package:kute/services/hyperliquid/hl_twap_rules.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
@@ -1669,12 +1670,14 @@ class HyperliquidTradingNotifier
   Future<HlOrderResult> _sendReconciled(
     Future<HlOrderResult> Function() send, {
     required String cloid,
+    List<String>? cloids,
     required HlMarket market,
     required String action,
   }) =>
       hlSendReconciled(
         send: send,
         cloid: cloid,
+        cloids: cloids,
         market: market,
         lookup: ref.read(hlSentOrderTraceProvider),
         action: action,
@@ -1960,54 +1963,66 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final builder = await _builderFee();
-      final result = await ex.placeTriggerOrder(
+      // One cloid for the trigger, so a send with no answer is looked up
+      // on the account before anything is said, and never sent twice.
+      final orderCloid = cloid ?? newHlCloid();
+      final result = await _sendReconciled(
+        () => ex.placeTriggerOrder(
+          market: market,
+          isBuy: isLong,
+          size: size,
+          triggerPx: triggerPx,
+          isMarket: isMarket,
+          tpsl: tpsl,
+          limitPx: limitPx,
+          reduceOnly: reduceOnly,
+          cloid: orderCloid,
+          builder: builder,
+        ),
+        cloid: orderCloid,
         market: market,
-        isBuy: isLong,
-        size: size,
-        triggerPx: triggerPx,
-        isMarket: isMarket,
-        tpsl: tpsl,
-        limitPx: limitPx,
-        reduceOnly: reduceOnly,
-        cloid: cloid ?? newHlCloid(),
-        builder: builder,
+        action: 'trigger',
       );
-      final notional = size * triggerPx;
-      // A trigger protecting a position carries that position's leverage
-      // and the share of its margin the trigger covers.
-      HlPerpPosition? position;
-      if (!market.isSpot) {
-        for (final p in current.positions) {
-          if (p.coin == market.wireCoin) {
-            position = p;
-            break;
+      // Taken by the exchange: bookkeeping only from here (never a
+      // failure).
+      _afterAccepted(() {
+        final notional = size * triggerPx;
+        // A trigger protecting a position carries that position's leverage
+        // and the share of its margin the trigger covers.
+        HlPerpPosition? position;
+        if (!market.isSpot) {
+          for (final p in current.positions) {
+            if (p.coin == market.wireCoin) {
+              position = p;
+              break;
+            }
           }
         }
-      }
-      final posLev = position?.leverageValue ?? 1;
-      final posAbs = position?.szi.abs() ?? 0;
-      final marginUsd = position != null && posAbs > 0
-          ? position.marginUsed * (size / posAbs).clamp(0.0, 1.0)
-          : notional;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: position != null ? posLev : 1,
-        marginUsd: marginUsd,
-        notionalUsd: notional,
-        source: source,
-        providerOrderId: result.oid?.toString(),
-        orderType: tpsl,
-        reduceOnly: reduceOnly,
-        isCross: position?.isCross,
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        builderFeeApplied: builder != null,
-        limitPrice: isMarket ? null : limitPx,
-      );
-      _afterAction();
+        final posLev = position?.leverageValue ?? 1;
+        final posAbs = position?.szi.abs() ?? 0;
+        final marginUsd = position != null && posAbs > 0
+            ? position.marginUsed * (size / posAbs).clamp(0.0, 1.0)
+            : notional;
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: position != null ? posLev : 1,
+          marginUsd: marginUsd,
+          notionalUsd: notional,
+          source: source,
+          providerOrderId: result.oid?.toString(),
+          orderType: tpsl,
+          reduceOnly: reduceOnly,
+          isCross: position?.isCross,
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          builderFeeApplied: builder != null,
+          limitPrice: isMarket ? null : limitPx,
+        );
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2137,6 +2152,7 @@ class HyperliquidTradingNotifier
     bool? isCross,
     bool reduceOnly = false,
     String? source,
+    String? cloid,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
@@ -2182,34 +2198,55 @@ class HyperliquidTradingNotifier
         await _fundPerpAction(market, totalUsd, leverage: lev);
       }
       final builder = await _builderFee();
-      final result = await ex.placeScaleOrder(
+      // Every leg carries its own cloid (derived from one base), so a send
+      // with no answer is looked up on the account by all of them before
+      // anything is said: the legs go out as one signed action, so one
+      // found means the venue took it. Never sent twice.
+      final legCloids = hlScaleLegCloids(cloid ?? newHlCloid(), count);
+      final result = await _sendReconciled(
+        () => ex.placeScaleOrder(
+          market: market,
+          isBuy: isLong,
+          totalSize: totalSize,
+          startPx: startPx,
+          endPx: endPx,
+          count: count,
+          reduceOnly: reduceOnly,
+          legCloids: legCloids,
+          builder: builder,
+        ),
+        cloid: legCloids.first,
+        cloids: legCloids,
         market: market,
-        isBuy: isLong,
-        totalSize: totalSize,
-        startPx: startPx,
-        endPx: endPx,
-        count: count,
-        reduceOnly: reduceOnly,
-        builder: builder,
+        action: reduceOnly ? 'close' : 'open',
       );
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: totalUsd,
-        notionalUsd: notional,
-        source: source,
-        providerOrderId: result.oid?.toString(),
-        orderType: 'scale',
-        reduceOnly: reduceOnly,
-        isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        builderFeeApplied: builder != null,
-      );
-      _afterAction();
+      _afterAccepted(() {
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: totalUsd,
+          notionalUsd: notional,
+          source: source,
+          providerOrderId: result.oid?.toString(),
+          orderType: 'scale',
+          reduceOnly: reduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          builderFeeApplied: builder != null,
+        );
+        if (result.legsMissing) {
+          TrackingService.track('hyperliquid_scale_legs_refused', params: {
+            'coin': market.coin,
+            'legs_placed': result.legsPlaced ?? 0,
+            'legs_total': result.legsTotal ?? count,
+          });
+        }
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2304,8 +2341,27 @@ class HyperliquidTradingNotifier
       );
       final lev =
           HlIntents.clampLeverage(market, leverage);
-      late final double refPx;
-      late final double coinSize;
+      // The venue's TWAP bounds (HlTwapRules), checked BEFORE the leverage
+      // write or any money moves: a TWAP the venue would refuse never
+      // touches the account.
+      final refPx = _referencePx(market);
+      final coinSize = size ??
+          sizeFromUsd(
+              usd: (marginUsd ?? 0) * lev,
+              px: refPx,
+              szDecimals: market.szDecimals);
+      if (!HlTwapRules.minutesValid(durationMinutes)) {
+        throw HyperliquidRejectedException(
+            'TWAP duration must be between ${HlTwapRules.minMinutes} '
+            'minutes and 7 days');
+      }
+      if (!reduceOnly &&
+          !HlTwapRules.meetsMinimum(referencePx: refPx, size: coinSize)) {
+        throw HyperliquidMinNotionalException(
+            'TWAP notional \$${(refPx * coinSize).toStringAsFixed(2)} is below '
+            'the \$${HlTwapRules.minNotionalUsd.toStringAsFixed(0)} TWAP minimum',
+            minimumUsd: HlTwapRules.minNotionalUsd);
+      }
       final result = await HotHyperliquidTwapGuard().run(
         walletId: walletId!,
         address: ex.walletAddress,
@@ -2317,12 +2373,6 @@ class HyperliquidTradingNotifier
             await _ensureLeverage(market, current, lev, isCross);
           }
           ensureSubmissionCurrent();
-          refPx = _referencePx(market);
-          coinSize = size ??
-              sizeFromUsd(
-                  usd: (marginUsd ?? 0) * lev,
-                  px: refPx,
-                  szDecimals: market.szDecimals);
           if (!market.isSpot && !reduceOnly) {
             await _fundPerpAction(market, marginUsd ?? coinSize * refPx / lev,
                 leverage: lev);
@@ -2341,42 +2391,48 @@ class HyperliquidTradingNotifier
           );
         },
       );
-      final notional = coinSize * refPx;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: marginUsd ?? (lev > 0 ? notional / lev : notional),
-        notionalUsd: notional,
-        source: source,
-        orderType: 'twap',
-        reduceOnly: reduceOnly,
-        isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        // The twapOrder action carries no builder field.
-        builderFeeApplied: false,
-      );
+      // Taken by the exchange: bookkeeping only from here (never a
+      // failure).
+      _afterAccepted(() {
+        final notional = coinSize * refPx;
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: marginUsd ?? (lev > 0 ? notional / lev : notional),
+          notionalUsd: notional,
+          source: source,
+          orderType: 'twap',
+          reduceOnly: reduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          // The twapOrder action carries no builder field.
+          builderFeeApplied: false,
+        );
+      });
       // The result's oid IS the twapId (see _twapResultFromBody) — the
       // only handle twapCancel accepts. Remember it or the TWAP is
       // unstoppable the moment this sheet closes.
-      final twapId = result.oid;
-      if (twapId != null && _address != null) {
-        _showRunningTwap(HlRunningTwap(
-          twapId: twapId,
-          assetId: market.assetId,
-          coin: market.coin,
-          address: ex.walletAddress,
-          isBuy: isLong,
-          reduceOnly: reduceOnly,
-          size: coinSize,
-          durationMinutes: durationMinutes,
-          startedAt: DateTime.now(),
-        ));
-      }
-      _afterAction();
+      _afterAccepted(() {
+        final twapId = result.oid;
+        if (twapId != null && _address != null) {
+          _showRunningTwap(HlRunningTwap(
+            twapId: twapId,
+            assetId: market.assetId,
+            coin: market.coin,
+            address: ex.walletAddress,
+            isBuy: isLong,
+            reduceOnly: reduceOnly,
+            size: coinSize,
+            durationMinutes: durationMinutes,
+            startedAt: DateTime.now(),
+          ));
+        }
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,
@@ -2493,24 +2549,26 @@ class HyperliquidTradingNotifier
         referencePrice: refPx,
         beforeSend: verifyAccount,
       );
-      final notional = size * refPx;
-      TrackingService.hyperliquidOrderPlaced(
-        coin: market.coin,
-        kind: market.isSpot ? 'spot' : 'perp',
-        isBuy: isLong,
-        leverage: lev,
-        marginUsd: lev > 0 ? notional / lev : notional,
-        notionalUsd: notional,
-        orderType: 'trailing',
-        reduceOnly: reduceOnly,
-        isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
-        filled: result.isFilled,
-        walletKind: 'hot',
-        marketType: _marketType(market),
-        // This action carries no builder field.
-        builderFeeApplied: false,
-      );
-      _afterAction();
+      _afterAccepted(() {
+        final notional = size * refPx;
+        TrackingService.hyperliquidOrderPlaced(
+          coin: market.coin,
+          kind: market.isSpot ? 'spot' : 'perp',
+          isBuy: isLong,
+          leverage: lev,
+          marginUsd: lev > 0 ? notional / lev : notional,
+          notionalUsd: notional,
+          orderType: 'trailing',
+          reduceOnly: reduceOnly,
+          isCross: _crossFor(market, isCross, reduceOnly: reduceOnly),
+          filled: result.isFilled,
+          walletKind: 'hot',
+          marketType: _marketType(market),
+          // This action carries no builder field.
+          builderFeeApplied: false,
+        );
+        _afterAction();
+      });
       return result;
     } catch (e, st) {
       _reportOrderFailure(market.coin, e, st,

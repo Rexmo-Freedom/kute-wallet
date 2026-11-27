@@ -4105,5 +4105,20 @@
   "chartPositionStop": "ストップ {price}  {change}",
   "chartPositionLong": "ロング {price} · R/R {ratio}",
   "chartPositionShort": "ショート {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, other{{count}本}} · {duration}"
+  "chartRangeBars": "{count, plural, other{{count}本}} · {duration}",
+  "hlAdvTpNotPlaced": "利確注文は出されませんでした。",
+  "hlAdvSlNotPlaced": "損切り注文は出されませんでした。",
+  "hlAdvTpSlNotPlaced": "利確注文と損切り注文は出されませんでした。",
+  "hlAdvScaleLegsPlaced": "{total}件中{placed}件の注文のみ出されました。",
+  "hlAdvPartlyFilled": "注文の一部が約定",
+  "hlAdvStillOpen": "未約定",
+  "hlAdvRestStillOpen": "残りの注文はまだ未約定です。",
+  "hlAdvTwapMinimum": "TWAP注文は{amount}以上が必要です。",
+  "hlAdvTwapRunning": "TWAP注文は{minutes}分間実行されます。",
+  "hlAdvScaleCountRange": "スケール注文は{min}〜{max}件です。",
+  "hlAdvScaleSamePrice": "開始価格と終了価格は異なる必要があります。",
+  "hlAdvScaleBelowPrice": "両方の価格を現在価格より下にしてください。",
+  "hlAdvScaleAbovePrice": "両方の価格を現在価格より上にしてください。",
+  "hlAdvSlPastLiquidation": "この損切りは推定清算価格を超えているため、先にポジションが清算される可能性があります。",
+  "hlAdvTrailingNotApproved": "注文は約定しましたが、承認されなかったためトレーリングストップは出されませんでした。"
 }

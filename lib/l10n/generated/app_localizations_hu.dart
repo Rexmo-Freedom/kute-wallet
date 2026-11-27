@@ -14586,4 +14586,62 @@ class AppLocalizationsHu extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'A take-profit nem került be.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'A stop-loss nem került be.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'A take-profit és a stop-loss nem került be.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Csak $placed megbízás került be a(z) $total-ből.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'A megbízás részben teljesült';
+
+  @override
+  String get hlAdvStillOpen => 'Még nyitott';
+
+  @override
+  String get hlAdvRestStillOpen => 'A megbízás többi része még nyitott.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'A TWAP megbízásnak legalább $amount kell legyen.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'A TWAP megbízásod $minutes percig fut.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'A lépcsőzetes megbízás $min–$max megbízást vesz fel.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'A kezdő és a záró ár nem lehet azonos.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Mindkét árnak a jelenlegi ár alatt kell lennie.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Mindkét árnak a jelenlegi ár felett kell lennie.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Ez a stop-loss a becsült likvidációs áron túl van, így a pozíció előbb likvidálódhat.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'A megbízás teljesült, de a követő stop nem került be, mert nem hagytad jóvá.';
 }

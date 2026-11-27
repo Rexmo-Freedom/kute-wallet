@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, other{{count} gyertya}} · {duration}"
+  "chartRangeBars": "{count, plural, other{{count} gyertya}} · {duration}",
+  "hlAdvTpNotPlaced": "A take-profit nem került be.",
+  "hlAdvSlNotPlaced": "A stop-loss nem került be.",
+  "hlAdvTpSlNotPlaced": "A take-profit és a stop-loss nem került be.",
+  "hlAdvScaleLegsPlaced": "Csak {placed} megbízás került be a(z) {total}-ből.",
+  "hlAdvPartlyFilled": "A megbízás részben teljesült",
+  "hlAdvStillOpen": "Még nyitott",
+  "hlAdvRestStillOpen": "A megbízás többi része még nyitott.",
+  "hlAdvTwapMinimum": "A TWAP megbízásnak legalább {amount} kell legyen.",
+  "hlAdvTwapRunning": "A TWAP megbízásod {minutes} percig fut.",
+  "hlAdvScaleCountRange": "A lépcsőzetes megbízás {min}–{max} megbízást vesz fel.",
+  "hlAdvScaleSamePrice": "A kezdő és a záró ár nem lehet azonos.",
+  "hlAdvScaleBelowPrice": "Mindkét árnak a jelenlegi ár alatt kell lennie.",
+  "hlAdvScaleAbovePrice": "Mindkét árnak a jelenlegi ár felett kell lennie.",
+  "hlAdvSlPastLiquidation": "Ez a stop-loss a becsült likvidációs áron túl van, így a pozíció előbb likvidálódhat.",
+  "hlAdvTrailingNotApproved": "A megbízás teljesült, de a követő stop nem került be, mert nem hagytad jóvá."
 }

@@ -12803,5 +12803,54 @@
         "type": "String"
       }
     }
-  }
+  },
+  "hlAdvTpNotPlaced": "The take-profit was not placed.",
+  "hlAdvSlNotPlaced": "The stop-loss was not placed.",
+  "hlAdvTpSlNotPlaced": "The take-profit and stop-loss were not placed.",
+  "hlAdvScaleLegsPlaced": "Only {placed} of {total} orders were placed.",
+  "@hlAdvScaleLegsPlaced": {
+    "placeholders": {
+      "placed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "hlAdvPartlyFilled": "Order partly filled",
+  "hlAdvStillOpen": "Still open",
+  "hlAdvRestStillOpen": "The rest of the order is still open.",
+  "hlAdvTwapMinimum": "A TWAP order needs at least {amount}.",
+  "@hlAdvTwapMinimum": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "hlAdvTwapRunning": "Your TWAP order is running for {minutes} min.",
+  "@hlAdvTwapRunning": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "hlAdvScaleCountRange": "Scale takes {min} to {max} orders.",
+  "@hlAdvScaleCountRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "hlAdvScaleSamePrice": "Start and end prices must differ.",
+  "hlAdvScaleBelowPrice": "Both prices must be below the current price.",
+  "hlAdvScaleAbovePrice": "Both prices must be above the current price.",
+  "hlAdvSlPastLiquidation": "This stop-loss is past the estimated liquidation price, so the position could be liquidated first.",
+  "hlAdvTrailingNotApproved": "The order filled, but the trailing stop was not placed because it was not approved."
 }

@@ -14521,4 +14521,59 @@ class AppLocalizationsLv extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit netika iesniegts.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss netika iesniegts.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit un stop-loss netika iesniegti.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Iesniegti tikai $placed no $total rīkojumiem.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Rīkojums daļēji izpildīts';
+
+  @override
+  String get hlAdvStillOpen => 'Vēl atvērts';
+
+  @override
+  String get hlAdvRestStillOpen => 'Pārējā rīkojuma daļa vēl ir atvērta.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP rīkojumam jābūt vismaz $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Jūsu TWAP rīkojums darbojas $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Pakāpeniskais rīkojums pieņem no $min līdz $max rīkojumiem.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Sākuma un beigu cenai jāatšķiras.';
+
+  @override
+  String get hlAdvScaleBelowPrice => 'Abām cenām jābūt zem pašreizējās cenas.';
+
+  @override
+  String get hlAdvScaleAbovePrice => 'Abām cenām jābūt virs pašreizējās cenas.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Šis stop-loss ir aiz aplēstās likvidācijas cenas, tāpēc pozīcija var tikt likvidēta agrāk.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Rīkojums izpildīts, bet sekojošais stop netika iesniegts, jo tas netika apstiprināts.';
 }

@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 svijeća} few{{count} svijeće} other{{count} svijeća}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 svijeća} few{{count} svijeće} other{{count} svijeća}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit nije postavljen.",
+  "hlAdvSlNotPlaced": "Stop-loss nije postavljen.",
+  "hlAdvTpSlNotPlaced": "Take-profit i stop-loss nisu postavljeni.",
+  "hlAdvScaleLegsPlaced": "Postavljeno je samo {placed} od {total} naloga.",
+  "hlAdvPartlyFilled": "Nalog djelomično izvršen",
+  "hlAdvStillOpen": "Još otvoreno",
+  "hlAdvRestStillOpen": "Ostatak naloga još je otvoren.",
+  "hlAdvTwapMinimum": "TWAP nalog mora biti najmanje {amount}.",
+  "hlAdvTwapRunning": "Vaš TWAP nalog traje {minutes} min.",
+  "hlAdvScaleCountRange": "Skaliranje prima od {min} do {max} naloga.",
+  "hlAdvScaleSamePrice": "Početna i završna cijena moraju se razlikovati.",
+  "hlAdvScaleBelowPrice": "Obje cijene moraju biti ispod trenutne cijene.",
+  "hlAdvScaleAbovePrice": "Obje cijene moraju biti iznad trenutne cijene.",
+  "hlAdvSlPastLiquidation": "Ovaj stop-loss je iza procijenjene cijene likvidacije, pa bi pozicija mogla biti likvidirana prije.",
+  "hlAdvTrailingNotApproved": "Nalog je izvršen, ali trailing stop nije postavljen jer nije odobren."
 }

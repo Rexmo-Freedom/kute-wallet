@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 svece} other{{count} sveces}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 svece} other{{count} sveces}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit netika iesniegts.",
+  "hlAdvSlNotPlaced": "Stop-loss netika iesniegts.",
+  "hlAdvTpSlNotPlaced": "Take-profit un stop-loss netika iesniegti.",
+  "hlAdvScaleLegsPlaced": "Iesniegti tikai {placed} no {total} rīkojumiem.",
+  "hlAdvPartlyFilled": "Rīkojums daļēji izpildīts",
+  "hlAdvStillOpen": "Vēl atvērts",
+  "hlAdvRestStillOpen": "Pārējā rīkojuma daļa vēl ir atvērta.",
+  "hlAdvTwapMinimum": "TWAP rīkojumam jābūt vismaz {amount}.",
+  "hlAdvTwapRunning": "Jūsu TWAP rīkojums darbojas {minutes} min.",
+  "hlAdvScaleCountRange": "Pakāpeniskais rīkojums pieņem no {min} līdz {max} rīkojumiem.",
+  "hlAdvScaleSamePrice": "Sākuma un beigu cenai jāatšķiras.",
+  "hlAdvScaleBelowPrice": "Abām cenām jābūt zem pašreizējās cenas.",
+  "hlAdvScaleAbovePrice": "Abām cenām jābūt virs pašreizējās cenas.",
+  "hlAdvSlPastLiquidation": "Šis stop-loss ir aiz aplēstās likvidācijas cenas, tāpēc pozīcija var tikt likvidēta agrāk.",
+  "hlAdvTrailingNotApproved": "Rīkojums izpildīts, bet sekojošais stop netika iesniegts, jo tas netika apstiprināts."
 }

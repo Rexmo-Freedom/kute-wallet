@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 candle} other{{count} candles}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 candle} other{{count} candles}} · {duration}",
+  "hlAdvTpNotPlaced": "De take-profit is niet geplaatst.",
+  "hlAdvSlNotPlaced": "De stop-loss is niet geplaatst.",
+  "hlAdvTpSlNotPlaced": "De take-profit en stop-loss zijn niet geplaatst.",
+  "hlAdvScaleLegsPlaced": "Slechts {placed} van {total} orders zijn geplaatst.",
+  "hlAdvPartlyFilled": "Order deels uitgevoerd",
+  "hlAdvStillOpen": "Nog open",
+  "hlAdvRestStillOpen": "De rest van de order staat nog open.",
+  "hlAdvTwapMinimum": "Een TWAP-order moet minstens {amount} zijn.",
+  "hlAdvTwapRunning": "Je TWAP-order loopt {minutes} min.",
+  "hlAdvScaleCountRange": "Gespreid neemt {min} tot {max} orders.",
+  "hlAdvScaleSamePrice": "Begin- en eindprijs moeten verschillen.",
+  "hlAdvScaleBelowPrice": "Beide prijzen moeten onder de huidige prijs liggen.",
+  "hlAdvScaleAbovePrice": "Beide prijzen moeten boven de huidige prijs liggen.",
+  "hlAdvSlPastLiquidation": "Deze stop-loss ligt voorbij de geschatte liquidatieprijs, dus de positie kan eerst worden geliquideerd.",
+  "hlAdvTrailingNotApproved": "De order is uitgevoerd, maar de trailing stop is niet geplaatst omdat die niet is goedgekeurd."
 }

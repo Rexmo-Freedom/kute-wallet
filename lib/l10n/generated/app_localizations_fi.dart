@@ -14578,4 +14578,61 @@ class AppLocalizationsFi extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profitia ei asetettu.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-lossia ei asetettu.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profitia ja stop-lossia ei asetettu.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Vain $placed/$total toimeksiantoa asetettiin.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Toimeksianto osittain toteutunut';
+
+  @override
+  String get hlAdvStillOpen => 'Yhä avoinna';
+
+  @override
+  String get hlAdvRestStillOpen => 'Loput toimeksiannosta on yhä avoinna.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP-toimeksiannon on oltava vähintään $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'TWAP-toimeksiantosi on käynnissä $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Porrastus ottaa $min–$max toimeksiantoa.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Alku- ja loppuhinnan on oltava eri.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Kummankin hinnan on oltava nykyhinnan alapuolella.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Kummankin hinnan on oltava nykyhinnan yläpuolella.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Tämä stop-loss on arvioidun likvidaatiohinnan takana, joten positio voidaan likvidoida ensin.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Toimeksianto toteutui, mutta seuraavaa stoppia ei asetettu, koska sitä ei hyväksytty.';
 }

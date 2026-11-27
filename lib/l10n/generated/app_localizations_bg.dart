@@ -14571,4 +14571,64 @@ class AppLocalizationsBg extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Тейк-профитът не беше поставен.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Стоп-лосът не беше поставен.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Тейк-профитът и стоп-лосът не бяха поставени.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Поставени бяха само $placed от $total поръчки.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Поръчката е частично изпълнена';
+
+  @override
+  String get hlAdvStillOpen => 'Още отворена';
+
+  @override
+  String get hlAdvRestStillOpen =>
+      'Останалата част от поръчката е още отворена.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP поръчката трябва да е поне $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Вашата TWAP поръчка се изпълнява за $minutes мин.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Скалата приема от $min до $max поръчки.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Началната и крайната цена трябва да са различни.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'И двете цени трябва да са под текущата цена.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'И двете цени трябва да са над текущата цена.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Този стоп-лос е отвъд прогнозната цена на ликвидация, така че позицията може да бъде ликвидирана първо.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Поръчката е изпълнена, но трейлинг стопът не беше поставен, защото не беше одобрен.';
 }
