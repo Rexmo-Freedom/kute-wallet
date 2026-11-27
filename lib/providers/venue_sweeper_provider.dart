@@ -279,7 +279,8 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
           return null;
         }
         final balances =
-            polymarketInvestmentBalances(state: pm, orders: pm.openOrders);
+            polymarketInvestmentBalances(
+                state: pm, orders: pm.openOrdersKnown ? pm.openOrders : null);
         final available = balances.available;
         return VenueSnapshot(
           idleUsd: pm.usdcBalance,

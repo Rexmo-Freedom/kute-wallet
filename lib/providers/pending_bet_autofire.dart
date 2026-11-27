@@ -74,6 +74,8 @@ import 'package:kute/providers/polymarket_bet_controller.dart'
     show PolymarketBetController, polymarketRetryPrice, polymarketThinBookMessage;
 import 'package:kute/services/polymarket/relayer_wallet_queue.dart'
     show isTransientRelayerRefusal;
+import 'package:kute/services/polymarket/limit_order_rules.dart'
+    show polymarketLimitBuyShares;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
@@ -1029,7 +1031,7 @@ class PendingBetAutoFire {
 
   static double _costPrice(PendingBetIntent intent) {
     var price = intent.isLimit
-        ? intent.limitPrice.clamp(0.01, 0.99).toDouble()
+        ? intent.limitPrice.clamp(0.0001, 0.9999).toDouble()
         : polymarketFundedWorstPrice(intent);
     if (!intent.isLimit) {
       final quote = intent.marketQuote;
@@ -2012,7 +2014,7 @@ class PendingBetAutoFire {
       // that ends it as failed.
       var limitTook = false;
       try {
-        final price = intent.limitPrice.clamp(0.01, 0.99).toDouble();
+        final price = intent.limitPrice.clamp(0.0001, 0.9999).toDouble();
         var placedShares = 0.0;
         while (true) {
           // Cap by the USDC actually at the Safe — the swap can land slightly
@@ -2045,8 +2047,9 @@ class PendingBetAutoFire {
             return;
           }
           final effectiveAmount = min(intent.amount, balance * 0.99);
-          double shares =
-              ((effectiveAmount / price) * 100).floorToDouble() / 100;
+          // In integers (limit_order_rules.dart): never 4.99 shares for
+          // a stake that buys 5.00.
+          double shares = polymarketLimitBuyShares(effectiveAmount, price);
           // The CLOB rejects orders under $1 — bump to the minimum when the
           // intent covers it, mirroring the market path. The overshoot is
           // bounded by one share-tick (≤ 1¢), which the 99% cap absorbs.

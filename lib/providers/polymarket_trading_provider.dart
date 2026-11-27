@@ -168,6 +168,12 @@ class PolymarketTradingState {
   /// for "unknown": the slip waits instead of offering a deposit on it.
   final bool balanceKnown;
 
+  /// Whether [openOrders] is a list that was read for this account. False
+  /// when the read failed and none was known before: what resting buys
+  /// reserve of [usdcBalance] is then unknown, and the slip waits instead
+  /// of treating it as nothing reserved.
+  final bool openOrdersKnown;
+
   /// True while the figures shown are the last ones the device knew (the
   /// account cache, or a brand-new wallet's known $0.00) or the account is
   /// still finishing its start (credentials, open orders): a fresh read is
@@ -201,6 +207,7 @@ class PolymarketTradingState {
     this.pendingSaleTokens = const {},
     this.clearingConditionIds = const {},
     this.balanceKnown = true,
+    this.openOrdersKnown = true,
     this.refreshing = false,
     this.pendingFills = const [],
     this.confirmedSales = const [],
@@ -221,6 +228,7 @@ class PolymarketTradingState {
     Set<String>? pendingSaleTokens,
     Set<String>? clearingConditionIds,
     bool? balanceKnown,
+    bool? openOrdersKnown,
     bool? refreshing,
     List<PolymarketPendingFill>? pendingFills,
     List<PolymarketConfirmedSale>? confirmedSales,
@@ -240,6 +248,7 @@ class PolymarketTradingState {
       pendingSaleTokens: pendingSaleTokens ?? this.pendingSaleTokens,
       clearingConditionIds: clearingConditionIds ?? this.clearingConditionIds,
       balanceKnown: balanceKnown ?? this.balanceKnown,
+      openOrdersKnown: openOrdersKnown ?? this.openOrdersKnown,
       refreshing: refreshing ?? this.refreshing,
       pendingFills: pendingFills ?? this.pendingFills,
       confirmedSales: confirmedSales ?? this.confirmedSales,
@@ -271,6 +280,7 @@ class PolymarketTradingState {
         error == other.error &&
         isPlacingOrder == other.isPlacingOrder &&
         refreshing == other.refreshing &&
+        openOrdersKnown == other.openOrdersKnown &&
         setEquals(pendingSaleTokens, other.pendingSaleTokens) &&
         setEquals(clearingConditionIds, other.clearingConditionIds) &&
         _samePositionValues(openPositions, other.openPositions) &&
@@ -291,6 +301,7 @@ class PolymarketTradingState {
         error,
         isPlacingOrder,
         refreshing,
+        openOrdersKnown,
         Object.hashAll(openPositions),
         Object.hashAll(closedPositions),
         Object.hashAll(openOrders),
@@ -382,6 +393,22 @@ class PolymarketEvmFormatPendingException implements Exception {
 ///   them);
 /// * a known address is never replaced with null, and a balance that could
 ///   not be read keeps the last one that was.
+/// The open orders a refresh carries, and whether they are known: the
+/// list [read] (null: a cash-only tick, or a read that failed); else the
+/// same account's [previous] list while that one was known; else none
+/// known. A failed read is never "nothing reserved".
+@visibleForTesting
+({List<Order> orders, bool known}) polymarketOrdersAfterRead({
+  required List<Order>? read,
+  required PolymarketTradingState? previous,
+}) {
+  if (read != null) return (orders: read, known: true);
+  if (previous != null && previous.openOrdersKnown) {
+    return (orders: previous.openOrders, known: true);
+  }
+  return (orders: const <Order>[], known: false);
+}
+
 @visibleForTesting
 PolymarketTradingState? mergePolymarketRefresh({
   required PolymarketTradingState live,
@@ -2291,10 +2318,13 @@ class PolymarketTradingNotifier
       addr != null
           ? model.getPositionsOrNull(addr)
           : Future.value(<Position>[]),
+      // A failed read is null, never an empty list: an empty list read
+      // as "nothing reserved" and overstated what a new buy may spend.
       full
           ? (_backendService?.getOpenOrders() ?? Future.value(<Order>[]))
-              .catchError((_) => <Order>[])
-          : Future.value(previous?.openOrders ?? <Order>[]),
+              .then<List<Order>?>((orders) => orders)
+              .catchError((_) => null)
+          : Future<List<Order>?>.value(null),
       addr != null
           ? model.getOnChainUsdcBalance(addr).catchError((_) {
               balanceRead = false;
@@ -2317,7 +2347,13 @@ class PolymarketTradingNotifier
         previous.proxyWalletAddress?.toLowerCase() == addr.toLowerCase();
     var positions = (results[0] as List<Position>?) ??
         (samePreviousAccount ? previous.openPositions : const <Position>[]);
-    final orders = results[1] as List<Order>;
+    // The open orders this state carries: a fresh read; else (a cash-only
+    // tick, or a read that failed) this account's last known list; else
+    // none known, and nothing is sized on the venue's cash until a read
+    // lands ([PolymarketTradingState.openOrdersKnown]).
+    final (orders: orders, known: ordersKnown) = polymarketOrdersAfterRead(
+        read: results[1] as List<Order>?,
+        previous: samePreviousAccount ? previous : null);
     final onChainUsdc = results[2] as double;
     // The settled rows held to their result (the state's closedPositions,
     // which the history reads as Won / Lost) and, for everything below
@@ -2553,6 +2589,7 @@ class PolymarketTradingNotifier
       openPositions: positions,
       closedPositions: heldToResult,
       openOrders: orders,
+      openOrdersKnown: ordersKnown,
       walletAddress: eoaAddress,
       proxyWalletAddress: proxyWallet,
       pendingSaleTokens: _pendingSaleTokens.keys.toSet(),
@@ -3313,6 +3350,10 @@ class PolymarketTradingNotifier
     // A market buy's stake: the order spends exactly this, to the cent,
     // not [size] × [price] floored (PolymarketOrderAmounts.encode).
     double? spendUsd,
+    // A resting limit buy's fee ceiling at its own price: a limit that
+    // crosses the book fills at once as a taker, and the venue counts the
+    // fee against the same pUSD, so the collateral check covers it too.
+    double? feeReserveUsd,
     // Optional metadata for optimistic position display
     String? marketTitle,
     String? marketImage,
@@ -3348,6 +3389,7 @@ class PolymarketTradingNotifier
           marketQuote: marketQuote,
           orderType: orderType,
           spendUsd: spendUsd,
+          feeReserveUsd: feeReserveUsd,
           marketTitle: marketTitle,
           marketImage: marketImage,
           marketOutcome: marketOutcome,
@@ -3431,6 +3473,7 @@ class PolymarketTradingNotifier
     required AuthGrant? grant,
     required void Function(String step)? onStep,
     StandingSignedOrder? standing,
+    double? feeReserveUsd,
   }) async {
     // Any order attempt is Predictions activity: its cash stays there,
     // available, for the next day at least (VenueActivity).
@@ -3666,7 +3709,9 @@ class PolymarketTradingNotifier
             BigInt.from(((marketQuote?.tokenId == tokenId
                         ? marketQuote!.feeCeiling +
                             PolymarketMarketBuyQuote.roundingHeadroom
-                        : 0.0) *
+                        : (feeReserveUsd != null && feeReserveUsd > 0
+                            ? feeReserveUsd
+                            : 0.0)) *
                     1e6)
                 .ceil())
         : BigInt.zero;
@@ -4666,6 +4711,9 @@ class PolymarketTradingNotifier
       throw StateError('Polymarket account is not connected.');
     }
     await _backendService!.cancelAllOrders();
+    // As one cancel: the cash every resting buy reserved is idle again.
+    VenueActivity.note(OneBalanceVenue.predictions);
+    VenueCashReleased.emit(OneBalanceVenue.predictions, 'order_cancelled');
     await refresh();
   }
 
