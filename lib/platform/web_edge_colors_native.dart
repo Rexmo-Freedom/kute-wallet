@@ -2,3 +2,5 @@
 library;
 
 void setEdgeColors({required String top, required String bottom}) {}
+
+void keepPageBackground() {}

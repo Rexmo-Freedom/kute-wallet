@@ -3,5 +3,7 @@
 function removeSplashFromWeb() {
   document.getElementById("splash")?.remove();
   document.getElementById("splash-branding")?.remove();
-  document.body.style.background = "transparent";
+  // The body keeps a colour: iOS 26 Safari paints its bars from it, and a
+  // transparent body gives black bars in dark mode. The app sets its own
+  // edge colour on it (lib/platform/web_edge_colors_web.dart).
 }
