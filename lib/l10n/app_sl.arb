@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "Jantarna",
   "chartVolume": "Obseg",
   "chartLogScale": "Logaritemska lestvica",
+  "chartPriceScale": "Cenovna lestvica",
   "chartVwapWindow": "VWAP prikazanih sveč",
   "chartIndicators": "Indikatorji",
   "chartInterval": "Interval",

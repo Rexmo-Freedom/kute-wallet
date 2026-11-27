@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "Borostyán",
   "chartVolume": "Forgalom",
   "chartLogScale": "Logaritmikus skála",
+  "chartPriceScale": "Árskála",
   "chartVwapWindow": "VWAP a megjelenített gyertyákon",
   "chartIndicators": "Indikátorok",
   "chartInterval": "Időköz",

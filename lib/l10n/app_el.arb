@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "Κεχριμπαρί",
   "chartVolume": "Όγκος",
   "chartLogScale": "Λογαριθμική κλίμακα",
+  "chartPriceScale": "Κλίμακα τιμών",
   "chartVwapWindow": "VWAP στα εμφανιζόμενα κεριά",
   "chartIndicators": "Δείκτες",
   "chartInterval": "Διάστημα",

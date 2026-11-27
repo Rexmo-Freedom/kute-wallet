@@ -6042,6 +6042,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartLogScale => 'Λογαριθμική κλίμακα';
 
   @override
+  String get chartPriceScale => 'Κλίμακα τιμών';
+
+  @override
   String get chartVwapWindow => 'VWAP στα εμφανιζόμενα κεριά';
 
   @override

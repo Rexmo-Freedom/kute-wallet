@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "Merevaik",
   "chartVolume": "Maht",
   "chartLogScale": "Logaritmskaala",
+  "chartPriceScale": "Hinnaskaala",
   "chartVwapWindow": "VWAP kuvatud küünalde ulatuses",
   "chartIndicators": "Indikaatorid",
   "chartInterval": "Intervall",

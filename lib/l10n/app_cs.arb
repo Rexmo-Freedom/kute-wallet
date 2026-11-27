@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "Jantarová",
   "chartVolume": "Objem",
   "chartLogScale": "Log. měřítko",
+  "chartPriceScale": "Cenová stupnice",
   "chartVwapWindow": "VWAP přes zobrazené svíčky",
   "chartIndicators": "Indikátory",
   "chartInterval": "Interval",

@@ -3253,6 +3253,10 @@
   "chartHighlightColor": "Amber",
   "chartVolume": "Volume",
   "chartLogScale": "Log scale",
+  "chartPriceScale": "Price scale",
+  "@chartPriceScale": {
+    "description": "Advanced chart tool rail button: shows or hides the horizontal price lines and their labels on the right."
+  },
   "chartVwapWindow": "VWAP across the displayed candles",
   "chartIndicators": "Indicators",
   "chartInterval": "Interval",

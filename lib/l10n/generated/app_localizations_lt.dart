@@ -6023,6 +6023,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartLogScale => 'Logaritminė skalė';
 
   @override
+  String get chartPriceScale => 'Kainų skalė';
+
+  @override
   String get chartVwapWindow => 'VWAP per rodomas žvakes';
 
   @override

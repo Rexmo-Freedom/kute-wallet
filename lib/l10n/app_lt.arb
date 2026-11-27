@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "Gintarinė",
   "chartVolume": "Apyvarta",
   "chartLogScale": "Logaritminė skalė",
+  "chartPriceScale": "Kainų skalė",
   "chartVwapWindow": "VWAP per rodomas žvakes",
   "chartIndicators": "Indikatoriai",
   "chartInterval": "Intervalas",

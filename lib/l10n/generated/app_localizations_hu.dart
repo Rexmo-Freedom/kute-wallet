@@ -6007,6 +6007,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartLogScale => 'Logaritmikus skála';
 
   @override
+  String get chartPriceScale => 'Árskála';
+
+  @override
   String get chartVwapWindow => 'VWAP a megjelenített gyertyákon';
 
   @override

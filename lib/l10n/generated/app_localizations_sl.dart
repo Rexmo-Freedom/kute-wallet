@@ -6007,6 +6007,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartLogScale => 'Logaritemska lestvica';
 
   @override
+  String get chartPriceScale => 'Cenovna lestvica';
+
+  @override
   String get chartVwapWindow => 'VWAP prikazanih sveč';
 
   @override

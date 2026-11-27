@@ -6002,6 +6002,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartLogScale => 'Логаритмична скала';
 
   @override
+  String get chartPriceScale => 'Ценова скала';
+
+  @override
   String get chartVwapWindow => 'VWAP за показаните свещи';
 
   @override

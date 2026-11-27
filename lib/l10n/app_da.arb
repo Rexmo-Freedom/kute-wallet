@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "Rav",
   "chartVolume": "Volumen",
   "chartLogScale": "Logaritmisk skala",
+  "chartPriceScale": "Prisskala",
   "chartVwapWindow": "VWAP over de viste lys",
   "chartIndicators": "Indikatorer",
   "chartInterval": "Interval",

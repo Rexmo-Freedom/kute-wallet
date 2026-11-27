@@ -5973,6 +5973,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chartLogScale => 'Log scale';
 
   @override
+  String get chartPriceScale => 'Price scale';
+
+  @override
   String get chartVwapWindow => 'VWAP across the displayed candles';
 
   @override

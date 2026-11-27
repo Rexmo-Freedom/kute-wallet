@@ -6025,6 +6025,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartLogScale => 'Scară logaritmică';
 
   @override
+  String get chartPriceScale => 'Scară de preț';
+
+  @override
   String get chartVwapWindow => 'VWAP pe lumânările afișate';
 
   @override

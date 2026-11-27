@@ -5992,6 +5992,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartLogScale => 'Log-asteikko';
 
   @override
+  String get chartPriceScale => 'Hinta-asteikko';
+
+  @override
   String get chartVwapWindow => 'VWAP näytettyjen kynttilöiden ajalta';
 
   @override

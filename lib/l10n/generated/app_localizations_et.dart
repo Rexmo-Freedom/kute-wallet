@@ -5976,6 +5976,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartLogScale => 'Logaritmskaala';
 
   @override
+  String get chartPriceScale => 'Hinnaskaala';
+
+  @override
   String get chartVwapWindow => 'VWAP kuvatud küünalde ulatuses';
 
   @override

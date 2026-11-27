@@ -6020,6 +6020,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chartLogScale => 'Escala logarítmica';
 
   @override
+  String get chartPriceScale => 'Escala de precios';
+
+  @override
   String get chartVwapWindow => 'VWAP de las velas mostradas';
 
   @override

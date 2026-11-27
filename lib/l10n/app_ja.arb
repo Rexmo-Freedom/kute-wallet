@@ -1732,6 +1732,7 @@
   "chartHighlightColor": "琥珀色",
   "chartVolume": "出来高",
   "chartLogScale": "対数スケール",
+  "chartPriceScale": "価格スケール",
   "chartVwapWindow": "表示中のローソク足のVWAP",
   "chartIndicators": "インジケーター",
   "chartInterval": "時間足",

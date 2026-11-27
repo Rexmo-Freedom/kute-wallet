@@ -5988,6 +5988,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartLogScale => 'Log. měřítko';
 
   @override
+  String get chartPriceScale => 'Cenová stupnice';
+
+  @override
   String get chartVwapWindow => 'VWAP přes zobrazené svíčky';
 
   @override
