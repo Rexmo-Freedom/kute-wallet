@@ -34,6 +34,7 @@ void pushHlOrderPlacedOverlay({
   double? feeUsd,
   double restingSize = 0,
   List<String> notices = const [],
+  ({int cancelled, int failed})? leftovers,
 }) {
   pushKuteSuccessOverlay(
     navigator: navigator,
@@ -51,6 +52,7 @@ void pushHlOrderPlacedOverlay({
       feeUsd: feeUsd,
       restingSize: restingSize,
       notices: notices,
+      leftovers: leftovers,
     ),
   );
 }
@@ -159,6 +161,11 @@ class HlOrderPlacedOverlay extends StatelessWidget {
   /// balance line ([hlOrderResultNotices]).
   final List<String> notices;
 
+  /// A whole position closed here: what became of its left-over stops,
+  /// takes and trailing stops (the close sheet's same rows). Null when no
+  /// cancel ran.
+  final ({int cancelled, int failed})? leftovers;
+
   const HlOrderPlacedOverlay({
     super.key,
     required this.coin,
@@ -174,12 +181,15 @@ class HlOrderPlacedOverlay extends StatelessWidget {
     this.feeUsd,
     this.restingSize = 0,
     this.notices = const [],
+    this.leftovers,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final partial = restingSize > 0;
+    final cancelled = leftovers?.cancelled ?? 0;
+    final stillOpen = leftovers?.failed ?? 0;
     final effect = isSpot ? null : positionPlan?.effect;
     final effectLabel =
         isSpot ? null : hlFillEffectLabel(l10n, positionPlan, coin);
@@ -223,11 +233,16 @@ class HlOrderPlacedOverlay extends StatelessWidget {
         if (feeUsd case final fee?) l10n.feeUiPaidFee: formatHlUsd(fee),
         if (partial)
           l10n.hlAdvStillOpen: '${formatHlSize(restingSize)} $coin',
+        if (cancelled > 0) l10n.hlProtectOrdersCancelledRow: '$cancelled',
+        if (stillOpen > 0) l10n.hlProtectOrdersNotCancelledRow: '$stillOpen',
       },
       detail: [
         if (partial) l10n.hlAdvRestStillOpen,
         ...notices,
-        if (!partial && notices.isEmpty) l10n.investingBalanceUpdating,
+        if (stillOpen > 0)
+          l10n.hlProtectCancelAfterCloseFailed
+        else if (!partial && notices.isEmpty)
+          l10n.investingBalanceUpdating,
       ].join(' '),
       onDone: () => Navigator.of(context).pop(),
       secondaryButtonText:

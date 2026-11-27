@@ -136,17 +136,27 @@ Future<HlSentOrderTrace> hlReconcileSentOrder(
 final hlConfirmingOrdersProvider =
     StateProvider<Set<String>>((ref) => const <String>{});
 
-/// The same lookups by market: each confirming cloid with the wire coin of
-/// its order. A fresh ticket on a market whose earlier order is still
-/// being looked up never sends (it could be a duplicate of an order the
-/// venue took); once the lookup ends, it can.
-final hlConfirmingMarketsProvider =
-    StateProvider<Map<String, String>>((ref) => const <String, String>{});
+/// Where a confirming order went: the account (lower-case address) and
+/// the wire coin.
+typedef HlConfirmingMarket = ({String account, String wireCoin});
 
-/// Whether an order on [wireCoin] is being looked up right now
-/// ([hlConfirmingMarketsProvider]).
-bool hlMarketConfirming(Map<String, String> confirming, String wireCoin) =>
-    confirming.containsValue(wireCoin);
+/// The same lookups by market: each confirming cloid with the account and
+/// the wire coin of its order. A fresh ticket on a market whose earlier
+/// order on the same account is still being looked up never sends (it
+/// could be a duplicate of an order the venue took); once the lookup ends,
+/// it can. Another account's lookup never holds it.
+final hlConfirmingMarketsProvider =
+    StateProvider<Map<String, HlConfirmingMarket>>(
+        (ref) => const <String, HlConfirmingMarket>{});
+
+/// Whether an order on [wireCoin] of [account] is being looked up right
+/// now ([hlConfirmingMarketsProvider]). An unknown [account] (null) is
+/// held by a lookup on the coin on any account.
+bool hlMarketConfirming(Map<String, HlConfirmingMarket> confirming,
+        {required String? account, required String wireCoin}) =>
+    confirming.values.any((m) =>
+        m.wireCoin == wireCoin &&
+        (account == null || m.account == account.toLowerCase()));
 
 /// Sends an order with [send] and, when the send gets no verdict
 /// ([hlOrderOutcomeUnknown]: a timeout, a broken connection, a gateway

@@ -129,6 +129,8 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/hyperliquid/components/hl_protect_rules.dart'
+    show hlProtectiveOrdersFor;
 import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart';
 import 'package:kute/screens/hyperliquid/components/hl_order_funding_rules.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart'
@@ -302,6 +304,21 @@ bool hlFillOfOrder(HlMarket market, String cloid, HlFill fill) {
   if (size <= 0) return null;
   return (size: size, avgPx: notional / size);
 }
+
+/// What the receipt of a Ledger close of the whole position says of the
+/// stops and takes it leaves (each cancel needs the device): the close
+/// sheet's same row and line. [left] is their count from the Ledger's last
+/// read (-1 when it could not be read: the line, no count), null when
+/// there are none or the close was not whole (nothing said).
+@visibleForTesting
+({Map<String, String> rows, String? note}) hlLedgerLeftoverReceipt(
+        AppLocalizations l, int? left) =>
+    (
+      rows: {
+        if ((left ?? 0) > 0) l.hlProtectOrdersNotCancelledRow: '$left',
+      },
+      note: left == null ? null : l.hlLeftLedgerStopsOpen,
+    );
 
 /// A scale ladder on the wrong side of [mid]: a buy ladder rests under the
 /// price (a leg over it would buy at once, as a market order), a sell
@@ -2237,11 +2254,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
     // The ticket's prices against the price now, before any approval.
     if (!_pricesStillHold()) return;
-    // An earlier order on this market is still being looked up: never a
-    // possible duplicate of it.
+    // An earlier order on this market of this account is still being
+    // looked up: never a possible duplicate of it.
     if (!_isLedger &&
-        hlMarketConfirming(
-            ref.read(hlConfirmingMarketsProvider), market.wireCoin)) {
+        hlMarketConfirming(ref.read(hlConfirmingMarketsProvider),
+            account:
+                ref.read(hyperliquidTradingProvider.notifier).accountAddress,
+            wireCoin: market.wireCoin)) {
       _trackBlocked('order_confirming');
       return;
     }
@@ -2600,8 +2619,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (result.filledSz > 0) {
         final fills = await _fillsOf(result);
         if (!mounted) return;
+        // The whole position closed: its left-over stops, takes and
+        // trailing stops are cancelled by the notifier once it is gone
+        // (as from the close sheet); the receipt waits to say what it did.
+        final leftovers = pos.szi.abs() > 0 &&
+                result.filledSz >= pos.szi.abs() * (1 - 1e-9)
+            ? await _leftoverSweepOf(trading, pos.coin)
+            : null;
+        if (!mounted) return;
         _onFilled(
-            sizeFilled: result.filledSz, avgPx: result.avgPx, fills: fills);
+            sizeFilled: result.filledSz,
+            avgPx: result.avgPx,
+            fills: fills,
+            leftovers: leftovers);
       } else if (!_completed) {
         _closeTicket();
       }
@@ -2621,6 +2651,46 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         });
       }
     }
+  }
+
+  /// What the cancel of [coin]'s left-over protective orders did, awaited
+  /// ([HyperliquidTradingNotifier.leftoverSweepFor]); null when none ran.
+  Future<HlLeftoverSweep?> _leftoverSweepOf(
+      HyperliquidTradingNotifier trading, String coin) async {
+    final sweep = trading.leftoverSweepFor(coin);
+    if (sweep == null) return null;
+    try {
+      return await sweep;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The whole position on this market (perps, hot account) goes with the
+  /// order on the ticket as the notifier arms it (a close sized to it, or
+  /// reduce-only sized past it), and protective orders rest on it: the
+  /// close sheet's line before Confirm, the count of those orders. Null
+  /// otherwise.
+  int? _closeCancelsCount(
+      {required HlPositionPlan marketPlan, required double legSize}) {
+    if (isSpot || _isLedger || widget.sendPick != null) return null;
+    final bool whole;
+    if (_mode == _OrderMode.market) {
+      whole = _netsAgainstPosition &&
+          marketPlan.effect == HlPositionEffect.close;
+    } else if (_mode == _OrderMode.limit || _isTwap) {
+      final plan =
+          _positionPlanFor(_mode == _OrderMode.limit ? _limitSizeNow() : legSize);
+      whole = plan.effect == HlPositionEffect.close ||
+          (_reduceOnly && plan.effect == HlPositionEffect.flip);
+    } else {
+      whole = false;
+    }
+    if (!whole) return null;
+    final orders = ref.watch(hyperliquidTradingProvider).valueOrNull?.openOrders ??
+        const <HlOpenOrder>[];
+    final n = hlProtectiveOrdersFor(orders, market.wireCoin).length;
+    return n == 0 ? null : n;
   }
 
   /// Limit / Pro path — routes to the matching notifier method. Marketable
@@ -4404,6 +4474,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _errorCause = null;
     });
     final HlOrderResult? result;
+    // A whole close on the Ledger leaves its stops and takes (each cancel
+    // needs the device): counted before it goes, said on the receipt as
+    // the close sheet says it.
+    int? ledgerLeftovers;
+    var closingSize = 0.0;
     try {
       if (_usesAdvanced) {
         await RuntimeCapabilitiesService.instance
@@ -4419,6 +4494,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _submitted = true;
       _trackSubmitted();
       if (plan.isExit && plan.orderSize > 0) {
+        if (plan.effect == HlPositionEffect.close) {
+          closingSize = plan.heldSize;
+          ledgerLeftovers = _ledgerProtectiveCount(walletId);
+        }
         final outcome = await runLedgerHlClose(
           context,
           ref,
@@ -4513,6 +4592,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           result.filledSz > 0 ? result.filledSz : fallbackSize);
       if (!mounted) return;
     }
+    // The whole position closed: its stops and takes are still there.
+    final leftOnLedger = ledgerLeftovers != null &&
+            closingSize > 0 &&
+            result.filledSz >= closingSize * (1 - 1e-9)
+        ? ledgerLeftovers
+        : null;
+    final leftReceipt = hlLedgerLeftoverReceipt(l10n, leftOnLedger);
+    final detailLines = [
+      if (trailNote != null) trailNote,
+      if (leftReceipt.note case final note?) note,
+    ];
     Navigator.of(context).pop();
     showLedgerConfirmation(
       navigator,
@@ -4523,10 +4613,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               : (_isLong ? l10n.longLabel : l10n.shortLabel),
           formatHlUsd(marginUsd)),
       contextLine: HlMarket.baseCoin(market.coin),
-      rows: {if (!isSpot) l10n.ledgerSummaryLeverage: '$ledgerLev×'},
-      detail: trailNote,
+      rows: {
+        if (!isSpot) l10n.ledgerSummaryLeverage: '$ledgerLev×',
+        ...leftReceipt.rows,
+      },
+      detail: detailLines.isEmpty ? null : detailLines.join(' '),
       tone: filled ? KuteConfirmationTone.success : KuteConfirmationTone.pending,
     );
+  }
+
+  /// The Ledger's protective orders on this coin, from its last account
+  /// read: null when there are none, -1 when its orders could not be read
+  /// (they may still be there). The close sheet's same count.
+  int? _ledgerProtectiveCount(String walletId) {
+    final orders =
+        ref.read(ledgerHlAccountProvider(walletId)).valueOrNull?.openOrders;
+    if (orders == null) return -1;
+    final n = hlProtectiveOrdersFor(orders, market.wireCoin).length;
+    return n == 0 ? null : n;
   }
 
   /// The one funding door. A Ledger ticket opens the Move sheet locked to
@@ -5246,6 +5350,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     Iterable<HlFill> fills = const [],
     double restingSize = 0,
     List<String> notices = const [],
+    HlLeftoverSweep? leftovers,
   }) async {
     if (_completed || !mounted || _left) return;
     _completed = true;
@@ -5301,6 +5406,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       feeUsd: paidFeeUsd,
       restingSize: restingSize,
       notices: notices,
+      leftovers: leftovers,
     );
     // In place: a fresh ticket under the receipt.
     if (widget.embedded) widget.onEmbeddedDone?.call();
@@ -5506,6 +5612,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final netPlan =
         _netsAgainstPosition ? plan : const HlPositionPlan.open();
     final exitPlan = netPlan.isExit;
+    // A whole-position close: its resting stops and takes go with it,
+    // said before Confirm as the close sheet says it.
+    final closeCancels =
+        _closeCancelsCount(marketPlan: netPlan, legSize: legSize);
     // A TWAP has its own, larger minimum (HlTwapRules, the venue's $100
     // total), named in its own words.
     final minAmountUsd = _isTwap
@@ -5840,11 +5950,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // An earlier order on this market (from a ticket closed meanwhile) is
     // still being looked up after an unclear answer: this one waits, so it
     // is never a duplicate of an order the venue took. Not this ticket's
-    // own lookup (its button is busy anyway).
+    // own lookup (its button is busy anyway), never another account's.
     final otherConfirming = !_isPlacing &&
         !_isLedger &&
-        hlMarketConfirming(
-            ref.watch(hlConfirmingMarketsProvider), market.wireCoin);
+        hlMarketConfirming(ref.watch(hlConfirmingMarketsProvider),
+            account:
+                ref.read(hyperliquidTradingProvider.notifier).accountAddress,
+            wireCoin: market.wireCoin);
     final gatesOpen = advancedBlock == null &&
         exposureBlock == null &&
         openBlock == null &&
@@ -6406,6 +6518,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               behavior: HitTestBehavior.opaque,
               onTap: primaryAction,
               child: CapabilityBlockNote(_strings.slipOtherOrderPlacingNote),
+            ),
+          if (closeCancels != null)
+            Padding(
+              padding: EdgeInsets.only(bottom: 8.h),
+              child: Text(
+                context.l10n.hlProtectCloseCancelsOrders(closeCancels),
+                key: const ValueKey('order-slip-leftovers-note'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: c.textSecondary, fontSize: 13.sp),
+              ),
             ),
           if (priceStaleBlocks)
             Padding(
