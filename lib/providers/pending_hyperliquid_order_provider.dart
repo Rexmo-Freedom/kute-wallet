@@ -79,6 +79,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
     show
         HlOrderResult,
+        hlScaleLegCloids,
         HyperliquidInsufficientMarginException,
         HyperliquidOrderNotPlacedException,
         HyperliquidOrderUnconfirmedException;
@@ -146,6 +147,7 @@ class PendingHlOrderPlacement {
     required this.placeAt,
     required this.resizable,
     this.cloid,
+    this.scaleLegs,
   });
 
   final SensitiveIntent Function(double marginUsd) intentAt;
@@ -157,7 +159,24 @@ class PendingHlOrderPlacement {
 
   /// The client order id the slip's fill listener matches on.
   final String? cloid;
+
+  /// A scale order's leg count: its legs carry the ids derived from the
+  /// cloid sent ([hlScaleLegCloids]), never that cloid itself, so a send
+  /// is looked up by them. Null for a single order.
+  final int? scaleLegs;
 }
+
+/// The client order ids every send of the order first sent as
+/// [firstCloid] carries on the venue: each send's own cloid
+/// ([HlResendCloids]), or, for a scale order of [scaleLegs] legs, the legs'
+/// ids derived from it.
+@visibleForTesting
+List<String> hlSentOrderCloids(String firstCloid, {int? scaleLegs}) => [
+      for (final sent in HlResendCloids.all(firstCloid))
+        ...(scaleLegs != null && scaleLegs >= 2
+            ? hlScaleLegCloids(sent, scaleLegs)
+            : [sent]),
+    ];
 
 class PendingHlOrderIntent {
   final String coin;
@@ -1421,9 +1440,12 @@ class PendingHlOrderAutoFire {
             // placed; unreadable is unconfirmed, never failed.
             final looked = e is HyperliquidOrderUnconfirmedException;
             final trace = looked
-                ? await _traceSent(firstCloid, market)
+                ? await _traceSent(firstCloid, market,
+                    scaleLegs: intent.placement?.scaleLegs)
                 : await hlReconcileSentOrder(ref.read(hlSentOrderTraceProvider),
-                    HlResendCloids.all(firstCloid), market);
+                    hlSentOrderCloids(firstCloid,
+                        scaleLegs: intent.placement?.scaleLegs),
+                    market);
             final found = trace.found;
             if (found != null) {
               result = found;
@@ -1438,7 +1460,8 @@ class PendingHlOrderAutoFire {
           if (next == null) rethrow;
           // Never twice: an earlier send that rested or filled after all
           // is followed instead; one that cannot be read is not resent.
-          final trace = await _traceSent(firstCloid, market);
+          final trace = await _traceSent(firstCloid, market,
+              scaleLegs: intent.placement?.scaleLegs);
           final found = trace.found;
           if (found != null) {
             result = found;
@@ -1554,9 +1577,10 @@ class PendingHlOrderAutoFire {
 
   /// Every earlier send of the order first sent as [firstCloid], looked up
   /// (three reads at most, a second apart, before giving up as unknown).
-  Future<HlSentOrderTrace> _traceSent(String firstCloid, HlMarket market) =>
+  Future<HlSentOrderTrace> _traceSent(String firstCloid, HlMarket market,
+          {int? scaleLegs}) =>
       hlTraceSentOrder(ref.read(hlSentOrderTraceProvider),
-          HlResendCloids.all(firstCloid), market,
+          hlSentOrderCloids(firstCloid, scaleLegs: scaleLegs), market,
           every: kAwaitFastInterval);
 
   /// After [e]: a market order the venue refused for margin right after

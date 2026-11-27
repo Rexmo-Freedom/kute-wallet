@@ -74,6 +74,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart';
+import 'package:kute/services/hyperliquid/hl_trigger_guard.dart';
 import 'package:kute/services/hyperliquid/hl_twap_rules.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
@@ -1348,6 +1349,27 @@ class HyperliquidTradingNotifier
     return px;
   }
 
+  /// Throws [HlTriggerCrossedException] when a protective trigger closing
+  /// on [closeIsBuy] at [trigger] is on the wrong side of the freshest
+  /// price ([_referencePx]): it would fire at once. No price, no check
+  /// (the sheet checked it against the price it showed).
+  void _ensureTriggerHolds(HlMarket market,
+      {required bool closeIsBuy,
+      required String tpsl,
+      required double trigger}) {
+    double mark;
+    try {
+      mark = _referencePx(market);
+    } catch (_) {
+      return;
+    }
+    if (hlTriggerCrossed(
+        closeIsBuy: closeIsBuy, tpsl: tpsl, trigger: trigger, mark: mark)) {
+      throw HlTriggerCrossedException(
+          closeIsBuy: closeIsBuy, tpsl: tpsl, mark: mark);
+    }
+  }
+
   /// A direct deposit may credit either HyperCore clearinghouse. Move only
   /// the cash needed by this reviewed action into perps, after its grant was
   /// consumed. This never touches an external chain or an Arbitrum address.
@@ -1961,13 +1983,15 @@ class HyperliquidTradingNotifier
     List<String>? cloids,
     required HlMarket market,
     required String action,
+    Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket m)?
+        lookup,
   }) =>
       hlSendReconciled(
         send: send,
         cloid: cloid,
         cloids: cloids,
         market: market,
-        lookup: ref.read(hlSentOrderTraceProvider),
+        lookup: lookup ?? ref.read(hlSentOrderTraceProvider),
         action: action,
         onConfirming: (on) {
           if (_disposed) return;
@@ -1975,6 +1999,11 @@ class HyperliquidTradingNotifier
           final now = {...confirming.state};
           on ? now.add(cloid) : now.remove(cloid);
           confirming.state = now;
+          // By market too: a fresh ticket on it waits for this lookup.
+          final markets = ref.read(hlConfirmingMarketsProvider.notifier);
+          final byMarket = {...markets.state};
+          on ? byMarket[cloid] = market.wireCoin : byMarket.remove(cloid);
+          markets.state = byMarket;
         },
       );
 
@@ -2327,6 +2356,10 @@ class HyperliquidTradingNotifier
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
     await RuntimeCapabilitiesService.instance
         .ensureAllAllowed(_orderCapabilities(market, reduceOnly));
+    // The side rule once more against the freshest price here, right
+    // before signing: crossed since the sheet checked it, nothing is sent.
+    _ensureTriggerHolds(market,
+        closeIsBuy: isLong, tpsl: tpsl, trigger: triggerPx);
     final current = state.valueOrNull ?? const HyperliquidTradingState();
     _setData(current.copyWith(isPlacingOrder: true));
     try {
@@ -2442,6 +2475,12 @@ class HyperliquidTradingNotifier
     final current = state.valueOrNull ?? const HyperliquidTradingState();
     hlCheckModifiable(order, current.openOrders);
     final tpsl = order.isTrigger ? order.tpsl : null;
+    // A protective trigger moved past the price fires at once: checked
+    // against the freshest price here, right before signing.
+    if (tpsl != null && (order.reduceOnly || order.isPositionTpsl)) {
+      _ensureTriggerHolds(market,
+          closeIsBuy: order.isBuy, tpsl: tpsl, trigger: newPx);
+    }
     _setData(current.copyWith(isPlacingOrder: true));
     try {
       await ensureOnboarded();
@@ -2489,10 +2528,18 @@ class HyperliquidTradingNotifier
       }
       final cloid = newHlCloid();
       // An unclear answer (a timeout, a dropped connection) is looked up
-      // by the modified order's new cloid before anything is said: found,
-      // the move went through; nowhere for the whole window, the order is
-      // as it was; unreadable, unconfirmed. Never "failed" for a move the
-      // venue may have made, which would invite a second one.
+      // before anything is said ([hlTraceModifyOf]): by the new cloid AND
+      // by the order's own oid, since the venue's docs say neither which
+      // cloid the modified order carries nor whether its oid changes.
+      // Moved (either way), the move went through; the old order resting
+      // at its old price for the whole window, it is as it was; anything
+      // else, unconfirmed. Never "failed" for a move the venue may have
+      // made, which would invite a second one.
+      final movedTo = double.parse(tpsl != null
+          ? roundPrice(newPx,
+              szDecimals: market.szDecimals, isSpot: market.isSpot)
+          : px);
+      final modifyLookup = ref.read(hlModifyTraceProvider);
       final HlOrderResult result;
       try {
         result = await _sendReconciled(
@@ -2509,6 +2556,7 @@ class HyperliquidTradingNotifier
           cloid: cloid,
           market: market,
           action: 'modify',
+          lookup: (_, m) => modifyLookup(order, cloid, movedTo, m),
         );
       } on HyperliquidOrderNotPlacedException {
         unawaited(_silentOrdersRefresh());
@@ -2609,7 +2657,11 @@ class HyperliquidTradingNotifier
       // with no answer is looked up on the account by all of them before
       // anything is said: the legs go out as one signed action, so one
       // found means the venue took it. Never sent twice.
-      final legCloids = hlScaleLegCloids(cloid ?? newHlCloid(), count);
+      // The base is the cloid the caller sent ([HlResendCloids.current] of
+      // the slip's): "Confirming…" is keyed on it, as the slip watches it,
+      // and every lookup reads the legs derived from it.
+      final baseCloid = cloid ?? newHlCloid();
+      final legCloids = hlScaleLegCloids(baseCloid, count);
       final result = await _sendReconciled(
         () => ex.placeScaleOrder(
           market: market,
@@ -2622,7 +2674,7 @@ class HyperliquidTradingNotifier
           legCloids: legCloids,
           builder: builder,
         ),
-        cloid: legCloids.first,
+        cloid: baseCloid,
         cloids: legCloids,
         market: market,
         action: sendReduceOnly ? 'close' : 'open',

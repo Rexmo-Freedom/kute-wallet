@@ -210,6 +210,26 @@ void main() {
       });
     });
 
+    test('a tile with a cloid settles on that cloid\'s fill only: never on '
+        'a same-coin fill with no cloid or another\'s', () {
+      fakeAsync((async) {
+        final c = _container();
+        final id = _placeHl(c);
+        final tiles = c.read(placingHyperliquidOrderProvider.notifier);
+        tiles.attachCloid(id, '0xc1');
+        // A stop that triggered, a TWAP slice: no cloid.
+        tiles.markSucceededByFill(coin: 'BTC', cloid: null);
+        // Another client's order on the same coin.
+        tiles.markSucceededByFill(coin: 'BTC', cloid: '0xother');
+        expect(c.read(placingHyperliquidOrderProvider).single.status,
+            PlacingHlOrderStatus.placing);
+        tiles.markSucceededByFill(coin: 'BTC', cloid: '0xC1');
+        expect(c.read(placingHyperliquidOrderProvider).single.status,
+            PlacingHlOrderStatus.succeeded);
+        async.elapse(const Duration(seconds: 5));
+      });
+    });
+
     test('confirming is bounded and ends quietly', () {
       fakeAsync((async) {
         final c = _container();

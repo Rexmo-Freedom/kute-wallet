@@ -311,15 +311,23 @@ class PlacingHyperliquidOrderNotifier extends Notifier<List<PlacingHlOrder>> {
   }
 
   /// Success path used by the WS user-events provider: a live fill for
-  /// [coin] arrived. Matches on cloid when both sides have one, else on
-  /// coin (+ side when derivable from the fill). No-op when nothing
-  /// matches — fills for positions opened outside a tracked placement
-  /// are normal.
+  /// [coin] arrived. A tile that knows its order's cloid settles on a fill
+  /// carrying that cloid only: never on a same-coin fill with no cloid or
+  /// another's (a stop that triggered, a TWAP slice, another client's
+  /// order). A tile without one yet keeps the coin match. No-op when
+  /// nothing matches — fills for positions opened outside a tracked
+  /// placement are normal.
   void markSucceededByFill({required String coin, String? cloid}) {
     for (final o in state) {
       if (o.status != PlacingHlOrderStatus.placing) continue;
-      if (o.coin != coin) continue;
-      if (cloid != null && o.cloid != null && o.cloid != cloid) continue;
+      final mine = o.cloid;
+      if (mine != null) {
+        if (cloid == null || cloid.toLowerCase() != mine.toLowerCase()) {
+          continue;
+        }
+      } else if (o.coin != coin) {
+        continue;
+      }
       markSucceeded(o.placementId);
     }
   }

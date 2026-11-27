@@ -22,6 +22,7 @@
 // for an order nobody has heard back about.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,6 +135,18 @@ Future<HlSentOrderTrace> hlReconcileSentOrder(
 /// the exchange…" while its own cloid is here.
 final hlConfirmingOrdersProvider =
     StateProvider<Set<String>>((ref) => const <String>{});
+
+/// The same lookups by market: each confirming cloid with the wire coin of
+/// its order. A fresh ticket on a market whose earlier order is still
+/// being looked up never sends (it could be a duplicate of an order the
+/// venue took); once the lookup ends, it can.
+final hlConfirmingMarketsProvider =
+    StateProvider<Map<String, String>>((ref) => const <String, String>{});
+
+/// Whether an order on [wireCoin] is being looked up right now
+/// ([hlConfirmingMarketsProvider]).
+bool hlMarketConfirming(Map<String, String> confirming, String wireCoin) =>
+    confirming.containsValue(wireCoin);
 
 /// Sends an order with [send] and, when the send gets no verdict
 /// ([hlOrderOutcomeUnknown]: a timeout, a broken connection, a gateway
@@ -257,6 +270,78 @@ final hlSentOrderTraceProvider = Provider<
     }
   },
 );
+
+/// Reads the account for a modify with no answer ([hlTraceModifyOf]): its
+/// open orders and fills. Overridden in tests.
+final hlModifyTraceProvider = Provider<
+    Future<HlSentOrderTrace> Function(
+        HlOpenOrder before, String newCloid, double newPx, HlMarket market)>(
+  (ref) => (before, newCloid, newPx, market) async {
+    try {
+      final address = await ref
+          .read(hyperliquidAddressProvider.future)
+          .timeout(const Duration(seconds: 8));
+      if (address == null || address.isEmpty) {
+        return const HlSentOrderTrace.unknown();
+      }
+      final model = HyperliquidModel();
+      final reads = await Future.wait<Object>([
+        model.getOpenOrders(address,
+            dexes: [if (market.dex.isNotEmpty) market.dex]),
+        model.getUserFills(address),
+      ]).timeout(const Duration(seconds: 10));
+      return hlTraceModifyOf(
+          before: before,
+          newCloid: newCloid,
+          newPx: newPx,
+          open: reads[0] as List<HlOpenOrder>,
+          fills: reads[1] as List<HlFill>);
+    } catch (_) {
+      return const HlSentOrderTrace.unknown();
+    }
+  },
+);
+
+/// What became of a modify ([HyperliquidTradingNotifier.modifyOrder]) whose
+/// answer never came: [before] is the order as it rested, sent to [newPx]
+/// (the wire trigger price for a trigger, else the wire limit price) under
+/// [newCloid]. The exchange docs do not say whether the modified order
+/// keeps its oid or which cloid it then carries, so both are read:
+///
+///   * the new cloid resting or filled, or the old oid resting at the new
+///     price: the move went through (found);
+///   * the old oid resting at its old price: the order is as it was
+///     (nowhere, so after the whole window "not moved");
+///   * neither (the old oid gone, nothing under the new cloid, or the old
+///     order filled): nobody can say (unknown), never "not moved", which
+///     would invite a second move.
+HlSentOrderTrace hlTraceModifyOf({
+  required HlOpenOrder before,
+  required String newCloid,
+  required double newPx,
+  required List<HlOpenOrder> open,
+  required List<HlFill> fills,
+}) {
+  final moved = hlTraceOf([newCloid], open: open, fills: fills);
+  if (moved.found != null) return moved;
+  bool samePx(double a, double b) =>
+      (a - b).abs() <= math.max(a.abs(), b.abs()) * 1e-9;
+  for (final o in open) {
+    if (o.oid != before.oid) continue;
+    final px = before.isTrigger ? (o.triggerPx ?? o.limitPx) : o.limitPx;
+    final was = before.isTrigger
+        ? (before.triggerPx ?? before.limitPx)
+        : before.limitPx;
+    if (samePx(px, newPx) && !samePx(was, newPx)) {
+      return HlSentOrderTrace.found(HlOrderResult(
+          kind: HlOrderResultKind.resting, oid: o.oid, cloid: o.cloid));
+    }
+    if (samePx(px, was)) return const HlSentOrderTrace.none();
+    // Resting at a third price: moved by someone else meanwhile.
+    return const HlSentOrderTrace.unknown();
+  }
+  return const HlSentOrderTrace.unknown();
+}
 
 /// [cloids]' order in the account's [open] orders and [fills]: filled
 /// (what filled, at its average price) before resting, else nowhere.

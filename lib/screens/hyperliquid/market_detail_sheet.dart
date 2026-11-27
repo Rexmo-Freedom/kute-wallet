@@ -37,6 +37,10 @@ import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
+import 'package:kute/helpers/hyperliquid_error_message.dart'
+    show hlTradeErrorMessage;
+import 'package:kute/services/hyperliquid/hl_trigger_guard.dart'
+    show HlTriggerCrossedException;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
     show HyperliquidOrderNotPlacedException, HyperliquidOrderUnconfirmedException;
 import 'package:kute/services/runtime_capabilities_service.dart'
@@ -2703,6 +2707,30 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         amountUsd: order.sz * newPx,
       );
       if (grant == null || !mounted) return;
+      // The price moved while the confirm sheet and the approval were up:
+      // the side rule once more against the price now, right before
+      // signing. Crossed, nothing is sent and the line goes back.
+      if (order.isTrigger && order.tpsl != null) {
+        final markNow =
+            ref.read(hyperliquidLiveMidProvider(market.coin)) ?? mark;
+        final again = hlProtectIssueText(
+            context.l10n,
+            hlProtectIssue(
+                closeIsBuy: order.isBuy,
+                tpsl: order.tpsl!,
+                trigger: newPx,
+                mark: markNow,
+                limitPx: order.isMarketTrigger
+                    ? null
+                    : order.limitPx +
+                        (newPx - (order.triggerPx ?? order.limitPx))));
+        if (again != null) {
+          grant.revoke();
+          HapticFeedback.heavyImpact();
+          showMessageSnackBar(context: context, message: again, error: true);
+          return;
+        }
+      }
       try {
         await ref.read(hyperliquidTradingProvider.notifier).modifyOrder(
             market: market, order: order, newPx: newPx, grant: grant);
@@ -2725,6 +2753,13 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         showMessageSnackBar(
             context: context,
             message: context.l10n.chartOrderMoveFailed,
+            error: true);
+      } on HlTriggerCrossedException catch (e) {
+        // Crossed by the freshest price the notifier had: nothing sent.
+        if (!mounted) return;
+        showMessageSnackBar(
+            context: context,
+            message: hlTradeErrorMessage(context.l10n, e),
             error: true);
       } on HyperliquidOrderUnconfirmedException {
         // Could not tell: the orders were read again; never invite a
