@@ -32,6 +32,8 @@ import 'dart:math' show pi;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:kute/helpers/polymarket_artwork.dart';
+import 'package:kute/platform/web_image_proxy.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -797,7 +799,7 @@ class MarketCard extends ConsumerWidget {
         children: [
           // Web: no picture (its host cannot be read by the page);
           // the name closes up.
-          if (kPolyThumbsShown) ...[
+          if (polyThumbShown(crest)) ...[
             _MarketThumbnail(
               title: name,
               imageUrl: crest,
@@ -929,7 +931,7 @@ class MarketCard extends ConsumerWidget {
       children: [
         // Web: no picture (its host cannot be read by the page);
         // the name closes up.
-        if (kPolyThumbsShown) ...[
+        if (polyThumbShown(image)) ...[
           _MarketThumbnail(
             title: this.title,
             imageUrl: image,
@@ -1390,6 +1392,15 @@ typedef PolyCardThumbnail = _MarketThumbnail;
 /// 26 November 2026: "dont show the icons when not loading the icons,
 /// just the name"). The phones are unchanged.
 bool get kPolyThumbsShown => !kIsWeb;
+
+/// Whether a list draws the picture at [url] (and keeps its place): always
+/// on the phones; on the web only a picture a backend image route covers
+/// and that was not found missing this session ([WebImageProxy.drawable]),
+/// drawn in the canvas. Founder, 27 November 2026: pictures through the
+/// backend.
+bool polyThumbShown(String? url) =>
+    kPolyThumbsShown ||
+    WebImageProxy.drawable(polymarketArtworkUrl(url));
 typedef PolyCardTeamName = _TeamName;
 
 TextStyle polyCardTitleStyle(AppColorsExtension c) => MarketCard._title(c);
@@ -1830,8 +1841,9 @@ class _MarketThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Web: no picture and no stand-in ([kPolyThumbsShown]).
-    if (!kPolyThumbsShown) return const SizedBox.shrink();
+    // Web: no picture and no stand-in, unless a backend route draws it
+    // ([polyThumbShown]).
+    if (!polyThumbShown(imageUrl)) return const SizedBox.shrink();
     final c = context.colors;
     final size = this.size ?? 56.w;
     final radius = this.radius ?? 14.r;

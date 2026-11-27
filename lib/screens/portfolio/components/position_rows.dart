@@ -93,8 +93,9 @@
 
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:kute/screens/polymarket/components/market_card.dart'
+    show polyThumbShown;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -2243,10 +2244,10 @@ Widget _hlDeskSpark(String? wire, double? live, double width, double height) {
 }
 
 /// A Predictions picture: the market's image in the row's circle.
-/// Web: none (the picture's host is not readable by the page, and an
-/// `<img>` per row cost a canvas each; the name closes up).
+/// Web: only a picture a backend image route draws ([polyThumbShown]);
+/// else none, and the name closes up.
 Widget? _polyImage(String title, String? imageUrl, {String category = ''}) =>
-    kIsWeb ? null : ClipOval(
+    !polyThumbShown(imageUrl) ? null : ClipOval(
       key: const ValueKey('portfolio-row-image-circle'),
       child: PolyCardThumbnail(
         title: title,

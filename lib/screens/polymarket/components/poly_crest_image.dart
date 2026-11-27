@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/polymarket_artwork.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/platform/web_image.dart';
+import 'package:kute/platform/web_image_proxy.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/services/icon_cache/icon_disk_cache.dart' show IconCaches, runBounded;
 
@@ -66,6 +67,24 @@ class PolyCrestImage extends StatelessWidget {
     // Web: the browser's <img> rounds its own corners (CSS), with no
     // Flutter clip around the view, which the engine would restyle on
     // every frame for every image on the page; the stand-in is clipped.
+    // Web, a picture a backend image route covers: read through it and
+    // drawn in the canvas at this size (web_image_proxy.dart); a missing
+    // one shows the stand-in.
+    if (normalized != null &&
+        kIsWeb &&
+        cacheManager == null &&
+        debugCacheManager == null &&
+        WebImageProxy.proxied(normalized) != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: WebProxiedPicture(
+          url: normalized,
+          size: size,
+          fit: fit,
+          error: fb,
+        ),
+      );
+    }
     if (normalized != null &&
         kIsWeb &&
         cacheManager == null &&

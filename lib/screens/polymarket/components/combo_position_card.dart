@@ -96,7 +96,7 @@ class ComboPositionCard extends StatelessWidget {
               children: [
                 // Web: no picture (its host cannot be read by the page);
                 // the name closes up.
-                if (kPolyThumbsShown) ...[
+                if (polyThumbShown(firstImage)) ...[
                   PolyCardThumbnail(
                     title: l10n.comboLegsLabel(p.legsTotal),
                     imageUrl: firstImage,

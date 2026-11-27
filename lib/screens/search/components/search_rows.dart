@@ -42,6 +42,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:kute/screens/polymarket/components/market_card.dart'
+    show polyThumbShown;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -329,7 +331,8 @@ class SearchListRow extends StatelessWidget {
 /// icons, just the name").
 Widget? searchEventLogo(BuildContext context, String? imageUrl,
     {double size = kSearchRowLogo}) {
-  if (kIsWeb) return null;
+  // Web: only a picture a backend image route draws.
+  if (kIsWeb && !polyThumbShown(imageUrl)) return null;
   if (imageUrl != null && imageUrl.isNotEmpty) {
     return PolyCrestImage(url: imageUrl, size: size, radius: size / 4);
   }

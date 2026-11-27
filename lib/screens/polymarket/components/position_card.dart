@@ -411,7 +411,7 @@ class PolyPositionCard extends ConsumerWidget {
         children: [
           // Web: no picture (its host cannot be read by the page);
           // the name closes up.
-          if (kPolyThumbsShown) ...[
+          if (polyThumbShown(PolymarketEvent.logoFromTeams(event.teams, name))) ...[
             PolyCardThumbnail(
               title: name,
               imageUrl: PolymarketEvent.logoFromTeams(event.teams, name),
@@ -483,7 +483,7 @@ class PolyPositionCard extends ConsumerWidget {
       children: [
         // Web: no picture (its host cannot be read by the page);
         // the name closes up.
-        if (kPolyThumbsShown) ...[
+        if (polyThumbShown(image)) ...[
           PolyCardThumbnail(
             title: question,
             imageUrl: image,
@@ -648,7 +648,7 @@ class PolyTitledCard extends StatelessWidget {
               children: [
                 // Web: no picture (its host cannot be read by the page);
                 // the name closes up.
-                if (kPolyThumbsShown) ...[
+                if (polyThumbShown(imageUrl)) ...[
                   PolyCardThumbnail(
                     title: title,
                     imageUrl: imageUrl,

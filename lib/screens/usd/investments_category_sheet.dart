@@ -211,7 +211,6 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
     show GestureBinding, PointerDeviceKind, PointerScrollEvent;
@@ -235,7 +234,7 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_watchlist_sheet.dart'
     show showHlWatchlistSheet;
 import 'package:kute/screens/polymarket/components/market_card.dart'
-    show polyGroupRowDivider;
+    show polyGroupRowDivider, polyThumbShown;
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show polyPillLabel, polySubLabel, polySubsFor;
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart'
@@ -676,15 +675,14 @@ mixin _CategoryData<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// The top markets' images for a Predictions tile, each on its
   /// category's soft tint (Investing's letter discs) while it loads, and
   /// the market's initials there if it fails: never a blank ring.
-  ///
-  /// Web: none (the pictures' host cannot be read by the page); the tile
-  /// shows its own glyph.
   List<Widget> _polyLogos(List<PolymarketEvent> events) {
-    if (kIsWeb) return const [];
     final fallback = Theme.of(context).colorScheme.onSurfaceVariant;
     return [
       for (final e in events)
-        if (e.imageUrl != null && e.imageUrl!.isNotEmpty)
+        if (e.imageUrl != null &&
+            e.imageUrl!.isNotEmpty &&
+            // Web: only a picture a backend image route draws.
+            polyThumbShown(e.imageUrl))
           DecoratedBox(
             decoration: BoxDecoration(
               color: polyCategoryTint(e.category, fallback)

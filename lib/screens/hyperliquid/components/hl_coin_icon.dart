@@ -60,6 +60,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/svg_class_styles.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/platform/web_image.dart';
+import 'package:kute/platform/web_image_proxy.dart';
 import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -235,7 +236,12 @@ List<String> hlCoinIconCandidates(
 bool hlLogoShown(
     String coin, String? wireCoin, String? iconUrl, String? category) {
   if (!kIsWeb) return true;
-  return HlWebLogos.hasAny(hlIconUrlsFor(coin, wireCoin, iconUrl, category));
+  final urls = hlIconUrlsFor(coin, wireCoin, iconUrl, category);
+  // A shipped logo, else one the backend's image route can still bring
+  // that was not found missing this session.
+  return HlWebLogos.hasAny(urls) ||
+      urls.any((u) =>
+          !_hlSvgFailed.contains(u) && WebImageProxy.proxied(u) != null);
 }
 
 /// [HlCoinIcon] for this market, or null on the web when it has no logo
@@ -511,7 +517,10 @@ Future<(_HlFetch, HlIconArt?)> _fetchHlSvgNow(String url) async {
     // Web: the copy shipped with the build, on the page's own origin, so
     // it is read and drawn in the canvas like a downloaded logo on the
     // phones (hl_web_logos.dart). None shipped: this session's miss.
-    final local = await HlWebLogos.localUrlFor(url);
+    // Not shipped: the backend's image route, which covers Hyperliquid's
+    // own coin logos (web_image_proxy.dart); any other host is a miss.
+    final local =
+        await HlWebLogos.localUrlFor(url) ?? WebImageProxy.proxied(url);
     if (local == null) return (_HlFetch.failed, null);
     from = local;
   }
@@ -1047,7 +1056,12 @@ class _HlCoinIconState extends State<HlCoinIcon> {
     }
     final urls = _urls;
     _loadFirstSvg(urls).then((art) {
-      if (!mounted || !identical(urls, _urls) || art == null) return;
+      if (!mounted || !identical(urls, _urls)) return;
+      // Web: a logo found missing gives its place back (hlLogoShown).
+      if (art == null) {
+        if (kIsWeb) setState(() {});
+        return;
+      }
       setState(() => _art = art);
     });
   }
