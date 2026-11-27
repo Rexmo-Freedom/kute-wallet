@@ -4655,6 +4655,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       AppColorsExtension c, double currentPrice, Color sideColor) {
     return AdvancedTypeTiles(
       key: const ValueKey('bet-slip-order-type'),
+      tileHeight: MediaQuery.sizeOf(context).height < 700 ? 68 : 76,
       options: [
         AdvancedTypeOption(
             label: context.l10n.betOrderTypeSpot,
@@ -4727,6 +4728,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           bestBid: book?.bestBid,
           bestAsk: ask,
           fillsFrom: ask,
+          title: context.l10n.betLimitPrice,
+          formatPrice: polymarketLimitCentsLabel,
           thumbLabel: ask == null
               ? null
               : fillsNow
@@ -4741,8 +4744,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           },
         ),
         SizedBox(height: 10.h),
+        // The card above names the pair: no second label here.
         AdvancedStepper(
-          label: context.l10n.betLimitPrice,
+          label: '',
           value: polymarketLimitCentsLabel(_limitPrice),
           valueKey: const ValueKey('bet-slip-limit-price'),
           onStep: bump,
@@ -5595,6 +5599,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // move's own cost is folded into the one fee row (the total, plus a
       // "Move fee" detail), never a row of its own.
       final moveFee = _moveFee(cash);
+      // The Advanced page's summary card: the same row, Retry inline.
+      final advancedFeeSummary = PolymarketFeeSummary(
+        tokenId: effectiveTokenId,
+        shares: _sharesFor(maxFeePrice),
+        price: maxFeePrice,
+        bitcoinFirst: false,
+        limit: _isLimitMode,
+        hasFunds: cash == null || cash > 0 || moveFee != null,
+        showNote: _showAdvanced,
+        moveFeeUsd: moveFee?.usd,
+        moveFeeLabel: context.l10n.slipMoveFee,
+        moveFeePending: moveFee != null && moveFee.usd == null,
+        moveLegs: moveFee?.legs ?? const [],
+        retryInline: true,
+      );
       final feeSummary = PolymarketFeeSummary(
         tokenId: effectiveTokenId,
         shares: _sharesFor(maxFeePrice),
@@ -5808,7 +5827,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                         ),
                       Expanded(
                         child: Text(polySlipTitle(_shownQuestion),
-                            maxLines: 3,
+                            // A small phone keeps the hero, the tiles and
+                            // the first input in view: two lines there.
+                            maxLines: MediaQuery.sizeOf(context).height < 700
+                                ? 2
+                                : 3,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                                 fontSize: 18.sp,
@@ -5842,6 +5865,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                         context.l10n.betReceiptPayout, formatDollars(payout),
                         key: const ValueKey('bet-slip-advanced-payout')),
                     headlineColor: _kPolyGreen,
+                    // The return multiple: the payout over the stake.
+                    headlineChip: _amount > 0 && payout > 0
+                        ? '${(payout / _amount).toStringAsFixed(1)}×'
+                        : null,
                     rows: [
                       AdvancedSummaryRow(context.l10n.amount,
                           formatDollars(_amount > 0 ? _amount : 0)),
@@ -5860,10 +5887,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       ],
                     ],
                     footer: [
-                      SizedBox(height: 8.h),
-                      feeSummary,
-                      SizedBox(height: 8.h),
-                      _buildFundingSource(tc),
+                      SizedBox(height: 4.h),
+                      advancedFeeSummary,
+                      AdvancedSummaryCard.rowOf(context, _fundingSourceRow()),
                     ],
                   ),
                   // This market's resting orders, where the next one is
@@ -7177,24 +7203,24 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       );
 
   /// Source account detail in the advanced order summary.
-  Widget _buildFundingSource(AppColorsExtension c) {
+  /// The account the bet spends from and what it holds, as a summary row.
+  AdvancedSummaryRow _fundingSourceRow() {
     if (widget.ledgerWalletId case final walletId?) {
       final buyingPower = ref.watch(ledgerPmBuyingPowerProvider(walletId));
       final spendable = buyingPower.isLoading || buyingPower.hasError
           ? null
           : buyingPower.valueOrNull?.spendable;
-      return PolySlipDetailRow(
-        label: context.l10n.predictions,
-        value: spendable == null
+      return AdvancedSummaryRow(
+        context.l10n.predictions,
+        spendable == null
             ? context.l10n.ledgerBalanceUnavailable
             : formatDollars(spendable.toDouble() / 1e6),
       );
     }
     final usdc = ref.watch(polymarketTradingProvider
         .select((s) => s.valueOrNull?.usdcBalance ?? 0));
-    return PolySlipDetailRow(
-        label: context.l10n.betSlipFromPredictions,
-        value: formatDollars(usdc));
+    return AdvancedSummaryRow(
+        context.l10n.betSlipFromPredictions, formatDollars(usdc));
   }
 
   // ── Placement progress ─────────────────────────────────────────────────

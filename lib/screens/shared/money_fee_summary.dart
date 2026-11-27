@@ -217,12 +217,17 @@ class MoneyFeeSummary extends ConsumerStatefulWidget {
     this.state,
     this.onRetry,
     this.details = const [],
+    this.retryInline = false,
   });
   final double? usd, sats;
   final bool? bitcoinFirst;
   final String label;
   final String? note, state;
   final VoidCallback? onRetry;
+
+  /// The row form's Retry at the end of the fee's own row (the Advanced
+  /// pages' summary card), not on a line of its own.
+  final bool retryInline;
   final List<Widget> details;
 
   @override
@@ -314,6 +319,32 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
         Expanded(
             flex: 5,
             child: Align(alignment: Alignment.centerRight, child: value)),
+        if (widget.retryInline && widget.onRetry != null) ...[
+          SizedBox(width: 6.w),
+          Semantics(
+            button: true,
+            label: context.l10n.retry,
+            excludeSemantics: true,
+            child: GestureDetector(
+              key: const ValueKey('money-fee-retry-inline'),
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onRetry,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 4.h),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.refresh_rounded,
+                      size: 16.sp, color: c.textPrimary),
+                  SizedBox(width: 3.w),
+                  Text(context.l10n.retry,
+                      style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary)),
+                ]),
+              ),
+            ),
+          ),
+        ],
         if (canExpand) ...[
           SizedBox(width: 6.w),
           Icon(Icons.chevron_right_rounded,
@@ -336,7 +367,7 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
           )
         else
           row,
-        if (widget.onRetry != null)
+        if (widget.onRetry != null && !widget.retryInline)
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(

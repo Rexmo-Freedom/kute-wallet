@@ -2626,6 +2626,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
   Widget _orderTypeToggle(AppColorsExtension c) {
     return AdvancedTypeTiles(
       key: const ValueKey('sell-advanced-order-type'),
+      tileHeight: MediaQuery.sizeOf(context).height < 700 ? 68 : 76,
       options: [
         AdvancedTypeOption(
             label: context.l10n.betOrderTypeSpot,
@@ -2685,6 +2686,8 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
           bestBid: bid,
           bestAsk: book?.bestAsk,
           fillsFrom: bid,
+          title: context.l10n.betSellAt,
+          formatPrice: polymarketLimitCentsLabel,
           thumbLabel: bid == null
               ? null
               : fillsNow
@@ -2696,8 +2699,9 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
           }),
         ),
         SizedBox(height: 10.h),
+        // The card above names the pair: no second label here.
         AdvancedStepper(
-          label: context.l10n.betSellAt,
+          label: '',
           value: polymarketLimitCentsLabel(_limitPrice),
           valueKey: const ValueKey('sell-advanced-limit-price'),
           onStep: bump,
@@ -2757,10 +2761,12 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
       final token? when token.isNotEmpty => ref
               .watch(polymarketFeeTermsProvider(token))
               .whenOrNull(
-                  data: (fees) => formatDollars(
-                      fees.sellProceeds(_sharesToSell, orderPrice))) ??
-          '—',
-      _ => '—',
+                  data: (fees) => _sharesToSell > 0
+                      ? formatDollars(
+                          fees.sellProceeds(_sharesToSell, orderPrice))
+                      : '') ??
+          '',
+      _ => '',
     };
 
     return PopScope(
@@ -2818,7 +2824,8 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                   child: Text(
                       polyShownQuestion(
                           context, pos.marketQuestion, pos.eventSlug),
-                      maxLines: 3,
+                      maxLines:
+                          MediaQuery.sizeOf(context).height < 700 ? 2 : 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           fontSize: 18.sp,
@@ -2911,6 +2918,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                   price: orderPrice,
                   bitcoinFirst: false,
                   limit: _isLimitMode,
+                  retryInline: true,
                 ),
               ],
             ),

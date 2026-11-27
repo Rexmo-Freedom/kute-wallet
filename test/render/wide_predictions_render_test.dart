@@ -1090,6 +1090,13 @@ void main() {
         await openAdvancedPage(tester);
         await typeAmount(tester, '25');
         await chooseLimit(tester);
+        // The page from its top, as it opens on Limit.
+        final scroll = tester.state<ScrollableState>(find.descendant(
+            of: find.byKey(const ValueKey('prediction-advanced-form-scroll')),
+            matching: find.byType(Scrollable)).first);
+        scroll.position.jumpTo(0);
+        await settle(tester);
+        await _shoot(tester, 'buy_limit_top_$tag', size, dir: _uiDir);
         // Resting: the seed (6¢) is under the 7¢ ask.
         await scrollTo(tester, const ValueKey('advanced-odds-track'));
         await _shoot(tester, 'buy_limit_resting_$tag', size, dir: _uiDir);
