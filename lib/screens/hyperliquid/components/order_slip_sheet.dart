@@ -7234,7 +7234,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     required bool hasFunds,
   }) {
     final l = context.l10n;
-    final levels = mid > 0 ? _priceMapLevels(mid) : const <AdvancedPriceLevel>[];
+    final levels = mid > 0
+        ? _priceMapLevels(mid, entry > 0 ? entry : mid)
+        : const <AdvancedPriceLevel>[];
     final protect = (!_isLedger && _isOpening) || _trailingAvailable;
     // Ledger supports the reviewed market flow and a separate native
     // trailing-stop ticket. Other hot-only order controls stay hidden.
@@ -7254,8 +7256,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           now: mid,
           entry: entry > 0 ? entry : mid,
           levels: levels,
-          // Room for every pill (a ladder of legs stands taller).
-          height: math.max(132.0, 36.0 + 24.0 * (levels.length + 1)),
           nowLabel: l.betNow,
           formatPrice: (p) => formatHlPrice(p, decimalCap: market.pxDecimalCap),
         ),
@@ -7360,7 +7360,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       tileHeight: MediaQuery.sizeOf(context).height < 700 ? 68 : 76,
       // What the chosen type does, in one sentence, right where it is
       // chosen rather than at the bottom of the page.
-      explanation: _orderExplanation(),
+      explanation: _orderExplanation(typeOnly: true),
     );
   }
 
@@ -7449,8 +7449,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     String suffix = '',
     String? trailing,
     VoidCallback? onTrailing,
+    bool framed = true,
   }) =>
       HlStepField(
+        framed: framed,
         key: ValueKey('hl-adv-stepper-${field.name}'),
         fieldKey: ValueKey('hl-adv-field-${field.name}'),
         controller: _controllerFor(field),
@@ -7546,8 +7548,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// The levels the price map draws for the ticket as it stands, each at
   /// the price the order would carry. Distance in % only: the page works
-  /// out no profit or loss at a level.
-  List<AdvancedPriceLevel> _priceMapLevels(double mid) {
+  /// out no profit or loss at a level. The limit and the scale legs are
+  /// measured from now; the take profit, the stop and the trailing stop
+  /// from [entry] (the limit price on a limit order, now on a market
+  /// order), as their presets set them and as their profit or loss is.
+  List<AdvancedPriceLevel> _priceMapLevels(double mid, double entry) {
     final l = _strings;
     final levels = <AdvancedPriceLevel>[];
     if (_mode == _OrderMode.limit) {
@@ -7585,11 +7590,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       final sl = _parsePx(_slController);
       if (tp != null) {
         levels.add(AdvancedPriceLevel(
-            price: tp, kind: AdvancedLevelKind.takeProfit, label: l.hlTakeProfit));
+            price: tp,
+            kind: AdvancedLevelKind.takeProfit,
+            label: l.hlTakeProfit,
+            from: entry));
       }
       if (sl != null) {
         levels.add(AdvancedPriceLevel(
-            price: sl, kind: AdvancedLevelKind.stopLoss, label: l.hlStopLoss));
+            price: sl,
+            kind: AdvancedLevelKind.stopLoss,
+            label: l.hlStopLoss,
+            from: entry));
       }
     }
     if (_trailingAvailable && _attachTrailing) {
@@ -7601,7 +7612,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           levels.add(AdvancedPriceLevel(
               price: px,
               kind: AdvancedLevelKind.trailing,
-              label: l.investingTrailingStop));
+              label: l.investingTrailingStop,
+              from: entry));
         }
       }
     }
@@ -7630,15 +7642,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _updateDraft(() => _attachTpSl = v);
       },
       children: [
+        // One border for the group: the two steppers unframed, a hairline
+        // between them.
         _stepField(c, _NumField.takeProfit, l.slipTakeProfitPrice,
             price: true,
+            framed: false,
             onStep: (dir) => _stepPrice(_NumField.takeProfit, dir, entry)),
         if (entry > 0)
           _priceChips(_NumField.takeProfit, entry,
               [for (final p in up) _isLong ? p : -p]),
-        SizedBox(height: 12.h),
+        SizedBox(height: 14.h),
+        Divider(height: 1, thickness: 0.5, color: c.borderSubtle),
+        SizedBox(height: 14.h),
         _stepField(c, _NumField.stopLoss, l.slipStopLossPrice,
             price: true,
+            framed: false,
             onStep: (dir) => _stepPrice(_NumField.stopLoss, dir, entry)),
         if (entry > 0)
           _priceChips(_NumField.stopLoss, entry,
@@ -7699,6 +7717,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _trailPercent ? l.slipDistancePercent : l.slipDistance,
           price: !_trailPercent,
           suffix: _trailPercent ? '%' : '',
+          framed: false,
           onStep: (dir) {
             if (_trailPercent) {
               final cur = _parse(_trailDistanceController) ?? 1;
@@ -7729,7 +7748,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               },
             ),
           ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 14.h),
+        Divider(height: 1, thickness: 0.5, color: c.borderSubtle),
+        SizedBox(height: 8.h),
         _switchRow(
           c,
           l.slipStartFollowingAtPrice,
@@ -7740,6 +7761,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           SizedBox(height: 8.h),
           _stepField(c, _NumField.trailActivation, l.slipActivationPrice,
               price: true,
+              framed: false,
               onStep: (dir) =>
                   _stepPrice(_NumField.trailActivation, dir, mid),
               trailing: mid > 0
@@ -8095,19 +8117,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Advanced: the amount is the page's hero, the same controller and
     // its formatter under it (AdvancedHeroAmount), what it is for over it
     // (the total margin of a scale or TWAP) and what is available under.
+    // No "Amount" over it (the figure says what it is); a scale or a TWAP
+    // keeps "Total margin", which says what the figure is split into.
+    final label = _amountLabel();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          _amountLabel(),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w600,
-              color: c.textSecondary),
-        ),
-        SizedBox(height: 4.h),
+        if (label != _strings.amount) ...[
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                color: c.textSecondary),
+          ),
+          SizedBox(height: 4.h),
+        ],
         AdvancedHeroAmount(
           key: const ValueKey('hl-advanced-amount'),
           controller: _amountController,
@@ -8146,8 +8173,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// saying, in plain words, WHAT this order leaves the person with: a
   /// holding they own outright, or a geared position with a margin mode
   /// and a daily cost to carry.
-  /// A plain sentence describing the order the ticket will place.
-  String _orderExplanation() {
+  /// A plain sentence describing the order the ticket will place. With
+  /// [typeOnly], only what the TYPE does (the sentence under the tiles,
+  /// two lines at most): no leverage (the Details card says it), no time
+  /// in force, reduce-only or protection (their own controls say them).
+  String _orderExplanation({bool typeOnly = false}) {
     final l = _strings;
     final coin = market.coin;
     final verb = isSpot
@@ -8163,7 +8193,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // On a market with a position the order trades at the position's own
     // leverage and margin mode (never rewritten): said as it is.
     final heldPos = _heldPositionNow().position;
-    final leverage = isSpot
+    final leverage = isSpot || typeOnly
         ? ''
         : heldPos != null
             ? l.slipLeverageSuffix(
@@ -8174,8 +8204,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 _isCross && !market.onlyIsolated
                     ? l.slipMarginCross
                     : l.slipMarginIsolated);
-    final reduce = _reduceOnly ? l.slipReduceSentence : '';
-    final tpsl = _attachTpSl && _isOpening ? l.slipTpSlSentence : '';
+    final reduce = _reduceOnly && !typeOnly ? l.slipReduceSentence : '';
+    final tpsl =
+        _attachTpSl && _isOpening && !typeOnly ? l.slipTpSlSentence : '';
     final action = l.slipAction(verb, coin, leverage);
     switch (_mode) {
       case _OrderMode.market:
@@ -8187,8 +8218,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           'Alo' => l.slipTifAlo,
           _ => l.slipTifGtc,
         };
-        return l.slipExplainLimit(
-            px(_priceController), action, '$tif$reduce$tpsl');
+        return l.slipExplainLimit(px(_priceController), action,
+            typeOnly ? '' : '$tif$reduce$tpsl');
       case _OrderMode.pro:
         switch (_proType) {
           case _ProType.scale:

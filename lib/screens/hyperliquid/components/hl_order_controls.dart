@@ -263,7 +263,13 @@ class HlStepField extends StatefulWidget {
     this.trailing,
     this.onTrailing,
     this.readOnly = false,
+    this.framed = true,
   });
+
+  /// False inside a group's card (a switch card's take profit and stop):
+  /// no card of its own, its label (and snap) over the − value + row
+  /// ([AdvancedStepper.framed]); one border per group.
+  final bool framed;
 
   final TextEditingController controller;
   final String label;
@@ -314,6 +320,19 @@ class _HlStepFieldState extends State<HlStepField> {
         } else {
           value = '${widget.prefix}$text${widget.suffix}';
         }
+        final stepper = AdvancedStepper(
+          label: widget.label,
+          value: value,
+          enabled: !widget.readOnly,
+          framed: widget.framed,
+          onStep: (dir) {
+            node.unfocus();
+            widget.onStep(dir);
+          },
+          onValueTap: node.requestFocus,
+          trailing: widget.trailing,
+          onTrailing: widget.onTrailing,
+        );
         return Stack(
           children: [
             // The real input, unseen: it holds the focus and the keyboard.
@@ -344,21 +363,50 @@ class _HlStepFieldState extends State<HlStepField> {
             Semantics(
               label: widget.label,
               value: text,
-              child: AdvancedStepper(
-                label: widget.label,
-                value: value,
-                enabled: !widget.readOnly,
-                onStep: (dir) {
-                  node.unfocus();
-                  widget.onStep(dir);
-                },
-                onValueTap: node.requestFocus,
-                trailing: widget.trailing,
-                onTrailing: widget.onTrailing,
-              ),
+              child: widget.framed
+                  ? stepper
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(widget.label,
+                                  style: TextStyle(
+                                      fontSize: 13.sp,
+                                      color: c.textSecondary,
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                            if (widget.trailing case final t?)
+                              GestureDetector(
+                                key: const ValueKey('hl-step-field-trailing'),
+                                behavior: HitTestBehavior.opaque,
+                                onTap:
+                                    widget.readOnly ? null : widget.onTrailing,
+                                child: Padding(
+                                  padding:
+                                      EdgeInsets.symmetric(vertical: 4.h),
+                                  child: Text(t,
+                                      style: TextStyle(
+                                          fontSize: 13.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: c.textPrimary,
+                                          decoration:
+                                              TextDecoration.underline,
+                                          decorationColor: c.textPrimary)),
+                                ),
+                              ),
+                          ],
+                        ),
+                        SizedBox(height: 6.h),
+                        stepper,
+                      ],
+                    ),
             ),
-            // Typing: a neutral rim (never the side's or the accent's colour).
-            Positioned.fill(
+            // Typing: a neutral rim (never the side's or the accent's
+            // colour), on the framed stepper's own card.
+            if (widget.framed) Positioned.fill(
               child: IgnorePointer(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
