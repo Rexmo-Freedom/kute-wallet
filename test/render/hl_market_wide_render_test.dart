@@ -49,6 +49,10 @@ import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dar
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlCandlestickChart;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/services/hive_boot.dart' show openStartupHiveBoxes;
+import 'package:kute/screens/hyperliquid/components/hl_market_stats.dart'
+    show HlStat;
+import 'package:kute/screens/hyperliquid/components/hl_watch_star.dart';
 import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart'
     show KuteScrubCard;
 import 'package:kute/screens/shared/charts/kute_chart_drawings.dart'
@@ -101,6 +105,24 @@ const _hype = HlMarket(
   midPx: 66000,
   prevDayPx: 65000,
   dayNtlVlm: 4.2e7,
+);
+
+/// A builder-dex stock perp (Intel), for the web desk's renders.
+const _intc = HlMarket(
+  coin: 'xyz:INTC',
+  wireCoin: 'xyz:INTC',
+  assetId: 110005,
+  kind: HlMarketKind.perp,
+  szDecimals: 3,
+  maxLeverage: 10,
+  onlyIsolated: true,
+  markPx: 57,
+  midPx: 57,
+  prevDayPx: 54,
+  dayNtlVlm: 3.1e7,
+  openInterest: 90000,
+  funding: 0.0000125,
+  category: 'stocks',
 );
 
 const _held = HlPerpPosition(
@@ -328,6 +350,103 @@ Future<void> _unmount(WidgetTester tester) async {
 }
 
 void main() {
+  // THE WEB'S DESK (founder, 27 November 2026): the header strip with the
+  // price, the figures and Advanced chart left of the star; no order book,
+  // no recent trades; the account's positions under the chart; the trade
+  // buttons and this market's position in the right column.
+  group('web desk', () {
+    // The account's positions (the Overview's own list) read the
+    // app's startup boxes.
+    setUpAll(openStartupHiveBoxes);
+    setUp(() => KuteBarPane.debugWeb = true);
+    tearDown(() => KuteBarPane.debugWeb = false);
+
+    testWidgets('a perp: header figures, no book, positions under the chart',
+        (tester) async {
+      await _pump(tester,
+          size: const Size(1440, 900), dark: false, market: _btc, held: true);
+      final l10n = AppLocalizations.of(
+          tester.element(find.byType(HlMarketDetailSheet)));
+      expect(find.byKey(const ValueKey('hl-desk-header-price')), findsOneWidget);
+      final stats = find.byKey(const ValueKey('hl-desk-header-stats'));
+      expect(stats, findsOneWidget);
+      expect(find.descendant(of: stats, matching: find.text(l10n.hl24hVolume)),
+          findsOneWidget);
+      expect(find.descendant(of: stats, matching: find.text(l10n.hlFunding)),
+          findsOneWidget);
+      // Nothing about leverage, no order-book figure.
+      expect(
+          find.descendant(of: stats, matching: find.text(l10n.chartMaxLeverage)),
+          findsNothing);
+      expect(find.descendant(of: stats, matching: find.text(l10n.hlSpread)),
+          findsNothing);
+      expect(find.byKey(const ValueKey('hl-desk-book')), findsNothing);
+      expect(find.byType(HlOrderBookSection), findsNothing);
+      expect(find.byType(HlRecentTradesSection), findsNothing);
+      // Advanced chart in the header, just left of the star.
+      final advanced = tester.getRect(find.byKey(const ValueKey('hl-advanced-chart')));
+      final star = tester.getRect(find.byType(HlWatchStar));
+      expect(advanced.right, lessThan(star.left));
+      expect(advanced.center.dy, moreOrLessEquals(star.center.dy, epsilon: 2));
+      expect(advanced.bottom,
+          lessThan(tester.getRect(find.byType(HlCandleChart)).top));
+      // The account's positions under the chart, this market's in the
+      // column.
+      expect(find.byKey(const ValueKey('hl-desk-positions')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-desk-position-BTC')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-desk-trades')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-about-info')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await _unmount(tester);
+    });
+
+    testWidgets('a spot token: no funding or open interest in the header',
+        (tester) async {
+      await _pump(tester,
+          size: const Size(1440, 900), dark: false, market: _hype);
+      final l10n = AppLocalizations.of(
+          tester.element(find.byType(HlMarketDetailSheet)));
+      final stats = find.byKey(const ValueKey('hl-desk-header-stats'));
+      expect(find.descendant(of: stats, matching: find.text(l10n.hlFunding)),
+          findsNothing);
+      expect(
+          find.descendant(of: stats, matching: find.text(l10n.hlOpenInterest)),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+      await _unmount(tester);
+    });
+
+    test('the header figures drop leverage and the spread', () async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      final kept = deskWebStats([
+        HlStat(l10n.hl24hVolume, '1'),
+        HlStat(l10n.chartMaxLeverage, '10×'),
+        HlStat(l10n.hlSpread, '0.01%'),
+        HlStat(l10n.hlMark, '2'),
+      ], l10n);
+      expect(kept.map((s) => s.label), [l10n.hl24hVolume, l10n.hlMark]);
+    });
+
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      for (final (label, market) in const [('perp', _btc), ('stock', _intc)]) {
+        for (final held in [false, true]) {
+          testWidgets('render: web desk $label ${held ? 'held' : 'none'} $mode',
+              skip: _dir == null, (tester) async {
+            await _pump(tester,
+                size: const Size(1440, 900),
+                dark: dark,
+                market: market,
+                held: held);
+            await _shoot(tester,
+                'webdesk_${label}_${held ? 'held' : 'none'}_$mode');
+            await _unmount(tester);
+          });
+        }
+      }
+    }
+  });
+
   setUpAll(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
     Hive.init(Directory.systemTemp.createTempSync('hl-wide').path);

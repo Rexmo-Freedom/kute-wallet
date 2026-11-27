@@ -1,5 +1,7 @@
 import 'package:kute/platform/web_image.dart' show WebImagesOn;
 import 'package:kute/platform/kute_wide_frames.dart';
+import 'package:kute/screens/usd/components/dollars_activity_tab.dart'
+    show DollarsActivityTab;
 import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -540,6 +542,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
         widget.ledgerWalletId == null &&
         widget.sendPick == null;
     final inPlace = desk && !_advancedChart;
+    // THE WEB'S DESK (founder, 27 November 2026: the venue's screen
+    // design, "not super technical, just screen design and positions"):
+    // the figures in the header strip with the price, Advanced chart left
+    // of the star, the chart, the account's positions under it, the
+    // description last, and the trade buttons and this market's position
+    // in the right column: no order book, no recent trades. The native
+    // desk (an iPad) is as it was.
+    final deskWeb = inPlace && KuteBarPane.webLayout;
     // THE DESK at rest: the live book in the right column, the Stats and
     // the recent trades under the chart (founder, 25 November 2026).
     final deskBook = inPlace && _deskBookShown(m);
@@ -582,7 +592,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                         ),
                       ),
                       SizedBox(width: 8.w),
-                      Expanded(
+                      Flexible(
+                        flex: deskWeb ? 0 : 1,
+                        fit: deskWeb ? FlexFit.loose : FlexFit.tight,
                         // The ticker alone: the kind (Own / Leveraged) is
                         // the Instrument row under Stats, so the header
                         // keeps its room for the title. Smaller rather
@@ -599,6 +611,17 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                           ),
                         ),
                       ),
+                      if (deskWeb) ...[
+                        const SizedBox(width: 20),
+                        _deskWebPrice(m, price, pricesLive),
+                        const SizedBox(width: 24),
+                        Expanded(child: _deskWebStats(m)),
+                        const SizedBox(width: 16),
+                        // Left of the star (founder, 27 November 2026:
+                        // "Advanced chart must be left of the star").
+                        _advancedPill(),
+                        const SizedBox(width: 12),
+                      ],
                       // The watchlist star. Send to a friend is the round
                       // Sal button at the end of the bar's trade row.
                       HlWatchStar(market: m, size: 22, source: 'detail'),
@@ -620,7 +643,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
               // Revolut: the live price over its change today. The chart
               // under it writes no price of its own (its scrub card names
               // a scrubbed bar).
-              if (!_advancedChart)
+              if (!_advancedChart && !deskWeb)
                 Container(
                   alignment: Alignment.centerLeft,
                   padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
@@ -800,7 +823,25 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
                         // stats and long-form details beside the order book
                         // and the recent trades, the Advanced chart card
                         // over them.
-                        if (inPlace)
+                        if (deskWeb) ...[
+                          // The account's open positions (all markets), the
+                          // Overview's own rows and empty state, then what
+                          // the market is.
+                          const DollarsActivityTab(
+                              key: ValueKey('hl-desk-positions'),
+                              inPane: true,
+                              pnl: false,
+                              startInvesting: false),
+                          SizedBox(height: 28.h),
+                          _HlAboutContent(
+                            market: widget.market,
+                            isStock: isStock,
+                            position: position,
+                            wide: true,
+                            showStats: false,
+                            infoOnly: true,
+                          ),
+                        ] else if (inPlace)
                           // The book in the right column: the Stats and
                           // the recent trades here. No book: the Stats are
                           // the column's squares.
@@ -872,7 +913,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
           column: column,
           editing: _advancedChart,
           rightColumn: inPlace
-              ? _deskColumn(m, position, spotHeld, bookShown: deskBook)
+              ? _deskColumn(m, position, spotHeld,
+                  bookShown: deskBook && !deskWeb, statsShown: !deskWeb)
               : null,
           panel: () => _ticketPane(m, position, spotHeld, bar),
         ),
@@ -1035,7 +1077,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
   /// is the pill on the price row and everything About opened is on the
   /// page, so no option cards here.
   Widget _deskColumn(HlMarket m, HlPerpPosition? position, double spotHeld,
-      {required bool bookShown}) {
+      {required bool bookShown, bool statsShown = true}) {
     final l10n = context.l10n;
     final c = context.colors;
     HlSpotBalance? holding;
@@ -1108,7 +1150,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
         }),
       );
     }
-    final stats = hlAboutStats(ref, l10n, m);
+    final stats =
+        statsShown ? hlAboutStats(ref, l10n, m) : const <HlStat>[];
     Widget tile(HlStat stat) => PositionStatTile(
           key: ValueKey('hl-desk-stat-${stat.label}'),
           label: stat.label,
@@ -1307,6 +1350,19 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
   /// was (the card stays under the chart).
   Widget _withAdvancedPill(bool inPlace, Widget price) {
     if (!inPlace) return price;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: price),
+        const SizedBox(width: 24),
+        _advancedPill(),
+      ],
+    );
+  }
+
+  /// The "Advanced chart" pill (see [_withAdvancedPill]); on the web's
+  /// desk it sits in the header, left of the star.
+  Widget _advancedPill() {
     final c = context.colors;
     final label = context.l10n.hlAdvancedChart;
     // Bigger (founder, 25 November 2026: "advanced chart button should be
@@ -1315,12 +1371,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
     // the page's surface rather than the dark filled pill: the ticket's
     // primary in the panel is the screen's one dark pill, and two would
     // argue over which is the action.
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(child: price),
-        const SizedBox(width: 24),
-        Semantics(
+    return Semantics(
           button: true,
           label: label,
           excludeSemantics: true,
@@ -1359,8 +1410,95 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
               ),
             ),
           ),
+        );
+  }
+
+  /// The web desk's header price: the live price over its day change, at
+  /// the header's size.
+  Widget _deskWebPrice(HlMarket m, double price, bool pricesLive) {
+    final c = context.colors;
+    final change = m.dayChangeAt(price);
+    return Column(
+      key: const ValueKey('hl-desk-header-price'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        HlTickPrice(
+          key: const ValueKey('hl-detail-price'),
+          price: price,
+          text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            height: 1.1,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formatHlPct(change),
+              key: const ValueKey('hl-detail-change'),
+              style: TextStyle(
+                color: change >= 0 ? AppColors.marketUp : AppColors.marketDown,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            if (!pricesLive) ...[
+              const SizedBox(width: 6),
+              HlMetaChip(text: context.l10n.chartPriceDelayed),
+            ],
+          ],
         ),
       ],
+    );
+  }
+
+  /// The web desk's header figures: the market's own Stats as the phone's
+  /// About lists them ([hlAboutStats]), less the leverage figure and the
+  /// order book's spread; label over value, side by side, scrolling
+  /// sideways on a narrow window rather than wrapping.
+  Widget _deskWebStats(HlMarket m) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final stats = deskWebStats(hlAboutStats(ref, l10n, m), l10n);
+    return SingleChildScrollView(
+      key: const ValueKey('hl-desk-header-stats'),
+      scrollDirection: Axis.horizontal,
+      primary: false,
+      child: Row(
+        children: [
+          for (final (i, stat) in stats.indexed) ...[
+            if (i > 0) const SizedBox(width: 24),
+            Column(
+              key: ValueKey('hl-desk-header-stat-${stat.label}'),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(stat.label,
+                    maxLines: 1,
+                    style: TextStyle(
+                        color: c.textTertiary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(stat.value,
+                    maxLines: 1,
+                    style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()])),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -1490,6 +1628,11 @@ class _HlAboutContent extends ConsumerWidget {
   /// is, the Stats as squares beside the recent trades, no book here.
   final bool bookInColumn;
 
+  /// The web desk: what the market is (the description, the venue line,
+  /// the funding line, the stock notice) and nothing else; the position
+  /// is the right column's, the figures the header's.
+  final bool infoOnly;
+
   const _HlAboutContent({
     required this.market,
     required this.isStock,
@@ -1497,6 +1640,7 @@ class _HlAboutContent extends ConsumerWidget {
     this.wide = false,
     this.showStats = true,
     this.bookInColumn = false,
+    this.infoOnly = false,
   });
 
   @override
@@ -1558,7 +1702,7 @@ class _HlAboutContent extends ConsumerWidget {
                             tiles: wide),
                       ],
                       SizedBox(height: 12.h),
-                      if (position != null)
+                      if (position != null && !infoOnly)
                         // Wide: the rows at a readable width, never
                         // stretched across the pane.
                         Align(
@@ -1638,6 +1782,13 @@ class _HlAboutContent extends ConsumerWidget {
                         ),
                       ],
     ];
+    if (infoOnly) {
+      return Column(
+        key: const ValueKey('hl-about-info'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: info,
+      );
+    }
     final book = <Widget>[
       HlOrderBookSection(market: m),
       SizedBox(height: 16.h),
@@ -4658,3 +4809,12 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
         ),
       );
 }
+
+
+/// The web desk header's figures: [stats] less the maximum leverage (this
+/// app offers no leverage talk) and the spread (an order-book figure).
+@visibleForTesting
+List<HlStat> deskWebStats(List<HlStat> stats, AppLocalizations l10n) => [
+      for (final s in stats)
+        if (s.label != l10n.chartMaxLeverage && s.label != l10n.hlSpread) s,
+    ];

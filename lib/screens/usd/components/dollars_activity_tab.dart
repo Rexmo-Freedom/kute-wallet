@@ -491,7 +491,12 @@ class DollarsActivityTab extends ConsumerStatefulWidget {
       this.inPane = false,
       this.wide = false,
       this.onHeld,
-      this.pnl = true});
+      this.pnl = true,
+      this.startInvesting = true});
+
+  /// The empty state's "Start investing" (the Dollars page's Overview).
+  /// A market page that lists the positions under its chart leaves it out.
+  final bool startInvesting;
 
   final bool inPane;
   final bool wide;
@@ -810,6 +815,7 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                 // Founder, 26 November 2026: the page opens on Overview,
                 // and with nothing open it leads to Investing (as a tap
                 // on its pill, or its sidebar item on a laptop).
+                if (widget.startInvesting) ...[
                 SizedBox(height: 16.h),
                 Center(
                   child: AppButton(
@@ -824,6 +830,7 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
                     },
                   ),
                 ),
+                ],
               ],
             ),
           );
