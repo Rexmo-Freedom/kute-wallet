@@ -126,6 +126,10 @@ class _WebEdgeColorsState extends State<WebEdgeColors> {
   }
 
   void _tick() {
+    // The page's own background, whatever else wrote to it since (iOS 26
+    // reads it for its bars: web_edge_colors_web.dart). Every pass, drawn
+    // frame or not: the splash's removal resets it without a frame.
+    impl.keepPageBackground();
     if (!_dirty || !mounted) return;
     if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) return;
     _dirty = false;

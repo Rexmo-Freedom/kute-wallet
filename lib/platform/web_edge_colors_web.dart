@@ -60,11 +60,45 @@ void setEdgeColors({required String top, required String bottom}) {
     if (bottom != _bottom) {
       _bottom = bottom;
       strip('kute-edge-bottom', 'bottom', bottom);
-      // The page's own background as well, for a browser that reads it.
-      for (final el in [document['documentElement'] as JSObject?, body]) {
-        (el?['style'] as JSObject?)?.callMethod<JSAny?>(
-            'setProperty'.toJS, 'background-color'.toJS, bottom.toJS);
-      }
+    }
+    keepPageBackground();
+  } catch (_) {}
+}
+
+/// THE PAGE'S OWN BACKGROUND IS THE BAND COLOUR ON iOS 26. Safari there
+/// paints its bars from the body's background colour, and a transparent
+/// body gives BLACK bars in dark mode (white in light, so it only showed
+/// in dark; founder's iPhone, 27 November 2026: black bars above and under
+/// a dark PIN screen). The body does go transparent once the app runs:
+/// the splash's removal (web/splash.js) and the engine's own body style
+/// both write it, after this file last set the colour.
+///
+/// So the html and body background is the app's bottom edge colour, set
+/// as `!important` (a later plain `background: transparent` cannot undo
+/// it) and looked at again on every pass, not only when the colour
+/// changes. Nothing is written when it already holds.
+void keepPageBackground() {
+  final color = _bottom;
+  if (color == null) return;
+  try {
+    final document = globalContext['document'] as JSObject;
+    for (final el in [
+      document['documentElement'] as JSObject?,
+      document['body'] as JSObject?,
+    ]) {
+      final style = el?['style'] as JSObject?;
+      if (style == null) continue;
+      final now = style
+          .callMethod<JSString?>(
+              'getPropertyValue'.toJS, 'background-color'.toJS)
+          ?.toDart;
+      final priority = style
+          .callMethod<JSString?>(
+              'getPropertyPriority'.toJS, 'background-color'.toJS)
+          ?.toDart;
+      if (now == color && priority == 'important') continue;
+      style.callMethod<JSAny?>('setProperty'.toJS, 'background-color'.toJS,
+          color.toJS, 'important'.toJS);
     }
   } catch (_) {}
 }
