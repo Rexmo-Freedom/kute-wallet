@@ -9,6 +9,14 @@ class AppLocalizationsDa extends AppLocalizations {
   AppLocalizationsDa([String locale = 'da']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Denne position bruger gearing, så her kan du kun reducere eller lukke den.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Vi kunne ikke tjekke din position på dette marked. Prøv igen om lidt.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Sæt stop loss under den aktuelle pris, ellers lukker den positionen med det samme.';
 

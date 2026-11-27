@@ -9,6 +9,14 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'This position uses leverage, so here you can only reduce or close it.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Couldn\'t check your position on this market. Try again in a moment.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Set the stop loss below the current price, or it closes the position at once.';
 

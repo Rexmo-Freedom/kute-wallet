@@ -9,6 +9,14 @@ class AppLocalizationsEt extends AppLocalizations {
   AppLocalizationsEt([String locale = 'et']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'See positsioon kasutab finantsvõimendust, seega saad seda siin ainult vähendada või sulgeda.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Sinu positsiooni sellel turul ei õnnestunud kontrollida. Proovi hetke pärast uuesti.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Seadke stop loss praegusest hinnast allapoole, muidu sulgeb see positsiooni kohe.';
 

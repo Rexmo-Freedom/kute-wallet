@@ -23,6 +23,10 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart'
+    show hlHeldPositionProvider;
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
+import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/one_balance/committed_funds.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
@@ -36,6 +40,7 @@ import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/tracking_service.dart';
 
 import '../helpers/fake_hyperliquid_move_rail.dart';
+import '../helpers/hl_flat_positions.dart';
 
 const _market = HlMarket(
   coin: 'BTC',
@@ -269,8 +274,12 @@ void main() {
     rail.creditedController.close();
   });
 
-  ProviderContainer container(_Controller controller) {
+  ProviderContainer container(_Controller controller,
+      {HlHeldPosition Function()? held}) {
     final c = ProviderContainer(overrides: [
+      held == null
+          ? hlFlatPositionsOverride
+          : hlHeldPositionProvider.overrideWithValue((_) => held()),
       settingsProvider.overrideWith((_) => SettingsModel(_settings())),
       sessionUnlockedProvider.overrideWith((_) => true),
       hyperliquidAccountProvider
@@ -911,6 +920,7 @@ void main() {
       final controller = _Controller(() async => _funded);
       final calls = <String>[];
       final c = ProviderContainer(overrides: [
+        hlFlatPositionsOverride,
         settingsProvider.overrideWith((_) => SettingsModel(_settings())),
         sessionUnlockedProvider.overrideWith((_) => true),
         hyperliquidAccountProvider
@@ -1049,6 +1059,7 @@ void main() {
     ProviderContainer live(_Controller controller) {
       venue = _Venue(() => withdrawable);
       final c = ProviderContainer(overrides: [
+        hlFlatPositionsOverride,
         settingsProvider.overrideWith((_) => SettingsModel(_settings())),
         sessionUnlockedProvider.overrideWith((_) => true),
         hyperliquidAddressProvider.overrideWith(
@@ -1220,6 +1231,7 @@ void main() {
     ProviderContainer live(_Controller controller) {
       venue = _Venue(() => withdrawable);
       final c = ProviderContainer(overrides: [
+        hlFlatPositionsOverride,
         settingsProvider.overrideWith((_) => SettingsModel(_settings())),
         sessionUnlockedProvider.overrideWith((_) => true),
         hyperliquidAddressProvider.overrideWith(
@@ -1330,6 +1342,7 @@ void main() {
         final controller = _Controller(() async => _funded);
         final dexVenue = _DexVenue()..dex = 21;
         final c = ProviderContainer(overrides: [
+          hlFlatPositionsOverride,
           settingsProvider.overrideWith((_) => SettingsModel(_settings())),
           sessionUnlockedProvider.overrideWith((_) => true),
           hyperliquidAddressProvider.overrideWith(
@@ -1373,6 +1386,143 @@ void main() {
         async.flushMicrotasks();
         expect(placement.placed, [20]);
         expect(terminal().status, PendingHlOrderStatus.done);
+      });
+    });
+  });
+
+
+  // LEVERAGE IS BLOCKED: a queued order is funded new exposure, so on a
+  // market held above 1x or in cross (opened elsewhere), or whose position
+  // cannot be read, nothing moves and nothing is placed
+  // (hl_exposure_rule.dart).
+  group('the exposure rule', () {
+    HlPerpPosition tenX({bool cross = false}) => HlPerpPosition(
+          coin: 'BTC',
+          szi: -500 / 60000,
+          entryPx: 60000,
+          positionValue: 500,
+          unrealizedPnl: 0,
+          returnOnEquity: 0,
+          liquidationPx: null,
+          marginUsed: 50,
+          leverageType: cross ? 'cross' : 'isolated',
+          leverageValue: 10,
+          maxLeverage: 40,
+        );
+
+    for (final held in [
+      HlHeldPosition.of(tenX()),
+      HlHeldPosition.of(tenX(cross: true)),
+      const HlHeldPosition.unknown(),
+    ]) {
+      final name = !held.known
+          ? 'a position that cannot be read'
+          : 'a 10x ${held.position!.isCross ? 'cross' : 'isolated'} short';
+      test('$name: the funded order is refused before any money moves', () {
+        fakeAsync((async) {
+          final controller = _Controller(() async => _funded);
+          final c = container(controller, held: () => held);
+          final placement = _Placement(resizable: true);
+          final intent = _intent(placement);
+          final grant = approve(intent);
+          Object? error;
+          c
+              .read(pendingHyperliquidOrderProvider.notifier)
+              .fundAndQueue(intent,
+                  grant: grant,
+                  controller: controller,
+                  orderUsd: 20,
+                  requiredUsd: intent.requiredUsd,
+                  readyUsd: 0)
+              .catchError((Object e) {
+            error = e;
+            return const OrderFundingRefused('x');
+          });
+          async.flushMicrotasks();
+          expect(error, isA<HlExposureRefusedException>());
+          expect(controller.asks, isEmpty, reason: 'no Dollars moved');
+          expect(c.read(pendingHyperliquidOrderProvider), isNull);
+          withdrawable = 50;
+          async.elapse(const Duration(seconds: 3));
+          async.flushMicrotasks();
+          expect(placement.placed, isEmpty);
+        });
+      });
+    }
+
+    test(
+        'a 10x position opened elsewhere while the money was on its way: the '
+        'auto-fire places nothing and says why', () {
+      fakeAsync((async) {
+        var held = const HlHeldPosition.flat();
+        final controller = _Controller(() async => _funded);
+        final c = container(controller, held: () => held);
+        final placement = _Placement(resizable: true);
+        final intent = _intent(placement);
+        final grant = approve(intent);
+        c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+            grant: grant,
+            controller: controller,
+            orderUsd: 20,
+            requiredUsd: intent.requiredUsd,
+            readyUsd: 0);
+        async.flushMicrotasks();
+        expect(controller.asks, hasLength(1));
+        // A long at 10x isolated: the queued long is an add.
+        held = HlHeldPosition.of(HlPerpPosition(
+          coin: 'BTC',
+          szi: 0.01,
+          entryPx: 60000,
+          positionValue: 600,
+          unrealizedPnl: 0,
+          returnOnEquity: 0,
+          liquidationPx: 55000,
+          marginUsed: 60,
+          leverageType: 'isolated',
+          leverageValue: 10,
+          maxLeverage: 40,
+        ));
+        withdrawable = 20.5;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(placement.placed, isEmpty);
+        final failed = terminal();
+        expect(failed.status, PendingHlOrderStatus.failed);
+        expect(failed.errorMessage,
+            l10nForLanguage('en').hlExpoLeveragedPosition);
+      });
+    });
+
+    test(
+        'a queued plain market order (a resumed standing order\'s shape: no '
+        'slip placement) is refused at the auto-fire before the order '
+        'notifier is asked', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = container(controller,
+            held: () => HlHeldPosition.of(tenX(cross: true)));
+        final intent = PendingHlOrderIntent(
+          coin: 'BTC',
+          kind: HlMarketKind.perp,
+          isLong: false,
+          marginUsd: 20,
+          leverage: 1,
+          slippagePct: 1,
+          expectedPx: 60000,
+          marketLabel: 'BTC · Perp',
+          market: _market,
+          status: PendingHlOrderStatus.awaitingBalance,
+          fundedAt: DateTime.now(),
+        );
+        approve(intent);
+        c.read(pendingHyperliquidOrderProvider.notifier).setIntent(intent);
+        withdrawable = 50;
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        final failed = terminal();
+        expect(failed.status, PendingHlOrderStatus.failed);
+        expect(failed.errorMessage,
+            l10nForLanguage('en').hlExpoLeveragedPosition);
       });
     });
   });

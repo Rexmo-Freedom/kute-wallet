@@ -936,7 +936,8 @@ class HyperliquidModel {
         activeDexes: {
           for (final e in dexes.entries)
             if (e.value.hasActivity) e.key,
-        });
+        },
+        positionDexes: {'', ...dexes.keys});
   }
 
   /// Resting orders via `frontendOpenOrders` (carries orderType/trigger
@@ -1201,6 +1202,6 @@ class HyperliquidModel {
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('unexpected clearinghouseState shape');
     }
-    return HlAccountSnapshot.fromJson(perpState: decoded);
+    return HlAccountSnapshot.fromJson(perpState: decoded, dex: dex);
   }
 }

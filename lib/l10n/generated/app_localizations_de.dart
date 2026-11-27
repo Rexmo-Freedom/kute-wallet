@@ -9,6 +9,14 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Diese Position nutzt einen Hebel, daher kannst du sie hier nur verkleinern oder schließen.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Deine Position in diesem Markt konnte nicht geprüft werden. Versuche es gleich noch einmal.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Setze den Stop-Loss unter den aktuellen Preis, sonst schließt er die Position sofort.';
 

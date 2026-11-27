@@ -140,6 +140,18 @@ abstract class AppLocalizations {
     Locale('sv')
   ];
 
+  /// No description provided for @hlExpoLeveragedPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'This position uses leverage, so here you can only reduce or close it.'**
+  String get hlExpoLeveragedPosition;
+
+  /// No description provided for @hlExpoPositionUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check your position on this market. Try again in a moment.'**
+  String get hlExpoPositionUnknown;
+
   /// No description provided for @hlProtectStopBelowPrice.
   ///
   /// In en, this message translates to:

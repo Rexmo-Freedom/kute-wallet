@@ -9,6 +9,14 @@ class AppLocalizationsHu extends AppLocalizations {
   AppLocalizationsHu([String locale = 'hu']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ez a pozíció tőkeáttételt használ, ezért itt csak csökkentheted vagy lezárhatod.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nem sikerült ellenőrizni a pozíciódat ezen a piacon. Próbáld újra egy pillanat múlva.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'A stop losst az aktuális ár alá állítsa, különben azonnal lezárja a pozíciót.';
 

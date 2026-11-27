@@ -133,6 +133,7 @@ import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart';
 import 'package:kute/screens/hyperliquid/components/hl_order_funding_rules.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart'
     show
+        ledgerHlHeldPosition,
         runLedgerHlClose,
         runLedgerHlMarketOrder,
         runLedgerHlTrailingStop,
@@ -155,6 +156,7 @@ import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart'
     show hlConfirmingOrdersProvider;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/hyperliquid/hl_exposure_rule.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/services/hyperliquid/hl_twap_rules.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
@@ -1474,6 +1476,54 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     return _positionPlanFor(size);
   }
 
+  /// The position on this market as the account this ticket trades
+  /// positively knows it (hl_exposure_rule.dart): the Ledger's own reads,
+  /// or the spending wallet's account read. Unknown while it loads.
+  HlHeldPosition _heldPositionNow() {
+    if (isSpot) return const HlHeldPosition.flat();
+    if (_isLedger) {
+      return ledgerHlHeldPosition(
+          ref.watch(ledgerHlAccountProvider(widget.ledgerWalletId!)).valueOrNull,
+          market);
+    }
+    return HlHeldPosition.fromSnapshot(
+        market, ref.watch(hyperliquidAccountProvider).valueOrNull);
+  }
+
+  /// What the exposure rule says of the ticket's order of [size] coins
+  /// against [held]: null when it may go as the ticket sends it. At market
+  /// a reduce or a close goes out reduce-only ([_confirmExit]); the other
+  /// types only with Reduce only on. LEVERAGE IS BLOCKED: on a market held
+  /// above 1x or in cross, nothing that adds to or flips the position.
+  HlExposureRefusal? _exposureRefusal(HlHeldPosition held, double size) {
+    if (isSpot) return null;
+    final atMarket = _mode == _OrderMode.market;
+    final check = hlExposureCheck(
+      market: market,
+      held: held,
+      isBuy: _isLong,
+      size: size,
+      reduceOnly: !atMarket && _reduceOnly,
+    );
+    final plan = hlPositionPlan(
+      position: held.position,
+      orderIsLong: _isLong,
+      orderSize: size,
+      szDecimals: market.szDecimals,
+    );
+    return check.refusalFor(
+        sentReduceOnly: atMarket ? plan.isExit : _reduceOnly);
+  }
+
+  /// [_exposureRefusal] at the tap, before any approval or money: the
+  /// position read fresh when the account has not been read yet (one read
+  /// of this market's dex; a loaded account reads nothing).
+  Future<HlExposureRefusal?> _exposureRefusalAtTap() async {
+    if (isSpot || _isLedger) return null;
+    final held = await ref.read(hlHeldPositionProvider)(market);
+    return _exposureRefusal(held, _currentPlan().orderSize);
+  }
+
   /// The last plan the ticket showed, for the order-submitted event.
   String? _positionEffectName;
 
@@ -1905,7 +1955,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         break;
       }
     }
-    if (existing != null && existing.isLong != _isLong) {
+    // Against the other side, or added to a position held above 1x or in
+    // cross (refused by the exposure rule; its liquidation is the venue's
+    // own, from that position's margin, never this ticket's 1x isolated
+    // figure): no estimate here.
+    if (existing != null &&
+        (existing.isLong != _isLong || hlPositionIsLeveraged(existing))) {
       return (price: null, blocker: _strings.slipDependsOnPosition);
     }
     // Adding to a position in the same direction: estimate the combined
@@ -2053,6 +2108,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     if (!mounted) return;
+
+    // The exposure rule before anything is approved, signed or moved (an
+    // add to, or a flip of, a position held above 1x or in cross; or a
+    // position that cannot be read).
+    final exposure = await _exposureRefusalAtTap();
+    if (!mounted) return;
+    if (exposure != null) {
+      _trackBlocked(exposure == HlExposureRefusal.positionUnknown
+          ? 'position_unknown'
+          : 'leveraged_position');
+      _updateDraft(() => _errorText = hlExposureRefusalText(_strings, exposure));
+      return;
+    }
 
     // The venue's cash read fresh, not the last poll: a close a moment
     // ago, a sweep or a credit since changes what the order needs moved.
@@ -5381,6 +5449,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final advancedBlock = _usesAdvanced
         ? ref.watch(runtimeCapabilitiesProvider).blockReason('trading.advanced')
         : null;
+    // The exposure rule (hl_exposure_rule.dart), Advanced on or off: on a
+    // market held above 1x or in cross only a reduction or a close goes.
+    // Said above the disabled button, before Face ID. A position still
+    // loading is not a refusal here: the tap reads it before anything.
+    final heldNow = _heldPositionNow();
+    final exposureRefusal =
+        heldNow.known ? _exposureRefusal(heldNow, legSize) : null;
+    final exposureBlock = exposureRefusal == null
+        ? null
+        : hlExposureRefusalText(_strings, exposureRefusal);
     // A new position the policy (or the venue) refuses here: the confirm
     // stays on screen, disabled, with the reason above it. Exits never,
     // but a slip in send mode places nothing: its refusal stands whatever
@@ -5545,6 +5623,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _warmBitcoinLeg();
     }
     final gatesOpen = advancedBlock == null &&
+        exposureBlock == null &&
         openBlock == null &&
         !_unconfirmedLock &&
         (!insufficient || canFundFromDollars) &&
@@ -6076,6 +6155,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               !primaryNeutral &&
               advancedBlock != openBlock)
             CapabilityBlockNote(advancedBlock),
+          if (exposureBlock != null && openBlock == null)
+            CapabilityBlockNote(exposureBlock),
           // A shut open already explains the disabled deposit door.
           if (depositBlock != null && openBlock == null && !incoming)
             CapabilityBlockNote(depositBlock),

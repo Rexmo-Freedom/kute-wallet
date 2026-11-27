@@ -1,3 +1,4 @@
+import 'package:kute/constants/hyperliquid_constants.dart' show hlAppLeverage;
 import 'package:kute/screens/shared/kute_form_panel_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
@@ -189,14 +190,11 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
       }
       if (widget.ledger && result != null) {
         // The hot path reports from the trading notifier; a Ledger order
-        // never touches it, so its placement is reported here.
-        // offeredMaxLeverage is at least 1, so the bounds never cross on
-        // a market that reports no leverage.
+        // never touches it, so its placement is reported here, at the
+        // app's own leverage (1x: leverage is blocked in this app).
         final lev = widget.market.isSpot
             ? 1
-            : widget.leverage
-                .clamp(1, widget.market.offeredMaxLeverage)
-                .toInt();
+            : hlAppLeverage(widget.leverage, widget.market.maxLeverage);
         final notional = widget.size * price;
         TrackingService.hyperliquidOrderPlaced(
           coin: widget.market.coin,

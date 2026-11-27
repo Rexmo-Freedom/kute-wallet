@@ -1,5 +1,7 @@
 {
   "@@locale": "lv",
+  "hlExpoLeveragedPosition": "Šī pozīcija izmanto finanšu sviru, tāpēc šeit to var tikai samazināt vai slēgt.",
+  "hlExpoPositionUnknown": "Neizdevās pārbaudīt jūsu pozīciju šajā tirgū. Mēģiniet vēlreiz pēc brīža.",
   "hlProtectStopBelowPrice": "Iestatiet stop loss zem pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.",
   "hlProtectStopAbovePrice": "Iestatiet stop loss virs pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.",
   "hlProtectTakeAbovePrice": "Iestatiet take profit virs pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.",

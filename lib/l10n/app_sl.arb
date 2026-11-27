@@ -1,5 +1,7 @@
 {
   "@@locale": "sl",
+  "hlExpoLeveragedPosition": "Ta pozicija uporablja finančni vzvod, zato jo lahko tukaj le zmanjšate ali zaprete.",
+  "hlExpoPositionUnknown": "Vaše pozicije na tem trgu ni bilo mogoče preveriti. Poskusite znova čez trenutek.",
   "hlProtectStopBelowPrice": "Stop loss nastavite pod trenutno ceno, sicer pozicijo takoj zapre.",
   "hlProtectStopAbovePrice": "Stop loss nastavite nad trenutno ceno, sicer pozicijo takoj zapre.",
   "hlProtectTakeAbovePrice": "Take profit nastavite nad trenutno ceno, sicer pozicijo takoj zapre.",

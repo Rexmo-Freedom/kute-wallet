@@ -9,6 +9,14 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Cette position utilise un effet de levier : ici, vous pouvez seulement la réduire ou la clôturer.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Impossible de vérifier votre position sur ce marché. Réessayez dans un instant.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Placez le stop loss sous le prix actuel, sinon il clôture la position immédiatement.';
 

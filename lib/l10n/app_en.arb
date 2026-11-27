@@ -1,5 +1,7 @@
 {
   "@@locale": "en",
+  "hlExpoLeveragedPosition": "This position uses leverage, so here you can only reduce or close it.",
+  "hlExpoPositionUnknown": "Couldn't check your position on this market. Try again in a moment.",
   "hlProtectStopBelowPrice": "Set the stop loss below the current price, or it closes the position at once.",
   "hlProtectStopAbovePrice": "Set the stop loss above the current price, or it closes the position at once.",
   "hlProtectTakeAbovePrice": "Set the take profit above the current price, or it closes the position at once.",

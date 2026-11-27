@@ -9,6 +9,14 @@ class AppLocalizationsLt extends AppLocalizations {
   AppLocalizationsLt([String locale = 'lt']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Ši pozicija naudoja finansinį svertą, todėl čia galite ją tik sumažinti arba uždaryti.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Nepavyko patikrinti jūsų pozicijos šioje rinkoje. Bandykite dar kartą po akimirkos.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Nustatykite stop loss žemiau dabartinės kainos, kitaip jis iškart uždarys poziciją.';
 

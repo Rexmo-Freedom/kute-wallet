@@ -9,6 +9,14 @@ class AppLocalizationsNl extends AppLocalizations {
   AppLocalizationsNl([String locale = 'nl']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Deze positie gebruikt hefboom, dus hier kun je haar alleen verkleinen of sluiten.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'We konden je positie in deze markt niet controleren. Probeer het zo opnieuw.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Zet de stop-loss onder de huidige prijs, anders sluit hij de positie meteen.';
 

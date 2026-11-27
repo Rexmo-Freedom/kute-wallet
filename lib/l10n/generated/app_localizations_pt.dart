@@ -9,6 +9,14 @@ class AppLocalizationsPt extends AppLocalizations {
   AppLocalizationsPt([String locale = 'pt']) : super(locale);
 
   @override
+  String get hlExpoLeveragedPosition =>
+      'Esta posição usa alavancagem, por isso aqui só pode reduzi-la ou fechá-la.';
+
+  @override
+  String get hlExpoPositionUnknown =>
+      'Não foi possível verificar a sua posição neste mercado. Tente novamente daqui a pouco.';
+
+  @override
   String get hlProtectStopBelowPrice =>
       'Coloque o stop loss abaixo do preço atual, ou ele fecha a posição de imediato.';
 
