@@ -96,6 +96,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart'
     show
+        KuteBarPane,
         kuteBarBottomRoomFor,
         kuteBarPane,
         kuteDialogsOpen,
@@ -105,7 +106,7 @@ import 'package:kute/platform/kute_wide_frames.dart'
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bar_trade_row.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
-    show KuteSalPill;
+    show KuteSalPill, KuteTopBarActions;
 import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -192,10 +193,19 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   /// Cmd/Ctrl+K opens the search panel while the bar shows the search
   /// pill, as a tap on it does; never while a text field has the focus or
   /// a panel is up. Escape closes the panel (its route's dismiss).
+  /// The web's wide layouts: the search context the hidden default pill
+  /// would have opened, for "/" and Cmd/Ctrl+K on a page with no top bar
+  /// field (see the build).
+  KuteBarContext? _webSearch;
+
   bool _onKey(KeyEvent event) {
     if (!mounted || event is! KeyDownEvent) return false;
-    final ctx = _last;
-    if (!_shown || _morphed || ctx == null || ctx.kind != KuteBarKind.search) {
+    final web = _webSearch;
+    final ctx = web ?? _last;
+    if ((web == null && !_shown) ||
+        _morphed ||
+        ctx == null ||
+        ctx.kind != KuteBarKind.search) {
       return false;
     }
     if (ctx.hidden || ctx.inHeader || kuteDialogsOpen.value > 0) return false;
@@ -419,8 +429,24 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
         paneNow != null &&
         paneNow.topSearch &&
         (paneNow.route == null || KuteBarRouteObserver.onTop(paneNow.route!));
+    // THE WEB'S WIDE AND MEDIUM LAYOUTS HAVE NO DEFAULT PILL (founder,
+    // 27 November 2026, on Add account: "this button also has no
+    // business being here"): the search lives in the top bar there, so
+    // the search / Manage with AI pill (in any tab's wording) is never
+    // shown on any page; a context with its own action (a primary, a
+    // trade row, a page's direct action) still is. "/" and Cmd/Ctrl+K
+    // still open the search ([_webSearch]).
+    final webDefault = KuteBarPane.webLayout &&
+        expanded &&
+        !morphed &&
+        top != null &&
+        top.kind == KuteBarKind.search &&
+        top.directAction == null;
+    // The keys' search where no field in the top bar answers them.
+    _webSearch = webDefault && !topSearch ? top : null;
     final show = top != null &&
         !desktopQuiet &&
+        !webDefault &&
         !(topSearch && !morphed && top.kind == KuteBarKind.search) &&
         (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));
     // The lift follows what is shown: a bar sliding away, or one back on
@@ -1473,17 +1499,24 @@ class _Shimmer extends StatelessWidget {
 /// sheet's Escape closes it as before. Built only through
 /// [KuteBarPane.top]; the phones keep the pill.
 class KuteTopSearchField extends ConsumerStatefulWidget {
-  const KuteTopSearchField({super.key, this.inTopBar = false});
+  const KuteTopSearchField(
+      {super.key, this.inTopBar = false, this.button = false});
 
-  /// Drawn in the desktop top bar's centre (kute_top_nav_bar.dart): no
-  /// row padding, and only one of the two fields answers "/".
+  /// Drawn in the desktop top bar (kute_top_nav_bar.dart), the one that
+  /// answers "/" and Cmd/Ctrl+K.
   final bool inTopBar;
 
+  /// A window with no room for the field (founder, 27 November 2026:
+  /// "when it looks bad, maybe already switch it to a button"): one
+  /// icon-only button, styled as the bar's other icon buttons, that does
+  /// what the field does; its tooltip and label the field's placeholder.
+  final bool button;
+
   /// The field's narrowest in the top bar (logical px).
-  static const double minWidth = 280;
+  static const double minWidth = 240;
 
   /// The field's widest (logical px).
-  static const double maxWidth = 640;
+  static const double maxWidth = 420;
 
   @override
   ConsumerState<KuteTopSearchField> createState() => _KuteTopSearchFieldState();
@@ -1548,6 +1581,8 @@ class _KuteTopSearchFieldState extends ConsumerState<KuteTopSearchField> {
     return true;
   }
 
+  bool _focused = false;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -1557,65 +1592,87 @@ class _KuteTopSearchFieldState extends ConsumerState<KuteTopSearchField> {
     final label = top != null && top.current && top.kind == KuteBarKind.search
         ? top.label
         : context.l10n.searchOrManageAi;
-    final radius = BorderRadius.circular(AppRadius.lg);
-    return Padding(
-      padding: widget.inTopBar
-          ? EdgeInsets.zero
-          : const EdgeInsets.only(bottom: 12),
-      // Its own row (no room in the top bar): centred on the column.
-      child: Align(
-        alignment: Alignment.center,
-        child: ConstrainedBox(
-          constraints:
-              const BoxConstraints(maxWidth: KuteTopSearchField.maxWidth),
-          child: Builder(
-            builder: (fieldContext) => Semantics(
-              button: true,
-              textField: true,
-              label: label,
-              child: Material(
-                key: const ValueKey('kute-top-search-field'),
-                color: c.surfaceLight,
-                shape: RoundedRectangleBorder(
-                    borderRadius: radius,
-                    side: BorderSide(color: c.border)),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => _open(fieldContext),
-                  child: SizedBox(
-                    height: 48,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 14),
-                        Icon(Icons.search_rounded,
-                            size: 22, color: c.textTertiary),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: c.textTertiary, fontSize: 16),
-                          ),
-                        ),
-                        // Sal's mark: the way into the AI, as on the pill.
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: SalSprite(
-                            key: const ValueKey('kute-top-search-sal'),
-                            clip: top?.clip ?? 'idle',
-                            size: 32,
-                            fallback: Icon(Icons.auto_awesome_rounded,
-                                size: 20, color: c.textTertiary),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+    // The bar's own outlined buttons (KuteTopBarActions): their height,
+    // pill radius, surface and thin border; the app's focused border when
+    // the keyboard is on it (founder, 27 November 2026: the search "a
+    // large grey slab"; it belongs to the bar).
+    const height = KuteTopBarActions.height;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final radius = BorderRadius.circular(height / 2);
+    final side = _focused
+        ? BorderSide(color: c.borderFocused, width: 1.5)
+        : BorderSide(
+            color: isLight ? c.border : c.borderSubtle,
+            width: isLight ? 1.0 : 0.5);
+    Widget surface(BuildContext fieldContext, Widget child, {Key? key}) =>
+        Material(
+          key: key,
+          color: isLight ? Colors.white : c.surface,
+          shape: RoundedRectangleBorder(borderRadius: radius, side: side),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _open(fieldContext),
+            onFocusChange: (on) {
+              if (on != _focused) setState(() => _focused = on);
+            },
+            child: SizedBox(height: height, child: child),
+          ),
+        );
+    if (widget.button) {
+      return Builder(
+        builder: (fieldContext) => Tooltip(
+          message: label,
+          child: Semantics(
+            button: true,
+            label: label,
+            excludeSemantics: true,
+            child: surface(
+              fieldContext,
+              key: const ValueKey('kute-top-search-button'),
+              SizedBox(
+                width: height,
+                child: Icon(Icons.search_rounded,
+                    size: 18, color: c.textPrimary),
               ),
             ),
+          ),
+        ),
+      );
+    }
+    return Builder(
+      builder: (fieldContext) => Semantics(
+        button: true,
+        textField: true,
+        label: label,
+        child: surface(
+          fieldContext,
+          key: const ValueKey('kute-top-search-field'),
+          Row(
+            children: [
+              const SizedBox(width: 14),
+              Icon(Icons.search_rounded, size: 18, color: c.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: c.textSecondary, fontSize: 13.5),
+                ),
+              ),
+              // Sal's mark: the way into the AI, at the buttons' icon
+              // size.
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: SalSprite(
+                  key: const ValueKey('kute-top-search-sal'),
+                  clip: top?.clip ?? 'idle',
+                  size: 20,
+                  fallback: Icon(Icons.auto_awesome_rounded,
+                      size: 16, color: c.textSecondary),
+                ),
+              ),
+            ],
           ),
         ),
       ),

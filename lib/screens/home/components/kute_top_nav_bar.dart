@@ -209,10 +209,11 @@ class _KuteDesktopTopBar extends StatelessWidget {
     // window has the room, see [_TopBarSlots]); elsewhere the balance.
     final search = KuteBarPane.webLayout &&
         (activeTab == ActiveNavTab.home || activeTab == ActiveNavTab.usd);
-    if (!search && kuteTopSearchInBar.value) {
+    if (search != kuteTopSearchInBar.value) {
       WidgetsBinding.instance
-          .addPostFrameCallback((_) => kuteTopSearchInBar.value = false);
+          .addPostFrameCallback((_) => kuteTopSearchInBar.value = search);
     }
+    if (search) return _searchBar(context, window, narrow);
     // It stays put while the page scrolls under it, so it is drawn on the
     // page's own background across the window: a scrolled card never
     // shows through the switch.
@@ -307,6 +308,236 @@ class _KuteDesktopTopBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// THE WEB'S HOME TABS' TOP BAR (founder, 27 November 2026: "I'm still
+/// not a fan of this search bar, and the small balance on top looks
+/// better on Bitcoin"; "when it looks bad, maybe already switch it to a
+/// button"). One row at every width: the lockup, the switch and the
+/// tab's compact balance ([KuteTopBarBalance]) at the left; the search
+/// in the middle; the actions and the hub at the right. As the window
+/// narrows, in this order ([KuteTopBarMode], decided from the measured
+/// row in [_SearchBarSlots], with a little hysteresis so a resize never
+/// flickers): the actions lose their words; the field shrinks to
+/// [KuteTopSearchField.minWidth]; then the field is one icon button after
+/// the balance. Under [_compactBelow] the wordmark and the switch step
+/// down too, so a window just past a phone's still holds the row.
+enum KuteTopBarMode { labels, icons, button }
+
+/// The mode the web's top bar is drawn in now (tests read it).
+final ValueNotifier<KuteTopBarMode> kuteTopBarMode =
+    ValueNotifier<KuteTopBarMode>(KuteTopBarMode.labels);
+
+extension on _KuteDesktopTopBar {
+  /// Under this window the lockup is Sal alone and the switch narrower.
+  static const double _compactBelow = 900;
+
+  Widget _searchBar(BuildContext context, double window, bool narrow) {
+    final compact = window < _compactBelow;
+    final gap = compact ? 12.0 : (narrow ? 20.0 : 28.0);
+    final switchWidth = !switchStrip
+        ? _KuteDesktopTopBar._stripWidth
+        : compact
+            ? 210.0
+            : (narrow
+                ? _KuteDesktopTopBar._switchWidthNarrow
+                : _KuteDesktopTopBar._switchWidth);
+    Widget actions(bool labels) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            KuteDesktopMoney.actions(activeTab: activeTab, labels: labels),
+            SizedBox(width: compact ? 10 : 16),
+            _FinancialHubButton(activeTab: activeTab),
+          ],
+        );
+    return ColoredBox(
+      color: context.colors.background,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          key: const ValueKey('kute-desktop-top-bar'),
+          height: kuteTopBarHeight,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: compact ? 16 : KuteLayout.paneGap),
+            child: ValueListenableBuilder<KuteTopBarMode>(
+              valueListenable: kuteTopBarMode,
+              builder: (context, mode, _) => CustomMultiChildLayout(
+                delegate: _SearchBarSlots(mode: mode, gap: compact ? 12 : 20),
+                children: [
+                  LayoutId(
+                    id: _SearchSlot.left,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        compact ? const _KuteMark() : const _KuteLockup(),
+                        SizedBox(width: gap),
+                        SizedBox(
+                          width: switchWidth,
+                          child: FloatingActionPill(
+                            activeTab: activeTab,
+                            onSelectTab: onSelectTab,
+                            pagePosition: pagePosition,
+                          ),
+                        ),
+                        SizedBox(width: gap),
+                        // The compact balance, never wider than its own
+                        // cap; with no room at all, away.
+                        Flexible(
+                          child: LayoutBuilder(
+                            builder: (context, box) => box.maxWidth < 72
+                                ? const SizedBox.shrink()
+                                : KuteDesktopMoney.balance(
+                                    activeTab: activeTab, compact: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  LayoutId(
+                    id: _SearchSlot.centre,
+                    child: KuteTopSearchField(
+                        inTopBar: true,
+                        button: mode == KuteTopBarMode.button),
+                  ),
+                  // Both right groups are laid out (the slots measure
+                  // them); only the mode's is drawn and takes taps.
+                  LayoutId(
+                    id: _SearchSlot.rightLabels,
+                    child: Visibility(
+                      visible: mode == KuteTopBarMode.labels,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: ExcludeSemantics(
+                        excluding: mode != KuteTopBarMode.labels,
+                        child: actions(true),
+                      ),
+                    ),
+                  ),
+                  LayoutId(
+                    id: _SearchSlot.rightIcons,
+                    child: Visibility(
+                      visible: mode != KuteTopBarMode.labels,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: ExcludeSemantics(
+                        excluding: mode == KuteTopBarMode.labels,
+                        child: actions(false),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _SearchSlot { left, centre, rightLabels, rightIcons }
+
+/// The web top bar's mode for [freeLabels] / [freeIcons] (the width the
+/// row leaves the search with the labelled / the icon actions), from
+/// [current]: the labels while the field keeps its widest beside them,
+/// then the icons while it keeps at least its narrowest, then the button.
+/// Entering a roomier mode asks [kuteTopBarHysteresis] more than staying
+/// in it, so a resize across a threshold never flickers.
+KuteTopBarMode kuteTopBarModeFor(
+    KuteTopBarMode current, double freeLabels, double freeIcons) {
+  double need(KuteTopBarMode m, double base) =>
+      m.index < current.index ? base + kuteTopBarHysteresis : base;
+  if (freeLabels >=
+      need(KuteTopBarMode.labels, KuteTopSearchField.maxWidth)) {
+    return KuteTopBarMode.labels;
+  }
+  if (freeIcons >= need(KuteTopBarMode.icons, KuteTopSearchField.minWidth)) {
+    return KuteTopBarMode.icons;
+  }
+  return KuteTopBarMode.button;
+}
+
+/// See [kuteTopBarModeFor].
+const double kuteTopBarHysteresis = 12;
+
+/// The web home tabs' top bar's places (see [KuteTopBarMode]). Measures
+/// both right groups and the left group, decides the mode from the free
+/// width the row leaves the search, and asks for a rebuild when the mode
+/// drawn is not the one that fits (the next frame draws it).
+class _SearchBarSlots extends MultiChildLayoutDelegate {
+  _SearchBarSlots({required this.mode, required this.gap});
+
+  final KuteTopBarMode mode;
+  final double gap;
+
+  /// The search button's room (the bar's icon buttons' size).
+  static const double _button = 38;
+
+  @override
+  void performLayout(Size size) {
+    double middle(Size child) => (size.height - child.height) / 2;
+    final loose = BoxConstraints.loose(size);
+    final rl = layoutChild(_SearchSlot.rightLabels, loose);
+    final ri = layoutChild(_SearchSlot.rightIcons, loose);
+    // The left group gets what the narrowest row (icons and the button)
+    // leaves it.
+    final left = layoutChild(
+        _SearchSlot.left,
+        BoxConstraints.loose(Size(
+            math.max(0.0, size.width - ri.width - _button - 2 * gap),
+            size.height)));
+    double free(Size right) => size.width - left.width - right.width - 2 * gap;
+    final decided = kuteTopBarModeFor(mode, free(rl), free(ri));
+    final right = mode == KuteTopBarMode.labels ? rl : ri;
+    positionChild(_SearchSlot.left, Offset(0, middle(left)));
+    positionChild(_SearchSlot.rightLabels,
+        Offset(size.width - rl.width, middle(rl)));
+    positionChild(_SearchSlot.rightIcons,
+        Offset(size.width - ri.width, middle(ri)));
+    final room = free(right);
+    if (mode == KuteTopBarMode.button) {
+      final b = layoutChild(_SearchSlot.centre, loose);
+      positionChild(
+          _SearchSlot.centre, Offset(left.width + gap, middle(b)));
+    } else {
+      final double width = room
+          .clamp(KuteTopSearchField.minWidth, KuteTopSearchField.maxWidth)
+          .toDouble();
+      final field =
+          layoutChild(_SearchSlot.centre, BoxConstraints.tightFor(width: width));
+      // On the window's centre when the row has the room, else in the
+      // middle of what is free.
+      final lo = left.width + gap;
+      final hi = math.max(lo, size.width - right.width - gap - width);
+      final x = (size.width / 2 - width / 2).clamp(lo, hi).toDouble();
+      positionChild(_SearchSlot.centre, Offset(x, middle(field)));
+    }
+    if (decided != mode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (kuteTopBarMode.value == mode) kuteTopBarMode.value = decided;
+      });
+    }
+  }
+
+  @override
+  bool shouldRelayout(_SearchBarSlots oldDelegate) =>
+      oldDelegate.mode != mode || oldDelegate.gap != gap;
+}
+
+/// Sal alone (a window just past a phone's: the wordmark gives way).
+class _KuteMark extends StatelessWidget {
+  const _KuteMark();
+
+  @override
+  Widget build(BuildContext context) => const SalSprite(
+        key: ValueKey('kute-top-bar-lockup'),
+        clip: 'idle',
+        size: 34,
+        fallback: SizedBox.square(dimension: 34),
+      );
 }
 
 enum _TopBarSlot { left, centre, right }

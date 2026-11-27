@@ -1,6 +1,8 @@
-// The wide web layout's search: a field pinned at the top of the home
-// tabs' content column (KuteBarPane.top), in place of the floating pill;
-// the phone layout builds no field. (The web is forced with
+// The wide web layout's search lives in the top bar at every width
+// (founder, 27 November 2026): the home tabs' content column starts right
+// under the bar, with no search row of its own, and still tells the
+// floating bar the search is up there (topSearch), so the pill stays
+// away; the phone layout builds no field. (The web is forced with
 // KuteBarPane.debugWeb: the VM is never the web.)
 
 import 'package:flutter/material.dart';
@@ -44,17 +46,11 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('wide: the field sits above the column, with the pill words',
+  testWidgets('wide: no search row over the column; the pill stays away',
       (tester) async {
     await pump(tester, const Size(1440, 900));
-    final field = find.byKey(const ValueKey('kute-top-search-field'));
-    expect(field, findsOneWidget);
-    expect(find.text('Search or Manage with AI'), findsOneWidget);
-    expect(tester.getTopLeft(field).dy,
-        lessThan(tester.getTopLeft(find.text('first card')).dy));
-    expect(tester.getSize(field).width,
-        lessThanOrEqualTo(KuteTopSearchField.maxWidth));
-    // The pane tells the bar the field is up, so the pill stays away.
+    expect(find.byKey(const ValueKey('kute-top-search-field')), findsNothing);
+    expect(tester.getTopLeft(find.text('first card')).dy, lessThan(20));
     expect(kuteBarPane.value?.topSearch, isTrue);
   });
 
