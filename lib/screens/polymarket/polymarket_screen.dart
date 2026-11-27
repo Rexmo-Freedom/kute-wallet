@@ -1271,7 +1271,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                     slivers: trending(
                         // The Dollars page on EXPANDED: one per square of
                         // its grid (round two, market_groups.dart).
-                        widget.embedded && KuteLayout.isExpanded(context)
+                        // Wide web: the featured card steps through
+                        // as many.
+                        _wideWeb
+                            ? kPolyTopMarketsMax
+                            : widget.embedded && KuteLayout.isExpanded(context)
                             ? marketSquaresPerRow(
                                 constraints.crossAxisExtent - 32)
                             : polyTopMarketsFitting(
@@ -1297,9 +1301,39 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     ];
   }
 
+  /// Wide web, the Dollars page: the grid of [PolyWideCard]s under one
+  /// featured card ([PolyWideFeatured]). The phones and the phone layout
+  /// keep the list and the strip.
+  bool get _wideWeb =>
+      (kIsWeb || PolymarketScreen.debugWideWeb) &&
+      widget.embedded &&
+      KuteLayout.isExpanded(context);
+
+  void _openTopMarket(PolymarketEvent market) {
+    HapticFeedback.mediumImpact();
+    MarketDetailSheet.show(
+      context,
+      event: market,
+      onDeposit: () async {
+        if (context.mounted) openPredictionsDeposit(context, ref);
+      },
+      source: 'top_markets',
+    );
+  }
+
   /// The Top markets strip: a card opens the market page as a list card
-  /// does, marked as from the strip.
-  Widget _topMarketsStrip(List<PolymarketEvent> top) => PolyTopMarketsStrip(
+  /// does, marked as from the strip. Wide web: the same set as one
+  /// featured card, stepped through.
+  Widget _topMarketsStrip(List<PolymarketEvent> top) => _wideWeb
+      ? Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: PolyWideFeatured(
+            markets: top,
+            onOpenDown: MarketDetailSheet.prefetch,
+            onOpen: _openTopMarket,
+          ),
+        )
+      : PolyTopMarketsStrip(
         markets: top,
         // The chart's history starts reading as the finger comes down.
         onOpenDown: MarketDetailSheet.prefetch,
@@ -1439,9 +1473,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // Wide web, the Dollars page (founder, 26 November 2026: "on desktop
       // this looks too much"): a uniform grid of the calm card
       // (PolyWideCard). The phones and the phone layout keep the list.
-      (kIsWeb || PolymarketScreen.debugWideWeb) &&
-              widget.embedded &&
-              KuteLayout.isExpanded(context)
+      _wideWeb
           ? _wideGridSlivers(events, rowOf, source: source)
           : marketGroupSlivers<PolymarketEvent>(
         context,
@@ -1640,9 +1672,24 @@ class _PolyFeedCard extends ConsumerWidget {
                 : '$roundAsset · '
                     '${polyRoundWindowLabel(context.l10n, round!.window)}',
             outcomes: market.outcomes,
+            imageUrl: market.imageUrl,
+            volume: market.volume,
             livePrices: cardLivePrices,
             onTapDown: () => MarketDetailSheet.prefetch(market),
             onTap: openMarket,
+            // The slip with that pick, in the market page's side panel;
+            // nothing placed before its Confirm.
+            onPick: (p) => polyCardOpenSlip(
+              context,
+              event: market,
+              pick: p.pick,
+              outcomeIndex: p.outcomeIndex,
+              no: p.no,
+              onDeposit: () async {
+                if (context.mounted) openPredictionsDeposit(context, ref);
+              },
+              source: source,
+            ),
           ),
         ),
       );

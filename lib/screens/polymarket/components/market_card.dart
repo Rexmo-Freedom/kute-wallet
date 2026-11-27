@@ -26,6 +26,8 @@ import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
     show polymarketCentsLabel;
 import 'package:kute/services/polymarket/market_card_shape.dart';
+import 'package:kute/services/polymarket/market_display_title.dart'
+    show polyMarketDisplayTitle;
 import 'package:kute/theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:math' show pi;
@@ -118,7 +120,8 @@ class PolyCardPick {
 /// a card's pill): the side's outcome preselected, nothing new in between
 /// and nothing placed, funded or approved (that waits for Confirm on the
 /// slip). [source] is the list the card sits in, for the slip's existing
-/// open event.
+/// open event. [outcomeIndex] (with [no]): one outcome of a multi-outcome
+/// event on its own market's Yes or No.
 void polyCardOpenSlip(
   BuildContext context, {
   required PolymarketEvent event,
@@ -127,6 +130,8 @@ void polyCardOpenSlip(
   required String source,
   VoidCallback? onDeposit,
   String? ledgerWalletId,
+  int? outcomeIndex,
+  bool no = false,
 }) {
   HapticFeedback.mediumImpact();
   void open({
@@ -136,14 +141,16 @@ void polyCardOpenSlip(
     String? neg,
     List<Color?>? colors,
     List<String>? labels,
+    String? question,
+    String? image,
   }) =>
       BetSlipSheet.show(
         context,
         event: event,
         negRisk: event.negRisk,
-        marketQuestion: event.displayTitle,
+        marketQuestion: question ?? event.displayTitle,
         marketSlug: event.slug,
-        marketImage: event.imageUrl,
+        marketImage: image ?? event.imageUrl,
         outcomes: outcomes,
         initialOutcomeIndex: index,
         onDeposit: onDeposit,
@@ -240,6 +247,21 @@ void polyCardOpenSlip(
         ],
       );
     }
+    return;
+  }
+  // One outcome of a multi-outcome event, on its own market's Yes or No
+  // (the wide grid's row buttons).
+  final at = outcomeIndex;
+  if (at != null && at >= 0 && at < event.outcomes.length) {
+    final cand = event.outcomes[at];
+    open(
+      outcomes: pair(cand),
+      index: no ? 1 : 0,
+      // Titled by the outcome's own market, as its page's slip is.
+      question: polyMarketDisplayTitle(event.title,
+          question: cand.question, itemTitle: cand.name),
+      image: cand.imageUrl,
+    );
     return;
   }
   final picked = (pick?.side ?? side ?? '').toLowerCase();
