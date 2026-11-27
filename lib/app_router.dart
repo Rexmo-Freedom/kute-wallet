@@ -13,6 +13,8 @@ import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:kute/screens/share/claim_screen.dart';
 import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_target.dart';
+import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/share_links_store.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
@@ -277,6 +279,9 @@ class AppRouter {
   static bool _inShell(String path) =>
       _shellRoots.any((root) => path == root || path.startsWith('$root/'));
 
+  /// Whether [path] is in the tab shell (onboarding and PIN are not).
+  static bool isShellPath(String path) => _inShell(path);
+
   /// Whether the Dollars tab is in the strip now (shell_venue_tabs.dart:
   /// not while a Ledger owns the strip). Read, not watched.
   static bool _dollarsShown(BuildContext context) =>
@@ -328,6 +333,8 @@ class AppRouter {
     required String initialRoute,
     bool web = kIsWeb,
     bool Function(BuildContext context) dollarsShown = _dollarsShown,
+    bool Function() hasWallet = _noWalletKnown,
+    bool Function() guestShareView = _guestShareViewOff,
   }) {
     // Last in-app location we sat on, so an incoming deep link can register its
     // referral code without yanking the user off their current screen.
@@ -336,6 +343,16 @@ class AppRouter {
     final landed = ValueNotifier<bool>(false);
     return (context, state) {
       final uri = state.uri;
+      final rootReferral = rootReferralRedirect(uri, locked: sessionLocked());
+      if (rootReferral != null) return rootReferral;
+      if (ShareTarget.isShareLocation(uri)) {
+        return shareLocationRedirect(
+          uri,
+          locked: sessionLocked(),
+          hasWallet: hasWallet(),
+          guestView: guestShareView(),
+        );
+      }
       if (uri.hasScheme) {
         handleIncomingLink(uri);
         return claimLinkRedirect(uri, locked: sessionLocked()) ??
@@ -358,9 +375,76 @@ class AppRouter {
     };
   }
 
+  /// The web app's start with a referral code, `/#/?r=CODE` (the invite /
+  /// Earn link): the code becomes the pending referrer exactly as a market
+  /// link's does, then the ordinary start. Null for any other location.
+  @visibleForTesting
+  static String? rootReferralRedirect(Uri uri, {required bool locked}) {
+    if (uri.hasScheme || uri.path != '/') return null;
+    final Map<String, String> q;
+    try {
+      q = uri.queryParameters;
+    } catch (_) {
+      return locked ? '/splash' : '/home';
+    }
+    final code = ShareTarget.normalizeReferral(q[kShareReferralQuery]);
+    if (code != null && ShareTargetIngest.firstSighting(uri)) {
+      ShareTargets.ingestInvite(code);
+    }
+    return locked ? '/splash' : '/home';
+  }
+
+  static bool _noWalletKnown() => false;
+  static bool _guestShareViewOff() => false;
+
+  /// Where a shared market link (`/s/p/<slug>`, `/s/i/<coin>`;
+  /// services/share_target.dart) goes. Its referral code becomes the
+  /// pending referrer and its market is parked ([ShareTargets.ingest]),
+  /// then:
+  ///   * a refused link: the app's ordinary start (splash, which goes on to
+  ///     the PIN or the start screen; the shell when unlocked);
+  ///   * unlocked with a wallet: the venue's tab in the shell, where the
+  ///     parked market opens on top (app_widget.dart);
+  ///   * locked with a wallet: splash, so the PIN comes first and the
+  ///     market opens after it;
+  ///   * no wallet: the guest view of the market when [guestView] (the
+  ///     page itself, read-only), else splash and onboarding, after which
+  ///     the parked market opens.
+  /// Never more than one `share_link_opened` per link opened.
+  @visibleForTesting
+  static String? shareLocationRedirect(Uri uri,
+      {required bool locked,
+      required bool hasWallet,
+      required bool guestView}) {
+    final parsed = ShareTarget.parseLocation(uri);
+    final walletState = !hasWallet
+        ? 'none'
+        : locked
+            ? 'locked'
+            : 'unlocked';
+    if (parsed == null) {
+      if (ShareTargetIngest.firstSighting(uri)) {
+        ShareTargets.lost('invalid_link');
+      }
+      return locked ? '/splash' : '/home';
+    }
+    if (ShareTargetIngest.firstSighting(uri)) {
+      ShareTargets.ingest(parsed.target,
+          referral: parsed.referral, walletState: walletState);
+    }
+    if (!hasWallet) {
+      if (guestView) return null;
+      return '/splash';
+    }
+    if (locked) return '/splash';
+    return ShareTargets.shellLocationFor(parsed.target);
+  }
+
   static GoRouter createRouter(
     String initialRoute, {
     required bool Function() sessionLocked,
+    bool Function() hasWallet = _noWalletKnown,
+    bool Function() guestShareView = _guestShareViewOff,
     List<NavigatorObserver> extraObservers = const [],
   }) {
     _firstRouterAt ??= DateTime.now();
@@ -373,8 +457,11 @@ class AppRouter {
       // The bar's count of what is over the tabs (kute_bar_context.dart):
       // one observer here, one on each tab's navigator below.
       observers: [...extraObservers, KuteBarRouteObserver()],
-      redirect:
-          redirectFor(sessionLocked: sessionLocked, initialRoute: initialRoute),
+      redirect: redirectFor(
+          sessionLocked: sessionLocked,
+          initialRoute: initialRoute,
+          hasWallet: hasWallet,
+          guestShareView: guestShareView),
       routes: [
         GoRoute(
           path: '/splash',

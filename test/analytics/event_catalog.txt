@@ -662,10 +662,13 @@ share_challenge_answered
 share_link_cancelled
 share_link_claimed
 share_link_created
+share_link_opened
 share_link_paid
 share_link_shared
 share_market_link_shared
 share_market_opened
+share_target_lost
+share_target_restored
 shell_swipe_hint_shown
 shell_tab_changed
 shell_tab_reselected

@@ -49,6 +49,10 @@ class AffiliateService {
   static const _sessionKey = 'kute_affiliate_session';
   static const _codeKey = 'kute_affiliate_code';
   static const _pendingReferrerKey = 'kute_pending_referrer';
+  // The referrer the backend last said is bound to this wallet (an
+  // ordinary key on the web vault, `kute_affiliate_*`): a share link's code
+  // never replaces it.
+  static const _referredByKey = 'kute_affiliate_referred_by';
   static const _sessionAddressKey = 'kute_affiliate_session_address';
   static const _attributionPendingKey = 'kute_install_attribution_pending';
   static const _attributionSentKey = 'kute_install_attribution_sent';
@@ -515,6 +519,38 @@ class AffiliateService {
     } catch (_) {/* non-fatal */}
   }
 
+  /// A referral code carried by a shared market link (services/
+  /// share_target.dart), recorded as the pending referrer the next
+  /// [authWallet] sends. Refused, and the outcome says why: a code of the
+  /// wrong shape (`invalid`), this wallet's own code (`own_code`), a wallet
+  /// that already has a referrer bound (`already_bound`), or a pending code
+  /// already waiting (`already_pending`: the first link a person opened
+  /// keeps the credit). `stored` otherwise. The backend applies its own
+  /// rules again (no self-referral, never over a bound referrer, 7 days).
+  static Future<String> setPendingReferrerFromShare(String? code) async {
+    final c = (code ?? '').trim().toUpperCase();
+    if (!RegExp(r'^[A-Z0-9]{3,16}$').hasMatch(c)) return 'invalid';
+    final own = _affiliateCode?.trim().toUpperCase() ??
+        await _readOrNull(_codeKey).then((v) => v?.trim().toUpperCase());
+    if (own != null && own.isNotEmpty && own == c) return 'own_code';
+    final bound = await _readOrNull(_referredByKey);
+    if (bound != null && bound.isNotEmpty) return 'already_bound';
+    final pending = await _peekPendingReferrer();
+    if (pending != null && pending.isNotEmpty) {
+      return pending == c ? 'stored' : 'already_pending';
+    }
+    await setPendingReferrer(c);
+    return 'stored';
+  }
+
+  static Future<String?> _readOrNull(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// CodeCheck is the response shape of [checkCode].
   ///
   ///   exists=true  → code is bound to an active affiliate. tier and
@@ -786,6 +822,10 @@ class AffiliateService {
       if (hasReferrer) {
         AppsFlyerService.clearCapturedReferrer();
         await _clearPendingReferrer();
+        try {
+          await _storage.write(
+              key: _referredByKey, value: resp['referred_by_code'] as String);
+        } catch (_) {/* non-fatal */}
       }
       TrackingService.affiliateAuthWalletCompleted(
         success: true,
@@ -1237,6 +1277,7 @@ class AffiliateService {
     await _storage.delete(key: _sessionKey);
     await _storage.delete(key: _sessionAddressKey);
     await _storage.delete(key: _codeKey);
+    await _storage.delete(key: _referredByKey);
     _sessionToken = null;
     _affiliateCode = null;
     // Let the freshly created wallet start its OWN registration loop. Without

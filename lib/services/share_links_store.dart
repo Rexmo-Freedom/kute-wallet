@@ -28,6 +28,7 @@ abstract final class ShareLinksStore {
   static const String boxName = 'share_links';
   static const String _parkedClaimKey = '__parked_claim';
   static const String _parkedChallengeKey = '__parked_claim_challenge';
+  static const String _parkedShareTargetKey = '__parked_share_target';
 
   /// Bumps on every write, so a provider can rebuild.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -53,7 +54,9 @@ abstract final class ShareLinksStore {
     if (box == null) return const [];
     final rows = <PendingShareLink>[];
     for (final entry in box.entries) {
-      if (entry.key == _parkedClaimKey || entry.key == _parkedChallengeKey) {
+      if (entry.key == _parkedClaimKey ||
+          entry.key == _parkedChallengeKey ||
+          entry.key == _parkedShareTargetKey) {
         continue;
       }
       try {
@@ -147,6 +150,33 @@ abstract final class ShareLinksStore {
     if (box == null) return;
     box.remove(id);
     revision.value++;
+  }
+
+  // ── The parked share target (services/share_target.dart) ──
+
+  /// The shared market waiting to open once a wallet is unlocked, as
+  /// [ShareTarget.encode] wrote it; null when none.
+  static String? get parkedShareTarget {
+    final raw = _backing()?[_parkedShareTargetKey];
+    return raw == null || raw.isEmpty ? null : raw;
+  }
+
+  /// Parks [encoded] (one target at a time: the newest link wins).
+  static void parkShareTarget(String encoded) {
+    final box = _backing();
+    if (box == null || encoded.isEmpty) return;
+    if (box[_parkedShareTargetKey] == encoded) return;
+    box[_parkedShareTargetKey] = encoded;
+    revision.value++;
+  }
+
+  /// Reads and clears the parked share target in one step.
+  static String? takeParkedShareTarget() {
+    final raw = parkedShareTarget;
+    if (raw == null) return null;
+    _backing()?.remove(_parkedShareTargetKey);
+    revision.value++;
+    return raw;
   }
 
   // ── The parked claim ──
