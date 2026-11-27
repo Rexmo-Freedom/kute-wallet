@@ -427,11 +427,22 @@ class HyperliquidExchangeService {
     _requireCancelSuccess(body, expectedCount: 1);
   }
 
+  /// The one door every leverage write takes, spending wallet and Ledger
+  /// alike. Leverage and cross margin are blocked in this app
+  /// ([kHlMaxOfferedLeverage], [kHlCrossMarginOffered]): anything else is
+  /// refused here, before it is signed, whatever a caller computed.
   Future<void> updateLeverage({
     required int assetId,
     required bool isCross,
     required int leverage,
   }) async {
+    if (leverage < 1 ||
+        leverage > kHlMaxOfferedLeverage ||
+        (isCross && !kHlCrossMarginOffered)) {
+      throw ArgumentError(
+          'Leverage is 1x isolated in this app (asked ${leverage}x'
+          '${isCross ? ' cross' : ''})');
+    }
     final body = await _submitL1Action(buildUpdateLeverageAction(
       assetId: assetId,
       isCross: isCross,

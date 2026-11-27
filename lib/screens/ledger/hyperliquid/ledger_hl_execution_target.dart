@@ -27,6 +27,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:kute/constants/hyperliquid_constants.dart';
+import 'package:kute/helpers/venue_intents.dart' show HlIntents;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/ledger/ledger_action_controller.dart';
@@ -230,8 +231,12 @@ Future<HlOrderResult?> runLedgerHlMarketOrder(
     }
   }
 
-  // 2) Leverage for perps, only when the account setting differs.
-  final lev = market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
+  // 2) Leverage for perps: written only on a flat market, and always 1x
+  //    isolated (leverage and cross margin are blocked in this app,
+  //    kHlMaxOfferedLeverage). An open position, opened here or elsewhere
+  //    at any leverage or margin mode, is never rewritten: the order
+  //    trades at the venue's own setting for it.
+  final lev = HlIntents.clampLeverage(market, leverage);
   if (!market.isSpot) {
     // The region's leverage cap, at the same point the spending wallet
     // checks it (before the venue is asked to set the leverage).
@@ -239,15 +244,8 @@ Future<HlOrderResult?> runLedgerHlMarketOrder(
     final account = ref.read(ledgerHlAccountProvider(walletId)).valueOrNull;
     // Positions carry the wire coin ('xyz:TSLA').
     final position = _positionFor(account, market.wireCoin);
-    // An open position keeps its margin mode: adding to it never flips
-    // isolated to cross (or back). The ticket prefills its leverage, so
-    // only a leverage the user moved on purpose differs here.
-    final isCross = position != null
-        ? position.isCross && !market.onlyIsolated
-        : !market.onlyIsolated;
-    final matches = position != null &&
-        position.leverageValue == lev &&
-        (position.leverageType == 'cross') == isCross;
+    const isCross = kHlCrossMarginOffered;
+    final matches = position != null;
     if (!matches) {
       final intent = LedgerHyperliquidIntents.updateLeverage(
         walletId: walletId,
@@ -652,19 +650,22 @@ Future<HlOrderResult?> runLedgerHlTrailingStop(
   trail.validate(market: market, isBuy: isBuy, referencePrice: reference);
   if (!context.mounted) return null;
   final factory = ref.read(ledgerHlExecutorFactoryProvider);
-  final lev = leverage.clamp(1, market.maxLeverage).toInt();
+  // Leverage is blocked in this app: 1x isolated, and only when the stop
+  // opens exposure (both callers send reduce-only exits).
+  final lev = HlIntents.clampLeverage(market, leverage);
   if (!reduceOnly) {
+    RuntimeCapabilitiesService.instance.ensureLeverageAllowed(lev);
     final intent = LedgerHyperliquidIntents.updateLeverage(
       walletId: walletId,
       account: paired,
       assetId: market.assetId,
       coin: market.coin,
       leverage: lev,
-      isCross: isCross && !market.onlyIsolated,
+      isCross: kHlCrossMarginOffered,
       summary: {
         'Market': HlMarket.baseCoin(market.coin),
         'Leverage': '${lev}x',
-        'Margin': isCross && !market.onlyIsolated ? 'Cross' : 'Isolated',
+        'Margin': 'Isolated',
       },
     );
     final outcome = await showLedgerApprovalSheet<void>(

@@ -618,23 +618,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   late bool _isLong;
   double _marginUsd = 0;
   late final TextEditingController _amountController;
-  int _leverage = 1;
   double _slippagePct = 1.0;
 
-  /// The leverage and margin mode the ticket starts from (and Back from
-  /// Advanced returns to): the open position's own on this market, else
-  /// isolated 1x. An order on a market with an open position must never
-  /// change that position's leverage or margin mode unless the person
-  /// moves the slider or the mode switch themselves (the order path
-  /// writes the ticket's values to the venue before the order).
-  int _defaultLeverage = 1;
-  bool _defaultIsCross = false;
-
-  /// The person moved the leverage slider or the margin mode switch.
-  bool _leverageTouched = false;
-
-  /// The defaults came from an open position (once per ticket).
-  bool _positionDefaultsApplied = false;
+  /// LEVERAGE IS BLOCKED IN THIS APP (founder, 14 October 2026): every
+  /// order this ticket builds is 1x isolated, whatever the policy says
+  /// ([kHlMaxOfferedLeverage]). An open position on this market, opened
+  /// here or elsewhere at any leverage or in cross, is never rewritten:
+  /// the order path sends no leverage write while a position is open, so
+  /// an add trades at the venue's own setting for it and is sized here
+  /// at 1x (the typed dollars are the notional added).
+  int get _leverage => kHlMaxOfferedLeverage;
+  bool get _isCross => kHlCrossMarginOffered;
 
   /// The open-interest cap note was counted (once per ticket).
   bool _oiCapWarned = false;
@@ -642,7 +636,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   // ── Ticket structure ───────────────────────────────────────────────
   _OrderMode _mode = _OrderMode.market;
   _ProType _proType = _ProType.stopMarket;
-  late bool _isCross;
 
   /// The full-screen editor shares this ticket's draft and live-price hold.
   bool _advancedRouteOpen = false;
@@ -1255,25 +1248,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   void initState() {
     super.initState();
     _isLong = widget.initialIsLong;
-    // Isolated by default, everywhere the venue allows a choice. Cross
-    // margin lets ONE losing position reach every other position in the
-    // account; isolated keeps the damage inside this ticket. Cross is still
-    // one tap away in the margin-mode control for anyone who wants it.
-    // A market with an open position starts from THAT position's leverage
-    // and mode instead (see _defaultLeverage).
-    _isCross = false;
-    _applyPositionDefaults(initial: true);
-    if (!isSpot && !_positionDefaultsApplied) {
-      // The account may still be loading: take the position's settings
-      // when it lands, unless the person already chose their own.
-      if (_isLedger) {
-        ref.listenManual(ledgerHlAccountProvider(widget.ledgerWalletId!),
-            (_, __) => _applyPositionDefaults());
-      } else {
-        ref.listenManual(hyperliquidPerpPositionsProvider,
-            (_, __) => _applyPositionDefaults());
-      }
-    }
     // Opens empty, typed from zero; the button offers the minimum this
     // order needs ([_orderMinimumUsd], [_placeMinimum]). A carried-in
     // amount (a claimed pick) is written as if typed.
@@ -1462,30 +1436,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// The last plan the ticket showed, for the order-submitted event.
   String? _positionEffectName;
-
-  /// Starts the ticket from the open position's leverage and margin mode,
-  /// so adding to it sends the same values and the order path changes
-  /// nothing. Never overrides a choice the person already made.
-  void _applyPositionDefaults({bool initial = false}) {
-    if (_positionDefaultsApplied || _leverageTouched || !mounted) return;
-    final pos = _openPosition();
-    if (pos == null) return;
-    _positionDefaultsApplied = true;
-    final lev = pos.leverageValue.clamp(1, market.offeredMaxLeverage).toInt();
-    final cross = pos.isCross && !market.onlyIsolated;
-    void apply() {
-      _defaultLeverage = lev;
-      _defaultIsCross = cross;
-      _leverage = lev;
-      _isCross = cross;
-    }
-
-    if (initial) {
-      apply();
-    } else {
-      _updateDraft(apply);
-    }
-  }
 
   /// A placement stopped before anything was submitted.
   void _trackBlocked(String reason) {
@@ -1789,11 +1739,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _trailPercent = true;
       _trailActivate = false;
       _slippagePct = 1.0;
-      // Back to the ticket's starting point: the open position's own
-      // leverage and mode, else isolated 1x.
-      _leverage = _defaultLeverage;
-      _isCross = _defaultIsCross;
-      _leverageTouched = false;
       for (final controller in [
         _priceController,
         _triggerController,
@@ -1985,8 +1930,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// is open, the ticket cannot submit until these are back to plain.
   bool get _usesAdvanced =>
       _mode != _OrderMode.market ||
-      _leverage > 1 ||
-      _isCross ||
       _attachTpSl ||
       _attachTrailing ||
       _slippagePct != 1.0;
@@ -4023,7 +3966,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // offeredMaxLeverage is at least 1: a market reporting no leverage
     // (0) would otherwise put clamp's upper bound below its lower one.
     final ledgerLev =
-        isSpot ? 1 : _leverage.clamp(1, market.offeredMaxLeverage).toInt();
+        isSpot ? 1 : HlIntents.clampLeverage(market, _leverage);
     TrackingService.hyperliquidOrderPlaced(
       coin: market.coin,
       kind: isSpot ? 'spot' : 'perp',
@@ -4033,7 +3976,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       notionalUsd: marginUsd * ledgerLev,
       source: widget.source,
       orderType: 'market',
-      isCross: isSpot ? null : !market.onlyIsolated,
+      isCross: isSpot ? null : kHlCrossMarginOffered,
       filled: filled,
       walletKind: 'ledger',
       marketType: isSpot ? 'spot' : (market.dex.isEmpty ? 'perp' : market.dex),
@@ -4433,7 +4376,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final isCross = _isCross;
     final takeProfitPx = _attachTpSl ? _parse(_tpController) : null;
     final stopLossPx = _attachTpSl ? _parse(_slController) : null;
-    final changeOpenPosition = _leverageTouched;
     return _SlipOrder(
       HlIntents.openPosition(
         walletId: walletId,
@@ -4457,7 +4399,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         stopLossPx: stopLossPx,
         source: source,
         cloid: cloid,
-        changeOpenPosition: changeOpenPosition,
         grant: grant,
       ),
     );
@@ -4476,7 +4417,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final isCross = _isCross;
     final takeProfitPx = _attachTpSl ? _parse(_tpController) : null;
     final stopLossPx = _attachTpSl ? _parse(_slController) : null;
-    final changeOpenPosition = _leverageTouched;
     final spot = isSpot;
     final mkt = market;
     return (margin) => spot
@@ -4525,7 +4465,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               // A send again after a margin refusal goes under a fresh
               // cloid (HlResendCloids), never this one twice.
               cloid: HlResendCloids.current(cloid),
-              changeOpenPosition: changeOpenPosition,
               grant: grant,
             ),
           );
@@ -4581,7 +4520,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             stopLossPx: stopLossPx,
             source: source,
             cloid: cloid,
-            changeOpenPosition: _leverageTouched,
             grant: grant,
           ),
         );
@@ -4615,7 +4553,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 isCross: isCross,
                 reduceOnly: reduceOnly,
                 source: source,
-                changeOpenPosition: _leverageTouched,
                 grant: grant,
               ),
             );
@@ -4646,7 +4583,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 randomize: randomize,
                 reduceOnly: reduceOnly,
                 source: source,
-                changeOpenPosition: _leverageTouched,
                 grant: grant,
               ),
             );
@@ -5210,12 +5146,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         'wallet_kind': _isLedger ? 'ledger' : 'hot',
       });
     }
-    // The person moved leverage or margin mode on a market where they hold
-    // a position: the order will change that position's settings too.
-    final heldPosition = _leverageTouched ? _openPosition() : null;
-    final changesPosition = heldPosition != null &&
-        (heldPosition.leverageValue != _leverage ||
-            (heldPosition.isCross && !market.onlyIsolated) != _isCross);
     // Funding is navigation, so it does not depend on a complete order form.
     // Order validation still applies when the user returns with funds.
     final canDeposit = showDepositCta;
@@ -5598,14 +5528,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             SizedBox(height: 10.h),
             Text(
               context.l10n.hlSlipOiCapWarning(market.coin),
-              style: TextStyle(
-                  color: c.textSecondary, fontSize: 13.sp, height: 1.4),
-            ),
-          ],
-          if (changesPosition) ...[
-            SizedBox(height: 10.h),
-            Text(
-              context.l10n.hlSlipChangesPosition(market.coin),
               style: TextStyle(
                   color: c.textSecondary, fontSize: 13.sp, height: 1.4),
             ),
@@ -6484,23 +6406,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ],
         ),
 
-      // Margin mode + leverage (perps only).
-      if (!isSpot && (!_isLedger || market.offeredMaxLeverage > 1))
-        _advancedSection(
-          c,
-          market.offeredMaxLeverage > 1
-              ? l.chartLeverage
-              : l.investingMarginMode,
-          [
-            if (!_isLedger) ...[
-              _sectionLabel(c, l.investingMarginMode),
-              SizedBox(height: 8.h),
-              _buildMarginModeRow(c),
-            ],
-            if (market.offeredMaxLeverage > 1) _buildLeverage(c),
-          ],
-        ),
-
       // The two attach options together, under the one question they
       // answer, so protecting the position is not buried among the
       // switches most tickets never touch.
@@ -6789,7 +6694,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         if (placed != null) {
           // The hot path reports from the trading notifier; the Ledger
           // order never touches it.
-          final lev = _leverage.clamp(1, market.offeredMaxLeverage).toInt();
+          final lev = HlIntents.clampLeverage(market, _leverage);
           TrackingService.hyperliquidOrderPlaced(
             coin: market.coin,
             kind: 'perp',
@@ -6843,220 +6748,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         });
       }
     }
-  }
-
-  Widget _buildMarginModeRow(AppColorsExtension c) {
-    Widget seg(String label, bool cross) {
-      final locked = market.onlyIsolated;
-      final disabled = locked && cross; // can't pick cross on isolated-only
-      final sel = !disabled && _isCross == cross;
-      return Expanded(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: disabled
-              ? null
-              : () {
-                  if (_isCross == cross) return;
-                  HapticFeedback.selectionClick();
-                  _settingChanged('margin_mode', cross ? 'cross' : 'isolated');
-                  _updateDraft(() {
-                    _isCross = cross;
-                    _leverageTouched = true;
-                  });
-                },
-          child: Container(
-            height: 36.h,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: sel ? c.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(9.r),
-              border: Border.all(
-                color: sel ? c.border : Colors.transparent,
-                width: 0.5,
-              ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: disabled
-                    ? c.textTertiary.withValues(alpha: 0.4)
-                    : sel
-                        ? c.textPrimary
-                        : c.textTertiary,
-                fontWeight: FontWeight.w700,
-                fontSize: 13.sp,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12.h),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.all(3.w),
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(color: c.border, width: 0.5),
-              ),
-              child: Row(
-                children: [
-                  seg(context.l10n.slipCross, true),
-                  seg(context.l10n.slipIsolated, false),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// The most leverage this ticket offers: the venue's maximum, tightened
-  /// to the policy's cap for this region. Both tickets (spending wallet and
-  /// Ledger) draw the same slider from it.
-  int get _offeredLeverage => ref
-      .watch(runtimeCapabilitiesProvider)
-      .offeredLeverage(market.offeredMaxLeverage);
-
-  Widget _buildLeverage(AppColorsExtension c) {
-    final offered = _offeredLeverage;
-    final capped = offered < market.offeredMaxLeverage;
-    if (_leverage > offered) {
-      // A cap that arrived (or tightened) while the ticket was open pulls
-      // the draft down to it rather than leaving a value the order path
-      // would refuse.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _leverage > offered) {
-          _updateDraft(() => _leverage = offered);
-        }
-      });
-    }
-    final capNote = capped
-        ? Padding(
-            padding: EdgeInsets.only(top: 4.h),
-            child: Text(
-              context.l10n.investingLeverageCapped(offered),
-              style: TextStyle(
-                color: c.textTertiary,
-                fontSize: 12.sp,
-                height: 1.3,
-              ),
-            ),
-          )
-        : null;
-    if (offered <= 1) {
-      // Nothing to slide: the region allows 1x only.
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                context.l10n.ledgerSummaryLeverage,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
-                  color: c.textSecondary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '1x',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w800,
-                  color: c.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          if (capNote != null) capNote,
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              context.l10n.ledgerSummaryLeverage,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textSecondary,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${_leverage}x',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w800,
-                // The page is already painted in the side color, so the
-                // slider and its readout take the contrasting ink.
-                color: c.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: c.textPrimary,
-            inactiveTrackColor: c.surface,
-            thumbColor: c.textPrimary,
-            overlayColor: c.textPrimary.withValues(alpha: 0.12),
-            trackHeight: 3,
-          ),
-          child: Slider(
-            value: _leverage.clamp(1, offered).toDouble(),
-            min: 1,
-            max: offered.toDouble(),
-            divisions: offered - 1,
-            onChanged: (v) {
-              final next = v.round();
-              if (next != _leverage) {
-                HapticFeedback.selectionClick();
-                _updateDraft(() {
-                  _leverage = next;
-                  _leverageTouched = true;
-                });
-              }
-            },
-            onChangeEnd: (v) => _settingChanged('leverage', v.round()),
-          ),
-        ),
-        Row(
-          children: [
-            Text('1x',
-                style: TextStyle(color: c.textTertiary, fontSize: 12.sp)),
-            const Spacer(),
-            Text(context.l10n.slipMaxLeverage('$offered'),
-                style: TextStyle(color: c.textTertiary, fontSize: 12.sp)),
-          ],
-        ),
-        if (capNote != null) capNote,
-        if (market.onlyIsolated) ...[
-          SizedBox(height: 4.h),
-          Text(
-            context.l10n.slipIsolatedOnly,
-            style: TextStyle(
-              color: c.textTertiary,
-              fontSize: 12.sp,
-              height: 1.3,
-            ),
-          ),
-        ],
-      ],
-    );
   }
 
   /// [available] is this account's own figure (what a spot sell holds);

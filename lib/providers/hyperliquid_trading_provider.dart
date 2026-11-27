@@ -1202,7 +1202,6 @@ class HyperliquidTradingNotifier
     double? stopLossPx,
     String? source,
     String? cloid,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance
@@ -1238,7 +1237,7 @@ class HyperliquidTradingNotifier
         ),
         allowed: _hlOrderActions,
       );
-      final lev = leverage.clamp(1, market.maxLeverage).toInt();
+      final lev = HlIntents.clampLeverage(market, leverage);
       HlBuilderFee? builder;
       // Funding through placement holds the Investing cash
       // (InvestingCashLock): a Swap or Send pulling Investing cash at the
@@ -1250,8 +1249,7 @@ class HyperliquidTradingNotifier
 
         // 1) Leverage + margin mode (writes only when the resting per-asset
         //    setting differs; always writes when flat).
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+        await _ensureLeverage(market, current, lev, isCross);
 
         // 2) Size from margin × leverage at the live reference price.
         final refPx = _referencePx(market);
@@ -1303,7 +1301,7 @@ class HyperliquidTradingNotifier
           source: source,
           providerOrderId: result.oid?.toString(),
           orderType: 'market',
-          isCross: (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
+          isCross: kHlCrossMarginOffered && (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
           hasTp: hasTp,
           hasSl: hasSl,
           filled: result.isFilled,
@@ -1712,49 +1710,53 @@ class HyperliquidTradingNotifier
       reduceOnly ? const ['hyperliquid.close'] : hlOpenCapabilities(market);
 
   ///
-  /// An OPEN POSITION's leverage and margin mode are never changed as a
-  /// side effect: unless [changeOpenPosition] (the person moved the
-  /// ticket's leverage or margin mode themselves, and the grant they
-  /// approved carries those values), an order on a market with a position
-  /// leaves the venue setting alone and trades at the position's own
-  /// leverage. The ticket starts from the position's values anyway.
+  /// An OPEN POSITION's leverage and margin mode are never changed: an
+  /// order on a market with a position (opened here or elsewhere, at any
+  /// leverage, cross or isolated) leaves the venue setting alone and trades
+  /// at the position's own setting. On a flat market the write is always
+  /// made (the resting value is unknown) and is always 1x isolated:
+  /// leverage and cross margin are blocked in this app
+  /// ([kHlMaxOfferedLeverage], [kHlCrossMarginOffered]).
   Future<void> _ensureLeverage(
     HlMarket market,
     HyperliquidTradingState current,
     int lev,
-    bool? isCross, {
-    bool changeOpenPosition = false,
-  }) async {
-    if (market.isSpot) return;
+    bool? isCross,
+  ) async {
+    final write = leverageWriteFor(market, current.positions, lev);
+    if (write == null) return;
+    final appLev = write.leverage;
+    final effCross = write.isCross;
     // The region's leverage cap, checked before the venue is asked to set
     // the leverage; the Ledger order path makes the same check.
-    RuntimeCapabilitiesService.instance.ensureLeverageAllowed(lev);
-    HlPerpPosition? existing;
-    for (final p in current.positions) {
-      if (p.coin == market.wireCoin) {
-        existing = p;
-        break;
-      }
+    RuntimeCapabilitiesService.instance.ensureLeverageAllowed(appLev);
+    await _exchange!.updateLeverage(
+      assetId: market.assetId,
+      isCross: effCross,
+      leverage: appLev,
+    );
+    // A side effect of placing an order, not a user choice.
+    TrackingService.hyperliquidLeverageAdjusted(
+        coin: market.coin,
+        leverage: appLev,
+        source: 'order_auto',
+        isCross: effCross);
+  }
+
+  /// The leverage write an order on [market] makes before it is placed:
+  /// none on spot or while a position is open on the market (whatever its
+  /// leverage or margin mode, it is never rewritten), else 1x isolated.
+  @visibleForTesting
+  static ({int leverage, bool isCross})? leverageWriteFor(
+      HlMarket market, List<HlPerpPosition> positions, int requested) {
+    if (market.isSpot) return null;
+    for (final p in positions) {
+      if (p.coin == market.wireCoin && p.szi != 0) return null;
     }
-    if (existing != null && !changeOpenPosition) return;
-    final effCross =
-        (isCross ?? existing?.isCross ?? kHlDefaultCross) &&
-            !market.onlyIsolated;
-    if (existing == null ||
-        existing.leverageValue != lev ||
-        existing.isCross != effCross) {
-      await _exchange!.updateLeverage(
-        assetId: market.assetId,
-        isCross: effCross,
-        leverage: lev,
-      );
-      // A side effect of placing an order, not a user choice.
-      TrackingService.hyperliquidLeverageAdjusted(
-          coin: market.coin,
-          leverage: lev,
-          source: 'order_auto',
-          isCross: effCross);
-    }
+    return (
+      leverage: hlAppLeverage(requested, market.maxLeverage),
+      isCross: kHlCrossMarginOffered,
+    );
   }
 
   // `_tryAttachTpSl` (the post-open best-effort trigger attach) is gone:
@@ -1762,46 +1764,6 @@ class HyperliquidTradingNotifier
   // parent order, so the exchange sizes triggers to the actual fill,
   // OCO-cancels them, and a placement problem surfaces on the result
   // instead of vanishing into a silent catch.
-
-  /// Applies the perp margin mode + leverage for [market] on its own
-  /// (updateLeverage). Isolated is forced when the market is isolated-only.
-  /// No-op for spot. Exposed for the order slip's margin-mode toggle.
-  Future<void> setMarginMode({
-    required HlMarket market,
-    required bool isCross,
-    required int leverage,
-    required AuthGrant grant,
-  }) async {
-    await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
-    await RuntimeCapabilitiesService.instance
-        .ensureAllAllowed(hlOpenCapabilities(market));
-    if (market.isSpot) return;
-    await ensureOnboarded();
-    // Phase 1b.3: a leverage or margin mode change on its own needs its
-    // own grant (an order's grant covers the write inside the order).
-    GrantGuard.consume(
-      grant,
-      HlIntents.marginMode(
-        walletId: _walletId ?? '',
-        market: market,
-        isCross: isCross,
-        leverage: leverage,
-      ),
-      allowed: _hlOrderActions,
-    );
-    final lev = leverage.clamp(1, market.maxLeverage).toInt();
-    RuntimeCapabilitiesService.instance.ensureLeverageAllowed(lev);
-    await _exchange!.updateLeverage(
-      assetId: market.assetId,
-      isCross: isCross && !market.onlyIsolated,
-      leverage: lev,
-    );
-    TrackingService.hyperliquidLeverageAdjusted(
-        coin: market.coin,
-        leverage: lev,
-        source: 'user',
-        isCross: isCross && !market.onlyIsolated);
-  }
 
   /// Places a resting/marketable limit order. Sizing accepts either an
   /// explicit coin [size] or a USD [marginUsd] (× leverage / px). Sets the
@@ -1824,7 +1786,6 @@ class HyperliquidTradingNotifier
     double? stopLossPx,
     String? source,
     String? cloid,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
@@ -1858,10 +1819,9 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev =
-          market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
+          HlIntents.clampLeverage(market, leverage);
       if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+        await _ensureLeverage(market, current, lev, isCross);
       }
       final coinSize = size ??
           sizeFromUsd(
@@ -1968,6 +1928,13 @@ class HyperliquidTradingNotifier
     String? cloid,
     required AuthGrant grant,
   }) async {
+    // Triggers only protect a held perp position: an entry stop would open
+    // exposure at the venue's resting leverage and margin mode (this path
+    // writes neither), and spot triggers are not offered.
+    if (!reduceOnly || market.isSpot) {
+      throw ArgumentError(
+          'Trigger orders are reduce-only exits on a perp position');
+    }
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
     await RuntimeCapabilitiesService.instance
         .ensureAllAllowed(_orderCapabilities(market, reduceOnly));
@@ -1976,9 +1943,7 @@ class HyperliquidTradingNotifier
     try {
       await ensureOnboarded();
       final ex = _exchange!;
-      // Phase 1b.3: consume the grant before anything is signed. The
-      // order's grant also covers its leverage write and funding
-      // transfer.
+      // Phase 1b.3: consume the grant before anything is signed.
       GrantGuard.consume(
         grant,
         HlIntents.trigger(
@@ -2172,7 +2137,6 @@ class HyperliquidTradingNotifier
     bool? isCross,
     bool reduceOnly = false,
     String? source,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     await RuntimeCapabilitiesService.instance.ensureAllowed('trading.advanced');
@@ -2203,10 +2167,9 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev =
-          market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
+          HlIntents.clampLeverage(market, leverage);
       if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+        await _ensureLeverage(market, current, lev, isCross);
       }
       final avgPx = (startPx + endPx) / 2;
       final notional = totalUsd * lev;
@@ -2279,7 +2242,6 @@ class HyperliquidTradingNotifier
     bool randomize = false,
     bool reduceOnly = false,
     String? source,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     final requestedWalletId =
@@ -2341,7 +2303,7 @@ class HyperliquidTradingNotifier
         allowed: _hlOrderActions,
       );
       final lev =
-          market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
+          HlIntents.clampLeverage(market, leverage);
       late final double refPx;
       late final double coinSize;
       final result = await HotHyperliquidTwapGuard().run(
@@ -2352,8 +2314,7 @@ class HyperliquidTradingNotifier
         send: (beforeSubmit, beforeSend) async {
           ensureSubmissionCurrent();
           if (!reduceOnly) {
-            await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+            await _ensureLeverage(market, current, lev, isCross);
           }
           ensureSubmissionCurrent();
           refPx = _referencePx(market);
@@ -2441,7 +2402,6 @@ class HyperliquidTradingNotifier
     int leverage = 1,
     bool? isCross,
     bool reduceOnly = false,
-    bool changeOpenPosition = false,
     required AuthGrant grant,
   }) async {
     final requested = pickSpendingWallet(ref.read(settingsProvider))?.id;
@@ -2505,10 +2465,9 @@ class HyperliquidTradingNotifier
         assetId: market.assetId,
       );
       verifyAccount();
-      final lev = leverage.clamp(1, market.maxLeverage).toInt();
+      final lev = HlIntents.clampLeverage(market, leverage);
       if (!reduceOnly) {
-        await _ensureLeverage(market, current, lev, isCross,
-            changeOpenPosition: changeOpenPosition);
+        await _ensureLeverage(market, current, lev, isCross);
         verifyAccount();
         await _fundPerpAction(
           market,
@@ -2830,7 +2789,7 @@ class HyperliquidTradingNotifier
   /// reduce-only orders (which never write the margin mode).
   static bool? _crossFor(HlMarket m, bool? isCross, {bool reduceOnly = false}) {
     if (m.isSpot || reduceOnly) return null;
-    return (isCross ?? kHlDefaultCross) && !m.onlyIsolated;
+    return kHlCrossMarginOffered && (isCross ?? kHlDefaultCross) && !m.onlyIsolated;
   }
 
   static String _openOrderType(HlOpenOrder o) {

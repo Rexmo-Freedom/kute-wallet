@@ -32,6 +32,8 @@ import 'package:kute/services/hyperliquid/trailing_stop.dart';
 //
 // Privacy: nothing here is tracked or logged.
 
+import 'package:kute/constants/hyperliquid_constants.dart'
+    show hlAppLeverage;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/services/polymarket/order_amounts.dart'
@@ -167,8 +169,9 @@ abstract final class HlIntents {
   static String side(bool isBuy, {required bool isSpot}) =>
       isSpot ? (isBuy ? 'buy' : 'sell') : (isBuy ? 'long' : 'short');
 
+  /// The app's leverage rule ([hlAppLeverage]): 1x on every market.
   static int clampLeverage(HlMarket market, int leverage) =>
-      market.isSpot ? 1 : leverage.clamp(1, market.maxLeverage).toInt();
+      market.isSpot ? 1 : hlAppLeverage(leverage, market.maxLeverage);
 
   static SensitiveIntent _order({
     required String walletId,

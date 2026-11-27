@@ -1108,28 +1108,47 @@ void main() {
     expect(service.snapshot, isNull);
   });
 
-  test('the leverage cap is read from the snapshot for this region', () async {
+  test('leverage stays 1x whatever the policy publishes (blocked in the app)',
+      () async {
     Map<String, dynamic> withInvesting(Object? cap, {bool present = true}) => {
           ...policy(),
           if (present) 'investing': {'maxLeverage': cap},
         };
     setup((_) => http.Response(jsonEncode(withInvesting(null)), 200));
     expect(await service.refresh(), isTrue);
-    expect(service.maxLeverage, isNull, reason: 'null means the venue max');
-    expect(service.offeredLeverage(40), 40);
-    service.ensureLeverageAllowed(40);
+    expect(service.maxLeverage, 1,
+        reason: 'no policy cap still means 1x, never the venue max');
+    expect(service.offeredLeverage(40), 1);
+    service.ensureLeverageAllowed(1);
+    expect(
+        () => service.ensureLeverageAllowed(2),
+        throwsA(isA<LeverageCapExceededException>()
+            .having((e) => e.maxLeverage, 'cap', 1)));
     service.dispose();
 
-    setup((_) => http.Response(jsonEncode(withInvesting(2)), 200));
+    setup((_) => http.Response(jsonEncode(withInvesting(20)), 200));
     expect(await service.refresh(), isTrue);
-    expect(service.maxLeverage, 2);
-    expect(service.offeredLeverage(40), 2);
+    expect(service.maxLeverage, 1, reason: 'a looser policy cap is ignored');
+    expect(service.offeredLeverage(40), 1);
+    expect(() => service.ensureLeverageAllowed(20),
+        throwsA(isA<LeverageCapExceededException>()));
+  });
+
+  test('the leverage cap is read from the snapshot for this region', () async {
+    Map<String, dynamic> withInvesting(Object? cap, {bool present = true}) => {
+          ...policy(),
+          if (present) 'investing': {'maxLeverage': cap},
+        };
+    setup((_) => http.Response(jsonEncode(withInvesting(1)), 200));
+    expect(await service.refresh(), isTrue);
+    expect(service.maxLeverage, 1);
+    expect(service.offeredLeverage(40), 1);
     expect(service.offeredLeverage(1), 1);
-    service.ensureLeverageAllowed(2);
+    service.ensureLeverageAllowed(1);
     expect(
-        () => service.ensureLeverageAllowed(3),
+        () => service.ensureLeverageAllowed(2),
         throwsA(isA<LeverageCapExceededException>()
-            .having((e) => e.maxLeverage, 'cap', 2)));
+            .having((e) => e.maxLeverage, 'cap', 1)));
     expect(const LeverageCapExceededException(2).toString(), contains('2x'));
     service.dispose();
 
@@ -1160,13 +1179,14 @@ void main() {
     expect(service.maxLeverage, 1);
     expect(service.offeredLeverage(40), 1);
     expect(await service.refresh(), isTrue);
-    expect(service.maxLeverage, 5);
-    // Expired and unreachable: the last cap seen for this session holds.
+    // The policy's 5x is looser than the app's block: 1x.
+    expect(service.maxLeverage, 1);
+    // Expired and unreachable: still 1x.
     now = now.add(const Duration(minutes: 6));
     fail = true;
     expect(await service.refresh(), isFalse);
     expect(service.snapshot, isNull);
-    expect(service.maxLeverage, 5);
+    expect(service.maxLeverage, 1);
     // Another session inherits nothing: back to 1x.
     session = 'wallet-b';
     expect(service.maxLeverage, 1);

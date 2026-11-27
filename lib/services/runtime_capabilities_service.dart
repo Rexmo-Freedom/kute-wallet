@@ -7,6 +7,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:kute/services/http/fresh_connection.dart';
+import 'package:kute/constants/hyperliquid_constants.dart'
+    show kHlMaxOfferedLeverage;
 import 'package:kute/l10n/l10n.dart'
     show AppLocalizations, appL10n, l10nForLanguage;
 import 'package:kute/models/affiliate_model.dart';
@@ -797,16 +799,27 @@ class RuntimeCapabilitiesService extends ChangeNotifier
 
   bool allows(String id) => decision(id).allowed && !decision(id).comingSoon;
 
-  /// The Investing leverage cap for this region: null when the policy sets
-  /// none. Without a fresh policy the last cap seen stands (the session
-  /// policy's first, then the public one's), and with none ever seen the
-  /// cap is 1x, so an outage can only ever tighten leverage, never loosen
-  /// it.
+  /// The Investing leverage cap for this region: never above
+  /// [kHlMaxOfferedLeverage] (leverage is blocked in the app, whatever the
+  /// policy says), and tighter only if the policy's own cap is. Without a
+  /// fresh policy the last cap seen stands (the session policy's first,
+  /// then the public one's), and with none ever seen the cap is 1x, so an
+  /// outage can only ever tighten leverage, never loosen it.
+  ///
+  /// Typed nullable for older readers; it is never null. Even an override
+  /// returning null or more cannot loosen [offeredLeverage] or
+  /// [ensureLeverageAllowed], which hold to [kHlMaxOfferedLeverage] too.
   int? get maxLeverage {
+    int? policyCap = 1;
     for (final policy in [snapshot, publicSnapshot, _held, _public]) {
-      if (policy != null) return policy.maxLeverage;
+      if (policy != null) {
+        policyCap = policy.maxLeverage;
+        break;
+      }
     }
-    return 1;
+    return policyCap == null || policyCap > kHlMaxOfferedLeverage
+        ? kHlMaxOfferedLeverage
+        : policyCap;
   }
 
   /// Kute's Polymarket builder (attribution) code from the newest policy on
@@ -821,20 +834,27 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     return null;
   }
 
-  /// The leverage a ticket may offer for [venueMax]: the venue's own
-  /// maximum, tightened to the policy cap when one applies.
-  int offeredLeverage(int venueMax) {
+  int get _appCap {
     final cap = maxLeverage;
+    return cap == null || cap > kHlMaxOfferedLeverage
+        ? kHlMaxOfferedLeverage
+        : cap;
+  }
+
+  /// The leverage a ticket may offer for [venueMax]: the venue's own
+  /// maximum, held to [maxLeverage] (1x: leverage is blocked in the app).
+  int offeredLeverage(int venueMax) {
+    final cap = _appCap;
     final venue = venueMax < 1 ? 1 : venueMax;
-    return cap == null || cap >= venue ? venue : cap;
+    return cap >= venue ? venue : cap;
   }
 
   /// Refuses an order that asks for more leverage than the policy allows.
   /// Hot and Ledger order paths call this at the same point, so the cap
   /// is one rule with one wording wherever the order is signed.
   void ensureLeverageAllowed(int leverage) {
-    final cap = maxLeverage;
-    if (cap != null && leverage > cap) {
+    final cap = _appCap;
+    if (leverage > cap) {
       throw LeverageCapExceededException(cap);
     }
   }
