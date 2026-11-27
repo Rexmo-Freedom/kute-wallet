@@ -16,6 +16,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceCheckProvider;
 import 'package:kute/models/settings_model.dart' show Settings;
 import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/web_edge_colors.dart';
 import 'package:kute/platform/web_safe_area.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart'
@@ -644,7 +645,10 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                 // the `app_language` super property. Deduped inside.
                 TrackingService.setAppLanguage(
                     Localizations.localeOf(context).languageCode);
-                return Directionality(
+                return WebEdgeColors(
+                  // Web: Safari's bars in the app's edge colours
+                  // (web_edge_colors.dart); nothing on the phones.
+                  child: Directionality(
                   textDirection: TextDirection.ltr,
                   child: AnnotatedRegion<SystemUiOverlayStyle>(
                     value: overlayStyle,
@@ -690,6 +694,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                       ),
                     ),
                   ),
+                ),
                 );
               },
             );

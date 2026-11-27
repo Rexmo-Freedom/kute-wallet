@@ -132,6 +132,28 @@
       }
     }
 
+    /* Safari (iOS 26 on) paints the band behind its status bar in the
+       colour of a full-width fixed element at the top edge, and the band
+       behind its toolbar in the page's background: the app sets both to
+       its own edge colours (lib/platform/web_edge_colors.dart). Behind
+       the Flutter view, never over it. */
+    #kute-edge-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 8px;
+      z-index: 0;
+      pointer-events: none;
+      background-color: #FFFFFF;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      #kute-edge-top {
+        background-color: #000000;
+      }
+    }
+
     .center {
       margin: 0;
       position: absolute;
@@ -181,6 +203,7 @@
   <script id="splash-screen-script" src="splash.js"></script>
 </head>
 <body>
+  <div id="kute-edge-top" aria-hidden="true"></div>
   <picture id="splash">
       <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
       <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
