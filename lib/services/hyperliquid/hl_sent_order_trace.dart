@@ -40,6 +40,49 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
         HyperliquidRejectedException;
 import 'package:kute/services/tracking_service.dart';
 
+/// Whether [filled] coins of an order are the whole of the [sent] size it
+/// went out with: to within half a lot step ([szDecimals]), never a part.
+/// The order slip's stream close and the trading notifier's unclear
+/// answer read the same rule.
+bool hlFillsCoverSize(double filled, double sent, int szDecimals) {
+  if (sent <= 0 || filled <= 0) return false;
+  final step = math.pow(10, -szDecimals).toDouble();
+  return filled >= sent - step / 2;
+}
+
+/// A market order sent under [cloid] whose answer was unclear, taken as
+/// filled from the account's own fills ([fills]: this cloid, on [market]'s
+/// wire coin, each counted once) when they total its whole [sentSize]
+/// ([hlFillsCoverSize]); null for none or a part (still unconfirmed).
+HlOrderResult? hlFilledByOwnFills({
+  required HlMarket market,
+  required String cloid,
+  required double sentSize,
+  required Iterable<HlFill> fills,
+}) {
+  final id = cloid.toLowerCase();
+  final seen = <String>{};
+  var size = 0.0;
+  var notional = 0.0;
+  int? oid;
+  for (final f in fills) {
+    if (f.coin != market.wireCoin || f.cloid?.toLowerCase() != id) continue;
+    final key = f.tradeId ?? '${f.oid}|${f.time}|${f.sz}|${f.px}';
+    if (!seen.add(key)) continue;
+    size += f.sz;
+    notional += f.sz * f.px;
+    oid ??= f.oid;
+  }
+  if (!hlFillsCoverSize(size, sentSize, market.szDecimals)) return null;
+  return HlOrderResult(
+    kind: HlOrderResultKind.filled,
+    oid: oid,
+    cloid: cloid,
+    filledSz: size,
+    avgPx: notional / size,
+  );
+}
+
 /// Whether [e], thrown by an order send, leaves it UNKNOWN if the venue
 /// took the order: the request timed out or the connection broke (the
 /// venue may have received it), or the gateway answered without a verdict
