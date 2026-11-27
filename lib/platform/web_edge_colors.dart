@@ -2,22 +2,23 @@
 /// 2026, on an iPhone: "red does not go full down": the No slip's red
 /// stopped above Safari's bottom toolbar, a white strip under it).
 ///
-/// What Safari (iOS 26 and later) does, measured in the simulator: the page
-/// is drawn between the status bar and the floating toolbar only (a fixed
-/// element taller than that, 100lvh included, is cut there), and the two
-/// bands are painted in one solid colour each: a full-width fixed element
-/// touching that edge lends its CSS background colour (not its pixels, so
-/// never the canvas's), else the page's background. Flutter's view is a
-/// transparent element over a canvas, so both bands showed the page's
-/// white (or the system's black, whatever the app's own theme).
+/// What Safari (iOS 26 and later) does, measured in the simulator on the
+/// running app (pixel values read from captures): the page is drawn
+/// between the status bar and the floating toolbar only, and each band is
+/// one solid colour, taken from a full-width fixed element at least 8 px
+/// tall lying over the page at that edge, and read again only when such
+/// an element is inserted (a new colour on it, or on the body, is ignored
+/// once the app runs). See web_edge_colors_web.dart.
 ///
-/// So the app tells the page, after the frames that change them, the
-/// colour at its top and bottom edges: the body's background (the bottom
-/// band) and a strip behind the view at the top (`#kute-edge-top`,
-/// web/index.html). A sheet's colour then runs under the toolbar, the
-/// app's background under it on a page. Nothing moves and nothing is
-/// drawn over the app; desktop browsers have no such bands and show none
-/// of it. The phones never call this.
+/// So the app works out the colour it draws at its top and bottom edges
+/// from its own render tree (the topmost opaque decoration or Material
+/// there: a sheet's surface, a slip's side colour, the page background;
+/// never a read of the canvas's pixels), after the frames that change
+/// them, and the web layer replaces the edge's strip when it changes. A
+/// sheet's colour then runs under the toolbar, the app's background under
+/// it on a page, the dimmed page above a sheet. Nothing moves; the 8 px
+/// strips over the app's edges are in the very colour drawn there.
+/// Desktop browsers have no such bands. The phones never call this.
 library;
 
 import 'dart:async';

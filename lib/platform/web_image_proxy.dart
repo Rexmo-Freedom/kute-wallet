@@ -69,7 +69,7 @@ abstract final class WebImageProxy {
     // The path as the upstream has it (already percent-encoded).
     final path = uri.path;
     if (uri.host == _pmHost && path.length > 1) {
-      return '$base/api/v1/img/pm${path}';
+      return '$base/api/v1/img/pm$path';
     }
     if (uri.host == _hlHost &&
         path.startsWith('/coins/') &&
