@@ -889,6 +889,19 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       if (grant == null) _stopped('signing_declined');
       return;
     }
+    // The price moved while the approval was up: a stop or take re-checked
+    // against the price now, right before signing. Crossed, nothing is
+    // sent and the sheet says why with its own inline line ([_paramError],
+    // read from the same price), the button off.
+    if (_isTriggerClose && _paramError != null) {
+      grant.revoke();
+      _trackBlocked('price_moved');
+      setState(() {
+        _errorDetails = null;
+        _errorText = null;
+      });
+      return;
+    }
 
     _trackSubmitted();
     setState(() {
