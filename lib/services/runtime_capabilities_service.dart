@@ -669,8 +669,8 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   };
 
   CapabilityDecision decision(String id) {
-    // TEMPORARY (web_advanced_test.dart): Advanced on in the one browser
-    // that opened the test link. Remove with that file.
+    // TEMPORARY (web_advanced_test.dart): on the web Advanced is on and
+    // the backend's value is not read. Remove with that file.
     if (id == 'trading.advanced' && WebAdvancedTest.on) {
       return const CapabilityDecision(allowed: true, reason: 'allowed');
     }
@@ -809,8 +809,8 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// cap is 1x, so an outage can only ever tighten leverage, never loosen
   /// it.
   int? get maxLeverage {
-    // TEMPORARY (web_advanced_test.dart): leverage stays at 1x while the
-    // test switch is on, whatever the policy says. Remove with that file.
+    // TEMPORARY (web_advanced_test.dart): leverage stays at 1x on the web
+    // while Advanced is forced on there. Remove with that file.
     if (WebAdvancedTest.on) return 1;
     for (final policy in [snapshot, publicSnapshot, _held, _public]) {
       if (policy != null) return policy.maxLeverage;

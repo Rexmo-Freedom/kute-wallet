@@ -15,7 +15,6 @@ import 'package:kute/screens/share/claim_screen.dart';
 import 'package:kute/screens/share/share_guest_screen.dart';
 import 'package:kute/services/share_link_claims.dart';
 import 'package:kute/services/share_target.dart';
-import 'package:kute/services/web_advanced_test.dart';
 import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/share_links_store.dart';
 import 'package:go_router/go_router.dart';
@@ -396,8 +395,6 @@ class AppRouter {
     } catch (_) {
       return locked ? '/splash' : '/home';
     }
-    // TEMPORARY (web_advanced_test.dart): `/#/?advanced=on|off`.
-    WebAdvancedTest.readLink(q[WebAdvancedTest.query]);
     final code = ShareTarget.normalizeReferral(q[kShareReferralQuery]);
     if (code != null && ShareTargetIngest.firstSighting(uri)) {
       ShareTargets.ingestInvite(code);
