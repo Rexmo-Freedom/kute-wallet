@@ -14,6 +14,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
+    show hlSentOrderCloids, hlSentOrderFound;
 import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart'
     show hlOrderResultNotices;
 import 'package:kute/services/hyperliquid/hl_sent_order_trace.dart';
@@ -296,6 +298,128 @@ void main() {
       expect(sends, 1);
       expect(asked, legs);
       expect(result.oid, 12);
+    });
+
+    HlOpenOrder resting(String cloid, int oid) => HlOpenOrder(
+        coin: 'BTC',
+        oid: oid,
+        isBuy: true,
+        limitPx: 59000,
+        sz: 0.0006,
+        origSz: 0.0006,
+        timestamp: 0,
+        cloid: cloid,
+        reduceOnly: false,
+        orderType: 'Limit',
+        isTrigger: false,
+        triggerPx: null);
+
+    test('a scale order found after no answer is said "N of M", as its '
+        'answer would: 3 of 5 legs on the account', () async {
+      // The exchange's POST never answers: nothing reaches the venue.
+      var posts = 0;
+      final ex = HyperliquidExchangeService(
+        credentials: EthPrivateKey.fromHex(
+            '0x0123456789012345678901234567890101234567890123456789012345678901'),
+        walletAddress: '0x0000000000000000000000000000000000000001',
+        httpClient: MockClient((_) async {
+          posts++;
+          throw TimeoutException('15 s');
+        }),
+      );
+      final legs = hlScaleLegCloids('0x${'ab' * 15}00', 5);
+      final result = await hlSendReconciled(
+        send: () => ex.placeScaleOrder(
+            market: _btc,
+            isBuy: true,
+            totalSize: 0.003,
+            startPx: 59000,
+            endPx: 58000,
+            count: 5,
+            legCloids: legs),
+        cloid: legs.first,
+        cloids: legs,
+        scaleLegs: 5,
+        market: _btc,
+        action: 'open',
+        window: const Duration(milliseconds: 30),
+        every: const Duration(milliseconds: 10),
+        // Legs 1, 3 and 5 rest on the account; 2 and 4 are nowhere.
+        lookup: (cloids, _) async => hlTraceOf(cloids,
+            open: [
+              resting(legs[0], 21),
+              resting(legs[2].toUpperCase(), 23),
+              resting(legs[4], 25),
+            ],
+            fills: const []),
+      );
+      expect(posts, 1);
+      expect(result.kind, HlOrderResultKind.resting);
+      expect(result.legsPlaced, 3);
+      expect(result.legsTotal, 5);
+      expect(result.filledSz, 0);
+      expect(hlOrderResultNotices(l10nForLanguage('en'), result),
+          ['Only 3 of 5 orders were placed.']);
+    });
+
+    test('a scale order found partly filled: every leg\'s fill totalled, a '
+        'leg filled and resting counted once', () async {
+      final legs = hlScaleLegCloids('0x${'ef' * 15}00', 5);
+      HlFill fill(String cloid, double sz, double px) => HlFill(
+          coin: 'BTC',
+          px: px,
+          sz: sz,
+          side: 'B',
+          time: 0,
+          closedPnl: 0,
+          fee: 0.01,
+          feeToken: 'USDC',
+          oid: 31,
+          hash: '',
+          dir: 'Open Long',
+          cloid: cloid);
+      final result = await hlSendReconciled(
+        send: () async => throw TimeoutException('15 s'),
+        cloid: legs.first,
+        cloids: legs,
+        scaleLegs: 5,
+        market: _btc,
+        action: 'open',
+        window: const Duration(milliseconds: 30),
+        every: const Duration(milliseconds: 10),
+        lookup: (cloids, _) async => hlTraceOf(cloids,
+            open: [resting(legs[0], 31), resting(legs[1], 32)],
+            fills: [
+              fill(legs[0], 0.0002, 59000),
+              fill(legs[0], 0.0002, 59100),
+            ]),
+      );
+      expect(result.isFilled, isTrue);
+      expect(result.filledSz, closeTo(0.0004, 1e-12));
+      expect(result.avgPx, closeTo(59050, 1e-6));
+      expect(result.legsPlaced, 2);
+      expect(result.legsTotal, 5);
+    });
+
+    test('the queued order\'s lookup says the same "N of M"', () {
+      const first = '0x000000000000000000000000000000c0';
+      final legs = hlSentOrderCloids(first, scaleLegs: 5);
+      final trace = hlTraceOf(legs,
+          open: [
+            resting(legs[1], 1),
+            resting(legs[2], 2),
+            resting(legs[3], 3),
+          ],
+          fills: const []);
+      final found = hlSentOrderFound(trace, first, scaleLegs: 5)!;
+      expect(found.legsPlaced, 3);
+      expect(found.legsTotal, 5);
+      expect(hlOrderResultNotices(l10nForLanguage('en'), found),
+          ['Only 3 of 5 orders were placed.']);
+      // A single order is the trace's own result.
+      final single = hlTraceOf([first],
+          open: [resting(first, 4)], fills: const []);
+      expect(hlSentOrderFound(single, first)!.legsPlaced, isNull);
     });
 
     test('nowhere for the whole window: not placed; unreadable: unconfirmed',

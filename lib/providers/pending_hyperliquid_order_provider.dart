@@ -178,6 +178,21 @@ List<String> hlSentOrderCloids(String firstCloid, {int? scaleLegs}) => [
             : [sent]),
     ];
 
+/// What [trace] found of the order first sent as [firstCloid]: a scale
+/// order of [scaleLegs] legs said "N of M" over every leg the account
+/// shows ([hlScaleLegsFound]), as its own answer would say it, never one
+/// leg standing for the ladder.
+@visibleForTesting
+HlOrderResult? hlSentOrderFound(HlSentOrderTrace trace, String firstCloid,
+    {int? scaleLegs}) {
+  final found = trace.found;
+  if (found == null || scaleLegs == null || scaleLegs < 2) return found;
+  return hlScaleLegsFound(found,
+      matched: trace.matched,
+      cloids: hlSentOrderCloids(firstCloid, scaleLegs: scaleLegs),
+      legs: scaleLegs);
+}
+
 class PendingHlOrderIntent {
   final String coin;
   final HlMarketKind kind;
@@ -1446,7 +1461,8 @@ class PendingHlOrderAutoFire {
                     hlSentOrderCloids(firstCloid,
                         scaleLegs: intent.placement?.scaleLegs),
                     market);
-            final found = trace.found;
+            final found = hlSentOrderFound(trace, firstCloid,
+                scaleLegs: intent.placement?.scaleLegs);
             if (found != null) {
               result = found;
               break;
@@ -1462,7 +1478,8 @@ class PendingHlOrderAutoFire {
           // is followed instead; one that cannot be read is not resent.
           final trace = await _traceSent(firstCloid, market,
               scaleLegs: intent.placement?.scaleLegs);
-          final found = trace.found;
+          final found = hlSentOrderFound(trace, firstCloid,
+              scaleLegs: intent.placement?.scaleLegs);
           if (found != null) {
             result = found;
             break;
