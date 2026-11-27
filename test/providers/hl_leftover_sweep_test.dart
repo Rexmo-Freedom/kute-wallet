@@ -13,12 +13,19 @@
 //     receipt's "still open" is zero;
 //   * the replace-stop sequence the close sheet runs: the new stop is
 //     placed first and the old one cancelled after it is accepted; a
-//     rejected new stop throws before any cancel.
+//     rejected new stop throws before any cancel;
+//   * the position is read fresh right before the cancel: the coin open
+//     again (another device, a queued order) or a read that fails cancels
+//     nothing and disarms; an order placed after the close was armed is
+//     never its left-over;
+//   * a wallet switch while the sweep runs sends nothing to either
+//     account.
 //
 // Cancel answers are the venue's documented shapes (Hyperliquid docs,
 // Exchange endpoint, "Cancel order(s)"): statuses ["success"], and
 // {"error": "Order was never placed, already canceled, or filled."}.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -30,6 +37,7 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
@@ -113,11 +121,23 @@ class _Trading extends HyperliquidTradingNotifier {
 
 /// The venue as the test answers it: every posted action recorded; an
 /// order rests (or is rejected); each cancel answers per order from
-/// [cancelAnswer].
+/// [cancelAnswer] and takes what it cancelled off [book]. Reads: the
+/// open orders are [book] (after [ordersGate], when set), the position
+/// read fresh is [positions] (or fails with [failPositionRead]).
 class _Venue {
+  _Venue({List<HlOpenOrder>? book, this.keyHex = _keyA})
+      : book = [...?book];
+  final String keyHex;
   final actions = <Map<String, dynamic>>[];
   bool rejectOrders = false;
   Object Function(int oid) cancelAnswer = (_) => 'success';
+  List<HlOpenOrder> book;
+  List<HlPerpPosition> positions = const [];
+  bool failPositionRead = false;
+  Completer<void>? ordersGate;
+  final positionReads = <String>[];
+
+  HyperliquidModel model() => _Model(this);
 
   List<List<int>> get cancels => [
         for (final a in actions)
@@ -128,8 +148,7 @@ class _Venue {
   int get orders => actions.where((a) => a['type'] == 'order').length;
 
   HyperliquidExchangeService exchange() {
-    final key = EthPrivateKey.fromHex(
-        '0x0123456789012345678901234567890101234567890123456789012345678901');
+    final key = EthPrivateKey.fromHex(keyHex);
     return HyperliquidExchangeService(
       credentials: key,
       walletAddress: key.address.hexEip55,
@@ -138,6 +157,15 @@ class _Venue {
             as Map<String, dynamic>)['action'] as Map<String, dynamic>;
         actions.add(action);
         if (action['type'] == 'cancel') {
+          final gone = {
+            for (final c in action['cancels'] as List)
+              if (cancelAnswer((c as Map)['o'] as int) == 'success')
+                c['o'] as int,
+          };
+          book = [
+            for (final o in book)
+              if (!gone.contains(o.oid)) o
+          ];
           return http.Response(
               jsonEncode({
                 'status': 'ok',
@@ -175,6 +203,43 @@ class _Venue {
   }
 }
 
+const _keyA =
+    '0x0123456789012345678901234567890101234567890123456789012345678901';
+const _keyB =
+    '0x0223456789012345678901234567890101234567890123456789012345678902';
+
+/// The venue's info reads ([_Venue]): open orders, fills, and the
+/// position on one dex.
+class _Model extends HyperliquidModel {
+  _Model(this.venue);
+  final _Venue venue;
+
+  @override
+  Future<List<HlOpenOrder>> getOpenOrders(String address,
+      {Iterable<String> dexes = const []}) async {
+    final gate = venue.ordersGate;
+    if (gate != null) await gate.future;
+    return List.of(venue.book);
+  }
+
+  @override
+  Future<List<HlFill>> getUserFills(String address) async => const [];
+
+  @override
+  Future<HlAccountSnapshot> getDexClearinghouse(
+      String address, String dex) async {
+    venue.positionReads.add(dex);
+    if (venue.failPositionRead) throw http.ClientException('info failed');
+    return HlAccountSnapshot(
+        accountValue: 100,
+        withdrawable: 100,
+        totalMarginUsed: 0,
+        positions: venue.positions,
+        spotBalances: const [],
+        positionDexes: {dex});
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late RuntimeCapabilitiesService policy;
@@ -196,7 +261,10 @@ void main() {
     List<HlPerpPosition>? positions,
     List<HlOpenOrder>? orders,
   }) async {
+    final venue =
+        _Venue(book: orders ?? [_stop, _take, _entry, _ethStop]);
     final container = ProviderContainer(overrides: [
+      hyperliquidTradingModelProvider.overrideWithValue(venue.model()),
       hyperliquidTradingProvider.overrideWith(() => _Trading(
           HyperliquidTradingState(
               isInitialized: true,
@@ -211,8 +279,7 @@ void main() {
     container.listen(hyperliquidTradingProvider, (_, __) {});
     await container.read(hyperliquidTradingProvider.future);
     final notifier = container.read(hyperliquidTradingProvider.notifier);
-    final venue = _Venue();
-    notifier.debugUseExchange(venue.exchange(), walletId: _walletId);
+    notifier.debugAttachExchange(venue.exchange(), walletId: _walletId);
     return (container, notifier as _Trading, venue);
   }
 
@@ -393,6 +460,96 @@ void main() {
     });
   });
 
+  group('the position read fresh before the cancel', () {
+    final newStop =
+        _order(61, 'BTC', trigger: true, reduceOnly: true, tpsl: 'sl');
+    final newTake =
+        _order(62, 'BTC', trigger: true, reduceOnly: true, tpsl: 'tp');
+
+    test(
+        'the coin opened again (with its own TP/SL) before the cancel: '
+        'nothing cancelled, and the close is disarmed', () async {
+      final (c, t, venue) = await setup();
+      await limitClose(t, 0.5);
+      // Filled, then reopened elsewhere with a new stop and take before
+      // the sweep's reads: the book holds both pairs, the venue's
+      // position is open again while the snapshot still says flat.
+      venue.book = [newStop, newTake, ...venue.book];
+      venue.positions = [_long('BTC', 0.3)];
+      t.debugApplySnapshot(snapshot(const []));
+      expect(await t.leftoverSweepFor('BTC'), (cancelled: 0, failed: 0));
+      expect(venue.positionReads, ['']);
+      expect(venue.cancels, isEmpty);
+      // Disarmed: a later flat snapshot starts nothing.
+      venue.positions = const [];
+      t.debugApplySnapshot(snapshot(const []));
+      await pumpEventQueue();
+      expect(venue.cancels, isEmpty);
+      expect(openOids(c), containsAll([31, 32, 61, 62]));
+    });
+
+    test('the fresh read fails: nothing cancelled', () async {
+      final (c, t, venue) = await setup();
+      venue.failPositionRead = true;
+      await limitClose(t, 0.5);
+      t.debugApplySnapshot(snapshot(const []));
+      expect(await t.leftoverSweepFor('BTC'), (cancelled: 0, failed: 0));
+      expect(venue.cancels, isEmpty);
+      expect(openOids(c), containsAll([31, 32]));
+      // Disarmed: the next flat snapshot does not retry.
+      venue.failPositionRead = false;
+      t.debugApplySnapshot(snapshot(const []));
+      await pumpEventQueue();
+      expect(venue.cancels, isEmpty);
+    });
+
+    test(
+        'an order placed after the close was armed is never cancelled, '
+        'even with the position gone', () async {
+      final (c, t, venue) = await setup();
+      await limitClose(t, 0.5);
+      // A stop placed after the close (another device): on the book.
+      venue.book = [newStop, ...venue.book];
+      t.debugApplySnapshot(snapshot(const []));
+      expect(await t.leftoverSweepFor('BTC'), (cancelled: 2, failed: 0));
+      expect(venue.cancels, [
+        [31, 32]
+      ]);
+      expect(openOids(c), contains(61));
+    });
+
+    test('only orders placed after it: nothing to cancel', () async {
+      final (c, t, venue) = await setup(orders: [_entry, _ethStop]);
+      await limitClose(t, 0.5);
+      venue.book = [newStop, newTake, ...venue.book];
+      t.debugApplySnapshot(snapshot(const []));
+      expect(await t.leftoverSweepFor('BTC'), (cancelled: 0, failed: 0));
+      expect(venue.cancels, isEmpty);
+      expect(openOids(c), containsAll([61, 62]));
+    });
+  });
+
+  test(
+      'a wallet switch while the sweep runs: nothing is sent to either '
+      'account', () async {
+    final (_, t, venue) = await setup();
+    await limitClose(t, 0.5);
+    final gate = Completer<void>();
+    venue.ordersGate = gate;
+    t.debugApplySnapshot(snapshot(const []));
+    final sweep = t.leftoverSweepFor('BTC')!;
+    await pumpEventQueue();
+    // Another wallet loads while the orders read is out; its own book
+    // holds a BTC stop.
+    final other = _Venue(book: [_stop, _take], keyHex: _keyB);
+    t.debugAttachExchange(other.exchange(), walletId: 'w2');
+    gate.complete();
+    expect(await sweep, (cancelled: 0, failed: 0));
+    expect(venue.cancels, isEmpty);
+    expect(other.cancels, isEmpty);
+    expect(venue.positionReads, isEmpty);
+  });
+
   test('every hot close path reaches the one sweep', () {
     final source = File('lib/providers/hyperliquid_trading_provider.dart')
         .readAsStringSync();
@@ -404,7 +561,7 @@ void main() {
     }
 
     expect(body('Future<HlOrderResult> closePosition('),
-        contains('_dropClosedInFull(pos)'));
+        contains('_dropClosedInFull(pos,'));
     expect(body('void _dropClosedInFull('), contains('_startLeftoverSweep('));
     expect(body('Future<HlOrderResult> placeLimit('), contains('_armFullClose('));
     expect(body('Future<HlOrderResult> placeTwap('), contains('_armFullClose('));

@@ -178,8 +178,30 @@ void main() {
   });
 
   test('a market is confirming while one of its orders is looked up', () {
-    expect(hlMarketConfirming(const {'0xa': 'BTC'}, 'BTC'), isTrue);
-    expect(hlMarketConfirming(const {'0xa': 'ETH'}, 'BTC'), isFalse);
-    expect(hlMarketConfirming(const {}, 'BTC'), isFalse);
+    const a = '0xaaaa';
+    expect(
+        hlMarketConfirming(const {'0xa': (account: a, wireCoin: 'BTC')},
+            account: a, wireCoin: 'BTC'),
+        isTrue);
+    expect(
+        hlMarketConfirming(const {'0xa': (account: a, wireCoin: 'ETH')},
+            account: a, wireCoin: 'BTC'),
+        isFalse);
+    expect(hlMarketConfirming(const {}, account: a, wireCoin: 'BTC'),
+        isFalse);
+  });
+
+  test('a lookup on account A never holds account B\'s ticket', () {
+    const confirming = {'0xa': (account: '0xaaaa', wireCoin: 'BTC')};
+    expect(
+        hlMarketConfirming(confirming, account: '0xBBBB', wireCoin: 'BTC'),
+        isFalse);
+    // The same account, written in another case, is held.
+    expect(
+        hlMarketConfirming(confirming, account: '0xAAAA', wireCoin: 'BTC'),
+        isTrue);
+    // An account not known yet is held by any lookup on the coin.
+    expect(hlMarketConfirming(confirming, account: null, wireCoin: 'BTC'),
+        isTrue);
   });
 }

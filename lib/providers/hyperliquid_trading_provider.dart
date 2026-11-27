@@ -118,10 +118,17 @@ class HlCancelPartialException implements Exception {
 /// What became of a closed position's left-over protective orders.
 typedef HlLeftoverSweep = ({int cancelled, int failed});
 
+/// The account a left-over sweep started on is no longer the one loaded
+/// (a wallet switch while it ran): nothing is sent.
+class _HlSweepAccountChanged implements Exception {
+  const _HlSweepAccountChanged();
+}
+
 class _FullCloseArm {
   const _FullCloseArm({
     required this.absSzi,
     required this.wasLong,
+    required this.priorOids,
     this.oid,
     this.twapId,
   });
@@ -129,6 +136,10 @@ class _FullCloseArm {
   /// The position's size and side when the closing order was sent.
   final double absSzi;
   final bool wasLong;
+
+  /// The coin's orders listed when the close was armed: only these can be
+  /// its left-overs (one placed after it never is).
+  final Set<int> priorOids;
 
   /// The closing order's handle, while it may rest: its cancel disarms.
   final int? oid;
@@ -543,6 +554,10 @@ class HyperliquidTradingNotifier
   EthPrivateKey? _hotKey;
   String? _walletId;
   String? _address;
+
+  /// Bumped by every [build] (a wallet switch rebuilds): work that spans
+  /// awaits compares it to know it still runs on the same account.
+  int _generation = 0;
   Timer? _ordersTimer;
   bool _disposed = false;
   bool _onboardInFlight = false;
@@ -614,6 +629,8 @@ class HyperliquidTradingNotifier
     // remount. Torn down only by explicit invalidation (wallet switch).
     ref.keepAlive();
     _disposed = false;
+    // A sweep still running belongs to the build it started in.
+    _generation++;
     // Arms belong to the account they were set on.
     _fullCloseArms.clear();
     _leftoverSweeps.clear();
@@ -887,7 +904,8 @@ class HyperliquidTradingNotifier
 
   /// [position] closed in full: off the positions now, and kept off while
   /// a read still shows it at its size ([hlPositionsAfterCloses]).
-  void _dropClosedInFull(HlPerpPosition position) {
+  void _dropClosedInFull(HlPerpPosition position,
+      {required Set<int> priorOids}) {
     final s = _current;
     if (s == null) return;
     _closedInFull = {
@@ -901,8 +919,14 @@ class HyperliquidTradingNotifier
       ],
     ));
     // Gone now: the closing order was this app's own (closePosition).
-    _startLeftoverSweep(position.coin);
+    _startLeftoverSweep(position.coin, priorOids: priorOids);
   }
+
+  /// [coin]'s orders listed now: what a close sent now could leave behind.
+  Set<int> _oidsOn(String coin) => {
+        for (final o in _current?.openOrders ?? const <HlOpenOrder>[])
+          if (o.coin == coin) o.oid,
+      };
 
   // ─────────── left-over protective orders after a full close ───────────
   //
@@ -921,8 +945,13 @@ class HyperliquidTradingNotifier
   //     position on the coin: [_checkFullCloseArms]). A resting limit or
   //     a TWAP is never swept on acceptance, only once the position is
   //     actually gone;
-  //   * the position is still gone after the open orders are read again
-  //     right before the cancel.
+  //   * the position is still gone after the open orders are read again,
+  //     and in one fresh read of the coin's dex (clearinghouseState) right
+  //     before the cancel; a read that fails cancels nothing;
+  //   * the order was listed when the close was armed: one placed after
+  //     it (a reopened position's TP/SL) is never its left-over;
+  //   * the account is still the one the sweep started on (a wallet
+  //     switch mid-sweep sends nothing).
   //
   // Only protective orders ([hlProtectiveOrdersFor]: trigger or trailing,
   // reduce-only or position TP/SL) are cancelled, never an entry or a
@@ -966,6 +995,7 @@ class HyperliquidTradingNotifier
     _fullCloseArms[held.coin] = _FullCloseArm(
       absSzi: held.szi.abs(),
       wasLong: held.isLong,
+      priorOids: _oidsOn(held.coin),
       oid: oid,
       twapId: twapId,
     );
@@ -997,7 +1027,7 @@ class HyperliquidTradingNotifier
         }
       }
       if (now == null) {
-        _startLeftoverSweep(coin);
+        _startLeftoverSweep(coin, priorOids: arm.priorOids);
       } else if (now.isLong != arm.wasLong ||
           now.szi.abs() > arm.absSzi * (1 + 1e-9) + 1e-12) {
         _fullCloseArms.remove(coin);
@@ -1011,28 +1041,70 @@ class HyperliquidTradingNotifier
         (twapId != null && arm.twapId == twapId));
   }
 
-  void _startLeftoverSweep(String coin) {
+  void _startLeftoverSweep(String coin, {required Set<int> priorOids}) {
     _fullCloseArms.remove(coin);
-    final sweep = _sweepLeftovers(coin);
+    final sweep = _sweepLeftovers(coin, priorOids);
     _leftoverSweeps[coin] = sweep;
     unawaited(sweep.then((_) {}, onError: (_) {}));
   }
 
-  Future<HlLeftoverSweep> _sweepLeftovers(String coin) async {
+  Future<HlLeftoverSweep> _sweepLeftovers(
+      String coin, Set<int> priorOids) async {
+    const none = (cancelled: 0, failed: 0);
+    // The account the sweep runs on, held across every await: a wallet
+    // switch meanwhile drops it ([build] bumps the generation, the signer
+    // and address change).
+    final ex = _exchange;
+    final address = _address;
+    final generation = _generation;
+    if (ex == null ||
+        address == null ||
+        address.toLowerCase() != ex.walletAddress.toLowerCase()) {
+      return none;
+    }
+    bool sameAccount() =>
+        !_disposed &&
+        generation == _generation &&
+        identical(_exchange, ex) &&
+        _address?.toLowerCase() == address.toLowerCase();
+
     // The orders read again first: a stop first seen over the socket is
     // not described yet and would otherwise be missed.
     await _silentOrdersRefresh();
+    if (!sameAccount()) return none;
     final s = _current;
-    if (s == null) return (cancelled: 0, failed: 0);
+    if (s == null) return none;
     // Never on a market where a position is open (again).
-    if (s.positions.any((p) => p.coin == coin && p.szi != 0)) {
-      return (cancelled: 0, failed: 0);
-    }
-    final leftovers = hlProtectiveOrdersFor(s.openOrders, coin);
-    if (leftovers.isEmpty) return (cancelled: 0, failed: 0);
+    if (s.positions.any((p) => p.coin == coin && p.szi != 0)) return none;
+    // Only what was there when the close went out.
+    final leftovers = [
+      for (final o in hlProtectiveOrdersFor(s.openOrders, coin))
+        if (priorOids.contains(o.oid)) o,
+    ];
+    if (leftovers.isEmpty) return none;
+    // The position read fresh, right before the cancel: the lists above
+    // may be the snapshot that set this off (or the optimistic drop), and
+    // the coin may have been opened again since (another device, an order
+    // standing in a queue). Open again, or unreadable: nothing cancelled.
     try {
-      final report = await _cancelListed(leftovers, reason: 'after_close');
+      final i = coin.indexOf(':');
+      final dex = i > 0 ? coin.substring(0, i) : '';
+      final fresh = await ref
+          .read(hyperliquidTradingModelProvider)
+          .getDexClearinghouse(address, dex);
+      if (fresh.positions.any((p) => p.coin == coin && p.szi != 0)) {
+        return none;
+      }
+    } catch (_) {
+      return none;
+    }
+    if (!sameAccount()) return none;
+    try {
+      final report = await _cancelListed(leftovers,
+          reason: 'after_close', exchange: ex, stillCurrent: sameAccount);
       return (cancelled: report.cancelled.length, failed: report.failed.length);
+    } on _HlSweepAccountChanged {
+      return none;
     } catch (_) {
       // Unconfirmed: said as still open; the next read reconciles.
       return (cancelled: 0, failed: leftovers.length);
@@ -1855,6 +1927,11 @@ class HyperliquidTradingNotifier
       }
       // A sweep from an earlier close of this coin is not this close's.
       _leftoverSweeps.remove(coin);
+      // What this close can leave behind: the coin's orders now.
+      final priorOids = {
+        for (final o in state0.openOrders)
+          if (o.coin == coin) o.oid,
+      };
 
       await ensureOnboarded();
       final ex = _exchange!;
@@ -1931,7 +2008,7 @@ class HyperliquidTradingNotifier
             result.filledSz >= pos.szi.abs() * (1 - 1e-9)) {
           // Closed in full: the position leaves the lists now, not on the
           // next account poll ([hlPositionsAfterCloses]).
-          _dropClosedInFull(pos);
+          _dropClosedInFull(pos, priorOids: priorOids);
         }
         if (result.isFilled && pos.szi.abs() > 0) {
           // Margin released (and PnL realised) by the fill, shown now; the
@@ -1985,27 +2062,38 @@ class HyperliquidTradingNotifier
     required String action,
     Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket m)?
         lookup,
-  }) =>
-      hlSendReconciled(
-        send: send,
-        cloid: cloid,
-        cloids: cloids,
-        market: market,
-        lookup: lookup ?? ref.read(hlSentOrderTraceProvider),
-        action: action,
-        onConfirming: (on) {
-          if (_disposed) return;
-          final confirming = ref.read(hlConfirmingOrdersProvider.notifier);
-          final now = {...confirming.state};
-          on ? now.add(cloid) : now.remove(cloid);
-          confirming.state = now;
-          // By market too: a fresh ticket on it waits for this lookup.
-          final markets = ref.read(hlConfirmingMarketsProvider.notifier);
-          final byMarket = {...markets.state};
-          on ? byMarket[cloid] = market.wireCoin : byMarket.remove(cloid);
-          markets.state = byMarket;
-        },
-      );
+  }) {
+    // The account the order goes to, as it is sent.
+    final account = (accountAddress ?? '').toLowerCase();
+    return hlSendReconciled(
+      send: send,
+      cloid: cloid,
+      cloids: cloids,
+      market: market,
+      lookup: lookup ?? ref.read(hlSentOrderTraceProvider),
+      action: action,
+      onConfirming: (on) {
+        if (_disposed) return;
+        final confirming = ref.read(hlConfirmingOrdersProvider.notifier);
+        final now = {...confirming.state};
+        on ? now.add(cloid) : now.remove(cloid);
+        confirming.state = now;
+        // By account and market too: a fresh ticket on it waits for this
+        // lookup; another account's ticket does not.
+        final markets = ref.read(hlConfirmingMarketsProvider.notifier);
+        final byMarket = {...markets.state};
+        on
+            ? byMarket[cloid] = (account: account, wireCoin: market.wireCoin)
+            : byMarket.remove(cloid);
+        markets.state = byMarket;
+      },
+    );
+  }
+
+  /// The account this notifier trades (its address), null before it is
+  /// known.
+  String? get accountAddress =>
+      _address ?? _exchange?.walletAddress ?? _current?.walletAddress;
 
   /// Bookkeeping after the exchange took an order (analytics, the
   /// optimistic margin, a refresh): never thrown out of, since the order
@@ -3215,8 +3303,14 @@ class HyperliquidTradingNotifier
   /// or already gone leaves local state at once; what the venue refused
   /// stays listed. Throws only when nothing can be said (asset unresolved,
   /// no clear acknowledgement).
+  ///
+  /// [exchange] and [stillCurrent] pin it to one account (the left-over
+  /// sweep): when [stillCurrent] says the account changed before the
+  /// cancel goes, nothing is sent ([_HlSweepAccountChanged]).
   Future<HlCancelReport> _cancelListed(List<HlOpenOrder> orders,
-      {required String reason}) async {
+      {required String reason,
+      HyperliquidExchangeService? exchange,
+      bool Function()? stillCurrent}) async {
     final cancels = <({int assetId, int oid})>[];
     final coins = {for (final o in orders) o.coin};
     final coin = coins.length == 1 ? coins.first : '';
@@ -3232,16 +3326,23 @@ class HyperliquidTradingNotifier
       if (cancels.length != orders.length) {
         throw const HlCancellationIncompleteException();
       }
+      if (stillCurrent != null && !stillCurrent()) {
+        throw const _HlSweepAccountChanged();
+      }
       try {
-        report = await _exchange!.cancelOrdersReport(cancels);
+        report = await (exchange ?? _exchange!).cancelOrdersReport(cancels);
       } finally {
         unawaited(_silentOrdersRefresh());
       }
     } catch (e) {
-      _trackCancelFailed(scope: reason, coin: coin, error: e);
+      if (e is! _HlSweepAccountChanged) {
+        _trackCancelFailed(scope: reason, coin: coin, error: e);
+      }
       rethrow;
     }
-    _pruneCancelled(report);
+    // Another account's lists are not this answer's to prune (the cancel
+    // went to the account it was meant for; its next read reconciles).
+    if (stillCurrent == null || stillCurrent()) _pruneCancelled(report);
     if (report.cancelled.isNotEmpty) {
       TrackingService.hyperliquidOrderCancelled(
         coin: coins.length == 1 ? coins.first : 'multiple',
