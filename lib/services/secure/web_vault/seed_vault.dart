@@ -31,10 +31,12 @@
 //     the profile folder. With the profile (forensic tooling, malware with
 //     file access, a backup), an attacker can run the derivation offline
 //     and a 6-digit PIN falls on a GPU (10^6 guesses). Only a longer PIN or
-//     password, or a PRF passkey, fixes that. A laptop or desktop browser
-//     therefore locks with a typed password of at least 10 characters
-//     instead of the PIN ([VaultSecretKind.password]); a touch-first
-//     browser (iPad, phone) keeps the PIN.
+//     password, or a PRF passkey, fixes that. ACCEPTED RISK (founder, 27
+//     November 2026, told this plainly; reverses the 24 November rule that
+//     laptop browsers lock with a password): every new web vault, laptop
+//     browsers included, is made with the 6-digit PIN. A vault already
+//     made with a password ([VaultSecretKind.password], 24 to 27 November
+//     2026) keeps it until its owner changes it (unlock_secret.dart).
 //   * A malicious script or extension running inside this page WHILE the
 //     wallet is unlocked: it can call the same code the app calls and read
 //     the phrase, or sign with keys already in memory.
@@ -157,12 +159,11 @@ abstract class VaultDb {
 enum VaultUnlock { ok, wrongPin, unavailable }
 
 /// The secret a vault is locked with: the 6-digit PIN, or a typed
-/// password of at least [VaultSecretKind.minPasswordLength] characters.
+/// password (vaults made with one from 24 to 27 November 2026; every new
+/// vault takes the PIN since, unlock_secret.dart).
 enum VaultSecretKind {
   pin,
   password;
-
-  static const int minPasswordLength = 10;
 
   /// The kind a typed [secret] is: six ASCII digits are a PIN (the pad
   /// types nothing else), anything else a password.
@@ -472,8 +473,8 @@ class SeedVault {
 
   /// Re-wraps the open vault's key under [newPin] with a fresh salt. One
   /// record write: the vault matches either the old PIN or the new one,
-  /// never neither. [kind] marks what [newPin] is (a PIN changed to a
-  /// password upgrades the vault); null keeps the record's kind.
+  /// never neither. [kind] marks what [newPin] is (a password vault
+  /// changed to a PIN becomes a PIN vault); null keeps the record's kind.
   Future<void> changePin(String newPin, {VaultSecretKind? kind}) async {
     final k = _kRaw;
     final meta = _meta;

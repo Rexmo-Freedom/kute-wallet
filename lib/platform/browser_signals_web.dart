@@ -1,11 +1,11 @@
 /// Web: reads the browser's pointer and touch signals for
-/// unlock_secret.dart.
+/// browser_signals.dart.
 library;
 
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
-import 'unlock_secret.dart' show BrowserSignals;
+import 'browser_signals.dart' show BrowserSignals;
 
 bool _matches(String query) {
   try {
