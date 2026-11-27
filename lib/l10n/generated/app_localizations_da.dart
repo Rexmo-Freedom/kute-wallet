@@ -12138,9 +12138,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Navn eller kryptoadresse';
 
   @override
-  String get shareGetKuteLine => 'Vær med på getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Flyt til dine Dollars';
 
   @override
@@ -14562,4 +14559,18 @@ class AppLocalizationsDa extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Denne side er åbnet i en anden app. Åbn den i Safari for at bruge Face ID og beholde din wallet.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Denne side er åbnet i en anden app. Åbn den i Chrome for at bruge en adgangsnøgle og beholde din wallet.';
+
+  @override
+  String get shareOpenInAppBody => 'Har du Kute-appen? Åbn det der.';
+
+  @override
+  String get shareOpenInApp => 'Åbn i appen';
 }

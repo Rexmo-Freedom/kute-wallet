@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance}% шанс",
   "sendRecipientSearchHint": "Име, телефон или крипто адрес",
   "sendRecipientSearchHintNoPhone": "Име или крипто адрес",
-  "shareGetKuteLine": "Включи се в играта на getkute.com",
   "sendMoveToYourDollars": "Премести в твоите Долари",
   "sendMoveToYourBitcoin": "Премести в твоя Bitcoin",
   "sendWhatTitle": "Изпрати на {name}",
@@ -4108,5 +4107,9 @@
   "chartPositionStop": "Стоп {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 свещ} other{{count} свещи}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 свещ} other{{count} свещи}} · {duration}",
+  "shareOpenInBrowserSafari": "Тази страница е отворена в друго приложение. За Face ID и за да запазите портфейла си, отворете я в Safari.",
+  "shareOpenInBrowserChrome": "Тази страница е отворена в друго приложение. За да използвате ключ за достъп и да запазите портфейла си, отворете я в Chrome.",
+  "shareOpenInAppBody": "Имате приложението Kute? Отворете това там.",
+  "shareOpenInApp": "Отвори в приложението"
 }

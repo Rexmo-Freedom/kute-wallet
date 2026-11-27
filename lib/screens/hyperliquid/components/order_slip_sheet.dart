@@ -1,3 +1,5 @@
+import 'package:kute/screens/share/share_wallet_gate.dart';
+import 'package:kute/services/share_target.dart';
 import 'package:kute/screens/shared/kute_side_panel.dart';
 import 'package:kute/platform/kute_wide_frames.dart' show KuteDialogSurfaceMark;
 
@@ -518,6 +520,24 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
       return;
     }
     if (!context.mounted) return;
+    // No wallet at all (a shared market's guest page): the wallet comes
+    // first, then this same ticket (share_wallet_gate.dart).
+    if (ledgerWalletId == null &&
+        sendPick == null &&
+        ShareWalletGate.needsWallet(context)) {
+      return ShareWalletGate.open(context,
+          target: ShareTarget.of(investing: true, slug: market.wireCoin),
+          pick: ShareWalletPick(outcome: isLong ? 'long' : 'short'),
+          resume: () {
+            if (!context.mounted) return;
+            HlOrderSlipSheet.show(context, ref,
+                market: market,
+                isLong: isLong,
+                source: source,
+                entrySource: entrySource,
+                initialUsd: initialUsd);
+          });
+    }
 
     // Counted once the slip actually opens.
     trackOpened(

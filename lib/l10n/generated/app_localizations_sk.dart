@@ -12158,9 +12158,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Meno či krypto adresa';
 
   @override
-  String get shareGetKuteLine => 'Pridaj sa k akcii na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Presunúť na tvoje Doláre';
 
   @override
@@ -14579,4 +14576,18 @@ class AppLocalizationsSk extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Táto stránka je otvorená v inej aplikácii. Pre Face ID a zachovanie peňaženky ju otvorte v Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Táto stránka je otvorená v inej aplikácii. Ak chcete použiť prístupový kľúč a zachovať peňaženku, otvorte ju v Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Máte aplikáciu Kute? Otvorte to tam.';
+
+  @override
+  String get shareOpenInApp => 'Otvoriť v aplikácii';
 }

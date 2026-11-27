@@ -12204,9 +12204,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nume sau orice adresă cripto';
 
   @override
-  String get shareGetKuteLine => 'Intră în joc pe getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Mută în Dolarii tăi';
 
   @override
@@ -14635,4 +14632,18 @@ class AppLocalizationsRo extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Această pagină este deschisă în altă aplicație. Pentru Face ID și ca să îți păstrezi portofelul, deschide-o în Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Această pagină este deschisă în altă aplicație. Pentru a folosi o cheie de acces și a-ți păstra portofelul, deschide-o în Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Ai aplicația Kute? Deschide-l acolo.';
+
+  @override
+  String get shareOpenInApp => 'Deschide în aplicație';
 }

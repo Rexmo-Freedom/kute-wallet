@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance} % chance",
   "sendRecipientSearchHint": "Navn, telefon eller kryptoadresse",
   "sendRecipientSearchHintNoPhone": "Navn eller kryptoadresse",
-  "shareGetKuteLine": "Vær med på getkute.com",
   "sendMoveToYourDollars": "Flyt til dine Dollars",
   "sendMoveToYourBitcoin": "Flyt til din Bitcoin",
   "sendWhatTitle": "Send til {name}",
@@ -4108,5 +4107,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 lys} other{{count} lys}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 lys} other{{count} lys}} · {duration}",
+  "shareOpenInBrowserSafari": "Denne side er åbnet i en anden app. Åbn den i Safari for at bruge Face ID og beholde din wallet.",
+  "shareOpenInBrowserChrome": "Denne side er åbnet i en anden app. Åbn den i Chrome for at bruge en adgangsnøgle og beholde din wallet.",
+  "shareOpenInAppBody": "Har du Kute-appen? Åbn det der.",
+  "shareOpenInApp": "Åbn i appen"
 }

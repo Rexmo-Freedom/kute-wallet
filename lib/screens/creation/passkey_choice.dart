@@ -1,3 +1,6 @@
+import 'package:kute/platform/storage_persist.dart';
+import 'package:kute/screens/share/share_wallet_gate.dart';
+import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/evm_derivation_policy.dart';
 import 'package:kute/models/evm_derivation_version.dart';
 import 'dart:async';
@@ -212,6 +215,14 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
         print('passkey_choice _continue failed: $e\n$st');
       }
       TrackingService.walletAddFailed(reason: e.runtimeType.toString());
+      if (ShareTargets.arrivedThroughShare &&
+          widget.nextRoute == kShareOnboardingNext) {
+        TrackingService.track('quick_wallet_failed', params: {
+          'entry_source': 'share_link',
+          'error_category': TrackingService.errorCategory(e),
+          'stage': _useBiometrics ? 'passkey' : 'phrase',
+        });
+      }
       TrackingService.recordHandled(TrackingService.errorCategory(e), e, st,
           flow: 'onboarding', stage: 'wallet_create');
       showMessageSnackBar(
@@ -225,6 +236,8 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     }
 
     if (!mounted) return;
+    final shareArrival = ShareTargets.arrivedThroughShare &&
+        widget.nextRoute == kShareOnboardingNext;
     // Don't re-resolve the BDK config for a passkey wallet: it uses Breez
     // Spark on-chain (no BDK), and resolving bitcoinConfig for it runs
     // PasskeyService.getWallet() → an OS biometric ceremony mid-navigation
@@ -233,7 +246,37 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     final activeIsPasskey =
         ref.read(settingsProvider).activeWallet?.isPasskey ?? false;
     if (!activeIsPasskey) ref.invalidate(bitcoinConfigProvider);
+    if (shareArrival) {
+      _finishShareArrival(passkey: activeIsPasskey);
+      return;
+    }
     context.go(widget.nextRoute);
+  }
+
+  /// A share arrival's wallet exists (share_wallet_gate.dart): onboarding
+  /// ends here (no survey, no code screens), the browser is asked to keep
+  /// the site's storage, and the person goes back to the shared market. A
+  /// 12-word wallet shows its words first and may not receive before they
+  /// are backed up (founder decision 4).
+  void _finishShareArrival({required bool passkey}) {
+    TrackingService.track('quick_wallet_completed', params: {
+      'entry_source': 'share_link',
+      'method': passkey ? 'passkey' : 'phrase',
+      if (ShareWalletGate.elapsedMs != null)
+        'duration_ms': ShareWalletGate.elapsedMs!,
+    });
+    TrackingService.onboardingCompletedOnce();
+    TrackingService.clearFlowContext('onboarding');
+    unawaited(requestPersistentStorage().then((granted) {
+      TrackingService.track('storage_persist_requested',
+          params: {'granted': granted, 'entry_source': 'share_link'});
+    }).catchError((Object _) {}));
+    final walletId = ref.read(settingsProvider).activeWallet?.id;
+    context.go(kShareOnboardingNext);
+    if (!passkey && walletId != null) {
+      ShareQuickWallets.mark(walletId);
+      unawaited(GoRouter.of(context).push('/backup_wallet', extra: walletId));
+    }
   }
 
   /// Production: Kute's own RP first, Breez's as the platform-refusal

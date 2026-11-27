@@ -31,7 +31,9 @@
 // THE CARD IS A BUTTON TOO (founder, 4 November 2026: "I click and
 // nothing happens"): a tap on the card shares it, as the bar does.
 //
-// `share_market_opened {market}` once per open. Never the link.
+// `share_market_opened {market}` once per open;
+// `share_market_link_shared {market, result, link_kind: web}`. Never the
+// link.
 
 import 'dart:async';
 
@@ -44,7 +46,7 @@ import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/cards/share_card_copy.dart'
-    show shareCardMessage, withGetKuteLine;
+    show shareCardMessage;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
@@ -52,7 +54,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/services/appsflyer_service.dart';
+import 'package:kute/services/share_target.dart'
+    show webShareLinkWithReferral;
 
 /// The market share sheet's route name.
 const String kShareMarketRouteName = 'share_market';
@@ -103,17 +106,12 @@ Future<void> openShareForMarket(
   );
 }
 
-/// The link a share's words carry. FOR NOW it is the sharer's own
-/// AppsFlyer invite link ([AppsFlyerService.appShareLink], their referral
-/// [code] on it), whatever market is shared: the market's own address
-/// ([deepLink], marketShareLink) is served by the backend, does not open
-/// yet, and must never be shown to anyone (founder, 25 November 2026:
-/// "we are showing our literal backend link. never do this. just share
-/// the own link from appsflyer for now to recommend"). When market pages
-/// open from a link again, this is the one place that hands [deepLink]
-/// back.
+/// The link a share's words carry: the web app on the market shared
+/// ([deepLink], marketShareLink) with the sharer's referral [code] on it
+/// (founder, 27 November 2026). Never a backend address, never an
+/// AppsFlyer link, nothing but the market, its outcome and the code.
 String shareLinkWithReferral(String deepLink, {String? code}) =>
-    AppsFlyerService.appShareLink(code: code);
+    webShareLinkWithReferral(deepLink, referralCode: code);
 
 class ShareMarketSheet extends ConsumerStatefulWidget {
   const ShareMarketSheet({
@@ -205,15 +203,14 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
     final l10n = context.l10n;
     // The getkute.com line last while the social send is off
     // (share_card_copy.dart).
-    final text = withGetKuteLine(
-        l10n,
-        shareCardMessage(
-            l10n, data, l10n.shareMarketLookAt(widget.title, _link)));
+    final text =
+        shareCardMessage(l10n, data, l10n.shareMarketLookAt(widget.title, _link));
     final result =
         await shareCardImage(context, _boundary, text: text, name: data.kind);
     TrackingService.track('share_market_link_shared', params: {
       'market': widget.marketSlug ?? 'none',
       'result': result,
+      'link_kind': 'web',
     });
     if (mounted) setState(() => _busy = false);
   }

@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance}%の確率",
   "sendRecipientSearchHint": "名前、電話番号、各種暗号資産アドレス",
   "sendRecipientSearchHintNoPhone": "名前または暗号資産アドレス",
-  "shareGetKuteLine": "getkute.com で参加しよう",
   "sendMoveToYourDollars": "ドルへ移動",
   "sendMoveToYourBitcoin": "ビットコインへ移動",
   "sendWhatTitle": "{name}さんに送金",
@@ -4108,5 +4107,9 @@
   "chartPositionStop": "ストップ {price}  {change}",
   "chartPositionLong": "ロング {price} · R/R {ratio}",
   "chartPositionShort": "ショート {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, other{{count}本}} · {duration}"
+  "chartRangeBars": "{count, plural, other{{count}本}} · {duration}",
+  "shareOpenInBrowserSafari": "このページは別のアプリ内で開いています。Face IDを使いウォレットを保つには、Safariで開いてください。",
+  "shareOpenInBrowserChrome": "このページは別のアプリ内で開いています。パスキーを使いウォレットを保つには、Chromeで開いてください。",
+  "shareOpenInAppBody": "Kuteアプリをお持ちですか？アプリで開きましょう。",
+  "shareOpenInApp": "アプリで開く"
 }

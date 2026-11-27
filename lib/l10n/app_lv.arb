@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance}% iespēja",
   "sendRecipientSearchHint": "Vārds, tālrunis vai kripto adrese",
   "sendRecipientSearchHintNoPhone": "Vārds vai kripto adrese",
-  "shareGetKuteLine": "Pievienojies darbībai: getkute.com",
   "sendMoveToYourDollars": "Pārvietot uz taviem Dolāriem",
   "sendMoveToYourBitcoin": "Pārvietot uz tavu Bitcoin",
   "sendWhatTitle": "Saņēmējs: {name}",
@@ -4108,5 +4107,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 svece} other{{count} sveces}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 svece} other{{count} sveces}} · {duration}",
+  "shareOpenInBrowserSafari": "Šī lapa ir atvērta citā lietotnē. Lai izmantotu Face ID un saglabātu maku, atveriet to Safari.",
+  "shareOpenInBrowserChrome": "Šī lapa ir atvērta citā lietotnē. Lai izmantotu piekļuves atslēgu un saglabātu maku, atveriet to Chrome.",
+  "shareOpenInAppBody": "Jums ir Kute lietotne? Atveriet to tur.",
+  "shareOpenInApp": "Atvērt lietotnē"
 }

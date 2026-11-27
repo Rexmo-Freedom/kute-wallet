@@ -24,7 +24,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/creation/referrer_code_screen.dart'
     show referrerCodeStepAllowed;
-import 'package:kute/services/appsflyer_service.dart';
+import 'package:kute/services/share_target.dart' show webInviteLink;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -207,14 +207,9 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
       _code = code;
       _phase = _Phase.ready;
     });
-    // Instant local OneLink (when a template is configured), then upgrade to
-    // a branded short link if it resolves. No website fallback.
-    final local = AppsFlyerService.shareLink(code);
-    if (local != null && mounted) setState(() => _shareLink = local);
-    final branded = await AppsFlyerService.brandedInviteLink(code);
-    if (branded != null && branded.isNotEmpty && mounted) {
-      setState(() => _shareLink = branded);
-    }
+    // The web app's start with the code on it (services/share_target.dart;
+    // founder, 27 November 2026: the web always, no AppsFlyer link).
+    if (mounted) setState(() => _shareLink = webInviteLink(code));
   }
 
   void _finish() {
@@ -245,7 +240,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
   void _copyLink() {
     final link = _shareLink ??
         (_code != null && _code!.isNotEmpty
-            ? AppsFlyerService.shareLink(_code!)
+            ? webInviteLink(_code!)
             : null);
     final toCopy = link ?? _code;
     if (toCopy == null || toCopy.isEmpty) return;
@@ -266,7 +261,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
   Future<void> _share() async {
     final link = _shareLink ??
         (_code != null && _code!.isNotEmpty
-            ? AppsFlyerService.shareLink(_code!)
+            ? webInviteLink(_code!)
             : null);
     TrackingService.affiliateShareOpened(method: 'onboarding');
     _shared = true;

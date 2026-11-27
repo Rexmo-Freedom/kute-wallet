@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance}% tikimybė",
   "sendRecipientSearchHint": "Vardas, telefonas ar kripto adresas",
   "sendRecipientSearchHintNoPhone": "Vardas ar kripto adresas",
-  "shareGetKuteLine": "Prisijunk prie veiksmo: getkute.com",
   "sendMoveToYourDollars": "Perkelti į tavo Dolerius",
   "sendMoveToYourBitcoin": "Perkelti į tavo Bitcoin",
   "sendWhatTitle": "Gavėjas: {name}",
@@ -4108,5 +4107,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 žvakė} few{{count} žvakės} other{{count} žvakių}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 žvakė} few{{count} žvakės} other{{count} žvakių}} · {duration}",
+  "shareOpenInBrowserSafari": "Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti Face ID ir išsaugoti piniginę, atidarykite jį „Safari“.",
+  "shareOpenInBrowserChrome": "Šis puslapis atidarytas kitoje programėlėje. Kad galėtumėte naudoti prieigos raktą ir išsaugoti piniginę, atidarykite jį „Chrome“.",
+  "shareOpenInAppBody": "Turite „Kute“ programėlę? Atidarykite ten.",
+  "shareOpenInApp": "Atidaryti programėlėje"
 }

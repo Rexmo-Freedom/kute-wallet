@@ -785,17 +785,16 @@ void main() {
       expect(file.mimeType, 'image/png');
       final bytes = await tester.runAsync(file.readAsBytes) as Uint8List;
       expect(bytes.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
-      // The link alone: the edgy line is on the card. The getkute.com
-      // line last while the social send is off (config/feature_flags.dart,
-      // the build's state).
+      // The link alone: the edgy line is on the card; the link is the
+      // market on the web app with the sharer's code.
       expect(
           text,
-          'LoL Worlds 2026: Gen.G vs T1 on Kute https://getkute.com\n'
-          'Get in on the action at getkute.com');
+          'LoL Worlds 2026: Gen.G vs T1 on Kute '
+          'https://app.kutewallet.com/#/s/p/lol-worlds-geng-t1?r=JOAO42');
       expect(textAt(tester, 'brag-card-edge').data,
           r'+$36.90 while you were scrolling.');
       expect(env.paramsOf('brag_shared').single,
-          {'kind': 'position', 'card': 'position'});
+          {'kind': 'position', 'link_kind': 'web', 'card': 'position'});
     });
 
     testWidgets(
@@ -835,7 +834,12 @@ void main() {
       await shareAndWait(tester);
       // How many positions are open: an integer, no name, no id.
       expect(env.paramsOf('brag_shared').single,
-          {'kind': 'portfolio', 'card': 'portfolio', 'holdings_count': 1});
+          {
+            'kind': 'portfolio',
+            'link_kind': 'web',
+            'card': 'portfolio',
+            'holdings_count': 1
+          });
     });
   });
 

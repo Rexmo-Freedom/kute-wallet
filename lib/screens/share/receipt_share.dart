@@ -27,8 +27,8 @@
 //
 // THE MESSAGE ([receiptShareText]): a market's card carries "{title} on
 // Kute {link}" with the sharer's code on the link (the brag cards' text);
-// a money card the app's invite with the sharer's code ("I'm using Kute.
-// Join with my link"), nothing without a code.
+// a money card the app's invite ("I'm using Kute. Join with my link"), the
+// web app's start with the sharer's code on it.
 //
 // Analytics: `receipt_card_shared {card, result}` once the OS share sheet
 // answered: `card` the card's kind (`receipt_sent`, `receipt_predicted`,
@@ -49,8 +49,6 @@ import 'package:kute/screens/share/brag/brag_data.dart'
     show BragWin, bragMoney, bragSignedMoney, kBragCentUsd;
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
     show showBragPreviewSheet;
-import 'package:kute/screens/share/cards/share_card_copy.dart'
-    show withGetKuteLine;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart'
     show showShareCardPreviewSheet;
@@ -60,7 +58,7 @@ import 'package:kute/screens/share/share_market_sheet.dart'
     show shareLinkWithReferral;
 import 'package:kute/screens/shared/kute_share_actions.dart'
     show kMarketLinkInvesting, kMarketLinkPredictions, marketShareLink;
-import 'package:kute/services/appsflyer_service.dart' show AppsFlyerService;
+import 'package:kute/services/share_target.dart' show webInviteLink;
 import 'package:kute/services/tracking_service.dart';
 
 /// The preview's route name, for the route observers.
@@ -94,10 +92,13 @@ Future<void> openReceiptShare(BuildContext context, ReceiptShare share) {
     build: share.card,
     // The getkute.com line last while the social send is off
     // (share_card_copy.dart).
-    text: (context) => withGetKuteLine(
-        context.l10n, receiptShareText(context.l10n, share.card(read))),
+    text: (context) => receiptShareText(context.l10n, share.card(read)),
     onShared: (result) => TrackingService.track('receipt_card_shared',
-        params: {'card': share.card(read).kind, 'result': result}),
+        params: {
+          'card': share.card(read).kind,
+          'result': result,
+          'link_kind': 'web',
+        }),
   );
 }
 
@@ -112,21 +113,11 @@ String receiptShareText(AppLocalizations l10n, ReceiptCardData d) {
   return appInviteShareText(l10n, code);
 }
 
-/// The app's invite with the sharer's [code]: "I'm using Kute. Join with
-/// my link", nothing without a code. Never an amount.
-String appInviteShareText(AppLocalizations l10n, String? code) {
-  final c = code?.trim() ?? '';
-  if (c.isEmpty) return '';
-  String? invite;
-  try {
-    invite = AppsFlyerService.shareLink(c);
-  } catch (_) {
-    // The link template is not loaded (a test, an early start): the code.
-  }
-  return invite != null
-      ? l10n.walletsShareTextWithLinkNoDiscount(invite)
-      : l10n.walletsShareTextWithCodeNoDiscount(c);
-}
+/// The app's invite: "I'm using Kute. Join with my link", the link the
+/// web app's start with the sharer's [code] on it (the start alone without
+/// one). Never an amount.
+String appInviteShareText(AppLocalizations l10n, String? code) =>
+    l10n.walletsShareTextWithLinkNoDiscount(webInviteLink(code));
 
 /// The sharer's own referral code for the footer; null without one.
 String? receiptReferralCode() {

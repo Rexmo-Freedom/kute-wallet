@@ -1,12 +1,10 @@
 import 'dart:io';
 
-import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/app_router.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 
@@ -210,23 +208,6 @@ void main() {
       TrackingService.captureUtmFromUri(
           Uri.parse('kute://open?deep_link_value=REFCODE1'));
       expect(TrackingService.debugPendingUserProperties, isEmpty);
-    });
-
-    test('the AppsFlyer deep-link handler passes only utm_* values', () {
-      AppsFlyerService.handleDeepLinkForTest(DeepLinkResult(
-        status: DeepLinkStatus.found,
-        deepLink: DeepLink(const {
-          'deep_link_value': 'REFCODE1',
-          'utm_source': 'newsletter',
-          'utm_campaign': 'october',
-          'media_source': 'af_app_invites',
-          'click_http_referrer': 'https://example.com/path',
-        }),
-      ));
-      expect(TrackingService.debugPendingUserProperties, {
-        'utm_source': 'newsletter',
-        'utm_campaign': 'october',
-      });
     });
 
     test('opted out: a deep link sets nothing', () async {

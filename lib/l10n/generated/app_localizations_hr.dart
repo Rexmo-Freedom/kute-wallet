@@ -12173,9 +12173,6 @@ class AppLocalizationsHr extends AppLocalizations {
       'Ime ili bilo koja kripto adresa';
 
   @override
-  String get shareGetKuteLine => 'Uključi se na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Premjesti u tvoje Dolare';
 
   @override
@@ -14590,4 +14587,18 @@ class AppLocalizationsHr extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Ova stranica otvorena je unutar druge aplikacije. Za Face ID i da zadržite novčanik, otvorite je u Safariju.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Ova stranica otvorena je unutar druge aplikacije. Za korištenje pristupnog ključa i da zadržite novčanik, otvorite je u Chromeu.';
+
+  @override
+  String get shareOpenInAppBody => 'Imate aplikaciju Kute? Otvorite ovo ondje.';
+
+  @override
+  String get shareOpenInApp => 'Otvori u aplikaciji';
 }

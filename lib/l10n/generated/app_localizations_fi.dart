@@ -12154,9 +12154,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nimi tai kryptoosoite';
 
   @override
-  String get shareGetKuteLine => 'Lähde mukaan: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Siirrä Dollareihisi';
 
   @override
@@ -14587,4 +14584,19 @@ class AppLocalizationsFi extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Tämä sivu on auki toisessa sovelluksessa. Avaa se Safarissa, jotta voit käyttää Face ID:tä ja lompakkosi säilyy.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Tämä sivu on auki toisessa sovelluksessa. Avaa se Chromessa, jotta voit käyttää pääsyavainta ja lompakkosi säilyy.';
+
+  @override
+  String get shareOpenInAppBody =>
+      'Onko sinulla Kute-sovellus? Avaa tämä siellä.';
+
+  @override
+  String get shareOpenInApp => 'Avaa sovelluksessa';
 }

@@ -12223,9 +12223,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Name oder Krypto-Adresse';
 
   @override
-  String get shareGetKuteLine => 'Mach mit auf getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Zu deinen Dollar verschieben';
 
   @override
@@ -14662,4 +14659,18 @@ class AppLocalizationsDe extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Diese Seite ist in einer anderen App geöffnet. Für Face ID und damit deine Wallet erhalten bleibt, öffne sie in Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Diese Seite ist in einer anderen App geöffnet. Um einen Passkey zu nutzen und deine Wallet zu behalten, öffne sie in Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Du hast die Kute-App? Öffne es dort.';
+
+  @override
+  String get shareOpenInApp => 'In der App öffnen';
 }

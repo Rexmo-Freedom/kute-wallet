@@ -3331,7 +3331,6 @@
   "shareMarketChance": "{chance}% de probabilidad",
   "sendRecipientSearchHint": "Nombre, teléfono o dirección cripto",
   "sendRecipientSearchHintNoPhone": "Nombre o dirección cripto",
-  "shareGetKuteLine": "Súmate a la acción en getkute.com",
   "sendMoveToYourDollars": "Mover a tus Dólares",
   "sendMoveToYourBitcoin": "Mover a tu Bitcoin",
   "sendWhatTitle": "Enviar a {name}",
@@ -4108,5 +4107,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 vela} other{{count} velas}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 vela} other{{count} velas}} · {duration}",
+  "shareOpenInBrowserSafari": "Esta página está abierta dentro de otra app. Para usar Face ID y conservar tu monedero, ábrela en Safari.",
+  "shareOpenInBrowserChrome": "Esta página está abierta dentro de otra app. Para usar una llave de acceso y conservar tu monedero, ábrela en Chrome.",
+  "shareOpenInAppBody": "¿Tienes la app de Kute? Ábrelo allí.",
+  "shareOpenInApp": "Abrir en la app"
 }

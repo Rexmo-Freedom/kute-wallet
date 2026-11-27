@@ -3331,7 +3331,6 @@
   "shareMarketChance": "Šansa {chance} %",
   "sendRecipientSearchHint": "Ime, telefon ili bilo koja kripto adresa",
   "sendRecipientSearchHintNoPhone": "Ime ili bilo koja kripto adresa",
-  "shareGetKuteLine": "Uključi se na getkute.com",
   "sendMoveToYourDollars": "Premjesti u tvoje Dolare",
   "sendMoveToYourBitcoin": "Premjesti na tvoj Bitcoin",
   "sendWhatTitle": "Primatelj: {name}",
@@ -4108,5 +4107,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 svijeća} few{{count} svijeće} other{{count} svijeća}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 svijeća} few{{count} svijeće} other{{count} svijeća}} · {duration}",
+  "shareOpenInBrowserSafari": "Ova stranica otvorena je unutar druge aplikacije. Za Face ID i da zadržite novčanik, otvorite je u Safariju.",
+  "shareOpenInBrowserChrome": "Ova stranica otvorena je unutar druge aplikacije. Za korištenje pristupnog ključa i da zadržite novčanik, otvorite je u Chromeu.",
+  "shareOpenInAppBody": "Imate aplikaciju Kute? Otvorite ovo ondje.",
+  "shareOpenInApp": "Otvori u aplikaciji"
 }
