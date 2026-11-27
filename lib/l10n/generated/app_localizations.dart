@@ -3104,6 +3104,18 @@ abstract class AppLocalizations {
   /// **'Back up'**
   String get backUpBannerAction;
 
+  /// Web home notice offering the iPhone / Android app.
+  ///
+  /// In en, this message translates to:
+  /// **'Get the Kute app'**
+  String get getAppBannerTitle;
+
+  /// No description provided for @getAppBannerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Available for iPhone and Android'**
+  String get getAppBannerSubtitle;
+
   /// No description provided for @cancelOrder.
   ///
   /// In en, this message translates to:
@@ -10478,6 +10490,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Log scale'**
   String get chartLogScale;
+
+  /// Advanced chart tool rail button: shows or hides the horizontal price lines and their labels on the right.
+  ///
+  /// In en, this message translates to:
+  /// **'Price scale'**
+  String get chartPriceScale;
 
   /// No description provided for @chartVwapWindow.
   ///
@@ -20412,12 +20430,6 @@ abstract class AppLocalizations {
   /// **'Name or any crypto address'**
   String get sendRecipientSearchHintNoPhone;
 
-  /// The last line of the text that goes with a shared prediction, position, win, P&L, portfolio, level or receipt card: invites whoever sees it to get the app. Keep "getkute.com" exactly as it is (the website, never translated or changed). Casual, short, one line.
-  ///
-  /// In en, this message translates to:
-  /// **'Get in on the action at getkute.com'**
-  String get shareGetKuteLine;
-
   /// Send's search result when the person types the name of their own Dollars account ('dollars', 'my dollars'): opens Move money from their Bitcoin into their Dollars. Dollars is the account name.
   ///
   /// In en, this message translates to:
@@ -24566,6 +24578,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 bar} other{{count} bars}} · {duration}'**
   String chartRangeBars(int count, String duration);
+
+  /// Shown on a shared market's wallet step when the page is open inside another app's browser (Instagram, Telegram, X ...) on an iPhone or Mac: passkeys and storage may not work there. Says to open it in Safari. Never mentions a VPN.
+  ///
+  /// In en, this message translates to:
+  /// **'This page is open inside another app. For Face ID and to keep your wallet, open it in Safari.'**
+  String get shareOpenInBrowserSafari;
+
+  /// The same line for Android and other browsers: open it in Chrome.
+  ///
+  /// In en, this message translates to:
+  /// **'This page is open inside another app. To use a passkey and keep your wallet, open it in Chrome.'**
+  String get shareOpenInBrowserChrome;
+
+  /// The short notice on a shared market's web page in a phone browser, for someone who already has the Kute app.
+  ///
+  /// In en, this message translates to:
+  /// **'Have the Kute app? Open this there.'**
+  String get shareOpenInAppBody;
+
+  /// The notice's button: opens the Kute app (or its store page).
+  ///
+  /// In en, this message translates to:
+  /// **'Open in the app'**
+  String get shareOpenInApp;
 }
 
 class _AppLocalizationsDelegate

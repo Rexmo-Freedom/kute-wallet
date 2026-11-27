@@ -1585,6 +1585,12 @@ class AppLocalizationsEt extends AppLocalizations {
   String get backUpBannerAction => 'Varunda';
 
   @override
+  String get getAppBannerTitle => 'Laadi alla Kute äpp';
+
+  @override
+  String get getAppBannerSubtitle => 'Saadaval iPhone\'ile ja Androidile';
+
+  @override
   String get cancelOrder => 'Tühista tellimus';
 
   @override
@@ -5968,6 +5974,9 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Logaritmskaala';
+
+  @override
+  String get chartPriceScale => 'Hinnaskaala';
 
   @override
   String get chartVwapWindow => 'VWAP kuvatud küünalde ulatuses';
@@ -12174,9 +12183,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Nimi või krüptoaadress';
 
   @override
-  String get shareGetKuteLine => 'Löö kaasa: getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Teisalda oma Dollaritesse';
 
   @override
@@ -14596,4 +14602,18 @@ class AppLocalizationsEt extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'See leht on avatud teises rakenduses. Face ID kasutamiseks ja rahakoti hoidmiseks ava see Safaris.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'See leht on avatud teises rakenduses. Pääsuvõtme kasutamiseks ja rahakoti hoidmiseks ava see Chrome\'is.';
+
+  @override
+  String get shareOpenInAppBody => 'Sul on Kute rakendus? Ava see seal.';
+
+  @override
+  String get shareOpenInApp => 'Ava rakenduses';
 }

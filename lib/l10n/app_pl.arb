@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Zrób kopię zapasową portfela",
   "backUpBannerSubtitle": "Na wypadek utraty telefonu",
   "backUpBannerAction": "Zrób kopię",
+  "getAppBannerTitle": "Pobierz aplikację Kute",
+  "getAppBannerSubtitle": "Dostępna na iPhone'a i Androida",
   "cancelOrder": "Anuluj zlecenie",
   "requestRefund": "Poproś o zwrot",
   "unspent": "NIEWYDANE",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Bursztynowy",
   "chartVolume": "Wolumen",
   "chartLogScale": "Skala log.",
+  "chartPriceScale": "Skala cen",
   "chartVwapWindow": "VWAP dla widocznych świec",
   "chartIndicators": "Wskaźniki",
   "chartInterval": "Interwał",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance}% szans",
   "sendRecipientSearchHint": "Imię, telefon lub dowolny adres krypto",
   "sendRecipientSearchHintNoPhone": "Imię lub dowolny adres krypto",
-  "shareGetKuteLine": "Dołącz do akcji na getkute.com",
   "sendMoveToYourDollars": "Przenieś na twoje Dolary",
   "sendMoveToYourBitcoin": "Przenieś na twój Bitcoin",
   "sendWhatTitle": "Odbiorca: {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}",
+  "shareOpenInBrowserSafari": "Ta strona jest otwarta w innej aplikacji. Aby użyć Face ID i zachować portfel, otwórz ją w Safari.",
+  "shareOpenInBrowserChrome": "Ta strona jest otwarta w innej aplikacji. Aby użyć klucza dostępu i zachować portfel, otwórz ją w Chrome.",
+  "shareOpenInAppBody": "Masz aplikację Kute? Otwórz to tam.",
+  "shareOpenInApp": "Otwórz w aplikacji"
 }

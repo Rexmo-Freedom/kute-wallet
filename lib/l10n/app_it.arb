@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Fai il backup del wallet",
   "backUpBannerSubtitle": "Nel caso perdessi il telefono",
   "backUpBannerAction": "Backup",
+  "getAppBannerTitle": "Scarica l'app Kute",
+  "getAppBannerSubtitle": "Disponibile per iPhone e Android",
   "cancelOrder": "Annulla ordine",
   "requestRefund": "Richiedi rimborso",
   "unspent": "NON SPESO",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Ambra",
   "chartVolume": "Volume",
   "chartLogScale": "Scala logaritmica",
+  "chartPriceScale": "Scala dei prezzi",
   "chartVwapWindow": "VWAP sulle candele visualizzate",
   "chartIndicators": "Indicatori",
   "chartInterval": "Intervallo",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance}% di probabilità",
   "sendRecipientSearchHint": "Nome, telefono o indirizzo cripto",
   "sendRecipientSearchHintNoPhone": "Nome o indirizzo cripto",
-  "shareGetKuteLine": "Entra in gioco su getkute.com",
   "sendMoveToYourDollars": "Sposta nei tuoi Dollari",
   "sendMoveToYourBitcoin": "Sposta nel tuo Bitcoin",
   "sendWhatTitle": "Invia a {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 candela} other{{count} candele}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 candela} other{{count} candele}} · {duration}",
+  "shareOpenInBrowserSafari": "Questa pagina è aperta dentro un'altra app. Per Face ID e per conservare il tuo wallet, aprila in Safari.",
+  "shareOpenInBrowserChrome": "Questa pagina è aperta dentro un'altra app. Per usare una passkey e conservare il tuo wallet, aprila in Chrome.",
+  "shareOpenInAppBody": "Hai l'app Kute? Aprilo lì.",
+  "shareOpenInApp": "Apri nell'app"
 }

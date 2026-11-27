@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Zálohuj si peňaženku",
   "backUpBannerSubtitle": "Pre prípad straty telefónu",
   "backUpBannerAction": "Zálohovať",
+  "getAppBannerTitle": "Stiahni si aplikáciu Kute",
+  "getAppBannerSubtitle": "K dispozícii pre iPhone a Android",
   "cancelOrder": "Zrušiť príkaz",
   "requestRefund": "Požiadať o vrátenie",
   "unspent": "NEMÍŇANÉ",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Jantárová",
   "chartVolume": "Objem",
   "chartLogScale": "Logaritmická mierka",
+  "chartPriceScale": "Cenová škála",
   "chartVwapWindow": "VWAP zo zobrazených sviečok",
   "chartIndicators": "Indikátory",
   "chartInterval": "Interval",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "Šanca {chance} %",
   "sendRecipientSearchHint": "Meno, telefón či krypto adresa",
   "sendRecipientSearchHintNoPhone": "Meno či krypto adresa",
-  "shareGetKuteLine": "Pridaj sa k akcii na getkute.com",
   "sendMoveToYourDollars": "Presunúť na tvoje Doláre",
   "sendMoveToYourBitcoin": "Presunúť na tvoj Bitcoin",
   "sendWhatTitle": "Príjemca: {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 sviečka} few{{count} sviečky} other{{count} sviečok}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 sviečka} few{{count} sviečky} other{{count} sviečok}} · {duration}",
+  "shareOpenInBrowserSafari": "Táto stránka je otvorená v inej aplikácii. Pre Face ID a zachovanie peňaženky ju otvorte v Safari.",
+  "shareOpenInBrowserChrome": "Táto stránka je otvorená v inej aplikácii. Ak chcete použiť prístupový kľúč a zachovať peňaženku, otvorte ju v Chrome.",
+  "shareOpenInAppBody": "Máte aplikáciu Kute? Otvorte to tam.",
+  "shareOpenInApp": "Otvoriť v aplikácii"
 }

@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Varmuuskopioi lompakkosi",
   "backUpBannerSubtitle": "Siltä varalta, että kadotat puhelimesi",
   "backUpBannerAction": "Varmuuskopioi",
+  "getAppBannerTitle": "Lataa Kute-sovellus",
+  "getAppBannerSubtitle": "Saatavilla iPhonelle ja Androidille",
   "cancelOrder": "Peruuta tilaus",
   "requestRefund": "Pyydä palautusta",
   "unspent": "KÄYTTÄMÄTÖN",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Meripihka",
   "chartVolume": "Volyymi",
   "chartLogScale": "Log-asteikko",
+  "chartPriceScale": "Hinta-asteikko",
   "chartVwapWindow": "VWAP näytettyjen kynttilöiden ajalta",
   "chartIndicators": "Indikaattorit",
   "chartInterval": "Aikaväli",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance} %:n todennäköisyys",
   "sendRecipientSearchHint": "Nimi, puhelin tai kryptoosoite",
   "sendRecipientSearchHintNoPhone": "Nimi tai kryptoosoite",
-  "shareGetKuteLine": "Lähde mukaan: getkute.com",
   "sendMoveToYourDollars": "Siirrä Dollareihisi",
   "sendMoveToYourBitcoin": "Siirrä Bitcoiniisi",
   "sendWhatTitle": "Vastaanottaja: {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 kynttilä} other{{count} kynttilää}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 kynttilä} other{{count} kynttilää}} · {duration}",
+  "shareOpenInBrowserSafari": "Tämä sivu on auki toisessa sovelluksessa. Avaa se Safarissa, jotta voit käyttää Face ID:tä ja lompakkosi säilyy.",
+  "shareOpenInBrowserChrome": "Tämä sivu on auki toisessa sovelluksessa. Avaa se Chromessa, jotta voit käyttää pääsyavainta ja lompakkosi säilyy.",
+  "shareOpenInAppBody": "Onko sinulla Kute-sovellus? Avaa tämä siellä.",
+  "shareOpenInApp": "Avaa sovelluksessa"
 }

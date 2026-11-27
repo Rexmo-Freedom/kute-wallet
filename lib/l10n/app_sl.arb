@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Varnostno kopirajte denarnico",
   "backUpBannerSubtitle": "Za primer, da izgubite telefon",
   "backUpBannerAction": "Shrani kopijo",
+  "getAppBannerTitle": "Prenesite aplikacijo Kute",
+  "getAppBannerSubtitle": "Na voljo za iPhone in Android",
   "cancelOrder": "Prekliči naročilo",
   "requestRefund": "Zahtevaj vračilo",
   "unspent": "NEPORABLJENO",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Jantarna",
   "chartVolume": "Obseg",
   "chartLogScale": "Logaritemska lestvica",
+  "chartPriceScale": "Cenovna lestvica",
   "chartVwapWindow": "VWAP prikazanih sveč",
   "chartIndicators": "Indikatorji",
   "chartInterval": "Interval",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance} % verjetnost",
   "sendRecipientSearchHint": "Ime, telefon ali kateri koli kripto naslov",
   "sendRecipientSearchHintNoPhone": "Ime ali kateri koli kripto naslov",
-  "shareGetKuteLine": "Pridruži se dogajanju na getkute.com",
   "sendMoveToYourDollars": "Prenesi na tvoje Dolarje",
   "sendMoveToYourBitcoin": "Prenesi na tvoj Bitcoin",
   "sendWhatTitle": "Prejemnik: {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 sveča} =2{2 sveči} few{{count} sveče} other{{count} sveč}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 sveča} =2{2 sveči} few{{count} sveče} other{{count} sveč}} · {duration}",
+  "shareOpenInBrowserSafari": "Ta stran je odprta v drugi aplikaciji. Za Face ID in da obdržite denarnico, jo odprite v Safariju.",
+  "shareOpenInBrowserChrome": "Ta stran je odprta v drugi aplikaciji. Za uporabo ključa za dostop in da obdržite denarnico, jo odprite v Chromu.",
+  "shareOpenInAppBody": "Imate aplikacijo Kute? Odprite to tam.",
+  "shareOpenInApp": "Odpri v aplikaciji"
 }

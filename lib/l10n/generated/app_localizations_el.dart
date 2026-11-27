@@ -1599,6 +1599,12 @@ class AppLocalizationsEl extends AppLocalizations {
   String get backUpBannerAction => 'Αντίγραφο';
 
   @override
+  String get getAppBannerTitle => 'Κατέβασε την εφαρμογή Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Διαθέσιμη για iPhone και Android';
+
+  @override
   String get cancelOrder => 'Ακύρωση εντολής';
 
   @override
@@ -6034,6 +6040,9 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Λογαριθμική κλίμακα';
+
+  @override
+  String get chartPriceScale => 'Κλίμακα τιμών';
 
   @override
   String get chartVwapWindow => 'VWAP στα εμφανιζόμενα κεριά';
@@ -12269,9 +12278,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Όνομα ή διεύθυνση κρύπτο';
 
   @override
-  String get shareGetKuteLine => 'Μπες κι εσύ στη δράση στο getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Μεταφορά στα Δολάριά σου';
 
   @override
@@ -14708,4 +14714,18 @@ class AppLocalizationsEl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για Face ID και για να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για να χρησιμοποιήσετε κλειδί πρόσβασης και να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Έχετε την εφαρμογή Kute; Ανοίξτε το εκεί.';
+
+  @override
+  String get shareOpenInApp => 'Άνοιγμα στην εφαρμογή';
 }

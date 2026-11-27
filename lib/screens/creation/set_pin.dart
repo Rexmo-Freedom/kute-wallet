@@ -1,8 +1,5 @@
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
-import 'package:kute/screens/shared/kute_password_field.dart';
-import 'package:kute/screens/shared/password_copy.dart';
-import 'package:kute/platform/unlock_secret.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,13 +64,9 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
   bool _advanced = false;
   late final String _path;
 
-  /// A laptop browser creates a password instead (unlock_secret.dart).
-  final bool _password =
-      UnlockSecret.deviceKind == VaultSecretKind.password;
-  final TextEditingController _field = TextEditingController();
-
-  bool get _ready =>
-      _password ? UnlockSecret.meetsRule(pin) : pin.length == 6;
+  /// Six digits, on every platform: the web takes the PIN in every
+  /// browser too (unlock_secret.dart, 27 November 2026).
+  bool get _ready => pin.length == 6;
 
   void _next() {
     if (!_ready) return;
@@ -111,7 +104,6 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
         'time_in_flow_bucket': _timeBucket(_elapsed.elapsed),
       });
     }
-    _field.dispose();
     super.dispose();
   }
 
@@ -123,24 +115,15 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
     // Just the title and the dots (user decision, September 2026): no step
     // counter, no subtitle, no reminder chip on the first PIN screen.
     return KutePinScaffold(
-      form: _password,
       leading: const KuteBackButton(fallbackRoute: '/start'),
-      title: _password ? PasswordCopy.create : context.l10n.createAPin,
+      title: context.l10n.createAPin,
       // Happy once the six digits are in, before Next is tapped.
       salMood: ready ? 'happy' : salMoodFor(pin.length),
-      dots: _password
-          ? KutePasswordField(
-              controller: _field,
-              isNew: true,
-              showRule: true,
-              onChanged: (value) => setState(() => pin = value),
-              onSubmitted: (_) => _next(),
-            )
-          : PinProgressIndicator(currentLength: pin.length),
-      keypad: _password
-          ? const SizedBox.shrink()
-          : CustomKeypad(
+      dots: PinProgressIndicator(currentLength: pin.length),
+      // A laptop's keyboard types on the pad too (web only).
+      keypad: CustomKeypad(
         chromed: true,
+        typeFromKeyboard: true,
         onDigitPressed: (digit) {
           if (pin.length < 6) {
             HapticFeedback.lightImpact();
@@ -155,7 +138,7 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
         },
       ),
       footer: AnimatedOpacity(
-        opacity: ready || _password ? 1.0 : 0.0,
+        opacity: ready ? 1.0 : 0.0,
         duration:
             reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
         curve: Curves.easeOut,
@@ -169,10 +152,9 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
             enabled: ready,
             source: 'set_pin',
             onPrimary: _next,
-            disabledLabel:
-                _password ? PasswordCopy.needPassword : context.l10n.barNeedPin,
+            disabledLabel: context.l10n.barNeedPin,
             ),
-            child: KutePinScaffold.barRoom(context, form: _password),
+            child: KutePinScaffold.barRoom(context, form: false),
           ),
         ),
       ),

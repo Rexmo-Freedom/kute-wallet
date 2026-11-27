@@ -1590,6 +1590,12 @@ class AppLocalizationsHr extends AppLocalizations {
   String get backUpBannerAction => 'Napravi kopiju';
 
   @override
+  String get getAppBannerTitle => 'Preuzmi aplikaciju Kute';
+
+  @override
+  String get getAppBannerSubtitle => 'Dostupno za iPhone i Android';
+
+  @override
   String get cancelOrder => 'Otkaži nalog';
 
   @override
@@ -5998,6 +6004,9 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Logaritamska skala';
+
+  @override
+  String get chartPriceScale => 'Cjenovna skala';
 
   @override
   String get chartVwapWindow => 'VWAP za prikazane svijeće';
@@ -12220,9 +12229,6 @@ class AppLocalizationsHr extends AppLocalizations {
       'Ime ili bilo koja kripto adresa';
 
   @override
-  String get shareGetKuteLine => 'Uključi se na getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Premjesti u tvoje Dolare';
 
   @override
@@ -14637,4 +14643,18 @@ class AppLocalizationsHr extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Ova stranica otvorena je unutar druge aplikacije. Za Face ID i da zadržite novčanik, otvorite je u Safariju.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Ova stranica otvorena je unutar druge aplikacije. Za korištenje pristupnog ključa i da zadržite novčanik, otvorite je u Chromeu.';
+
+  @override
+  String get shareOpenInAppBody => 'Imate aplikaciju Kute? Otvorite ovo ondje.';
+
+  @override
+  String get shareOpenInApp => 'Otvori u aplikaciji';
 }

@@ -21,9 +21,6 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 ///     friend" card), no What step and no gift of a prediction or an
 ///     investment (the search and the slips in send mode); each opener
 ///     refuses when reached anyway;
-///   * ends the text of every prediction, win, P&L, position, level and
-///     receipt share with one line inviting people to the app at
-///     getkute.com ([withGetKuteLine], share_card_copy.dart).
 ///
 /// True restores the behaviour before the flag exactly. The code reads it
 /// through [socialSendEnabled], which tests can pin either way.

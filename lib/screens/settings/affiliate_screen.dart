@@ -139,7 +139,7 @@ import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart'
     show ReceiveAddressIconButton, ReceiveQrPlate;
 import 'package:kute/screens/shared/sal_sprite.dart';
-import 'package:kute/services/appsflyer_service.dart';
+import 'package:kute/services/share_target.dart' show webInviteLink;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
@@ -403,11 +403,10 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
             pickSpendingWallet(ref.read(settingsProvider))?.id),
       );
 
-  /// The invite link: the OneLink (branded once it resolved, else the
-  /// local long form), null where no template is configured.
+  /// The invite link: the web app's start with the code on it
+  /// (services/share_target.dart; founder, 27 November 2026).
   String? get _link =>
-      _shareLink ??
-      (_code.isNotEmpty ? AppsFlyerService.shareLink(_code) : null);
+      _shareLink ?? (_code.isNotEmpty ? webInviteLink(_code) : null);
 
   Future<void> _bootstrap() async {
     // Ensure a session: prime wallet identity then auth with the @paykute addr.
@@ -438,21 +437,14 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     _trackView(ok ? 'dashboard' : 'error');
     _trackRetryResult(ok ? 'dashboard' : 'error');
     if (ok) _trackDashboardState();
-    // Instant local OneLink (when a template is configured), then try to
-    // upgrade to a branded short link. No website fallback: if neither
-    // resolves, the QR square is absent and the share and copy carry the
-    // code.
+    // The web app's start with the code on it, at once (no AppsFlyer link,
+    // nothing to resolve).
     if (ok && _code.isNotEmpty) {
-      final local = AppsFlyerService.shareLink(_code);
-      if (local != null) setState(() => _shareLink = local);
-      final branded = await AppsFlyerService.brandedInviteLink(_code);
-      final hasBranded = branded != null && branded.isNotEmpty;
-      if (mounted && hasBranded) setState(() => _shareLink = branded);
-      // One event per screen open, naming the link the QR/share settled on.
-      if (mounted && !_shareLinkTracked && (hasBranded || local != null)) {
+      setState(() => _shareLink = webInviteLink(_code));
+      // One event per screen open, naming the link the QR/share carry.
+      if (!_shareLinkTracked) {
         _shareLinkTracked = true;
-        TrackingService.affiliateShareLinkGenerated(
-            linkType: hasBranded ? 'branded' : 'local');
+        TrackingService.affiliateShareLinkGenerated(linkType: 'web');
       }
     }
   }

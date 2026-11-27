@@ -242,8 +242,7 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
     FlutterSecureStorage.setMockInitialValues({});
     dotenv.loadFromString(
-        envString: 'BACKEND=https://backend.test\n'
-            'APPSFLYER_ONELINK_TEMPLATE=kute.onelink.me/aBcD');
+        envString: 'BACKEND=https://backend.test');
     AffiliateService.debugSessionToken = 'render-session';
     TrackingService.setDisabled(true);
   });

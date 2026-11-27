@@ -188,13 +188,16 @@ class AuthModel {
 
   /// Web: a new vault under [pin]. An existing vault (or the old layout's
   /// PIN) is replaced only with [replace], as `pin_hash` is natively; the
-  /// old layout's values then move into the new vault. [pin] is the PIN,
-  /// or in a laptop browser a password (unlock_secret.dart); the vault
-  /// records which.
+  /// old layout's values then move into the new vault. A new vault is
+  /// always made with the 6-digit PIN, on every browser (founder, 27
+  /// November 2026; unlock_secret.dart); anything else is refused.
   Future<void> _setPinWeb(
       VaultStoragePlatform web, String pin, bool replace) async {
+    if (VaultSecretKind.of(pin) != VaultSecretKind.pin) {
+      throw ArgumentError('A new web vault takes the 6-digit PIN');
+    }
     if (!replace && web.hasPinMaterial) throw const PinAlreadySetException();
-    await web.vault.create(pin, kind: VaultSecretKind.of(pin));
+    await web.vault.create(pin, kind: VaultSecretKind.pin);
     await web.migrateLegacy();
   }
 
@@ -388,7 +391,8 @@ class AuthModel {
     final web = _web;
     if (web != null) {
       // Web: one re-wrap of the vault key; no V1 copies and no raw PIN.
-      // A password replacing a PIN marks the vault password-kind.
+      // The vault records the new secret's kind: a PIN replacing a
+      // password (a vault from 24 to 27 November 2026) marks it PIN-kind.
       await web.vault.changePin(newPin, kind: VaultSecretKind.of(newPin));
       return;
     }
@@ -444,20 +448,6 @@ class AuthModel {
       await _verifyEncrypted(entry.key, newPin, entry.value);
       await _store.deleteLocalOnly(key: pendingKey);
     }
-  }
-
-  /// Web, laptop browser: re-wraps the vault that a PIN just opened under
-  /// [password] and marks it password-kind (unlock_secret.dart), as a PIN
-  /// change does. Until this runs the PIN still opens it. Throws
-  /// [VaultLockedException] when the vault is not open.
-  Future<void> upgradeToPassword(String password) async {
-    final web = _web;
-    if (web == null) throw UnsupportedError('Web only');
-    if (VaultSecretKind.of(password) != VaultSecretKind.password ||
-        password.runes.length < VaultSecretKind.minPasswordLength) {
-      throw ArgumentError('Password too short');
-    }
-    await web.vault.changePin(password, kind: VaultSecretKind.password);
   }
 
   Future<void> _verifyEncrypted(String key, String pin, String expected) async {

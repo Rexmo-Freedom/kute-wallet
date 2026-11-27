@@ -6,7 +6,6 @@ import 'package:kute/screens/hyperliquid/components/hl_web_logos.dart';
 import 'package:kute/app_widget.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/restart_widget.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/exit_reason_service.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -377,32 +376,14 @@ Future<void> _initializeApp() async {
   // report the abnormal ones now that Crashlytics + Hive are up.
   // Fire-and-forget — must never delay first frame.
   unawaited(ExitReasonService.reportLastExit());
-  // AppsFlyer (install attribution / ad ROAS) + PostHog identify:
-  // DEFERRED as one fire-and-forget CHAIN. The chain preserves the
-  // required internal ordering — the PostHog setup first (so identify
-  // reaches a configured SDK), AppsFlyer after TrackingService.initialize
-  // (awaited above, so the device UUID exists for customerUserId) and
-  // BEFORE any AffiliateService auth (so authWallet can hand the
-  // appsflyer_id to the backend for S2S revenue events; the session
-  // restore above only reads storage); identify runs after that restore
-  // so the next event lands under the stable identity. None of it is
-  // needed for first frame: attribution fires once per install and
-  // queues, the affiliate code is read lazily by the Earn screen, and
-  // pre-identify events sit under PostHog's anonymous id and are aliased
-  // on identify (the 'unknown' sentinel fallback still counts the user in
-  // MAU until a real code lands).
-  //
-  // Persist any deferred-deeplink referrer the moment AppsFlyer
-  // delivers it, so it survives the race against the first authWallet
-  // (and across boots) and binds within the backend's 7-day late-bind
-  // window. Wired BEFORE init so a callback that fires during startup
-  // is captured.
-  AppsFlyerService.onReferrerCaptured = AffiliateService.setPendingReferrer;
-  AppsFlyerService.onInstallAttributionCaptured =
-      AffiliateService.queueInstallAttribution;
+  // PostHog identify, deferred as one fire-and-forget chain: the PostHog
+  // setup first (so identify reaches a configured SDK), then the session
+  // restore above, so the next event lands under the stable identity. None
+  // of it is needed for first frame; pre-identify events sit under
+  // PostHog's anonymous id and are aliased on identify. (AppsFlyer left
+  // the app on 27 November 2026: no install attribution SDK.)
   unawaited(() async {
     await TrackingService.analyticsReady;
-    await AppsFlyerService.init().catchError((_) {});
     // WalletIdentityService binds to Breez SDK lazily (in the Earn
     // screen's bootstrap) — no SDK wait here.
     await sessionRestored;

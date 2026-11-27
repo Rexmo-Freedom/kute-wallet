@@ -160,7 +160,10 @@ import 'package:kute/platform/kute_wide_frames.dart'
     show
         kuteBrowseListInset,
         kuteBrowsePagePadding,
+        kuteDeskNavFrom,
+        kuteDeskNavGap,
         kuteDeskNavMinWidth,
+        kuteDeskNavWidthFor,
         kuteWindowIsExpanded,
         kuteWindowWidth;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
@@ -466,6 +469,10 @@ const double kDollarsOverviewStackedHeroHeight = 380;
 bool dollarsOverviewSplits(double window) {
   if (window >= kuteDeskNavMinWidth) return true;
   final hero = window -
+      // A browser's navigation from where EXPANDED starts.
+      (window >= kuteDeskNavFrom
+          ? kuteDeskNavWidthFor(window) + kuteDeskNavGap * 2 + 1
+          : 0) -
       kuteBrowsePagePadding * 2 -
       KuteLayout.paneWidth -
       KuteLayout.paneGap -
@@ -591,7 +598,7 @@ class _DollarsActivityTabState extends ConsumerState<DollarsActivityTab> {
     // the heading's 14) beside the left navigation; under the pills (900
     // to 1099) the pills' row is above it already. Its foot above the
     // floating bar.
-    final top = kuteWindowWidth(context) >= kuteDeskNavMinWidth
+    final top = kuteWindowWidth(context) >= kuteDeskNavFrom
         ? 8.h + 14.h
         : 0.0;
     final foot = kuteDockScrollClearance(context) + 8.h;

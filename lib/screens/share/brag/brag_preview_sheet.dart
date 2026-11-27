@@ -58,8 +58,6 @@ import 'package:kute/providers/unified_search_provider.dart'
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
 import 'package:kute/screens/share/brag/pnl_share_card.dart';
-import 'package:kute/screens/share/cards/share_card_copy.dart'
-    show withGetKuteLine;
 import 'package:kute/screens/share/cards/share_card_frame.dart'
     show ShareCardSal, kShareCardRadius, kShareCardSize;
 import 'package:kute/screens/share/share_market_sheet.dart'
@@ -99,10 +97,9 @@ Future<void> showBragPnlPreviewSheet(BuildContext context,
     );
 
 /// The share text: "{title} on Kute {link}?ref={code}".
-String bragShareText(BuildContext context, BragData data) => withGetKuteLine(
-    context.l10n,
+String bragShareText(BuildContext context, BragData data) =>
     context.l10n.bragShareText(
-        data.title, shareLinkWithReferral(data.link, code: data.referralCode)));
+        data.title, shareLinkWithReferral(data.link, code: data.referralCode));
 
 class BragPreviewSheet extends ConsumerStatefulWidget {
   /// [data] null: the portfolio card, from the live providers; with
@@ -202,6 +199,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
       if (opened) {
         TrackingService.track('brag_shared', params: {
           'kind': data.kind.name,
+          'link_kind': 'web',
           'card': data is BragPnl
               ? 'pnl'
               : data is BragWin

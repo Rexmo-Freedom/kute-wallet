@@ -33,6 +33,8 @@ import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/share_link_claims.dart';
 import 'package:kute/services/share_links_store.dart';
+import 'package:kute/services/share_targets.dart';
+import 'package:kute/screens/share/share_target_opener.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -213,12 +215,30 @@ class _AppWidgetState extends ConsumerState<AppWidget>
       // the cold-start and PIN routes; the in-place lock overlay keeps
       // the session and covers the screen instead.
       sessionLocked: () => ref.read(sessionAuthProvider) == null,
+      hasWallet: () => ref.read(settingsProvider).wallets.isNotEmpty,
+      // The shared market's read-only page for a visitor with no wallet
+      // (share_guest_screen.dart): the web only.
+      guestShareView: () => kIsWeb,
+      // The wallet list is still being read from disk at a cold start: a
+      // shared link's route waits for it (app_router.dart).
+      walletsLoading: () {
+        final loaded = ref.read(initialSettingsProvider);
+        if (loaded.hasValue || loaded.hasError) return null;
+        return ref.read(initialSettingsProvider.future).then<void>((_) {});
+      },
       extraObservers: [
         syncRouteObserver,
         PosthogObserver(),
         _BreadcrumbObserver(),
       ],
     );
+    // A shared market link (services/share_targets.dart): its market opens
+    // over the tab shell once a wallet is unlocked and the router is in the
+    // shell (after the PIN, after onboarding, or right away).
+    _router.routerDelegate.addListener(_openParkedShareTarget);
+    ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
+      if (next) _openParkedShareTarget();
+    });
     WidgetsBinding.instance.addObserver(this);
 
     // Phase 4: stamp the user-settings person properties on boot. Read
@@ -523,7 +543,26 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     ));
   }
 
+  void _openParkedShareTarget() {
+    if (!mounted || !ShareTargets.hasParked) return;
+    if (!ref.read(sessionUnlockedProvider)) return;
+    if (ref.read(settingsProvider).wallets.isEmpty) return;
+    final String path;
+    try {
+      path = _router.routerDelegate.currentConfiguration.uri.path;
+    } catch (_) {
+      return;
+    }
+    if (!AppRouter.isShellPath(path)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ShareTargetOpener.openParked(AppRouter.rootNavigatorKey.currentContext);
+      }
+    });
+  }
+
   void _onShareLinksStoreChanged() {
+    _openParkedShareTarget();
     if (!mounted || ShareLinksStore.parkedClaimId == null) return;
     if (!ref.read(sessionUnlockedProvider)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -547,6 +586,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   void dispose() {
     _capabilities?.removeListener(_onCapabilitiesChanged);
     ShareLinksStore.revision.removeListener(_onShareLinksStoreChanged);
+    _router.routerDelegate.removeListener(_openParkedShareTarget);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

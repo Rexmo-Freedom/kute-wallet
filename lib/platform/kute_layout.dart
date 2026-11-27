@@ -25,10 +25,19 @@
 // the window ([designSizeFor]): one design pixel is one logical pixel and
 // `.w`, `.h`, `.sp` and `.r` stop growing.
 //
+// THE WEB HAS NO MEDIUM (founder, 27 November 2026, a 960 browser
+// window: "too many rows of stuff. Make it more like the desktop"): in a
+// browser EXPANDED starts where the phone ends, at [mediumMinWidth], so a
+// narrow laptop window has the desktop's structure (the top bar, the
+// Dollars page's left navigation, the panels) rather than the medium
+// column with its stacked pills ([expandedFrom]). The native apps (the
+// iPad) keep MEDIUM from 600 to 899 as before.
+//
 // Read the form factor with [KuteLayout.of] (the window) or, inside a
 // pane, lay out by the pane's own constraints (LayoutBuilder): a 430 pane
 // on a desktop is a phone column and its widgets must not ask the window.
 
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/widgets.dart';
 
 /// The window's form factor (see the file header).
@@ -65,9 +74,20 @@ abstract final class KuteLayout {
   /// The gap between the two panes and the page's side gutter on EXPANDED.
   static const double paneGap = 24;
 
+  /// Tests: the browser's rule ([expandedFrom]) off the web.
+  @visibleForTesting
+  static bool debugWeb = false;
+
+  /// Whether the browser's rules apply.
+  static bool get web => kIsWeb || debugWeb;
+
+  /// Where EXPANDED starts: [expandedMinWidth] in the native apps, the
+  /// phone's end ([mediumMinWidth]) in a browser (see the file header).
+  static double get expandedFrom => web ? mediumMinWidth : expandedMinWidth;
+
   static KuteFormFactor forWidth(double width) => width < mediumMinWidth
       ? KuteFormFactor.compact
-      : width < expandedMinWidth
+      : width < expandedFrom
           ? KuteFormFactor.medium
           : KuteFormFactor.expanded;
 

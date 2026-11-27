@@ -12,7 +12,10 @@ import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:kute/screens/share/claim_screen.dart';
+import 'package:kute/screens/share/share_guest_screen.dart';
 import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_target.dart';
+import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/share_links_store.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
@@ -57,7 +60,7 @@ import 'screens/shared/coming_soon_screen.dart';
 import 'screens/scanner/scanner_sheet.dart';
 import 'screens/settings/affiliate_screen.dart';
 import 'screens/app_shell.dart';
-import 'services/appsflyer_service.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'services/tracking_service.dart';
 
 /// The Bitcoin home with its Activity tab selected: where the old Dollars
@@ -209,15 +212,12 @@ class AppRouter {
     // A claim link (`/c/{id}`, or `deep_link_value=claim`) carries no
     // referral code: `claim` must never be bound as one.
     if (ShareLinkClaims.claimIdFromLink(uri) == null) {
-      AppsFlyerService.ingestReferrerFromDeepLink(
+      AffiliateService.captureReferrerFromLink(
         uri.queryParameters['deep_link_value'] ??
-            uri.queryParameters['af_sub1'] ??
+            uri.queryParameters['r'] ??
             uri.queryParameters['c'],
       );
     }
-    // Website → app identity link (never a referral code).
-    AppsFlyerService.ingestWebVisitorFromDeepLink(
-        uri.queryParameters['af_sub2']);
   }
 
   /// The routes reachable while no session is unlocked: the cold-start
@@ -277,6 +277,9 @@ class AppRouter {
   static bool _inShell(String path) =>
       _shellRoots.any((root) => path == root || path.startsWith('$root/'));
 
+  /// Whether [path] is in the tab shell (onboarding and PIN are not).
+  static bool isShellPath(String path) => _inShell(path);
+
   /// Whether the Dollars tab is in the strip now (shell_venue_tabs.dart:
   /// not while a Ledger owns the strip). Read, not watched.
   static bool _dollarsShown(BuildContext context) =>
@@ -312,9 +315,8 @@ class AppRouter {
   /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
   ///
   /// Affiliate deep links arrive as ABSOLUTE URIs — the custom scheme
-  /// (kute://open?deep_link_value=CODE) on Android and either that or the
-  /// AppsFlyer Universal Link (https://kute.onelink.me/...?deep_link_value=CODE)
-  /// on iOS. go_router has no route for them, so without this it renders a
+  /// (kute://open?deep_link_value=CODE, or `r=CODE`) on both phones (the
+  /// AppsFlyer OneLink left the app on 27 November 2026). go_router has no route for them, so without this it renders a
   /// "Page Not Found". We instead register the referral code app-side (works
   /// in debug + release, both platforms — no SDK round-trip needed) and send
   /// the user right back to where they were. Regular in-app navigation uses
@@ -328,6 +330,9 @@ class AppRouter {
     required String initialRoute,
     bool web = kIsWeb,
     bool Function(BuildContext context) dollarsShown = _dollarsShown,
+    bool Function() hasWallet = _noWalletKnown,
+    bool Function() guestShareView = _guestShareViewOff,
+    Future<void>? Function() walletsLoading = _walletsLoaded,
   }) {
     // Last in-app location we sat on, so an incoming deep link can register its
     // referral code without yanking the user off their current screen.
@@ -336,6 +341,26 @@ class AppRouter {
     final landed = ValueNotifier<bool>(false);
     return (context, state) {
       final uri = state.uri;
+      final rootReferral = rootReferralRedirect(uri, locked: sessionLocked());
+      if (rootReferral != null) return rootReferral;
+      if (ShareTarget.isShareLocation(uri)) {
+        String? decide() => shareLocationRedirect(
+              uri,
+              locked: sessionLocked(),
+              hasWallet: hasWallet(),
+              guestView: guestShareView(),
+            );
+        // A COLD START ON A SHARED LINK. The saved wallet list is read from
+        // disk at start, and until it is in, [hasWallet] says "none": a
+        // person WITH a wallet in this browser was shown the no-wallet
+        // guest page instead of their PIN (seen in Safari, 27 November
+        // 2026). So the answer waits for the list. A list that cannot be
+        // read goes to splash, which owns that failure.
+        final loading = walletsLoading();
+        if (loading == null) return decide();
+        return loading.then<String?>((_) => decide(),
+            onError: (Object _) => '/splash');
+      }
       if (uri.hasScheme) {
         handleIncomingLink(uri);
         return claimLinkRedirect(uri, locked: sessionLocked()) ??
@@ -358,9 +383,78 @@ class AppRouter {
     };
   }
 
+  /// The web app's start with a referral code, `/#/?r=CODE` (the invite /
+  /// Earn link): the code becomes the pending referrer exactly as a market
+  /// link's does, then the ordinary start. Null for any other location.
+  @visibleForTesting
+  static String? rootReferralRedirect(Uri uri, {required bool locked}) {
+    if (uri.hasScheme || uri.path != '/') return null;
+    final Map<String, String> q;
+    try {
+      q = uri.queryParameters;
+    } catch (_) {
+      return locked ? '/splash' : '/home';
+    }
+    final code = ShareTarget.normalizeReferral(q[kShareReferralQuery]);
+    if (code != null && ShareTargetIngest.firstSighting(uri)) {
+      ShareTargets.ingestInvite(code);
+    }
+    return locked ? '/splash' : '/home';
+  }
+
+  static bool _noWalletKnown() => false;
+  static bool _guestShareViewOff() => false;
+  static Future<void>? _walletsLoaded() => null;
+
+  /// Where a shared market link (`/s/p/<slug>`, `/s/i/<coin>`;
+  /// services/share_target.dart) goes. Its referral code becomes the
+  /// pending referrer and its market is parked ([ShareTargets.ingest]),
+  /// then:
+  ///   * a refused link: the app's ordinary start (splash, which goes on to
+  ///     the PIN or the start screen; the shell when unlocked);
+  ///   * unlocked with a wallet: the venue's tab in the shell, where the
+  ///     parked market opens on top (app_widget.dart);
+  ///   * locked with a wallet: splash, so the PIN comes first and the
+  ///     market opens after it;
+  ///   * no wallet: the guest view of the market when [guestView] (the
+  ///     page itself, read-only), else splash and onboarding, after which
+  ///     the parked market opens.
+  /// Never more than one `share_link_opened` per link opened.
+  @visibleForTesting
+  static String? shareLocationRedirect(Uri uri,
+      {required bool locked,
+      required bool hasWallet,
+      required bool guestView}) {
+    final parsed = ShareTarget.parseLocation(uri);
+    final walletState = !hasWallet
+        ? 'none'
+        : locked
+            ? 'locked'
+            : 'unlocked';
+    if (parsed == null) {
+      if (ShareTargetIngest.firstSighting(uri)) {
+        ShareTargets.lost('invalid_link');
+      }
+      return locked ? '/splash' : '/home';
+    }
+    if (ShareTargetIngest.firstSighting(uri)) {
+      ShareTargets.ingest(parsed.target,
+          referral: parsed.referral, walletState: walletState);
+    }
+    if (!hasWallet) {
+      if (guestView) return null;
+      return '/splash';
+    }
+    if (locked) return '/splash';
+    return ShareTargets.shellLocationFor(parsed.target);
+  }
+
   static GoRouter createRouter(
     String initialRoute, {
     required bool Function() sessionLocked,
+    bool Function() hasWallet = _noWalletKnown,
+    bool Function() guestShareView = _guestShareViewOff,
+    Future<void>? Function() walletsLoading = _walletsLoaded,
     List<NavigatorObserver> extraObservers = const [],
   }) {
     _firstRouterAt ??= DateTime.now();
@@ -373,8 +467,12 @@ class AppRouter {
       // The bar's count of what is over the tabs (kute_bar_context.dart):
       // one observer here, one on each tab's navigator below.
       observers: [...extraObservers, KuteBarRouteObserver()],
-      redirect:
-          redirectFor(sessionLocked: sessionLocked, initialRoute: initialRoute),
+      redirect: redirectFor(
+          sessionLocked: sessionLocked,
+          initialRoute: initialRoute,
+          hasWallet: hasWallet,
+          guestShareView: guestShareView,
+          walletsLoading: walletsLoading),
       routes: [
         GoRoute(
           path: '/splash',
@@ -383,6 +481,18 @@ class AppRouter {
             child: const Splash(),
             state: state,
             wide: KuteWideMode.column,
+          ),
+        ),
+        // A shared market for a visitor with no wallet (web; the redirect
+        // sends everyone else on, shareLocationRedirect).
+        GoRoute(
+          path: '/s/:venue/:slug',
+          name: ShareGuestScreen.routeName,
+          pageBuilder: (context, state) => _buildFadeScalePage(
+            child: ShareGuestScreen(
+                target: ShareTarget.parseLocation(state.uri)?.target),
+            state: state,
+            wide: KuteWideMode.own,
           ),
         ),
         GoRoute(

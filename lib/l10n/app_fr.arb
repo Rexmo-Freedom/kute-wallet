@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Sauvegardez votre portefeuille",
   "backUpBannerSubtitle": "Au cas où vous perdriez votre téléphone",
   "backUpBannerAction": "Sauvegarder",
+  "getAppBannerTitle": "Téléchargez l'app Kute",
+  "getAppBannerSubtitle": "Disponible sur iPhone et Android",
   "cancelOrder": "Annuler l'ordre",
   "requestRefund": "Demander un remboursement",
   "unspent": "NON DÉPENSÉ",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Ambre",
   "chartVolume": "Volume",
   "chartLogScale": "Échelle log",
+  "chartPriceScale": "Échelle de prix",
   "chartVwapWindow": "VWAP sur les bougies affichées",
   "chartIndicators": "Indicateurs",
   "chartInterval": "Intervalle",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance} % de chances",
   "sendRecipientSearchHint": "Nom, téléphone ou adresse crypto",
   "sendRecipientSearchHintNoPhone": "Nom ou adresse crypto",
-  "shareGetKuteLine": "Entre dans la partie sur getkute.com",
   "sendMoveToYourDollars": "Transférer vers tes Dollars",
   "sendMoveToYourBitcoin": "Transférer vers ton Bitcoin",
   "sendWhatTitle": "Envoyer à {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 bougie} other{{count} bougies}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 bougie} other{{count} bougies}} · {duration}",
+  "shareOpenInBrowserSafari": "Cette page est ouverte dans une autre app. Pour Face ID et pour garder votre portefeuille, ouvrez-la dans Safari.",
+  "shareOpenInBrowserChrome": "Cette page est ouverte dans une autre app. Pour utiliser une clé d'accès et garder votre portefeuille, ouvrez-la dans Chrome.",
+  "shareOpenInAppBody": "Vous avez l'app Kute ? Ouvrez-le là-bas.",
+  "shareOpenInApp": "Ouvrir dans l'app"
 }

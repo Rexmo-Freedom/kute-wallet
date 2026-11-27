@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart' show NoTransitionPage;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/platform/kute_layout.dart';
+import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
     show KuteSalPill;
@@ -26,8 +28,8 @@ final _navKey = GlobalKey<NavigatorState>();
 /// The app's layering in miniature: a root navigator under the bar, the
 /// scroll listener around it, the route observer on it.
 Future<ProviderContainer> _pump(WidgetTester tester,
-    {bool reduce = false}) async {
-  tester.view.physicalSize = const Size(390, 844);
+    {bool reduce = false, Size size = const Size(390, 844)}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final container = ProviderContainer(overrides: [
@@ -108,6 +110,88 @@ void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     KuteBarRouteObserver.reset();
+  });
+
+  testWidgets(
+      'the web\'s wide and medium layouts: no default pill on a pushed page, '
+      'a page\'s own primary still shows',
+      (tester) async {
+    KuteLayout.debugWeb = true;
+    KuteBarPane.debugWeb = true;
+    addTearDown(() {
+      KuteLayout.debugWeb = false;
+      KuteBarPane.debugWeb = false;
+    });
+    for (final size in const [Size(1440, 900), Size(760, 900)]) {
+      await _pump(tester, size: size);
+      await _push(tester, _page(), name: 'add_wallet');
+      expect(_up(tester), isFalse);
+      expect(find.byType(KuteSalPill).hitTestable(), findsNothing);
+      expect(find.text('Search or Manage with AI').hitTestable(),
+          findsNothing);
+      await _push(
+          tester,
+          _page(
+              barContext: KuteBarContext.primary(
+                  label: 'Continue', onPrimary: () {})),
+          name: 'form');
+      expect(_up(tester), isTrue);
+      _nav(tester).pop();
+      await tester.pumpAndSettle();
+      _nav(tester).popUntil((r) => r.isFirst);
+      await tester.pumpAndSettle();
+      KuteBarRouteObserver.reset();
+    }
+  });
+
+  testWidgets(
+      'regression (84d61d50): the default pill does not come back over the '
+      'home after a market page is opened and closed on the wide web layout',
+      (tester) async {
+    KuteLayout.debugWeb = true;
+    KuteBarPane.debugWeb = true;
+    kuteShellMounted.value = true;
+    addTearDown(() {
+      KuteLayout.debugWeb = false;
+      KuteBarPane.debugWeb = false;
+      kuteShellMounted.value = false;
+    });
+    await _pump(tester, size: const Size(1440, 900));
+    // The home tab: no default pill (the search is the top bar's).
+    expect(_up(tester), isFalse);
+    // A market page: its own trade row still shows.
+    await _push(
+        tester,
+        _page(
+            barContext: KuteBarContext.trade(
+                share: const KuteBarShare(barContext: _market),
+                trades: [
+          KuteBarTrade(
+              id: 'invest',
+              label: 'Invest',
+              fill: const Color(0xFF22AA66),
+              onTap: () {}),
+        ])),
+        name: 'market');
+    expect(_up(tester), isTrue);
+    expect(find.text('Invest'), findsOneWidget);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse, reason: 'back on the home: still no pill');
+    expect(find.text('Search or Manage with AI').hitTestable(), findsNothing);
+    // A plain page (the Portfolio, Add account): none, then none again.
+    await _push(tester, _page(), name: 'portfolio');
+    expect(_up(tester), isFalse);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
+    // Down to a phone's width the pill is back; wide again, gone again.
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isTrue);
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
   });
 
   testWidgets('away over the tabs; up with the default over a pushed page',

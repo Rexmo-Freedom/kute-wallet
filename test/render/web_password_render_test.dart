@@ -1,7 +1,8 @@
-// The laptop browser's password lock (unlock_secret.dart) shot in the
-// split screen: create, confirm, unlock, the lock overlay and the one-time
-// upgrade of a PIN vault, light and dark; and the phone's PIN page to show
-// it unchanged. Shot when asked: DESK_FULL_RENDER=<dir>.
+// A web vault made with a password (24 to 27 November 2026,
+// unlock_secret.dart) shot in the split screen: unlock, the lock overlay
+// and the gate sheet, light and dark; the PIN pad every new vault takes
+// in a laptop browser (create, confirm, unlock); and the phone's PIN page
+// to show it unchanged. Shot when asked: DESK_FULL_RENDER=<dir>.
 
 import 'dart:io';
 
@@ -25,7 +26,6 @@ import 'package:kute/screens/creation/set_pin.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/login/open_pin.dart';
 import 'package:kute/screens/shared/lock_overlay.dart';
-import 'package:kute/screens/shared/password_upgrade_page.dart';
 import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
@@ -100,22 +100,25 @@ Future<void> _pumpLock(WidgetTester tester,
   await deskFullFrames(tester);
 }
 
-/// Each shot: its page, and what to type into its field first.
+/// Each shot of a password vault: its page, and what to type first.
 final Map<String, (Widget Function(), List<Override> Function(), String?)>
     _shots = {
-  'create': (() => const SetPin(), () => const [], null),
-  'create_typed': (() => const SetPin(), () => const [], 'kute test pass 42'),
-  'confirm': (
-    () => const ConfirmPin(),
-    () => [pinProvider.overrideWith((ref) => 'kute test pass 42')],
-    null
-  ),
   'unlock': (() => OpenPin(localAuth: _NoBiometrics()), _signedIn, null),
-  'upgrade': (
-    () => PasswordUpgradePage(onUpgraded: () {}, upgrade: (_) async {}),
-    () => const [],
-    null
+  'unlock_typed': (
+    () => OpenPin(localAuth: _NoBiometrics()),
+    _signedIn,
+    'kute test pass 42'
   ),
+};
+
+/// The PIN pad a new vault takes in a laptop browser.
+final Map<String, (Widget Function(), List<Override> Function())> _pinShots = {
+  'pin_create': (() => const SetPin(), () => const []),
+  'pin_confirm': (
+    () => const ConfirmPin(),
+    () => [pinProvider.overrideWith((ref) => '123456')]
+  ),
+  'pin_unlock': (() => OpenPin(localAuth: _NoBiometrics()), _signedIn),
 };
 
 /// A page that opens the step-up gate over itself.
@@ -162,7 +165,6 @@ void main() {
   });
   tearDown(() {
     SecretStores.debugReset();
-    UnlockSecret.debugDeviceKind = null;
     UnlockSecret.debugVaultKind = null;
   });
 
@@ -179,7 +181,6 @@ void main() {
       final mode = dark ? 'dark' : 'light';
       for (final entry in _shots.entries) {
         testWidgets('password ${entry.key} $label $mode', (tester) async {
-          UnlockSecret.debugDeviceKind = VaultSecretKind.password;
           UnlockSecret.debugVaultKind = VaultSecretKind.password;
           await deskFullAssets(tester);
           final (page, overrides, typed) = entry.value;
@@ -199,8 +200,23 @@ void main() {
           await end(tester);
         });
       }
+      for (final entry in _pinShots.entries) {
+        testWidgets('${entry.key} $label $mode', (tester) async {
+          await deskFullAssets(tester);
+          final (page, overrides) = entry.value;
+          await pumpDeskPage(tester,
+              size: size,
+              dark: dark,
+              page: page(),
+              mode: KuteWideMode.split,
+              overrides: overrides());
+          expect(tester.takeException(), isNull);
+          expectDeskNothingStretched(tester);
+          await deskFullShoot(tester, '${entry.key}_${label}_$mode');
+          await end(tester);
+        });
+      }
       testWidgets('password lock $label $mode', (tester) async {
-        UnlockSecret.debugDeviceKind = VaultSecretKind.password;
         UnlockSecret.debugVaultKind = VaultSecretKind.password;
         await deskFullAssets(tester);
         await _pumpLock(tester, size: size, dark: dark);
@@ -209,7 +225,6 @@ void main() {
         await end(tester);
       });
       testWidgets('password gate sheet $label $mode', (tester) async {
-        UnlockSecret.debugDeviceKind = VaultSecretKind.password;
         UnlockSecret.debugVaultKind = VaultSecretKind.password;
         await deskFullAssets(tester);
         await pumpDeskPage(tester,
@@ -236,7 +251,6 @@ void main() {
     ]) {
       testWidgets('$name 430x932 $mode', (tester) async {
         // A touch-first browser: the PIN pad as it was.
-        UnlockSecret.debugDeviceKind = VaultSecretKind.pin;
         await deskFullAssets(tester);
         await pumpDeskPage(tester,
             size: const Size(430, 932),

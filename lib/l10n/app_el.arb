@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Κράτα αντίγραφο ασφαλείας του πορτοφολιού σου",
   "backUpBannerSubtitle": "Σε περίπτωση που χάσεις το τηλέφωνό σου",
   "backUpBannerAction": "Αντίγραφο",
+  "getAppBannerTitle": "Κατέβασε την εφαρμογή Kute",
+  "getAppBannerSubtitle": "Διαθέσιμη για iPhone και Android",
   "cancelOrder": "Ακύρωση εντολής",
   "requestRefund": "Αίτημα επιστροφής χρημάτων",
   "unspent": "ΑΞΟΔΕΥΤΑ",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Κεχριμπαρί",
   "chartVolume": "Όγκος",
   "chartLogScale": "Λογαριθμική κλίμακα",
+  "chartPriceScale": "Κλίμακα τιμών",
   "chartVwapWindow": "VWAP στα εμφανιζόμενα κεριά",
   "chartIndicators": "Δείκτες",
   "chartInterval": "Διάστημα",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance}% πιθανότητα",
   "sendRecipientSearchHint": "Όνομα, κινητό ή διεύθυνση κρύπτο",
   "sendRecipientSearchHintNoPhone": "Όνομα ή διεύθυνση κρύπτο",
-  "shareGetKuteLine": "Μπες κι εσύ στη δράση στο getkute.com",
   "sendMoveToYourDollars": "Μεταφορά στα Δολάριά σου",
   "sendMoveToYourBitcoin": "Μεταφορά στο Bitcoin σου",
   "sendWhatTitle": "Αποστολή σε {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 κερί} other{{count} κεριά}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 κερί} other{{count} κεριά}} · {duration}",
+  "shareOpenInBrowserSafari": "Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για Face ID και για να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Safari.",
+  "shareOpenInBrowserChrome": "Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για να χρησιμοποιήσετε κλειδί πρόσβασης και να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Chrome.",
+  "shareOpenInAppBody": "Έχετε την εφαρμογή Kute; Ανοίξτε το εκεί.",
+  "shareOpenInApp": "Άνοιγμα στην εφαρμογή"
 }

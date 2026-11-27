@@ -8,10 +8,7 @@
 //   * the doors to a person: Send to anyone, the gift search, the What step
 //     and the contacts picker refuse off, nothing on screen;
 //   * the gift card and row are gone off;
-//   * the getkute.com line ends a share's text off, once; on, the text is
-//     as it was;
-//   * the line and the Who step's placeholder are translated in every
-//     language, "getkute.com" untouched.
+//   * the Who step's placeholder is translated in every language.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,8 +17,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/config/feature_flags.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
-import 'package:kute/screens/share/cards/share_card_copy.dart'
-    show withGetKuteLine;
 import 'package:kute/screens/share/send_pick_market_sheet.dart'
     show sendGiftShown, showSendPickMarketSheet;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart'
@@ -200,41 +195,16 @@ void main() {
     expect(sendGiftShown(policy), isTrue);
   });
 
-  group('the getkute.com line', () {
-    final en = lookupAppLocalizations(const Locale('en'));
-
-    test('off: the last line, once', () {
-      debugSocialSendEnabled = false;
-      expect(en.shareGetKuteLine, 'Get in on the action at getkute.com');
-      final text = withGetKuteLine(en, 'Bitcoin on Kute https://x/m/1\n');
-      expect(text,
-          'Bitcoin on Kute https://x/m/1\nGet in on the action at getkute.com');
-      expect(withGetKuteLine(en, text), text);
-      expect(withGetKuteLine(en, ''), en.shareGetKuteLine);
-    });
-
-    test('on: the text as it was', () {
-      debugSocialSendEnabled = true;
-      expect(withGetKuteLine(en, 'Bitcoin on Kute'), 'Bitcoin on Kute');
-    });
-
-    test('every language says it, getkute.com untouched', () {
-      final english = en.shareGetKuteLine;
-      final hint = en.sendRecipientSearchHintNoPhone;
-      final cut = <String>[];
-      for (final locale in AppLocalizations.supportedLocales) {
-        final l10n = lookupAppLocalizations(locale);
-        final line = l10n.shareGetKuteLine;
-        if (!line.contains('getkute.com')) cut.add('$locale: $line');
-        if (line.contains('\n')) cut.add('$locale: two lines');
-        if (locale.languageCode != 'en') {
-          if (line == english) cut.add('$locale: untranslated line');
-          if (l10n.sendRecipientSearchHintNoPhone == hint) {
-            cut.add('$locale: untranslated placeholder');
-          }
-        }
-      }
-      expect(cut, isEmpty, reason: cut.join('\n'));
-    });
+  test('the Who step\'s placeholder is translated in every language', () {
+    final hint =
+        lookupAppLocalizations(const Locale('en')).sendRecipientSearchHintNoPhone;
+    final cut = <String>[
+      for (final locale in AppLocalizations.supportedLocales)
+        if (locale.languageCode != 'en' &&
+            lookupAppLocalizations(locale).sendRecipientSearchHintNoPhone ==
+                hint)
+          '$locale',
+    ];
+    expect(cut, isEmpty, reason: cut.join('\n'));
   });
 }

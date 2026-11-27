@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Varunda oma rahakott",
   "backUpBannerSubtitle": "Juhuks, kui kaotad telefoni",
   "backUpBannerAction": "Varunda",
+  "getAppBannerTitle": "Laadi alla Kute äpp",
+  "getAppBannerSubtitle": "Saadaval iPhone'ile ja Androidile",
   "cancelOrder": "Tühista tellimus",
   "requestRefund": "Taotle tagasimakset",
   "unspent": "KULUTAMATA",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Merevaik",
   "chartVolume": "Maht",
   "chartLogScale": "Logaritmskaala",
+  "chartPriceScale": "Hinnaskaala",
   "chartVwapWindow": "VWAP kuvatud küünalde ulatuses",
   "chartIndicators": "Indikaatorid",
   "chartInterval": "Intervall",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance}% tõenäosus",
   "sendRecipientSearchHint": "Nimi, telefon või krüptoaadress",
   "sendRecipientSearchHintNoPhone": "Nimi või krüptoaadress",
-  "shareGetKuteLine": "Löö kaasa: getkute.com",
   "sendMoveToYourDollars": "Teisalda oma Dollaritesse",
   "sendMoveToYourBitcoin": "Teisalda oma Bitcoini",
   "sendWhatTitle": "Saaja: {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stopp {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}",
+  "shareOpenInBrowserSafari": "See leht on avatud teises rakenduses. Face ID kasutamiseks ja rahakoti hoidmiseks ava see Safaris.",
+  "shareOpenInBrowserChrome": "See leht on avatud teises rakenduses. Pääsuvõtme kasutamiseks ja rahakoti hoidmiseks ava see Chrome'is.",
+  "shareOpenInAppBody": "Sul on Kute rakendus? Ava see seal.",
+  "shareOpenInApp": "Ava rakenduses"
 }

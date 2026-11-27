@@ -494,6 +494,8 @@
   "backUpBannerTitle": "Fă backup portofelului",
   "backUpBannerSubtitle": "În caz că pierzi telefonul",
   "backUpBannerAction": "Fă backup",
+  "getAppBannerTitle": "Descarcă aplicația Kute",
+  "getAppBannerSubtitle": "Disponibilă pentru iPhone și Android",
   "cancelOrder": "Anulează ordinul",
   "requestRefund": "Cere rambursare",
   "unspent": "NECHELTUIT",
@@ -1730,6 +1732,7 @@
   "chartHighlightColor": "Chihlimbar",
   "chartVolume": "Volum",
   "chartLogScale": "Scară logaritmică",
+  "chartPriceScale": "Scară de preț",
   "chartVwapWindow": "VWAP pe lumânările afișate",
   "chartIndicators": "Indicatori",
   "chartInterval": "Interval",
@@ -3340,7 +3343,6 @@
   "shareMarketChance": "{chance}% șanse",
   "sendRecipientSearchHint": "Nume, telefon sau orice adresă cripto",
   "sendRecipientSearchHintNoPhone": "Nume sau orice adresă cripto",
-  "shareGetKuteLine": "Intră în joc pe getkute.com",
   "sendMoveToYourDollars": "Mută în Dolarii tăi",
   "sendMoveToYourBitcoin": "Mută în Bitcoin-ul tău",
   "sendWhatTitle": "Trimite către {name}",
@@ -4117,5 +4119,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 lumânare} few{{count} lumânări} other{{count} de lumânări}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 lumânare} few{{count} lumânări} other{{count} de lumânări}} · {duration}",
+  "shareOpenInBrowserSafari": "Această pagină este deschisă în altă aplicație. Pentru Face ID și ca să îți păstrezi portofelul, deschide-o în Safari.",
+  "shareOpenInBrowserChrome": "Această pagină este deschisă în altă aplicație. Pentru a folosi o cheie de acces și a-ți păstra portofelul, deschide-o în Chrome.",
+  "shareOpenInAppBody": "Ai aplicația Kute? Deschide-l acolo.",
+  "shareOpenInApp": "Deschide în aplicație"
 }

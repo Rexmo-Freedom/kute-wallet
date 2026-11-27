@@ -431,7 +431,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// the window allows over the fold: the window less the header, the
   /// figure over the chart, its interval row and the bottom gutter, at
   /// least 420.
-  double get _chartHeight => KuteLayout.isExpanded(context)
+  double get _chartHeight =>
+      kuteMarketFormFactor(context) == KuteFormFactor.expanded
       ? kuteDeskChartHeight(MediaQuery.sizeOf(context).height,
           around: _deskHeaderHeight + (_isGameSheet ? 300 : 236))
       : polyMarketChartHeight();
@@ -682,7 +683,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // the same column centred; EXPANDED the page on the left with its
     // right column, the bet slip's side panel in the column's place once
     // an outcome is clicked (kute_desk_market.dart).
-    final form = KuteLayout.of(context);
+    // A browser too narrow for the desk keeps the MEDIUM page.
+    final form = kuteMarketFormFactor(context);
     final expanded = form == KuteFormFactor.expanded;
     // EXPANDED: the chart takes the whole left side; the outcomes, the
     // board and Rules under it keep a readable width at its left.
@@ -4260,7 +4262,10 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
     final side = widget.initialSide;
     if (side != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && KuteLayout.isExpanded(context)) _openDefaultSlip(side);
+        if (mounted &&
+            kuteMarketFormFactor(context) == KuteFormFactor.expanded) {
+          _openDefaultSlip(side);
+        }
       });
     }
     // A card's Up / Down slip, already counted, into the panel.
@@ -4298,7 +4303,8 @@ class _FiveMinMarketDetailSheetState extends State<FiveMinMarketDetailSheet> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final config = _resolveCryptoConfig(event);
-    final form = KuteLayout.of(context);
+    // A browser too narrow for the desk keeps the MEDIUM page.
+    final form = kuteMarketFormFactor(context);
     final expanded = form == KuteFormFactor.expanded;
     // The rounds of this coin the person holds.
     bool holds(PolymarketPosition p) {

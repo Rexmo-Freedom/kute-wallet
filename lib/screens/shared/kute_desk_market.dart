@@ -35,6 +35,7 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
+import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart';
 import 'package:kute/screens/shared/kute_detail_panes.dart'
     show kuteDetailPaneWidth;
@@ -44,6 +45,42 @@ import 'package:kute/theme/kute_motion.dart';
 /// right pane for the content between the two gutters.
 double kuteDeskColumnWidth(double width) =>
     kuteDetailPaneWidth(width - 2 * kuteDeskGutter);
+
+/// The least width of a desk market page's chart in a browser (founder,
+/// 27 November 2026: the desk layout from where the chart keeps about
+/// 520 beside the column).
+const double kuteWebDeskChartMinWidth = 520;
+
+/// The chart's width on a desk market page in a window [width] wide: the
+/// window less its two gutters, the right column, the gap and the page's
+/// own 20 gutters.
+double kuteDeskChartWidth(double width) =>
+    width - 2 * kuteDeskGutter - kuteDeskColumnWidth(width) - kuteWideGap - 40;
+
+/// The narrowest browser window whose market pages are the desk (the
+/// chart at [kuteWebDeskChartMinWidth] beside the column; 1038 with
+/// today's column rule). Under it a browser's market page is the MEDIUM
+/// page (one centred column, the floating trade row).
+final double kuteWebDeskMarketMinWidth = () {
+  for (var w = KuteLayout.mediumMinWidth; w < 2400; w++) {
+    if (kuteDeskChartWidth(w) >= kuteWebDeskChartMinWidth) return w;
+  }
+  return 2400.0;
+}();
+
+/// A market or position page's form factor: the window's, except that in
+/// a browser an EXPANDED window too narrow for the desk
+/// ([kuteWebDeskMarketMinWidth]) lays the page out as MEDIUM. Native
+/// apps: the window's, as before.
+KuteFormFactor kuteMarketFormFactor(BuildContext context) {
+  final form = KuteLayout.of(context);
+  if (form == KuteFormFactor.expanded &&
+      KuteLayout.web &&
+      kuteWindowWidth(context) < kuteWebDeskMarketMinWidth) {
+    return KuteFormFactor.medium;
+  }
+  return form;
+}
 
 /// The right column's primary buttons' height (the trade row's pills,
 /// taller: the page's primary actions).

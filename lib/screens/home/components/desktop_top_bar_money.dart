@@ -85,17 +85,21 @@ const double _kDollarsLineWidth = 264;
 /// actions at its right. [labels]: the actions with their words (a wide
 /// window), else icons with tooltips.
 class KuteDesktopMoney extends ConsumerWidget {
-  /// The balance, for the bar's centre.
-  const KuteDesktopMoney.balance({super.key, required this.activeTab})
+  /// The balance, for the bar's centre; [compact], the web's small block
+  /// beside the switch ([KuteTopBarBalance]).
+  const KuteDesktopMoney.balance(
+      {super.key, required this.activeTab, this.compact = false})
       : _actions = false,
         labels = false;
 
   /// The actions, for the bar's right.
   const KuteDesktopMoney.actions(
       {super.key, required this.activeTab, required this.labels})
-      : _actions = true;
+      : _actions = true,
+        compact = false;
 
   final ActiveNavTab activeTab;
+  final bool compact;
   final bool labels;
   final bool _actions;
 
@@ -117,7 +121,7 @@ class KuteDesktopMoney extends ConsumerWidget {
                   ],
                   source: kUsdSurfaceSource,
                   labels: labels)
-              : const _DollarsTopBalance(),
+              : _DollarsTopBalance(compact: compact),
         ),
       ActiveNavTab.home when shell != null => (
           'wallet-${shell.id}',
@@ -127,7 +131,7 @@ class KuteDesktopMoney extends ConsumerWidget {
                       source: 'wallet_detail'),
                   source: 'wallet_detail',
                   labels: labels)
-              : _BitcoinTopBalance(wallet: shell),
+              : _BitcoinTopBalance(wallet: shell, compact: compact),
         ),
       ActiveNavTab.home when active != null && !active.isSigner => (
           'home-${active.id}',
@@ -137,7 +141,7 @@ class KuteDesktopMoney extends ConsumerWidget {
                       source: 'home'),
                   source: 'home',
                   labels: labels)
-              : const _BitcoinTopBalance(),
+              : _BitcoinTopBalance(compact: compact),
         ),
       _ => ('none', null),
     };
@@ -161,7 +165,9 @@ class KuteDesktopMoney extends ConsumerWidget {
 
 /// The Dollars total in the bar (see the file header).
 class _DollarsTopBalance extends ConsumerWidget {
-  const _DollarsTopBalance();
+  const _DollarsTopBalance({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -170,6 +176,30 @@ class _DollarsTopBalance extends ConsumerWidget {
     String amount(double value) => visible ? formatDollars(value) : '••••••';
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
     final split = InvestmentBalanceHeader.oneBalanceSplitFigures(ref);
+    if (compact) {
+      return KuteTopBarBalance(
+        key: const ValueKey('top-bar-dollars-balance'),
+        mark: r'$',
+        hidden: !visible,
+        figure: StaleShimmer(
+          stale: figure.stale,
+          child: RollingNumberText(
+            text: figure.text,
+            style: KuteTopBarBalance.figureStyle(
+                figure.stale ? c.textSecondary : c.textPrimary),
+          ),
+        ),
+        // Its own width (the halves at their text's), never the cap's.
+        line: IntrinsicWidth(
+          child: OneBalancePnlAvailableLine(
+            available: amount(split.availableUsd),
+            availableLabel: context.l10n.available,
+            stale: split.stale,
+            fontSize: KuteTopBarBalance.lineSize,
+          ),
+        ),
+      );
+    }
     // The figure is read, not pressed: the Portfolio opens from its own
     // button beside Buy dollars (founder, 25 November 2026: "and not in
     // number clicking").
@@ -210,9 +240,10 @@ class _DollarsTopBalance extends ConsumerWidget {
 /// ([wallet] null: the active wallet, as the hero reads it) or another
 /// wallet's (its card's figures).
 class _BitcoinTopBalance extends ConsumerWidget {
-  const _BitcoinTopBalance({this.wallet});
+  const _BitcoinTopBalance({this.wallet, this.compact = false});
 
   final WalletConfig? wallet;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -250,6 +281,10 @@ class _BitcoinTopBalance extends ConsumerWidget {
       skeleton = balance == null &&
           ref.watch(bdkScanningWalletsProvider).contains(w.id);
     }
+    if (skeleton && compact) {
+      return const KuteTopBarBalance(
+          mark: '₿', loading: true, figure: SizedBox(), line: SizedBox());
+    }
     if (skeleton) {
       return KuteSkeleton(
         child: Column(
@@ -273,6 +308,42 @@ class _BitcoinTopBalance extends ConsumerWidget {
             .format(fiat)
         : '••••••••';
     final btcStr = visible ? sats.toFormattedString(btcFormat) : '••••••••';
+    if (compact) {
+      final compactBlock = KuteTopBarBalance(
+        mark: '₿',
+        hidden: !visible,
+        figure: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('₿',
+                style: KuteTopBarBalance.figureStyle(c.textPrimary)
+                    .copyWith(fontSize: KuteTopBarBalance.figureSize * 0.8)),
+            const SizedBox(width: 1),
+            AnimatedBtcAmountText(
+              text: btcStr,
+              dim: visible,
+              style: KuteTopBarBalance.figureStyle(c.textPrimary),
+              brightColor: c.textPrimary,
+              dimColor: c.textTertiary,
+            ),
+          ],
+        ),
+        line: AnimatedBalance(
+          text: fiatStr,
+          style: KuteTopBarBalance.lineStyle(c.textSecondary),
+        ),
+      );
+      if (w != null) return compactBlock;
+      return GestureDetector(
+        key: const ValueKey('top-bar-bitcoin-balance'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          cycleBalancePrivacyTracked(ref, surface: 'home_hero');
+        },
+        child: compactBlock,
+      );
+    }
     final block = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -328,6 +399,105 @@ class _BitcoinTopBalance extends ConsumerWidget {
         cycleBalancePrivacyTracked(ref, surface: 'home_hero');
       },
       child: block,
+    );
+  }
+}
+
+/// THE WEB TOP BAR'S BALANCE (founder, 27 November 2026: "the small
+/// balance on top looks better on Bitcoin"): one compact block for both
+/// tabs, so they cannot drift: the figure, then one small secondary line
+/// (Bitcoin's fiat; Dollars' change and Available), left-aligned, never
+/// wider than [maxWidth] (a long value scales down rather than pushing
+/// its neighbours). Hidden, a short fixed mask: the currency [mark] and
+/// four dots over four small ones, the app's own dot. Loading, the
+/// skeleton's two bars.
+class KuteTopBarBalance extends StatelessWidget {
+  const KuteTopBarBalance({
+    super.key,
+    required this.mark,
+    required this.figure,
+    required this.line,
+    this.hidden = false,
+    this.loading = false,
+  });
+
+  final String mark;
+  final Widget figure;
+  final Widget line;
+  final bool hidden;
+  final bool loading;
+
+  /// The figure's size and the line's.
+  static const double figureSize = 20;
+  static const double lineSize = 12;
+
+  /// The block's widest in the bar, in every state.
+  static const double maxWidth = 190;
+
+  /// The hidden amount's dots ([balanceVisible] off), as the app writes
+  /// them, four at most here.
+  static const String mask = '••••';
+
+  static TextStyle figureStyle(Color color) => TextStyle(
+        fontSize: figureSize,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.4,
+        height: 1.0,
+        fontFeatures: const [FontFeature.tabularFigures()],
+        color: color,
+      );
+
+  static TextStyle lineStyle(Color color) => TextStyle(
+        color: color,
+        fontSize: lineSize,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
+        height: 1.2,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final Widget block;
+    if (loading) {
+      block = KuteSkeleton(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SkeletonBar(100, figureSize * 0.9, radius: 6),
+            const SizedBox(height: 4),
+            SkeletonBar(60, lineSize, radius: 5),
+          ],
+        ),
+      );
+    } else if (hidden) {
+      block = Column(
+        key: const ValueKey('top-bar-balance-hidden'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$mark$mask', style: figureStyle(c.textPrimary)),
+          const SizedBox(height: 3),
+          Text(mask, style: lineStyle(c.textSecondary)),
+        ],
+      );
+    } else {
+      block = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [figure, const SizedBox(height: 3), line],
+      );
+    }
+    return ConstrainedBox(
+      key: const ValueKey('top-bar-compact-balance'),
+      constraints: const BoxConstraints(maxWidth: maxWidth),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: block,
+      ),
     );
   }
 }

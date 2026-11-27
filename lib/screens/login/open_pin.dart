@@ -22,7 +22,6 @@ import 'package:kute/screens/shared/kute_pin_scaffold.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_password_field.dart';
 import 'package:kute/screens/shared/password_copy.dart';
-import 'package:kute/screens/shared/password_upgrade_page.dart';
 import 'package:kute/platform/unlock_secret.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
@@ -76,14 +75,11 @@ class _OpenPinState extends ConsumerState<OpenPin>
   late AnimationController _animationController;
   late Animation<double> _animation;
 
-  /// The vault's secret is a password (a laptop browser,
-  /// unlock_secret.dart): one field instead of the pad.
+  /// The vault's secret is a password (a web vault made with one between
+  /// 24 and 27 November 2026, unlock_secret.dart): one field instead of
+  /// the pad. Every other vault takes the PIN.
   final bool _password = UnlockSecret.current == VaultSecretKind.password;
   final TextEditingController _field = TextEditingController();
-
-  /// Set when a PIN opened a PIN vault in a laptop browser: the rest of
-  /// the unlock waits until a password is created (password_upgrade_page).
-  VoidCallback? _afterUpgrade;
 
   void _clearEntry() {
     _field.clear();
@@ -248,11 +244,6 @@ class _OpenPinState extends ConsumerState<OpenPin>
           _scheduleAfterUnlock(container);
         }
 
-        if (UnlockSecret.needsPasswordUpgrade) {
-          _clearEntry();
-          setState(() => _afterUpgrade = finish);
-          return;
-        }
         finish();
       } else if (check == PinCheck.mismatch) {
         await _handleIncorrectPin();
@@ -433,17 +424,6 @@ class _OpenPinState extends ConsumerState<OpenPin>
             _scheduleAfterUnlock(container);
           }
 
-          // A PIN vault in a laptop browser is upgraded whichever way it
-          // was opened: the biometric check opened the vault's key as the
-          // PIN does, and the password re-wraps it (the biometric
-          // enrolment, its own wrap of the key, stays).
-          if (UnlockSecret.needsPasswordUpgrade) {
-            setState(() {
-              _clearEntry();
-              _afterUpgrade = finish;
-            });
-            return;
-          }
           finish();
         } else if (!authenticated) {
           TrackingService.track('biometric_prompt_cancelled',
@@ -617,11 +597,6 @@ class _OpenPinState extends ConsumerState<OpenPin>
     // the sixth digit looks deliberate.
     final padInert = _isLocked || _verifying;
 
-    final afterUpgrade = _afterUpgrade;
-    if (afterUpgrade != null) {
-      return PasswordUpgradePage(onUpgraded: afterUpgrade);
-    }
-
     return PopScope(
       canPop: false,
       child: KutePinScaffold(
@@ -669,6 +644,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
             opacity: padInert ? 0.4 : 1.0,
             child: CustomKeypad(
               chromed: true,
+              // A laptop's keyboard types on the pad too (web only).
+              typeFromKeyboard: true,
               onDigitPressed: (digit) {
                 if (pin.length < 6) {
                   HapticFeedback.lightImpact();

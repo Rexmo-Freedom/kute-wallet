@@ -1586,6 +1586,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backUpBannerAction => 'Back up';
 
   @override
+  String get getAppBannerTitle => 'Get the Kute app';
+
+  @override
+  String get getAppBannerSubtitle => 'Available for iPhone and Android';
+
+  @override
   String get cancelOrder => 'Cancel Order';
 
   @override
@@ -5965,6 +5971,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chartLogScale => 'Log scale';
+
+  @override
+  String get chartPriceScale => 'Price scale';
 
   @override
   String get chartVwapWindow => 'VWAP across the displayed candles';
@@ -12143,9 +12152,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendRecipientSearchHintNoPhone => 'Name or any crypto address';
 
   @override
-  String get shareGetKuteLine => 'Get in on the action at getkute.com';
-
-  @override
   String get sendMoveToYourDollars => 'Move to your Dollars';
 
   @override
@@ -14564,4 +14570,18 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'This page is open inside another app. For Face ID and to keep your wallet, open it in Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'This page is open inside another app. To use a passkey and keep your wallet, open it in Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Have the Kute app? Open this there.';
+
+  @override
+  String get shareOpenInApp => 'Open in the app';
 }
