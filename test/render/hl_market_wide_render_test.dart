@@ -49,10 +49,11 @@ import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dar
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlCandlestickChart;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart'
+    show hlChartLayoutProvider;
 import 'package:kute/services/hive_boot.dart' show openStartupHiveBoxes;
 import 'package:kute/screens/hyperliquid/components/hl_market_stats.dart'
     show HlStat;
-import 'package:kute/screens/hyperliquid/components/hl_watch_star.dart';
 import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart'
     show KuteScrubCard;
 import 'package:kute/screens/shared/charts/kute_chart_drawings.dart'
@@ -160,6 +161,19 @@ class _Trading extends HyperliquidTradingNotifier {
   final HyperliquidTradingState state0;
   @override
   Future<HyperliquidTradingState> build() async => state0;
+}
+
+/// The ticket's place-time capability check, counted and stopped there:
+/// what a confirmed order runs first (nothing reaches the venue).
+class _StopAtConfirmGate extends _Allowed {
+  int checks = 0;
+  @override
+  Future<void> ensureAllAllowed(Iterable<String> ids,
+      {Duration maxAge = Duration.zero}) async {
+    checks++;
+    throw CapabilityUnavailableException(
+        ids.first, const CapabilityDecision(allowed: false));
+  }
 }
 
 class _Currency extends StateNotifier<CurrencyState>
@@ -361,7 +375,9 @@ void main() {
     setUp(() => KuteBarPane.debugWeb = true);
     tearDown(() => KuteBarPane.debugWeb = false);
 
-    testWidgets('a perp: header figures, no book, positions under the chart',
+    testWidgets(
+        'a perp: header figures, the advanced chart in place, the order form '
+        'and the positions in the column',
         (tester) async {
       await _pump(tester,
           size: const Size(1440, 900), dark: false, market: _btc, held: true);
@@ -383,20 +399,127 @@ void main() {
       expect(find.byKey(const ValueKey('hl-desk-book')), findsNothing);
       expect(find.byType(HlOrderBookSection), findsNothing);
       expect(find.byType(HlRecentTradesSection), findsNothing);
-      // Advanced chart in the header, just left of the star.
-      final advanced = tester.getRect(find.byKey(const ValueKey('hl-advanced-chart')));
-      final star = tester.getRect(find.byType(HlWatchStar));
-      expect(advanced.right, lessThan(star.left));
-      expect(advanced.center.dy, moreOrLessEquals(star.center.dy, epsilon: 2));
-      expect(advanced.bottom,
-          lessThan(tester.getRect(find.byType(HlCandleChart)).top));
-      // The account's positions under the chart, this market's in the
-      // column.
-      expect(find.byKey(const ValueKey('hl-desk-positions')), findsOneWidget);
-      expect(find.byKey(const ValueKey('hl-desk-position-BTC')), findsOneWidget);
-      expect(find.byKey(const ValueKey('hl-desk-trades')), findsOneWidget);
+      // No Advanced chart button: the chart is the advanced chart, in
+      // place, its toolbar's chart type named.
+      expect(find.byKey(const ValueKey('hl-advanced-chart')), findsNothing);
+      expect(find.byKey(const ValueKey('hl-desk-advanced-chart')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-chart-inline-toolbar')),
+          findsOneWidget);
+      final type = find.byKey(const ValueKey('hl-chart-inline-type'));
+      expect(type, findsOneWidget);
+      expect(find.descendant(of: type, matching: find.byType(Text)),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-chart-inline-indicators')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-chart-edit-top-bar-wide')),
+          findsNothing);
+      // The order form in the right column, typed (no number pad), no
+      // Long / Short doors; this market's position and the account's
+      // positions under it, not under the chart.
+      final column = find.byKey(const ValueKey('hl-desk-web-column'));
+      expect(column, findsOneWidget);
+      expect(
+          find.descendant(
+              of: column,
+              matching: find.byKey(const ValueKey('order-slip-typed-amount'))),
+          findsOneWidget);
+      expect(find.byType(AmountKeypad), findsNothing);
+      expect(find.byKey(const ValueKey('hl-desk-trades')), findsNothing);
+      expect(
+          find.descendant(
+              of: column,
+              matching: find.byKey(const ValueKey('hl-desk-positions'))),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: column,
+              matching: find.byKey(const ValueKey('hl-desk-position-BTC'))),
+          findsOneWidget);
       expect(find.byKey(const ValueKey('hl-about-info')), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await _unmount(tester);
+    });
+
+    testWidgets('a phone keeps the simple chart and its Advanced chart card',
+        (tester) async {
+      await _pump(tester,
+          size: const Size(390, 844), dark: false, market: _btc);
+      expect(find.byKey(const ValueKey('hl-advanced-chart')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-chart-inline-toolbar')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('hl-desk-web-column')), findsNothing);
+      expect(find.byKey(const ValueKey('order-slip-typed-amount')),
+          findsNothing);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'the inline chart: a type picked by name and an indicator added are '
+        'stored as the advanced chart stores them', (tester) async {
+      await _pump(tester,
+          size: const Size(1440, 900), dark: false, market: _btc);
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(HlMarketDetailSheet)));
+      await tester.tap(find.byKey(const ValueKey('hl-chart-inline-type')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      // Every type by its name, the current one checked.
+      expect(find.byKey(const ValueKey('hl-chart-inline-type-heikinAshi')),
+          findsOneWidget);
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      await tester
+          .tap(find.byKey(const ValueKey('hl-chart-inline-type-candles')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(container.read(hlChartLayoutProvider).style, 'candles');
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('hl-chart-inline-type')),
+              matching: find.text('Candles')),
+          findsOneWidget);
+
+      await tester
+          .tap(find.byKey(const ValueKey('hl-chart-inline-indicators')));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // The indicators alone: the type is the toolbar's own choice.
+      expect(find.byKey(const ValueKey('hl-chart-group-type')), findsNothing);
+      final rsi = find.byKey(const ValueKey('hl-chart-indicator-rsi'));
+      await tester.ensureVisible(rsi);
+      await tester.pump();
+      await tester.tap(rsi);
+      await tester.pump();
+      expect(
+          container
+              .read(hlChartPreferencesProvider(hlChartDrawingMarketKey(_btc)))
+              .indicators,
+          contains('rsi'));
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'the column\'s order form places through the ticket\'s own confirm '
+        '(its place-time check), nothing without it', (tester) async {
+      final gate = _StopAtConfirmGate();
+      RuntimeCapabilitiesService.debugInstance = gate;
+      addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
+      await _pump(tester,
+          size: const Size(1440, 900), dark: false, market: _btc);
+      final field = find.byKey(const ValueKey('order-slip-typed-amount'));
+      await tester.enterText(field, '25');
+      await tester.pump();
+      expect(gate.checks, 0, reason: 'typing places nothing');
+      final primary = find.descendant(
+          of: find.byKey(const ValueKey('order-slip-in-place-primary')),
+          matching: find.byKey(const ValueKey('kute-bar-primary-button')));
+      expect(primary, findsOneWidget);
+      await tester.tap(primary);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(gate.checks, 1);
       await _unmount(tester);
     });
 
@@ -431,17 +554,18 @@ void main() {
       final mode = dark ? 'dark' : 'light';
       for (final (label, market) in const [('perp', _btc), ('stock', _intc)]) {
         for (final held in [false, true]) {
-          testWidgets('render: web desk $label ${held ? 'held' : 'none'} $mode',
-              skip: _dir == null, (tester) async {
-            await _pump(tester,
-                size: const Size(1440, 900),
-                dark: dark,
-                market: market,
-                held: held);
-            await _shoot(tester,
-                'webdesk_${label}_${held ? 'held' : 'none'}_$mode');
-            await _unmount(tester);
-          });
+          for (final size in const [Size(1440, 900), Size(1100, 760)]) {
+            final tag = '${size.width.toInt()}x${size.height.toInt()}';
+            testWidgets(
+                'render: web desk $tag $label ${held ? 'held' : 'none'} $mode',
+                skip: _dir == null, (tester) async {
+              await _pump(tester,
+                  size: size, dark: dark, market: market, held: held);
+              await _shoot(tester,
+                  'webdesk_${tag}_${label}_${held ? 'held' : 'none'}_$mode');
+              await _unmount(tester);
+            });
+          }
         }
       }
     }

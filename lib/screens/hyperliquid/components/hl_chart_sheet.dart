@@ -128,6 +128,7 @@ Future<void> showHlChartSheet(
   required List<HyperliquidCandle> candles,
   bool showYourTrades = true,
   VoidCallback? onAddPriceLine,
+  bool indicatorsOnly = false,
 }) {
   HapticFeedback.selectionClick();
   return showAppBottomSheet<void>(
@@ -138,7 +139,28 @@ Future<void> showHlChartSheet(
       candles: candles,
       showYourTrades: showYourTrades,
       onAddPriceLine: onAddPriceLine,
+      indicatorsOnly: indicatorsOnly,
     ),
+  );
+}
+
+/// Stores [style] as the Chart sheet's card does (one layout for every
+/// Hyperliquid market) and reports it the same way.
+void hlPickChartStyle(WidgetRef ref, HlMarket market, HlChartStyle style) {
+  final current =
+      HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
+  if (style == current) return;
+  HapticFeedback.selectionClick();
+  ref.read(hlChartLayoutProvider.notifier).setStyle(style.name);
+  VenueAnalytics.settingChanged(
+    'chart_type_changed',
+    setting: 'chart_style',
+    value: style.name,
+    extra: {
+      'type': style.name,
+      'coin': market.coin,
+      ...VenueAnalytics.hlAssetParams(market.coin),
+    },
   );
 }
 
@@ -178,7 +200,10 @@ String _groupName(AppLocalizations l10n, HlIndGroup g) => switch (g) {
       HlIndGroup.volume => l10n.chartVolume,
     };
 
-String _styleName(AppLocalizations l10n, HlChartStyle style) => switch (style) {
+/// A chart type's name, as the Chart sheet's cards and the web desk's
+/// type menu say it.
+String hlChartStyleName(AppLocalizations l10n, HlChartStyle style) =>
+    switch (style) {
       HlChartStyle.line => l10n.chartStyleLine,
       HlChartStyle.area => l10n.chartStyleArea,
       HlChartStyle.heikinAshi => l10n.chartStyleHeikinAshi,
@@ -195,7 +220,12 @@ class HlChartSheet extends ConsumerStatefulWidget {
     required this.candles,
     this.showYourTrades = true,
     this.onAddPriceLine,
+    this.indicatorsOnly = false,
   });
+
+  /// The indicators alone (the web desk's Indicators button; its chart
+  /// type is the toolbar's own choice).
+  final bool indicatorsOnly;
 
   final HlMarket market;
   final String marketKey;
@@ -249,21 +279,9 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
     ];
   }
 
-  void _pickStyle(HlChartStyle style) {
-    final current =
-        HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
-    if (style == current) return;
-    HapticFeedback.selectionClick();
-    // Only how the bars are drawn changes: the interval, the view and the
-    // history stay, on this market and every other one.
-    ref.read(hlChartLayoutProvider.notifier).setStyle(style.name);
-    VenueAnalytics.settingChanged(
-      'chart_type_changed',
-      setting: 'chart_style',
-      value: style.name,
-      extra: {'type': style.name, ..._assetParams},
-    );
-  }
+  void _pickStyle(HlChartStyle style) =>
+      hlPickChartStyle(ref, widget.market, style);
+
 
   void _toggle(String key) {
     HapticFeedback.selectionClick();
@@ -398,6 +416,7 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
         );
 
     final sections = <Widget>[
+      if (!widget.indicatorsOnly) ...[
       _SectionLabel(l10n.chartSheetChartType,
           key: const ValueKey('hl-chart-group-type')),
       pairs([
@@ -410,6 +429,7 @@ class _HlChartSheetState extends ConsumerState<HlChartSheet> {
           ),
       ]),
       const SizedBox(height: 20),
+      ],
       _SectionLabel(l10n.chartGroupDisplay,
           key: const ValueKey('hl-chart-group-display')),
       pairs([
@@ -656,7 +676,7 @@ class _StyleCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                _styleName(context.l10n, style),
+                hlChartStyleName(context.l10n, style),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
