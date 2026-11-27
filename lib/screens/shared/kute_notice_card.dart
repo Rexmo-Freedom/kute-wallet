@@ -38,6 +38,7 @@ class KuteNoticeCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.actions,
+    this.titleMaxLines = 1,
     this.onTap,
     this.onClose,
     this.closeLabel,
@@ -45,7 +46,11 @@ class KuteNoticeCard extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle;
+
+  /// The one line under the title; null for a notice that is one sentence
+  /// (it then takes [titleMaxLines] lines of the title).
+  final String? subtitle;
+  final int titleMaxLines;
   final List<KuteNoticeAction> actions;
 
   /// The whole row's tap, or null.
@@ -87,22 +92,24 @@ class KuteNoticeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              maxLines: 1,
+              maxLines: titleMaxLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   color: c.textPrimary,
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.2)),
-          SizedBox(height: 2.h),
-          Text(subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                  height: 1.3)),
+          if (subtitle != null) ...[
+            SizedBox(height: 2.h),
+            Text(subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3)),
+          ],
         ],
       ),
     );

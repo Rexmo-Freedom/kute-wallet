@@ -28,6 +28,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/platform/in_app_browser.dart';
 import 'package:kute/platform/open_external.dart';
+import 'package:kute/screens/shared/kute_notice_card.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -137,35 +138,18 @@ class _ShareAppNoticeHostState extends State<ShareAppNoticeHost> {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(12.w, top + 8.h, 12.w, 4.h),
-            child: Material(
+            // The app's own notice card (the home's backup reminder, the
+            // web's "get the app"): never a lookalike.
+            child: KuteNoticeCard(
               key: const ValueKey('share-app-notice'),
-              color: c.surface,
-              elevation: 2,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(14.w, 6.h, 4.w, 6.h),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.shareOpenInAppBody,
-                        style: TextStyle(color: c.textPrimary, fontSize: 14.sp),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _open,
-                      child: Text(l10n.shareOpenInApp),
-                    ),
-                    IconButton(
-                      tooltip:
-                          MaterialLocalizations.of(context).closeButtonTooltip,
-                      icon: Icon(Icons.close_rounded,
-                          size: 18, color: c.textSecondary),
-                      onPressed: _dismiss,
-                    ),
-                  ],
-                ),
-              ),
+              title: l10n.shareOpenInAppBody,
+              subtitle: null,
+              titleMaxLines: 2,
+              actions: [
+                KuteNoticeAction(label: l10n.shareOpenInApp, onTap: _open),
+              ],
+              closeLabel: l10n.close,
+              onClose: _dismiss,
             ),
           ),
           Expanded(
