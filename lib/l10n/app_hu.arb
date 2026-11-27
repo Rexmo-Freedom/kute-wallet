@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Egységár",
   "betOrderDuration": "Időtartam",
   "betUntilCanceled": "Visszavonásig",
+  "advancedFillsNow": "Azonnal teljesül",
+  "advancedRests": "Vár a könyvben",
   "betLimitOrderFilled": "Limitáras megbízás teljesült",
   "betLimitBoughtShares": "{shares} {outcome} részesedés vásárolva {price} áron",
   "betLimitPriceSteps": "Válassz árat {step} lépésekben.",

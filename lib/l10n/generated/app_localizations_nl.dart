@@ -7142,6 +7142,12 @@ class AppLocalizationsNl extends AppLocalizations {
   String get betUntilCanceled => 'Tot annulering';
 
   @override
+  String get advancedFillsNow => 'Direct uitgevoerd';
+
+  @override
+  String get advancedRests => 'Wacht in het boek';
+
+  @override
   String get betLimitOrderFilled => 'Limietorder uitgevoerd';
 
   @override

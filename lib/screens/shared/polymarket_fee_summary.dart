@@ -19,7 +19,11 @@ class PolymarketFeeSummary extends ConsumerWidget {
       this.moveFeeUsd,
       this.moveFeeLabel = 'Move fee',
       this.moveFeePending = false,
-      this.moveLegs = const []});
+      this.moveLegs = const [],
+      this.retryInline = false});
+
+  /// Retry at the end of the fee's row ([MoneyFeeSummary.retryInline]).
+  final bool retryInline;
   final String? tokenId;
   final double shares, price;
   final bool bitcoinFirst, limit, hasFunds;
@@ -94,6 +98,7 @@ class PolymarketFeeSummary extends ConsumerWidget {
           bitcoinFirst: bitcoinFirst,
           state: 'Estimate unavailable',
           onRetry: () => ref.invalidate(polymarketFeeTermsProvider(tokenId!)),
+          retryInline: retryInline,
           details: moveDetails),
       data: (f) {
         final platform = f.platformFee(shares, price);

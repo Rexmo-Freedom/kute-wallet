@@ -2046,6 +2046,8 @@
   "betPricePerShare": "1シェアあたりの価格",
   "betOrderDuration": "有効期間",
   "betUntilCanceled": "キャンセルまで",
+  "advancedFillsNow": "すぐに約定",
+  "advancedRests": "板で待機",
   "betLimitOrderFilled": "指値注文が約定しました",
   "betLimitBoughtShares": "{outcome}を{shares}株、{price}で購入しました",
   "betLimitPriceSteps": "{step}刻みで価格を選んでください。",

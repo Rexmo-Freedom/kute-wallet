@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Preț per unitate",
   "betOrderDuration": "Durată",
   "betUntilCanceled": "Până la anulare",
+  "advancedFillsNow": "Se execută acum",
+  "advancedRests": "Așteaptă în registru",
   "betLimitOrderFilled": "Ordinul limită a fost executat",
   "betLimitBoughtShares": "Ai cumpărat {shares} acțiuni {outcome} la {price}",
   "betLimitPriceSteps": "Alege un preț în pași de {step}.",

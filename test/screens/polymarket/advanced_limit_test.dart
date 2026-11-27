@@ -348,18 +348,17 @@ void main() {
       expect(find.byKey(const ValueKey('bet-slip-minimum-warning')),
           findsNothing);
       expect(find.textContaining(r'Place $1.40 limit at 28'), findsOneWidget);
-      // The shares the order signs: 5.00, never 4.99.
-      await tester.ensureVisible(find.text('Details'));
-      await tester.tap(find.text('Details'));
-      await tester.pumpAndSettle();
-      expect(find.text('5.00'), findsOneWidget);
+      // The shares the order signs: 5.00, never 4.99 (the summary card,
+      // in place on the page).
+      final summary = find.byKey(const ValueKey('bet-slip-advanced-summary'));
+      await tester.ensureVisible(summary);
+      expect(find.descendant(of: summary, matching: find.text('5.00')),
+          findsOneWidget);
       expect(find.text('4.99'), findsNothing);
       // The order's rows: what it is and how long it stands.
       expect(find.text('Order type'), findsOneWidget);
       expect(find.text('Limit'), findsWidgets);
       expect(find.text('Until canceled'), findsOneWidget);
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '1.39');
       await tester.pumpAndSettle();
       final warning = tester.widget<Text>(
@@ -428,10 +427,9 @@ void main() {
       await _typeSellAmount(tester, '3');
       expect(find.byKey(const ValueKey('sell-advanced-issue')), findsNothing);
       expect(find.text('Sell at 54¢ · limit'), findsOneWidget);
-      // Its rows.
-      await tester.ensureVisible(find.text('Details'));
-      await tester.tap(find.text('Details'));
-      await tester.pumpAndSettle();
+      // Its rows, in the summary card on the page.
+      await tester.ensureVisible(
+          find.byKey(const ValueKey('sell-advanced-summary')));
       expect(find.text('Order type'), findsOneWidget);
       expect(find.text('Until canceled'), findsOneWidget);
       expect(tester.takeException(), isNull);

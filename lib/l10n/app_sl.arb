@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Cena na delež",
   "betOrderDuration": "Trajanje",
   "betUntilCanceled": "Do preklica",
+  "advancedFillsNow": "Izvrši se takoj",
+  "advancedRests": "Čaka v knjigi",
   "betLimitOrderFilled": "Limitni nalog izvršen",
   "betLimitBoughtShares": "Kupljenih {shares} deležev {outcome} po {price}",
   "betLimitPriceSteps": "Izberite ceno v korakih po {step}.",

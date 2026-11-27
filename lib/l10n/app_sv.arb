@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Pris per andel",
   "betOrderDuration": "Giltighet",
   "betUntilCanceled": "Tills den avbryts",
+  "advancedFillsNow": "Utförs direkt",
+  "advancedRests": "Väntar i boken",
   "betLimitOrderFilled": "Limitorder utförd",
   "betLimitBoughtShares": "Köpte {shares} andelar av {outcome} för {price}",
   "betLimitPriceSteps": "Välj ett pris i steg om {step}.",

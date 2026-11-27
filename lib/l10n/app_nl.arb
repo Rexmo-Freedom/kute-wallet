@@ -2046,6 +2046,8 @@
   "betPricePerShare": "Prijs per aandeel",
   "betOrderDuration": "Looptijd",
   "betUntilCanceled": "Tot annulering",
+  "advancedFillsNow": "Direct uitgevoerd",
+  "advancedRests": "Wacht in het boek",
   "betLimitOrderFilled": "Limietorder uitgevoerd",
   "betLimitBoughtShares": "{shares} aandelen {outcome} gekocht voor {price}",
   "betLimitPriceSteps": "Kies een prijs in stappen van {step}.",

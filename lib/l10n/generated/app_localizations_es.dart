@@ -7152,6 +7152,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get betUntilCanceled => 'Hasta cancelar';
 
   @override
+  String get advancedFillsNow => 'Se ejecuta ya';
+
+  @override
+  String get advancedRests => 'Espera en el libro';
+
+  @override
   String get betLimitOrderFilled => 'Orden límite ejecutada';
 
   @override

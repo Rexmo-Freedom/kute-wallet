@@ -6842,6 +6842,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get betUntilCanceled => 'キャンセルまで';
 
   @override
+  String get advancedFillsNow => 'すぐに約定';
+
+  @override
+  String get advancedRests => '板で待機';
+
+  @override
   String get betLimitOrderFilled => '指値注文が約定しました';
 
   @override

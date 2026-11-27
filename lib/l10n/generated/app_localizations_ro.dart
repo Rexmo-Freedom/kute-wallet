@@ -7157,6 +7157,12 @@ class AppLocalizationsRo extends AppLocalizations {
   String get betUntilCanceled => 'Până la anulare';
 
   @override
+  String get advancedFillsNow => 'Se execută acum';
+
+  @override
+  String get advancedRests => 'Așteaptă în registru';
+
+  @override
   String get betLimitOrderFilled => 'Ordinul limită a fost executat';
 
   @override

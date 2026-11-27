@@ -7130,6 +7130,12 @@ class AppLocalizationsBg extends AppLocalizations {
   String get betUntilCanceled => 'До отмяна';
 
   @override
+  String get advancedFillsNow => 'Изпълнява се сега';
+
+  @override
+  String get advancedRests => 'Чака в книгата';
+
+  @override
   String get betLimitOrderFilled => 'Лимитната поръчка е изпълнена';
 
   @override

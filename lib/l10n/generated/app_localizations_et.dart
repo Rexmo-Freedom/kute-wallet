@@ -7100,6 +7100,12 @@ class AppLocalizationsEt extends AppLocalizations {
   String get betUntilCanceled => 'Kuni tühistamiseni';
 
   @override
+  String get advancedFillsNow => 'Täitub kohe';
+
+  @override
+  String get advancedRests => 'Ootab raamatus';
+
+  @override
   String get betLimitOrderFilled => 'Limiitorder täidetud';
 
   @override
