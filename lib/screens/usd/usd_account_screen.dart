@@ -214,11 +214,13 @@ import 'package:kute/platform/kute_wide_frames.dart'
         KuteBarPane,
         kuteBrowseListInset,
         kuteBrowsePagePadding,
+        kuteDeskNavFrom,
         kuteDeskNavGap,
-        kuteDeskNavMinWidth,
         kuteDeskNavWidthFor,
+        kutePositionsColumnFrom,
         kuteTopBarHeight,
-        kuteWindowIsExpanded;
+        kuteWindowIsExpanded,
+        kuteWindowWidth;
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
@@ -826,7 +828,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     // The left navigation in place of the pills and the chips
     // (dollars_desk_nav.dart), from [kuteDeskNavMinWidth].
     final deskNav = expanded &&
-        MediaQuery.sizeOf(context).width >= kuteDeskNavMinWidth;
+        MediaQuery.sizeOf(context).width >= kuteDeskNavFrom;
     final pillBody = SelectionFade(
       selection: selected,
       order: tabs.indexOf(selected),
@@ -1070,7 +1072,11 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final column = widget.positionsAtRight && _held;
+    // In a browser under [kutePositionsColumnFrom] the positions are in
+    // Overview only (the navigation and the browse take the window).
+    final column = widget.positionsAtRight &&
+        _held &&
+        kuteWindowWidth(context) >= kutePositionsColumnFrom;
     final nav = widget.nav;
     final left = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1175,6 +1181,7 @@ class _InvestmentsPanesState extends ConsumerState<_InvestmentsPanes> {
           // Always mounted (its order timers run on, and it says
           // whether it holds anything); drawn only as the column.
           Offstage(
+            key: const ValueKey('dollars-positions-column'),
             offstage: !column,
             child: SizedBox(
               width: KuteLayout.paneWidth,

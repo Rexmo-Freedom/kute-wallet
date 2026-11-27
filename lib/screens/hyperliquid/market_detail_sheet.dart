@@ -19,7 +19,8 @@ import 'package:kute/screens/shared/kute_motion.dart'
     show KuteStillWhenCovered, kuteReduceMotion, kuteMotion, kArrivalDuration;
 import 'package:kute/screens/shared/kute_detail_panes.dart'
     show kuteDetailPaneWidth;
-import 'package:kute/screens/shared/kute_desk_market.dart' show KuteWheelRelay;
+import 'package:kute/screens/shared/kute_desk_market.dart'
+    show KuteWheelRelay, kuteMarketFormFactor;
 import 'package:kute/screens/shared/kute_desk_trade_buttons.dart';
 import 'package:kute/screens/shared/position_rows_card.dart'
     show PositionStatTile, PositionStatTiles, positionTileValueStyle;
@@ -533,7 +534,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
     // button is in the pane. A Ledger page or a page in send mode keeps
     // the trade row and stays one centred column, as on MEDIUM. COMPACT:
     // exactly as before.
-    final formFactor = KuteLayout.of(context);
+    // A browser too narrow for the desk keeps the MEDIUM page.
+    final formFactor = kuteMarketFormFactor(context);
     // THE DESK (kute_side_panel.dart): on EXPANDED the hot account's page
     // is the whole window, the market on the left and the ticket as the
     // side panel at the window's right edge; the Advanced chart editor

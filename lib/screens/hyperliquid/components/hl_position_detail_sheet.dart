@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:kute/platform/kute_layout.dart' show KuteFormFactor;
+import 'package:kute/screens/shared/kute_desk_market.dart'
+    show kuteMarketFormFactor;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/platform/kute_wide_frames.dart';
@@ -745,7 +748,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         // ticket opening in the side panel beside the chart. The spending
         // wallet only: a Ledger's ticket is signed on the device.
         deskTradeButtons:
-            kuteWindowIsExpanded(context) && widget.ledgerWalletId == null
+            kuteMarketFormFactor(context) == KuteFormFactor.expanded &&
+                widget.ledgerWalletId == null
                 ? KuteDeskTradeButtons(
                     key: const ValueKey('hl-position-editor-trades'),
                     compact: true,
@@ -800,7 +804,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   /// step opened from one stays in it (kute_wide_frames.dart,
   /// KuteSideFlow). Elsewhere [open] as it was.
   void _atSide(VoidCallback open) {
-    if (kuteWindowIsExpanded(context)) {
+    if (kuteMarketFormFactor(context) == KuteFormFactor.expanded) {
       KuteSideFlow.run(open);
     } else {
       open();

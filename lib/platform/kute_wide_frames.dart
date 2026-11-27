@@ -234,12 +234,13 @@ class KuteBarPaneSpan {
 final ValueNotifier<KuteBarPaneSpan?> kuteBarPane =
     ValueNotifier<KuteBarPaneSpan?>(null);
 
-/// Whether the desktop top bar holds the home tabs' search field in its
-/// centre (kute_top_nav_bar.dart) right now: the window has the room.
-/// When it does not, a [KuteBarPane]'s [KuteBarPane.top] draws the field
-/// on its own row under the bar instead. Written by the top bar after its
-/// layout; read by the panes.
-final ValueNotifier<bool> kuteTopSearchInBar = ValueNotifier<bool>(false);
+/// Whether the desktop top bar holds the home tabs' search (its field, or
+/// on a narrow window its icon button; kute_top_nav_bar.dart). Since 27
+/// November 2026 (founder: "when it looks bad, maybe already switch it
+/// to a button") the search never takes a row of its own under the bar:
+/// the bar always holds it on the home tabs. Written by the top bar; read
+/// by the field's keys.
+final ValueNotifier<bool> kuteTopSearchInBar = ValueNotifier<bool>(true);
 
 /// Marks [child] as the pane the floating Sal bar belongs under on an
 /// EXPANDED window (kute_shell_bar.dart): while its page is the one on
@@ -328,20 +329,9 @@ class _KuteBarPaneState extends State<KuteBarPane> {
           .addPostFrameCallback((_) => _report(active, route));
       return KeyedSubtree(
         key: _key,
-        child: _topShown
-            // The field's own row only while the top bar has no room
-            // for it ([kuteTopSearchInBar]).
-            ? ValueListenableBuilder<bool>(
-                valueListenable: kuteTopSearchInBar,
-                builder: (context, inBar, child) => inBar
-                    ? child!
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [top!, Expanded(child: child!)],
-                      ),
-                child: widget.child,
-              )
-            : widget.child,
+        // The search is the top bar's at every width (its field, or its
+        // button): the pane starts right under the bar.
+        child: widget.child,
       );
     });
   }
@@ -1422,15 +1412,31 @@ const ValueKey<String> kuteSettingsDetailPageKey =
 // open positions' column beside it, the browse would be left one column
 // of about 270, its names cut ("Nasdaq …").
 
-/// The narrowest window that shows the Dollars page's left navigation.
+/// The narrowest window that shows the Dollars page's left navigation in
+/// the native apps (an iPad).
 const double kuteDeskNavMinWidth = 1100;
 
+/// The narrowest window that shows the Dollars page's left navigation:
+/// [kuteDeskNavMinWidth] natively; in a browser wherever EXPANDED starts
+/// (founder, 27 November 2026, a 960 window: "too many rows of stuff.
+/// Make it more like the desktop"), the pills never stacked over the
+/// browse there (KuteLayout.expandedFrom).
+double get kuteDeskNavFrom =>
+    KuteLayout.web ? KuteLayout.expandedFrom : kuteDeskNavMinWidth;
+
+/// The narrowest window that shows the Dollars page's open positions
+/// column at its right: wherever EXPANDED starts natively; in a browser
+/// [kuteDeskNavMinWidth] (under it the navigation and the browse take the
+/// window, and the positions are in Overview).
+double get kutePositionsColumnFrom =>
+    KuteLayout.web ? kuteDeskNavMinWidth : KuteLayout.expandedFrom;
+
 /// Whether the Dollars page shows its left navigation in [context]'s
-/// window (EXPANDED, at least [kuteDeskNavMinWidth] wide): a browse page
+/// window (EXPANDED, at least [kuteDeskNavFrom] wide): a browse page
 /// then leaves to it what the navigation already offers.
 bool kuteDeskNavShown(BuildContext context) =>
     KuteLayout.isExpanded(context) &&
-    MediaQuery.sizeOf(context).width >= kuteDeskNavMinWidth;
+    MediaQuery.sizeOf(context).width >= kuteDeskNavFrom;
 
 /// The left navigation's width in a window [width] wide: 192 up to a
 /// 1200 window, then growing with it to 248 (from 1550).
