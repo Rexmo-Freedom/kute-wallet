@@ -29,6 +29,7 @@ import 'package:kute/screens/polymarket/components/market_chart.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart'
     show polyChartOpenedAt;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/shared/kute_wide_featured_frame.dart';
 import 'package:kute/services/polymarket/market_card_shape.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -42,7 +43,7 @@ const double kPolyWideCardGap = 16;
 const double kPolyWideCardHeight = 196;
 
 /// The featured card's height.
-const double kPolyWideFeaturedHeight = 300;
+const double kPolyWideFeaturedHeight = kKuteWideFeaturedHeight;
 
 /// How many columns of [kPolyWideCardMin] cards fit a content [width].
 int polyWideColumns(double width) {
@@ -395,156 +396,97 @@ class _PolyWideFeaturedState extends ConsumerState<PolyWideFeatured> {
     final yes = e.outcomes.isEmpty ? null : _yesOf(e.outcomes);
     final yesToken = yes?.tokenId;
     final picture = e.imageUrl;
-    Widget arrow(IconData icon, int step, String key) => IconButton(
-          key: ValueKey(key),
-          onPressed: markets.length < 2
-              ? null
-              : () => setState(
-                  () => _at = (at + step + markets.length) % markets.length),
-          icon: Icon(icon, color: c.textSecondary),
-        );
-    return Container(
-      key: const ValueKey('poly-wide-featured'),
-      height: kPolyWideFeaturedHeight,
-      decoration: AppDecorations.card(context),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => widget.onOpen(e),
-          onTapDown:
-              widget.onOpenDown == null ? null : (_) => widget.onOpenDown!(e),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            // A narrow page (one grid column) keeps the left side only.
-            child: LayoutBuilder(builder: (context, box) {
-              final chartShown = widget.chart &&
-                  box.maxWidth >= 600 &&
-                  yesToken != null &&
-                  yesToken.isNotEmpty;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (picture != null && polyThumbShown(picture)) ...[
-                              PolyCrestImage(
-                                key: const ValueKey(
-                                    'poly-wide-featured-picture'),
-                                url: picture,
-                                size: 48,
-                                radius: AppRadius.md,
-                                fallback: const SizedBox.shrink(),
-                              ),
-                              const SizedBox(width: 12),
-                            ],
-                            Expanded(
-                              child: Text(e.displayTitle,
-                                  key: const ValueKey(
-                                      'poly-wide-featured-title'),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: polyCardTitleStyle(c)
-                                      .copyWith(fontSize: 20, height: 1.25)),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        for (final (i, o) in rows.indexed) ...[
-                          if (i > 0) const SizedBox(height: 8),
-                          Row(
-                            key: ValueKey('poly-wide-featured-row-$i'),
-                            children: [
-                              Expanded(
-                                child: Text(o.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: c.textSecondary,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500)),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                e.outcomes.length == 2 && i == 1
-                                    ? polyCardOtherSideChance(
-                                        _price(rows.first, live))
-                                    : polyCardChance(_price(o, live)),
-                                style: TextStyle(
-                                  color: c.textPrimary,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: e.volume > 0
-                                  ? Text(
-                                      '${l10n.betTotalVolume} '
-                                      '${formatHlCompactUsd(e.volume)}',
-                                      key: const ValueKey(
-                                          'poly-wide-featured-volume'),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                          color: c.textTertiary,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500))
-                                  : const SizedBox.shrink(),
-                            ),
-                            arrow(Icons.chevron_left_rounded, -1,
-                                'poly-wide-featured-prev'),
-                            arrow(Icons.chevron_right_rounded, 1,
-                                'poly-wide-featured-next'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (chartShown) ...[
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 6,
-                      child: IgnorePointer(
-                        child: MarketChart(
-                          key: ValueKey('poly-wide-featured-chart-${e.id}'),
-                          lines: [
-                            MarketChartLine(
-                              tokenId: yesToken,
-                              color: _kYes,
-                              label: l10n.yes,
-                              livePrice: live[yesToken] ?? yes!.price,
-                            ),
-                          ],
-                          height: kPolyWideFeaturedHeight - 48,
-                          accentColor: _kYes,
-                          openedAt: polyChartOpenedAt(e),
-                          kindIds: [e.id],
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              );
-            }),
+    final chartShown = widget.chart && yesToken != null && yesToken.isNotEmpty;
+    return KuteWideFeaturedFrame(
+      keyPrefix: 'poly-wide-featured',
+      count: markets.length,
+      onStep: (step) => setState(
+          () => _at = (at + step + markets.length) % markets.length),
+      onTap: () => widget.onOpen(e),
+      onTapDown:
+          widget.onOpenDown == null ? null : () => widget.onOpenDown!(e),
+      header: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (picture != null && polyThumbShown(picture)) ...[
+            PolyCrestImage(
+              key: const ValueKey('poly-wide-featured-picture'),
+              url: picture,
+              size: 48,
+              radius: AppRadius.md,
+              fallback: const SizedBox.shrink(),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Text(e.displayTitle,
+                key: const ValueKey('poly-wide-featured-title'),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: polyCardTitleStyle(c)
+                    .copyWith(fontSize: 20, height: 1.25)),
           ),
-        ),
+        ],
       ),
+      figures: [
+        for (final (i, o) in rows.indexed) ...[
+          if (i > 0) const SizedBox(height: 8),
+          Row(
+            key: ValueKey('poly-wide-featured-row-$i'),
+            children: [
+              Expanded(
+                child: Text(o.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500)),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                e.outcomes.length == 2 && i == 1
+                    ? polyCardOtherSideChance(_price(rows.first, live))
+                    : polyCardChance(_price(o, live)),
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+      foot: e.volume > 0
+          ? Text(
+              '${l10n.betTotalVolume} ${formatHlCompactUsd(e.volume)}',
+              key: const ValueKey('poly-wide-featured-volume'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: c.textTertiary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500))
+          : const SizedBox.shrink(),
+      chart: !chartShown
+          ? null
+          : (height) => MarketChart(
+                key: ValueKey('poly-wide-featured-chart-${e.id}'),
+                lines: [
+                  MarketChartLine(
+                    tokenId: yesToken,
+                    color: _kYes,
+                    label: l10n.yes,
+                    livePrice: live[yesToken] ?? yes!.price,
+                  ),
+                ],
+                height: height,
+                accentColor: _kYes,
+                openedAt: polyChartOpenedAt(e),
+                kindIds: [e.id],
+              ),
     );
   }
 }

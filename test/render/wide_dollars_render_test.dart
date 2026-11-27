@@ -25,7 +25,10 @@ import 'package:kute/platform/kute_layout.dart';
 import 'package:kute/platform/kute_wide_frames.dart' show KuteBarPane;
 import 'package:kute/screens/polymarket/polymarket_screen.dart'
     show PolymarketScreen;
+import 'package:kute/providers/hyperliquid_candles_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart'
+    show HyperliquidScreen;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
@@ -237,6 +240,19 @@ Future<void> _render(WidgetTester tester, String name,
         hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
         hyperliquidSparklineStoreProvider.overrideWithValue(
             HlSparklineStore(fetch: (_) async => const [100, 101, 99, 102])),
+        // The day's hourly candles (the featured card's 24h High / Low).
+        hyperliquidLiveCandlesProvider.overrideWith((ref, key) =>
+            Stream.value(HlLiveCandlesState(candles: [
+              for (var h = 24; h > 0; h--)
+                HyperliquidCandle(
+                    openTime: now.subtract(Duration(hours: h)),
+                    closeTime: now.subtract(Duration(hours: h - 1)),
+                    open: 100,
+                    high: 100 + (h % 5),
+                    low: 97 + (h % 3),
+                    close: 100,
+                    volume: 1),
+            ]))),
         polyBrowseFeedProvider.overrideWith(_Feed.new),
         sportsLiveProvider.overrideWith(_Sports.new),
         if (positions > 0)
@@ -320,10 +336,12 @@ void main() {
     setUp(() {
       KuteBarPane.debugWeb = true;
       PolymarketScreen.debugWideWeb = true;
+      HyperliquidScreen.debugWideWeb = true;
     });
     tearDown(() {
       KuteBarPane.debugWeb = false;
       PolymarketScreen.debugWideWeb = false;
+      HyperliquidScreen.debugWideWeb = false;
     });
   }
 
