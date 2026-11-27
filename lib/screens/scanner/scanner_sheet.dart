@@ -38,6 +38,8 @@ import 'package:kute/models/add_wallet_model.dart';
 import 'package:kute/models/send_tx_model.dart';
 import 'package:kute/providers/add_wallet_provider.dart';
 import 'package:kute/providers/qr_scanner_provider.dart';
+import 'package:kute/platform/camera_permission_state.dart';
+import 'package:kute/platform/in_app_browser.dart';
 import 'package:kute/platform/web_edge_colors.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
@@ -303,11 +305,27 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
       }
     }
     final denied = refused || await _isCameraDenied();
+    if (denied) _reportCameraRefused();
     if (!mounted || _closing) return;
     setState(() {
       _cameraDenied = denied;
       _cameraError = !denied;
     });
+  }
+
+  /// `scanner_camera_refused {permission_state, browser}`: the camera was
+  /// refused without the scanner ever running. On the web the browser's
+  /// own stored answer says which case it is: `denied` is a setting (the
+  /// site's or the browser's), `prompt` a refusal with no question asked
+  /// (founder's iPhone, 27 November 2026: Safari never asked). Categorical
+  /// values only.
+  void _reportCameraRefused() {
+    unawaited(cameraPermissionState().then((state) {
+      TrackingService.track('scanner_camera_refused', params: {
+        'permission_state': state,
+        'browser': InAppBrowser.kind,
+      });
+    }).catchError((Object _) {}));
   }
 
   Future<bool> _isCameraDenied() async {
