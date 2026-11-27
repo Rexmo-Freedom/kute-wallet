@@ -4108,5 +4108,9 @@
   "chartPositionStop": "Stopp {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}",
+  "shareOpenInBrowserSafari": "See leht on avatud teises rakenduses. Face ID kasutamiseks ja rahakoti hoidmiseks ava see Safaris.",
+  "shareOpenInBrowserChrome": "See leht on avatud teises rakenduses. Pääsuvõtme kasutamiseks ja rahakoti hoidmiseks ava see Chrome'is.",
+  "shareOpenInAppBody": "Sul on Kute rakendus? Ava see seal.",
+  "shareOpenInApp": "Ava rakenduses"
 }

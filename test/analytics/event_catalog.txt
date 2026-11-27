@@ -522,6 +522,10 @@ qr_scanner_completed
 qr_scanner_dismissed
 qr_scanner_torch_toggled
 quick_action_tapped
+quick_wallet_abandoned
+quick_wallet_completed
+quick_wallet_failed
+quick_wallet_started
 quote_roundtrip_latency
 receipt_card_shared
 receive_abandoned
@@ -696,6 +700,7 @@ step_up_pin_fallback
 step_up_reauth_required
 step_up_review_again_tapped
 step_up_small_action_allowed
+storage_persist_requested
 storage_unavailable_restore_tapped
 storage_unavailable_retry
 support_opened

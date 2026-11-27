@@ -4108,5 +4108,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 candle} other{{count} candles}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 candle} other{{count} candles}} · {duration}",
+  "shareOpenInBrowserSafari": "Deze pagina is geopend in een andere app. Open hem in Safari voor Face ID en om je wallet te houden.",
+  "shareOpenInBrowserChrome": "Deze pagina is geopend in een andere app. Open hem in Chrome om een toegangssleutel te gebruiken en je wallet te houden.",
+  "shareOpenInAppBody": "Heb je de Kute-app? Open het daar.",
+  "shareOpenInApp": "Openen in de app"
 }

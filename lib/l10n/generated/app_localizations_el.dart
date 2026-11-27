@@ -14661,4 +14661,18 @@ class AppLocalizationsEl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για Face ID και για να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Safari.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Αυτή η σελίδα είναι ανοιχτή μέσα σε άλλη εφαρμογή. Για να χρησιμοποιήσετε κλειδί πρόσβασης και να κρατήσετε το πορτοφόλι σας, ανοίξτε τη στο Chrome.';
+
+  @override
+  String get shareOpenInAppBody => 'Έχετε την εφαρμογή Kute; Ανοίξτε το εκεί.';
+
+  @override
+  String get shareOpenInApp => 'Άνοιγμα στην εφαρμογή';
 }

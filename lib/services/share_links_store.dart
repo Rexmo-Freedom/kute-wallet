@@ -29,6 +29,7 @@ abstract final class ShareLinksStore {
   static const String _parkedClaimKey = '__parked_claim';
   static const String _parkedChallengeKey = '__parked_claim_challenge';
   static const String _parkedShareTargetKey = '__parked_share_target';
+  static const String _quickWalletsKey = '__quick_wallets';
 
   /// Bumps on every write, so a provider can rebuild.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -56,7 +57,8 @@ abstract final class ShareLinksStore {
     for (final entry in box.entries) {
       if (entry.key == _parkedClaimKey ||
           entry.key == _parkedChallengeKey ||
-          entry.key == _parkedShareTargetKey) {
+          entry.key == _parkedShareTargetKey ||
+          entry.key == _quickWalletsKey) {
         continue;
       }
       try {
@@ -178,6 +180,26 @@ abstract final class ShareLinksStore {
     revision.value++;
     return raw;
   }
+
+  // ── Quick 12-word wallets (share_wallet_gate.dart) ──
+
+  /// Records [walletId] as a 12-word wallet made from a share link: it
+  /// may receive nothing until its words are backed up.
+  static void markQuickWallet(String walletId) {
+    final box = _backing();
+    if (box == null || walletId.isEmpty) return;
+    final ids = _quickIds(box)..add(walletId);
+    box[_quickWalletsKey] = ids.join(',');
+  }
+
+  static bool isQuickWallet(String walletId) {
+    final box = _backing();
+    if (box == null) return false;
+    return _quickIds(box).contains(walletId);
+  }
+
+  static Set<String> _quickIds(Map<String, String> box) =>
+      (box[_quickWalletsKey] ?? '').split(',').where((s) => s.isNotEmpty).toSet();
 
   // ── The parked claim ──
 

@@ -14556,4 +14556,18 @@ class AppLocalizationsSv extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Den här sidan är öppen i en annan app. Öppna den i Safari för Face ID och för att behålla din plånbok.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Den här sidan är öppen i en annan app. Öppna den i Chrome för att använda en nyckel och behålla din plånbok.';
+
+  @override
+  String get shareOpenInAppBody => 'Har du Kute-appen? Öppna det där.';
+
+  @override
+  String get shareOpenInApp => 'Öppna i appen';
 }

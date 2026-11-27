@@ -24512,6 +24512,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 bar} other{{count} bars}} · {duration}'**
   String chartRangeBars(int count, String duration);
+
+  /// Shown on a shared market's wallet step when the page is open inside another app's browser (Instagram, Telegram, X ...) on an iPhone or Mac: passkeys and storage may not work there. Says to open it in Safari. Never mentions a VPN.
+  ///
+  /// In en, this message translates to:
+  /// **'This page is open inside another app. For Face ID and to keep your wallet, open it in Safari.'**
+  String get shareOpenInBrowserSafari;
+
+  /// The same line for Android and other browsers: open it in Chrome.
+  ///
+  /// In en, this message translates to:
+  /// **'This page is open inside another app. To use a passkey and keep your wallet, open it in Chrome.'**
+  String get shareOpenInBrowserChrome;
+
+  /// The short notice on a shared market's web page in a phone browser, for someone who already has the Kute app.
+  ///
+  /// In en, this message translates to:
+  /// **'Have the Kute app? Open this there.'**
+  String get shareOpenInAppBody;
+
+  /// The notice's button: opens the Kute app (or its store page).
+  ///
+  /// In en, this message translates to:
+  /// **'Open in the app'**
+  String get shareOpenInApp;
 }
 
 class _AppLocalizationsDelegate

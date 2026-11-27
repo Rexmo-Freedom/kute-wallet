@@ -14610,4 +14610,18 @@ class AppLocalizationsNl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Deze pagina is geopend in een andere app. Open hem in Safari voor Face ID en om je wallet te houden.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Deze pagina is geopend in een andere app. Open hem in Chrome om een toegangssleutel te gebruiken en je wallet te houden.';
+
+  @override
+  String get shareOpenInAppBody => 'Heb je de Kute-app? Open het daar.';
+
+  @override
+  String get shareOpenInApp => 'Openen in de app';
 }

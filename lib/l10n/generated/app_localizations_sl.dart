@@ -14609,4 +14609,18 @@ class AppLocalizationsSl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Ta stran je odprta v drugi aplikaciji. Za Face ID in da obdržite denarnico, jo odprite v Safariju.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Ta stran je odprta v drugi aplikaciji. Za uporabo ključa za dostop in da obdržite denarnico, jo odprite v Chromu.';
+
+  @override
+  String get shareOpenInAppBody => 'Imate aplikacijo Kute? Odprite to tam.';
+
+  @override
+  String get shareOpenInApp => 'Odpri v aplikaciji';
 }

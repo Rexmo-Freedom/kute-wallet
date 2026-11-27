@@ -14595,4 +14595,18 @@ class AppLocalizationsHu extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'Ez az oldal egy másik alkalmazásban van megnyitva. A Face ID-hoz és a tárcád megőrzéséhez nyisd meg a Safariban.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'Ez az oldal egy másik alkalmazásban van megnyitva. A hozzáférési kulcs használatához és a tárcád megőrzéséhez nyisd meg a Chrome-ban.';
+
+  @override
+  String get shareOpenInAppBody => 'Megvan a Kute alkalmazás? Nyisd meg ott.';
+
+  @override
+  String get shareOpenInApp => 'Megnyitás az alkalmazásban';
 }

@@ -14549,4 +14549,18 @@ class AppLocalizationsEt extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'See leht on avatud teises rakenduses. Face ID kasutamiseks ja rahakoti hoidmiseks ava see Safaris.';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'See leht on avatud teises rakenduses. Pääsuvõtme kasutamiseks ja rahakoti hoidmiseks ava see Chrome\'is.';
+
+  @override
+  String get shareOpenInAppBody => 'Sul on Kute rakendus? Ava see seal.';
+
+  @override
+  String get shareOpenInApp => 'Ava rakenduses';
 }

@@ -4108,5 +4108,9 @@
   "chartPositionStop": "Stopp {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 stapel} other{{count} staplar}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 stapel} other{{count} staplar}} · {duration}",
+  "shareOpenInBrowserSafari": "Den här sidan är öppen i en annan app. Öppna den i Safari för Face ID och för att behålla din plånbok.",
+  "shareOpenInBrowserChrome": "Den här sidan är öppen i en annan app. Öppna den i Chrome för att använda en nyckel och behålla din plånbok.",
+  "shareOpenInAppBody": "Har du Kute-appen? Öppna det där.",
+  "shareOpenInApp": "Öppna i appen"
 }

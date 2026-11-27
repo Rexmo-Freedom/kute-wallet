@@ -27,6 +27,10 @@ import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/share_target.dart';
 import 'package:kute/services/tracking_service.dart';
 
+/// Where a share arrival's onboarding goes once the wallet exists: the
+/// tab shell, where the parked market opens (app_widget.dart).
+const String kShareOnboardingNext = '/home';
+
 abstract final class ShareTargets {
   /// How the parked target arrived (`link`, `unlock`, `onboarding`), for
   /// `share_target_restored`; in memory only (a reload says `unlock`).
@@ -41,6 +45,19 @@ abstract final class ShareTargets {
   static void debugReset() {
     _parkedFrom = null;
     _arrivedThroughShare = false;
+  }
+
+  /// The share page's own wallet step began (share_wallet_gate.dart):
+  /// onboarding is the short one.
+  static void markArrivedThroughShare() => _arrivedThroughShare = true;
+
+  /// Parks [target] for after the wallet step begun on its own page.
+  static void parkForOnboarding(ShareTarget target) {
+    _arrivedThroughShare = true;
+    _parkedFrom = 'onboarding';
+    try {
+      ShareLinksStore.parkShareTarget(target.encode());
+    } catch (_) {/* best-effort */}
   }
 
   /// Records [target] and [referral] from a link opened with the session

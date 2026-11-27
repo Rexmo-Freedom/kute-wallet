@@ -4108,5 +4108,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 candela} other{{count} candele}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 candela} other{{count} candele}} · {duration}",
+  "shareOpenInBrowserSafari": "Questa pagina è aperta dentro un'altra app. Per Face ID e per conservare il tuo wallet, aprila in Safari.",
+  "shareOpenInBrowserChrome": "Questa pagina è aperta dentro un'altra app. Per usare una passkey e conservare il tuo wallet, aprila in Chrome.",
+  "shareOpenInAppBody": "Hai l'app Kute? Aprilo lì.",
+  "shareOpenInApp": "Apri nell'app"
 }

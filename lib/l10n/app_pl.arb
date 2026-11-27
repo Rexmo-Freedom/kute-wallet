@@ -4108,5 +4108,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 świeca} few{{count} świece} other{{count} świec}} · {duration}",
+  "shareOpenInBrowserSafari": "Ta strona jest otwarta w innej aplikacji. Aby użyć Face ID i zachować portfel, otwórz ją w Safari.",
+  "shareOpenInBrowserChrome": "Ta strona jest otwarta w innej aplikacji. Aby użyć klucza dostępu i zachować portfel, otwórz ją w Chrome.",
+  "shareOpenInAppBody": "Masz aplikację Kute? Otwórz to tam.",
+  "shareOpenInApp": "Otwórz w aplikacji"
 }

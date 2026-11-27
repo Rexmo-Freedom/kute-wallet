@@ -1,3 +1,4 @@
+import 'package:kute/services/share_targets.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/session_auth.dart';
 import 'package:kute/providers/auth_provider.dart';
@@ -147,7 +148,12 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
       ref.read(pinProvider.notifier).state = '';
       ref.read(confirmPinLoadingProvider.notifier).state = false;
       if (mounted) {
-        context.go('/passkey_choice', extra: '/beta_survey');
+        // A share arrival goes back to the shared market after the wallet
+        // (share_wallet_gate.dart): no survey, no code screens.
+        context.go('/passkey_choice',
+            extra: ShareTargets.arrivedThroughShare
+                ? kShareOnboardingNext
+                : '/beta_survey');
       }
     } catch (e, st) {
       final category = TrackingService.errorCategory(e);

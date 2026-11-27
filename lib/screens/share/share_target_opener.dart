@@ -17,7 +17,9 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
+import 'package:kute/screens/share/share_wallet_gate.dart';
 import 'package:kute/services/share_target.dart';
 import 'package:kute/services/share_targets.dart';
 
@@ -59,8 +61,14 @@ abstract final class ShareTargetOpener {
       if (!context.mounted) return;
       if (market == null) return ShareTargets.lost('not_found');
       ShareTargets.restored(target, after);
+      final pick = ShareWalletGate.takePendingPick();
       HlMarketDetailSheet.show(context,
-          market: market, source: kShareLinkSource);
+          market: market,
+          source: kShareLinkSource,
+          // The side tapped on the guest page (the desk's panel opens on
+          // it; a phone opens the market).
+          initialSide: pick?.outcome == null ? null : pick!.outcome == 'long',
+          slipSource: pick?.outcome == null ? null : kShareLinkSource);
       return;
     }
     final event = await resolvePolyEvent(container, target.slug);
@@ -68,6 +76,29 @@ abstract final class ShareTargetOpener {
     if (event == null) return ShareTargets.lost('not_found');
     ShareTargets.restored(target, after);
     MarketDetailSheet.show(context, event: event, source: kShareLinkSource);
+    // The pick tapped on the guest page, before its wallet existed: its
+    // slip over the market, nothing placed (share_wallet_gate.dart).
+    final pick = ShareWalletGate.takePendingPick();
+    final index = pick?.outcome == null
+        ? null
+        : event.outcomes.indexWhere((o) => o.name == pick!.outcome);
+    if (pick == null || index == null || index < 0 || !context.mounted) {
+      return;
+    }
+    await BetSlipSheet.show(
+      context,
+      event: event,
+      negRisk: event.negRisk,
+      marketQuestion: event.displayTitle,
+      marketSlug: event.slug,
+      marketImage: event.imageUrl,
+      outcomes: event.outcomes,
+      initialOutcomeIndex: index,
+      initialBuyNo: pick.buyNo,
+      marketCategory: event.category,
+      marketEndAt: event.endDate,
+      source: kShareLinkSource,
+    );
   }
 
   /// The Predictions event with [slug], from public data; null when it

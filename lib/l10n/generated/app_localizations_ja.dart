@@ -14099,4 +14099,18 @@ class AppLocalizationsJa extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get shareOpenInBrowserSafari =>
+      'このページは別のアプリ内で開いています。Face IDを使いウォレットを保つには、Safariで開いてください。';
+
+  @override
+  String get shareOpenInBrowserChrome =>
+      'このページは別のアプリ内で開いています。パスキーを使いウォレットを保つには、Chromeで開いてください。';
+
+  @override
+  String get shareOpenInAppBody => 'Kuteアプリをお持ちですか？アプリで開きましょう。';
+
+  @override
+  String get shareOpenInApp => 'アプリで開く';
 }

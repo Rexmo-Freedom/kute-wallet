@@ -4108,5 +4108,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, other{{count} gyertya}} · {duration}"
+  "chartRangeBars": "{count, plural, other{{count} gyertya}} · {duration}",
+  "shareOpenInBrowserSafari": "Ez az oldal egy másik alkalmazásban van megnyitva. A Face ID-hoz és a tárcád megőrzéséhez nyisd meg a Safariban.",
+  "shareOpenInBrowserChrome": "Ez az oldal egy másik alkalmazásban van megnyitva. A hozzáférési kulcs használatához és a tárcád megőrzéséhez nyisd meg a Chrome-ban.",
+  "shareOpenInAppBody": "Megvan a Kute alkalmazás? Nyisd meg ott.",
+  "shareOpenInApp": "Megnyitás az alkalmazásban"
 }

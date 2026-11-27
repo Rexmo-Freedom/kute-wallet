@@ -4108,5 +4108,9 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 svíčka} few{{count} svíčky} other{{count} svíček}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 svíčka} few{{count} svíčky} other{{count} svíček}} · {duration}",
+  "shareOpenInBrowserSafari": "Tato stránka je otevřená v jiné aplikaci. Pro Face ID a uchování peněženky ji otevřete v Safari.",
+  "shareOpenInBrowserChrome": "Tato stránka je otevřená v jiné aplikaci. Chcete-li použít přístupový klíč a uchovat peněženku, otevřete ji v Chromu.",
+  "shareOpenInAppBody": "Máte aplikaci Kute? Otevřete to tam.",
+  "shareOpenInApp": "Otevřít v aplikaci"
 }
