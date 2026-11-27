@@ -144,6 +144,9 @@ final hlConfirmingOrdersProvider =
 /// [HyperliquidOrderUnconfirmedException]. Nothing is ever sent again.
 /// A verdict the venue gave is rethrown as it is, never looked up.
 /// [onConfirming] is told when the lookup starts (true) and ends (false).
+/// An action carrying several orders (a scale order's legs) passes every
+/// leg's id as [cloids]: it went out as one signed action, so any one of
+/// them found means the venue took it.
 Future<HlOrderResult> hlSendReconciled({
   required Future<HlOrderResult> Function() send,
   required String cloid,
@@ -154,6 +157,7 @@ Future<HlOrderResult> hlSendReconciled({
   void Function(bool confirming)? onConfirming,
   Duration window = kHlReconcileWindow,
   Duration every = kHlReconcileEvery,
+  List<String>? cloids,
 }) async {
   try {
     return await send();
@@ -168,7 +172,7 @@ Future<HlOrderResult> hlSendReconciled({
     } catch (_) {}
     final HlSentOrderTrace trace;
     try {
-      trace = await hlReconcileSentOrder(lookup, [cloid], market,
+      trace = await hlReconcileSentOrder(lookup, cloids ?? [cloid], market,
           window: window, every: every);
     } finally {
       try {

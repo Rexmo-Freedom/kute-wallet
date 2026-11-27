@@ -14652,4 +14652,64 @@ class AppLocalizationsEl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Το take-profit δεν τοποθετήθηκε.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Το stop-loss δεν τοποθετήθηκε.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Το take-profit και το stop-loss δεν τοποθετήθηκαν.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Τοποθετήθηκαν μόνο $placed από $total εντολές.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Η εντολή εκτελέστηκε εν μέρει';
+
+  @override
+  String get hlAdvStillOpen => 'Ακόμη ανοιχτή';
+
+  @override
+  String get hlAdvRestStillOpen =>
+      'Το υπόλοιπο της εντολής είναι ακόμη ανοιχτό.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Μια εντολή TWAP χρειάζεται τουλάχιστον $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Η εντολή TWAP εκτελείται για $minutes λεπ.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Η κλιμάκωση δέχεται από $min έως $max εντολές.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Η τιμή έναρξης και λήξης πρέπει να διαφέρουν.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Και οι δύο τιμές πρέπει να είναι κάτω από την τρέχουσα τιμή.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Και οι δύο τιμές πρέπει να είναι πάνω από την τρέχουσα τιμή.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Αυτό το stop-loss είναι πέρα από την εκτιμώμενη τιμή ρευστοποίησης, οπότε η θέση μπορεί να ρευστοποιηθεί πρώτα.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Η εντολή εκτελέστηκε, αλλά το trailing stop δεν τοποθετήθηκε επειδή δεν εγκρίθηκε.';
 }

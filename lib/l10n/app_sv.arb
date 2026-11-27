@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stopp {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 stapel} other{{count} staplar}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 stapel} other{{count} staplar}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit lades inte.",
+  "hlAdvSlNotPlaced": "Stop-loss lades inte.",
+  "hlAdvTpSlNotPlaced": "Take-profit och stop-loss lades inte.",
+  "hlAdvScaleLegsPlaced": "Bara {placed} av {total} order lades.",
+  "hlAdvPartlyFilled": "Ordern delvis utförd",
+  "hlAdvStillOpen": "Fortfarande öppen",
+  "hlAdvRestStillOpen": "Resten av ordern är fortfarande öppen.",
+  "hlAdvTwapMinimum": "En TWAP-order måste vara minst {amount}.",
+  "hlAdvTwapRunning": "Din TWAP-order körs i {minutes} min.",
+  "hlAdvScaleCountRange": "Skala tar {min} till {max} order.",
+  "hlAdvScaleSamePrice": "Start- och slutpris måste skilja sig.",
+  "hlAdvScaleBelowPrice": "Båda priserna måste ligga under aktuellt pris.",
+  "hlAdvScaleAbovePrice": "Båda priserna måste ligga över aktuellt pris.",
+  "hlAdvSlPastLiquidation": "Denna stop-loss ligger bortom det uppskattade likvidationspriset, så positionen kan likvideras först.",
+  "hlAdvTrailingNotApproved": "Ordern utfördes, men trailing stop lades inte eftersom den inte godkändes."
 }

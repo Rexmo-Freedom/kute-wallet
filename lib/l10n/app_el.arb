@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 κερί} other{{count} κεριά}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 κερί} other{{count} κεριά}} · {duration}",
+  "hlAdvTpNotPlaced": "Το take-profit δεν τοποθετήθηκε.",
+  "hlAdvSlNotPlaced": "Το stop-loss δεν τοποθετήθηκε.",
+  "hlAdvTpSlNotPlaced": "Το take-profit και το stop-loss δεν τοποθετήθηκαν.",
+  "hlAdvScaleLegsPlaced": "Τοποθετήθηκαν μόνο {placed} από {total} εντολές.",
+  "hlAdvPartlyFilled": "Η εντολή εκτελέστηκε εν μέρει",
+  "hlAdvStillOpen": "Ακόμη ανοιχτή",
+  "hlAdvRestStillOpen": "Το υπόλοιπο της εντολής είναι ακόμη ανοιχτό.",
+  "hlAdvTwapMinimum": "Μια εντολή TWAP χρειάζεται τουλάχιστον {amount}.",
+  "hlAdvTwapRunning": "Η εντολή TWAP εκτελείται για {minutes} λεπ.",
+  "hlAdvScaleCountRange": "Η κλιμάκωση δέχεται από {min} έως {max} εντολές.",
+  "hlAdvScaleSamePrice": "Η τιμή έναρξης και λήξης πρέπει να διαφέρουν.",
+  "hlAdvScaleBelowPrice": "Και οι δύο τιμές πρέπει να είναι κάτω από την τρέχουσα τιμή.",
+  "hlAdvScaleAbovePrice": "Και οι δύο τιμές πρέπει να είναι πάνω από την τρέχουσα τιμή.",
+  "hlAdvSlPastLiquidation": "Αυτό το stop-loss είναι πέρα από την εκτιμώμενη τιμή ρευστοποίησης, οπότε η θέση μπορεί να ρευστοποιηθεί πρώτα.",
+  "hlAdvTrailingNotApproved": "Η εντολή εκτελέστηκε, αλλά το trailing stop δεν τοποθετήθηκε επειδή δεν εγκρίθηκε."
 }

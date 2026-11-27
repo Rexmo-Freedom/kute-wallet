@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 vela} other{{count} velas}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 vela} other{{count} velas}} · {duration}",
+  "hlAdvTpNotPlaced": "El take-profit no se colocó.",
+  "hlAdvSlNotPlaced": "El stop-loss no se colocó.",
+  "hlAdvTpSlNotPlaced": "El take-profit y el stop-loss no se colocaron.",
+  "hlAdvScaleLegsPlaced": "Solo se colocaron {placed} de {total} órdenes.",
+  "hlAdvPartlyFilled": "Orden ejecutada en parte",
+  "hlAdvStillOpen": "Aún abierta",
+  "hlAdvRestStillOpen": "El resto de la orden sigue abierto.",
+  "hlAdvTwapMinimum": "Una orden TWAP necesita al menos {amount}.",
+  "hlAdvTwapRunning": "Tu orden TWAP se ejecuta durante {minutes} min.",
+  "hlAdvScaleCountRange": "Escalonada admite de {min} a {max} órdenes.",
+  "hlAdvScaleSamePrice": "El precio inicial y el final deben ser distintos.",
+  "hlAdvScaleBelowPrice": "Ambos precios deben estar por debajo del precio actual.",
+  "hlAdvScaleAbovePrice": "Ambos precios deben estar por encima del precio actual.",
+  "hlAdvSlPastLiquidation": "Este stop-loss está más allá del precio de liquidación estimado, así que la posición podría liquidarse antes.",
+  "hlAdvTrailingNotApproved": "La orden se ejecutó, pero el trailing stop no se colocó porque no se aprobó."
 }

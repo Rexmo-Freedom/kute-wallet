@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stopp {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 küünal} other{{count} küünalt}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit jäi esitamata.",
+  "hlAdvSlNotPlaced": "Stop-loss jäi esitamata.",
+  "hlAdvTpSlNotPlaced": "Take-profit ja stop-loss jäid esitamata.",
+  "hlAdvScaleLegsPlaced": "Esitati ainult {placed} tellimust {total}-st.",
+  "hlAdvPartlyFilled": "Tellimus osaliselt täidetud",
+  "hlAdvStillOpen": "Veel avatud",
+  "hlAdvRestStillOpen": "Ülejäänud osa tellimusest on veel avatud.",
+  "hlAdvTwapMinimum": "TWAP-tellimus peab olema vähemalt {amount}.",
+  "hlAdvTwapRunning": "Sinu TWAP-tellimus kestab {minutes} min.",
+  "hlAdvScaleCountRange": "Astmeline tellimus võtab {min} kuni {max} tellimust.",
+  "hlAdvScaleSamePrice": "Algus- ja lõpphind peavad erinema.",
+  "hlAdvScaleBelowPrice": "Mõlemad hinnad peavad olema praegusest hinnast madalamal.",
+  "hlAdvScaleAbovePrice": "Mõlemad hinnad peavad olema praegusest hinnast kõrgemal.",
+  "hlAdvSlPastLiquidation": "See stop-loss on hinnangulisest likvideerimishinnast kaugemal, nii et positsioon võidakse enne likvideerida.",
+  "hlAdvTrailingNotApproved": "Tellimus täideti, kuid jälgivat stoppi ei esitatud, sest seda ei kinnitatud."
 }

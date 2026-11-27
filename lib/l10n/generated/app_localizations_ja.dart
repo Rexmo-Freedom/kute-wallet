@@ -14090,4 +14090,59 @@ class AppLocalizationsJa extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => '利確注文は出されませんでした。';
+
+  @override
+  String get hlAdvSlNotPlaced => '損切り注文は出されませんでした。';
+
+  @override
+  String get hlAdvTpSlNotPlaced => '利確注文と損切り注文は出されませんでした。';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return '$total件中$placed件の注文のみ出されました。';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => '注文の一部が約定';
+
+  @override
+  String get hlAdvStillOpen => '未約定';
+
+  @override
+  String get hlAdvRestStillOpen => '残りの注文はまだ未約定です。';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP注文は$amount以上が必要です。';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'TWAP注文は$minutes分間実行されます。';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'スケール注文は$min〜$max件です。';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => '開始価格と終了価格は異なる必要があります。';
+
+  @override
+  String get hlAdvScaleBelowPrice => '両方の価格を現在価格より下にしてください。';
+
+  @override
+  String get hlAdvScaleAbovePrice => '両方の価格を現在価格より上にしてください。';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'この損切りは推定清算価格を超えているため、先にポジションが清算される可能性があります。';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      '注文は約定しましたが、承認されなかったためトレーリングストップは出されませんでした。';
 }

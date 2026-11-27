@@ -408,8 +408,15 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet>
     }
     if (!mounted || _panelSide == null) return false;
     if (ModalRoute.of(context)?.isCurrent != true) return false;
-    final focused = FocusManager.instance.primaryFocus?.context?.widget;
-    if (focused is EditableText) return false;
+    // A focused text field keeps its own keys. The focus node's context is
+    // the field's inner Focus, never the EditableText itself, so the field
+    // is found above it (as the shell bar and the keypad look for it).
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return false;
+    }
     if (_advancedChart && HlCandleChart.editorBusy(_chartHostKey)) {
       return false;
     }

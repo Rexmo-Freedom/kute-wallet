@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 sviečka} few{{count} sviečky} other{{count} sviečok}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 sviečka} few{{count} sviečky} other{{count} sviečok}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit nebol zadaný.",
+  "hlAdvSlNotPlaced": "Stop-loss nebol zadaný.",
+  "hlAdvTpSlNotPlaced": "Take-profit a stop-loss neboli zadané.",
+  "hlAdvScaleLegsPlaced": "Zadaných bolo len {placed} z {total} objednávok.",
+  "hlAdvPartlyFilled": "Objednávka čiastočne vyplnená",
+  "hlAdvStillOpen": "Stále otvorené",
+  "hlAdvRestStillOpen": "Zvyšok objednávky je stále otvorený.",
+  "hlAdvTwapMinimum": "Objednávka TWAP musí mať aspoň {amount}.",
+  "hlAdvTwapRunning": "Vaša objednávka TWAP beží {minutes} min.",
+  "hlAdvScaleCountRange": "Škálovanie berie {min} až {max} objednávok.",
+  "hlAdvScaleSamePrice": "Počiatočná a koncová cena sa musia líšiť.",
+  "hlAdvScaleBelowPrice": "Obe ceny musia byť pod aktuálnou cenou.",
+  "hlAdvScaleAbovePrice": "Obe ceny musia byť nad aktuálnou cenou.",
+  "hlAdvSlPastLiquidation": "Tento stop-loss je za odhadovanou likvidačnou cenou, takže pozícia môže byť zlikvidovaná skôr.",
+  "hlAdvTrailingNotApproved": "Objednávka sa vyplnila, ale trailing stop nebol zadaný, pretože nebol schválený."
 }

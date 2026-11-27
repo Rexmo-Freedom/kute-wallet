@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Стоп {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 свещ} other{{count} свещи}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 свещ} other{{count} свещи}} · {duration}",
+  "hlAdvTpNotPlaced": "Тейк-профитът не беше поставен.",
+  "hlAdvSlNotPlaced": "Стоп-лосът не беше поставен.",
+  "hlAdvTpSlNotPlaced": "Тейк-профитът и стоп-лосът не бяха поставени.",
+  "hlAdvScaleLegsPlaced": "Поставени бяха само {placed} от {total} поръчки.",
+  "hlAdvPartlyFilled": "Поръчката е частично изпълнена",
+  "hlAdvStillOpen": "Още отворена",
+  "hlAdvRestStillOpen": "Останалата част от поръчката е още отворена.",
+  "hlAdvTwapMinimum": "TWAP поръчката трябва да е поне {amount}.",
+  "hlAdvTwapRunning": "Вашата TWAP поръчка се изпълнява за {minutes} мин.",
+  "hlAdvScaleCountRange": "Скалата приема от {min} до {max} поръчки.",
+  "hlAdvScaleSamePrice": "Началната и крайната цена трябва да са различни.",
+  "hlAdvScaleBelowPrice": "И двете цени трябва да са под текущата цена.",
+  "hlAdvScaleAbovePrice": "И двете цени трябва да са над текущата цена.",
+  "hlAdvSlPastLiquidation": "Този стоп-лос е отвъд прогнозната цена на ликвидация, така че позицията може да бъде ликвидирана първо.",
+  "hlAdvTrailingNotApproved": "Поръчката е изпълнена, но трейлинг стопът не беше поставен, защото не беше одобрен."
 }

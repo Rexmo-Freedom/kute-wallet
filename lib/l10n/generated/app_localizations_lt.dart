@@ -14612,4 +14612,61 @@ class AppLocalizationsLt extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit nebuvo pateiktas.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss nebuvo pateiktas.';
+
+  @override
+  String get hlAdvTpSlNotPlaced => 'Take-profit ir stop-loss nebuvo pateikti.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Pateikta tik $placed iš $total pavedimų.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Pavedimas įvykdytas iš dalies';
+
+  @override
+  String get hlAdvStillOpen => 'Dar atviras';
+
+  @override
+  String get hlAdvRestStillOpen => 'Likusi pavedimo dalis dar atvira.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'TWAP pavedimas turi būti bent $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Jūsų TWAP pavedimas vykdomas $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Laiptinis pavedimas priima nuo $min iki $max pavedimų.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Pradžios ir pabaigos kainos turi skirtis.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Abi kainos turi būti žemiau dabartinės kainos.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Abi kainos turi būti aukščiau dabartinės kainos.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Šis stop-loss yra už numatomos likvidavimo kainos, todėl pozicija gali būti likviduota anksčiau.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Pavedimas įvykdytas, bet slankusis stop nebuvo pateiktas, nes nebuvo patvirtintas.';
 }

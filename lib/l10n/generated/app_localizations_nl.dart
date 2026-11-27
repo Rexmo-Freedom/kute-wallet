@@ -14601,4 +14601,62 @@ class AppLocalizationsNl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'De take-profit is niet geplaatst.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'De stop-loss is niet geplaatst.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'De take-profit en stop-loss zijn niet geplaatst.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Slechts $placed van $total orders zijn geplaatst.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Order deels uitgevoerd';
+
+  @override
+  String get hlAdvStillOpen => 'Nog open';
+
+  @override
+  String get hlAdvRestStillOpen => 'De rest van de order staat nog open.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Een TWAP-order moet minstens $amount zijn.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Je TWAP-order loopt $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Gespreid neemt $min tot $max orders.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice => 'Begin- en eindprijs moeten verschillen.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Beide prijzen moeten onder de huidige prijs liggen.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Beide prijzen moeten boven de huidige prijs liggen.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Deze stop-loss ligt voorbij de geschatte liquidatieprijs, dus de positie kan eerst worden geliquideerd.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'De order is uitgevoerd, maar de trailing stop is niet geplaatst omdat die niet is goedgekeurd.';
 }

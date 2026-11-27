@@ -759,7 +759,8 @@ void main() {
     expect(scopeLabel(tester), _dollarDoor);
     expect(scopeEnabled(tester), isTrue);
 
-    await tester.enterText(find.byType(TextField).first, '100');
+    // Over the venue's \$100 TWAP minimum once the size is floored.
+    await tester.enterText(find.byType(TextField).first, '150');
     await tester.pumpAndSettle();
     expect(scopeLabel(tester), 'Start TWAP · 2m');
     expect(scopeEnabled(tester), isFalse);

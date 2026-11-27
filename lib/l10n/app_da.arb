@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 lys} other{{count} lys}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 lys} other{{count} lys}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit blev ikke placeret.",
+  "hlAdvSlNotPlaced": "Stop-loss blev ikke placeret.",
+  "hlAdvTpSlNotPlaced": "Take-profit og stop-loss blev ikke placeret.",
+  "hlAdvScaleLegsPlaced": "Kun {placed} af {total} ordrer blev placeret.",
+  "hlAdvPartlyFilled": "Ordren er delvist udført",
+  "hlAdvStillOpen": "Stadig åben",
+  "hlAdvRestStillOpen": "Resten af ordren er stadig åben.",
+  "hlAdvTwapMinimum": "En TWAP-ordre skal være på mindst {amount}.",
+  "hlAdvTwapRunning": "Din TWAP-ordre kører i {minutes} min.",
+  "hlAdvScaleCountRange": "Skala tager {min} til {max} ordrer.",
+  "hlAdvScaleSamePrice": "Start- og slutpris skal være forskellige.",
+  "hlAdvScaleBelowPrice": "Begge priser skal være under den aktuelle pris.",
+  "hlAdvScaleAbovePrice": "Begge priser skal være over den aktuelle pris.",
+  "hlAdvSlPastLiquidation": "Dette stop-loss ligger efter den anslåede likvidationspris, så positionen kan blive likvideret først.",
+  "hlAdvTrailingNotApproved": "Ordren blev udført, men trailing stop blev ikke placeret, fordi det ikke blev godkendt."
 }

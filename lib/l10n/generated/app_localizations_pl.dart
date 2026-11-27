@@ -14598,4 +14598,63 @@ class AppLocalizationsPl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit nie został złożony.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss nie został złożony.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Take-profit i stop-loss nie zostały złożone.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Złożono tylko $placed z $total zleceń.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Zlecenie zrealizowane częściowo';
+
+  @override
+  String get hlAdvStillOpen => 'Wciąż otwarte';
+
+  @override
+  String get hlAdvRestStillOpen => 'Reszta zlecenia jest wciąż otwarta.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Zlecenie TWAP musi wynosić co najmniej $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Twoje zlecenie TWAP trwa $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Skalowanie przyjmuje od $min do $max zleceń.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Cena początkowa i końcowa muszą się różnić.';
+
+  @override
+  String get hlAdvScaleBelowPrice =>
+      'Obie ceny muszą być poniżej bieżącej ceny.';
+
+  @override
+  String get hlAdvScaleAbovePrice =>
+      'Obie ceny muszą być powyżej bieżącej ceny.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Ten stop-loss jest za szacowaną ceną likwidacji, więc pozycja może zostać zlikwidowana wcześniej.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Zlecenie zrealizowano, ale trailing stop nie został złożony, bo nie został zatwierdzony.';
 }

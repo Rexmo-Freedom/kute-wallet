@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 sveča} =2{2 sveči} few{{count} sveče} other{{count} sveč}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 sveča} =2{2 sveči} few{{count} sveče} other{{count} sveč}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profit ni bil oddan.",
+  "hlAdvSlNotPlaced": "Stop-loss ni bil oddan.",
+  "hlAdvTpSlNotPlaced": "Take-profit in stop-loss nista bila oddana.",
+  "hlAdvScaleLegsPlaced": "Oddanih je bilo le {placed} od {total} naročil.",
+  "hlAdvPartlyFilled": "Naročilo delno izvršeno",
+  "hlAdvStillOpen": "Še odprto",
+  "hlAdvRestStillOpen": "Preostanek naročila je še odprt.",
+  "hlAdvTwapMinimum": "Naročilo TWAP mora biti vsaj {amount}.",
+  "hlAdvTwapRunning": "Vaše naročilo TWAP teče {minutes} min.",
+  "hlAdvScaleCountRange": "Lestvica sprejme od {min} do {max} naročil.",
+  "hlAdvScaleSamePrice": "Začetna in končna cena se morata razlikovati.",
+  "hlAdvScaleBelowPrice": "Obe ceni morata biti pod trenutno ceno.",
+  "hlAdvScaleAbovePrice": "Obe ceni morata biti nad trenutno ceno.",
+  "hlAdvSlPastLiquidation": "Ta stop-loss je za ocenjeno ceno likvidacije, zato bi bila pozicija lahko prej likvidirana.",
+  "hlAdvTrailingNotApproved": "Naročilo je bilo izvršeno, sledilni stop pa ni bil oddan, ker ni bil odobren."
 }

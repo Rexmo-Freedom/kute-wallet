@@ -4105,5 +4105,20 @@
   "chartPositionStop": "Stop {price}  {change}",
   "chartPositionLong": "Long {price} · R/R {ratio}",
   "chartPositionShort": "Short {price} · R/R {ratio}",
-  "chartRangeBars": "{count, plural, =1{1 kynttilä} other{{count} kynttilää}} · {duration}"
+  "chartRangeBars": "{count, plural, =1{1 kynttilä} other{{count} kynttilää}} · {duration}",
+  "hlAdvTpNotPlaced": "Take-profitia ei asetettu.",
+  "hlAdvSlNotPlaced": "Stop-lossia ei asetettu.",
+  "hlAdvTpSlNotPlaced": "Take-profitia ja stop-lossia ei asetettu.",
+  "hlAdvScaleLegsPlaced": "Vain {placed}/{total} toimeksiantoa asetettiin.",
+  "hlAdvPartlyFilled": "Toimeksianto osittain toteutunut",
+  "hlAdvStillOpen": "Yhä avoinna",
+  "hlAdvRestStillOpen": "Loput toimeksiannosta on yhä avoinna.",
+  "hlAdvTwapMinimum": "TWAP-toimeksiannon on oltava vähintään {amount}.",
+  "hlAdvTwapRunning": "TWAP-toimeksiantosi on käynnissä {minutes} min.",
+  "hlAdvScaleCountRange": "Porrastus ottaa {min}–{max} toimeksiantoa.",
+  "hlAdvScaleSamePrice": "Alku- ja loppuhinnan on oltava eri.",
+  "hlAdvScaleBelowPrice": "Kummankin hinnan on oltava nykyhinnan alapuolella.",
+  "hlAdvScaleAbovePrice": "Kummankin hinnan on oltava nykyhinnan yläpuolella.",
+  "hlAdvSlPastLiquidation": "Tämä stop-loss on arvioidun likvidaatiohinnan takana, joten positio voidaan likvidoida ensin.",
+  "hlAdvTrailingNotApproved": "Toimeksianto toteutui, mutta seuraavaa stoppia ei asetettu, koska sitä ei hyväksytty."
 }

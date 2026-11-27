@@ -14600,4 +14600,61 @@ class AppLocalizationsSl extends AppLocalizations {
     );
     return '$_temp0 · $duration';
   }
+
+  @override
+  String get hlAdvTpNotPlaced => 'Take-profit ni bil oddan.';
+
+  @override
+  String get hlAdvSlNotPlaced => 'Stop-loss ni bil oddan.';
+
+  @override
+  String get hlAdvTpSlNotPlaced =>
+      'Take-profit in stop-loss nista bila oddana.';
+
+  @override
+  String hlAdvScaleLegsPlaced(int placed, int total) {
+    return 'Oddanih je bilo le $placed od $total naročil.';
+  }
+
+  @override
+  String get hlAdvPartlyFilled => 'Naročilo delno izvršeno';
+
+  @override
+  String get hlAdvStillOpen => 'Še odprto';
+
+  @override
+  String get hlAdvRestStillOpen => 'Preostanek naročila je še odprt.';
+
+  @override
+  String hlAdvTwapMinimum(String amount) {
+    return 'Naročilo TWAP mora biti vsaj $amount.';
+  }
+
+  @override
+  String hlAdvTwapRunning(int minutes) {
+    return 'Vaše naročilo TWAP teče $minutes min.';
+  }
+
+  @override
+  String hlAdvScaleCountRange(int min, int max) {
+    return 'Lestvica sprejme od $min do $max naročil.';
+  }
+
+  @override
+  String get hlAdvScaleSamePrice =>
+      'Začetna in končna cena se morata razlikovati.';
+
+  @override
+  String get hlAdvScaleBelowPrice => 'Obe ceni morata biti pod trenutno ceno.';
+
+  @override
+  String get hlAdvScaleAbovePrice => 'Obe ceni morata biti nad trenutno ceno.';
+
+  @override
+  String get hlAdvSlPastLiquidation =>
+      'Ta stop-loss je za ocenjeno ceno likvidacije, zato bi bila pozicija lahko prej likvidirana.';
+
+  @override
+  String get hlAdvTrailingNotApproved =>
+      'Naročilo je bilo izvršeno, sledilni stop pa ni bil oddan, ker ni bil odobren.';
 }
