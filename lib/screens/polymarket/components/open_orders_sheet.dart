@@ -19,10 +19,15 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
+import 'package:kute/providers/polymarket_resting_fills_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/sal_notices.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders;
 import 'package:kute/theme/app_theme.dart';
 
 
@@ -194,6 +199,10 @@ class _OrderRowState extends ConsumerState<PolyOrderRow> {
     try {
       final walletId = widget.ledgerWalletId;
       if (walletId == null) {
+        // Its leaving the list is this cancel, never a fill to announce.
+        ref
+            .read(polymarketRestingFillsProvider.notifier)
+            .noteCancelled([widget.order.id]);
         await ref
             .read(polymarketTradingProvider.notifier)
             .cancelOrder(widget.order.id);
@@ -363,6 +372,16 @@ Future<void> polyCancelAllOrders(BuildContext context, WidgetRef ref,
   final walletKind = ledgerWalletId == null ? 'hot' : 'ledger';
   try {
     if (ledgerWalletId == null) {
+      ref.read(polymarketRestingFillsProvider.notifier).noteCancelled([
+        for (final o in ref.read(polymarketTradingProvider).valueOrNull
+                ?.openOrders ??
+            const <Order>[])
+          o.id,
+        for (final o
+            in ref.read(polymarketOpenOrdersProvider).valueOrNull ??
+                const <Order>[])
+          o.id,
+      ]);
       await ref.read(polymarketTradingProvider.notifier).cancelAllOrders();
     } else {
       final orders =
@@ -408,6 +427,16 @@ class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
 
   Future<void> _cancelAll() async {
     if (_busy) return;
+    final walletId = widget.ledgerWalletId;
+    final orders = walletId == null
+        ? ref.read(polymarketOpenOrdersProvider).valueOrNull
+        : ref.read(ledgerPmOpenOrdersProvider(walletId)).valueOrNull;
+    // Asks first, listing what goes (one tap per order needs no ask).
+    if (!await polyConfirmCancelAll(context,
+        lines: polyCancelAllLines(context, orders ?? const []))) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _busy = true);
     HapticFeedback.lightImpact();
     try {
@@ -449,4 +478,151 @@ Widget _emptyOrders(AppColorsExtension c, String message, bool embedded) {
   return embedded
       ? Expanded(child: KuteDockClearance(child: text))
       : Padding(padding: EdgeInsets.symmetric(vertical: 28.h), child: text);
+}
+
+/// One line per resting order a Cancel all removes: "BUY · Yes · 40% ·
+/// 12.50 shares".
+List<String> polyCancelAllLines(BuildContext context, List<Order> orders) => [
+      for (final o in orders)
+        [
+          o.side.toUpperCase() == 'BUY'
+              ? context.l10n.betBuyUpper
+              : context.l10n.betSellUpper,
+          if (o.outcome.isNotEmpty) o.outcome,
+          formatPolyCents(double.tryParse(o.price) ?? 0),
+          context.l10n.betSharesCount(
+              ((double.tryParse(o.originalSize) ?? 0) -
+                      (double.tryParse(o.sizeMatched) ?? 0))
+                  .clamp(0.0, double.infinity)
+                  .toStringAsFixed(2)),
+        ].join(' · '),
+    ];
+
+/// The app's confirm sheet before a Cancel all: what it removes, one line
+/// per order ([lines], at most eight and "…" after), Cancel all or keep
+/// them. True only on Cancel all.
+Future<bool> polyConfirmCancelAll(BuildContext context,
+    {required List<String> lines}) async {
+  final l10n = context.l10n;
+  final shown = lines.length > 8 ? [...lines.take(8), '…'] : lines;
+  final confirmed = await showAppBottomSheet<bool>(
+    context: context,
+    builder: (sheetContext) => AppBottomSheetContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(
+            title: l10n.ordersCancelAllTitle,
+            subtitle: [l10n.ordersCancelAllBody(lines.length), ...shown]
+                .join('\n'),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 8.h),
+            child: AppBottomSheetButton(
+              key: const ValueKey('orders-cancel-all-confirm'),
+              text: l10n.ordersCancelAll,
+              onPressed: () => Navigator.of(sheetContext).pop(true),
+            ),
+          ),
+          AppBottomSheetTextButton(
+            key: const ValueKey('orders-cancel-all-keep'),
+            text: l10n.ordersKeep,
+            onPressed: () => Navigator.of(sheetContext).pop(false),
+          ),
+        ],
+      ),
+    ),
+  );
+  return confirmed == true;
+}
+
+/// A resting order that filled, all or part, as the Sal toast: what was
+/// bought or sold, at which price, and what still rests. A tap opens the
+/// Portfolio's orders while part still rests.
+void showPolymarketRestingFillToast(
+    BuildContext context, PolymarketRestingFill fill) {
+  final l10n = context.l10n;
+  final price = formatPolyCents(fill.price);
+  final total = fill.originalShares.toStringAsFixed(2);
+  final outcome = fill.outcome;
+  final String detail;
+  if (fill.isBuy) {
+    detail = fill.complete
+        ? l10n.betLimitBoughtShares(
+            fill.matchedShares.toStringAsFixed(2), outcome, price)
+        : l10n.betBuyPartialLimit(
+            fill.matchedShares.toStringAsFixed(2), total, price);
+  } else {
+    detail = fill.complete
+        ? l10n.soldShares(fill.matchedShares.toStringAsFixed(2), outcome)
+        : l10n.betLimitSellPartial(fill.matchedShares.toStringAsFixed(2),
+            total, price, fill.remainingShares.toStringAsFixed(2));
+  }
+  SalNotices.placed(
+    context,
+    message: l10n.betLimitOrderFilled,
+    detail: detail,
+    onTap: fill.complete
+        ? null
+        : () => openInvestmentsOrders(context,
+            product: 'predictions', orderKind: 'limit_fill'),
+  );
+}
+
+/// This market's resting orders ([here]) as the Orders tab draws them
+/// ([PolyOrderRow], its one-tap Cancel), under the Open orders heading;
+/// nothing while there are none. The hot wallet's orders, from the
+/// account's last read.
+class PolyMarketOrders extends ConsumerWidget {
+  const PolyMarketOrders(
+      {super.key, required this.here, this.heading = true, this.top = 0});
+
+  final bool Function(Order order) here;
+
+  /// The "Open orders" heading over the rows.
+  final bool heading;
+
+  /// Room over it, only when there is something to show.
+  final double top;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Never builds the account itself: a page shown before Predictions
+    // was opened (a Ledger's, a test's) has no orders to list.
+    if (!ref.exists(polymarketTradingProvider)) return const SizedBox.shrink();
+    final orders = [
+      for (final o in ref.watch(polymarketTradingProvider
+          .select((s) => s.valueOrNull?.openOrders ?? const <Order>[])))
+        if (here(o)) o,
+    ];
+    if (orders.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
+    return Padding(
+      key: const ValueKey('poly-market-orders'),
+      padding: EdgeInsets.only(top: top),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (heading)
+            Padding(
+              padding: EdgeInsets.only(bottom: 8.h),
+              child: Text(
+                context.l10n.betOpenOrders,
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          for (final (i, o) in orders.indexed) ...[
+            if (i > 0) SizedBox(height: 10.h),
+            PolyOrderRow(key: ValueKey('market-order-${o.id}'), order: o),
+          ],
+        ],
+      ),
+    );
+  }
 }

@@ -17,6 +17,8 @@ import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show
@@ -29,6 +31,9 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
     show sportsLiveProvider, SportsMatchUpdate;
 import 'package:kute/providers/polymarket_provider.dart'
     show kCryptoPredictAssets, CryptoAssetConfig;
+import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
+    show PolyMarketOrders;
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_in_place.dart';
 import 'package:kute/screens/polymarket/components/crypto_round_card.dart'
@@ -813,6 +818,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // This market's resting orders (a limit
+                                // set on Advanced), each with its Cancel.
+                                PolyMarketOrders(
+                                    here: _orderHere,
+                                    top: event.isBinary ? 12.h : 24.h),
                                 SizedBox(height: event.isBinary ? 12.h : 24.h),
                                 _buildRulesRow(),
                                 SizedBox(height: 24.h),
@@ -869,7 +879,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         child: page,
                       ),
                       column: _buildDeskColumn(c),
-                      panel: KuteWideSlipPane(holds: _holdsHere),
+                      panel: KuteWideSlipPane(
+                          holds: _holdsHere, ordersHere: _orderHere),
                     ),
                   ),
               },
@@ -890,6 +901,18 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   bool get _slipInPlace =>
       _slipContextKey.currentContext != null &&
       BetSlipInPlaceHost.maybeOf(_slipContextKey.currentContext!) != null;
+
+  /// A resting order of this account on one of this market's outcomes
+  /// (hot wallet only: a Ledger sheet shares the market, not the account).
+  bool _orderHere(Order order) {
+    if (widget.ledgerWalletId != null || order.assetId.isEmpty) return false;
+    for (final o in event.outcomes) {
+      if (o.tokenId == order.assetId || o.noTokenId == order.assetId) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   /// A position held in this market: one of its outcomes' tokens, or of
   /// its event (never a candidate's page's siblings).
@@ -2809,6 +2832,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                           ]),
                           gap,
                         ],
+                        // Then its resting orders, each with its Cancel.
+                        PolyMarketOrders(here: _orderHere),
                       ],
                     ),
                   ),
@@ -4470,9 +4495,12 @@ Widget kuteWideColumn(Widget page) => Center(
 /// no slip (a market over, a round with no prices yet) the panel is the
 /// sheet's plain surface.
 class KuteWideSlipPane extends ConsumerWidget {
-  const KuteWideSlipPane({super.key, required this.holds});
+  const KuteWideSlipPane({super.key, required this.holds, this.ordersHere});
 
   final bool Function(PolymarketPosition p) holds;
+
+  /// This market's resting orders, listed under the positions.
+  final bool Function(Order order)? ordersHere;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -4480,18 +4508,37 @@ class KuteWideSlipPane extends ConsumerWidget {
       for (final p in ref.watch(polymarketActivePositionsProvider))
         if (holds(p)) p,
     ];
+    final here = ordersHere;
+    final resting = here != null &&
+        ref.exists(polymarketTradingProvider) &&
+        ref.watch(polymarketTradingProvider.select((s) =>
+            (s.valueOrNull?.openOrders ?? const <Order>[]).any(here)));
     return SlipPanelFooter(
       // In the app's palette (not the slip's tint): the Portfolio's own
-      // card, reading on the side colour as the button does.
-      footer: held.isEmpty
+      // card, reading on the side colour as the button does. Its resting
+      // orders under it (a limit set on Advanced), each with its Cancel.
+      footer: held.isEmpty && !resting
           ? null
           : Theme(
               data: Theme.of(context),
-              child: PortfolioCardList(rows: [
-              for (final p in held)
-                PolyPositionRow(
-                    key: ValueKey('wide-position-${p.tokenId}'), position: p),
-            ])),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (held.isNotEmpty)
+                    PortfolioCardList(rows: [
+                      for (final p in held)
+                        PolyPositionRow(
+                            key: ValueKey('wide-position-${p.tokenId}'),
+                            position: p),
+                    ]),
+                  if (resting)
+                    PolyMarketOrders(
+                        here: here,
+                        heading: false,
+                        top: held.isEmpty ? 0 : 10),
+                ],
+              )),
       child: BetSlipInPlacePane(
         empty: DecoratedBox(
           decoration: kuteSidePanelDecoration(context.colors.surface),

@@ -20,7 +20,10 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 
 import 'package:kute/providers/polymarket_sports_provider.dart';
+import 'package:kute/providers/polymarket_resting_fills_provider.dart';
 import 'package:kute/providers/polymarket_user_channel_provider.dart';
+import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
+    show showPolymarketRestingFillToast;
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
@@ -397,9 +400,22 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
 
       if (positionAssets.isNotEmpty) {
         ref.read(livePriceProvider.notifier).addTokens(positionAssets);
-        ref.read(userChannelProvider.notifier).subscribe(positionAssets);
+      }
+      // The user channel follows the tokens held AND those with a resting
+      // order: a limit buy on a token not held yet is heard when it fills.
+      final channelAssets = polymarketUserChannelAssets(state);
+      if (channelAssets.isNotEmpty) {
+        ref.read(userChannelProvider.notifier).subscribe(channelAssets);
       }
     }, fireImmediately: true);
+
+    // A resting order that fills while the app is open: the Sal toast,
+    // once per fill (polymarket_resting_fills_provider.dart).
+    ref.listenManual<PolymarketRestingFill?>(polymarketRestingFillsProvider,
+        (_, fill) {
+      if (fill == null || !mounted) return;
+      showPolymarketRestingFillToast(context, fill);
+    });
 
     // NOTE: the 5-min Up/Down surfaces (hero banner + grid tiles)
     // register their own CLOB tokens via [LiveTokenScope], which also

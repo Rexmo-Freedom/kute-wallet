@@ -36,8 +36,14 @@ import 'package:kute/providers/hyperliquid_user_events_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart'
     show HlEndedOrderRow, HlOrderRow, HlTwapRow, hlCancelAllOrders;
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show formatHlPrice, formatHlSize;
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
-    show PolyOrderRow, polyCancelAllOrders;
+    show
+        PolyOrderRow,
+        polyCancelAllLines,
+        polyCancelAllOrders,
+        polyConfirmCancelAll;
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
@@ -278,6 +284,27 @@ class _PortfolioCancelAllLinkState
 
   Future<void> _cancelAll() async {
     if (_busy) return;
+    // Asks first, listing what goes at each venue (one tap per order
+    // needs no ask).
+    final l10n = context.l10n;
+    final lines = [
+      if (widget.investing)
+        for (final o in ref.read(hyperliquidTradingProvider).valueOrNull
+                ?.openOrders ??
+            const <HlOpenOrder>[])
+          [
+            o.isBuy ? l10n.betBuyUpper : l10n.betSellUpper,
+            o.coin,
+            formatHlSize(o.sz),
+            formatHlPrice(o.isTrigger ? (o.triggerPx ?? o.limitPx) : o.limitPx),
+          ].join(' · '),
+      if (widget.predictions)
+        ...polyCancelAllLines(context,
+            ref.read(polymarketOpenOrdersProvider).valueOrNull ?? const []),
+    ];
+    if (!await polyConfirmCancelAll(context, lines: lines) || !mounted) {
+      return;
+    }
     setState(() => _busy = true);
     HapticFeedback.lightImpact();
     try {

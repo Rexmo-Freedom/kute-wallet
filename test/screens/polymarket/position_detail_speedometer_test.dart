@@ -219,10 +219,13 @@ Finder _rolling(String text) => find.byWidgetPredicate(
   );
 }
 
-Future<void> _advancedPolicy({Set<String> blocked = const {}}) async {
+Future<void> _advancedPolicy(
+    {Set<String> blocked = const {}, Set<String> comingSoon = const {}}) async {
   AffiliateService.debugSessionToken = 'test-session';
-  final policy =
-      runtimePolicyFixture(also: const {'trading.advanced'}, blocked: blocked);
+  final policy = runtimePolicyFixture(
+      also: const {'trading.advanced'},
+      blocked: blocked,
+      comingSoon: comingSoon);
   RuntimeCapabilitiesService.debugInstance = policy;
   await policy.refresh();
 }
@@ -754,11 +757,20 @@ void main() {
     expect(whatIf.single.$2!['sell_tapped'], true);
     expect(polyWhatIfSellPrice(1.0), 0.99);
     expect(polyWhatIfSellPrice(0.0), 0.01);
+    // On a whole cent (the sell ticket snaps it to a finer tick itself).
+    expect(polyWhatIfSellPrice(0.8549), 0.85);
   });
 
-  testWidgets('"Set a sell at 85%" with limit orders withheld: just Unavailable, no '
+  // P8: "coming soon" is withheld as a block is (the slips' Advanced pill
+  // reads it the same way, advancedTradingOffered).
+  for (final (why, blocked, soon) in [
+    ('withheld', {'trading.advanced'}, <String>{}),
+    ('coming soon', <String>{}, {'trading.advanced'}),
+  ])
+  testWidgets('"Set a sell at 85%" with limit orders $why: just Unavailable, no '
       'sell sheet', (tester) async {
-    await tester.runAsync(() => _advancedPolicy(blocked: {'trading.advanced'}));
+    await tester.runAsync(
+        () => _advancedPolicy(blocked: blocked, comingSoon: soon));
     tester.view.physicalSize = const Size(390, 1200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

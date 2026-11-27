@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -207,9 +208,11 @@ class _Prices extends LivePriceNotifier {
 }
 
 class _Trading extends PolymarketTradingNotifier {
+  _Trading([this.world]);
+  final CardWorld? world;
   @override
-  Future<PolymarketTradingState> build() async =>
-      PolymarketTradingState(usdcBalance: 100);
+  Future<PolymarketTradingState> build() async => PolymarketTradingState(
+      usdcBalance: 100, openOrders: world?.orders ?? const []);
 }
 
 class _Currency extends StateNotifier<CurrencyState>
@@ -237,6 +240,9 @@ class CardWorld {
   int reads = 0;
   final Map<String, int> socketTokens = {};
   List<PolymarketPosition> positions = const [];
+
+  /// The account's resting orders (the trading state's open orders).
+  List<Order> orders = const [];
 
   /// The feed's quotes; a real feed streams them, so every move of the
   /// clock seeds them again ([requote]).
@@ -325,7 +331,7 @@ class CardWorld {
               nodeType: '',
               reviewDone: true,
             ))),
-        polymarketTradingProvider.overrideWith(_Trading.new),
+        polymarketTradingProvider.overrideWith(() => _Trading(this)),
         swapOrdersProvider.overrideWith((ref) => FakeSwapOrders()),
         livePriceProvider.overrideWith(() => _Prices(this)),
         polymarketOpenOrdersProvider
