@@ -9,6 +9,113 @@ class AppLocalizationsLv extends AppLocalizations {
   AppLocalizationsLv([String locale = 'lv']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Iestatiet stop loss zem pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Iestatiet stop loss virs pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Iestatiet take profit virs pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Iestatiet take profit zem pašreizējās cenas, citādi tas uzreiz aizvērs pozīciju.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Iestatiet limita cenu vienādu ar aktivizēšanas cenu vai zemāku.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Iestatiet limita cenu vienādu ar aktivizēšanas cenu vai augstāku.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Šis stop ir aiz likvidācijas cenas: pozīcija tiktu likvidēta, pirms tas nostrādātu.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Šī cena ir aiz tirgus cenas: rīkojums tiek izpildīts uzreiz, ar augstāko taker maksu.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Aizverot visu pozīciju, tiek atcelti arī tās stop un take profit rīkojumi ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Atcelti aizsargrīkojumi';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Joprojām atvērti aizsargrīkojumi';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Tās stop un take profit rīkojumus neizdevās atcelt. Atceliet tos sadaļā Rīkojumi, lai tie neaizvērtu jaunu pozīciju.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Jaunais stop loss ir iesniegts, bet veco neizdevās atcelt. Atceliet to sadaļā Rīkojumi.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Šai pozīcijai jau ir stop loss pie $price. Aizstājot vecais tiek atcelts tikai pēc jaunā iesniegšanas.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Šai pozīcijai jau ir stop loss rīkojumi: $count. Aizstājot vecie tiek atcelti tikai pēc jaunā iesniegšanas.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Aizstāt';
+
+  @override
+  String get hlProtectAddStop => 'Pievienot vēl vienu';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Atcelt visus rīkojumus?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Tādējādi tiek atcelti visi atvērtie rīkojumi ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Tādējādi tiek atcelti visi atvērtie rīkojumi ($count), tostarp pozīciju aizsargājošie: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Tiek atcelti arī jūsu Predictions rīkojumi.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Atlikuši $left no $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Izpildīti $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Jūsu pēdējais trailing stop šajā tirgū vēl nav apstiprināts. Pārbaudiet atvērtos rīkojumus. Otrs rīkojums netika nosūtīts.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop pie $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Atcelt šo rīkojumu?';
+
+  @override
   String get totalBalance => 'Kopējais atlikums';
 
   @override

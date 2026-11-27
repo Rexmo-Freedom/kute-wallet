@@ -9,6 +9,113 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Ustaw stop loss poniżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Ustaw stop loss powyżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Ustaw take profit powyżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Ustaw take profit poniżej bieżącej ceny, inaczej od razu zamknie pozycję.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Ustaw cenę limitu na poziomie ceny aktywacji lub poniżej.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Ustaw cenę limitu na poziomie ceny aktywacji lub powyżej.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Ten stop jest za ceną likwidacji: pozycja zostałaby zlikwidowana, zanim się uruchomi.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Ta cena jest za ceną rynkową: zlecenie wykona się od razu, z wyższą opłatą takera.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Zamknięcie całości anuluje też jej zlecenia stop i take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Anulowane zlecenia ochronne';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Wciąż otwarte zlecenia ochronne';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Nie udało się anulować jej zleceń stop i take profit. Anuluj je w Zleceniach, aby nie zamknęły nowej pozycji.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Nowy stop loss jest złożony, ale nie udało się anulować starego. Anuluj go w Zleceniach.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Ta pozycja ma już stop loss na $price. Przy zastąpieniu stary zostanie anulowany dopiero po złożeniu nowego.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Ta pozycja ma już stop lossy: $count. Przy zastąpieniu stare zostaną anulowane dopiero po złożeniu nowego.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Zastąp';
+
+  @override
+  String get hlProtectAddStop => 'Dodaj kolejny';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Anulować wszystkie zlecenia?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'To anuluje wszystkie otwarte zlecenia ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'To anuluje wszystkie otwarte zlecenia ($count), w tym chroniące pozycję: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Twoje zlecenia w Predictions też zostaną anulowane.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Zostało $left z $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Wykonano $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Twój ostatni trailing stop na tym rynku nie jest jeszcze potwierdzony. Sprawdź otwarte zlecenia. Drugie zlecenie nie zostało wysłane.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop na $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Anulować to zlecenie?';
+
+  @override
   String get totalBalance => 'Saldo łączne';
 
   @override

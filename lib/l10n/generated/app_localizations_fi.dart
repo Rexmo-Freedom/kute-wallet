@@ -9,6 +9,113 @@ class AppLocalizationsFi extends AppLocalizations {
   AppLocalizationsFi([String locale = 'fi']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Aseta stop loss nykyisen hinnan alle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Aseta stop loss nykyisen hinnan yläpuolelle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Aseta take profit nykyisen hinnan yläpuolelle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Aseta take profit nykyisen hinnan alle, muuten se sulkee position heti.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Aseta rajahinta laukaisuhintaan tai sen alle.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Aseta rajahinta laukaisuhintaan tai sen yläpuolelle.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Tämä stop on likvidaatiohinnan takana: positio likvidoitaisiin ennen kuin se laukeaa.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Tämä hinta on markkinahinnan takana: se toteutuu heti, korkeammalla taker-maksulla.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Koko position sulkeminen peruu myös sen stop- ja take profit -toimeksiannot ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Suojaavat toimeksiannot peruttu';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Suojaavat toimeksiannot yhä avoinna';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Sen stop- ja take profit -toimeksiantoja ei voitu perua. Peru ne Toimeksiannoissa, jotta ne eivät sulje uutta positiota.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Uusi stop loss on asetettu, mutta vanhaa ei voitu perua. Peru se Toimeksiannoissa.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Tällä positiolla on jo stop loss hinnassa $price. Korvattaessa vanha perutaan vasta, kun uusi on asetettu.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Tällä positiolla on jo stop lossia: $count. Korvattaessa vanhat perutaan vasta, kun uusi on asetettu.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Korvaa';
+
+  @override
+  String get hlProtectAddStop => 'Lisää toinen';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Perutaanko kaikki toimeksiannot?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Tämä peruu kaikki avoimet toimeksiannot ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Tämä peruu kaikki avoimet toimeksiannot ($count), joista positiota suojaavia: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Myös Predictions-toimeksiantosi perutaan.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left/$total jäljellä';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent % toteutunut';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Viimeisin trailing stopisi tällä markkinalla ei ole vielä vahvistunut. Tarkista avoimet toimeksiantosi. Toista toimeksiantoa ei lähetetty.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop hinnassa $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Perutaanko tämä toimeksianto?';
+
+  @override
   String get totalBalance => 'Kokonaissaldo';
 
   @override

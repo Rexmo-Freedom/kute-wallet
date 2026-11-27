@@ -9,6 +9,113 @@ class AppLocalizationsSv extends AppLocalizations {
   AppLocalizationsSv([String locale = 'sv']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Sätt stop loss under nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Sätt stop loss över nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Sätt take profit över nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Sätt take profit under nuvarande pris, annars stänger den positionen direkt.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Sätt limitpriset på eller under utlösarpriset.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Sätt limitpriset på eller över utlösarpriset.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Den här stoppen ligger bortom likvidationspriset: positionen skulle likvideras innan den utlöses.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Det här priset ligger bortom marknadspriset: den utförs nu, med den högre taker-avgiften.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Stänger du allt avbryts också dess stop- och take profit-order ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Skyddande order avbrutna';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Skyddande order fortfarande öppna';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Dess stop- och take profit-order kunde inte avbrytas. Avbryt dem under Order så att de inte stänger en ny position.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Din nya stop loss är lagd, men den gamla kunde inte avbrytas. Avbryt den under Order.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Den här positionen har redan en stop loss på $price. Ersätter du den avbryts den gamla först när den nya är lagd.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Den här positionen har redan $count stop loss. Ersätter du dem avbryts de gamla först när den nya är lagd.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Ersätt den';
+
+  @override
+  String get hlProtectAddStop => 'Lägg till en till';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Avbryta alla order?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Det avbryter alla öppna order ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Det avbryter alla öppna order ($count), varav $stops skyddar en position.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Dina Predictions-order avbryts också.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return '$left av $total kvar';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return '$percent % utfört';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Din senaste trailing stop på den här marknaden är inte bekräftad än. Kontrollera dina öppna order. Ingen andra order skickades.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop på $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Avbryta den här ordern?';
+
+  @override
   String get totalBalance => 'Totalt saldo';
 
   @override

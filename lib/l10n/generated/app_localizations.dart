@@ -140,6 +140,162 @@ abstract class AppLocalizations {
     Locale('sv')
   ];
 
+  /// No description provided for @hlProtectStopBelowPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the stop loss below the current price, or it closes the position at once.'**
+  String get hlProtectStopBelowPrice;
+
+  /// No description provided for @hlProtectStopAbovePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the stop loss above the current price, or it closes the position at once.'**
+  String get hlProtectStopAbovePrice;
+
+  /// No description provided for @hlProtectTakeAbovePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the take profit above the current price, or it closes the position at once.'**
+  String get hlProtectTakeAbovePrice;
+
+  /// No description provided for @hlProtectTakeBelowPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the take profit below the current price, or it closes the position at once.'**
+  String get hlProtectTakeBelowPrice;
+
+  /// No description provided for @hlProtectLimitAtOrBelowTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the limit price at or below the trigger price.'**
+  String get hlProtectLimitAtOrBelowTrigger;
+
+  /// No description provided for @hlProtectLimitAtOrAboveTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the limit price at or above the trigger price.'**
+  String get hlProtectLimitAtOrAboveTrigger;
+
+  /// No description provided for @hlProtectStopPastLiquidation.
+  ///
+  /// In en, this message translates to:
+  /// **'This stop is past the liquidation price: the position would be liquidated before it fires.'**
+  String get hlProtectStopPastLiquidation;
+
+  /// No description provided for @hlProtectLimitFillsNow.
+  ///
+  /// In en, this message translates to:
+  /// **'This price is past the market price: it fills now, at the higher taker fee.'**
+  String get hlProtectLimitFillsNow;
+
+  /// No description provided for @hlProtectCloseCancelsOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing all of it also cancels its stop and take-profit orders ({count}).'**
+  String hlProtectCloseCancelsOrders(int count);
+
+  /// No description provided for @hlProtectOrdersCancelledRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Protective orders cancelled'**
+  String get hlProtectOrdersCancelledRow;
+
+  /// No description provided for @hlProtectOrdersNotCancelledRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Protective orders still open'**
+  String get hlProtectOrdersNotCancelledRow;
+
+  /// No description provided for @hlProtectCancelAfterCloseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Its stop and take-profit orders could not be cancelled. Cancel them in Orders so they cannot close a new position.'**
+  String get hlProtectCancelAfterCloseFailed;
+
+  /// No description provided for @hlProtectReplaceCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your new stop loss is placed, but the old one could not be cancelled. Cancel it in Orders.'**
+  String get hlProtectReplaceCancelFailed;
+
+  /// No description provided for @hlProtectExistingStop.
+  ///
+  /// In en, this message translates to:
+  /// **'This position already has a stop loss at {price}. Replacing it cancels the old one only once the new one is placed.'**
+  String hlProtectExistingStop(String price);
+
+  /// No description provided for @hlProtectExistingStops.
+  ///
+  /// In en, this message translates to:
+  /// **'This position already has {count} stop losses. Replacing them cancels the old ones only once the new one is placed.'**
+  String hlProtectExistingStops(int count);
+
+  /// No description provided for @hlProtectReplaceStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace it'**
+  String get hlProtectReplaceStop;
+
+  /// No description provided for @hlProtectAddStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Add another'**
+  String get hlProtectAddStop;
+
+  /// No description provided for @hlProtectCancelAllTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel all orders?'**
+  String get hlProtectCancelAllTitle;
+
+  /// No description provided for @hlProtectCancelAllCount.
+  ///
+  /// In en, this message translates to:
+  /// **'This cancels every open order ({count}).'**
+  String hlProtectCancelAllCount(int count);
+
+  /// No description provided for @hlProtectCancelAllWithStops.
+  ///
+  /// In en, this message translates to:
+  /// **'This cancels every open order ({count}), the stops protecting a position included ({stops}).'**
+  String hlProtectCancelAllWithStops(int count, int stops);
+
+  /// No description provided for @hlProtectCancelAllPredictionsToo.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Predictions orders are cancelled too.'**
+  String get hlProtectCancelAllPredictionsToo;
+
+  /// No description provided for @hlProtectSizeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{left} of {total} left'**
+  String hlProtectSizeLeft(String left, String total);
+
+  /// No description provided for @hlProtectPercentFilled.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% filled'**
+  String hlProtectPercentFilled(String percent);
+
+  /// No description provided for @hlProtectTrailPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your last trailing stop on this market is not confirmed yet. Check your open orders. No second order was sent.'**
+  String get hlProtectTrailPending;
+
+  /// No description provided for @hlProtectStopAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop at {price}'**
+  String hlProtectStopAt(String price);
+
+  /// No description provided for @hlProtectCancelOrderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this order?'**
+  String get hlProtectCancelOrderTitle;
+
   /// No description provided for @totalBalance.
   ///
   /// In en, this message translates to:

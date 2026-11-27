@@ -9,6 +9,113 @@ class AppLocalizationsCs extends AppLocalizations {
   AppLocalizationsCs([String locale = 'cs']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Nastavte stop loss pod aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Nastavte stop loss nad aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Nastavte take profit nad aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Nastavte take profit pod aktuální cenu, jinak pozici hned uzavře.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Nastavte limitní cenu na spouštěcí cenu nebo pod ni.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Nastavte limitní cenu na spouštěcí cenu nebo nad ni.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Tento stop je za likvidační cenou: pozice by byla zlikvidována dřív, než se spustí.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Tato cena je za tržní cenou: provede se hned, s vyšším poplatkem takera.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Uzavření celé pozice zruší i její příkazy stop a take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Zrušené ochranné příkazy';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Stále otevřené ochranné příkazy';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Její příkazy stop a take profit se nepodařilo zrušit. Zrušte je v Příkazech, aby neuzavřely novou pozici.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Nový stop loss je zadaný, ale starý se nepodařilo zrušit. Zrušte ho v Příkazech.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Tato pozice už má stop loss na $price. Při nahrazení se starý zruší až po zadání nového.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Tato pozice už má stop lossy: $count. Při nahrazení se staré zruší až po zadání nového.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Nahradit';
+
+  @override
+  String get hlProtectAddStop => 'Přidat další';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Zrušit všechny příkazy?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Tím zrušíte všechny otevřené příkazy ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Tím zrušíte všechny otevřené příkazy ($count), z toho chránících pozici: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Zruší se i vaše příkazy v Predictions.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Zbývá $left z $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Provedeno $percent %';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Váš poslední trailing stop na tomto trhu ještě není potvrzen. Zkontrolujte otevřené příkazy. Druhý příkaz odeslán nebyl.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop na $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Zrušit tento příkaz?';
+
+  @override
   String get totalBalance => 'Celkový zůstatek';
 
   @override

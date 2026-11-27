@@ -1,5 +1,93 @@
 {
   "@@locale": "en",
+  "hlProtectStopBelowPrice": "Set the stop loss below the current price, or it closes the position at once.",
+  "hlProtectStopAbovePrice": "Set the stop loss above the current price, or it closes the position at once.",
+  "hlProtectTakeAbovePrice": "Set the take profit above the current price, or it closes the position at once.",
+  "hlProtectTakeBelowPrice": "Set the take profit below the current price, or it closes the position at once.",
+  "hlProtectLimitAtOrBelowTrigger": "Set the limit price at or below the trigger price.",
+  "hlProtectLimitAtOrAboveTrigger": "Set the limit price at or above the trigger price.",
+  "hlProtectStopPastLiquidation": "This stop is past the liquidation price: the position would be liquidated before it fires.",
+  "hlProtectLimitFillsNow": "This price is past the market price: it fills now, at the higher taker fee.",
+  "hlProtectCloseCancelsOrders": "Closing all of it also cancels its stop and take-profit orders ({count}).",
+  "@hlProtectCloseCancelsOrders": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectOrdersCancelledRow": "Protective orders cancelled",
+  "hlProtectOrdersNotCancelledRow": "Protective orders still open",
+  "hlProtectCancelAfterCloseFailed": "Its stop and take-profit orders could not be cancelled. Cancel them in Orders so they cannot close a new position.",
+  "hlProtectReplaceCancelFailed": "Your new stop loss is placed, but the old one could not be cancelled. Cancel it in Orders.",
+  "hlProtectExistingStop": "This position already has a stop loss at {price}. Replacing it cancels the old one only once the new one is placed.",
+  "@hlProtectExistingStop": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectExistingStops": "This position already has {count} stop losses. Replacing them cancels the old ones only once the new one is placed.",
+  "@hlProtectExistingStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectReplaceStop": "Replace it",
+  "hlProtectAddStop": "Add another",
+  "hlProtectCancelAllTitle": "Cancel all orders?",
+  "hlProtectCancelAllCount": "This cancels every open order ({count}).",
+  "@hlProtectCancelAllCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectCancelAllWithStops": "This cancels every open order ({count}), the stops protecting a position included ({stops}).",
+  "@hlProtectCancelAllWithStops": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "stops": {
+        "type": "int"
+      }
+    }
+  },
+  "hlProtectCancelAllPredictionsToo": "Your Predictions orders are cancelled too.",
+  "hlProtectSizeLeft": "{left} of {total} left",
+  "@hlProtectSizeLeft": {
+    "placeholders": {
+      "left": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectPercentFilled": "{percent}% filled",
+  "@hlProtectPercentFilled": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectTrailPending": "Your last trailing stop on this market is not confirmed yet. Check your open orders. No second order was sent.",
+  "hlProtectStopAt": "Stop at {price}",
+  "@hlProtectStopAt": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "hlProtectCancelOrderTitle": "Cancel this order?",
   "totalBalance": "Total Balance",
   "or": "or",
   "recoverAccount": "Recover Account",

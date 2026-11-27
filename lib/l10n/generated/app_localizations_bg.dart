@@ -9,6 +9,113 @@ class AppLocalizationsBg extends AppLocalizations {
   AppLocalizationsBg([String locale = 'bg']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Задайте стоп лоса под текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Задайте стоп лоса над текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Задайте тейк профита над текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Задайте тейк профита под текущата цена, иначе той веднага затваря позицията.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Задайте лимитната цена равна на или под цената на задействане.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Задайте лимитната цена равна на или над цената на задействане.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Този стоп е отвъд ликвидационната цена: позицията би била ликвидирана, преди той да се задейства.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Тази цена е отвъд пазарната: изпълнява се веднага, с по-високата такса за тейкър.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Затварянето на цялата позиция отменя и нейните стоп и тейк профит поръчки ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Отменени защитни поръчки';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Все още отворени защитни поръчки';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Стоп и тейк профит поръчките ѝ не можаха да бъдат отменени. Отменете ги в Поръчки, за да не затворят нова позиция.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Новият стоп лос е пуснат, но старият не можа да бъде отменен. Отменете го в Поръчки.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Тази позиция вече има стоп лос при $price. При замяна старият се отменя едва след като новият е пуснат.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Тази позиция вече има стоп лосове: $count. При замяна старите се отменят едва след като новият е пуснат.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Замени';
+
+  @override
+  String get hlProtectAddStop => 'Добави още един';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Да се отменят ли всички поръчки?';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Така отменяте всички отворени поръчки ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Така отменяте всички отворени поръчки ($count), включително защитаващи позиция: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Вашите поръчки в Predictions също се отменят.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Остават $left от $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Изпълнени $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Последният ви трейлинг стоп на този пазар още не е потвърден. Проверете отворените си поръчки. Втора поръчка не е изпратена.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Стоп при $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Да се отмени ли тази поръчка?';
+
+  @override
   String get totalBalance => 'Общ баланс';
 
   @override

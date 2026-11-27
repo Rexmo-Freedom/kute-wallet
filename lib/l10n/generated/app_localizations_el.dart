@@ -9,6 +9,113 @@ class AppLocalizationsEl extends AppLocalizations {
   AppLocalizationsEl([String locale = 'el']) : super(locale);
 
   @override
+  String get hlProtectStopBelowPrice =>
+      'Ορίστε το stop loss κάτω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectStopAbovePrice =>
+      'Ορίστε το stop loss πάνω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectTakeAbovePrice =>
+      'Ορίστε το take profit πάνω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectTakeBelowPrice =>
+      'Ορίστε το take profit κάτω από την τρέχουσα τιμή, αλλιώς κλείνει αμέσως τη θέση.';
+
+  @override
+  String get hlProtectLimitAtOrBelowTrigger =>
+      'Ορίστε την τιμή ορίου ίση ή κάτω από την τιμή ενεργοποίησης.';
+
+  @override
+  String get hlProtectLimitAtOrAboveTrigger =>
+      'Ορίστε την τιμή ορίου ίση ή πάνω από την τιμή ενεργοποίησης.';
+
+  @override
+  String get hlProtectStopPastLiquidation =>
+      'Αυτό το stop είναι πέρα από την τιμή ρευστοποίησης: η θέση θα ρευστοποιούνταν πριν ενεργοποιηθεί.';
+
+  @override
+  String get hlProtectLimitFillsNow =>
+      'Αυτή η τιμή είναι πέρα από την τιμή αγοράς: εκτελείται τώρα, με την υψηλότερη χρέωση taker.';
+
+  @override
+  String hlProtectCloseCancelsOrders(int count) {
+    return 'Το κλείσιμο ολόκληρης της θέσης ακυρώνει και τις εντολές stop και take profit ($count).';
+  }
+
+  @override
+  String get hlProtectOrdersCancelledRow => 'Ακυρωμένες εντολές προστασίας';
+
+  @override
+  String get hlProtectOrdersNotCancelledRow =>
+      'Εντολές προστασίας ακόμη ανοιχτές';
+
+  @override
+  String get hlProtectCancelAfterCloseFailed =>
+      'Οι εντολές stop και take profit δεν ακυρώθηκαν. Ακυρώστε τις στις Εντολές, ώστε να μην κλείσουν νέα θέση.';
+
+  @override
+  String get hlProtectReplaceCancelFailed =>
+      'Το νέο stop loss τοποθετήθηκε, αλλά το παλιό δεν ακυρώθηκε. Ακυρώστε το στις Εντολές.';
+
+  @override
+  String hlProtectExistingStop(String price) {
+    return 'Αυτή η θέση έχει ήδη stop loss στα $price. Με την αντικατάσταση, το παλιό ακυρώνεται μόνο αφού τοποθετηθεί το νέο.';
+  }
+
+  @override
+  String hlProtectExistingStops(int count) {
+    return 'Αυτή η θέση έχει ήδη stop loss: $count. Με την αντικατάσταση, τα παλιά ακυρώνονται μόνο αφού τοποθετηθεί το νέο.';
+  }
+
+  @override
+  String get hlProtectReplaceStop => 'Αντικατάσταση';
+
+  @override
+  String get hlProtectAddStop => 'Προσθήκη άλλου';
+
+  @override
+  String get hlProtectCancelAllTitle => 'Ακύρωση όλων των εντολών;';
+
+  @override
+  String hlProtectCancelAllCount(int count) {
+    return 'Έτσι ακυρώνετε όλες τις ανοιχτές εντολές ($count).';
+  }
+
+  @override
+  String hlProtectCancelAllWithStops(int count, int stops) {
+    return 'Έτσι ακυρώνετε όλες τις ανοιχτές εντολές ($count), μαζί με όσες προστατεύουν θέση: $stops.';
+  }
+
+  @override
+  String get hlProtectCancelAllPredictionsToo =>
+      'Ακυρώνονται και οι εντολές σας στο Predictions.';
+
+  @override
+  String hlProtectSizeLeft(String left, String total) {
+    return 'Απομένουν $left από $total';
+  }
+
+  @override
+  String hlProtectPercentFilled(String percent) {
+    return 'Εκτελέστηκε $percent%';
+  }
+
+  @override
+  String get hlProtectTrailPending =>
+      'Το τελευταίο σας trailing stop σε αυτή την αγορά δεν έχει επιβεβαιωθεί ακόμη. Ελέγξτε τις ανοιχτές εντολές σας. Δεν στάλθηκε δεύτερη εντολή.';
+
+  @override
+  String hlProtectStopAt(String price) {
+    return 'Stop στα $price';
+  }
+
+  @override
+  String get hlProtectCancelOrderTitle => 'Ακύρωση αυτής της εντολής;';
+
+  @override
   String get totalBalance => 'Συνολικό υπόλοιπο';
 
   @override
