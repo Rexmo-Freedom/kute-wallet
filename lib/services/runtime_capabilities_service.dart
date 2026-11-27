@@ -768,6 +768,14 @@ class RuntimeCapabilitiesService extends ChangeNotifier
 
   /// The decision with no fresh policy: what the policies last fetched said.
   CapabilityDecision _unavailableDecision(String id) {
+    // TEMPORARY (web_advanced_test.dart): also when the policy cannot be
+    // fetched. The check at placement asks for a fresh policy first and
+    // falls back here when that fetch fails; without this an Advanced
+    // order could be refused after its money had already moved, on a
+    // ticket that said Advanced was on. Remove with that file.
+    if (id == 'trading.advanced' && WebAdvancedTest.on) {
+      return const CapabilityDecision(allowed: true, reason: 'allowed');
+    }
     // The last decisions on hand for [id], session policy first. Account
     // rules the public route could not evaluate say nothing.
     final previous = <(CapabilityDecision, DateTime?)>[

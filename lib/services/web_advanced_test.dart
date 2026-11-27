@@ -16,8 +16,9 @@
 // Advanced switch cannot turn Advanced off on the web: only a new build
 // can.
 //
-// TO ROLL BACK: delete this file and its two uses (`decision` and
-// `maxLeverage` in runtime_capabilities_service.dart), rebuild, deploy.
+// TO ROLL BACK: delete this file and its three uses (`decision`,
+// `_unavailableDecision` and `maxLeverage` in
+// runtime_capabilities_service.dart), rebuild, deploy.
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 
