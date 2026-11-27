@@ -43,7 +43,7 @@ import 'package:kute/services/polymarket_backend_service.dart'
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
-    show OrderBook, OrderSide, OrderType;
+    show Order, OrderBook, OrderSide, OrderType;
 
 const _token = '9001';
 const _noMatch = 'no orders found to match with FAK order. FAK orders are '
@@ -58,6 +58,9 @@ class _Order {
 class _Trading extends PolymarketTradingNotifier {
   _Trading(this.refusals);
 
+  /// Resting orders of the account (the last known list).
+  List<Order> resting = const [];
+
   /// Thrown by the next orders, in turn; then the venue accepts.
   final List<Object> refusals;
 
@@ -71,10 +74,11 @@ class _Trading extends PolymarketTradingNotifier {
   var readies = 0;
 
   @override
-  Future<PolymarketTradingState> build() async => const PolymarketTradingState(
+  Future<PolymarketTradingState> build() async => PolymarketTradingState(
       isAuthenticated: true,
       usdcBalance: 0,
-      proxyWalletAddress: '0xdeposit');
+      proxyWalletAddress: '0xdeposit',
+      openOrders: resting);
 
   /// The funding move lands: the venue holds [usd].
   void land(double usd) =>
@@ -263,11 +267,13 @@ void main() {
       AutofireSettle? settle,
       PendingBetIntent? queued,
       bool breakAfterAccept = false,
+      List<Order> resting = const [],
       Future<void> Function(ProviderContainer c, _Trading trading)? atLanding,
       void Function(ProviderContainer c)? onReady,
       void Function(ProviderContainer c)? onQueued}) async {
     final trading = _Trading([...refusals])
-      ..breakAfterAccept = breakAfterAccept;
+      ..breakAfterAccept = breakAfterAccept
+      ..resting = resting;
     if (accepted != null) trading.accepted = accepted;
     var reads = 0;
     var landed = false;
@@ -707,6 +713,61 @@ void main() {
           'placed');
       expect(r.c.read(placingPolymarketBetProvider)
           .where((b) => b.status == PlacingBetStatus.failed), isEmpty);
+    });
+
+    PendingBetIntent limit({bool funded = true}) => PendingBetIntent(
+          tokenId: _token,
+          amount: 10,
+          slippagePct: 5,
+          marketQuestion: 'Lakers vs Celtics',
+          outcomeName: 'Lakers',
+          expectedPrice: 0.5,
+          isLimit: true,
+          limitPrice: 0.5,
+          status: PendingBetStatus.awaitingBalance,
+          fundUsd: funded ? 10 : null,
+          fundQuoteRef: funded ? 'ref_move' : null,
+          fundReadyUsd: funded ? 0 : null,
+          fundArrivingUsd: funded ? 9.9 : null,
+          queuedAt: DateTime.now(),
+        );
+
+    test(
+        'a resting limit whose landed cash a resting buy holds: not posted, '
+        'ended at once with "Add funds to predict"', () async {
+      final started = DateTime.now();
+      // \$10.60 landed; a resting buy (10 at 50c) holds \$5 of it.
+      final r = await run(['0.48'],
+          queued: limit(),
+          resting: [
+            Order(
+                id: 'held',
+                market: 'm',
+                assetId: 'other',
+                owner: 'x',
+                side: 'BUY',
+                price: '0.5',
+                originalSize: '10',
+                sizeMatched: '0',
+                outcome: 'Yes')
+          ]);
+      expect(r.trading.orders, isEmpty);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.errorMessage,
+          l10nForLanguage('en').betAddFundsToPredict);
+      expect(DateTime.now().difference(started),
+          lessThan(const Duration(seconds: 10)));
+    });
+
+    test(
+        'a queued limit that is not funded: never posted, ended at once',
+        () async {
+      final r = await run(['0.48'], queued: limit(funded: false));
+      expect(r.trading.orders, isEmpty);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.errorMessage, l10nForLanguage('en').betAddFundsToPredict);
     });
 
     test('a resting limit: placed, never failed', () async {

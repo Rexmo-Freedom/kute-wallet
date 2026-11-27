@@ -587,29 +587,24 @@ class PolymarketBetController {
   /// A resting order this app placed, told to the fills tracker while it
   /// is alive (the Predictions screen is up). Nothing when it filled whole.
   void _noteResting(Map<String, dynamic> placed, String tokenId,
-      {required String? account,
-      required bool isBuy,
-      required double price,
-      required double shares,
-      required double matched,
-      required String outcome}) {
-    final id = '${placed['orderID'] ?? placed['orderId'] ?? ''}';
-    if (id.isEmpty || matched >= shares - 0.005) return;
-    if (!ref.exists(polymarketRestingFillsProvider)) return;
-    ref.read(polymarketRestingFillsProvider.notifier).noteOrder(
-        Order(
-          id: id,
-          market: '',
-          assetId: tokenId,
-          owner: '',
-          side: isBuy ? 'BUY' : 'SELL',
-          price: '$price',
-          originalSize: '$shares',
-          sizeMatched: '$matched',
-          outcome: outcome,
-        ),
-        account: account);
-  }
+          {required String? account,
+          required bool isBuy,
+          required double price,
+          required double shares,
+          required double matched,
+          required String outcome}) =>
+      polymarketNoteRestingOrder(
+        tracking: ref.exists(polymarketRestingFillsProvider),
+        tracker: () => ref.read(polymarketRestingFillsProvider.notifier),
+        placed: placed,
+        account: account,
+        tokenId: tokenId,
+        isBuy: isBuy,
+        price: price,
+        shares: shares,
+        matched: matched,
+        outcome: outcome,
+      );
 
   /// The resting price of a limit bet.
   /// Inside the venue's widest range (a 0.01¢ market): the price itself

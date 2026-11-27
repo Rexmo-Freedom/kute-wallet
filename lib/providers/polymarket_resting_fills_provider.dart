@@ -250,6 +250,10 @@ class PolymarketRestingFillsNotifier
   String? _account;
   Timer? _recheck;
 
+  /// Set when the provider is disposed: no timer and no record read starts
+  /// after it (a read in flight then lands on nothing).
+  bool _disposed = false;
+
   /// Reads one order's record; tests replace it.
   @visibleForTesting
   static Future<Map<String, dynamic>?> Function(Ref ref, String orderId)
@@ -268,7 +272,11 @@ class PolymarketRestingFillsNotifier
 
   @override
   PolymarketRestingFill? build() {
-    ref.onDispose(() => _recheck?.cancel());
+    ref.onDispose(() {
+      _disposed = true;
+      _recheck?.cancel();
+      _recheck = null;
+    });
     ref.listen<AsyncValue<PolymarketTradingState>>(polymarketTradingProvider,
         (_, next) => _onTrading(next.valueOrNull),
         fireImmediately: true);
@@ -293,6 +301,7 @@ class PolymarketRestingFillsNotifier
   /// wallet it was placed from): known at once. Dropped when the account
   /// changed meanwhile (a wallet switch while it settled).
   void noteOrder(Order order, {required String? account}) {
+    if (_disposed) return;
     if (account == null || account.toLowerCase() != _account) return;
     _tracker.register(order);
     _armRecheck();
@@ -303,23 +312,27 @@ class PolymarketRestingFillsNotifier
   /// order filled whole before any read listed it) still gets its record
   /// read.
   void _armRecheck() {
-    if (_recheck != null) return;
+    if (_disposed || _recheck != null) return;
     _recheck = Timer.periodic(recheckEvery, (_) {
       if (!_tracker.hasUnlisted) {
         _recheck?.cancel();
         _recheck = null;
         return;
       }
+      if (_disposed) return;
       _onTrading(ref.read(polymarketTradingProvider).valueOrNull);
     });
   }
 
   void _onTrading(PolymarketTradingState? s) {
-    if (s == null || !s.isAuthenticated) return;
+    if (_disposed || s == null || !s.isAuthenticated) return;
     final account = s.proxyWalletAddress?.toLowerCase();
     if (account != _account) {
       _account = account;
       _tracker.reset();
+      // Nothing of the last account is checked on.
+      _recheck?.cancel();
+      _recheck = null;
     }
     final seen = _tracker.onOrders(s.openOrders);
     for (final fill in seen.fills) {
@@ -331,10 +344,12 @@ class PolymarketRestingFillsNotifier
   }
 
   Future<void> _readGone(Order order, String? account) async {
+    if (_disposed) return;
     Map<String, dynamic>? record;
     try {
       record = await lookup(ref, order.id);
     } catch (_) {
+      if (_disposed) return;
       // Not read: tried again with the next list, never dropped silently.
       if (account == _account) {
         _tracker.readLater(order);
@@ -342,7 +357,7 @@ class PolymarketRestingFillsNotifier
       }
       return;
     }
-    if (account != _account) return;
+    if (_disposed || account != _account) return;
     final fill = _tracker.onGone(order, record);
     if (fill != null) state = fill;
     if (_tracker.hasUnlisted) _armRecheck();
@@ -353,6 +368,43 @@ final polymarketRestingFillsProvider = NotifierProvider.autoDispose<
     PolymarketRestingFillsNotifier,
     PolymarketRestingFill?>(PolymarketRestingFillsNotifier.new);
 
+
+/// Tells the fills tracker about an order this app just placed that rests,
+/// the one way both the buy (polymarket_bet_controller.dart) and the sell
+/// (sell_sheet.dart) register: [placed] is the venue's answer, [matched]
+/// the shares its receipt states (never told twice), [account] the deposit
+/// wallet it was placed from (a switch meanwhile drops it). Nothing while
+/// the tracker is not alive ([tracking]: the Predictions screen is not up)
+/// or when the order filled whole.
+void polymarketNoteRestingOrder({
+  required bool tracking,
+  required PolymarketRestingFillsNotifier Function() tracker,
+  required Map<String, dynamic> placed,
+  required String? account,
+  required String tokenId,
+  required bool isBuy,
+  required double price,
+  required double shares,
+  required double matched,
+  required String outcome,
+  String market = '',
+}) {
+  final id = '${placed['orderID'] ?? placed['orderId'] ?? ''}';
+  if (id.isEmpty || matched >= shares - 0.005 || !tracking) return;
+  tracker().noteOrder(
+      Order(
+        id: id,
+        market: market,
+        assetId: tokenId,
+        owner: '',
+        side: isBuy ? 'BUY' : 'SELL',
+        price: '$price',
+        originalSize: '$shares',
+        sizeMatched: '$matched',
+        outcome: outcome,
+      ),
+      account: account);
+}
 
 /// The tokens with a resting order: the user channel follows them on top
 /// of the positions, so a resting buy on a token not held yet is heard

@@ -360,6 +360,165 @@ void main() {
     });
   });
 
+  group('the re-check timer (fake time)', () {
+    late _Trading trading;
+    late ProviderContainer container;
+    late List<String> reads;
+
+    late DateTime fakeNow;
+
+    /// Fake time for the timers and the tracker's clock together.
+    Future<void> advance(WidgetTester tester, Duration d) async {
+      fakeNow = fakeNow.add(d);
+      await tester.pump(d);
+    }
+
+    Future<void> start(WidgetTester tester) async {
+      fakeNow = DateTime(2026, 11, 27, 12);
+      PolymarketRestingFillsNotifier.clock = () => fakeNow;
+      trading = _Trading();
+      reads = [];
+      container = ProviderContainer(overrides: [
+        polymarketTradingProvider.overrideWith(() => trading),
+        userChannelProvider.overrideWith(_Channel.new),
+      ]);
+      await tester.runAsync(
+          () => container.read(polymarketTradingProvider.future));
+      container.listen(polymarketRestingFillsProvider, (_, __) {});
+    }
+
+    tearDown(() {
+      PolymarketRestingFillsNotifier.clock = DateTime.now;
+    });
+
+    testWidgets(
+        'arms on a registration, fires, stops with nothing tracked',
+        (tester) async {
+      await start(tester);
+      var answer = <String, dynamic>{
+        'status': 'LIVE',
+        'size_matched': '0',
+        'original_size': '10'
+      };
+      PolymarketRestingFillsNotifier.lookup = (ref, id) async {
+        reads.add(id);
+        return answer;
+      };
+      container
+          .read(polymarketRestingFillsProvider.notifier)
+          .noteOrder(_order('new'), account: '0xabc');
+      // No list carried it yet: the timer reads it.
+      await advance(tester, const Duration(seconds: 30));
+      expect(reads, ['new']);
+      // LIVE: read again on a later tick (after its 20 s), not before.
+      await advance(tester, const Duration(seconds: 30));
+      expect(reads, ['new', 'new']);
+      // Ended: let go, and the timer stops by itself.
+      answer = {'status': 'MATCHED', 'size_matched': '10'};
+      await advance(tester, const Duration(seconds: 30));
+      expect(reads, ['new', 'new', 'new']);
+      await advance(tester, const Duration(seconds: 30));
+      await advance(tester, const Duration(seconds: 90));
+      expect(reads, hasLength(3));
+      container.dispose();
+    });
+
+    testWidgets('stops on another account', (tester) async {
+      await start(tester);
+      PolymarketRestingFillsNotifier.lookup = (ref, id) async {
+        reads.add(id);
+        return {'status': 'LIVE', 'size_matched': '0', 'original_size': '10'};
+      };
+      container
+          .read(polymarketRestingFillsProvider.notifier)
+          .noteOrder(_order('new'), account: '0xabc');
+      trading.account('0xother');
+      await advance(tester, const Duration(minutes: 3));
+      expect(reads, isEmpty);
+      container.dispose();
+    });
+
+    for (final ending in ['throws', 'LIVE'])
+      testWidgets(
+          'disposed with a read in flight ($ending): no timer and no read '
+          'after it', (tester) async {
+        await start(tester);
+        final pending = Completer<Map<String, dynamic>?>();
+        PolymarketRestingFillsNotifier.lookup = (ref, id) {
+          reads.add(id);
+          return pending.future;
+        };
+        trading.orders([_order('a')]);
+        trading.orders(const []);
+        await tester.pump();
+        expect(reads, ['a']);
+        container.dispose();
+        if (ending == 'throws') {
+          pending.completeError(StateError('offline'));
+        } else {
+          pending.complete(
+              {'status': 'LIVE', 'size_matched': '0', 'original_size': '10'});
+        }
+        await tester.pump();
+        await advance(tester, const Duration(minutes: 5));
+        expect(reads, ['a']);
+        // The test framework fails on any timer still pending here.
+      });
+  });
+
+  group('registering a placed order (buy and sell share one path)', () {
+    late _Trading trading;
+    late ProviderContainer container;
+    final fills = <PolymarketRestingFill>[];
+
+    setUp(() async {
+      fills.clear();
+      trading = _Trading();
+      container = ProviderContainer(overrides: [
+        polymarketTradingProvider.overrideWith(() => trading),
+        userChannelProvider.overrideWith(_Channel.new),
+      ]);
+      await container.read(polymarketTradingProvider.future);
+      container.listen<PolymarketRestingFill?>(polymarketRestingFillsProvider,
+          (_, f) {
+        if (f != null) fills.add(f);
+      });
+      PolymarketRestingFillsNotifier.lookup =
+          (ref, id) async => {'status': 'MATCHED', 'size_matched': '10'};
+    });
+    tearDown(() => container.dispose());
+
+    void note({required String? account, double matched = 0}) =>
+        polymarketNoteRestingOrder(
+          tracking: container.exists(polymarketRestingFillsProvider),
+          tracker: () => container.read(polymarketRestingFillsProvider.notifier),
+          placed: {'orderID': 'p1'},
+          account: account,
+          tokenId: 'tok',
+          isBuy: false,
+          price: 0.7,
+          shares: 10,
+          matched: matched,
+          outcome: 'Yes',
+        );
+
+    test('counted from what the receipt stated: only shares beyond it',
+        () async {
+      note(account: '0xABC', matched: 4);
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills.single.filledShares, 6);
+      expect(fills.single.isBuy, isFalse);
+    });
+
+    test('placed on another account: dropped', () async {
+      note(account: '0xdef');
+      trading.orders(const []);
+      await Future<void>.delayed(Duration.zero);
+      expect(fills, isEmpty);
+    });
+  });
+
   testWidgets('a fill is said with the Sal toast', (tester) async {
     late BuildContext ctx;
     await tester.pumpWidget(ScreenUtilInit(

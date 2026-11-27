@@ -4,13 +4,17 @@
 //   * a cold boot (no cache, no earlier list) whose orders read fails is
 //     nothing reserved, exactly as before limits: a plain bet is never held;
 //   * a cash-only tick keeps the account's list, never another account's;
-//   * a failed full read keeps the account's last list (a known reserve
-//     stays held, resting sells stay locked) for kPolymarketKeptOrdersFor,
-//     then the account reads as nothing reserved again, and a read that
-//     lands starts over.
+//   * a failed full read keeps the account's last list: its buys keep
+//     reserving cash until a read lands (no expiry: the spendable figure,
+//     the slip's shortfall and the sweeper all read it); its sells stop
+//     locking shares past kPolymarketKeptOrdersFor; a read that lands
+//     resets both; an account with no resting orders is as before at
+//     every step.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/providers/investment_balances_provider.dart'
+    show polymarketInvestmentBalances;
 import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
@@ -141,44 +145,77 @@ void main() {
         isEmpty);
   });
 
+  Order sell(String id, {String size = '6'}) => Order(
+      id: id,
+      market: 'm',
+      assetId: 't',
+      owner: 'x',
+      side: 'SELL',
+      price: '0.70',
+      originalSize: size,
+      sizeMatched: '0',
+      outcome: 'Yes');
+
   test(
-      'a failed full read keeps the list for its bound, then nothing is '
-      'reserved; a read that lands starts over', () async {
+      'cash stays reserved until a read lands, past the bound too; shares '
+      'stop being locked past the bound; a read that lands resets both',
+      () async {
     final (n, backend, _) = await account();
-    backend.orders = [_buy('o1')];
-    await read(n);
-    backend.orders = null;
-    // Failing reads within the bound: the reserve ($3 of $5) is held.
+    backend.orders = [_buy('o1'), sell('s1')];
     var s = await read(n);
-    expect(s.openOrders.single.id, 'o1');
+    expect(s.openOrdersStaleSince, isNull);
+    backend.orders = null;
+    s = await read(n);
+    final since = s.openOrdersStaleSince;
+    expect(since, now);
+    expect(polymarketLockedSellShares(s, 't', now: now), 6);
+    // Well past the bound, the reads still failing.
+    now = now.add(kPolymarketKeptOrdersFor * 4);
+    s = await read(n);
+    expect(s.openOrdersStaleSince, since);
+    // CASH: the resting buy (10 at 30c = \$3 of \$5) still holds.
+    expect(s.openOrders.map((o) => o.id), ['o1', 's1']);
     expect(PolymarketBetController.spendableUsdc(s.usdcBalance, s.openOrders),
         closeTo(2, 1e-9));
-    now = now.add(kPolymarketKeptOrdersFor);
+    // The sweeper's figure (venue_sweeper_provider.dart) and the
+    // Investments total hold it too.
+    final venue = polymarketInvestmentBalances(state: s, orders: s.openOrders);
+    expect(venue.available, closeTo(2, 1e-9));
+    // SHARES: the resting sell no longer locks them.
+    expect(polymarketLockedSellShares(s, 't', now: now), 0);
+    // A read that lands: its list, the clock cleared, the sell locks again.
+    backend.orders = [sell('s2', size: '4')];
     s = await read(n);
-    expect(s.openOrders.single.id, 'o1');
-    // Past it: nothing reserved, the venue's refusal is the guard.
-    now = now.add(const Duration(seconds: 1));
-    s = await read(n);
-    expect(s.openOrders, isEmpty);
+    expect(s.openOrdersStaleSince, isNull);
+    expect(polymarketLockedSellShares(s, 't', now: now), 4);
     expect(PolymarketBetController.spendableUsdc(s.usdcBalance, s.openOrders),
         5);
-    // A read that lands: its list, and the clock starts over.
-    backend.orders = [_buy('o2')];
-    expect((await read(n)).openOrders.single.id, 'o2');
-    backend.orders = null;
-    now = now.add(const Duration(minutes: 1));
-    expect((await read(n)).openOrders.single.id, 'o2');
   });
 
   test(
-      'a cached list restored at launch is kept for the bound too while '
-      'every read fails', () async {
+      'an account with no resting orders reads exactly as before at every '
+      'step, failing or not', () async {
+    final (n, backend, _) = await account();
+    for (final orders in [const <Order>[], null, null, const <Order>[], null]) {
+      backend.orders = orders;
+      now = now.add(kPolymarketKeptOrdersFor);
+      final s = await read(n);
+      expect(s.openOrders, isEmpty);
+      expect(s.openOrdersStaleSince, isNull);
+      expect(PolymarketBetController.spendableUsdc(s.usdcBalance, s.openOrders),
+          5);
+    }
+  });
+
+  test(
+      'a cached list restored at launch keeps its cash reserved while every '
+      'read fails', () async {
     final (n, backend, _) = await account(
         start: PolymarketTradingState(
             proxyWalletAddress: _a, usdcBalance: 5, openOrders: [_buy('c1')]));
     backend.orders = null;
     expect((await read(n)).openOrders.single.id, 'c1');
-    now = now.add(kPolymarketKeptOrdersFor + const Duration(seconds: 1));
-    expect((await read(n)).openOrders, isEmpty);
+    now = now.add(kPolymarketKeptOrdersFor * 2);
+    expect((await read(n)).openOrders.single.id, 'c1');
   });
 }

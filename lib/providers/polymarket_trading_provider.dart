@@ -3,6 +3,8 @@ import 'package:kute/services/hardware/ledger/ledger_failure.dart'
 import 'package:kute/services/polymarket/relayer_wallet_queue.dart'
     show isTransientRelayerRefusal;
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/limit_order_rules.dart'
+    show polymarketSharesInRestingSells;
 import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
 import 'package:kute/services/polymarket/warm_connections.dart';
@@ -127,6 +129,9 @@ typedef PolyBuyReads = ({
   bool setupDone,
 });
 
+/// copyWith's 'not given' for a field that may be set to null.
+const Object _keep = Object();
+
 class PolymarketTradingState {
   final bool isAuthenticated;
 
@@ -168,6 +173,12 @@ class PolymarketTradingState {
   /// for "unknown": the slip waits instead of offering a deposit on it.
   final bool balanceKnown;
 
+  /// When the orders reads began failing while [openOrders] (the last
+  /// known list) holds anything; null otherwise. Its resting sells stop
+  /// locking shares past [kPolymarketKeptOrdersFor]; its buys keep
+  /// reserving cash ([polymarketLockedSellShares]).
+  final DateTime? openOrdersStaleSince;
+
   /// True while the figures shown are the last ones the device knew (the
   /// account cache, or a brand-new wallet's known $0.00) or the account is
   /// still finishing its start (credentials, open orders): a fresh read is
@@ -201,6 +212,7 @@ class PolymarketTradingState {
     this.pendingSaleTokens = const {},
     this.clearingConditionIds = const {},
     this.balanceKnown = true,
+    this.openOrdersStaleSince,
     this.refreshing = false,
     this.pendingFills = const [],
     this.confirmedSales = const [],
@@ -221,6 +233,7 @@ class PolymarketTradingState {
     Set<String>? pendingSaleTokens,
     Set<String>? clearingConditionIds,
     bool? balanceKnown,
+    Object? openOrdersStaleSince = _keep,
     bool? refreshing,
     List<PolymarketPendingFill>? pendingFills,
     List<PolymarketConfirmedSale>? confirmedSales,
@@ -240,6 +253,9 @@ class PolymarketTradingState {
       pendingSaleTokens: pendingSaleTokens ?? this.pendingSaleTokens,
       clearingConditionIds: clearingConditionIds ?? this.clearingConditionIds,
       balanceKnown: balanceKnown ?? this.balanceKnown,
+      openOrdersStaleSince: identical(openOrdersStaleSince, _keep)
+          ? this.openOrdersStaleSince
+          : openOrdersStaleSince as DateTime?,
       refreshing: refreshing ?? this.refreshing,
       pendingFills: pendingFills ?? this.pendingFills,
       confirmedSales: confirmedSales ?? this.confirmedSales,
@@ -271,6 +287,7 @@ class PolymarketTradingState {
         error == other.error &&
         isPlacingOrder == other.isPlacingOrder &&
         refreshing == other.refreshing &&
+        openOrdersStaleSince == other.openOrdersStaleSince &&
         setEquals(pendingSaleTokens, other.pendingSaleTokens) &&
         setEquals(clearingConditionIds, other.clearingConditionIds) &&
         _samePositionValues(openPositions, other.openPositions) &&
@@ -382,31 +399,50 @@ class PolymarketEvmFormatPendingException implements Exception {
 ///   them);
 /// * a known address is never replaced with null, and a balance that could
 ///   not be read keeps the last one that was.
-/// How long a known open-orders list is kept while every orders read
-/// fails: about ten failed full reads, so a blip never drops a reserve,
-/// and short enough that a list nobody can refresh (an order cancelled
-/// elsewhere) never holds cash or locks shares for long. Past it the
-/// account reads as nothing reserved, as it did before limits, and the
-/// venue's own refusal is the guard.
+// ── The account's resting orders while their reads fail ──────────────
+//
+// One rule, two halves (the only place either is decided):
+//   * CASH: the same account's last known list keeps reserving what its
+//     resting buys hold until a read lands, with no expiry. Holding a
+//     little too much only funds a bet a little more (said before
+//     Confirm) and keeps Rebalance off it; never money moved for an order
+//     the venue would refuse ([polymarketOrdersAfterRead]).
+//   * SHARES: its resting sells stop locking shares once the reads have
+//     failed for [kPolymarketKeptOrdersFor], so nobody is locked out of
+//     selling by a list nobody can refresh; the venue's refusal is the
+//     guard and no money moves on a sell ([polymarketLockedSellShares]).
+// An account with no resting orders reads exactly as before limits.
+
+/// How long the resting sells of a list nobody can refresh still lock
+/// shares: about ten failed full reads, so a blip never frees them, and
+/// short enough that nobody is locked out of selling for long.
 const Duration kPolymarketKeptOrdersFor = Duration(minutes: 5);
 
 /// The open orders a refresh carries: the list [read] (null: a cash-only
-/// tick, or a read that failed); else the same account's [previous] list
-/// while the reads have been failing for no longer than
-/// [kPolymarketKeptOrdersFor] ([staleFor], null while none failed); else
-/// none, as before (the venue's own refusal is the guard; nobody waits).
+/// tick, or a read that failed); else the same account's [previous] list,
+/// kept as long as reads fail (its buys keep reserving cash); else none,
+/// as before limits.
 @visibleForTesting
 List<Order> polymarketOrdersAfterRead({
   required List<Order>? read,
   required PolymarketTradingState? previous,
-  Duration? staleFor,
-}) {
-  if (read != null) return read;
-  if (previous != null &&
-      (staleFor == null || staleFor <= kPolymarketKeptOrdersFor)) {
-    return previous.openOrders;
+}) =>
+    read ?? previous?.openOrders ?? const <Order>[];
+
+/// The shares of [tokenId] held by [state]'s resting sells: what a new
+/// sale cannot offer. None once the orders reads have failed for longer
+/// than [kPolymarketKeptOrdersFor] ([PolymarketTradingState
+/// .openOrdersStaleSince]), measured at [now].
+double polymarketLockedSellShares(
+    PolymarketTradingState? state, String? tokenId, {DateTime? now}) {
+  if (state == null) return 0;
+  final since = state.openOrdersStaleSince;
+  if (since != null &&
+      (now ?? PolymarketTradingNotifier.ordersClock()).difference(since) >
+          kPolymarketKeptOrdersFor) {
+    return 0;
   }
-  return const <Order>[];
+  return polymarketSharesInRestingSells(state.openOrders, tokenId);
 }
 
 @visibleForTesting
@@ -2374,17 +2410,17 @@ class PolymarketTradingNotifier
     // failed full read starts the clock on the kept list, a read that
     // lands stops it, another account starts over.
     final ordersRead = results[1] as List<Order>?;
-    final ordersNow = ordersClock();
-    if (!samePreviousAccount) _ordersStaleSince = null;
-    if (full) {
-      _ordersStaleSince = ordersRead != null ? null : (_ordersStaleSince ?? ordersNow);
-    }
     final orders = polymarketOrdersAfterRead(
         read: ordersRead,
-        previous: samePreviousAccount ? previous : null,
-        staleFor: _ordersStaleSince == null
-            ? null
-            : ordersNow.difference(_ordersStaleSince!));
+        previous: samePreviousAccount ? previous : null);
+    // When the reads began failing, for the sells' half of the rule; only
+    // while a kept list holds anything, so an account with no resting
+    // orders reads exactly as before.
+    if (!samePreviousAccount || ordersRead != null || orders.isEmpty) {
+      _ordersStaleSince = null;
+    } else if (full) {
+      _ordersStaleSince ??= ordersClock();
+    }
     final onChainUsdc = results[2] as double;
     // The settled rows held to their result (the state's closedPositions,
     // which the history reads as Won / Lost) and, for everything below
@@ -2620,6 +2656,7 @@ class PolymarketTradingNotifier
       openPositions: positions,
       closedPositions: heldToResult,
       openOrders: orders,
+      openOrdersStaleSince: _ordersStaleSince,
       walletAddress: eoaAddress,
       proxyWalletAddress: proxyWallet,
       pendingSaleTokens: _pendingSaleTokens.keys.toSet(),

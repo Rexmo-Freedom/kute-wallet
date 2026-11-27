@@ -66,13 +66,17 @@ class _Prices extends LivePriceNotifier {
 }
 
 class _Trading extends PolymarketTradingNotifier {
-  _Trading(this.orders);
+  _Trading(this.orders, {this.balance = 100, this.staleSince});
   final List<Order> orders;
+  final double balance;
+  final DateTime? staleSince;
   @override
   Future<void> refresh() async {}
   @override
-  Future<PolymarketTradingState> build() async =>
-      PolymarketTradingState(usdcBalance: 100, openOrders: orders);
+  Future<PolymarketTradingState> build() async => PolymarketTradingState(
+      usdcBalance: balance,
+      openOrders: orders,
+      openOrdersStaleSince: staleSince);
 }
 
 class _Currency extends StateNotifier<CurrencyState>
@@ -125,9 +129,12 @@ SettingsModel _settings() => SettingsModel(Settings(
   reviewDone: true,
 ));
 
-List<Override> _overrides(List<Order> orders) => [
+List<Override> _overrides(List<Order> orders,
+        {double balance = 100, DateTime? staleSince}) =>
+    [
       settingsProvider.overrideWith((ref) => _settings()),
-      polymarketTradingProvider.overrideWith(() => _Trading(orders)),
+      polymarketTradingProvider.overrideWith(
+          () => _Trading(orders, balance: balance, staleSince: staleSince)),
       swapOrdersProvider.overrideWith((ref) => FakeSwapOrders()),
       livePriceProvider.overrideWith(_Prices.new),
       polymarketOpenOrdersProvider.overrideWith((ref) => Stream.value(orders)),
@@ -164,11 +171,15 @@ void _phone(WidgetTester tester) {
 }
 
 Future<ProviderContainer> _pumpSlip(WidgetTester tester,
-    {required double price, List<Order> orders = const []}) async {
+    {required double price,
+    List<Order> orders = const [],
+    double balance = 100,
+    double initialAmountUsd = 10,
+    DateTime? staleSince}) async {
   _phone(tester);
   installShellBar();
   await tester.pumpWidget(ProviderScope(
-    overrides: _overrides(orders),
+    overrides: _overrides(orders, balance: balance, staleSince: staleSince),
     child: shellBarApp(
       home: Scaffold(
         resizeToAvoidBottomInset: false,
@@ -188,7 +199,7 @@ Future<ProviderContainer> _pumpSlip(WidgetTester tester,
                   tokenId: 'no-t',
                   conditionId: 'c1'),
             ],
-            initialAmountUsd: 10,
+            initialAmountUsd: initialAmountUsd,
           ),
         ),
       ),
@@ -458,6 +469,63 @@ void main() {
           '2.16');
       expect(find.textContaining('6.00 shares in open orders'), findsWidgets);
       expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+  });
+
+  group('a resting buy\'s cash while the orders reads fail', () {
+    testWidgets(
+        'its reserve still counts in the slip\'s shortfall past the bound: '
+        'a \$5 bet on \$10 with \$8 held asks for funding; without it, the '
+        'bet itself', (tester) async {
+      final longAgo = DateTime.now().subtract(const Duration(hours: 1));
+      await _pumpSlip(tester,
+          price: 0.5,
+          balance: 10,
+          initialAmountUsd: 5,
+          staleSince: longAgo,
+          orders: [_order('yes-t', 'BUY', 20, price: 0.4)]);
+      expect(find.byKey(const ValueKey('bet-slip-deposit-door')),
+          findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await _pumpSlip(tester, price: 0.5, balance: 10, initialAmountUsd: 5);
+      expect(find.byKey(const ValueKey('bet-slip-deposit-door')),
+          findsNothing);
+      expect(find.text(r'Place $5.00 on Yes'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'its resting sells stop locking shares past the bound: the whole '
+        'position may be offered again', (tester) async {
+      final policy = await _allow();
+      _phone(tester);
+      installShellBar();
+      await tester.pumpWidget(ProviderScope(
+        overrides: _overrides([_order('yes-t', 'SELL', 6, price: 0.7)],
+            staleSince: DateTime.now()
+                .subtract(kPolymarketKeptOrdersFor + const Duration(minutes: 1))),
+        child: shellBarApp(
+          theme: ThemeData(
+            splashFactory: NoSplash.splashFactory,
+            extensions: [AppColorsExtension.light()],
+          ),
+          home: Scaffold(
+              body: SellSheet(position: _position(size: 10, price: 0.5))),
+        ),
+      ));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.tap(find.bySemanticsLabel('Use maximum'));
+      await tester.pump();
+      // Every share, nothing said locked: the venue's refusal is the guard.
+      expect(
+          tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+              .amountText,
+          '5');
+      expect(find.textContaining('in open orders'), findsNothing);
+      expect(find.byKey(const ValueKey('poly-sell-issue')), findsNothing);
       await _release(tester, policy);
     });
   });

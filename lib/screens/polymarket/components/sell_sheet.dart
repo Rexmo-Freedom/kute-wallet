@@ -273,9 +273,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
 
   /// Shares of this position already offered in resting sells: the venue
   /// holds them, so a new sale cannot offer them again (P4).
-  double get _lockedShares => polymarketSharesInRestingSells(
-      ref.read(polymarketTradingProvider).valueOrNull?.openOrders ?? const [],
-      pos.tokenId);
+  double get _lockedShares => polymarketLockedSellShares(
+      ref.read(polymarketTradingProvider).valueOrNull, pos.tokenId);
 
   /// What may be sold now: the position less what resting sells hold.
   double get _freeShares => polymarketFreeShares(pos.size, _lockedShares);
@@ -755,24 +754,20 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         // fill before the next orders read is still said, counted from
         // the shares the receipt states (_finishSale: the settlement's).
         // Registered only on the account it was placed from.
-        final restingId =
-            '${placed['orderID'] ?? placed['orderId'] ?? ''}';
-        if (mounted &&
-            restingId.isNotEmpty &&
-            settlement.soldShares < sellShares - 0.005 &&
-            ref.exists(polymarketRestingFillsProvider)) {
-          ref.read(polymarketRestingFillsProvider.notifier).noteOrder(Order(
-                id: restingId,
-                market: pos.marketId,
-                assetId: tokenId,
-                owner: '',
-                side: 'SELL',
-                price: '$price',
-                originalSize: '$sellShares',
-                sizeMatched: '${settlement.soldShares}',
-                outcome: pos.outcome,
-              ),
-              account: placedOn);
+        if (mounted) {
+          polymarketNoteRestingOrder(
+            tracking: ref.exists(polymarketRestingFillsProvider),
+            tracker: () => ref.read(polymarketRestingFillsProvider.notifier),
+            placed: placed,
+            account: placedOn,
+            tokenId: tokenId,
+            isBuy: false,
+            price: price,
+            shares: sellShares,
+            matched: settlement.soldShares,
+            outcome: pos.outcome,
+            market: pos.marketId,
+          );
         }
         TrackingService.track('polymarket_limit_sell_placed', params: {
           ..._kindParams(),
@@ -2466,9 +2461,8 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
   }
 
   /// Shares of this position already offered in resting sells.
-  double get _lockedShares => polymarketSharesInRestingSells(
-      ref.watch(polymarketTradingProvider
-          .select((s) => s.valueOrNull?.openOrders ?? const [])),
+  double get _lockedShares => polymarketLockedSellShares(
+      ref.watch(polymarketTradingProvider.select((s) => s.valueOrNull)),
       pos.tokenId);
 
   /// What may be sold now: the position less what resting sells hold.

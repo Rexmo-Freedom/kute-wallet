@@ -16,6 +16,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -24,7 +25,9 @@ import 'package:kute/providers/pending_bet_autofire.dart'
     show autofireLimitOrder;
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart';
+import 'package:kute/providers/polymarket_resting_fills_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/providers/polymarket_user_channel_provider.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
     show betSlipWorstFeePrice;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
@@ -51,10 +54,17 @@ class _Trading extends PolymarketTradingNotifier {
   final double balance;
   final List<Order> orders;
 
+  /// The venue's answer: null throws (the default fake stops there).
+  Map<String, dynamic>? answer;
+
+  /// The account changes while the order is placed (a wallet switch).
+  String? switchTo;
+
   final placed = <({double size, double price, double? feeReserve})>[];
 
   @override
   Future<PolymarketTradingState> build() async => PolymarketTradingState(
+      isAuthenticated: true,
       usdcBalance: balance,
       proxyWalletAddress: '0xdeposit',
       openOrders: orders);
@@ -99,7 +109,14 @@ class _Trading extends PolymarketTradingNotifier {
     void Function(String step)? onStep,
   }) async {
     placed.add((size: size, price: price, feeReserve: feeReserveUsd));
-    throw StateError('stopped by the test');
+    final to = switchTo;
+    if (to != null) {
+      state = AsyncData(PolymarketTradingState(
+          isAuthenticated: true, usdcBalance: balance, proxyWalletAddress: to));
+    }
+    final a = answer;
+    if (a == null) throw StateError('stopped by the test');
+    return a;
   }
 }
 
@@ -128,19 +145,47 @@ PendingBetIntent _limit(double amount, double price) => PendingBetIntent(
       limitPrice: price,
     );
 
+class _Channel extends UserChannelNotifier {
+  @override
+  UserChannelState build() => const UserChannelState();
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  // A placed bet plays its sound: no audio plugin in a test.
+  for (final channel in const [
+    'xyz.luan/audioplayers.global',
+    'xyz.luan/audioplayers',
+  ]) {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(MethodChannel(channel), (_) async => null);
+  }
   Future<({Object? error, _Trading trading, PendingBetIntent? pending})> run(
       PendingBetIntent intent,
       {Map<String, dynamic>? book,
       double balance = 50,
-      List<Order> orders = const []}) async {
-    final trading = _Trading(balance: balance, orders: orders);
+      List<Order> orders = const [],
+      Map<String, dynamic>? answer,
+      String? switchTo,
+      double? receiptShares,
+      List<PolymarketRestingFill>? fills}) async {
+    final trading = _Trading(balance: balance, orders: orders)
+      ..answer = answer
+      ..switchTo = switchTo;
     final container = ProviderContainer(overrides: [
       polymarketTradingProvider.overrideWith(() => trading),
+      userChannelProvider.overrideWith(_Channel.new),
     ]);
     addTearDown(container.dispose);
     container.listen(polymarketTradingProvider, (_, __) {});
     await container.read(polymarketTradingProvider.future);
+    // The Predictions screen's fills tracker, when the test follows it.
+    if (fills != null) {
+      container.listen<PolymarketRestingFill?>(polymarketRestingFillsProvider,
+          (_, f) {
+        if (f != null) fills.add(f);
+      });
+    }
     final controller = container.read(polymarketBetControllerProvider);
     Object? error;
     await http.runWithClient(() async {
@@ -151,7 +196,10 @@ void main() {
         error = e;
         return;
       }
-      container.read(pendingPolymarketBetProvider.notifier).setIntent(prepared);
+      container.read(pendingPolymarketBetProvider.notifier).setIntent(
+          receiptShares == null
+              ? prepared
+              : prepared.copyWith(filledShares: receiptShares));
       final review = controller.reviewIntent(prepared)!;
       final grant = AuthGrants.issue(review, method: AuthGrantMethod.allowance);
       await controller.place('usdc', grant: grant);
@@ -159,12 +207,47 @@ void main() {
         () => MockClient((req) async => req.url.path == '/book'
             ? http.Response(jsonEncode(book ?? _book()), 200)
             : http.Response('offline', 503)));
+    // A list read after the placement that no longer carries the order:
+    // its record is read (it filled whole, 10 shares).
+    if (fills != null) {
+      trading.state = AsyncData(trading.state.requireValue
+          .copyWith(openOrders: const <Order>[]));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
     return (
       error: error,
       trading: trading,
       pending: container.read(pendingPolymarketBetProvider)
     );
   }
+
+  group('a resting buy registered for its fills (the controller path)', () {
+    final live = {
+      'success': true,
+      'status': 'live',
+      'orderID': '0x${'a' * 64}',
+    };
+    setUp(() => PolymarketRestingFillsNotifier.lookup =
+        (ref, id) async => {'status': 'MATCHED', 'size_matched': '10'});
+
+    test(
+        'counted from the larger of the settlement and the receipt: the '
+        'toast says only the shares beyond what the receipt said', () async {
+      final fills = <PolymarketRestingFill>[];
+      // 10 shares at 50c; the receipt already said 4 bought on arrival.
+      await run(_limit(5, 0.5), answer: live, receiptShares: 4, fills: fills);
+      expect(fills.single.orderId, live['orderID']);
+      expect(fills.single.filledShares, 6);
+    });
+
+    test('placed while the wallet switched: never registered on the next',
+        () async {
+      final fills = <PolymarketRestingFill>[];
+      await run(_limit(5, 0.5),
+          answer: live, switchTo: '0xother', fills: fills);
+      expect(fills, isEmpty);
+    });
+  });
 
   test('P2: the minimum stake at 28¢ signs 5.00 shares, never 4.99',
       () async {
