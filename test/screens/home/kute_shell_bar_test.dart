@@ -144,6 +144,56 @@ void main() {
     }
   });
 
+  testWidgets(
+      'regression (84d61d50): the default pill does not come back over the '
+      'home after a market page is opened and closed on the wide web layout',
+      (tester) async {
+    KuteLayout.debugWeb = true;
+    KuteBarPane.debugWeb = true;
+    kuteShellMounted.value = true;
+    addTearDown(() {
+      KuteLayout.debugWeb = false;
+      KuteBarPane.debugWeb = false;
+      kuteShellMounted.value = false;
+    });
+    await _pump(tester, size: const Size(1440, 900));
+    // The home tab: no default pill (the search is the top bar's).
+    expect(_up(tester), isFalse);
+    // A market page: its own trade row still shows.
+    await _push(
+        tester,
+        _page(
+            barContext: KuteBarContext.trade(
+                share: const KuteBarShare(barContext: _market),
+                trades: [
+          KuteBarTrade(
+              id: 'invest',
+              label: 'Invest',
+              fill: const Color(0xFF22AA66),
+              onTap: () {}),
+        ])),
+        name: 'market');
+    expect(_up(tester), isTrue);
+    expect(find.text('Invest'), findsOneWidget);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse, reason: 'back on the home: still no pill');
+    expect(find.text('Search or Manage with AI').hitTestable(), findsNothing);
+    // A plain page (the Portfolio, Add account): none, then none again.
+    await _push(tester, _page(), name: 'portfolio');
+    expect(_up(tester), isFalse);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
+    // Down to a phone's width the pill is back; wide again, gone again.
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isTrue);
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
+  });
+
   testWidgets('away over the tabs; up with the default over a pushed page',
       (tester) async {
     await _pump(tester);

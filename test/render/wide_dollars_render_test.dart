@@ -319,10 +319,12 @@ void main() {
   if (web) {
     setUp(() {
       KuteBarPane.debugWeb = true;
+      KuteLayout.debugWeb = true;
       PolymarketScreen.debugWideWeb = true;
     });
     tearDown(() {
       KuteBarPane.debugWeb = false;
+      KuteLayout.debugWeb = false;
       PolymarketScreen.debugWideWeb = false;
     });
   }
@@ -357,6 +359,11 @@ void main() {
     '1920x1080': Size(1920, 1080),
     '2400x1200': Size(2400, 1200),
     '1000x700': Size(1000, 700),
+    '1024x768': Size(1024, 768),
+    '960x760': Size(960, 760),
+    '900x760': Size(900, 760),
+    '840x760': Size(840, 760),
+    '620x800': Size(620, 800),
     '820x1180': Size(820, 1180),
     '430x932': Size(430, 932),
   };

@@ -372,18 +372,24 @@ extension on _KuteDesktopTopBar {
                       children: [
                         compact ? const _KuteMark() : const _KuteLockup(),
                         SizedBox(width: gap),
-                        SizedBox(
-                          width: switchWidth,
-                          child: FloatingActionPill(
-                            activeTab: activeTab,
-                            onSelectTab: onSelectTab,
-                            pagePosition: pagePosition,
+                        // Its width while the row has it; a window just
+                        // past a phone's narrows it rather than overflow.
+                        Flexible(
+                          flex: 3,
+                          child: SizedBox(
+                            width: switchWidth,
+                            child: FloatingActionPill(
+                              activeTab: activeTab,
+                              onSelectTab: onSelectTab,
+                              pagePosition: pagePosition,
+                            ),
                           ),
                         ),
                         SizedBox(width: gap),
                         // The compact balance, never wider than its own
                         // cap; with no room at all, away.
                         Flexible(
+                          flex: 2,
                           child: LayoutBuilder(
                             builder: (context, box) => box.maxWidth < 72
                                 ? const SizedBox.shrink()
