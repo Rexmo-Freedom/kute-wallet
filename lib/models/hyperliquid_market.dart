@@ -1080,6 +1080,14 @@ class HlAccountSnapshot {
   /// builder dexes only (hl_exposure_rule.dart).
   final Set<String> positionDexes;
 
+  /// When each dex's positions in [positions] were read (the moment its
+  /// `clearinghouseState` request was sent), by dex. Empty for a snapshot
+  /// not read from the venue (a cache, a test). A builder dex's part a
+  /// credit watch reused keeps the time of the read it came from. The
+  /// order path re-reads a dex whose positions are older than
+  /// kHlPositionsFreshFor (hl_exposure_rule.dart) before it funds or writes leverage.
+  final Map<String, DateTime> positionsReadAt;
+
   const HlAccountSnapshot({
     required this.accountValue,
     required this.withdrawable,
@@ -1089,6 +1097,7 @@ class HlAccountSnapshot {
     required this.spotBalances,
     this.activeDexes = const {},
     this.positionDexes = const {''},
+    this.positionsReadAt = const {},
   });
 
   /// True when this (single-dex) snapshot holds equity, margin or a
@@ -1108,6 +1117,7 @@ class HlAccountSnapshot {
     required Map<String, dynamic> perpState,
     Map<String, dynamic>? spotState,
     String dex = '',
+    DateTime? readAt,
   }) {
     final marginSummary = (perpState['marginSummary'] is Map<String, dynamic>)
         ? perpState['marginSummary'] as Map<String, dynamic>
@@ -1135,6 +1145,7 @@ class HlAccountSnapshot {
       positions: positions,
       spotBalances: balances,
       positionDexes: {dex},
+      positionsReadAt: readAt == null ? const {} : {dex: readAt},
     );
   }
 }

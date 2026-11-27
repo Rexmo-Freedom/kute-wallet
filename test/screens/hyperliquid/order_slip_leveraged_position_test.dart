@@ -327,4 +327,33 @@ void main() {
     expect(find.text(_note), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  for (final cross in [false, true]) {
+    testWidgets(
+        'the Details row says the held 10x ${cross ? 'cross' : 'isolated'} '
+        'position\'s own leverage and margin, never "1×"', (tester) async {
+      await _pump(tester,
+          isLong: true, heldUsd: -500, cross: cross, advanced: true);
+      final button = find.byKey(const ValueKey('slip-advanced-button'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      final real = cross ? '10× · Shared balance' : '10× · Separate balance';
+      expect(find.text(real, skipOffstage: false), findsWidgets);
+      expect(find.text('1× · Separate balance', skipOffstage: false),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a flat market: the Details row says 1× · Separate balance',
+      (tester) async {
+    await _pump(tester, isLong: true, heldUsd: 0, advanced: true);
+    final button = find.byKey(const ValueKey('slip-advanced-button'));
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.text('1× · Separate balance', skipOffstage: false),
+        findsWidgets);
+  });
 }

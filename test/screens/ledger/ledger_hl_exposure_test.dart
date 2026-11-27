@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart';
@@ -66,6 +67,29 @@ LedgerHlAccount _account(List<HlPerpPosition>? positions) => LedgerHlAccount(
               spotBalances: const []),
     );
 
+/// The venue the order path reads the market's dex from right before the
+/// leverage write: [positions] (null: the read fails).
+class _Venue extends HyperliquidModel {
+  _Venue(this.positions);
+  final List<HlPerpPosition>? positions;
+  final reads = <String>[];
+
+  @override
+  Future<HlAccountSnapshot> getDexClearinghouse(
+      String address, String dex) async {
+    reads.add(dex);
+    final p = positions;
+    if (p == null) throw StateError('info failed');
+    return HlAccountSnapshot(
+        accountValue: 100,
+        withdrawable: 100,
+        totalMarginUsed: 50,
+        positions: p,
+        spotBalances: const [],
+        positionDexes: {dex});
+  }
+}
+
 class _Policy extends Fake implements RuntimeCapabilitiesService {
   @override
   RuntimeCapabilities? get snapshot => null;
@@ -83,11 +107,14 @@ class _Policy extends Fake implements RuntimeCapabilitiesService {
 Future<({Object? error, bool done})> _run(WidgetTester tester,
     {required LedgerHlAccount account,
     required bool isBuy,
-    required double usd}) async {
+    required double usd,
+    _Venue? venue}) async {
   Object? error;
   var done = false;
+  final v = venue ?? _Venue(account.account?.positions);
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      ledgerHyperliquidModelProvider.overrideWithValue(v),
       ledgerIdentityProvider.overrideWith((ref, id) => const LedgerIdentity(
           walletId: _walletId, evmAddress: _address, evmVerifiedAtMs: 1)),
       ledgerHlAccountProvider.overrideWith((ref, id) async => account),
@@ -172,6 +199,36 @@ void main() {
       tester.takeException();
     });
   }
+
+  testWidgets(
+      'a 10x cross short opened elsewhere since the ticket read the account '
+      'flat: the fresh read before the leverage write refuses the add, no '
+      'prompt', (tester) async {
+    final venue = _Venue([_short(cross: true)]);
+    final r = await _run(tester,
+        account: _account(const []), isBuy: false, usd: 100, venue: venue);
+    expect(r.error, isA<HlExposureRefusedException>());
+    expect(venue.reads, ['']);
+    // No leverage sheet, no order sheet.
+    expect(find.byType(LedgerApprovalSheet, skipOffstage: false),
+        findsNothing);
+  });
+
+  testWidgets(
+      'the fresh read fails: refused as unknown before the leverage write',
+      (tester) async {
+    final r = await _run(tester,
+        account: _account(const []),
+        isBuy: true,
+        usd: 100,
+        venue: _Venue(null));
+    expect(
+        r.error,
+        isA<HlExposureRefusedException>().having(
+            (e) => e.refusal, 'refusal', HlExposureRefusal.positionUnknown));
+    expect(find.byType(LedgerApprovalSheet, skipOffstage: false),
+        findsNothing);
+  });
 
   testWidgets('an account the Ledger could not read: refused, no prompt',
       (tester) async {

@@ -351,6 +351,11 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   final HlAccountReads reads = HlAccountReads();
   int _currentIntervalSecs = kHlIdleIntervalSecs;
 
+  /// The last completed read of [address], even one the state skipped as
+  /// unchanged ([_take]'s value-equality): the order path asks how old the
+  /// positions are ([HlAccountSnapshot.positionsReadAt]).
+  HlAccountSnapshot? lastReadOf(String address) => reads.lastOf(address);
+
   /// Test-only: the cadence currently in force, seconds.
   @visibleForTesting
   int get debugIntervalSecs => _currentIntervalSecs;

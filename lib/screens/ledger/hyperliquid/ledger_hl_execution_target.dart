@@ -187,10 +187,42 @@ bool ledgerHlEnsureExposure(
   required bool isBuy,
   required double size,
   bool reduceOnly = false,
+}) =>
+    ledgerHlEnsureExposureOn(ledgerHlHeldPosition(account, market), market,
+        isBuy: isBuy, size: size, reduceOnly: reduceOnly);
+
+/// The position on [market] read fresh for the Ledger account at
+/// [address]: one `clearinghouseState` for the market's dex, right before
+/// a leverage write or an order that can add exposure ("known flat" from
+/// the ticket's earlier read can miss a position opened elsewhere since).
+/// Unknown when the read fails, never "no position".
+Future<({HlHeldPosition held, DateTime at})> ledgerHlFreshHeldPosition(
+    WidgetRef ref, String address, HlMarket market) async {
+  final at = DateTime.now();
+  if (market.isSpot) return (held: const HlHeldPosition.flat(), at: at);
+  try {
+    final snap = await ref
+        .read(ledgerHyperliquidModelProvider)
+        .getDexClearinghouse(address, market.dex);
+    return (held: HlHeldPosition.fromSnapshot(market, snap), at: at);
+  } catch (_) {
+    return (held: const HlHeldPosition.unknown(), at: at);
+  }
+}
+
+/// The exposure rule for a Ledger order of [size] coins against [held]
+/// (as [ledgerHlEnsureExposure]): throws, or says whether it must go out
+/// reduce-only.
+bool ledgerHlEnsureExposureOn(
+  HlHeldPosition held,
+  HlMarket market, {
+  required bool isBuy,
+  required double size,
+  bool reduceOnly = false,
 }) {
   final check = hlExposureCheck(
     market: market,
-    held: ledgerHlHeldPosition(account, market),
+    held: held,
     isBuy: isBuy,
     size: size,
     reduceOnly: reduceOnly,
@@ -286,12 +318,27 @@ Future<HlOrderResult?> runLedgerHlMarketOrder(
   //    at any leverage or margin mode, is never rewritten: the order
   //    trades at the venue's own setting for it. The account is known here
   //    (the exposure rule above refuses an unknown one).
+  // The position read fresh first, and the rule judged on it BEFORE the
+  // leverage write: a position opened elsewhere since the ticket's read is
+  // never written over, and an add to one above 1x or in cross stops here.
+  ({HlHeldPosition held, DateTime at})? fresh;
+  if (!market.isSpot) {
+    fresh = await ledgerHlFreshHeldPosition(ref, paired, market);
+    if (!context.mounted) return null;
+    ledgerHlEnsureExposureOn(fresh.held, market,
+        isBuy: isBuy,
+        size: listedPx > 0
+            ? sizeFromUsd(
+                usd: marginUsd * lev,
+                px: listedPx,
+                szDecimals: market.szDecimals)
+            : 0);
+  }
   if (!market.isSpot) {
     // The region's leverage cap, at the same point the spending wallet
     // checks it (before the venue is asked to set the leverage).
     RuntimeCapabilitiesService.instance.ensureLeverageAllowed(lev);
-    final held = ledgerHlHeldPosition(
-        ref.read(ledgerHlAccountProvider(walletId)).valueOrNull, market);
+    final held = fresh!.held;
     if (!held.known) {
       throw const HlExposureRefusedException(
           HlExposureRefusal.positionUnknown);
@@ -349,10 +396,20 @@ Future<HlOrderResult?> runLedgerHlMarketOrder(
     isSpot: market.isSpot,
   );
   // The exposure rule on the size actually sent: a reduction of a
-  // position held above 1x or in cross goes out reduce-only.
-  final reduceOnly = ledgerHlEnsureExposure(
-      ref.read(ledgerHlAccountProvider(walletId)).valueOrNull, market,
-      isBuy: isBuy, size: size);
+  // position held above 1x or in cross goes out reduce-only. On the fresh
+  // read, read once more when the leverage prompt took longer than the
+  // bound ([kHlPositionsFreshFor]).
+  if (fresh != null &&
+      DateTime.now().difference(fresh.at) > kHlPositionsFreshFor) {
+    fresh = await ledgerHlFreshHeldPosition(ref, paired, market);
+    if (!context.mounted) return null;
+  }
+  final reduceOnly = fresh == null
+      ? ledgerHlEnsureExposure(
+          ref.read(ledgerHlAccountProvider(walletId)).valueOrNull, market,
+          isBuy: isBuy, size: size)
+      : ledgerHlEnsureExposureOn(fresh.held, market,
+          isBuy: isBuy, size: size);
   if (size <= 0 ||
       (!reduceOnly && !meetsMinNotional(px: checkPx, sz: size))) {
     showMessageSnackBar(
@@ -711,10 +768,15 @@ Future<HlOrderResult?> runLedgerHlTrailingStop(
   // opens exposure on a flat market (both callers send reduce-only exits).
   // The exposure rule first: an unknown account, or an add to a position
   // held above 1x or in cross, stops here; a reduction goes reduce-only.
+  // A stop that can add exposure is judged on a fresh read of the
+  // market's dex, before any leverage write; an exit on the account read.
   final account = ref.read(ledgerHlAccountProvider(walletId)).valueOrNull;
-  final sendReduceOnly = ledgerHlEnsureExposure(account, market,
+  final held = reduceOnly
+      ? ledgerHlHeldPosition(account, market)
+      : (await ledgerHlFreshHeldPosition(ref, paired, market)).held;
+  if (!context.mounted) return null;
+  final sendReduceOnly = ledgerHlEnsureExposureOn(held, market,
       isBuy: isBuy, size: size, reduceOnly: reduceOnly);
-  final held = ledgerHlHeldPosition(account, market);
   final lev = HlIntents.clampLeverage(market, leverage);
   if (!sendReduceOnly && held.position == null) {
     RuntimeCapabilitiesService.instance.ensureLeverageAllowed(lev);

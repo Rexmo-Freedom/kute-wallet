@@ -7699,13 +7699,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           : formatHlPrice(v, decimalCap: market.pxDecimalCap);
     }
 
+    // On a market with a position the order trades at the position's own
+    // leverage and margin mode (never rewritten): said as it is.
+    final heldPos = _heldPositionNow().position;
     final leverage = isSpot
         ? ''
-        : l.slipLeverageSuffix(
-            '$_leverage',
-            _isCross && !market.onlyIsolated
-                ? l.slipMarginCross
-                : l.slipMarginIsolated);
+        : heldPos != null
+            ? l.slipLeverageSuffix(
+                '${heldPos.leverageValue}',
+                heldPos.isCross ? l.slipMarginCross : l.slipMarginIsolated)
+            : l.slipLeverageSuffix(
+                '$_leverage',
+                _isCross && !market.onlyIsolated
+                    ? l.slipMarginCross
+                    : l.slipMarginIsolated);
     final reduce = _reduceOnly ? l.slipReduceSentence : '';
     final tpsl = _attachTpSl && _isOpening ? l.slipTpSlSentence : '';
     final action = l.slipAction(verb, coin, leverage);
@@ -7756,6 +7763,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     double size = 0,
   }) {
     final holdingCost = _holdingCostLine(notional);
+    final heldPos = isSpot ? null : _heldPositionNow().position;
     final liq = !isSpot && _isOpening && entry > 0 && _marginUsd > 0
         ? _liquidationEstimate(entry, size)
         : (price: null, blocker: null);
@@ -7770,11 +7778,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // carrying cost are facts the order does not otherwise show.
         if (!isSpot) ...[
           // Leverage AND margin mode, on every ticket: which balance backs
-          // this position is not an Advanced detail.
+          // this position is not an Advanced detail. A position already
+          // held (opened elsewhere, say at 5x cross) keeps its own setting,
+          // which the order trades at: its real figures, never "1x".
           _previewRow(
             c,
             context.l10n.chartLeverage,
-            '$_leverage× · ${_isCross ? context.l10n.investingCrossMargin : context.l10n.investingIsolatedMargin}',
+            '${heldPos?.leverageValue ?? _leverage}× · ${(heldPos?.isCross ?? _isCross) ? context.l10n.investingCrossMargin : context.l10n.investingIsolatedMargin}',
           ),
           if (_leverage > 1) ...[
             SizedBox(height: 10.h),
