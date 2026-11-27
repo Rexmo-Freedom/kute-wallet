@@ -1,5 +1,5 @@
 // The push-permission ask: once per install from Home, wired on grant
-// (topics + AppsFlyer uninstall token), silent after a denial, and the
+// (topics), silent after a denial, and the
 // `push_permission_*` funnel events around the OS prompt.
 
 import 'dart:io';
@@ -16,7 +16,6 @@ void main() {
   late List<(String, Map<String, Object>?)> events;
   var requests = 0;
   var subscribes = 0;
-  var registers = 0;
 
   PushPermissionPorts ports({
     AuthorizationStatus current = AuthorizationStatus.notDetermined,
@@ -35,9 +34,6 @@ void main() {
           subscribes++;
           return subscribeOk;
         },
-        registerUninstallToken: () async {
-          registers++;
-        },
       );
 
   List<String> names() => events.map((e) => e.$1).toList();
@@ -53,7 +49,6 @@ void main() {
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     requests = 0;
     subscribes = 0;
-    registers = 0;
   });
 
   tearDown(() async {
@@ -63,7 +58,7 @@ void main() {
     await dir.delete(recursive: true);
   });
 
-  test('first Home: one prompt, flag set, grant subscribes and registers',
+  test('first Home: one prompt, flag set, grant subscribes',
       () async {
     PushPermission.debugPorts = ports();
 
@@ -72,7 +67,6 @@ void main() {
     expect(status, PushPermissionStatus.granted);
     expect(requests, 1);
     expect(subscribes, 1);
-    expect(registers, 1);
     expect(OnceFlagsService.isClaimed(PushPermission.promptedFlag), isTrue);
     expect(names(), ['push_permission_requested', 'push_permission_result']);
     expect(paramsOf('push_permission_requested'),
@@ -110,7 +104,6 @@ void main() {
 
     expect(status, PushPermissionStatus.denied);
     expect(subscribes, 0);
-    expect(registers, 0);
     expect(OnceFlagsService.isClaimed(PushPermission.promptedFlag), isTrue);
     expect(paramsOf('push_permission_result'),
         {'status': 'denied', 'granted': 0});
@@ -128,7 +121,6 @@ void main() {
     expect(status, PushPermissionStatus.provisional);
     expect(status.isEnabled, isTrue);
     expect(subscribes, 1);
-    expect(registers, 1);
     expect(paramsOf('push_permission_requested'), {'surface': 'settings'});
     expect(paramsOf('push_permission_result'),
         {'status': 'provisional', 'granted': 1});
@@ -157,7 +149,6 @@ void main() {
     expect(paramsOf('push_permission_result'),
         {'status': 'denied', 'granted': 0});
     expect(subscribes, 0);
-    expect(registers, 0);
   });
 
   test('a platform failure on the Home ask leaves the turn for a later launch',
@@ -189,12 +180,9 @@ void main() {
     await PushPermission.syncAfterExternalChange();
     expect(subscribes, 2);
 
-    // ...and once it did, further grant paths leave it alone. The
-    // uninstall token is offered each time; AppsFlyerUninstallToken
-    // itself drops an unchanged token.
+    // ...and once it did, further grant paths leave it alone.
     await PushPermission.syncAfterExternalChange();
     expect(subscribes, 2);
-    expect(registers, 3);
   });
 
   test('sync after an external change does nothing while still off',
@@ -205,7 +193,6 @@ void main() {
 
     expect(status, PushPermissionStatus.denied);
     expect(subscribes, 0);
-    expect(registers, 0);
     expect(events, isEmpty);
   });
 
@@ -219,7 +206,6 @@ void main() {
       currentStatus: () async => throw StateError('no firebase app'),
       requestPermission: () async => AuthorizationStatus.denied,
       subscribeToTopics: () async => true,
-      registerUninstallToken: () async {},
     );
     expect(await PushPermission.currentStatus(),
         PushPermissionStatus.notDetermined);

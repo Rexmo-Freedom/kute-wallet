@@ -3,12 +3,11 @@
 // `affiliate.program`. The survey decides at its navigation point on the
 // current snapshot, and both screens skip themselves when reached anyway
 // (deep link). Failing closed: no policy means no step. A referrer
-// captured from an AppsFlyer deferred deep link stays pending either way;
+// captured from a link stays pending either way;
 // the backend decides whether it binds.
 
 import 'dart:convert';
 
-import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,7 +22,6 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/screens/creation/beta_survey_screen.dart';
 import 'package:kute/screens/creation/referrer_code_screen.dart';
 import 'package:kute/screens/creation/share_code_screen.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -67,8 +65,7 @@ void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     FlutterSecureStorage.setMockInitialValues({});
-    AppsFlyerService.clearCapturedReferrer();
-    AppsFlyerService.onReferrerCaptured = null;
+    AffiliateService.clearCapturedReferrer();
     TrackingService.setDisabled(true);
     events = [];
     eventParams = {};
@@ -81,8 +78,7 @@ void main() {
   tearDown(() {
     TrackingService.debugTrackObserver = null;
     RuntimeCapabilitiesService.debugInstance = null;
-    AppsFlyerService.clearCapturedReferrer();
-    AppsFlyerService.onReferrerCaptured = null;
+    AffiliateService.clearCapturedReferrer();
   });
 
   Future<RuntimeCapabilitiesService> install(
@@ -190,10 +186,8 @@ void main() {
       'blocked: the referral-code screen opened directly moves on, and a '
       'deep-link referrer stays pending', (tester) async {
     final policy = await install(allowed: false);
-    AppsFlyerService.onReferrerCaptured = AffiliateService.setPendingReferrer;
-    AppsFlyerService.handleDeepLinkForTest(DeepLinkResult(
-        status: DeepLinkStatus.found,
-        deepLink: DeepLink({'deep_link_value': 'friend7'})));
+    AffiliateService.captureReferrerFromLink('friend7');
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();
 
     final router = await pump(tester, at: '/referrer_code');
@@ -206,7 +200,7 @@ void main() {
     expect(events, contains('onboarding_referrer_skipped'));
     // The captured code is not the user's to confirm here, but it is not
     // dropped either: authWallet still forwards it and the backend decides.
-    expect(AppsFlyerService.capturedReferrer, 'FRIEND7');
+    expect(AffiliateService.capturedReferrer, 'FRIEND7');
     expect(await secureStorageRead('kute_pending_referrer'), 'FRIEND7');
     expect(tester.takeException(), isNull);
     policy.dispose();

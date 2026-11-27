@@ -12,7 +12,6 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/screens/creation/passkey_choice.dart'
     show PasskeyBackupSyncingNote;
 import 'package:kute/screens/shared/fee_copy.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -33,8 +32,8 @@ bool referrerCodeStepAllowed() =>
 /// Skip the referral-code step (and the share-code step with it) and land
 /// on Home as if the user had passed through. Ends the onboarding funnel
 /// exactly as the screen's own continue does, and reports the skip through the existing skip event so the funnel keeps
-/// one exit per user. Never touches a referrer captured from an AppsFlyer
-/// deferred deep link: that stays pending and the backend decides.
+/// one exit per user. Never touches a referrer captured from a link: that
+/// stays pending and the backend decides.
 void skipReferrerCodeStep(BuildContext context) {
   TrackingService.track('onboarding_referrer_skipped', params: {
     'had_input': false,
@@ -52,9 +51,9 @@ void skipReferrerCodeStep(BuildContext context) {
 ///
 /// Comes right after the beta survey screen. Has two modes:
 ///
-///   • Confirmation — the install already carries a referrer code from an
-///     AppsFlyer deferred deep link (the user installed via a friend's
-///     OneLink). We pre-fill it and just ask the user to confirm
+///   • Confirmation — a link carried a referrer code in this run (a
+///     friend's invite or shared market link,
+///     AffiliateService.capturedReferrer). We pre-fill it and just ask the user to confirm
 ///     ("<CODE> recommended you" → Continue), with a subtle escape hatch
 ///     for a mis-captured code.
 ///   • Manual entry — no code was captured, so we ask whether a friend
@@ -86,8 +85,8 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
   String? _tierLevel; // populated after a successful check, used in the
                      // confirmation toast ("Silver partner invite ✓")
 
-  /// Non-null => confirmation mode: a referrer code was captured from the
-  /// AppsFlyer deferred deep link, so we confirm rather than ask. Cleared
+  /// Non-null => confirmation mode: a referrer code was captured from a
+  /// link, so we confirm rather than ask. Cleared
   /// (→ manual entry) if the user says it isn't theirs or the backend can't
   /// find it.
   String? _capturedCode;
@@ -128,7 +127,7 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
     AffiliateService.programRefereeDiscountPct().then((pct) {
       if (mounted && pct != _discountPct) setState(() => _discountPct = pct);
     });
-    final captured = AppsFlyerService.capturedReferrer;
+    final captured = AffiliateService.capturedReferrer;
     final hasCaptured = captured != null && captured.isNotEmpty;
     // Once per mount: which of the two modes the user landed on.
     TrackingService.track('onboarding_referrer_shown',
@@ -169,9 +168,9 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
       TrackingService.affiliateReferrerCodeValidationFailed(
           reason: 'captured_invalid');
       // Stale / malformed invite link — don't confirm a dead code. Drop it
-      // (in-memory AND the durable copy the AppsFlyer callback persisted, so
+      // (in-memory AND the durable copy the link capture persisted, so
       // authWallet won't re-bind it) and fall back to manual entry.
-      AppsFlyerService.clearCapturedReferrer();
+      AffiliateService.clearCapturedReferrer();
       await AffiliateService.clearPendingReferrer();
       if (!mounted) return;
       _capturedDropped = true;
@@ -195,8 +194,8 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
     setState(() => _submitting = true);
     HapticFeedback.mediumImpact();
     // Persist durably — belt-and-braces alongside the auto-bind from
-    // AppsFlyerService.capturedReferrer, so the referrer sticks even if the
-    // SDK's own durable write didn't land.
+    // AffiliateService.capturedReferrer, so the referrer sticks even if the
+    // capture's own durable write didn't land.
     await AffiliateService.setPendingReferrer(code);
     TrackingService.track('onboarding_referrer_confirmed', params: {
       'tier_level': _tierLevel ?? 'unknown',

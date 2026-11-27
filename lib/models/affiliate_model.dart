@@ -13,7 +13,6 @@ import 'package:kute/services/revenue/provider_event_outbox.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/secure_storage.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -54,8 +53,6 @@ class AffiliateService {
   // never replaces it.
   static const _referredByKey = 'kute_affiliate_referred_by';
   static const _sessionAddressKey = 'kute_affiliate_session_address';
-  static const _attributionPendingKey = 'kute_install_attribution_pending';
-  static const _attributionSentKey = 'kute_install_attribution_sent';
 
   static String? _sessionToken;
   static String? _affiliateCode;
@@ -370,7 +367,6 @@ class AffiliateService {
       unawaited(flushProviderEvents());
     });
     unawaited(flushProviderEvents());
-    unawaited(flushInstallAttribution());
     if (_backgroundRegistrationActive) return;
     // Already minted on a prior launch. We DON'T re-run the registration
     // loop, but several things that used to happen ONLY inside the first
@@ -506,9 +502,36 @@ class AffiliateService {
     }
   }
 
+  /// The referrer code a link carried in this run (a shared market or
+  /// invite link on the web, `kute://open?deep_link_value=CODE` on a
+  /// phone), for the onboarding code screen's "CODE recommended you".
+  /// Memory only; the durable copy is the pending referrer.
+  static String? _capturedReferrer;
+  static String? get capturedReferrer => _capturedReferrer;
+
+  /// Drops the in-memory captured code (the user rejected it, or it bound).
+  static void clearCapturedReferrer() => _capturedReferrer = null;
+
+  /// A referral code from a link into the app (app_router.dart): shape
+  /// checked (3 to 32 letters and digits), kept in memory for the code
+  /// screen and stored as the pending referrer the next [authWallet] sends.
+  /// Never throws.
+  static void captureReferrerFromLink(String? raw) {
+    if (raw == null) return;
+    final code = raw.trim().toUpperCase();
+    if (code.length < 3 ||
+        code.length > 32 ||
+        !RegExp(r'^[A-Z0-9]+$').hasMatch(code)) {
+      return;
+    }
+    _capturedReferrer = code;
+    unawaited(setPendingReferrer(code).catchError((Object _) {}));
+    TrackingService.affiliateReferrerAutoBound();
+  }
+
   /// Record a referrer code captured during onboarding (the manual entry
-  /// screen) or from an AppsFlyer deferred-deeplink install (wired via
-  /// [AppsFlyerService.onReferrerCaptured] in main.dart). Persisted durably so
+  /// screen) or from a link ([captureReferrerFromLink],
+  /// [setPendingReferrerFromShare]). Persisted durably so
   /// every [authWallet] re-sends it via [_peekPendingReferrer] until the
   /// backend confirms the bind, then it's dropped by [_clearPendingReferrer].
   static Future<void> setPendingReferrer(String code) async {
@@ -540,6 +563,7 @@ class AffiliateService {
       return pending == c ? 'stored' : 'already_pending';
     }
     await setPendingReferrer(c);
+    _capturedReferrer = c;
     return 'stored';
   }
 
@@ -633,8 +657,6 @@ class AffiliateService {
       bodyDigest: WalletIdentityService.canonicalAuthBodyDigest(
         paykuteAddress: fields['paykute_address'] ?? '',
         referredByCode: fields['referred_by_code'],
-        appsflyerId: fields['appsflyer_id'],
-        afPlatform: fields['af_platform'],
       ),
     );
     if (signed.isNotEmpty) TrackingService.walletAuthChallenge(mode: 'v2');
@@ -643,8 +665,7 @@ class AffiliateService {
 
   /// Read the pending referrer code WITHOUT clearing it. authWallet sends it
   /// on every attempt and only clears (via [_clearPendingReferrer]) once the
-  /// backend confirms the bind — so a failed call, or a mint that beat the
-  /// AppsFlyer callback, doesn't lose the code.
+  /// backend confirms the bind — so a failed call doesn't lose the code.
   static Future<String?> _peekPendingReferrer() async {
     try {
       final v = await _storage.read(key: _pendingReferrerKey);
@@ -661,12 +682,11 @@ class AffiliateService {
   }
 
   /// Explicitly forget any durable pending referrer — used when the user
-  /// REJECTS the code pre-filled from an AppsFlyer deferred deep link (or it
-  /// fails verification) on the onboarding confirmation screen. Clearing
-  /// [AppsFlyerService.capturedReferrer] alone only drops the in-memory copy;
-  /// without this the durable copy [setPendingReferrer] persisted from the
-  /// AppsFlyer callback would still be re-sent by [authWallet] via
-  /// [_peekPendingReferrer] and the rejected code would bind anyway.
+  /// REJECTS the code pre-filled from a link (or it fails verification) on
+  /// the onboarding confirmation screen. Clearing [capturedReferrer] alone
+  /// only drops the in-memory copy; without this the durable copy
+  /// [setPendingReferrer] persisted would still be re-sent by [authWallet]
+  /// via [_peekPendingReferrer] and the rejected code would bind anyway.
   static Future<void> clearPendingReferrer() => _clearPendingReferrer();
 
   /// Authenticate the wallet against the backend. Creates the affiliate
@@ -702,33 +722,26 @@ class AffiliateService {
     }
     // Resolve the referrer to bind, in priority order:
     //   1. an explicit code passed by the caller (late-entry flow);
-    //   2. the code AppsFlyer captured from a deferred-deeplink install
-    //      (the user installed via a friend's OneLink) — backs up the
-    //      onboarding confirmation screen in case the user never reached it;
+    //   2. the code a link carried in this run ([captureReferrerFromLink],
+    //      a shared market or invite link) — backs up the onboarding
+    //      confirmation screen in case the user never reached it;
     //   3. a legacy pending value in secure storage (older installs, and the
     //      durable copy the onboarding confirmation screen writes on accept).
     // PEEK (don't consume): the captured code is cleared only once the backend
     // confirms it bound (resp.referred_by_code, below). Clearing on read — the
-    // old behaviour — burned the code if this authWallet then failed, or if it
-    // minted the row before AppsFlyer's late callback delivered the referrer.
+    // old behaviour — burned the code if this authWallet then failed.
     // Leaving it in place lets later retries / future boots re-send it until it
     // sticks, within the backend's 7-day late-bind grace window.
     final referrer = (referredByCode != null && referredByCode.isNotEmpty)
         ? referredByCode
-        : (AppsFlyerService.capturedReferrer ?? await _peekPendingReferrer());
-    // AppsFlyer install id + platform: the backend stores them on the
-    // affiliate row and uses them to post S2S af_purchase events with
-    // exact revenue (provider_events) attributed to this install. Null
-    // on debug builds / opted-out users — the keys are simply omitted.
-    final afId = AppsFlyerService.appsflyerId;
+        : (_capturedReferrer ?? await _peekPendingReferrer());
+    // No install-attribution id rides along any more (AppsFlyer left the
+    // app, 27 November 2026); the backend's digest reads the absent fields
+    // as empty strings, as it always did for builds that omitted them.
     final fields = <String, String>{
       'paykute_address': paykuteAddress,
       if (referrer != null && referrer.isNotEmpty)
         'referred_by_code': referrer,
-      if (afId != null && afId.isNotEmpty) ...{
-        'appsflyer_id': afId,
-        'af_platform': AppsFlyerService.platform,
-      },
     };
     final challenge = await _signedAuthChallenge(fields);
     if (challenge.isEmpty) {
@@ -810,8 +823,6 @@ class AffiliateService {
       // went quiet would show 10+ txs in-app yet stay unactivated. Idempotent
       // + monotonic server-side, so running it on every boot's re-auth is safe.
       TrackingService.flushAffiliateActivity();
-      // Install attribution captured before this session existed.
-      unawaited(flushInstallAttribution());
 
       if (kDebugMode) debugPrint('[affiliate.authWallet] OK: code=$_affiliateCode '
           'tier=${resp['tier_level']} referrer=${resp['referred_by_code']}');
@@ -820,7 +831,7 @@ class AffiliateService {
       // safe to drop the captured/pending sources so they can't re-apply (and
       // so a later boot doesn't keep re-sending a code that's already stuck).
       if (hasReferrer) {
-        AppsFlyerService.clearCapturedReferrer();
+        clearCapturedReferrer();
         await _clearPendingReferrer();
         try {
           await _storage.write(
@@ -954,84 +965,6 @@ class AffiliateService {
           .timeout(const Duration(seconds: 8));
     } catch (_) {/* best-effort */}
   }
-
-  // ─── Install attribution ─────────────────────────────────────────
-  //
-  // AppsFlyer's first-launch attribution (campaign names + install time)
-  // goes to POST /attribution once per install, with the wallet session.
-  // The backend keeps the first value it receives. Queued in secure
-  // storage until a session exists; a failed send retries on the next
-  // session; a secure-storage flag stops it after the first accepted send.
-  // Skipped while analytics are off (the user's opt-out), queued meanwhile.
-
-  static Future<void>? _attributionFlush;
-
-  /// Queue [attribution] (from `AppsFlyerService`) and try to send it.
-  /// The first queued value wins. The backend needs `af_status` or
-  /// `af_media_source`; without either nothing is queued. Never throws.
-  static Future<void> queueInstallAttribution(
-      Map<String, String> attribution) async {
-    if (!attribution.containsKey('af_status') &&
-        !attribution.containsKey('af_media_source')) {
-      return;
-    }
-    try {
-      if (await _storage.read(key: _attributionSentKey) != null) return;
-      if (await _storage.read(key: _attributionPendingKey) == null) {
-        await _storage.write(
-            key: _attributionPendingKey, value: jsonEncode(attribution));
-      }
-    } catch (_) {
-      return;
-    }
-    await flushInstallAttribution();
-  }
-
-  /// Send the queued install attribution when a wallet session exists.
-  /// Concurrent calls share one attempt. Never throws.
-  static Future<void> flushInstallAttribution() {
-    final pending = _attributionFlush;
-    if (pending != null) return pending;
-    final run = _sendInstallAttribution();
-    _attributionFlush = run;
-    return run.whenComplete(() {
-      if (identical(_attributionFlush, run)) _attributionFlush = null;
-    });
-  }
-
-  static Future<void> _sendInstallAttribution() async {
-    try {
-      if (_sessionToken == null || TrackingService.isDisabled) return;
-      if (await _storage.read(key: _attributionSentKey) != null) return;
-      final queued = await _storage.read(key: _attributionPendingKey);
-      if (queued == null) return;
-      final body = jsonDecode(queued);
-      if (body is! Map<String, dynamic>) {
-        await _storage.delete(key: _attributionPendingKey);
-        return;
-      }
-      final r = await http
-          .post(
-            Uri.parse('$_baseUrl/attribution'),
-            headers: _authedHeaders(),
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 8));
-      if (!installAttributionSettled(r.statusCode)) return;
-      await _storage.write(key: _attributionSentKey, value: '1');
-      await _storage.delete(key: _attributionPendingKey);
-    } catch (_) {/* retried on the next session */}
-  }
-
-  /// Whether a response to POST /attribution ends the retries: accepted,
-  /// already set (409), or a body the backend will never accept (400,
-  /// 422). Auth, rate-limit and server errors retry next session.
-  @visibleForTesting
-  static bool installAttributionSettled(int status) =>
-      (status >= 200 && status < 300) ||
-      status == 400 ||
-      status == 409 ||
-      status == 422;
 
   /// Fetch the daily earnings time series for the chart. Default 30-day
   /// window. Returns null on error.

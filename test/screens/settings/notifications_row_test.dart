@@ -30,7 +30,6 @@ void main() {
           return AuthorizationStatus.authorized;
         },
         subscribeToTopics: () async => true,
-        registerUninstallToken: () async {},
       );
 
   setUp(() {

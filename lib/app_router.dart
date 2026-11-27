@@ -60,7 +60,7 @@ import 'screens/shared/coming_soon_screen.dart';
 import 'screens/scanner/scanner_sheet.dart';
 import 'screens/settings/affiliate_screen.dart';
 import 'screens/app_shell.dart';
-import 'services/appsflyer_service.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'services/tracking_service.dart';
 
 /// The Bitcoin home with its Activity tab selected: where the old Dollars
@@ -212,15 +212,12 @@ class AppRouter {
     // A claim link (`/c/{id}`, or `deep_link_value=claim`) carries no
     // referral code: `claim` must never be bound as one.
     if (ShareLinkClaims.claimIdFromLink(uri) == null) {
-      AppsFlyerService.ingestReferrerFromDeepLink(
+      AffiliateService.captureReferrerFromLink(
         uri.queryParameters['deep_link_value'] ??
-            uri.queryParameters['af_sub1'] ??
+            uri.queryParameters['r'] ??
             uri.queryParameters['c'],
       );
     }
-    // Website → app identity link (never a referral code).
-    AppsFlyerService.ingestWebVisitorFromDeepLink(
-        uri.queryParameters['af_sub2']);
   }
 
   /// The routes reachable while no session is unlocked: the cold-start
@@ -318,9 +315,8 @@ class AppRouter {
   /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
   ///
   /// Affiliate deep links arrive as ABSOLUTE URIs — the custom scheme
-  /// (kute://open?deep_link_value=CODE) on Android and either that or the
-  /// AppsFlyer Universal Link (https://kute.onelink.me/...?deep_link_value=CODE)
-  /// on iOS. go_router has no route for them, so without this it renders a
+  /// (kute://open?deep_link_value=CODE, or `r=CODE`) on both phones (the
+  /// AppsFlyer OneLink left the app on 27 November 2026). go_router has no route for them, so without this it renders a
   /// "Page Not Found". We instead register the referral code app-side (works
   /// in debug + release, both platforms — no SDK round-trip needed) and send
   /// the user right back to where they were. Regular in-app navigation uses
