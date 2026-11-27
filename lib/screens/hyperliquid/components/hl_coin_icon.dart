@@ -478,7 +478,34 @@ bool hlLooksLikePng(Uint8List bytes) {
   return true;
 }
 
-Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
+/// Web: at most this many logos are read and parsed at once; the rest
+/// wait their turn. A wide list scrolled fast asks for dozens in one
+/// frame, and parsing them together was one long frame (a 312 ms frame
+/// measured on the 4-column Stocks list in Safari). Text and prices never
+/// wait on a logo: the row is drawn first, the logo when its turn comes.
+const int kHlWebLogoParallel = 4;
+int _hlWebActive = 0;
+final List<Completer<void>> _hlWebQueue = [];
+
+Future<T> _hlWebTurn<T>(Future<T> Function() work) async {
+  if (_hlWebActive >= kHlWebLogoParallel) {
+    final turn = Completer<void>();
+    _hlWebQueue.add(turn);
+    await turn.future;
+  }
+  _hlWebActive++;
+  try {
+    return await work();
+  } finally {
+    _hlWebActive--;
+    if (_hlWebQueue.isNotEmpty) _hlWebQueue.removeAt(0).complete();
+  }
+}
+
+Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) =>
+    kIsWeb ? _hlWebTurn(() => _fetchHlSvgNow(url)) : _fetchHlSvgNow(url);
+
+Future<(_HlFetch, HlIconArt?)> _fetchHlSvgNow(String url) async {
   var from = url;
   if (kIsWeb) {
     // Web: the copy shipped with the build, on the page's own origin, so
